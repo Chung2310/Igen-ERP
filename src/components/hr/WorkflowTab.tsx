@@ -529,43 +529,6 @@ export default function WorkflowTab({
   if (view === "list") {
     return (
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
-          <div className="flex items-center gap-2.5">
-            <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
-              {workflows.length}
-            </span>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCategoryDialogOpen(true)}
-              disabled={!canEdit}
-              className="flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#f0faff] px-3.5 py-2 text-sm font-normal text-[#008dcc] transition-colors hover:bg-[#e3f6ff] disabled:opacity-40"
-            >
-              <Tag className="h-4 w-4" /> Tạo nhãn
-            </button>
-            <button
-              onClick={fetchWorkflows}
-              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#f1f8fd] hover:text-[#009fdf]"
-              title="Tải lại"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setWizardData(null);
-                setWizardNewCategory("");
-                setWizardOpen(true);
-              }}
-              disabled={!canEdit}
-               className={primaryCreateButtonClass}
-            >
-               <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Quy trình mới
-            </button>
-          </div>
-        </div>
-
         {wizardOpen && (
           <NewWorkflowWizard
             initialData={wizardData ? (wizardData as any) : undefined}
@@ -603,9 +566,9 @@ export default function WorkflowTab({
           </div>
         )}
 
-        <div className="px-4 pb-1 sm:px-6">
+        <div className="flex flex-wrap items-center gap-2 p-4 sm:p-6">
           <label htmlFor="workflow-search" className="sr-only">Tìm theo tên quy trình hoặc tên nhãn</label>
-          <div className="relative w-full max-w-md">
+          <div className="relative min-w-0 flex-1 basis-56 sm:max-w-2xl">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
             <input
               id="workflow-search"
@@ -615,6 +578,38 @@ export default function WorkflowTab({
               placeholder="Tìm theo tên quy trình hoặc tên nhãn..."
               className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest py-2.5 pl-10 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
             />
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCategoryDialogOpen(true)}
+              disabled={!canEdit}
+              className="flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#f0faff] px-3.5 py-2 text-sm font-normal text-[#008dcc] transition-colors hover:bg-[#e3f6ff] focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40"
+            >
+              <Tag className="h-4 w-4" aria-hidden="true" /> Tạo nhãn
+            </button>
+            <button
+              type="button"
+              onClick={fetchWorkflows}
+              disabled={loading}
+              aria-label="Tải lại danh sách quy trình"
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#f1f8fd] hover:text-[#009fdf] focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+              title="Tải lại"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setWizardData(null);
+                setWizardNewCategory("");
+                setWizardOpen(true);
+              }}
+              disabled={!canEdit}
+              className={primaryCreateButtonClass}
+            >
+              <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Quy trình mới
+            </button>
           </div>
         </div>
 

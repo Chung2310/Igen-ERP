@@ -1,5 +1,7 @@
 # Trợ lý thao tác và workflow cá nhân
 
+Báo giá có 60 workflow qua `quotation-catalog.ts`: bảng giá và nhập Excel/CSV, yêu cầu/phân tích AI, báo giá khách hàng, dự toán, phương án ngân sách, duyệt, hợp đồng, nghiệm thu, quyết toán và xuất/tải file. Adapter gọi lại API ERP trên cùng listener, giữ token tài khoản và chi nhánh, kiểm tra hồ sơ cùng bản xem trước trước khi ghi. Mọi thao tác ghi hoặc xuất file dùng AI cần xác nhận; kết quả xếp hàng chưa được báo là file đã hoàn tất. Kết quả và hỏi bổ sung dùng dispatcher, completion và bảng chung. `quotation-route-coverage.json` ghi rõ các API được nối và các API phụ hoặc tải tệp nhị phân vẫn dùng giao diện. Chat hỗ trợ bảng Excel/CSV đã trích xuất tối đa 100 dòng; mẫu tài liệu mới và tệp yêu cầu gốc được tải ở màn hình Báo giá.
+
 Đồng bộ y tế với `develop` tại `d5f9d83f` (10/11/2026): 28 thao tác, tạo bệnh nhân có mã tự sinh, nhận bác sĩ ngoài danh mục, gắn chăm sóc với lượt khám và xem nội dung từng dòng báo cáo Excel. Cấu hình cũ tự bỏ yêu cầu mã bệnh nhân từng bị khóa bắt buộc; các lựa chọn bắt buộc do người dùng chủ động đặt vẫn được giữ. Xóa bệnh nhân cần quyền quản lý, chọn rõ từng hồ sơ, xem số dữ liệu liên quan, xác nhận và kiểm tra lại bản xem trước trước khi xóa. Kết quả vẫn dùng bảng chung, giữ câu hỏi thông tin tùy chọn, ẩn lời dẫn kỹ thuật và trường tự điền.
 
 Trợ lý dùng hội thoại để thu thập thông tin, hỏi lại phần còn thiếu, tra bản ghi theo tên hoặc mã hiển thị, rồi gọi những thao tác ERP đã được khai báo. Mỗi tài khoản có workflow riêng để chỉnh hướng dẫn, trường bắt buộc và giá trị mặc định.
@@ -37,6 +39,14 @@ Excel trong chat hỗ trợ tối đa 100 dòng trên một bảng, gồm cả �
 - Micro tạm ngừng khi xử lý yêu cầu và tạo/phát âm thanh trả lời; sau khi phát xong sẽ nghe lượt tiếp theo. Chế độ này đọc câu trả lời bằng giọng đã chọn qua OpenRouter, có tính phí tạo âm thanh, kể cả khi tùy chọn đọc trả lời thông thường đang tắt. Không thay đổi cài đặt đã lưu.
 - Nút “Tắt chế độ 2 chiều” luôn dùng được, dừng micro/phát âm thanh và giữ phần chưa gửi trong ô nhập. Đóng trợ lý, chuyển mục trong trợ lý hoặc mở cài đặt cũng dừng chế độ này. Khi có lỗi quyền micro/kết nối, người dùng chủ động bật lại; không tự lặp yêu cầu cấp quyền.
 - Dùng `SpeechRecognition`/`webkitSpeechRecognition` của trình duyệt và cần quyền micro trên HTTPS hoặc localhost. Test controller và giao diện dùng nhận dạng/âm thanh giả lập; vẫn cần kiểm tra bằng micro thật trên trình duyệt triển khai.
+
+## Hỏi đáp đa lĩnh vực trong tab Trò chuyện
+
+Trò chuyện hỗ trợ kiến thức, toán học, lập trình, viết và sửa nội dung, dịch thuật, lập kế hoạch và các chủ đề đời thường; không giới hạn vào nghiệp vụ ERP. Mặc định dùng tiếng Việt, có thể đổi ngôn ngữ, độ dài hoặc định dạng theo yêu cầu hiện tại. Nếu thiếu dữ liệu riêng của công ty hoặc cần thao tác trên bản ghi, trợ lý hướng dẫn dùng mục Trợ lý ERP; không bịa dữ liệu hoặc tự gọi API nghiệp vụ từ tab Trò chuyện.
+
+`general-answer.ts` gửi lịch sử theo đúng vai trò người dùng/trợ lý và câu hỏi hiện tại ở cuối. Hướng dẫn và quy tắc trình bày của tài khoản được áp dụng trong cùng lượt sinh câu trả lời. Nội dung hỏi đáp không đi qua bước biên tập/lọc dành riêng cho kết quả nghiệp vụ; mã nguồn, JSON mẫu, công thức và giải thích về workflow được giữ nguyên cả khi gửi lại yêu cầu hoặc tải lại lịch sử. Không cắt câu trả lời ở 6.000 ký tự. Yêu cầu viết mã và định dạng JSON/Markdown ngay trong chat không tự bị chuyển thành tạo tệp; yêu cầu tải tệp rõ ràng vẫn dùng bộ xuất tài liệu bên dưới.
+
+Mọi lượt Hỏi đáp mặc định dùng web search `deep` qua OpenRouter, kèm nguồn tham khảo; câu hỏi so sánh được yêu cầu trình bày bằng bảng. Với câu hỏi hợp để minh họa, máy chủ tìm ảnh raster có giấy phép trên Wikimedia Commons qua API công khai, không cần API key, rồi lưu thumbnail đã nén cùng nguồn, tác giả và giấy phép để ảnh còn hiện trong lịch sử. Yêu cầu API có User-Agent nhận diện ứng dụng và được cache trong 6 giờ để hạn chế lưu lượng; nếu không tìm được ảnh có giấy phép hoặc API bị giới hạn, câu trả lời vẫn hiển thị bình thường và dùng ảnh trực tiếp từ nguồn nghiên cứu nếu có.
 
 ## Tạo tài liệu trong tab Trò chuyện
 

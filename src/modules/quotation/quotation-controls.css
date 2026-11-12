@@ -806,3 +806,65 @@
     min-height: 36px;
   }
 }
+
+.quotation-module .price-list-import-dialog {
+  width: min(920px, calc(100vw - 32px));
+  border-color: var(--color-outline-variant);
+  color: var(--color-on-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.quotation-module .price-list-import-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-on-surface) 40%, transparent);
+  backdrop-filter: none;
+}
+
+.quotation-module .price-list-import-dialog .settings-card-heading h2 {
+  color: var(--color-on-surface);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.quotation-module .price-list-import-dialog .price-list-review-heading h3 {
+  margin: 0 0 4px;
+  color: var(--color-on-surface);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.quotation-module .price-list-import-dialog .price-list-review-file {
+  background: var(--color-surface-container-lowest) !important;
+  border-color: var(--color-outline-variant);
+}
+
+.quotation-module .price-list-import-dialog .price-list-mapping-samples {
+  background: var(--color-surface-container-low);
+}
+
+.quotation-module .price-list-import-dialog :is(.price-list-sheet-toggle, .price-list-header-select, .price-list-column-row) {
+  color: var(--color-on-surface-variant);
+}
+
+.quotation-module .price-list-import-dialog :is(.price-list-sheet-toggle > span, .price-list-header-select > span, .price-list-column-row > span) {
+  color: var(--color-on-surface-variant) !important;
+}
+
+.quotation-module .price-list-import-dialog .price-list-review-select-trigger {
+  color: var(--color-on-surface) !important;
+}
+
+.quotation-module .price-list-import-dialog .price-list-review-select-trigger :is(span, svg, svg *) {
+  color: inherit !important;
+}
+
+.quotation-module .price-list-import-dialog .price-list-review-select-menu [role="option"] {
+  color: var(--color-on-surface) !important;
+}
+
+.quotation-module .price-list-import-dialog .pending-count {
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface-variant) !important;
+  border-color: var(--color-outline-variant);
+}

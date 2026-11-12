@@ -23206,6 +23206,13 @@
           "items": {
             "type": "object",
             "keys": {
+              "sourceRow": {
+                "type": "number",
+                "required": false,
+                "min": 2,
+                "integer": true,
+                "label": "Dòng Excel"
+              },
               "fullName": {
                 "type": "string",
                 "required": true,
@@ -23214,13 +23221,16 @@
               "phone": {
                 "type": "string",
                 "required": true,
-                "max": 40
+                "max": 40,
+                "pattern": "^0[35789]\\d{8}$",
+                "label": "Số điện thoại"
               },
               "email": {
                 "type": "string",
                 "required": true,
                 "format": "email",
-                "max": 200
+                "max": 200,
+                "label": "Email"
               },
               "rank": {
                 "type": "string",
@@ -23231,7 +23241,9 @@
               },
               "idCard": {
                 "type": "string",
-                "required": false
+                "required": false,
+                "pattern": "^(?:\\d{9}|\\d{12})$",
+                "label": "CCCD/CMND"
               },
               "referral": {
                 "type": "string",
@@ -23254,10 +23266,18 @@
                 "integer": true,
                 "label": "Học phí (VND)"
               },
+              "paidAmount": {
+                "type": "number",
+                "required": false,
+                "min": 0,
+                "integer": true,
+                "label": "Đã đóng"
+              },
               "status": {
                 "type": "string",
                 "required": false,
                 "options": [
+                  "Chờ nhập học",
                   "Chờ KSK",
                   "Đã KSK",
                   "Đã nộp HS",
@@ -23267,7 +23287,8 @@
                   "Thi lại",
                   "Nghỉ học",
                   "Nợ học phí"
-                ]
+                ],
+                "label": "Trạng thái học viên"
               },
               "batchCode": {
                 "type": "string",
@@ -23323,6 +23344,13 @@
           "items": {
             "type": "object",
             "keys": {
+              "sourceRow": {
+                "type": "number",
+                "required": false,
+                "min": 2,
+                "integer": true,
+                "label": "Dòng Excel"
+              },
               "fullName": {
                 "type": "string",
                 "required": true,
@@ -23331,13 +23359,16 @@
               "phone": {
                 "type": "string",
                 "required": true,
-                "max": 40
+                "max": 40,
+                "pattern": "^0[35789]\\d{8}$",
+                "label": "Số điện thoại"
               },
               "email": {
                 "type": "string",
                 "required": true,
                 "format": "email",
-                "max": 200
+                "max": 200,
+                "label": "Email"
               },
               "rank": {
                 "type": "string",
@@ -23348,7 +23379,9 @@
               },
               "idCard": {
                 "type": "string",
-                "required": false
+                "required": false,
+                "pattern": "^(?:\\d{9}|\\d{12})$",
+                "label": "CCCD/CMND"
               },
               "referral": {
                 "type": "string",
@@ -23371,10 +23404,18 @@
                 "integer": true,
                 "label": "Học phí (VND)"
               },
+              "paidAmount": {
+                "type": "number",
+                "required": false,
+                "min": 0,
+                "integer": true,
+                "label": "Đã đóng"
+              },
               "status": {
                 "type": "string",
                 "required": false,
                 "options": [
+                  "Chờ nhập học",
                   "Chờ KSK",
                   "Đã KSK",
                   "Đã nộp HS",
@@ -23384,7 +23425,8 @@
                   "Thi lại",
                   "Nghỉ học",
                   "Nợ học phí"
-                ]
+                ],
+                "label": "Trạng thái học viên"
               },
               "batchCode": {
                 "type": "string",

@@ -7,7 +7,7 @@ import { actorScope, assertOperation, currentWorkflow, listWorkflows } from "./w
 import { AssistantError, collectValues, isAssistantFieldApplicable, isBlank } from "./policy";
 import { callOperation, lookupRecords, projectRecords, resolveNamedReferenceSelectors, resolveReferences, suggestReferenceOptions, UncertainExecutionError } from "./executor";
 import { getSettings } from "./settings";
-import { interpretRequest, isEmployeeDetailsIntent } from "./interpreter";
+import { directStudentRecordActionId, directWorkerRecordActionId, interpretRequest, isEmployeeDetailsIntent } from "./interpreter";
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { presentAssistantReply } from "./reply-presentation";
@@ -21,10 +21,11 @@ import { normalizeAssistantReply } from "./general-answer";
 import { answerAssistantConversation } from "./documents";
 import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
 import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
+import { formatQuotationResult, quotationValue } from "./quotation-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
 export { missingOptionalCreateFields } from "./completion";
-export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
   if (!pending || operationById(pending.actionId)) return pending;
@@ -56,9 +57,10 @@ function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>, o
     return { ...item, value: field ? safeAssistantPreviewFieldValue(field, item.value, item.value) : hideInternalAssistantIds(item.value) };
   }) };
 }
-function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation): AssistantReply | null {
+function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation, mode: TurnInput["mode"] = "work"): AssistantReply | null {
   if (!reply) return null;
-  return presentAssistantReply({ ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) });
+  const sanitized = { ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) };
+  return mode === "qa" ? sanitized : presentAssistantReply(sanitized);
 }
 const isAssistantRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 function parseStructuredAssistantValue(value: unknown) {
@@ -125,7 +127,7 @@ const conversationReadScope = (req: AuthenticatedRequest) => {
 const sessionMemoryVersionFilter = (version: number) => version === 0
   ? { $or: [{ sessionMemoryVersion: 0 }, { sessionMemoryVersion: { $exists: false } }] }
   : { sessionMemoryVersion: version };
-const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(op.module === "healthcare" ? formatHealthcareResult(op, value) : formatFriendlyAssistantResult(op, value));
+const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(op.module === "quotation" ? formatQuotationResult(op, value) : op.module === "healthcare" ? formatHealthcareResult(op, value) : formatFriendlyAssistantResult(op, value));
 function friendlyFailure(error: unknown) {
   if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công; bạn thử lại sau giúp mình nhé.";
   const message = error.message || "";
@@ -294,6 +296,98 @@ export function inferCustomWorkHoursMode(op: AssistantOperation, values: Record<
   const suppliesCustomHours = ["checkInLimit", "checkOutLimit", "lunchBreakStart", "lunchBreakEnd"]
     .some(key => typeof merged[key] === "string" && String(merged[key]).trim());
   return requestsPrivateHours || suppliesCustomHours ? { ...merged, useCustom: true } : merged;
+}
+const customerQuoteMissingProductLabel = "Sản phẩm khách hàng cần báo giá (chọn sản phẩm từ bảng giá hoặc nhập Yêu cầu khách hàng để AI gợi ý)";
+export function inferCustomerQuoteMode(
+  op: AssistantOperation,
+  values: Record<string, unknown>,
+  detailText = "",
+  previousMode?: unknown,
+  previousValues?: Record<string, unknown>,
+): Record<string, unknown> {
+  if (op.id !== "quotation.customer-quote.create") return values;
+  const next: Record<string, unknown> = { ...values };
+  const rawDetail = detailText.trim();
+  const text = normalizeAssistantText(rawDetail);
+  const combinedCustomerAndRequirement = rawDetail.match(
+    /^(?:cho\s+)?(?:khách(?:\s+hàng)?(?:\s+tên(?:\s+là)?)?|tên\s+khách(?:\s+hàng)?(?:\s+là)?)\s*[:,-]?\s*([^,.;"\n]+?)\s*(?:[,.;-]?\s*(?:có\s+)?(?:yêu\s+cầu|nhu\s+cầu)(?:\s+là)?\s*[:,-]?|[,.;-]\s+|\s+(?=(?:cần|muốn|lắp|lặp|thi\s+công)\b))\s*["“”']?(.+?)["“”']?\s*$/iu,
+  );
+  if (combinedCustomerAndRequirement) {
+    const extractedName = combinedCustomerAndRequirement[1].trim().replace(/^["“”']+|["“”']+$/g, "").trim();
+    const extractedRequirement = combinedCustomerAndRequirement[2].trim().replace(/^["“”']+|["“”']+$/g, "").trim();
+    if (isBlank(next.customerName) && extractedName) next.customerName = extractedName;
+    if ((isBlank(next.sourceRequirements) || String(next.sourceRequirements).trim() === rawDetail) && extractedRequirement) {
+      next.sourceRequirements = extractedRequirement;
+    }
+  }
+  const explicitManual = /^(?:minh\s+chon\s+|chon\s+|phuong\s+thuc\s+|cach\s+chon\s+san\s+pham(?:\s+bao\s+gia)?\s*[:,-]?\s*)?(?:tu\s+chon(?:\s+san\s+pham(?:\s+tu\s+bang\s+gia)?)?|chon\s+truc\s+tiep(?:\s+san\s+pham)?|chon\s+san\s+pham(?:\s+tu\s+bang\s+gia)?)[.!? ]*$/.test(text);
+  const explicitAi = /^(?:minh\s+chon\s+|chon\s+|phuong\s+thuc\s+|cach\s+chon\s+san\s+pham(?:\s+bao\s+gia)?\s*[:,-]?\s*)?(?:de\s+ai\s+goi\s+y(?:\s+san\s+pham(?:\s+theo\s+yeu\s+cau)?)?|ai\s+goi\s+y(?:\s+san\s+pham)?|goi\s+y\s+san\s+pham(?:\s+theo\s+yeu\s+cau)?|theo\s+prompt)[.!? ]*$/.test(text);
+  if (explicitManual) {
+    delete next.sourceRequirements;
+    delete next.__assistantQuotationSuggested;
+    return { ...next, __assistantQuotationMode: "manual" };
+  }
+  if (explicitAi) {
+    delete next.items;
+    return { ...next, __assistantQuotationMode: "ai" };
+  }
+  if (!isBlank(next.items)) return { ...next, __assistantQuotationMode: "manual" };
+  if (!isBlank(next.sourceRequirements)) return { ...next, __assistantQuotationMode: "ai" };
+  if (/\b(?:tu chon|chon truc tiep|chon san pham(?:\s+tu\s+bang\s+gia)?)\b/.test(text)) return { ...next, __assistantQuotationMode: "manual" };
+  if (/\b(?:de ai goi y|ai goi y|goi y san pham|theo prompt)\b/.test(text)) return { ...next, __assistantQuotationMode: "ai" };
+  const customerOnlyMatch = rawDetail.match(
+    /^(?:cho\s+)?(?:khách(?:\s+hàng)?(?:\s+tên(?:\s+là)?)?|tên\s+khách(?:\s+hàng)?(?:\s+là)?)\s*[:,-]?\s*([^,.;"\n]{1,80})$/iu,
+  );
+  if (customerOnlyMatch && isBlank(next.customerName) && !/\b(?:yeu cau|nhu cau|lap dat|thi cong|camera|wifi|tang|m2)\b/.test(text)) {
+    next.customerName = customerOnlyMatch[1].trim().replace(/^["“”']+|["“”']+$/g, "").trim();
+  }
+  if (previousMode === "ai" && next.__assistantQuotationMode === "ai" && isBlank(next.sourceRequirements) && rawDetail && !/^(?:(?:tao|lap|them)\s+(?:bao\s+gia|du\s+toan)|huy|bo\s+qua)\b/.test(text)) {
+    const suppliedNewCustomerName = isBlank(previousValues?.customerName) && !isBlank(next.customerName);
+    const suppliedNewEmail = isBlank(previousValues?.customerEmail) && !isBlank(next.customerEmail);
+    const suppliedNewPhone = isBlank(previousValues?.customerPhone) && !isBlank(next.customerPhone);
+    const suppliedNewTemplate = isBlank(previousValues?.templateId) && !isBlank(next.templateId);
+    let remainder = text;
+    if (suppliedNewCustomerName) {
+      const normName = normalizeAssistantText(String(next.customerName));
+      if (normName) remainder = remainder.replace(normName, " ");
+    }
+    if (suppliedNewEmail) {
+      const normEmail = normalizeAssistantText(String(next.customerEmail));
+      if (normEmail) remainder = remainder.replace(normEmail, " ");
+    }
+    if (suppliedNewPhone) {
+      const normPhone = normalizeAssistantText(String(next.customerPhone));
+      if (normPhone) remainder = remainder.replace(normPhone, " ");
+    }
+    if (suppliedNewTemplate) {
+      const normTemplate = normalizeAssistantText(String(next.templateId));
+      if (normTemplate) remainder = remainder.replace(normTemplate, " ");
+    }
+    remainder = remainder
+      .replace(/\b(?:khach hang|khach|ten|la|anh|chi|cong ty|email|so dien thoai|sdt|dien thoai|mau bao gia|mau|dung|chon|cho|cua|nhe|nha|giup|minh)\b/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    if (remainder || (!suppliedNewCustomerName && !suppliedNewEmail && !suppliedNewPhone && !suppliedNewTemplate)) {
+      const cleanedRequirement = rawDetail
+        .replace(/^(?:yêu\s+cầu(?:\s+khách\s+hàng)?(?:\s+là)?|nhu\s+cầu(?:\s+khách\s+hàng)?(?:\s+là)?)\s*[:,-]?\s*/iu, "")
+        .replace(/^["“”']+|["“”']+$/g, "")
+        .trim();
+      return { ...next, sourceRequirements: cleanedRequirement || rawDetail };
+    }
+  }
+  return next;
+}
+export function customerQuoteFollowUpQuestion(op: AssistantOperation, values: Record<string, unknown>, referenceSelections: AssistantReferenceSelection[]) {
+  if (op.id !== "quotation.customer-quote.create" || !isBlank(values.items) || !isBlank(values.sourceRequirements)) return "";
+  if (values.__assistantQuotationMode === "manual") {
+    return referenceSelections.some(selection => selection.key === "items")
+      ? "Bạn chọn một hoặc nhiều sản phẩm từ bảng giá bên dưới (hoặc nhập tên/mã SKU sản phẩm) để lập báo giá nhé."
+      : "Bạn gửi giúp mình tên hoặc mã SKU các sản phẩm trong bảng giá cần báo giá nhé.";
+  }
+  if (values.__assistantQuotationMode === "ai") {
+    return "Bạn nhập mô tả yêu cầu của khách hàng (nhu cầu sử dụng, công suất, quy mô hoặc sản phẩm mong muốn) để AI gợi ý danh sách sản phẩm phù hợp nhé.";
+  }
+  return "Bạn muốn tự chọn sản phẩm từ bảng giá hay để AI gợi ý sản phẩm theo yêu cầu? Bạn chọn phương thức bên dưới nhé.";
 }
 const customWorkHoursFieldKeys = ["checkInLimit", "checkOutLimit", "lunchBreakStart", "lunchBreakEnd"] as const;
 export function missingCustomWorkHoursLabels(op: AssistantOperation, values: Record<string, unknown>) {
@@ -631,6 +725,7 @@ function unavailableReferencePrompt(op: AssistantOperation, field: AssistantFiel
   return `Chưa có lựa chọn khả dụng cho ${label}.${skipHint}`;
 }
 function assistantOptionLabel(op: AssistantOperation, field: AssistantField, value: string) {
+  if (op.module === "quotation") return quotationValue(field.apiKey || field.key, value);
   if (op.module === "healthcare") return healthcareValue(field.apiKey || field.key, value);
   if (op.id === "retail.coupon.create" && field.key === "targetType") {
     const labels: Record<string, string> = {
@@ -907,6 +1002,30 @@ export async function missingReferencePrompts(
     prompts.push("Chọn một loại lao động áp dụng cho chính sách.");
   }
 
+  if (op.id === "quotation.customer-quote.create" && isBlank(values.items) && isBlank(values.sourceRequirements)) {
+    if (values.__assistantQuotationMode === "manual") {
+      const referenceField: AssistantField = { key: "items", label: "Sản phẩm khách hàng cần báo giá", type: "reference", reference: "quotation.catalog.list" };
+      let options: string[] = [];
+      try { options = await suggestOptions(req, op, referenceField, values); } catch { /* ignore lookup failure */ }
+      if (options.length) {
+        prompts.push(`Bạn chọn giúp mình ${referenceField.label} từ bảng giá: ${options.join("; ")}. Có thể chọn một hoặc nhiều sản phẩm.`);
+        referenceSelections.push({ key: "items", label: referenceField.label, required: true, multiple: true, options: assistantChoiceOptions(op, referenceField, options) });
+      }
+    } else if (values.__assistantQuotationMode !== "ai") {
+      referenceSelections.push({
+        key: "customerQuoteMode",
+        label: "Cách chọn sản phẩm báo giá",
+        required: true,
+        multiple: false,
+        options: [
+          { value: "manual", label: "Tự chọn sản phẩm từ bảng giá" },
+          { value: "ai", label: "Để AI gợi ý sản phẩm theo yêu cầu" },
+        ],
+      });
+      prompts.push("Chọn cách lập danh sách sản phẩm báo giá: tự chọn sản phẩm từ bảng giá hoặc để AI gợi ý sản phẩm theo yêu cầu.");
+    }
+  }
+
   const nestedReferenceKey = (rootKey: string, path: string) => `${rootKey}${path}`;
   for (const field of op.fields) {
     if (!field.structure) continue;
@@ -952,7 +1071,12 @@ export async function missingReferencePrompts(
         };
         const relationRequested = relationMentioned(intent, referenceField);
         const mustResolve = required || relationChangeRequested(intent, referenceField);
-        const shouldPrompt = required || isCreate || (["PATCH", "PUT"].includes(op.method) && relationRequested);
+        const isBulkOptionalNestedUnmentioned = (op.id === "student.bulk.create" || op.id === "student.bulk.preview")
+          && !required
+          && !unresolved
+          && nodeIsBlank
+          && (!relationRequested || (Array.isArray(data) && data.length > 1));
+        const shouldPrompt = !isBulkOptionalNestedUnmentioned && (required || isCreate || (["PATCH", "PUT"].includes(op.method) && relationRequested));
         if (!shouldPrompt) return;
         if (shape.referenceParentKey && !shape.referenceParentOptional && (parentValue === undefined || parentValue === null || parentValue === "")) return;
         const label = [field.label, ...displayPath, shape.label || path.split(".").at(-1) || "Thông tin liên quan"].filter(Boolean).join(" · ");
@@ -1116,11 +1240,17 @@ function applyReferenceSelection(provided: Record<string, unknown>, operation: A
     }
     return;
   }
+  if (operation.id === "quotation.customer-quote.create" && selection.key === "customerQuoteMode") {
+    if (values.length !== 1 || !["manual", "ai"].includes(values[0])) throw new AssistantError("Bạn cần chọn một phương thức: tự chọn sản phẩm từ bảng giá hoặc để AI gợi ý sản phẩm.");
+    provided.__assistantQuotationMode = values[0];
+    return;
+  }
   const field = operation.fields.find(candidate => selection.key === candidate.key
     || selection.key.startsWith(`${candidate.key}.`) || selection.key.startsWith(`${candidate.key}[`));
   if (!field) throw new AssistantError("Một lựa chọn không còn thuộc thao tác đang chờ. Bạn tải lại lựa chọn giúp mình nhé.");
   if (selection.key === field.key) {
-    if (field.structure?.type === "array" && field.structure.items?.reference) provided[field.key] = JSON.stringify(values);
+    if (operation.id === "quotation.customer-quote.create" && field.key === "items") provided[field.key] = JSON.stringify(values.map(catalogItemId => ({ catalogItemId })));
+    else if (field.structure?.type === "array" && field.structure.items?.reference) provided[field.key] = JSON.stringify(values);
     else if (field.structure?.reference) provided[field.key] = values[0];
     else if (!field.structure) provided[field.key] = values[0];
     else throw new AssistantError(`Mình chưa thể áp dụng lựa chọn cho ${selection.label}.`);
@@ -1241,7 +1371,7 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   const session = await AssistantSessionModel.findOne(scope).lean();
   const turn = await AssistantTurnModel.findOne(scope).sort({ createdAt: -1 }).lean();
   const operation = operationById((session?.pending as PendingAction | undefined)?.actionId || turn?.actionId || "");
-  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation, session?.mode === "qa" ? "qa" : "work") || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
 }
 
 export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
@@ -1369,7 +1499,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const scope = scopeOf(req);
   const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1386,7 +1516,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const pendingAction = stored?.pending as PendingAction | undefined;
         if (pendingAction?.id === cached.action.id) operation = operationById(pendingAction.actionId);
       }
-      return sanitizeReplyPreview(cached, operation)!;
+      return sanitizeReplyPreview(cached, operation, assistantMode)!;
     }
     return Date.now() - new Date(existing.updatedAt).getTime() > 120_000 ? uncertainReply() : processingReply();
   }
@@ -1480,7 +1610,21 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, pending?.provided || validationValues)) throw new AssistantError(updateDetailsQuestion(op, input.text || pending?.intent || "", checked.values));
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "executing", actionId: op.id, workflowVersion: workflow.version, payload: checked.values } });
-    hasDispatched = op.method !== "GET" && !op.readOnly;
+    hasDispatched = !op.readOnly && (op.method !== "GET" || op.module === "quotation");
+    if (op.module === "quotation") {
+      const result = await dispatch(checked.values);
+      pending = null;
+      const attachment = result?.__assistantQuotationFile;
+      if (attachment) {
+        const documentId = randomUUID();
+        const file = { id: randomUUID(), ...attachment, size: attachment.bytes.length };
+        await AssistantDocumentModel.create({ ...scopeOf(req), conversationId: input.conversationId, requestId: input.requestId,
+          documentId, version: 1, title: op.title, content: { title: op.title }, files: [file] });
+        const { bytes: _bytes, ...metadata } = file;
+        return { status: "completed", reply: friendlyResult(op, result), files: [{ ...metadata, documentId, conversationId: input.conversationId, version: 1 }], link: op.link };
+      }
+      return { status: "completed", reply: friendlyResult(op, result), link: op.link };
+    }
     if (op.module === "healthcare") {
       const result = await dispatch(checked.values);
       pending = null;
@@ -1551,6 +1695,27 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   };
 
   const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
+    if (input.attachment) {
+      const targetOp = operationById(actionId);
+      if (targetOp?.method === "POST" && targetOp.path === "/students") {
+        const previewOp = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/students/bulk-preview");
+        const bulkOp = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/students/bulk");
+        actionId = /\b(?:kiem tra|xem truoc|preview)\b/.test(normalizeAssistantText(intent)) && previewOp ? previewOp.id : (bulkOp?.id || "student.bulk.create");
+      } else if (targetOp?.id === "worker.create" || (targetOp?.method === "POST" && targetOp.path === "/worker-management/workers")) {
+        const bulkOp = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/worker-management/workers/bulk");
+        actionId = bulkOp?.id || "worker.bulk.create";
+      } else if (targetOp?.method === "POST" && targetOp.path === "/partners") {
+        const bulkOp = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/partners/bulk");
+        actionId = bulkOp?.id || "partner.bulk.create";
+      } else if (targetOp?.id === "quotation.catalog.create") {
+        actionId = "quotation.catalog.import";
+      } else if (targetOp?.id === "healthcare.patient.create") {
+        actionId = "healthcare.import.preview";
+        if (provided.table === undefined) provided.table = "patients";
+      } else if (targetOp?.id === "payroll.period.input.update") {
+        actionId = "payroll.period.inputs.bulk";
+      }
+    }
     const requestedOperation = operationById(actionId);
     if (requestedOperation?.method === "PATCH" && requestedOperation.path === "/partners/:id") {
       const normalizedIntent = normalizePartnerIntent(intent);
@@ -1618,7 +1783,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     const selectedBranchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
     if (req.user?.branchId && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) contextualValues[selectedBranchField.key] = req.user.branchId;
     const resolvedNamedValues = await resolveNamedReferenceSelectors(req, op, contextualValues);
-    const selectedValues = inferCustomWorkHoursMode(op, inferTaskDeadline(op, resolvedNamedValues, intent), intent, input.text || intent);
+    const selectedValues = inferCustomerQuoteMode(
+      op,
+      inferCustomWorkHoursMode(op, inferTaskDeadline(op, resolvedNamedValues, intent), intent, input.text || intent),
+      input.text || "",
+      previousPending?.provided?.__assistantQuotationMode,
+      previousPending?.provided,
+    );
     if (op.id === "retail.coupon.create" && selectedValues.targetType === "all_customers") delete selectedValues.customerId;
     const kpiPeriodWasDefaulted = op.id === "worker.partner.kpi.set"
       && previousPending?.defaultedKeys?.includes("periodAnchor") === true
@@ -1630,13 +1801,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     requireExplicitReceiptItemSelections(op, selectedValues, explicitReferenceKeys);
     for (const key of populatedNestedReferenceKeys(op, selectedValues)) skippedReferenceKeys.delete(key);
-    const collected = collectValues(requestWorkflow, selectedValues);
+    const collected = collectValues(requestWorkflow, Object.fromEntries(Object.entries(selectedValues).filter(([key]) => !key.startsWith("__assistant"))));
     if (kpiPeriodDefaulted && !collected.defaulted.includes("periodAnchor")) collected.defaulted.push("periodAnchor");
     const missingWorkHours = missingCustomWorkHoursLabels(op, collected.values);
     collected.missing.push(...missingWorkHours.filter(label => !collected.missing.includes(label)));
     if (trainingInstructorIsDefault && !collected.defaulted.includes("instructor")) collected.defaulted.push("instructor");
     const id = randomUUID();
-    const references = await resolveReferences(req, op, collected.values);
+    const references = await resolveReferences(req, op, {
+      ...collected.values,
+      ...(typeof selectedValues.__assistantQuotationSuggested === "string" ? { __assistantQuotationSuggested: selectedValues.__assistantQuotationSuggested } : {}),
+    });
     const summarizedValue = (field: AssistantField, value: AssistantValue) => {
       if (attachmentSummary?.fieldKey === field.key) return `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}`;
       const resolvedLabel = references.labels[field.key];
@@ -1664,7 +1838,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     // nested reference lookup fails. Missing required scalar siblings are
     // tracked separately by collectValues, so valid selected references can
     // still be resolved and retained across turns.
-    const promptValues = { ...references.values };
+    const promptValues: Record<string, AssistantValue> = {
+      ...references.values,
+      ...(typeof selectedValues.__assistantQuotationMode === "string" ? { __assistantQuotationMode: selectedValues.__assistantQuotationMode } : {}),
+    };
     const unresolvedReferenceKeys = new Set(references.unresolvedReferenceKeys || []);
     const failedPathReferenceKeys = op.fields
       .filter(field => field.source === "path" && field.reference && unresolvedReferenceKeys.has(field.key))
@@ -1715,6 +1892,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     const receiptQuestion = inventoryReceiptFollowUpQuestion(op, collected.missing, relationshipPrompts.referenceSelections, relationshipPrompts.textPrompts);
     const trainingContentQuestion = trainingContentFollowUpQuestion(op, collected.missing);
     const customWorkHoursQuestion = customWorkHoursFollowUpQuestion(op, missingWorkHours);
+    const customerQuoteQuestion = customerQuoteFollowUpQuestion(op, selectedValues, relationshipPrompts.referenceSelections);
     const trainingContentLabels = new Set(op.id === "training.create"
       ? ["lessons", "quizzes"].map(key => op.fields.find(field => field.key === key)?.label).filter((label): label is string => Boolean(label))
       : []);
@@ -1727,11 +1905,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       ? new Set(collected.missing.filter(label => /^items · Mục \d+ · (?:quantity|unitCost)$/u.test(label)))
       : new Set<string>();
     const customWorkHoursLabels = new Set(missingWorkHours);
-    const missingWithoutReferenceLabels = collected.missing.filter(label => !trainingContentLabels.has(label) && !receiptScalarLabels.has(label) && !customWorkHoursLabels.has(label) && !selectionLabels.has(label) && !op.fields.some(field => field.reference && field.label === label && selectedValues[field.key] === undefined));
+    const missingWithoutReferenceLabels = collected.missing.filter(label => label !== customerQuoteMissingProductLabel && !trainingContentLabels.has(label) && !receiptScalarLabels.has(label) && !customWorkHoursLabels.has(label) && !selectionLabels.has(label) && !op.fields.some(field => field.reference && field.label === label && selectedValues[field.key] === undefined));
     pending = {
       id,
       actionId,
-      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key) && !unresolvedReferenceKeys.has(key) && !collected.defaulted.includes(key))),
+      provided: {
+        ...Object.fromEntries(Object.entries(selectedValues).filter(([key]) => (key === "__assistantQuotationMode" || op.fields.some(field => field.key === key)) && !unresolvedReferenceKeys.has(key) && !collected.defaulted.includes(key))),
+        ...(typeof references.values.__assistantQuotationSuggested === "string" && !unresolvedReferenceKeys.has("sourceRequirements")
+          ? { __assistantQuotationSuggested: references.values.__assistantQuotationSuggested }
+          : {}),
+      },
       intent,
       explicitReferenceKeys: [...explicitReferenceKeys],
       workflowVersion: workflow.version,
@@ -1748,12 +1931,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if (collected.missing.length || collected.errors.length || references.errors.length || relationshipPrompts.prompts.length) {
       const lines = [
         ...(missingWithoutReferenceLabels.length ? [`Mình đã hiểu yêu cầu ${workflow.title.toLocaleLowerCase("vi")}; mình còn thiếu ${missingWithoutReferenceLabels.join(", ")}. Bạn gửi giúp mình nhé.`] : []),
+        ...(customerQuoteQuestion ? [customerQuoteQuestion] : []),
         ...(receiptQuestion ? [receiptQuestion] : []),
         ...(customWorkHoursQuestion ? [customWorkHoursQuestion] : []),
         ...(trainingContentQuestion ? [trainingContentQuestion] : []),
         ...(visibleCollectedErrors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...visibleCollectedErrors, ...visibleReferenceErrors].join("\n")}`] : []),
         ...(relationshipPrompts.textPrompts.length ? [relationshipPrompts.textPrompts.join("\n")] : []),
-        ...(relationshipPrompts.referenceSelections.length ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
+        ...(relationshipPrompts.referenceSelections.length && !customerQuoteQuestion ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
       ];
       return { status: "collecting", reply: lines.join("\n"), action: preview,
         ...(relationshipPrompts.referenceSelections.length ? { referenceSelections: relationshipPrompts.referenceSelections } : {}),
@@ -1828,8 +2012,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           requestId: input.requestId,
           pendingDocumentRequest,
           question: input.text,
+          research: true,
           messages: session.messages as { role: "user" | "assistant"; content: string }[],
           instructions: settings?.instructions || "",
+          responseRules,
           memories,
           sessionMemory,
       });
@@ -1897,7 +2083,24 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           && !/\b(?:nguoi lao dong|ho so lao dong|nhan su|nhan vien)\b/.test(normalizeAssistantText(input.text || "")));
       const workerMissingInfo = isWorkerMissingInfoIntent(input.text || "")
         || Boolean(missingInfoQuestion && previousAction?.actionId && workerCreateActionIds.has(previousAction.actionId) && !isLaborPartnerMissingInfoIntent(input.text || ""));
-      const interpreted = await interpretRequest(input.text!, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory);
+      const attachmentIntentHint = input.attachment
+        ? `Thêm danh sách từ tệp excel ${input.attachment.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")}`
+        : "";
+      const effectiveInputText = input.text?.trim() || attachmentIntentHint;
+      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory);
+      if (input.attachment && !interpreted.actionId && !interpreted.cancel) {
+        const combinedText = `${input.text || ""} ${attachmentIntentHint}`.trim();
+        const fallbackActionId = directStudentRecordActionId(combinedText, workflows)
+          || directWorkerRecordActionId(combinedText, workflows);
+        if (fallbackActionId) {
+          interpreted.actionId = fallbackActionId;
+          interpreted.intentType = "workflow";
+        } else if (pending && workflows.some(w => w.actionId === pending!.actionId)) {
+          interpreted.actionId = pending.actionId;
+          interpreted.intentType = "workflow";
+          interpreted.newRequest = false;
+        }
+      }
       if (interpreted.cancel === true) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
       else if (laborPartnerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.partner.list")) {
@@ -2078,21 +2281,34 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   }
   const defaultedLabels = completion?.workflow.fields.filter(field => completion?.defaultedKeys?.includes(field.key))
     .flatMap(field => [field.label, localizedAssistantFieldLabel(field.apiKey || field.key, "", completion?.operation.id)]) || [];
-  reply = presentAssistantReply(reply, defaultedLabels);
-  // Keep uncertainty explicit; stylistic rewriting must not invent a selected operation.
-  if (!needsIntentClarification) reply = await applyAssistantResponseRules(reply, responseRules);
-  reply = {
-    ...reply,
-    reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
-    ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
-  };
-  reply = presentAssistantReply(reply, defaultedLabels);
+  // General conversation already applies account preferences in its own prompt.
+  // ERP presentation would strip explanations about workflows and alter code examples.
+  if (assistantMode !== "qa") {
+    reply = presentAssistantReply(reply, defaultedLabels);
+    // Keep uncertainty explicit; stylistic rewriting must not invent a selected operation.
+    if (!needsIntentClarification) reply = await applyAssistantResponseRules(reply, responseRules);
+    reply = {
+      ...reply,
+      reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
+      ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
+    };
+    reply = presentAssistantReply(reply, defaultedLabels);
+  }
   try {
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: {
       status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply,
       ...(completion?.followUp ? { "payload.__assistantFollowUp": completion.followUp } : {}),
     } });
-    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString(), ...(reply.files?.length ? { files: reply.files } : {}) }];
+    const messagesWithReply = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString(), ...(reply.files?.length ? { files: reply.files } : {}), ...(reply.sources?.length ? { sources: reply.sources } : {}), ...(reply.illustrations?.length ? { illustrations: reply.illustrations } : {}) }].slice(-40);
+    let retainedIllustrations = 0;
+    const nextMessages = messagesWithReply.slice().reverse().map((message: any) => {
+      if (!Array.isArray(message.illustrations) || !message.illustrations.length) return message;
+      retainedIllustrations += 1;
+      if (retainedIllustrations <= 6) return message;
+      const withoutIllustrations = { ...message };
+      delete withoutIllustrations.illustrations;
+      return withoutIllustrations;
+    }).reverse();
     const nextMessageCount = Math.max(Number(session.messageCount) || 0, session.messages.length) + 2;
     const sessionUpdate: Record<string, unknown> = {
       mode: assistantMode,

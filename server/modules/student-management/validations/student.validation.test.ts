@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { publicRegisterStudentSchema } from "./student.validation";
+import { createStudentSchema, publicRegisterStudentSchema, updateStudentSchema } from "./student.validation";
+
+describe("student status validation", () => {
+  it("accepts Chờ nhập học when creating or updating a student", () => {
+    const create = createStudentSchema.validate({
+      fullName: "Nguyễn Văn An",
+      phone: "0900000000",
+      email: "an@example.com",
+      registrationDate: "2026-11-12",
+      status: ["Chờ nhập học"],
+    });
+    const update = updateStudentSchema.validate({ status: ["Chờ nhập học"] });
+
+    expect(create.error).toBeUndefined();
+    expect(update.error).toBeUndefined();
+  });
+});
 
 describe("publicRegisterStudentSchema", () => {
   it("accepts a worker registration without an email address", () => {

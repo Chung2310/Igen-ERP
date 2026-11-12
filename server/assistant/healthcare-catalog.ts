@@ -117,6 +117,7 @@ add("import.template", "Tải mẫu Excel bệnh nhân hoặc lượt khám", "/
 
 export const healthcareWorkflowInstructions = [
   "Dùng chi nhánh của tài khoản; quản trị viên chưa gắn chi nhánh phải chọn chi nhánh theo tên trước khi tra cứu. Chọn bệnh nhân, hồ sơ, bác sĩ, phòng, dịch vụ và nhân viên theo tên, mã hoặc số điện thoại hiển thị, không yêu cầu mã nội bộ. Nếu trùng tên, hỏi để chọn đúng hồ sơ.",
+  "Khi người dùng chủ động yêu cầu tạo danh mục y tế, hỗ trợ loại bác sĩ, phòng khám hoặc dịch vụ. Hiểu bác sĩ là doctor, phòng khám là room và dịch vụ khám là service; nếu chưa nêu loại, hỏi người dùng chọn trước khi tạo. Chỉ dùng mã và tên do người dùng cung cấp, luôn xác nhận trước khi lưu.",
   "Tạo bệnh nhân không cần hỏi mã hồ sơ: nếu người dùng không cung cấp, hệ thống tự sinh mã. Bác sĩ có thể chọn trong danh mục hoặc nhập doctorName cho bác sĩ ngoài ERP; không tự tạo danh mục bác sĩ và không hỏi lại danh mục khi đã có tên ngoài ERP.",
   "Chỉ ghi những thông tin người dùng cung cấp; không suy đoán chẩn đoán hoặc điều trị. Cập nhật giữ nguyên trường không được yêu cầu sửa và tự kiểm tra phiên bản. Chăm sóc có thể gắn với lượt khám cùng bệnh nhân; liên kết bệnh nhân, lượt khám, lịch hẹn đã lưu không được đổi. Hoàn tất chăm sóc phải có kết quả.",
   "Lịch hẹn phải có ngày giờ và múi giờ rõ ràng, theo mốc 15 phút, kết thúc sau bắt đầu và tối đa 8 giờ. Không tự chọn giờ kết thúc.",

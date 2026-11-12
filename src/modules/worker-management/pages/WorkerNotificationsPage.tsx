@@ -20,10 +20,10 @@ export function WorkerNotificationsPage({ canManage = true }: { canManage?: bool
         {canManage && (
           <div className="pt-2 sm:pt-3">
             <form onSubmit={(event) => void send(event)} className="space-y-4">
-              <label className="block space-y-1.5 text-sm text-on-surface">Tiêu đề
+              <label className="block space-y-1.5 text-base font-medium text-on-surface">Tiêu đề
                 <input aria-label="Tiêu đề" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Nhập tiêu đề" className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant placeholder:opacity-50 focus:border-primary focus:outline-2 focus:outline-primary" />
               </label>
-              <label className="block space-y-1.5 text-sm text-on-surface">Nội dung
+              <label className="block space-y-1.5 text-base font-medium text-on-surface">Nội dung
                 <textarea aria-label="Nội dung" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Nhập nội dung thông báo" rows={5} className="w-full resize-y rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface placeholder:text-on-surface-variant placeholder:opacity-50 focus:border-primary focus:outline-2 focus:outline-primary" />
               </label>
               <button type="submit" disabled={sending} className="inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50">{sending ? "Đang gửi..." : "Gửi thông báo"}</button>

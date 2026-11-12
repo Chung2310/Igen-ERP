@@ -2,6 +2,17 @@
 import crypto from 'node:crypto';
 import { reviewedContracts } from './reviewed-contracts.mjs';
 const inventory=JSON.parse(fs.readFileSync('server/assistant/api-inventory.json','utf8'));
+const quotationRoutes=JSON.parse(fs.readFileSync('server/assistant/quotation-route-coverage.json','utf8'));
+for(const route of quotationRoutes.filter(item=>item.assistantUnsupported)){
+ const endpoint=inventory.endpoints.find(item=>item.method===route.method&&item.path===route.path);
+ if(endpoint)endpoint.contracts={...endpoint.contracts,assistantUnsupported:route.assistantUnsupported};
+}
+inventory.unresolved=inventory.unresolved.filter(entry=>{
+ if(!entry.file.replaceAll('\\','/').includes('/quotation/'))return true;
+ const aliases=entry.expression.match(/app\.(\w+)\(\s*(\[[^\]]+\])/);
+ if(!aliases)return true;
+ try{return !JSON.parse(aliases[2]).every(path=>quotationRoutes.some(route=>route.operationId&&route.method===aliases[1].toUpperCase()&&route.path==='/quotation'+path));}catch{return true;}
+});
 for(const key of Object.keys(reviewedContracts))if(!inventory.endpoints.some(e=>e.method+' '+e.path===key))throw new Error('Reviewed API missing: '+key);
 for(const e of inventory.endpoints){if(e.contracts.emptyBodyVerified&&!e.contracts.body)e.contracts.body={type:'object',keys:{}};const extra=reviewedContracts[e.method+' '+e.path];if(extra)e.contracts={...e.contracts,...extra};}
 const names={students:'học viên',courses:'khóa học',batches:'lớp học',exams:'kỳ thi',payments:'thanh toán',schedule:'lịch học',partners:'đối tác',assignments:'bài tập',resources:'tài nguyên',workers:'lao động',projects:'dự án',attendance:'chấm công',notifications:'thông báo',payroll:'tiền lương',runs:'kỳ lương',policies:'chính sách',formulas:'công thức',periods:'kỳ',inputs:'dữ liệu đầu vào',adjustments:'điều chỉnh',approve:'phê duyệt',reject:'từ chối',close:'chốt',reopen:'mở lại',cancel:'hủy',confirm:'xác nhận',reversal:'đảo giao dịch',reverse:'đảo giao dịch',retire:'ngừng sử dụng',activate:'kích hoạt',deactivate:'ngừng hoạt động',clone:'sao chép',calculate:'tính toán',recalculate:'tính lại',status:'trạng thái',history:'lịch sử',audit:'nhật ký',report:'báo cáo',reporting:'báo cáo',debts:'công nợ',receivables:'khoản phải thu',payables:'khoản phải trả',vouchers:'phiếu thu chi',assets:'tài sản',inventories:'kiểm kê',warehouses:'kho',balances:'tồn kho',counts:'kiểm kê',serials:'số sê ri',transfers:'điều chuyển',products:'sản phẩm',variants:'biến thể',prices:'giá bán',templates:'mẫu',categories:'danh mục',customers:'khách hàng',orders:'đơn hàng',retail:'bán lẻ',repair:'sửa chữa',tickets:'phiếu sửa chữa',assign:'phân công',care:'chăm sóc khách hàng',feedback:'đánh giá',quote:'báo giá',parts:'linh kiện',deliver:'giao máy',finance:'tài chính',inventory:'kho hàng',marketing:'marketing',jobs:'vị trí tuyển dụng',applicants:'ứng viên',interviews:'phỏng vấn',pipeline:'quy trình tuyển dụng',recruitment:'tuyển dụng',extensions:'gia hạn',contracts:'hợp đồng',leave:'nghỉ phép',balance:'số dư',dashboard:'tổng quan',summary:'tổng hợp',statistics:'thống kê',settings:'cài đặt',items:'chi tiết',detail:'chi tiết',list:'danh sách',me:'của tôi',employee:'nhân viên',enrollments:'ghi danh',enrollment:'ghi danh',learners:'học viên',add:'thêm',remove:'gỡ',bulk:'hàng loạt',delete:'xóa',restore:'khôi phục',create:'tạo',update:'cập nhật',sessions:'buổi học',results:'kết quả',grades:'điểm',lessons:'bài học',segments:'nhóm',tags:'nhãn',notes:'ghi chú',activities:'hoạt động',campaigns:'chiến dịch',receipts:'phiếu nhập',receiving:'nhập kho',suppliers:'nhà cung cấp',purchases:'mua hàng',purchase:'mua hàng',returns:'trả hàng',refunds:'hoàn tiền',shifts:'ca làm việc',cash:'tiền mặt',tax:'thuế',followups:'theo dõi',rules:'quy tắc',workflows:'quy trình',members:'thành viên',files:'tệp',folders:'thư mục',documents:'tài liệu',knowledge:'tri thức',search:'tìm kiếm',overview:'tổng quan',links:'liên kết',stock:'tồn kho',logs:'nhật ký',management:'quản lý',catalog:'danh mục',standard:'tiêu chuẩn',fields:'trường thông tin',quality:'chất lượng',learning:'học tập',roadmaps:'lộ trình',notifications:'thông báo'};
@@ -79,7 +90,7 @@ for(const e of inventory.endpoints){
  coverage.push({method:e.method,path:e.path,status:'contract',id,file:e.file,line:e.line});
  }else coverage.push({method:e.method,path:e.path,status:e.contracts.assistantUnsupported?'unsupported':'pending',reason,file:e.file,line:e.line});
 }
-const manualRoutes=JSON.parse(fs.readFileSync('server/assistant/manual-route-coverage.json','utf8'));
+const manualRoutes=[...JSON.parse(fs.readFileSync('server/assistant/manual-route-coverage.json','utf8')),...quotationRoutes.filter(item=>item.operationId)];
 for(const manual of manualRoutes){
  const entry=coverage.find(item=>item.method===manual.method&&item.path===manual.path);
  if(!entry){

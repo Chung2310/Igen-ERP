@@ -1,38 +1,105 @@
-import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
-import { ArrowLeft, ArrowCounterClockwise, ClockCounterClockwise, DownloadSimple, Eraser, ImageSquare, PaintBucket, Selection, Sparkle, SpinnerGap, UploadSimple, X } from "@phosphor-icons/react";
+import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import { ChevronRight, Download, LoaderCircle, Plus, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
-import { requestStudioImageEdit, type StudioEditMode, type StudioEditRegion } from "./assistantStudioImageApi";
+import { requestStudioImageEdit, type StudioEditMode } from "./assistantStudioImageApi";
+import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechHistory";
+import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
+import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
+import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-const focusClass = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
-const modes = [
-  { id: "custom", label: "Theo mô tả", icon: Sparkle, hint: "Ví dụ: Chỉ đổi màu chiếc áo thành xanh dương; giữ nguyên khuôn mặt, tóc và bối cảnh." },
-  { id: "erase", label: "Xóa vùng ảnh", icon: Eraser, hint: "Ví dụ: Xóa chiếc cốc trên bàn và lấp phần trống theo mặt bàn xung quanh." },
-  { id: "remove-background", label: "Xóa nền", icon: ImageSquare, hint: "Ví dụ: Tách người khỏi nền, giữ nguyên tóc và đường viền tự nhiên." },
-  { id: "change-background", label: "Đổi màu nền", icon: PaintBucket, hint: "Ví dụ: Đổi nền phía sau thành màu xanh nhạt, giữ nguyên người ở phía trước." },
-  { id: "enhance", label: "Nâng cao chất lượng", icon: Sparkle, hint: "Ví dụ: Làm ảnh rõ nét hơn, giảm nhiễu, giữ nguyên mọi chi tiết và khuôn mặt." },
-] as const;
+const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
+const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
+interface EditType {
+  id: StudioEditMode;
+  label: string;
+  description: string;
+  hint: string;
+  emoji: string;
+}
+
+const editTypes: EditType[] = [
+  {
+    id: "erase",
+    label: "Xóa vùng ảnh",
+    description: "Xóa một phần ảnh và tái tạo tự nhiên",
+    hint: "Ví dụ: Xóa chiếc cốc trên bàn và lấp phần trống theo mặt bàn xung quanh.",
+    emoji: "✂️",
+  },
+  {
+    id: "remove-background",
+    label: "Xóa nền",
+    description: "Tách chủ thể ra khỏi nền ảnh",
+    hint: "Ví dụ: Tách người khỏi nền, giữ nguyên tóc và đường viền tự nhiên.",
+    emoji: "🖼️",
+  },
+  {
+    id: "change-background",
+    label: "Đổi màu nền",
+    description: "Thay nền bằng màu hoặc cảnh mới",
+    hint: "Ví dụ: Đổi nền phía sau thành màu xanh nhạt, giữ nguyên người ở phía trước.",
+    emoji: "🎨",
+  },
+  {
+    id: "enhance",
+    label: "Nâng cao chất lượng",
+    description: "Làm nét, giảm nhiễu và cải thiện chi tiết",
+    hint: "Ví dụ: Làm ảnh rõ nét hơn, giảm nhiễu, giữ nguyên mọi chi tiết và khuôn mặt.",
+    emoji: "✨",
+  },
+  {
+    id: "custom",
+    label: "Theo mô tả",
+    description: "Chỉnh sửa tùy ý theo yêu cầu của bạn",
+    hint: "Ví dụ: Chỉ đổi màu chiếc áo thành xanh dương; giữ nguyên khuôn mặt, tóc và bối cảnh.",
+    emoji: "💬",
+  },
+];
 
 type EditedResult = { url: string; source: string; name: string; prompt: string; mode: StudioEditMode; regionApplied: boolean };
 
-function clamp(value: number) { return Math.max(0, Math.min(1, value)); }
-
-export function AssistantStudioEdit({ onBack }: { onBack: () => void }) {
+export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const anchorRef = useRef<{ x: number; y: number } | null>(null);
-  const [sourceImage, setSourceImage] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [mode, setMode] = useState<StudioEditMode>("custom");
-  const [prompt, setPrompt] = useState("");
-  const [selectingRegion, setSelectingRegion] = useState(false);
-  const [region, setRegion] = useState<StudioEditRegion | null>(null);
-  const [result, setResult] = useState<EditedResult | null>(null);
-  const [history, setHistory] = useState<EditedResult[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const initialResult = historyItem?.kind === "edit-image" ? historyItem.payload as EditedResult : null;
+  const [sourceImage, setSourceImage] = useState(() => initialResult?.source ?? "");
+  const [fileName, setFileName] = useState(() => initialResult?.name ?? "");
+  const [mode, setMode] = useState<StudioEditMode>(() => initialResult?.mode ?? "erase");
+  const [prompt, setPrompt] = useState(() => initialResult?.prompt ?? "");
+  const [result, setResult] = useState<EditedResult | null>(initialResult);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [draggingFile, setDraggingFile] = useState(false);
-  const activeMode = modes.find(item => item.id === mode)!;
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<AssistantStudioCreationRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
+  const activeEditType = editTypes.find(t => t.id === mode) ?? editTypes[0];
+
+  async function openHistory() {
+    if (showHistory) { setShowHistory(false); return; }
+    setShowHistory(true);
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const records = await listAssistantStudioCreationHistory(getAssistantSpeechHistoryUserId());
+      setHistory(records.filter(r => r.kind === "edit-image"));
+    } catch (e) {
+      setHistoryError((e as Error).message || "Không tải được lịch sử.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  function openHistoryItem(item: AssistantStudioCreationRecord) {
+    const payload = item.payload as EditedResult;
+    setSourceImage(payload.source);
+    setFileName(payload.name);
+    setPrompt(item.prompt);
+    setMode(payload.mode);
+    setResult(payload);
+    setShowHistory(false);
+  }
 
   async function loadFile(file?: File) {
     if (!file) return;
@@ -50,10 +117,8 @@ export function AssistantStudioEdit({ onBack }: { onBack: () => void }) {
       setSourceImage(url);
       setFileName(file.name);
       setResult(null);
-      setRegion(null);
       setError("");
-      setShowHistory(false);
-    } catch (readError) { setError((readError as Error).message); }
+    } catch (e) { setError((e as Error).message); }
   }
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -61,47 +126,9 @@ export function AssistantStudioEdit({ onBack }: { onBack: () => void }) {
     event.currentTarget.value = "";
   }
 
-  function onDrop(event: DragEvent<HTMLElement>) {
+  function onDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
-    setDraggingFile(false);
     void loadFile(event.dataTransfer.files?.[0]);
-  }
-
-  function position(event: PointerEvent<HTMLButtonElement>) {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return { x: clamp((event.clientX - bounds.left) / bounds.width), y: clamp((event.clientY - bounds.top) / bounds.height) };
-  }
-
-  function onSelectionStart(event: PointerEvent<HTMLButtonElement>) {
-    if (!selectingRegion) return;
-    const point = position(event);
-    anchorRef.current = point;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setRegion({ ...point, width: 0, height: 0 });
-  }
-
-  function onSelectionMove(event: PointerEvent<HTMLButtonElement>) {
-    if (!anchorRef.current) return;
-    const point = position(event);
-    const anchor = anchorRef.current;
-    setRegion({ x: Math.min(anchor.x, point.x), y: Math.min(anchor.y, point.y), width: Math.abs(anchor.x - point.x), height: Math.abs(anchor.y - point.y) });
-  }
-
-  function onSelectionEnd(event: PointerEvent<HTMLButtonElement>) {
-    if (!anchorRef.current) return;
-    onSelectionMove(event);
-    anchorRef.current = null;
-    setSelectingRegion(false);
-    setRegion(current => current && current.width >= 0.02 && current.height >= 0.02 ? current : null);
-  }
-
-  function onSelectionKey(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "Escape") { setRegion(null); setSelectingRegion(false); return; }
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      setRegion({ x: 0.25, y: 0.25, width: 0.5, height: 0.5 });
-      setSelectingRegion(false);
-    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -112,47 +139,295 @@ export function AssistantStudioEdit({ onBack }: { onBack: () => void }) {
     setLoading(true);
     setError("");
     try {
-      const response = await requestStudioImageEdit({ sourceImage, prompt: prompt.trim(), mode, ...(region ? { region } : {}) });
-      const next = { url: response.image.url, source: sourceImage, name: fileName, prompt: prompt.trim(), mode, regionApplied: response.regionApplied };
+      const response = await requestStudioImageEdit({ sourceImage, prompt: prompt.trim(), mode });
+      const next: EditedResult = { url: response.image.url, source: sourceImage, name: fileName, prompt: prompt.trim(), mode, regionApplied: response.regionApplied };
       setResult(next);
-      setHistory(items => [next, ...items].slice(0, 10));
-      setShowHistory(false);
-    } catch (requestError) { setError((requestError as Error).message); }
+      try {
+        await saveAssistantStudioCreationHistory({
+          userId: getAssistantSpeechHistoryUserId(),
+          kind: "edit-image",
+          title: prompt.trim().slice(0, 100) || "Ảnh đã chỉnh sửa",
+          summary: fileName ? `Ảnh gốc: ${fileName}` : activeEditType.label,
+          prompt: prompt.trim(),
+          payload: next,
+        });
+      } catch { /* ignore storage errors */ }
+    } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
   }
 
-  function useResultAsSource() {
-    if (!result) return;
-    setSourceImage(result.url);
-    setFileName(`da-chinh-sua-${result.name}`);
-    setResult(null);
-    setRegion(null);
-    setPrompt("");
-  }
+  return (
+    <div className="relative grid h-full min-h-0 min-w-0 overflow-hidden lg:h-[calc(100dvh-4rem)] lg:max-h-[calc(100dvh-4rem)] lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[24rem_minmax(0,1fr)]">
+      <div className="absolute right-4 top-3 z-10 sm:right-5 lg:right-6">
+        <AssistantStudioHistoryAction open={showHistory} onClick={() => void openHistory()} />
+      </div>
 
-  const canSelectRegion = mode === "custom" || mode === "erase";
-  return <div className="flex min-h-dvh min-w-0 flex-col bg-surface-container-lowest text-on-surface">
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-4 sm:px-6">
-      <div className="flex min-w-0 items-center gap-2 text-sm"><button type="button" onClick={onBack} className={cn("inline-flex items-center gap-2 rounded-md p-1 text-on-surface-variant hover:text-primary", focusClass)}><ArrowLeft size={18} aria-hidden="true" />AI Studio</button><span className="text-on-surface-variant" aria-hidden="true">/</span><h1 className="truncate text-balance font-semibold">Chỉnh sửa hình ảnh</h1></div>
-      <button type="button" onClick={() => setShowHistory(value => !value)} aria-label={`Lịch sử chỉnh sửa (${history.length})`} aria-pressed={showHistory} className={cn("inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm hover:bg-surface-container-low", focusClass)}><ClockCounterClockwise size={18} aria-hidden="true" /><span className="hidden sm:inline">Lịch sử ({history.length})</span></button>
-    </header>
-    <nav aria-label="Cách chỉnh sửa ảnh" className="flex gap-2 overflow-x-auto border-b border-outline-variant px-4 py-3 sm:px-6">
-      {modes.map(item => { const Icon = item.icon; return <button key={item.id} type="button" aria-pressed={mode === item.id} onClick={() => { setMode(item.id); setResult(null); setError(""); if (item.id !== "custom" && item.id !== "erase") { setRegion(null); setSelectingRegion(false); } }} className={cn("inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-sm transition-colors", mode === item.id ? "border-primary bg-primary font-medium text-on-primary" : "border-transparent text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low", focusClass)}><Icon size={18} aria-hidden="true" />{item.label}</button>; })}
-    </nav>
-    {showHistory ? <section aria-label="Ảnh đã chỉnh sửa trong phiên" className="mx-auto w-full max-w-5xl p-4 sm:p-6"><h2 className="text-balance text-lg font-semibold">Lịch sử trong phiên này</h2>{history.length ? <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{history.map((item, index) => <button key={`${index}-${item.url.slice(0, 30)}`} type="button" onClick={() => { setResult(item); setSourceImage(item.source); setFileName(item.name); setPrompt(item.prompt); setMode(item.mode); setRegion(null); setShowHistory(false); }} className={cn("overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest text-left hover:border-primary", focusClass)}><img src={item.url} alt="" className="aspect-video w-full object-contain" /><span className="block truncate p-3 text-sm">{item.prompt}</span></button>)}</div> : <p className="mt-3 text-pretty text-sm text-on-surface-variant">Ảnh đã chỉnh sửa sẽ xuất hiện ở đây sau khi bạn tạo kết quả đầu tiên.</p>}</section> : !sourceImage ? <section onDragOver={event => { event.preventDefault(); setDraggingFile(true); }} onDragLeave={() => setDraggingFile(false)} onDrop={onDrop} aria-label="Tải ảnh cần chỉnh sửa" className={cn("mx-auto my-6 flex min-h-[28rem] w-[calc(100%-2rem)] max-w-5xl flex-1 flex-col items-center justify-center rounded-2xl border border-dashed bg-surface-container-lowest px-5 py-10 text-center sm:my-10", draggingFile ? "border-outline" : "border-outline-variant")}>
-      <span className="grid size-16 place-items-center rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant"><ImageSquare size={32} weight="duotone" aria-hidden="true" /></span>
-      <h2 className="mt-5 text-balance text-xl font-semibold">Kéo và thả ảnh vào đây</h2><p className="mt-2 text-pretty text-sm text-on-surface-variant">hoặc chọn ảnh từ máy tính để bắt đầu chỉnh sửa</p>
-      <button type="button" onClick={() => fileRef.current?.click()} className={cn("mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-on-primary hover:bg-primary/90", focusClass)}><UploadSimple size={18} aria-hidden="true" />Tải ảnh từ máy tính</button>
-      <p className="mt-5 text-pretty text-xs text-on-surface-variant">JPG, PNG, WebP · tối đa 15 MB</p>
-      {error && <p role="alert" className="mt-5 text-pretty text-sm text-error">{error}</p>}
-    </section> : <form onSubmit={submit} aria-label="Chỉnh sửa hình ảnh" className="mx-auto grid w-full max-w-7xl min-w-0 flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:p-6">
-      <section aria-label="Xem trước ảnh" className="flex min-w-0 flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="min-w-0"><h2 className="truncate text-balance text-sm font-semibold">{result ? "Ảnh đã chỉnh sửa" : fileName}</h2><p className="text-xs text-on-surface-variant">{result?.regionApplied ? "Vùng ngoài lựa chọn được giữ từ ảnh gốc" : region ? "Chỉ vùng chọn sẽ được thay đổi" : "Chỉnh sửa toàn ảnh"}</p></div><div className="flex items-center gap-2"><button type="button" onClick={() => fileRef.current?.click()} disabled={loading} className={cn("rounded-lg border border-outline-variant px-3 py-2 text-xs hover:bg-surface-container-lowest disabled:opacity-50", focusClass)}>Đổi ảnh</button>{result && <button type="button" onClick={useResultAsSource} className={cn("inline-flex items-center gap-1 rounded-lg border border-outline-variant px-3 py-2 text-xs hover:bg-surface-container-lowest", focusClass)}><ArrowCounterClockwise size={15} aria-hidden="true" />Sửa tiếp</button>}</div></div>
-        <div className="relative flex min-h-72 flex-1 items-center justify-center overflow-hidden rounded-lg bg-surface-container-lowest p-2 sm:min-h-96"><div className="relative inline-block max-h-[65vh] max-w-full"><img src={result?.url || sourceImage} alt={result ? "Ảnh sau chỉnh sửa" : "Ảnh gốc cần chỉnh sửa"} className="block max-h-[65vh] max-w-full object-contain" />{!result && canSelectRegion && selectingRegion && <button type="button" onPointerDown={onSelectionStart} onPointerMove={onSelectionMove} onPointerUp={onSelectionEnd} onKeyDown={onSelectionKey} aria-label="Kéo để chọn vùng ảnh. Nhấn Enter để chọn vùng giữa ảnh, Escape để hủy." className={cn("absolute inset-0 cursor-crosshair touch-none bg-transparent", focusClass)} />}{!result && region && <div aria-hidden="true" className="pointer-events-none absolute border-2 border-outline bg-surface/20" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }} />}</div></div>
-        {result ? <div className="mt-3 flex flex-wrap gap-2"><a href={result.url} download="igen-ai-anh-da-chinh-sua.png" className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary", focusClass)}><DownloadSimple size={18} aria-hidden="true" />Tải ảnh kết quả</a><button type="button" onClick={() => setResult(null)} className={cn("min-h-10 rounded-lg border border-outline-variant px-4 py-2 text-sm hover:bg-surface-container-lowest", focusClass)}>Xem lại ảnh gốc</button></div> : canSelectRegion && <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={() => { setSelectingRegion(value => !value); setRegion(null); }} aria-pressed={selectingRegion} className={cn("inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-sm", selectingRegion ? "border-primary bg-primary text-on-primary" : "border-outline-variant hover:bg-surface-container-lowest", focusClass)}><Selection size={17} aria-hidden="true" />{selectingRegion ? "Đang chọn vùng" : "Chọn vùng cần sửa"}</button>{region && <button type="button" onClick={() => setRegion(null)} className={cn("inline-flex min-h-9 items-center gap-1 rounded-lg px-3 text-sm text-on-surface-variant hover:bg-surface-container-lowest", focusClass)}><X size={15} aria-hidden="true" />Bỏ vùng chọn</button>}<p className="text-pretty text-xs text-on-surface-variant">Chọn vùng để giữ nguyên chính xác phần ảnh bên ngoài.</p></div>}
+      {/* ── Left panel: controls ── */}
+      <form
+        onSubmit={submit}
+        className="flex h-full min-h-0 min-w-0 shrink-0 flex-col border-b border-outline-variant bg-surface-container-lowest lg:border-b-0 lg:border-r"
+        aria-label="Thiết lập chỉnh sửa hình ảnh"
+      >
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 sm:p-5">
+          <div className="mb-1">
+            <AssistantStudioBreadcrumb title="Chỉnh sửa hình ảnh" onBack={onBack} />
+          </div>
+
+          {/* Model */}
+          <div>
+            <span className="mb-1 block text-sm font-medium">Mô hình</span>
+            <div
+              className="flex h-10 items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-2 text-sm text-on-surface"
+              aria-label="Mô hình iGenAI"
+            >
+              <img src="/igenai.png" alt="" aria-hidden="true" className="size-8 shrink-0 object-contain" />
+              iGenAI
+            </div>
+          </div>
+
+          {/* Source image upload */}
+          <div>
+            <span className="mb-1 block text-sm font-medium">
+              Ảnh cần chỉnh sửa <span className="font-normal text-on-surface-variant">(bắt buộc)</span>
+            </span>
+            {sourceImage ? (
+              <div className="flex items-center gap-2 rounded-lg border border-outline-variant p-1">
+                <img src={sourceImage} alt="Ảnh đã chọn" className="size-10 rounded-md object-cover" />
+                <span className="min-w-0 flex-1 truncate text-sm">{fileName}</span>
+                <button
+                  type="button"
+                  onClick={() => { setSourceImage(""); setFileName(""); setResult(null); setError(""); }}
+                  aria-label="Xóa ảnh đã chọn"
+                  disabled={loading}
+                  className={cn("rounded-md p-2 hover:bg-surface-container-low", focusClass)}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            ) : (
+              <label
+                onDragOver={e => e.preventDefault()}
+                onDrop={onDrop}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant bg-surface-container-low px-4 py-6 text-center transition-colors hover:border-primary hover:bg-surface-container",
+                  focusClass
+                )}
+              >
+                <Plus className="size-6 text-on-surface-variant" aria-hidden="true" />
+                <span className="text-sm font-medium text-on-surface">Tải ảnh lên</span>
+                <span className="text-xs text-on-surface-variant">PNG, JPG, WebP · tối đa 15 MB</span>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={onFileChange}
+                  disabled={loading}
+                  className="sr-only"
+                  aria-label="Chọn ảnh cần chỉnh sửa"
+                />
+              </label>
+            )}
+          </div>
+
+          {/* Edit description */}
+          <div>
+            <label htmlFor="studio-edit-prompt" className="mb-1 block text-sm font-medium">
+              Yêu cầu chỉnh sửa
+            </label>
+            <textarea
+              id="studio-edit-prompt"
+              required
+              minLength={3}
+              maxLength={2000}
+              rows={6}
+              value={prompt}
+              onChange={e => { setPrompt(e.target.value); setResult(null); setError(""); }}
+              disabled={loading}
+              placeholder={activeEditType.hint}
+              className={cn(fieldClass, "min-h-32 resize-none")}
+            />
+            <div className="mt-1 flex justify-end text-xs text-on-surface-variant">
+              <span className="shrink-0 tabular-nums">{prompt.length}/2.000</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="shrink-0 border-t border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+          <button
+            type="submit"
+            disabled={loading || !sourceImage || prompt.trim().length < 3}
+            className={cn(
+              "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50",
+              focusClass
+            )}
+          >
+            {loading ? (
+              <><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Đang chỉnh sửa…</>
+            ) : (
+              "Chỉnh sửa hình ảnh"
+            )}
+          </button>
+          {error && (
+            <p role="alert" className="mt-2 text-pretty rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">
+              {error}
+            </p>
+          )}
+        </div>
+      </form>
+
+      {/* ── Right panel: result + edit type picker ── */}
+      <section
+        aria-label="Kết quả chỉnh sửa hình ảnh"
+        aria-busy={loading}
+        className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-surface-container-lowest p-4 lg:p-6"
+      >
+        {loading ? (
+          <div role="status" className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <div
+              className="size-9 animate-spin rounded-full border-2 border-outline-variant border-t-primary motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-on-surface-variant">Đang xử lý ảnh. Vui lòng chờ trong giây lát…</p>
+          </div>
+        ) : result ? (
+          <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-balance text-lg font-semibold">Ảnh đã chỉnh sửa</h2>
+                <p className="text-sm text-on-surface-variant">{activeEditType.label} · iGenAI</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setResult(null); }}
+                  className={cn("rounded-lg border border-outline-variant px-3 py-2 text-xs hover:bg-surface-container-low", focusClass)}
+                >
+                  Chỉnh sửa lại
+                </button>
+                <a
+                  href={result.url}
+                  download="igen-ai-anh-da-chinh-sua.png"
+                  className={cn("inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-on-primary hover:bg-primary/90", focusClass)}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  Tải ảnh
+                </a>
+              </div>
+            </div>
+            <figure className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low">
+              <img src={result.url} alt="Ảnh sau chỉnh sửa" className="max-h-[34rem] w-full object-contain" />
+              <figcaption className="p-3 text-sm text-on-surface-variant">{result.prompt}</figcaption>
+            </figure>
+          </>
+        ) : (
+          /* Empty state with edit type picker */
+          <div className="flex flex-1 flex-col items-center justify-center py-6 text-center lg:py-8">
+            <div className="space-y-2.5">
+              <h2 className="mx-auto max-w-3xl text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]">
+                <span className="bg-[linear-gradient(90deg,#00adfc_0%,#7567ff_100%)] bg-clip-text text-transparent">
+                  Chỉnh sửa hình ảnh
+                </span>{" "}
+                <span className="text-on-surface">thông minh</span>{" "}
+                <span className="text-primary">cùng AI</span>
+              </h2>
+              <p className="text-pretty text-sm sm:text-base text-on-surface-variant">
+                Tải ảnh lên, chọn loại chỉnh sửa và mô tả yêu cầu để bắt đầu.
+              </p>
+            </div>
+
+            {/* Hero image */}
+            <div className="my-5 flex w-full justify-center">
+              <img
+                src="/ai-studio-image-hero.png"
+                alt="Minh hoạ chỉnh sửa hình ảnh bằng AI"
+                width="1536"
+                height="1024"
+                className="h-auto max-h-[28dvh] w-full max-w-2xl object-contain drop-shadow-xs"
+              />
+            </div>
+
+            {/* Edit type picker */}
+            <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
+              <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                {editTypes.map(editType => {
+                  const isSelected = mode === editType.id;
+                  return (
+                    <button
+                      key={editType.id}
+                      type="button"
+                      onClick={() => setMode(editType.id)}
+                      aria-pressed={isSelected}
+                      className={cn(
+                        "group flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                        isSelected
+                          ? "border-primary bg-primary-container ring-2 ring-primary/30"
+                          : "border-outline-variant bg-surface-container-low hover:bg-surface-container"
+                      )}
+                    >
+                      <span className="text-2xl leading-none" aria-hidden="true">{editType.emoji}</span>
+                      <span className={cn(
+                        "text-xs font-semibold leading-tight",
+                        isSelected ? "text-on-primary-container" : "text-on-surface"
+                      )}>
+                        {editType.label}
+                      </span>
+                      <span className={cn(
+                        "text-xs leading-snug",
+                        isSelected ? "text-on-primary-container/80" : "text-on-surface-variant"
+                      )}>
+                        {editType.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        )}
       </section>
-      <aside className="flex min-w-0 flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><h2 className="text-balance text-base font-semibold">Yêu cầu chỉnh sửa</h2><p className="mt-1 text-pretty text-xs text-on-surface-variant">Nói rõ phần cần đổi và những chi tiết phải giữ nguyên.</p><label htmlFor="studio-edit-prompt" className="mt-5 text-sm font-medium">Mô tả thay đổi</label><textarea id="studio-edit-prompt" required minLength={3} maxLength={2000} rows={8} value={prompt} onChange={event => { setPrompt(event.target.value); setResult(null); setError(""); }} placeholder={activeMode.hint} aria-invalid={Boolean(error && prompt.trim().length < 3)} aria-describedby={error ? "studio-edit-hint studio-edit-error" : "studio-edit-hint"} disabled={loading} className="mt-2 min-h-40 w-full resize-y rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none disabled:opacity-60" /><p id="studio-edit-hint" className="mt-2 text-pretty text-xs text-on-surface-variant">{activeMode.hint}</p><span className="mt-1 text-right text-xs tabular-nums text-on-surface-variant">{prompt.length}/2.000</span>{error && <p id="studio-edit-error" role="alert" className="mt-3 text-pretty text-sm text-error">{error}</p>}<button type="submit" disabled={loading || prompt.trim().length < 3} className={cn("mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 lg:mt-auto", focusClass)}>{loading ? <><SpinnerGap size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Đang chỉnh sửa…</> : <><Sparkle size={18} aria-hidden="true" />Chỉnh sửa ảnh</>}</button>{loading && <p role="status" className="mt-3 text-pretty text-xs text-on-surface-variant">Đang xử lý ảnh. Vui lòng chờ trong giây lát…</p>}</aside>
-    </form>}
-    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onFileChange} className="sr-only" tabIndex={-1} aria-label="Chọn ảnh cần chỉnh sửa" />
-  </div>;
+
+      {/* History drawer */}
+      <AssistantStudioHistoryDrawer
+        open={showHistory}
+        title="Lịch sử chỉnh sửa ảnh"
+        onClose={() => setShowHistory(false)}
+      >
+        <section aria-label="Danh sách ảnh đã chỉnh sửa" aria-busy={historyLoading} className="py-3">
+          {historyLoading && <p role="status" className="py-3 text-sm text-on-surface-variant">Đang tải lịch sử…</p>}
+          {historyError && (
+            <p role="alert" className="rounded-lg border border-error bg-error-container p-3 text-pretty text-sm text-on-error-container">
+              {historyError}
+            </p>
+          )}
+          {!historyLoading && !historyError && history.length === 0 && (
+            <p className="py-3 text-pretty text-sm text-on-surface-variant">Ảnh bạn chỉnh sửa sẽ xuất hiện ở đây.</p>
+          )}
+          {!historyLoading && !historyError && history.length > 0 && (
+            <ul className="divide-y divide-outline-variant">
+              {history.map(item => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => openHistoryItem(item)}
+                    className={cn("flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-surface-container-low", focusClass)}
+                  >
+                    <AssistantStudioHistoryKindIcon kind="edit-image" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-on-surface">{item.title}</span>
+                      <time className="mt-1 block text-xs tabular-nums text-on-surface-variant" dateTime={item.createdAt}>
+                        {new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.createdAt))}
+                      </time>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </AssistantStudioHistoryDrawer>
+    </div>
+  );
 }

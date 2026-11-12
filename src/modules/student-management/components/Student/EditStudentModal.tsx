@@ -445,7 +445,7 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                     {(entityLabel.preset === 'worker' || entityLabel.preset === 'customer'
                       ? ['Đang học', 'Đã đậu', 'Thi lại', 'Nghỉ học']
-                      : ['Đang học', 'Đã đậu', 'Thi lại', 'Nghỉ học', 'Nợ học phí']).map((st) => {
+                      : ['Chờ nhập học', 'Đang học', 'Đã đậu', 'Thi lại', 'Nghỉ học', 'Nợ học phí']).map((st) => {
                       const isChecked = formData.status.includes(st);
                       return (
                         <label

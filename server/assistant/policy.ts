@@ -82,12 +82,15 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
     let value = provided[field.key];
     if (isBlank(value) && field.defaultValue !== undefined && !relationshipFields.has(field.key)) { value = field.defaultValue; defaulted.push(field.key); }
     if (isBlank(value)) {
-      if (field.systemRequired || field.required || conditionApplies(field)) {
+      const alternativeSatisfied = Boolean(field.alternativeField && !isBlank(conditionValues[field.alternativeField]));
+      if (!alternativeSatisfied && (field.systemRequired || field.required || conditionApplies(field))) {
         const requiredStructuredFields = field.type === "json" && field.structure?.type === "object"
           ? Object.entries(field.structure.keys || {}).filter(([, shape]) => shape.required && !shape.reference)
           : [];
         if (requiredStructuredFields.length) {
           missing.push(...requiredStructuredFields.map(([key, shape]) => `${field.label} · ${shape.label || key}`));
+        } else if (workflow.actionId === "quotation.customer-quote.create" && field.key === "items") {
+          missing.push("Sản phẩm khách hàng cần báo giá (chọn sản phẩm từ bảng giá hoặc nhập Yêu cầu khách hàng để AI gợi ý)");
         } else missing.push(field.label);
       }
       continue;

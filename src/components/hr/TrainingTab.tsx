@@ -842,52 +842,43 @@ export default function TrainingTab({
     <>
       <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
         <div className="min-h-full space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6" id="elearning_catalog">
-          {/* Training section title and supervisor controls */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="rounded-full bg-primary-container px-2.5 py-1 text-xs font-medium text-on-surface-variant tabular-nums">
-                {courses.length} khóa học
-              </span>
-            </div>
-            {isSupervisor && (
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <div className="w-full text-xs sm:w-64">
-                  <HrFormSelect
-                    value={trainingFilter || ""}
-                    onChange={(value) => setTrainingFilter(value || null)}
-                    label="Giám sát tiến độ học nhân viên"
-                    options={[
-                      { value: "", label: "Giám sát tiến độ học nhân viên" },
-                      ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
-                    ]}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleCloseModal();
-                    setIsAddCourseModalOpen(true);
-                  }}
-                  className={primaryCreateButtonClass}
-                >
-                  <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
-                  Tạo khóa học
-                </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="relative min-w-0 flex-1 basis-56 sm:max-w-md">
+              <span className="sr-only">Tìm khóa học</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+              <input
+                type="search"
+                value={courseSearch}
+                onChange={(event) => setCourseSearch(event.target.value)}
+                placeholder="Tìm theo tên, danh mục hoặc giảng viên..."
+                className="min-h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </label>
+            {isSupervisor && <div className="ml-auto flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div className="w-full text-xs sm:w-64">
+                <HrFormSelect
+                  value={trainingFilter || ""}
+                  onChange={(value) => setTrainingFilter(value || null)}
+                  label="Giám sát tiến độ học nhân viên"
+                  options={[
+                    { value: "", label: "Giám sát tiến độ học nhân viên" },
+                    ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
+                  ]}
+                />
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  handleCloseModal();
+                  setIsAddCourseModalOpen(true);
+                }}
+                className={`w-full justify-center sm:w-auto ${primaryCreateButtonClass}`}
+              >
+                <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
+                Tạo khóa học
+              </button>
+            </div>}
           </div>
-
-          <label className="relative block w-full sm:max-w-md">
-            <span className="sr-only">Tìm khóa học</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
-            <input
-              type="search"
-              value={courseSearch}
-              onChange={(event) => setCourseSearch(event.target.value)}
-              placeholder="Tìm theo tên, danh mục hoặc giảng viên..."
-              className="min-h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </label>
 
           {/* Course Catalog list */}
           <div className="grid grid-cols-1 items-start gap-3 text-left md:grid-cols-2 xl:grid-cols-3">

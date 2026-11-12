@@ -1,74 +1,126 @@
 {
   "repository": "Chung2310/Quote-assistance",
-  "commit": "9fa13e566d3d935b1c432f63badcbcc27fd97745",
+  "commit": "106539f70641efcc94827ff18e665d0bdeb4a612",
   "files": [
     {
+      "source": "apps/api/src/acceptance-export.test.ts",
+      "sha256": "9a15a1a3cbf2279f05369712fb20ae9618c60891eecb62e6fc8eabec4800f013"
+    },
+    {
+      "source": "apps/api/src/acceptance-export.ts",
+      "sha256": "c75ecff91d5129ff389116fa7ba4c03bfdb75d9a7153f4c3044c8fa7b9a3ad08"
+    },
+    {
       "source": "apps/api/src/ai.test.ts",
-      "sha256": "28697fbfa5738ae1b08e2774242f54fac65065a8c894d364144a06c45952b44a"
+      "sha256": "7b28e0d6e91f1060e944dee319ee86512bee4c12a831244b7d0a47277ea233b6"
     },
     {
       "source": "apps/api/src/ai.ts",
-      "sha256": "afcdcc5c0e5a7a1df0fc15314483a293d40b180be301c2611621b242c61cb079"
+      "sha256": "0d2c5b6b72d1dd36eb20b0ffbb79c92b277e6394ca50d60a7167bc067cd89cd9"
+    },
+    {
+      "source": "apps/api/src/arbitrary-template.test.ts",
+      "sha256": "08c0c6c89368b9ce9f8903578622b569a36f9ae85a410f2ea6903ec2710cd4b6"
     },
     {
       "source": "apps/api/src/budget-planner.test.ts",
-      "sha256": "99425a8d66f0240cc3bd3003d0423a0811ae3fae33a048120bce6c2ee7b41dd8"
+      "sha256": "8e6b59cab3746a2d08513cf36724db71b19d15fda74d82d824e320ef790e8683"
     },
     {
       "source": "apps/api/src/budget-planner.ts",
-      "sha256": "ef7f488de520dc88ee772f116102e1fcaa09db4ad5686a76073a21b917ecfb4e"
+      "sha256": "bfc4e1b31ebe37b217103b008e6cdaae6e983df76709f27c3fa5eaf1d34843b5"
+    },
+    {
+      "source": "apps/api/src/catalog-availability.test.ts",
+      "sha256": "be390efd5c25b085fecfb231011a6715226ea24d08a6e5f5b81f303b34ad6986"
+    },
+    {
+      "source": "apps/api/src/catalog-availability.ts",
+      "sha256": "d86984ae1bafec3e542e06752bc5a80183e7e3622cf41864b3bf42d66ab0290a"
     },
     {
       "source": "apps/api/src/cloudinary.ts",
       "sha256": "60c67d4c8271c30d8d22bb43af275745ef6fcff14c83e5042086543207e33820"
     },
     {
+      "source": "apps/api/src/config.test.ts",
+      "sha256": "52067a7d4d5e8c498dc210198bf595e7a29ee2427b3e87bb3534f460db043387"
+    },
+    {
+      "source": "apps/api/src/config.ts",
+      "sha256": "c66022060dece81b4ded1d8c2dd6a4fd20924339378818a50cc6359895cba00b"
+    },
+    {
       "source": "apps/api/src/contract-pdf-reference-word.ts",
-      "sha256": "182ba4e6469b2512395492858f1138f6ac3c37fb0615804e72520a6318ef24a0"
+      "sha256": "1afd3011a6d31ff9bec8d418e233c41bd3e5c068500c6ad68fcf2987ad7dac59"
     },
     {
       "source": "apps/api/src/contract-template.test.ts",
-      "sha256": "51ec6004dd76e57bc0bc6509a7330ffa01f2a0b4ca0fa55cd2825ab1989324b6"
+      "sha256": "2bf3d3000786bacd811eaa80013c0f79458d00d178aef7f7bd1614f7e02758bd"
     },
     {
       "source": "apps/api/src/contract-template.ts",
-      "sha256": "24339212f229ee036e8831dcaa6eaf15e8d49a880c53fc0b3bc865323efeb11e"
+      "sha256": "cbba4f6241da64d1fc4a5db5f08cd3b7178d2dea38abe78f52f6745b0383e117"
     },
     {
       "source": "apps/api/src/contract-word.ts",
-      "sha256": "cff188458f78d935af9d8a941251868d45e259bd3d743e52053fdfb433ba11dc"
+      "sha256": "e195e7fe8378e32e806e5cea639071deb22c98b6eaa7a2bf01de8a308fffd2cf"
     },
     {
       "source": "apps/api/src/customer-quote-ai.test.ts",
-      "sha256": "de7285d86868ae4e96a9dc7620071cdf8939f9e34679867e30a696954960bc56"
+      "sha256": "5b54402e65e09face087e92d91ba5ad5ef50a1160363b95fc452e04ca840d4da"
     },
     {
       "source": "apps/api/src/customer-quote-ai.ts",
-      "sha256": "13a99533257bf001246cd6ea7f01e67b9a41a6e4dde3bc64a89525f8224530f5"
+      "sha256": "c22e34e4a4b88544344b635acfe6268a451abf2cc42ffb48ef74f7d72e6ca636"
     },
     {
       "source": "apps/api/src/document-edit-ai.ts",
-      "sha256": "909db32dd8d558e3bc8ecd4040abbd33698e2a10187c37ee5afef531a736a1cf"
+      "sha256": "03b405d0e609c7a9b20f7e62614fcfbb5e07d799e7e95a0b0b7a805a6ee19a32"
     },
     {
       "source": "apps/api/src/document-word.test.ts",
-      "sha256": "87d76db08b9135ca3af2e23a3628f2809f2199c62e59e1e6e7a489d7c48cc444"
+      "sha256": "48b267a2a71d94adff4d1fe7470d51afd0506cf8dda505b33434d028d0322d0d"
     },
     {
       "source": "apps/api/src/document-word.ts",
-      "sha256": "570f2fe5b9b41db3f928cdcacb1afa68546b5ecbffb97c2bb0bff8f02fa878a2"
+      "sha256": "71113637a05c7941cf20eb89ff1e15b7aa17365a3e9e6f43b9358ebf4fd93a14"
+    },
+    {
+      "source": "apps/api/src/index.ts",
+      "sha256": "b3704bb9f9d460ad7501bfd75bdd988a14b30f34f14f02e6e17cb81b2d89227d"
     },
     {
       "source": "apps/api/src/logger.ts",
-      "sha256": "f9a57bb69010eb0f2799ed9879064caff8c6e5e19366701e32d48a0d1b246eca"
+      "sha256": "77d2ff4421755b5e4c190c69c3bdfcd9ac7e14f64f3fc8368795b9183bf6152b"
+    },
+    {
+      "source": "apps/api/src/office-xml.test.ts",
+      "sha256": "1e535d2bc21e7c19f7c69994c673417505f001aacfbe8f97ade95f4594e56b78"
+    },
+    {
+      "source": "apps/api/src/office-xml.ts",
+      "sha256": "9598f7d2af8da670c5427a1e83c894446c4c9af843e14f181731bb4c4940cf8c"
+    },
+    {
+      "source": "apps/api/src/pdf-layout.ts",
+      "sha256": "cb4f43a7a31ea48206bb3c33fa63dbbb1c504bf1f278fb350756087e52158782"
+    },
+    {
+      "source": "apps/api/src/pdf-product-rows.test.ts",
+      "sha256": "13cd0f4ef71322c0c57230d130f97c53c366b83cafc0332420b6a4c33dec8fbe"
+    },
+    {
+      "source": "apps/api/src/pdf-product-rows.ts",
+      "sha256": "1c0c432e3bd5c7197db5c7ba86fccbc687c43b45d52702ab91d129f549e64d1f"
     },
     {
       "source": "apps/api/src/pdf-to-word.ts",
-      "sha256": "7393fe5714f47c98154aeab38982e33c019a03559cc5857c16924cf188b10e3c"
+      "sha256": "f72edd8a8acf86ed6042c4131b295c256c64def7bc34f8f11f3ac6aafb8abab5"
     },
     {
       "source": "apps/api/src/price-list-import.ts",
-      "sha256": "f33cf86866509099f9b786df38d35f884efc22bb4afa1f7622ec3de5ed830c49"
+      "sha256": "0bb6f0288268e668e325fbf38cf928ae8c29c451b46265eef02e95c6f23b7b20"
     },
     {
       "source": "apps/api/src/price-list.test.ts",
@@ -76,47 +128,75 @@
     },
     {
       "source": "apps/api/src/price-list.ts",
-      "sha256": "2f90393dbb4deaf1459ab3802cc902b5671b4c6a6ab71af611176f636d53f8bd"
+      "sha256": "f83f5897aa1cb643ab4655b90db513c9d6ebe1df0652ff09b5ddf226ad28b739"
     },
     {
       "source": "apps/api/src/pricing.ts",
-      "sha256": "82d3d6376a1d26f626c9731c29fa6b118102541a95b988fe61fb627933db7005"
+      "sha256": "e6e7e0f15fd26f1a3968a81c93c2eb4f358eb302d65c3956bc6fa1ffb44e14e1"
+    },
+    {
+      "source": "apps/api/src/product-quantity.test.ts",
+      "sha256": "7d2774676eb8406226fbc5d1651a65c5a9f168efb766b917bf9a858e45bc0b4f"
+    },
+    {
+      "source": "apps/api/src/product-quantity.ts",
+      "sha256": "a17e9d927ee160cdefc7ec1ce45fa3c9431a57e534c671b8ed17a2b5691dd787"
+    },
+    {
+      "source": "apps/api/src/public-errors.ts",
+      "sha256": "4d6819fe495d2bcd6b9fb3dc4ed9ab526270b19265577796a4be3cd73f507a74"
+    },
+    {
+      "source": "apps/api/src/quotation-word-tables.test.ts",
+      "sha256": "0a06778856440dd92fd5a1fea391812dc99a00ee9a196da21c9113fedd1ed87e"
+    },
+    {
+      "source": "apps/api/src/quote-approval.test.ts",
+      "sha256": "f0693abec231942acef1af16e9cc39691762c43d439837e9563e5b14d03b8f9f"
+    },
+    {
+      "source": "apps/api/src/quote-approval.ts",
+      "sha256": "65e6566432f28014b60bab1b8cea9f20dae0782f59911c73b5867274d97d5f99"
+    },
+    {
+      "source": "apps/api/src/quote-charge-questions.test.ts",
+      "sha256": "0f6aac39ae332dab5261293b6c537754314792a67579d90c1205faecc02b4201"
     },
     {
       "source": "apps/api/src/quote-estimate-adjustment.test.ts",
-      "sha256": "a2a3388556a19c7f65f47869ce1dae301fe1a6751957307b60363075315876a0"
+      "sha256": "a188bf834be30c772dd2aadf5d9ea4249eaccdb3f04e1a92d9b7a62446103aa2"
     },
     {
       "source": "apps/api/src/quote-estimate-adjustment.ts",
-      "sha256": "16acbe30c50e9cdb87afb8e85b0053948036591fd2e5ec46d273b9b3630051e9"
+      "sha256": "0483a0ed5cba113dfd1d2f101a33449eba852b9d20d4baa3db515d575d6c6d69"
     },
     {
       "source": "apps/api/src/quote-excel.test.ts",
-      "sha256": "67010ea8ac36f592aa5fa958c35cebbbfd33d6483fbf0b27acdbf8558a01d743"
+      "sha256": "931ec4fdd984287129cfd41127936b78f0434b9905a670183a8a5d8c4921bf1e"
     },
     {
       "source": "apps/api/src/quote-excel.ts",
-      "sha256": "f5ebfe3c92e27a0743afa8d7b11c7c7236d0cc2bcb208f5d46305b298c4903f9"
+      "sha256": "d7f05582ecbae576f495ec244a05b73595c3029cbcea962c3c08c17927451913"
     },
     {
       "source": "apps/api/src/quote-from-customer.test.ts",
-      "sha256": "6627c380abe77a31af21293197bb032bc12cac095ce8cd4777be40cf60896908"
+      "sha256": "af101a999351da0eea3c79dd1abad75871a819ddebcc9dd3d29383af41f2a327"
     },
     {
       "source": "apps/api/src/quote-from-customer.ts",
-      "sha256": "2216882ec31d0ac016b24bc9eeb5c663bab2dfd6ff59f77b1765d12a5194152a"
+      "sha256": "d2a58d0ac7220a91e790211582470a86ce23304fe3ac74f4a2ef8f3933dc7ff0"
     },
     {
       "source": "apps/api/src/quote-template.test.ts",
-      "sha256": "dc1cf774be3a1a0cfb7a216677fbcd16d6a029a2a797e4918eb020acbae5ec2a"
+      "sha256": "83a657cb2b439bb3d8d1da844783739e1bf2a45556399a1c7bac350e4da0087d"
     },
     {
       "source": "apps/api/src/quote-template.ts",
-      "sha256": "dffca6f45e0fe81c9ba924d1b5d3754ae1a1d2d3c9384fdf02bfa95f6d1dce0d"
+      "sha256": "da952f3ba8db1045ab8f408f105a1a3b0abdd0c3444ea524ddce60bba1dd6bfe"
     },
     {
       "source": "apps/api/src/quote-terms.ts",
-      "sha256": "2e6c5d70d2aa56359e4ac9a813aa78c8f9a7ecc092052348a86fac267145a0da"
+      "sha256": "90e5e2983e5ed410278a4d712d94223f9e3a8b90ddff080de24643a61607776a"
     },
     {
       "source": "apps/api/src/request-file.test.ts",
@@ -128,75 +208,157 @@
     },
     {
       "source": "apps/api/src/structured-ai.ts",
-      "sha256": "eb1ed8aa98491593f8685cccd766fa9e08e8cdf3302fcfc722cdda5774f2ca4e"
+      "sha256": "0b8a3107e7c3649f7487a0ae610de08ad20e03ec29fa4430014153ff7314e9d2"
+    },
+    {
+      "source": "apps/api/src/template-upload.test.ts",
+      "sha256": "9382dfbc268f5ab87fa414e63e57f6e602e4369eaf6692435a02fbf694e21357"
     },
     {
       "source": "apps/api/src/types.ts",
-      "sha256": "c8b10038a3a8f4957a895e02472f1faa4db4cae514d33b7a0f42aa4dd795ef57"
+      "sha256": "dc8759d4196a85862698529eba91f0de7896a9f7e63ae7a6210adce359de65b3"
+    },
+    {
+      "source": "apps/api/src/word-bracket-fields.test.ts",
+      "sha256": "d4c412723ac0f426a2fd586deffc3ce45501bfccd02732584f05396c3f79a62e"
+    },
+    {
+      "source": "apps/api/src/word-bracket-fields.ts",
+      "sha256": "6567f27bddd764d050f869262c84bd4f6407a3538c20580bebc604aa76ea1542"
+    },
+    {
+      "source": "apps/api/src/word-template-fill.test.ts",
+      "sha256": "05409ee014e726623b3f8a72bc39345963b7f8ca505c7ff8ebc6ac0c22a995ba"
+    },
+    {
+      "source": "apps/api/src/word-template-fill.ts",
+      "sha256": "a5ec3f8dd72f3780d69f5d6f9caf8b629940b4acdc3ed299fe8ad106427a352d"
+    },
+    {
+      "source": "apps/api/src/xlsx-party-fields.test.ts",
+      "sha256": "44d306963243a87ac9a2f2c63caaa92ef972ee9f2bd0df301b7b9651fb7222cb"
+    },
+    {
+      "source": "apps/api/src/xlsx-party-fields.ts",
+      "sha256": "016f3d02c081a4767a2d6e1448ef3ab8d8443d5fa2783be3139c5b5781d535ed"
+    },
+    {
+      "source": "apps/api/src/xlsx-product-rows.test.ts",
+      "sha256": "10de6be98fd9810590377b50f5bf70ab439bea745d7078fc909e570ff69a047b"
+    },
+    {
+      "source": "apps/api/src/xlsx-product-rows.ts",
+      "sha256": "7d660eb7793dd50c26e0fee5e54249a100417683010dfa3b21aa6b67a7ba5dd7"
+    },
+    {
+      "source": "apps/web/src/AiProgressPopup.tsx",
+      "sha256": "aaa45cf6cdd9ea549b229e05cc7a7a9964ffb3359987b46bd3d1119b23c37dbe"
     },
     {
       "source": "apps/web/src/App.tsx",
-      "sha256": "9f82255e3dc680460ba9091b0f81f435693b2e7dff8201a9d7be809b33d87b71"
+      "sha256": "d8daef20ec0299eed7b1ff4facc9008cf5011bd2f0923052ec5352f291f2eaac"
     },
     {
       "source": "apps/web/src/BudgetPlanner.tsx",
-      "sha256": "e2d47ea47a700583e4bab2a926c15f9b64a9061c052c17b3c58bd8819ab7d7d1"
+      "sha256": "04a9488e2e648a94854e22d7934320788add03d3b4351c5b9406462a132413f1"
     },
     {
       "source": "apps/web/src/ContractWorkflow.tsx",
-      "sha256": "71530fac43442b9abb749788adc4fd75076343252959767d53d44db806ec3e80"
-    },
-    {
-      "source": "apps/web/src/customer-quote-templates.ts",
-      "sha256": "b0dc5195d8c7ebe13004097951f066948601b051b0fd0a6d23f3185f40a9d060"
+      "sha256": "30ae392a5c914c0a960cf18c5dc658b2719c781d08ee570ed597dde5e5acc333"
     },
     {
       "source": "apps/web/src/CustomerProductListDetail.tsx",
-      "sha256": "a75f0e34d9e88b42776ad76edcee74564b1268f12d2851725143453073918557"
+      "sha256": "2e60d70aea227e997e8fc78c89bcfdf06112be8c23249d7356d9c6f089fae3f3"
     },
     {
       "source": "apps/web/src/CustomerQuotes.tsx",
-      "sha256": "d9af64fa541604578ac090ea86f3c890d4cb217faa9ec72654245a2a41f91905"
+      "sha256": "45526bcbd152307b76c1b70452b1fb33f872961298aab77ca326e52b9d88dc75"
     },
     {
       "source": "apps/web/src/DocumentDialogs.tsx",
-      "sha256": "e17867eff9f33e90d67b7e44cf1cb32cdc51062738853c0177778451f69026ea"
+      "sha256": "24fbc965f48762fe9b534c7f01fe869b350fdb29b2553deee4eccd0e499a6353"
     },
     {
       "source": "apps/web/src/Feedback.tsx",
-      "sha256": "5d0031f26b705250a26fcea2357af182b0cedc46681c79392440f863ec9f8b3d"
+      "sha256": "8a1ad1dd6934b7efce7933fe73a90af74737b330e07f366115cf961844467b5f"
     },
     {
       "source": "apps/web/src/FilePreview.tsx",
-      "sha256": "3885e549aab493321c58607ec9efc84746b4856d107bc6529c872122cb2684e6"
-    },
-    {
-      "source": "apps/web/src/money-input.ts",
-      "sha256": "36a0708ec3f825a6d6294d2e4fc1769783f5a6d5a76f92efe73c91057a3b4aba"
+      "sha256": "3a2cac12fda55e45ec1eeb5bf1aa7e5e23cec913af837faab91dde378c9d09a0"
     },
     {
       "source": "apps/web/src/MoneyInput.tsx",
-      "sha256": "b944c79db210572c6dc88024667fab885480732ad3dd4d34739723ade96f99d9"
+      "sha256": "ac6311040adb35a3dec0a72ea12d0426197add48e2d29ce217355e0903dadf7b"
     },
     {
       "source": "apps/web/src/PriceListPanel.tsx",
-      "sha256": "78687f2db7bcef2fc1958315d7478cc24b078e647aa53b6dfb866243e1422dfa"
+      "sha256": "1437e0f857907295bba8b8beb0f2ab0e85b03b257460a9dbea9fff45438c5df8"
     },
     {
       "source": "apps/web/src/QuoteTemplate.tsx",
-      "sha256": "1f8160f6d0f37baaf74d8fe24da4a619854562aac6a146285900a52892d04fce"
+      "sha256": "f07232fa8b701af75f3e94d43cc1c6a801ec229e7b4eec6a2b5c036af8b48813"
     },
     {
       "source": "apps/web/src/ThemedSelect.tsx",
-      "sha256": "fbee5bd254b9f714f6cd38f9635a066291aa19e7215072f1d17aff2340c7fe6f"
-    },
-    {
-      "source": "apps/web/src/types.ts",
-      "sha256": "4fb5d779ca49709ce764db3773bd738d6c6a658610556037f6c18c1e826ffb52"
+      "sha256": "73be2a16910ac5cfbd1747681a79b6e37e9660ec54a064099f67c2b402604d48"
     },
     {
       "source": "apps/web/src/VietnameseDatePicker.tsx",
-      "sha256": "4487f2b3313c6c43c5c2b1d9601dfba4091920529e0fd51fbdec839038037e28"
+      "sha256": "8f555c42a415ab0a77580d2dc7ea0edd02126e3765c0bb5c9f860c6fb0ce0166"
+    },
+    {
+      "source": "apps/web/src/ai-progress.css",
+      "sha256": "1fe9fc3d9ac73379a9b70a8fa2c7fb58bc8e039f9b1d05093c368c02e52ec696"
+    },
+    {
+      "source": "apps/web/src/ai-progress.ts",
+      "sha256": "c7f34af22622f6a4060175f0ca15a55d096663ed0b221616ea5843c9b2e327d5"
+    },
+    {
+      "source": "apps/web/src/api.ts",
+      "sha256": "cba993df03463ed93c8f2477c62190091a595c08bc617a729a7917d9a102c4f1"
+    },
+    {
+      "source": "apps/web/src/budget-planner.css",
+      "sha256": "ed3f890656d7d16cd0036b3fed279ebbc33042b1f0b51c798695e458387563bb"
+    },
+    {
+      "source": "apps/web/src/contract-workflow.css",
+      "sha256": "4aae42f4bfe5d10d5efda1bd1edf1d14e3e35494bddb6f367e6c66c9f98ed494"
+    },
+    {
+      "source": "apps/web/src/customer-quote-templates.ts",
+      "sha256": "493333f4157c4eb073ad991ef96f4ca00b35ad8e149281790636f6813ec1cd58"
+    },
+    {
+      "source": "apps/web/src/money-input.ts",
+      "sha256": "5a94a001c3ca63a8409712ab0d76adb2bdf583cb239ddcad0f18228aace74897"
+    },
+    {
+      "source": "apps/web/src/quote-supplement.css",
+      "sha256": "1f0f752c986b169df62c7ac598652b89bf1c00845bd6978b48c0462bc5a7bbc5"
+    },
+    {
+      "source": "apps/web/src/settings.css",
+      "sha256": "99986e99461110596f0f416cdf5942236a1976e5c347fd638488022d2f65860f"
+    },
+    {
+      "source": "apps/web/src/template-upload.ts",
+      "sha256": "3f64b74e8e4a512ed54ae4aebc9977316ef2da6eb3cf7d99814b2570a183672c"
+    },
+    {
+      "source": "apps/web/src/types.ts",
+      "sha256": "09ffc81bd1bd822f85aec8c048fc818f17f0fd0fdd0ec7ad9a1108eb2577584e"
+    },
+    {
+      "source": "apps/web/src/user-message.ts",
+      "sha256": "acb9f5257954c4b7be8c6f3f1c1ffb22e2540481ac5dbe567a599c9dab7cc7a1"
+    },
+    {
+      "source": "scripts/ai-progress.test.ts",
+      "sha256": "6cd3c3bff417f80aace6ff2eb8833091c717482bd1b79e9a8df5301c227abdc7"
     }
-  ]
+  ],
+  "previousCommit": "9fa13e566d3d935b1c432f63badcbcc27fd97745",
+  "syncedOn": "2026-11-11"
 }

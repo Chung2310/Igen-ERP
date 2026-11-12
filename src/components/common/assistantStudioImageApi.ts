@@ -26,19 +26,6 @@ export type StudioImageEditRequest = {
 };
 export type StudioImageEditResponse = { image: { url: string }; model: string; regionApplied: boolean };
 
-export async function requestEnhancedStudioImagePrompt(prompt: string): Promise<string> {
-  const response = await fetch("/api/v1/chatbot/assistant/studio/images/optimize-prompt", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() || ""}` },
-    body: JSON.stringify({ prompt }),
-  });
-  const payload = await response.json().catch(() => null) as { success?: boolean; data?: { prompt?: string }; message?: string } | null;
-  if (!response.ok || !payload?.success || !payload.data?.prompt) {
-    throw new Error(payload?.message || "Không thể chuẩn hóa mô tả lúc này. Vui lòng thử lại.");
-  }
-  return payload.data.prompt;
-}
-
 export async function requestStudioImages(input: StudioImageRequest): Promise<StudioImageResponse> {
   const response = await fetch("/api/v1/chatbot/assistant/studio/images", {
     method: "POST",

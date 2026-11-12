@@ -1,6 +1,6 @@
 # Báo giá trong ERP
 
-Port nghiệp vụ và giao diện từ `Quote-assistance` commit `9fa13e566d3d935b1c432f63badcbcc27fd97745`. `source-manifest.json` lưu hash của source gốc để đối chiếu. Các test `node:test` gốc dùng hậu tố `.node-test.ts` để không bị Vitest thu thập nhầm.
+Port nghiệp vụ và giao diện từ `Quote-assistance`, đồng bộ đến commit `106539f` (11/11/2026). `source-manifest.json` lưu commit và hash của source gốc để đối chiếu. Các test `node:test` gốc dùng hậu tố `.node-test.ts` để không bị Vitest thu thập nhầm.
 
 ## Phạm vi
 
@@ -36,17 +36,19 @@ Import giá dùng chung validation và transaction; SKU đã xóa bị chặn tr
 
 ## Worker và xuất tài liệu
 
-API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION_QUEUE_PREFIX`. Prefix phải riêng cho từng môi trường. MongoDB cần hỗ trợ transaction cho ledger AI ERP hiện có (replica set khi chạy cục bộ).
+API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION_QUEUE_PREFIX`. Prefix phải riêng cho từng môi trường. MongoDB cần hỗ trợ transaction cho ledger AI ERP hiện có (replica set khi chạy cục bộ). Worker chạy cùng tiến trình API khi `QUOTATION_WORKERS_ENABLED=true`; Docker Compose bật cờ này trong container `igen-erp`, không tạo container riêng.
 
 ```sh
 npm run dev
-# Terminal riêng, QUOTATION_WORKERS_ENABLED=true:
-npm run dev:quotation-worker
 ```
 
-Production: `npm run build` tạo `dist-server/quotation-worker.cjs`; chạy `npm run start:quotation-worker`. Docker: `docker compose --profile quotation up -d igen-erp quotation-worker`. Worker yêu cầu `QUOTATION_WORKERS_ENABLED=true` và prefix tường minh. Các biến còn lại được mô tả trong `.env.example`.
+Production và Docker: cấu hình `QUOTATION_QUEUE_PREFIX` riêng cho môi trường trong `.env`; Compose tự dùng `${CONTAINER_NAME}-quotation` nếu thiếu. `docker compose up -d igen-erp` chạy API và worker trong cùng container. Nếu chạy ngoài Docker, đặt `QUOTATION_WORKERS_ENABLED=true` cho tiến trình API. Các biến còn lại được mô tả trong `.env.example`.
 
-`QUOTATION_DOCUMENT_EDIT_MODE=direct` giữ cơ chế OpenRouter sửa file trực tiếp của QUOS mới. `mapping` dùng bộ ánh xạ/toạ độ và renderer cục bộ; AI vẫn được dùng khi cần đọc cấu trúc mẫu. Model có thể thay qua `QUOTATION_AI_MODEL`, `QUOTATION_FILE_MODEL`, `QUOTATION_DOCUMENT_MODEL`.
+`QUOTATION_DOCUMENT_EDIT_MODE=direct` giữ cơ chế OpenRouter sửa file trực tiếp của QUOS mới. `mapping` giữ đường dựng file cục bộ của ERP khi cần kiểm thử hoặc vận hành. Toàn bộ luồng AI Báo giá dùng cố định `openai/gpt-6-luna`, giống bản nguồn; các biến model cũ không ghi đè lựa chọn này.
+
+Popup dùng chung hiển thị phần trăm cho phân tích, gợi ý, tính lại dự toán, nhập file và tạo file báo giá/dự toán/ngân sách/hợp đồng/nghiệm thu/quyết toán. Phần trăm khi AI xử lý là ước tính, tối đa 94%; chỉ lên 100% sau khi tác vụ thành công và có file đã lưu. Lỗi giữ lại thông báo để đóng chủ động. Chuyển tài khoản, công ty, chi nhánh hoặc rời module sẽ hủy theo dõi ở client và dọn tiến độ cũ; tác vụ nền đã xếp hàng vẫn giữ trên máy chủ.
+
+Tất cả nhóm mẫu hỗ trợ Word, Excel và PDF hợp lệ, giữ định dạng đã chọn. Bộ xử lý mới mở rộng hoặc thu gọn bảng sản phẩm Word, dọn dòng Excel thừa, cập nhật ô gộp và giá trị công thức, điền thông tin các bên và bảo toàn số trang PDF. Mẫu Word có trường tường minh được điền cục bộ khi xác định được chắc chắn, không thay bằng mẫu khác.
 
 Lượt AI người dùng được ghi nhận cho các lần gọi model nghiệp vụ thành công; fallback/thử sửa phản hồi có thể dùng nhiều hơn một lượt. Bước dọn sandbox của chế độ `direct` là chi phí vận hành riêng, không trừ thêm lượt người dùng; được ghi trong `quotation_auditLogs` với action `ai_sandbox_cleanup`. Nhà cung cấp vẫn có thể tính phí cho bước này. Lỗi dọn sandbox được ghi nhận nhưng không làm mất kết quả tài liệu đã tạo.
 
@@ -64,9 +66,9 @@ Chỉ gắn file thành công vào tác vụ khi file đã được lưu riêng 
 
 Các dòng chọn từ bảng giá khi gọi `POST /customer-quotes` hoặc `POST /quotes` phải gửi `catalogUpdatedAt` (ISO từ `updatedAt`, hoặc `createdAt` của dữ liệu cũ). Thiếu phiên bản trả 428; sản phẩm đã đổi giá/thông tin, ngừng áp dụng hoặc xóa trả 409 trước khi tạo chứng từ. Báo giá chỉ chứa một tiền tệ; tiền tệ và thuộc tính sản phẩm được chụp cùng đơn giá. Tạo dự toán từ báo giá khách tiếp tục dùng bản chụp này khi bảng giá đã thay đổi.
 
-`POST /quotes/:id/recalculate`, body `{ additionalInformation: { [question]: answer } }`, yêu cầu `If-Unmodified-Since`, quyền quản lý Báo giá và AI. Nút **Tạo lại dự toán từ câu trả lời** nằm dưới các câu hỏi trong chi tiết dự toán. Cần lưu các thay đổi khác về sản phẩm/điều khoản trước; câu trả lời đang nhập được gửi trực tiếp khi bấm nút. Có xác nhận trước khi gọi AI, không tự gọi theo từng lần gõ.
+Nút **Lưu và chạy lại AI** gửi `PATCH /quotes/:id` với các trường đang sửa, `revisionRequirements` và `recalculateWithAi: true`. API yêu cầu `If-Unmodified-Since`, quyền quản lý Báo giá và quyền AI; chỉ lưu sau khi AI thành công và phiên bản/quyền truy cập vẫn hợp lệ. API cũ `POST /quotes/:id/recalculate` với `{ additionalInformation }` tiếp tục hỗ trợ client cũ.
 
-AI điều chỉnh hạng mục/số lượng; sản phẩm không đổi quy cách giữ giá đã lưu, sản phẩm mới hoặc đổi quy cách cần bổ sung giá. Giữ VAT/phí vận chuyển và câu hỏi chưa trả lời. Kết quả chỉ được lưu nếu phiên bản và quyền truy cập còn hợp lệ; chuyển về nháp/cần bổ sung, vô hiệu hóa file cũ theo nội dung nguồn. Lỗi AI hoặc xung đột giữ nguyên dữ liệu đã lưu và câu trả lời trên form. Không tự xuất lại file hoặc sử dụng gói AI cho doanh nghiệp chưa được cấp.
+AI điều chỉnh hạng mục/số lượng; sản phẩm không đổi quy cách giữ giá đã lưu, sản phẩm mới hoặc đổi quy cách cần bổ sung giá. Yêu cầu mới và câu trả lời mới được ưu tiên hơn yêu cầu cũ; VAT/phí vận chuyển đã chốt được giữ khi không có thay đổi rõ ràng. Câu hỏi chưa trả lời được giữ lại. Lưu thông tin mới mà chưa chạy AI đặt cờ `requiresAiRecalculation` để chặn duyệt; chạy AI thành công sẽ gỡ cờ và giao diện tạo lại file theo dữ liệu mới. Lỗi AI/xung đột giữ chứng từ đã lưu và nội dung đang nhập. Câu hỏi bổ sung chưa trả lời không tự chặn duyệt khi đơn giá, VAT và vận chuyển đã chốt; lý do chặn duyệt được hiển thị cụ thể.
 
 ```sh
 npm run test:quotation

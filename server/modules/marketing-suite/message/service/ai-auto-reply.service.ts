@@ -21,7 +21,7 @@ import { zaloMessengerService } from "./zalo-messenger.service.ts";
 import { fbMessengerService, type FacebookTokenContext } from "./fb-messenger.service.ts";
 import { tiktokMessengerService } from "./tiktok-messenger.service.ts";
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
-import { assertPersonalAutoReplyOwnership, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
+import { assertPersonalAutoReplyOwnership, inheritPageReplyRules, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { selectCurrentOrderContext } from "./messenger-order-context";
 import { chatOrderFlowRegistry } from "./chat-ordering/registry";
 import type { ChatOrderFlowInput } from "./chat-ordering/core/types";
@@ -394,16 +394,18 @@ async function resolveAutoReplyOwnerUnchecked(
   if (companyCodeFromIntegration) {
     const targetCompanyCode = companyCodeFromIntegration;
 
-    // Page configuration remains authoritative even while disabled or awaiting activation.
-    if (companyIntegration.aiAutoReplyConfig) {
+    // Page settings remain authoritative; blank rules can inherit from its own account.
+    const pageConfig = companyIntegration.aiAutoReplyConfig || {};
+    const effectivePageConfig = inheritPageReplyRules(pageConfig, companyIntegration, uniqueCandidates, userLevelOwners);
+    if (companyIntegration.aiAutoReplyConfig || effectivePageConfig !== pageConfig) {
       const representativeUser =
         uniqueCandidates.find((c: any) => c?.companyCode?.trim().toUpperCase() === targetCompanyCode) || null;
 
       return {
         companyCode: targetCompanyCode,
         selectedUser: representativeUser,
-        aiConfig: companyIntegration.aiAutoReplyConfig,
-        source: companyIntegration.aiAutoReplyConfig.enabled === true ? "company_integration_enabled" : "company_integration_fallback",
+        aiConfig: effectivePageConfig,
+        source: companyIntegration.aiAutoReplyConfig?.enabled === true ? "company_integration_enabled" : "company_integration_fallback",
         userLevelOwners,
         companyIntegrations,
         uniqueCandidates,
@@ -508,7 +510,8 @@ export async function ensureFacebookAutoReplyEnabled(
 ): Promise<ResolvedAutoReplyOwner> {
   if (ownerInfo.source === "module_disabled" || ownerInfo.aiConfig?.enabled === false || ownerInfo.aiConfig?.disabledAt) return ownerInfo;
   const companyIntegration = selectAutoReplyCompanyIntegration(ownerInfo.companyIntegrations);
-  const currentConfig = ownerInfo.aiConfig || companyIntegration?.aiAutoReplyConfig || ownerInfo.selectedUser?.aiAutoReplyConfig || {};
+  const currentConfig = ownerInfo.aiConfig || companyIntegration?.aiAutoReplyConfig
+    || (!companyIntegration ? ownerInfo.selectedUser?.aiAutoReplyConfig : undefined) || {};
   const enabledConfig = {
     ...currentConfig,
     enabled: true,
@@ -520,9 +523,13 @@ export async function ensureFacebookAutoReplyEnabled(
 
   if (needsPersistence) {
     if (companyIntegration?._id) {
+      // Keep inherited rules dynamic: activation must not save them as a Page override.
+      const savedConfig = ownerInfo.source === "company_integration_enabled" || ownerInfo.source === "company_integration_fallback"
+        ? { ...(companyIntegration.aiAutoReplyConfig || {}), enabled: true, disabledAt: null }
+        : enabledConfig;
       await SocialIntegrationModel.updateOne(
         { _id: companyIntegration._id },
-        { $set: { aiAutoReplyConfig: enabledConfig } }
+        { $set: { aiAutoReplyConfig: savedConfig } }
       );
     } else if (ownerInfo.selectedUser?._id) {
       await UserModel.updateOne(

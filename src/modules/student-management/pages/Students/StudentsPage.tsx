@@ -37,7 +37,7 @@ interface StudentsPageProps {
   canManage?: boolean;
 }
 
-type StatusFilter = 'Tất cả' | 'KSK' | 'Đã KSK' | 'Nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học';
+type StatusFilter = 'Tất cả' | 'Chờ nhập học' | 'KSK' | 'Đã KSK' | 'Nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học';
 
 interface StudentDeleteImpactItem {
   studentId: string;
@@ -296,6 +296,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
   const statusTabs: { label: StatusFilter; count?: number }[] = [
     { label: 'Tất cả', count: students.length },
+    { label: 'Chờ nhập học', count: students.filter(s => Array.isArray(s.status) ? s.status.includes('Chờ nhập học') : s.status === 'Chờ nhập học').length },
     { label: 'Đang học', count: students.filter(s => Array.isArray(s.status) ? s.status.includes('Đang học') : s.status === 'Đang học').length },
     { label: 'Đang thi', count: students.filter(s => Array.isArray(s.status) ? s.status.includes('Đang thi') : s.status === 'Đang thi').length },
     { label: 'Đã đậu', count: students.filter(s => Array.isArray(s.status) ? s.status.includes('Đã đậu') : s.status === 'Đã đậu').length },
@@ -308,6 +309,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       'Đang thi': 'border-violet-200 bg-violet-50 text-violet-800',
       'Đã đậu': 'border-emerald-200 bg-emerald-50 text-emerald-800',
       'Đang học': 'border-sky-200 bg-sky-50 text-sky-800',
+      'Chờ nhập học': 'border-amber-200 bg-amber-50 text-amber-800',
       'Chờ KSK': 'border-amber-200 bg-amber-50 text-amber-800',
       'Thi lại': 'border-rose-200 bg-rose-50 text-rose-800',
       'Đã KSK': 'border-emerald-200 bg-emerald-50 text-emerald-800',

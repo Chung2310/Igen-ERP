@@ -14,11 +14,15 @@ it("shows three separate audio tools inside AI Studio", () => {
     expect(artwork.getAttribute("style")).toContain("ai-studio-audio-tools.png");
   }
   fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
-  expect(screen.getByRole("heading", { name: "Chuyển giọng nói thành văn bản", level: 2 })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: /Biến giọng nói thành văn bản dễ dùng/, level: 2 })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: /Biến giọng nói thành văn bản dễ dùng/ }).parentElement?.className).toContain("text-center");
   expect(screen.getByRole("button", { name: "Tải lên từ máy tính" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Quay lại AI Studio" }));
-  fireEvent.click(screen.getByRole("button", { name: /Tạo giọng cá nhân/ }));
-  expect((screen.getByRole("button", { name: /Bắt đầu ghi âm · Sắp ra mắt/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Chuyển thành văn bản" }).parentElement?.className).toContain("justify-center");
+  fireEvent.click(screen.getByRole("button", { name: "AI Studio" }));
+  const cloneTool = screen.getByRole("button", { name: /Tạo giọng cá nhân/ });
+  expect((cloneTool as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(cloneTool);
+  expect(screen.getByRole("heading", { name: "Chào mừng đến với iGen AI Studio" })).toBeTruthy();
 });
 
 it("submits an audio file and shows the returned transcript", async () => {

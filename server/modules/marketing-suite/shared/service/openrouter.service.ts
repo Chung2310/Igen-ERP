@@ -8,7 +8,7 @@
 
 import { beginChatAiAttempt } from "../../message/service/chat-ai-trace";
 import { billAiCall } from "./ai-subscription.service";
-import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, generateRecraftImage } from "../../../../service/openrouter-image-api";
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, generateRecraftImage } from "../../../../service/openrouter-image-api";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -457,7 +457,7 @@ async function openrouterGenerateImageUnmetered(params: OpenRouterImageParams): 
   const aspectRatioInstruction = `Generate the image with aspect ratio ${ratioKey} (${dimensions.width}x${dimensions.height} pixels).`;
   const referenceImages = resolveReferenceImages(params.referenceImages);
   const referenceImageRoles = params.referenceImageRoles || [];
-  const generationModel = primaryModel === DEFAULT_IMAGE_MODEL && (referenceImages.length || !RECRAFT_ASPECT_RATIOS.has(ratioKey))
+  const generationModel = primaryModel === RECRAFT_IMAGE_MODEL && (referenceImages.length || !RECRAFT_ASPECT_RATIOS.has(ratioKey))
     ? IMAGE_EDIT_MODEL
     : primaryModel;
   const finalPrompt = `${params.prompt}${buildReferenceCompositionInstruction(referenceImages.length, params.prompt, referenceImageRoles)}\n\n${aspectRatioInstruction}`;
@@ -565,11 +565,11 @@ async function openrouterGenerateImageUnmetered(params: OpenRouterImageParams): 
   // Reference-image composition must never fall back to text-only Flux, because it
   // would lose the source products/logos that the user asked to preserve.
   try {
-    return generationModel === DEFAULT_IMAGE_MODEL
+    return generationModel === RECRAFT_IMAGE_MODEL
       ? await generateRecraftImage(apiKey, params.prompt, ratioKey)
       : await tryGemini(generationModel, finalPrompt);
   } catch (error) {
-    if (generationModel === DEFAULT_IMAGE_MODEL) throw error;
+    if (generationModel === RECRAFT_IMAGE_MODEL) throw error;
     console.warn(`[OpenRouter Image] Primary Gemini generation failed: ${getErrorMessage(error)}. Trying fallback...`);
 
     if (referenceImages.length > 0) {
@@ -595,7 +595,7 @@ async function openrouterGenerateImageUnmetered(params: OpenRouterImageParams): 
       const sanitized = sanitizePrompt(finalPrompt);
       console.log(`[OpenRouter Image] Retrying Gemini with sanitized prompt: "${sanitized}"`);
       try {
-        return await tryGemini(generationModel === DEFAULT_IMAGE_MODEL ? IMAGE_EDIT_MODEL : generationModel, sanitized);
+        return await tryGemini(generationModel === RECRAFT_IMAGE_MODEL ? IMAGE_EDIT_MODEL : generationModel, sanitized);
       } catch (retryError) {
         console.error(`[OpenRouter Image] All image generation options failed. Final error: ${getErrorMessage(retryError)}`);
         throw error;

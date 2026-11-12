@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
 import { configureQuotationClient } from "./api";
 import QuotationApp from "./App";
+import AiProgressPopup from "./AiProgressPopup";
 import "./styles.css";
 import "./homepage.css";
 import "./erp.css";
@@ -20,7 +21,7 @@ function ScopedQuotation() {
     return release;
   }, [userProfile?.uid, userProfile?.companyCode, userProfile?.permissions, userProfile?.enabledModules, activeBranchId]);
   if (!ready) return <p role="status" className="p-6 text-sm text-on-surface-variant">Đang mở phân hệ Báo giá…</p>;
-  return <div className="quotation-module"><QuotationApp /></div>;
+  return <div className="quotation-module"><QuotationApp /><AiProgressPopup /></div>;
 }
 export default function QuotationTab() {
   const { userProfile } = useAuth(); const { activeBranchId } = useBranch();
