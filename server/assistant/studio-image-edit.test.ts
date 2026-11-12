@@ -46,3 +46,16 @@ it("rejects a background-removal response that is an opaque white-backed PNG", a
   await expect(editStudioImage({ sourceImage: imageDataUrl(source), prompt: "Tách toàn bộ nền", mode: "remove-background" }))
     .rejects.toThrow("Mô hình không trả ảnh có nền trong suốt");
 });
+
+it.each([
+  [402, 502],
+  [429, 429],
+  [401, 502],
+])("hides provider details from image-edit errors with status %i", async (providerStatus, responseStatus) => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  const source = await sharp({ create: { width: 2, height: 1, channels: 3, background: { r: 100, g: 120, b: 140 } } }).png().toBuffer();
+  vi.mocked(openrouterGenerateImage).mockRejectedValue(Object.assign(new Error("OpenRouter provider balance error"), { status: providerStatus }));
+
+  await expect(editStudioImage({ sourceImage: imageDataUrl(source), prompt: "Đổi nền", mode: "change-background" }))
+    .rejects.toMatchObject({ message: "Có sự cố từ hệ thống, vui lòng tải lại sau!", status: responseStatus });
+});

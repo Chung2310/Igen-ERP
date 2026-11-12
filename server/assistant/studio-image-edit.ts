@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { openrouterGenerateImage } from "../service/openrouter.service";
 import { AssistantError } from "./policy";
+import { STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, studioImageSystemError } from "./studio-image-errors";
 
 export const studioEditModes = ["custom", "erase", "remove-background", "change-background", "enhance"] as const;
 export type StudioEditMode = (typeof studioEditModes)[number];
@@ -66,7 +67,7 @@ function pixelRegion(region: StudioEditRegion, imageWidth: number, imageHeight: 
 }
 
 export async function editStudioImage(input: StudioEditInput): Promise<{ image: { url: string }; model: "iGenAI"; regionApplied: boolean }> {
-  if (!process.env.OPENROUTER_API_KEY?.trim()) throw new AssistantError("Chưa cấu hình OPENROUTER_API_KEY trên máy chủ.", 503);
+  if (!process.env.OPENROUTER_API_KEY?.trim()) throw new AssistantError(STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, 503);
   if (input.mode === "remove-background" && input.region) {
     throw new AssistantError("Xóa nền áp dụng cho toàn bộ ảnh; hãy bỏ chọn vùng chỉnh sửa.");
   }
@@ -127,11 +128,6 @@ export async function editStudioImage(input: StudioEditInput): Promise<{ image: 
     return { image: { url: `data:image/png;base64,${combined.toString("base64")}` }, model: "iGenAI", regionApplied: true };
   } catch (error) {
     if (error instanceof AssistantError) throw error;
-    const status = (error as { status?: number }).status;
-    const message = status === 401 ? "Khóa OpenRouter không hợp lệ."
-      : status === 402 ? "Tài khoản OpenRouter không đủ số dư để sửa ảnh."
-      : status === 429 ? "OpenRouter đang giới hạn yêu cầu. Vui lòng thử lại sau."
-      : "Không thể chỉnh sửa ảnh lúc này. Vui lòng thử lại.";
-    throw new AssistantError(message, status === 429 ? 429 : 502);
+    throw studioImageSystemError(error);
   }
 }

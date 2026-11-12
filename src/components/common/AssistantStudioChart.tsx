@@ -3,7 +3,7 @@ import { ChevronRight, LoaderCircle, Paperclip, Plus, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { AssistantStudioChartResult } from "./AssistantStudioChartResult";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import { chartTypes, type ChartType } from "./AssistantStudioChartTypes";
 import { assistantService } from "../../services/assistantService";
@@ -143,7 +143,7 @@ export function AssistantStudioChart({ onBack, historyId }: { onBack: () => void
         <div className="assistant-slide-composer mt-5 p-3">
           <label htmlFor="studio-chart-prompt" className="sr-only">Yêu cầu tạo biểu đồ (không bắt buộc)</label>
           <textarea id="studio-chart-prompt" maxLength={4000} rows={2} value={prompt} onChange={event => { setPrompt(event.target.value); setError(""); }} placeholder="Ví dụ: Vẽ cơ cấu khách du lịch theo mục đích chuyến đi từ bảng số liệu trong tệp đính kèm (có thể để trống để AI tự phân tích)" className="min-h-14 w-full resize-y border-0 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none" aria-describedby="studio-chart-count studio-chart-file-hint studio-chart-privacy" />
-          {attachment && <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-2 py-1.5 text-xs"><AssistantFileTypeIcon fileName={attachment.name} className="size-6 shrink-0" /><span className="min-w-0 flex-1 truncate" title={attachment.name}>{attachment.name}</span><button type="button" disabled={busy} onClick={() => { setAttachment(null); if (fileRef.current) fileRef.current.value = ""; }} aria-label="Bỏ tệp đính kèm" className={cn("shrink-0 rounded-md p-1 hover:bg-surface-container disabled:opacity-50", focusClass)}><X className="size-4" aria-hidden="true" /></button></div>}
+          {attachment && <div className="mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-2 py-1.5 text-xs"><Assistant2DFileIcon fileName={attachment.name} className="size-10 shrink-0" /><span className="min-w-0 flex-1 truncate" title={attachment.name}>{attachment.name}</span><button type="button" disabled={busy} onClick={() => { setAttachment(null); if (fileRef.current) fileRef.current.value = ""; }} aria-label="Bỏ tệp đính kèm" className={cn("shrink-0 rounded-md p-1 hover:bg-surface-container disabled:opacity-50", focusClass)}><X className="size-4" aria-hidden="true" /></button></div>}
           <div className="flex items-center justify-between gap-3 text-xs text-on-surface-variant">
             <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} aria-label="Đính kèm tệp dữ liệu" aria-describedby={error && !attachment ? "studio-chart-error" : "studio-chart-file-hint"} title="Đính kèm tệp dữ liệu" className={cn("inline-flex size-8 items-center justify-center rounded-md hover:bg-surface-container-low hover:text-primary disabled:cursor-not-allowed disabled:opacity-50", focusClass)}><Paperclip className="size-4" aria-hidden="true" /></button>
             <span id="studio-chart-count" className="tabular-nums">{prompt.length.toLocaleString("vi-VN")} / 4.000</span>

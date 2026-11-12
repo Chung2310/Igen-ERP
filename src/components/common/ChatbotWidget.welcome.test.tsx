@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ChatbotWidget } from "./ChatbotWidget";
 
@@ -29,6 +29,21 @@ vi.mock("../../services/assistantService", () => ({ assistantService: {
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe("ChatbotWidget welcome", () => {
+  it("keeps the prompt library out of the compact popup composer", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:popup-test:company", "qa");
+    const originalShowPopover = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "showPopover");
+    Object.defineProperty(HTMLElement.prototype, "showPopover", { configurable: true, value: vi.fn() });
+    try {
+      const { container } = render(<ChatbotWidget storageScope="popup-test" mode="popup" headerPanel openRequest={1} />);
+
+      await waitFor(() => expect(container.querySelector("form")).not.toBeNull());
+      expect(container.querySelector('button[aria-label="Mở thư viện câu lệnh mẫu"]')).toBeNull();
+    } finally {
+      if (originalShowPopover) Object.defineProperty(HTMLElement.prototype, "showPopover", originalShowPopover);
+      else delete (HTMLElement.prototype as HTMLElement & { showPopover?: () => void }).showPopover;
+    }
+  });
+
   it.each(["qa", "work"] as const)("shows greeting and composer in %s mode", mode => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", mode);
     const markup = renderToStaticMarkup(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);

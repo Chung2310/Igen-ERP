@@ -5,6 +5,7 @@ import { requestStudioImageEdit, type StudioEditMode } from "./assistantStudioIm
 import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechHistory";
 import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -247,7 +248,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                   focusClass
                 )}
               >
-                <Plus className="size-6 text-on-surface-variant" aria-hidden="true" />
+                <Assistant2DFileIcon fileName="image.png" action="upload" className="size-20 shrink-0" />
                 <span className="text-sm font-medium text-on-surface">Tải ảnh lên</span>
                 <span className="text-xs text-on-surface-variant">PNG, JPG, WebP · tối đa 15 MB</span>
                 <input
@@ -390,8 +391,8 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
 
             {/* Edit type picker */}
             <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
-              <h3 className="px-1 text-balance text-left text-base font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <h3 className="px-1 text-balance text-left text-sm font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
+              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
                 {editTypes.map(editType => {
                   const isSelected = mode === editType.id;
                   return (
@@ -400,35 +401,25 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                       type="button"
                       onClick={() => selectEditType(editType)}
                       aria-pressed={isSelected}
+                      title={editType.description}
                       className={cn(
-                        "group flex min-w-0 flex-col items-stretch gap-2.5 rounded-xl border p-2.5 text-center transition-colors hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-                        isSelected
-                          ? "border-primary bg-primary-container ring-2 ring-primary/30"
-                          : "border-outline-variant bg-surface-container-low hover:bg-surface-container"
+                        "overflow-hidden rounded-xl border border-outline-variant hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50",
+                        isSelected && "border-primary ring-2 ring-primary/30"
                       )}
                     >
-                      <img
-                        src={editType.artwork}
-                        alt=""
-                        aria-hidden="true"
-                        width={768}
-                        height={512}
-                        loading="lazy"
-                        decoding="async"
-                        className="aspect-[3/2] w-full rounded-lg border border-outline-variant bg-surface-container-low object-cover"
-                      />
-                      <span className={cn(
-                        "text-sm font-semibold leading-tight sm:text-base",
-                        isSelected ? "text-on-primary-container" : "text-on-surface"
-                      )}>
-                        {editType.label}
-                      </span>
-                      <span className={cn(
-                        "text-pretty text-sm leading-5",
-                        isSelected ? "text-on-primary-container/80" : "text-on-surface-variant"
-                      )}>
-                        {editType.description}
-                      </span>
+                      <div className="aspect-[16/9] w-full bg-surface-container-low">
+                        <img
+                          src={editType.artwork}
+                          alt=""
+                          aria-hidden="true"
+                          width={768}
+                          height={512}
+                          loading="lazy"
+                          decoding="async"
+                          className="size-full object-contain"
+                        />
+                      </div>
+                      <span className={cn("block truncate bg-surface-container-lowest px-2 py-1.5 text-left text-xs font-semibold text-on-surface", isSelected && "text-primary")}>{editType.label}</span>
                     </button>
                   );
                 })}

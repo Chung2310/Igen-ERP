@@ -16,10 +16,13 @@ it("shows three separate audio tools inside AI Studio", () => {
     "/ai-studio-speech-to-text.webp",
   ]);
   fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
-  expect(screen.getByRole("heading", { name: /Biến giọng nói thành văn bản dễ dùng/, level: 2 })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: /Biến giọng nói thành văn bản dễ dùng/ }).parentElement?.className).toContain("text-center");
+  expect(screen.getByRole("heading", { name: "Chuyển giọng nói thành văn bản", level: 2 })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Chuyển giọng nói thành văn bản", level: 2 }).parentElement?.className).toContain("text-center");
   expect(screen.getByRole("button", { name: "Tải lên từ máy tính" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Chuyển thành văn bản" }).parentElement?.className).toContain("justify-center");
+  const transcribeButton = screen.getByRole("button", { name: "Chuyển thành văn bản" }) as HTMLButtonElement;
+  expect(transcribeButton.parentElement?.className).toContain("sticky bottom-0");
+  expect(transcribeButton.className).toContain("bg-primary");
+  expect(transcribeButton.disabled).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "AI Studio" }));
   const cloneTool = screen.getByRole("button", { name: /Tạo giọng cá nhân/ });
   expect((cloneTool as HTMLButtonElement).disabled).toBe(true);
@@ -33,6 +36,7 @@ it("submits an audio file and shows the returned transcript", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
   const file = new File(["audio"], "mau.mp3", { type: "audio/mpeg" });
   fireEvent.change(screen.getByLabelText("Chọn tệp âm thanh"), { target: { files: [file] } });
+  expect((screen.getByRole("button", { name: "Chuyển thành văn bản" }) as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Chuyển thành văn bản" }));
   await waitFor(() => expect(submit).toHaveBeenCalledWith(file));
   expect(await screen.findByText("Xin chào iGen")).toBeTruthy();

@@ -4,7 +4,7 @@ import { AudioLines, Brain, ChartNoAxesCombined, FileAudio, FileImage, FileText,
 import { assistantService, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantMemoryManager } from "./AssistantMemoryManager";
 import "./ChatbotWidget.css";
 import type { AssistantReply } from "../../shared/assistant-workflow";
@@ -1265,7 +1265,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       {assistantMode === "work" && <input ref={attachmentInputRef} className="sr-only" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" aria-label="Chọn tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />}
       {assistantMode === "work" && attachment && <div className={cn("mx-1 mb-2 rounded-xl border border-outline-variant bg-surface-container-low p-3", placement === "conversation" && "order-5 w-full")}>
         <div className="flex min-w-0 items-start gap-2">
-          <AssistantFileTypeIcon fileName={attachment.fileName} className="mt-0.5 size-7 shrink-0" />
+          <Assistant2DFileIcon fileName={attachment.fileName} className="mt-0.5 size-10 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="break-all text-sm font-medium text-on-surface">{attachment.fileName}</p>
             <p className="text-xs text-on-surface/70">{attachment.rows.length} dòng · {attachmentSubmitted ? "đã gửi cho trợ lý" : "sẵn sàng gửi"}</p>
@@ -1293,7 +1293,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           {!isStandaloneChatHome && assistantMode === "work" && <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("assistant-composer-tool order-1 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
             <Plus className="size-5" aria-hidden="true" />
           </button>}
-          {!isStandaloneChatHome && assistantMode === "qa" && <AssistantPromptLibraryAction open={promptLibraryOpen} onClick={() => setPromptLibraryOpen(true)} />}
+          {mode !== "popup" && !isStandaloneChatHome && assistantMode === "qa" && <AssistantPromptLibraryAction open={promptLibraryOpen} onClick={() => setPromptLibraryOpen(true)} />}
           <button type="button" onClick={toggleVoiceInput} aria-label={voiceStatus === "manual" ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "manual" ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool order-3 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
             {voiceStatus === "manual" ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
           </button>

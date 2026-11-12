@@ -1,9 +1,9 @@
 import { useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis, Area, AreaChart } from "recharts";
-import { ChevronDown, Download, LoaderCircle, Sparkles, X } from "lucide-react";
+import { ChevronDown, Download, FileImage, FileSpreadsheet, LoaderCircle, Sparkles, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import type { AssistantChartResult } from "../../shared/assistant-chart";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { chartTypes, type ChartType } from "./AssistantStudioChartTypes";
 import { StyledSelect } from "./StyledSelect";
 import { createAssistantChartWorkbook } from "./assistant-studio-chart-excel";
@@ -27,19 +27,6 @@ function FilledGradientSparkles({ gradientId }: { gradientId: string }) {
     <path d="M12 2.5c.44 4.5 2.5 6.56 7 7-4.5.44-6.56 2.5-7 7-.44-4.5-2.5-6.56-7-7 4.5-.44 6.56-2.5 7-7Z" fill={`url(#${gradientId})`} />
     <path d="M19 14c.18 1.82 1.18 2.82 3 3-1.82.18-2.82 1.18-3 3-.18-1.82-1.18-2.82-3-3 1.82-.18 2.82-1.18 3-3Z" fill={`url(#${gradientId})`} />
     <path d="M5 16c.12 1.2.8 1.88 2 2-1.2.12-1.88.8-2 2-.12-1.2-.8-1.88-2-2 1.2-.12 1.88-.8 2-2Z" fill={`url(#${gradientId})`} />
-  </svg>;
-}
-
-function ExportFormatIcon({ format }: { format: "csv" | "png" | "excel" }) {
-  const color = format === "excel" ? "#16a34a" : format === "png" ? "#2563eb" : "#0d9488";
-  return <svg viewBox="0 0 24 24" className="size-6 shrink-0" aria-hidden="true" focusable="false">
-    <path d="M5.5 2.5h7.75L19 8.25v11.5A2.25 2.25 0 0 1 16.75 22h-11A2.25 2.25 0 0 1 3.5 19.75v-15A2.25 2.25 0 0 1 5.5 2.5Z" fill={color} />
-    <path d="M13 2.8v5.5h5.45" fill="white" fillOpacity=".9" />
-    <rect x="5.25" y="11" width="12.5" height="7.25" rx="1.1" fill="white" />
-    {format === "png" ? <>
-      <circle cx="14.5" cy="13.1" r=".9" fill={color} />
-      <path d="m6.4 17.25 3.3-3.25 2.05 1.8 1.35-1.1 3.55 2.55Z" fill={color} />
-    </> : <path d="M9.4 11v7.25m4.2-7.25v7.25M5.25 14.6h12.5" fill="none" stroke={color} strokeWidth="1.2" />}
   </svg>;
 }
 
@@ -292,7 +279,7 @@ export function AssistantStudioChartResult({ chart, onEdit }: { chart: Assistant
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><p className="text-xs font-medium text-primary">{chart.chartType} · {chart.sourceSheet}</p><h1 id="studio-chart-result-title" data-typography="page-title" className="mt-1 text-balance text-lg font-semibold">{chart.title}</h1><p className="mt-1 text-pretty text-sm text-on-surface-variant">{chart.summary}</p></div>
     </div>
-    <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant"><span className="inline-flex items-center gap-1.5"><AssistantFileTypeIcon fileName={chart.fileName} className="size-5 shrink-0" />{chart.fileName}</span><span>{chart.sourceRowCount.toLocaleString("vi-VN")} dòng đã phân tích</span></div>
+    <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant"><span className="inline-flex items-center gap-1.5"><Assistant2DFileIcon fileName={chart.fileName} className="size-10 shrink-0" />{chart.fileName}</span><span>{chart.sourceRowCount.toLocaleString("vi-VN")} dòng đã phân tích</span></div>
     {chart.warnings.length > 0 && <ul className="mb-4 space-y-1 rounded-lg border border-tertiary bg-tertiary-container p-3 text-sm text-on-tertiary-container">{chart.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul>}
     <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-6">
       <div className="text-center"><h2 className="text-balance text-lg font-semibold">{chart.title}</h2><p className="mt-1 text-xs text-on-surface-variant">{chart.yAxisLabel}{chart.unit ? ` · ${chart.unit}` : ""}</p></div>
@@ -322,9 +309,9 @@ export function AssistantStudioChartResult({ chart, onEdit }: { chart: Assistant
             <Download className="size-4 text-primary" aria-hidden="true" /><span className="hidden sm:inline">Tải xuống</span><ChevronDown className={cn("size-4 text-on-surface-variant", exportMenuOpen && "rotate-180")} aria-hidden="true" />
           </summary>
           <div id={exportMenuId} className="absolute bottom-full right-0 z-50 mb-2 grid min-w-52 gap-1 rounded-xl border border-outline-variant bg-surface-container-lowest p-1.5 shadow-lg">
-            <button type="button" onClick={() => { closeExportMenu(); downloadCsv(); }} className={cn("inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-on-surface hover:bg-surface-container-low", focusClass)}><ExportFormatIcon format="csv" />Tải dữ liệu CSV</button>
-            <button type="button" onClick={() => { closeExportMenu(); downloadPng(); }} disabled={pngExportBusy} aria-busy={pngExportBusy} className={cn("inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{pngExportBusy ? <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" /> : <ExportFormatIcon format="png" />}{pngExportBusy ? "Đang dựng PNG…" : "Tải ảnh PNG"}</button>
-            <button type="button" onClick={() => { closeExportMenu(); downloadExcel(); }} className={cn("inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-on-surface hover:bg-surface-container-low", focusClass)}><ExportFormatIcon format="excel" />Tải biểu đồ Excel</button>
+            <button type="button" onClick={() => { closeExportMenu(); downloadCsv(); }} className={cn("inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-on-surface hover:bg-surface-container-low", focusClass)}><FileSpreadsheet className="size-5 text-primary" aria-hidden="true" />Tải dữ liệu CSV</button>
+            <button type="button" onClick={() => { closeExportMenu(); downloadPng(); }} disabled={pngExportBusy} aria-busy={pngExportBusy} className={cn("inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{pngExportBusy ? <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" /> : <FileImage className="size-5 text-primary" aria-hidden="true" />}{pngExportBusy ? "Đang dựng PNG…" : "Tải ảnh PNG"}</button>
+            <button type="button" onClick={() => { closeExportMenu(); downloadExcel(); }} className={cn("inline-flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-on-surface hover:bg-surface-container-low", focusClass)}><FileSpreadsheet className="size-5 text-primary" aria-hidden="true" />Tải biểu đồ Excel</button>
           </div>
         </details>
       </div>

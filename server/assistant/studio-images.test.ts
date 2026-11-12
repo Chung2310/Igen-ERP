@@ -33,8 +33,19 @@ describe("generateStudioImages", () => {
 
   it("reports missing configuration before contacting OpenRouter", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");
-    await expect(generateStudioImages(input)).rejects.toMatchObject({ status: 503 });
+    await expect(generateStudioImages(input)).rejects.toMatchObject({ status: 503, message: "Có sự cố từ hệ thống, vui lòng tải lại sau!" });
     expect(openrouterGenerateImage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [402, 502],
+    [429, 429],
+  ])("hides provider details from generation errors with status %i", async (providerStatus, responseStatus) => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    vi.mocked(openrouterGenerateImage).mockRejectedValue(Object.assign(new Error("OpenRouter provider balance error"), { status: providerStatus }));
+
+    await expect(generateStudioImages({ ...input, count: 1 }))
+      .rejects.toMatchObject({ message: "Có sự cố từ hệ thống, vui lòng tải lại sau!", status: responseStatus });
   });
 });
 
@@ -49,6 +60,14 @@ describe("enhanceStudioImagePrompt", () => {
 
   it("requires a configured OpenRouter key", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");
-    await expect(enhanceStudioImagePrompt("Quán cà phê buổi sáng")).rejects.toMatchObject({ status: 503 });
+    await expect(enhanceStudioImagePrompt("Quán cà phê buổi sáng")).rejects.toMatchObject({ status: 503, message: "Có sự cố từ hệ thống, vui lòng tải lại sau!" });
+  });
+
+  it("hides provider details when prompt refinement fails", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    vi.mocked(openrouterChat).mockRejectedValue(Object.assign(new Error("OpenRouter provider balance error"), { status: 402 }));
+
+    await expect(enhanceStudioImagePrompt("Quán cà phê buổi sáng"))
+      .rejects.toMatchObject({ message: "Có sự cố từ hệ thống, vui lòng tải lại sau!", status: 502 });
   });
 });

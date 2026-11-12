@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Bold, ChevronLeft, ChevronRight, FileText, ImagePlus, Italic, LoaderCircle, Paperclip, Plus, Save, Sparkles, Trash2, Type, Underline, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService } from "../../services/assistantService";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { assistantSlideFontFamilies, type AssistantSlideCanvasObject, type AssistantSlideDeck, type AssistantSlideHistoryItem, type AssistantSlideStyle, type AssistantSlideTextStyle } from "../../shared/assistant-slide";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioBrandMark } from "./AssistantStudioBrandMark";
@@ -601,7 +601,7 @@ export function AssistantStudioSlideTool({ onBack, initialDeckId = null }: { onB
             </button>
             {file && (
               <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3 py-1 text-xs font-medium text-primary">
-                <AssistantFileTypeIcon fileName={file.name} className="size-4 shrink-0" />
+                <Assistant2DFileIcon fileName={file.name} className="size-10 shrink-0" />
                 <span className="max-w-44 truncate sm:max-w-72">{file.name}</span>
                 <button type="button" aria-label="Bỏ tài liệu đã chọn" disabled={isGenerating} onClick={clearFile} className={cn("grid size-5 shrink-0 place-items-center rounded-full hover:bg-primary/20 disabled:opacity-50", focusClass)}>
                   <X className="size-3" aria-hidden="true" />

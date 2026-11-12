@@ -32,11 +32,11 @@ describe("AssistantStudioImage", () => {
   });
 
   it("shows a backend error beside the generate action", async () => {
-    vi.mocked(requestStudioImages).mockRejectedValue(new Error("OpenRouter đang giới hạn yêu cầu."));
+    vi.mocked(requestStudioImages).mockRejectedValue(new Error("Có sự cố từ hệ thống, vui lòng tải lại sau!"));
     render(<AssistantStudioImage onBack={() => {}} />);
     fireEvent.change(screen.getByLabelText("Mô tả hình ảnh"), { target: { value: "Một bông hoa màu vàng" } });
     fireEvent.submit(screen.getByRole("form", { name: "Thiết lập tạo hình ảnh" }));
-    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "OpenRouter đang giới hạn yêu cầu.");
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Có sự cố từ hệ thống, vui lòng tải lại sau!");
   });
 
   it("shows guidance and the illustration before generation", () => {
