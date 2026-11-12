@@ -271,7 +271,7 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
                 <p className="text-pretty text-sm sm:text-base text-on-surface-variant">Mô tả ý tưởng và chọn khung hình để bắt đầu.</p>
               </div>
               <div className="my-5 flex w-full justify-center">
-                <img src="/ai-studio-image-hero.png" alt="Bộ ảnh phong cảnh, hoa và nội thất được sáng tạo bằng AI" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />
+                <img src="/ai-studio-image-hero.png" alt="Minh họa bãi biển, bình hoa và đồ uống được tạo bằng AI" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />
               </div>
               <section aria-label="Thư viện mẫu" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
                 <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>

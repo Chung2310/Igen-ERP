@@ -41,7 +41,7 @@ describe("AssistantStudioImage", () => {
 
   it("shows guidance and the illustration before generation", () => {
     render(<AssistantStudioImage onBack={() => {}} />);
-    expect(screen.getByRole("img", { name: "Bộ ảnh phong cảnh, hoa và nội thất được sáng tạo bằng AI" }).getAttribute("src")).toBe("/ai-studio-image-hero.png");
+    expect(screen.getByRole("img", { name: "Minh họa bãi biển, bình hoa và đồ uống được tạo bằng AI" }).getAttribute("src")).toBe("/ai-studio-image-hero.png");
     expect(screen.getByText("Mô tả ý tưởng và chọn khung hình để bắt đầu.")).toBeTruthy();
     expect(screen.queryByText("Gợi ý phong cách")).toBeNull();
   });

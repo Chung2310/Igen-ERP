@@ -339,7 +339,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
             {/* Hero image */}
             <div className="my-5 flex w-full justify-center">
               <img
-                src="/ai-studio-image-hero.png"
+                src="/ai-studio-image-edit-hero.png"
                 alt="Minh hoạ chỉnh sửa hình ảnh bằng AI"
                 width="1536"
                 height="1024"
