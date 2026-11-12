@@ -24,6 +24,7 @@ vi.mock("./image-search", async () => {
 
 import { AssistantMessageContent } from "../../src/components/common/AssistantMessageContent";
 import {
+  answerAssistantGeneralQuestion,
   answerAssistantResearchQuestion,
   assistantImageSearchQuery,
   sanitizeResearchReplyAndSources,
@@ -36,6 +37,43 @@ import {
 } from "./image-search";
 
 describe("deep research image and link accuracy", () => {
+  it("sends images attached to a chat question as vision input", async () => {
+    state.openrouterChat.mockResolvedValueOnce({ text: "Trong ảnh có một chiếc xe đạp." });
+    await answerAssistantGeneralQuestion({
+      question: "Mô tả ảnh này",
+      messages: [],
+      visualAttachments: [{ fileName: "xe.png", dataUrl: "data:image/jpeg;base64,ZmFrZQ==" }],
+    });
+
+    const request = state.openrouterChat.mock.calls.at(-1)?.[0];
+    expect(request!.messages.at(-1)).toEqual({
+      role: "user",
+      content: [
+        { type: "text", text: expect.stringContaining("xe.png") },
+        { type: "image_url", image_url: { url: "data:image/jpeg;base64,ZmFrZQ==" } },
+      ],
+    });
+  });
+
+  it("passes an uploaded table to chat as source data", async () => {
+    state.openrouterChat.mockResolvedValueOnce({ text: "Bảng có một học viên." });
+    const documentContext = {
+      title: "danh_sach.csv",
+      version: 1,
+      content: { type: "uploaded-table", headers: ["Học viên"], rows: [["Minh"]] },
+    };
+
+    await answerAssistantResearchQuestion({
+      question: "Tóm tắt tệp này",
+      messages: [],
+      documentContext,
+      research: true,
+    });
+
+    const request = state.openrouterChat.mock.calls.at(-1)?.[0];
+    expect(JSON.parse(request!.messages[1].content).sourceDocument).toEqual(documentContext);
+  });
+
   it("does not misinterpret Vietnamese 'ai' (who) as Artificial Intelligence", () => {
     expect(assistantImageSearchQuery("Ai là người sáng lập tập đoàn Microsoft?")).toBe(
       "Ai là người sáng lập tập đoàn Microsoft?",

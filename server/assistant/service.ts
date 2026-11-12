@@ -24,8 +24,9 @@ import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { formatQuotationResult, quotationValue } from "./quotation-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
+import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
 export { missingOptionalCreateFields } from "./completion";
-export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
   if (!pending || operationById(pending.actionId)) return pending;
@@ -1499,7 +1500,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const scope = scopeOf(req);
   const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const fileDigestInput = input.conversationUpload ? {
+    fileName: input.conversationUpload.fileName,
+    digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
+  } : null;
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1542,7 +1547,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const trainingContentSummary = input.trainingContent
     ? `Đã gửi biểu mẫu với ${input.trainingContent.lessons.length} bài giảng và ${input.trainingContent.quizzes.length} câu hỏi trắc nghiệm.`
     : "";
-  const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : ""].filter(Boolean).join("\n");
+  const uploadedFileSummary = input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
+  let conversationFile: AssistantConversationFileContext | undefined;
+  const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
   const forgetMemoryCommand = input.text ? parseExplicitMemoryForgetCommand(input.text) : null;
   const historyContent = forgetMemoryCommand
@@ -1986,12 +1993,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   };
 
   try {
+    if (input.conversationUpload) {
+      conversationFile = await readAssistantConversationFile({ buffer: input.conversationUpload.buffer, fileName: input.conversationUpload.fileName, req });
+    }
     const settings = await getSettings(req);
     responseRules = settings.responseRules || "";
     autoMemoryEnabled = settings.autoMemoryEnabled ?? false;
     const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
-    if (assistantMode === "qa" && (!input.text || input.attachment || input.decision || input.referenceSelections || input.trainingContent)) {
-      throw new AssistantError("Tab Hỏi đáp chỉ nhận câu hỏi dạng tin nhắn. Hãy chuyển sang tab Thao tác để tra cứu hoặc cập nhật dữ liệu.");
+    if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.trainingContent)) {
+      throw new AssistantError("Tab Trò chuyện cần có nội dung tin nhắn. Hãy nhập câu hỏi hoặc yêu cầu kèm tệp.");
     }
     if (forgetMemoryCommand !== null) {
       const deleted = await forgetAssistantMemoryByContent(req, forgetMemoryCommand);
@@ -2012,6 +2022,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           requestId: input.requestId,
           pendingDocumentRequest,
           question: input.text,
+          ...(conversationFile ? {
+            documentContext: conversationFile.documentContext,
+            ...(conversationFile.visualAttachments?.length ? { visualAttachments: conversationFile.visualAttachments } : {}),
+          } : input.attachment ? { documentContext: {
+            title: input.attachment.fileName,
+            version: 1,
+            content: { type: "uploaded-table", headers: input.attachment.headers, rows: input.attachment.rows },
+          } } : {}),
           research: true,
           messages: session.messages as { role: "user" | "assistant"; content: string }[],
           instructions: settings?.instructions || "",
