@@ -859,8 +859,14 @@ export const zaloMessengerService = {
   /**
    * Xử lý sự kiện Webhook từ Zalo OA gửi sang
    */
-  async handleWebhookEvent(body: any) {
-    console.log("[Zalo Service Webhook] Nhận sự kiện từ Zalo OA:", JSON.stringify(body));
+  async dispatchInboundMessage(oaId: string, conversationId: string, text: string, messageId: string) {
+    const latest = await ZaloMessageModel.findOne({ conversationId }).sort({ timestamp: -1, _id: -1 }).select("messageId").lean();
+    if (latest?.messageId === messageId) {
+      await aiAutoReplyService.triggerAutoReply("zalo", oaId, conversationId, text, messageId, { propagateError: true });
+    }
+  },
+
+  async handleWebhookEvent(body: any, { resumeDispatch = false } = {}) {
 
     let oaId = body.oa_id || body.recipient?.id;
 
@@ -913,11 +919,17 @@ export const zaloMessengerService = {
     }
 
     const senderId = body.sender?.id; // User ID OA-Scoped của khách hàng
+    if (!senderId) return;
     const messageId = body.message?.msg_id || `zalo_in_${randomUUID()}`;
-    const timestamp = body.timestamp ? new Date(Number(body.timestamp)) : new Date();
+    const receivedAt = Number(body.timestamp);
+    const eventTime = new Date(receivedAt > 100_000_000_000 ? receivedAt : receivedAt * 1000);
+    const timestamp = receivedAt > 0 && !Number.isNaN(eventTime.getTime()) ? eventTime : new Date();
     const duplicateMsg = await ZaloMessageModel.findOne({ messageId });
     if (duplicateMsg) {
-      console.info(`[Zalo Service Webhook] Bỏ qua webhook trùng cho messageId=${messageId}.`);
+      if (resumeDispatch && duplicateMsg.direction === "inbound" && duplicateMsg.recipientId === oaId && duplicateMsg.senderId === senderId) {
+        await ZaloConversationModel.updateOne({ _id: duplicateMsg.conversationId, oaId }, { $pull: { pendingInboundMessageIds: messageId } });
+        await this.dispatchInboundMessage(oaId, String(duplicateMsg.conversationId), duplicateMsg.text, messageId);
+      }
       return;
     }
 
@@ -981,7 +993,8 @@ export const zaloMessengerService = {
         if (token) {
           const profileUrl = `https://openapi.zalo.me/v3.0/oa/user/detail?data=${encodeURIComponent(JSON.stringify({ user_id: senderId }))}`;
           const profileResponse = await (globalThis as any).fetch(profileUrl, {
-            headers: { "access_token": token }
+            headers: { "access_token": token },
+            signal: AbortSignal.timeout(5_000),
           });
           const profileData = await profileResponse.json().catch(() => null);
           if (profileResponse.ok && profileData?.error === 0 && profileData?.data) {
@@ -1000,54 +1013,42 @@ export const zaloMessengerService = {
     }
 
     if (!conversation) {
-      conversation = new ZaloConversationModel({
-        recipientId: senderId,
-        senderName,
-        avatarUrl,
-        oaId,
-        lastMessageText: text,
-        lastMessageAt: timestamp,
-        unreadCount: 1,
-        status: "open",
-      });
-      await conversation.save();
-    } else {
-      conversation.senderName = senderName;
-      conversation.avatarUrl = avatarUrl;
-      conversation.lastMessageText = text;
-      conversation.lastMessageAt = timestamp;
-      conversation.unreadCount += 1;
-      conversation.status = "open";
-      await conversation.save();
+      conversation = await ZaloConversationModel.findOneAndUpdate({ recipientId: senderId, oaId }, {
+        $setOnInsert: { senderName, avatarUrl, lastMessageText: text, lastMessageAt: timestamp },
+      }, { upsert: true, returnDocument: "after" });
     }
+    if (!conversation) throw new Error("Could not find or create the Zalo conversation.");
 
-    // LÆ°u tin nháº¯n chi tiáº¿t
-    const existingMsg = await ZaloMessageModel.findOne({ messageId });
-    if (!existingMsg) {
-      const newMsg = new ZaloMessageModel({
-        conversationId: conversation._id,
-        senderId,
-        recipientId: oaId,
-        direction: "inbound",
-        text,
-        attachments,
-        messageId,
-        timestamp,
-        status: "delivered",
-      });
-      await newMsg.save();
+    // Apply the inbox summary once, even if the worker stops before inserting the message.
+    const updatedConversation = await ZaloConversationModel.findOneAndUpdate({
+      _id: conversation._id, pendingInboundMessageIds: { $ne: messageId },
+    }, [{ $set: {
+      pendingInboundMessageIds: { $concatArrays: [{ $ifNull: ["$pendingInboundMessageIds", []] }, { $literal: [messageId] }] },
+      unreadCount: { $add: [{ $ifNull: ["$unreadCount", 0] }, 1] },
+      status: "open",
+      senderName: { $literal: senderName },
+      avatarUrl: { $literal: avatarUrl },
+      lastMessageAt: { $max: ["$lastMessageAt", timestamp] },
+      lastMessageText: { $cond: [{ $lte: ["$lastMessageAt", timestamp] }, { $literal: text }, "$lastMessageText"] },
+    } }], { returnDocument: "after", updatePipeline: true });
 
-      // Realtime update qua Socket.IO
-      emitToMessengerAccount("zalo", oaId, "new_message", {
-        message: newMsg,
-        conversation: conversation
-      });
-      emitToMessengerAccount("zalo", oaId, "conversation_updated", conversation);
-      console.log(`[Zalo Service Webhook] Đã lưu tin nhắn mới thành công từ Zalo User: ${senderId}`);
+    const newMsg = await ZaloMessageModel.create({
+      conversationId: conversation._id,
+      senderId,
+      recipientId: oaId,
+      direction: "inbound",
+      text,
+      attachments,
+      messageId,
+      timestamp,
+      status: "delivered",
+    });
+    await ZaloConversationModel.updateOne({ _id: conversation._id }, { $pull: { pendingInboundMessageIds: messageId } });
 
-      // Kích hoạt AI Auto-Reply Bot bất đồng bộ
-      aiAutoReplyService.triggerAutoReply("zalo", oaId, conversation._id.toString(), text, messageId);
-    }
+    const inboxConversation = updatedConversation || conversation;
+    emitToMessengerAccount("zalo", oaId, "new_message", { message: newMsg, conversation: inboxConversation });
+    emitToMessengerAccount("zalo", oaId, "conversation_updated", inboxConversation);
+    await this.dispatchInboundMessage(oaId, String(conversation._id), text, messageId);
   }
 };
 

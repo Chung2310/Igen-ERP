@@ -47,7 +47,7 @@ it.each(["/omni-inbox", "/marketing-campaigns", "/company-knowledge"])("scopes %
 it("updates only AI configuration under Inbox permissions", async () => {
   expect((await request("/omni-inbox/accounts/:id/ai-config", "patch", { aiAutoReplyConfig: { enabled: true, commentReplyEnabled: true } })).status).toBe(200);
   expect(state.filter).toEqual({ _id: "507f1f77bcf86cd799439011", companyCode: "ERP" });
-  expect(state.update).toEqual({ $set: { aiAutoReplyConfig: { enabled: true, commentReplyEnabled: true } } });
+  expect(state.update).toEqual({ $set: { "aiAutoReplyConfig.enabled": true, "aiAutoReplyConfig.commentReplyEnabled": true } });
 });
 it.each([
   { aiAutoReplyConfig: { enabled: true }, accessToken: "injected" },

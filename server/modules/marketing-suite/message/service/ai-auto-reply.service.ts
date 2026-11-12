@@ -24,6 +24,9 @@ import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service
 import { assertPersonalAutoReplyOwnership, inheritPageReplyRules, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { selectCurrentOrderContext } from "./messenger-order-context";
 import { chatOrderFlowRegistry } from "./chat-ordering/registry";
+import type { ChatOrderFlowInput } from "./chat-ordering/core/types";
+import { enqueueLeadIntakeRetry } from "./messenger-background-jobs";
+import { facebookMessageOrder, loadMessengerReplyMessages, olderThanMessage } from "./messenger-reply-messages";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { splitHistoryAndPendingInboundMessages, type ChatImageObservation } from "./chat-image-context";
 import { prepareChatReplyContext, commitChatVisualContext, buildChatConversationInstructions,
@@ -36,8 +39,7 @@ import { withAiUsage } from "../../shared/service/ai-subscription.service";
 // messageKey prevents polling/sync from pushing the same inbound message forever.
 const pendingReplies = new Map<string, { timeout: NodeJS.Timeout; messageKey: string }>();
 const generatingReplies = new Set<string>();
-// One deferred Facebook turn per conversation; never start it while generation is active.
-const deferredFacebookReplies = new Map<string, { platformId: string; text: string; messageId?: string }>();
+const deferredReplies = new Map<string, { channel: "facebook" | "zalo"; platformId: string; text: string; messageId?: string }>();
 const FACEBOOK_REPLY_WORKER_INTERVAL_MS = 10 * 1000;
 let facebookReplyWorkerTimer: NodeJS.Timeout | undefined;
 let facebookReplyWorkerRunning = false;
@@ -808,6 +810,7 @@ export const aiAutoReplyService = {
       let executionError: unknown;
       let outgoingSendStarted = false;
       let executionCancelled = false;
+      let ownsConversation = false;
       const timeoutId = setTimeout(async () => {
         try {
           if (pendingReplies.get(conversationId)?.timeout === timeoutId) {
@@ -815,8 +818,10 @@ export const aiAutoReplyService = {
           }
 
           if (generatingReplies.has(conversationId)) {
-            if (channel === "facebook") deferredFacebookReplies.set(conversationId,
-              { platformId: resolvedPlatformId, text: normalizedIncomingText, messageId: incomingMessageId });
+            if (channel === "facebook" || channel === "zalo") {
+              deferredReplies.set(conversationId, { channel, platformId: resolvedPlatformId, text: normalizedIncomingText, messageId: incomingMessageId });
+              return;
+            }
             console.log(`[AI AutoReply] ⚠️ BỎ QUA: Bỏ qua tự động phản hồi hội thoại ${conversationId} vì đang có tiến trình sinh câu trả lời đang chạy.`);
             await aiKnowledgeService.createReplyLog({
               companyCode: targetCompanyCode,
@@ -829,6 +834,8 @@ export const aiAutoReplyService = {
             }).catch(() => {});
             return;
           }
+          generatingReplies.add(conversationId);
+          ownsConversation = true;
 
           if (channel === "facebook" && incomingMessageId) {
             const claim = await claimFacebookAutoReplyJob(conversationId, incomingMessageId);
@@ -881,12 +888,11 @@ export const aiAutoReplyService = {
               return;
             }
 
-            // Fetch last 15 messages for history context
-            const dbMsgs = await ZaloMessageModel.find({ conversationId })
-              .sort({ timestamp: -1 })
-              .limit(15);
-            
-            dbMsgs.reverse();
+            const dbMsgs = await loadMessengerReplyMessages(
+              (cursor, limit) => ZaloMessageModel.find({ conversationId, ...olderThanMessage(cursor) })
+                .sort({ timestamp: -1, _id: -1 }).limit(limit).lean().exec(),
+              15,
+            );
             
             if (dbMsgs.length > 0) {
               latestDbMessage = dbMsgs[dbMsgs.length - 1];
@@ -934,12 +940,11 @@ export const aiAutoReplyService = {
               return;
             }
 
-            // Fetch last 15 messages for history context
-            const dbMsgs = await FBMessageModel.find({ conversationId })
-              .sort({ timestamp: -1 })
-              .limit(15);
-            
-            dbMsgs.reverse();
+            const dbMsgs = await loadMessengerReplyMessages(
+              (cursor, limit) => FBMessageModel.find({ conversationId, ...olderThanMessage(cursor, true) })
+                .sort(facebookMessageOrder).limit(limit).lean().exec(),
+              15,
+            );
 
             if (dbMsgs.length > 0) {
               latestDbMessage = dbMsgs[dbMsgs.length - 1];
@@ -1053,26 +1058,29 @@ export const aiAutoReplyService = {
 
           console.log(`[AI AutoReply] 🤖 KHỞI CHẠY: Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId} (${channel.toUpperCase()})`);
           console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}, groupedMessageCount=${groupedMessageCount}, groupedTextLength=${groupedCustomerMessage.length}`);
-          generatingReplies.add(conversationId);
 
           if (channel === "facebook") {
             await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on", facebookTokenContext).catch(() => {});
           }
 
-          try {
+          {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
             const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
-              const orderFlow = channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
-              const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId)
-                ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId }, latestDbMessage.messageId) : undefined;
+              const intakePlatform = channel === "facebook" || channel === "zalo" || channel === "tiktok" ? channel : undefined;
+              const orderFlow = intakePlatform ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId, intakePlatform) : undefined;
+              const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId, intakePlatform, companyCode)
+                ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId, platform: intakePlatform }, latestDbMessage.messageId) : undefined;
               // Generic intake uses the conversation history. Inbound messages are
               // not assigned the synthetic "page-intake" consultation session ID.
               if (customerSession && orderFlow?.key !== "page-intake") {
-                const sessionMessages = await FBMessageModel.find({ conversationId, consultationSessionId: customerSession.sessionId })
-                  .sort({ timestamp: -1 }).limit(60).lean();
-                const aiContextMessages = withFacebookActionPayload(sessionMessages.reverse());
+                const sessionMessages = await loadMessengerReplyMessages(
+                  (cursor, limit) => FBMessageModel.find({ conversationId, consultationSessionId: customerSession.sessionId, ...olderThanMessage(cursor, true) })
+                    .sort(facebookMessageOrder).limit(limit).lean().exec(),
+                  60,
+                );
+                const aiContextMessages = withFacebookActionPayload(sessionMessages);
                 const grouped = splitHistoryAndPendingInboundMessages(aiContextMessages);
                 visualSourceMessages = sessionMessages;
                 groupedCustomerMessage = grouped.combinedText || latestDbMessage.text || normalizedIncomingText;
@@ -1134,16 +1142,27 @@ export const aiAutoReplyService = {
               // Call Gemini Service
               console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
               console.log(`[AI AutoReply] Gemini call: conversationId=${conversationId}, channel=${channel}`);
-              const checkoutReply = orderFlow ? await orderFlow.process({
-                companyCode, pageId: resolvedPlatformId, conversationId, messageId: latestDbMessage?.messageId || incomingMessageId,
+              const flowInput: ChatOrderFlowInput = {
+                companyCode, pageId: resolvedPlatformId, conversationId, platform: intakePlatform, messageId: latestDbMessage?.messageId || incomingMessageId || String(latestDbMessage._id),
+                messageAt: latestDbMessage?.timestamp ? new Date(latestDbMessage.timestamp) : undefined,
                 message: groupedCustomerMessage, history, imageUrls: pendingImageUrls, observation: imageObservation,
                 visualMode: aiConfig.imageReplyEnabled === true,
-                replyDeadlineAt: effectiveRagContext.replyDeadlineAt,
+                replyDeadlineAt: orderFlow?.key === "page-intake" && channel !== "tiktok"
+                  ? Math.min(effectiveRagContext.replyDeadlineAt ?? Infinity, Date.now() + 12_000)
+                  : effectiveRagContext.replyDeadlineAt,
                 customerAddressStyle: aiConfig.customerAddressStyle,
                 session: customerSession,
                 businessContext: [aiConfig.advancedInstructions, aiConfig.customerServiceScript,
                   effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
-              }) : undefined;
+              };
+              const checkoutReply = await orderFlow?.process(flowInput).catch(async error => {
+                if (orderFlow.key !== "page-intake" || channel === "tiktok") throw error;
+                console.warn("[AI AutoReply] Lead intake failed", { channel, conversationId, error: error?.name });
+                await enqueueLeadIntakeRetry(flowInput).catch(queueError => {
+                  console.error("[AI AutoReply] Lead intake retry could not be saved", { channel, conversationId, error: queueError?.name });
+                });
+                return undefined;
+              });
               let aiResponse = checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
                 ...aiConfig,
                 advancedInstructions: [conversationalInstructions, orderFlow?.conversationInstructions,
@@ -1191,13 +1210,14 @@ export const aiAutoReplyService = {
             // Pre-send check: verify if a human agent has replied during the Gemini inference
             let preSendDirection = "inbound";
             if (channel === "zalo") {
-              const latestMsg = await ZaloMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
+              const latestMsg = await ZaloMessageModel.findOne({ conversationId }).sort({ timestamp: -1, _id: -1 });
+              if (latestMsg?.messageId !== latestDbMessage?.messageId) return;
               if (latestMsg) preSendDirection = latestMsg.direction;
             } else if (channel === "tiktok") {
               const latestMsg = await TikTokMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
               if (latestMsg) preSendDirection = latestMsg.direction;
             } else {
-              const latestMsg = await FBMessageModel.findOne({ conversationId }).sort({ timestamp: -1 });
+              const latestMsg = await FBMessageModel.findOne({ conversationId }).sort(facebookMessageOrder);
               if (latestMsg?.messageId !== latestDbMessage?.messageId) return;
               if (latestMsg) preSendDirection = latestMsg.direction;
             }
@@ -1258,7 +1278,7 @@ export const aiAutoReplyService = {
                 ]);
                 const recentCustomerImage = recentMessages.some(message => message.direction === "inbound"
                   && message.attachments?.some(attachment => attachment.type === "image"));
-                const latestInbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 });
+                const latestInbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort(facebookMessageOrder);
                 if (latestInbound?.messageId !== latestDbMessage?.messageId) return;
                 if (!recentCustomerImage && !sentSample) {
                   await fbMessengerService.sendImage(resolvedPlatformId, conversationId,
@@ -1271,12 +1291,14 @@ export const aiAutoReplyService = {
                 const bubbleText = messagesToSend[index];
                 if (!bubbleText) continue;
                 if (channel === "facebook") {
-                  const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 });
+                  const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort(facebookMessageOrder);
                   if (inbound?.messageId !== latestDbMessage?.messageId) return;
                   if (queueLeaseToken && !await isFacebookAutoReplyLeaseActive(conversationId, incomingMessageId!, queueLeaseToken)) return;
                 }
 
                 if (channel === "zalo") {
+                  const inbound = await ZaloMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1, _id: -1 });
+                  if (inbound?.messageId !== latestDbMessage?.messageId) return;
                   await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
                 } else if (channel === "tiktok") {
                   await tiktokMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
@@ -1294,19 +1316,21 @@ export const aiAutoReplyService = {
               }
 
               if (checkoutReply) {
-                const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 });
-                if (inbound?.messageId !== latestDbMessage?.messageId) return;
-                if (checkoutReply.qrUrl) {
-                  const sentImage = await fbMessengerService.sendImage(resolvedPlatformId, conversationId,
-                  checkoutReply.qrUrl, facebookTokenContext, checkoutReply.qrImageAltText || "[Mã QR thanh toán]", beforeFacebookDelivery);
-                  lastFacebookReplyMessageId = sentImage.messageId;
+                if (channel === "facebook") {
+                  const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort(facebookMessageOrder);
+                  if (inbound?.messageId !== latestDbMessage?.messageId) return;
+                  if (checkoutReply.qrUrl) {
+                    const sentImage = await fbMessengerService.sendImage(resolvedPlatformId, conversationId,
+                      checkoutReply.qrUrl, facebookTokenContext, checkoutReply.qrImageAltText || "[Mã QR thanh toán]", beforeFacebookDelivery);
+                    lastFacebookReplyMessageId = sentImage.messageId;
+                  }
                 }
                 await orderFlow?.markDelivered(checkoutReply);
               }
 
               if (aiConfig.imageReplyEnabled === true) {
                 const latestVisualMessage = channel === "facebook"
-                  ? await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 }).lean()
+                  ? await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort(facebookMessageOrder).lean()
                   : channel === "zalo" ? await ZaloMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 }).lean()
                     : await TikTokMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 }).lean();
                 if (latestVisualMessage?.direction === "inbound"
@@ -1375,13 +1399,6 @@ export const aiAutoReplyService = {
               throw sendErr;
             }
 
-          } finally {
-            generatingReplies.delete(conversationId);
-            const deferred = deferredFacebookReplies.get(conversationId);
-            deferredFacebookReplies.delete(conversationId);
-            if (deferred && !pendingReplies.has(conversationId)) {
-              void this.triggerAutoReply("facebook", deferred.platformId, conversationId, deferred.text, deferred.messageId);
-            }
           }
         } catch (err: any) {
           console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHIÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
@@ -1416,6 +1433,14 @@ export const aiAutoReplyService = {
               },
               $unset: { leaseToken: 1, leaseUntil: 1 },
             }).catch(error => console.error("[AI AutoReply] Could not finalize durable Facebook reply:", error));
+          }
+          if (ownsConversation) {
+            generatingReplies.delete(conversationId);
+            const deferred = deferredReplies.get(conversationId);
+            deferredReplies.delete(conversationId);
+            if (deferred && !pendingReplies.has(conversationId)) {
+              void this.triggerAutoReply(deferred.channel, deferred.platformId, conversationId, deferred.text, deferred.messageId);
+            }
           }
         }
       }, scheduledDelayMs);

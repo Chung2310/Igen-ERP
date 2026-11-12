@@ -20,8 +20,9 @@ export function splitHistoryAndPendingInboundMessages<T extends ImageMessage & {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.direction !== "inbound") break;
-    if (String(message.text || "").trim() || getChatImageUrls([message]).length) pending.unshift(message);
+    if (String(message.text || "").trim() || getChatImageUrls([message]).length) pending.push(message);
   }
+  pending.reverse();
   const pendingSet = new Set(pending);
   const texts = pending.map(message => String(message.text || "").trim()).filter(Boolean);
   const historyMessages = messages.filter(message => !pendingSet.has(message));

@@ -1,6 +1,7 @@
 import { SocialIntegrationModel } from "../../../shared/model/social-integration.model.ts";
 import type { ChatOrderFlow } from "./core/types";
 import { PageChatFlowModel } from "../../model/page-chat-flow.model";
+import { LeadIntakeProfileModel } from "../../model/lead-intake-profile.model";
 import { pageIntakeFlow } from "./flows/page-intake";
 import { bakeryDefaultFlow } from "./flows/bakery-default/index";
 
@@ -30,11 +31,14 @@ function resolveFlow(companyCode?: string | null) {
 export const chatOrderFlowRegistry = {
   resolve: resolveFlow,
 
-  async resolveForCompanyPage(companyCode: string, pageId: string) {
-    const configured = await PageChatFlowModel.findOne({ companyCode, pageId, status: "active" }).select("flowKey").lean();
+  async resolveForCompanyPage(companyCode: string, pageId: string, platform: "facebook" | "zalo" | "tiktok" = "facebook") {
+    if (await LeadIntakeProfileModel.exists({ companyCode, platform, accountId: pageId, status: "active" })) return pageIntakeFlow;
+    const configured = await PageChatFlowModel.findOne({ companyCode, pageId, status: "active",
+      ...(platform === "facebook" ? { $or: [{ platform }, { platform: { $exists: false } }] } : { platform }) }).select("flowKey").lean();
     if (configured?.flowKey === "bakery-default") return bakeryDefaultFlow;
     if (configured) return pageIntakeFlow;
-    return resolveFlow(companyCode);
+    if (await LeadIntakeProfileModel.exists({ companyCode, platform: { $exists: false }, status: "active" })) return pageIntakeFlow;
+    return platform === "facebook" ? resolveFlow(companyCode) : undefined;
   },
 
   async resolveForPage(pageId: string) {
