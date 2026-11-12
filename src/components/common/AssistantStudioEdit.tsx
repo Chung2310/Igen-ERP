@@ -16,6 +16,9 @@ interface EditType {
   label: string;
   description: string;
   hint: string;
+  prompt?: string;
+  requiresDetails?: boolean;
+  detailsHint?: string;
   artwork: string;
 }
 
@@ -25,6 +28,9 @@ const editTypes: EditType[] = [
     label: "Xóa vùng ảnh",
     description: "Xóa một phần ảnh và tái tạo tự nhiên",
     hint: "Ví dụ: Xóa chiếc cốc trên bàn và lấp phần trống theo mặt bàn xung quanh.",
+    prompt: "Xóa đúng đối tượng được mô tả ở cuối prompt khỏi ảnh gốc. Chỉ xóa đối tượng đó; tái tạo tự nhiên vùng bị che, khớp kết cấu, màu sắc, ánh sáng và phối cảnh xung quanh. Giữ nguyên hoàn toàn các phần còn lại.\n\nĐối tượng/vùng cần xóa: ",
+    requiresDetails: true,
+    detailsHint: "Thêm mô tả vật thể hoặc vùng cần xóa ở cuối prompt mẫu.",
     artwork: "/ai-studio-edit-erase.webp",
   },
   {
@@ -32,6 +38,7 @@ const editTypes: EditType[] = [
     label: "Xóa nền",
     description: "Tách chủ thể ra khỏi nền ảnh",
     hint: "Ví dụ: Tách người khỏi nền, giữ nguyên tóc và đường viền tự nhiên.",
+    prompt: "Tách toàn bộ phông nền khỏi ảnh gốc để chỉ còn chủ thể. Giữ nguyên khuôn mặt, tóc, quần áo, hình dáng, màu sắc và các chi tiết của chủ thể. Xuất tệp PNG có kênh alpha trong suốt thật; làm trong suốt mọi pixel thuộc nền. Không thay nền bằng màu trắng hoặc màu khác, không vẽ ô caro giả, không thêm viền, bóng đổ hay vật thể mới.",
     artwork: "/ai-studio-edit-remove-background.webp",
   },
   {
@@ -39,6 +46,9 @@ const editTypes: EditType[] = [
     label: "Đổi nền",
     description: "Thay nền bằng màu hoặc cảnh mới",
     hint: "Ví dụ: Đổi nền phía sau thành màu xanh nhạt, giữ nguyên người ở phía trước.",
+    prompt: "Thay nền hiện tại bằng bối cảnh được mô tả ở cuối prompt. Chỉ chỉnh nền; giữ nguyên chủ thể, khuôn mặt, tóc, quần áo, tư thế, tỷ lệ và các chi tiết nhận diện. Khớp ánh sáng và phối cảnh giữa chủ thể với nền mới; không thêm chủ thể hoặc vật thể khác.\n\nNền mới: ",
+    requiresDetails: true,
+    detailsHint: "Mô tả màu sắc hoặc cảnh nền muốn thay vào ở cuối prompt mẫu.",
     artwork: "/ai-studio-edit-change-background.webp",
   },
   {
@@ -46,6 +56,7 @@ const editTypes: EditType[] = [
     label: "Nâng cao chất lượng",
     description: "Làm nét, giảm nhiễu và cải thiện chi tiết",
     hint: "Ví dụ: Làm ảnh rõ nét hơn, giảm nhiễu, giữ nguyên mọi chi tiết và khuôn mặt.",
+    prompt: "Cải thiện chất lượng ảnh gốc: làm rõ nét, giảm nhiễu và khôi phục chi tiết tự nhiên. Giữ nguyên nội dung, khuôn mặt, nhận diện, bố cục, màu sắc, chữ và logo. Không thêm, xóa hay thay đổi đối tượng; tránh làm mịn da hoặc tạo chi tiết giả.",
     artwork: "/ai-studio-edit-enhance.webp",
   },
 ];
@@ -62,6 +73,7 @@ type EditedResult = { url: string; source: string; name: string; prompt: string;
 
 export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const initialResult = historyItem?.kind === "edit-image" ? historyItem.payload as EditedResult : null;
   const [sourceImage, setSourceImage] = useState(() => initialResult?.source ?? "");
   const [fileName, setFileName] = useState(() => initialResult?.name ?? "");
@@ -137,6 +149,11 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
     if (loading) return;
     if (!sourceImage) { setError("Tải ảnh cần chỉnh sửa lên trước."); return; }
     if (prompt.trim().length < 3) { setError("Nhập yêu cầu chỉnh sửa ít nhất 3 ký tự."); return; }
+    if (activeEditType.requiresDetails && prompt.trim() === activeEditType.prompt?.trim()) {
+      setError(activeEditType.detailsHint || "Bổ sung chi tiết cần chỉnh sửa vào prompt mẫu trước khi tiếp tục.");
+      promptRef.current?.focus();
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -155,6 +172,22 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
       } catch { /* ignore storage errors */ }
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
+  }
+
+  function selectEditType(editType: EditType) {
+    const nextPrompt = editType.prompt ?? "";
+    if (mode === editType.id && prompt.trim() && prompt !== nextPrompt) {
+      setError("");
+      return;
+    }
+    setMode(editType.id);
+    setPrompt(nextPrompt);
+    setResult(null);
+    setError("");
+    requestAnimationFrame(() => {
+      promptRef.current?.focus();
+      promptRef.current?.setSelectionRange(nextPrompt.length, nextPrompt.length);
+    });
   }
 
   return (
@@ -242,13 +275,20 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
               maxLength={2000}
               rows={6}
               value={prompt}
+              ref={promptRef}
               onChange={e => { setPrompt(e.target.value); setResult(null); setError(""); }}
               disabled={loading}
               placeholder={activeEditType.hint}
+              aria-describedby="studio-edit-prompt-guidance studio-edit-prompt-count"
               className={cn(fieldClass, "min-h-32 resize-none")}
             />
+            <p id="studio-edit-prompt-guidance" className="mt-1 text-pretty text-xs text-on-surface-variant">
+              {activeEditType.requiresDetails && prompt.trim() === activeEditType.prompt?.trim()
+                ? activeEditType.detailsHint
+                : "Prompt mẫu đã điền sẵn; bạn có thể chỉnh sửa trước khi gửi."}
+            </p>
             <div className="mt-1 flex justify-end text-xs text-on-surface-variant">
-              <span className="shrink-0 tabular-nums">{prompt.length}/2.000</span>
+              <span id="studio-edit-prompt-count" className="shrink-0 tabular-nums">{prompt.length}/2.000</span>
             </div>
           </div>
         </div>
@@ -344,21 +384,21 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                 alt="Minh hoạ chỉnh sửa hình ảnh bằng AI"
                 width="1536"
                 height="1024"
-                className="h-auto max-h-[28dvh] w-full max-w-2xl object-contain drop-shadow-xs"
+                className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs"
               />
             </div>
 
             {/* Edit type picker */}
-            <section aria-label="Loại chỉnh sửa" className="w-full max-w-6xl space-y-3.5 pt-6 sm:pt-8">
+            <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
               <h3 className="px-1 text-balance text-left text-base font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {editTypes.map(editType => {
                   const isSelected = mode === editType.id;
                   return (
                     <button
                       key={editType.id}
                       type="button"
-                      onClick={() => setMode(editType.id)}
+                      onClick={() => selectEditType(editType)}
                       aria-pressed={isSelected}
                       className={cn(
                         "group flex min-w-0 flex-col items-stretch gap-2.5 rounded-xl border p-2.5 text-center transition-colors hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
