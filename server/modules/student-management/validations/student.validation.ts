@@ -1,4 +1,5 @@
 import Joi from "joi";
+import { STUDENT_STATUSES } from "../../../../shared/student-status";
 
 const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
@@ -64,8 +65,8 @@ export const createStudentSchema = Joi.object({
   idCardBackFile: uploadedFileSchema.optional(),
   portraitFile: uploadedFileSchema.optional(),
   status: Joi.alternatives().try(
-    Joi.array().items(Joi.string().valid("Chờ KSK", "Đã KSK", "Đã nộp HS", "Đang học", "Đang thi", "Đã đậu", "Thi lại", "Nghỉ học", "Nợ học phí")),
-    Joi.string().valid("Chờ KSK", "Đã KSK", "Đã nộp HS", "Đang học", "Đang thi", "Đã đậu", "Thi lại", "Nghỉ học", "Nợ học phí")
+    Joi.array().items(Joi.string().valid(...STUDENT_STATUSES)),
+    Joi.string().valid(...STUDENT_STATUSES)
   ).optional(),
   centerId: Joi.string().allow("").optional(),
   partnerId: Joi.string().allow("").optional(),
@@ -88,8 +89,8 @@ export const updateStudentSchema = Joi.object({
   fee: Joi.string().optional(),
   address: Joi.string().allow("").optional(),
   status: Joi.alternatives().try(
-    Joi.array().items(Joi.string().valid("Chờ KSK", "Đã KSK", "Đã nộp HS", "Đang học", "Đang thi", "Đã đậu", "Thi lại", "Nghỉ học", "Nợ học phí")),
-    Joi.string().valid("Chờ KSK", "Đã KSK", "Đã nộp HS", "Đang học", "Đang thi", "Đã đậu", "Thi lại", "Nghỉ học", "Nợ học phí")
+    Joi.array().items(Joi.string().valid(...STUDENT_STATUSES)),
+    Joi.string().valid(...STUDENT_STATUSES)
   ).optional(),
   healthCheckDate: Joi.string().allow("").optional(),
   healthCheckNotes: Joi.string().allow("").optional(),

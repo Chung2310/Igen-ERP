@@ -3,6 +3,7 @@
  */
 
 import type { CustomFieldValues } from '../shared/custom-fields/types';
+import type { StudentStatus } from '../../../shared/student-status';
 
 export interface UploadedFile {
   name: string;
@@ -11,7 +12,7 @@ export interface UploadedFile {
   uploadedAt: string;
 }
 
-export type StudentStatus = 'Chờ KSK' | 'Đã KSK' | 'Đã nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học' | 'Nợ học phí';
+export type { StudentStatus } from '../../../shared/student-status';
 
 export interface DrivingStudent {
   id: string;

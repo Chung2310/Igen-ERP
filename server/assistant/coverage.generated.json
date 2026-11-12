@@ -1,22 +1,11 @@
 {
-  "total": 1267,
+  "total": 1282,
   "connectedContracts": 797,
-  "connectedManualRoutes": 49,
-  "connectedRoutes": 846,
-  "reviewPending": 75,
-  "intentionallyUnsupported": 346,
-  "unresolved": [
-    {
-      "file": "server\\modules\\quotation\\router.ts",
-      "line": 2291,
-      "expression": "app.get([\"/contracts/:id/docx\", \"/contracts/:id/file\"], async (request, response) => {\r\n  const id = asId(request.params.id);\r\n  if (!id) return fail(response, "
-    },
-    {
-      "file": "server\\modules\\quotation\\router.ts",
-      "line": 2489,
-      "expression": "app.get([\"/acceptance-records/:id/docx\", \"/acceptance-records/:id/file\"], async (request, response) => {\r\n  const id = asId(request.params.id);\r\n  if (!id) retu"
-    }
-  ],
+  "connectedManualRoutes": 109,
+  "connectedRoutes": 906,
+  "reviewPending": 13,
+  "intentionallyUnsupported": 363,
+  "unresolved": [],
   "entries": [
     {
       "method": "GET",
@@ -2341,498 +2330,498 @@
     {
       "method": "GET",
       "path": "/quotation/usage",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 554
+      "line": 554,
+      "id": "quotation.usage"
     },
     {
       "method": "GET",
       "path": "/quotation/quote-templates",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 560
+      "line": 560,
+      "id": "quotation.template.list"
     },
     {
       "method": "GET",
       "path": "/quotation/quote-template",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 576
     },
     {
       "method": "POST",
       "path": "/quotation/quote-template",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
       "file": "server/modules/quotation/router.ts",
       "line": 582
     },
     {
       "method": "PATCH",
       "path": "/quotation/quote-template/:id/category",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 614
+      "line": 614,
+      "id": "quotation.template.update"
     },
     {
       "method": "DELETE",
       "path": "/quotation/quote-template/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 643
+      "line": 643,
+      "id": "quotation.template.delete"
     },
     {
       "method": "GET",
       "path": "/quotation/quote-template/:id/file",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 668
+      "line": 668,
+      "id": "quotation.template.download"
     },
     {
       "method": "GET",
       "path": "/quotation/price-list/:id/file",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 685
     },
     {
       "method": "GET",
       "path": "/quotation/files",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 696
+      "line": 696,
+      "id": "quotation.file.list"
     },
     {
       "method": "GET",
       "path": "/quotation/export-jobs/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Trợ lý tra tiến độ qua chứng từ nguồn bằng quotation.export.latest, không yêu cầu người dùng nhập ID tác vụ nội bộ.",
       "file": "server/modules/quotation/router.ts",
       "line": 708
     },
     {
       "method": "GET",
       "path": "/quotation/generated-export-files/latest",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 731
+      "line": 731,
+      "id": "quotation.export.latest"
     },
     {
       "method": "GET",
       "path": "/quotation/files/:id/download",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 828
+      "line": 828,
+      "id": "quotation.file.download"
     },
     {
       "method": "GET",
       "path": "/quotation/files/:id/preview",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
       "file": "server/modules/quotation/router.ts",
       "line": 844
     },
     {
       "method": "POST",
       "path": "/quotation/files",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
       "file": "server/modules/quotation/router.ts",
       "line": 857
     },
     {
       "method": "GET",
       "path": "/quotation/dashboard",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 914
     },
     {
       "method": "GET",
       "path": "/quotation/price-list",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 929
+      "line": 929,
+      "id": "quotation.price-list.list"
     },
     {
       "method": "POST",
       "path": "/quotation/price-list/preview",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
       "file": "server/modules/quotation/router.ts",
       "line": 935
     },
     {
       "method": "POST",
       "path": "/quotation/price-list",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
       "file": "server/modules/quotation/router.ts",
       "line": 952
     },
     {
       "method": "POST",
       "path": "/quotation/catalog/import/preview",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1011
+      "line": 1011,
+      "id": "quotation.catalog.import-preview"
     },
     {
       "method": "POST",
       "path": "/quotation/catalog/import/confirm",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1033
+      "line": 1033,
+      "id": "quotation.catalog.import"
     },
     {
       "method": "POST",
       "path": "/quotation/request-files",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
       "file": "server/modules/quotation/router.ts",
       "line": 1078
     },
     {
       "method": "GET",
       "path": "/quotation/request-files/:id/preview",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
       "file": "server/modules/quotation/router.ts",
       "line": 1093
     },
     {
       "method": "POST",
       "path": "/quotation/quote-requests",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1110
+      "line": 1110,
+      "id": "quotation.request.create"
     },
     {
       "method": "GET",
       "path": "/quotation/quote-requests",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1166
+      "line": 1166,
+      "id": "quotation.request.list"
     },
     {
       "method": "POST",
       "path": "/quotation/quote-requests/:id/analyze",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1174
+      "line": 1174,
+      "id": "quotation.request.analyze"
     },
     {
       "method": "GET",
       "path": "/quotation/overview",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1269
+      "line": 1269,
+      "id": "quotation.overview"
     },
     {
       "method": "GET",
       "path": "/quotation/quotes",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1292
+      "line": 1292,
+      "id": "quotation.quote.list"
     },
     {
       "method": "POST",
       "path": "/quotation/customer-quotes/suggest",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1357
+      "line": 1357,
+      "id": "quotation.customer-quote.suggest"
     },
     {
       "method": "GET",
       "path": "/quotation/budget-plans",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1369
+      "line": 1369,
+      "id": "quotation.budget.list"
     },
     {
       "method": "PATCH",
       "path": "/quotation/budget-plans/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1376
+      "line": 1376,
+      "id": "quotation.budget.quantity"
     },
     {
       "method": "GET",
       "path": "/quotation/budget-plans/:id/export",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1451
+      "line": 1451,
+      "id": "quotation.budget.export"
     },
     {
       "method": "POST",
       "path": "/quotation/budget-plans/suggest",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1497
+      "line": 1497,
+      "id": "quotation.budget.create"
     },
     {
       "method": "POST",
       "path": "/quotation/customer-quotes",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1525
+      "line": 1525,
+      "id": "quotation.customer-quote.create"
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/from-customer",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1594
+      "line": 1594,
+      "id": "quotation.estimate.from-customer"
     },
     {
       "method": "POST",
       "path": "/quotation/quotes",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1639
+      "line": 1639,
+      "id": "quotation.estimate.create"
     },
     {
       "method": "GET",
       "path": "/quotation/quotes/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1756
+      "line": 1756,
+      "id": "quotation.quote.detail"
     },
     {
       "method": "DELETE",
       "path": "/quotation/quotes/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1815
+      "line": 1815,
+      "id": "quotation.quote.delete"
     },
     {
       "method": "GET",
       "path": "/quotation/quotes/:id/request-file/preview",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
       "file": "server/modules/quotation/router.ts",
       "line": 1832
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/:id/recalculate",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1856
+      "line": 1856,
+      "id": "quotation.quote.recalculate"
     },
     {
       "method": "PATCH",
       "path": "/quotation/quotes/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1891
+      "line": 1891,
+      "id": "quotation.quote.update"
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/:id/submit-review",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2033
+      "line": 2033,
+      "id": "quotation.quote.submit-review"
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/:id/approve",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2048
+      "line": 2048,
+      "id": "quotation.quote.approve"
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/:id/reject",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2076
+      "line": 2076,
+      "id": "quotation.quote.reject"
     },
     {
       "method": "GET",
       "path": "/quotation/document-templates/:kind",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 2133
     },
     {
       "method": "GET",
       "path": "/quotation/contract-templates",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 2154
     },
     {
       "method": "GET",
       "path": "/quotation/acceptance-templates",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 2160
     },
     {
       "method": "GET",
       "path": "/quotation/settlement-templates",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 2166
     },
     {
       "method": "GET",
       "path": "/quotation/contracts",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2174
+      "line": 2174,
+      "id": "quotation.contract.list"
     },
     {
       "method": "GET",
       "path": "/quotation/contracts/prefill",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
       "line": 2182
     },
     {
       "method": "POST",
       "path": "/quotation/contracts",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2194
+      "line": 2194,
+      "id": "quotation.contract.create"
     },
     {
       "method": "GET",
       "path": "/quotation/contracts/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2283
+      "line": 2283,
+      "id": "quotation.contract.detail"
     },
     {
       "method": "PATCH",
       "path": "/quotation/contracts/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2342
+      "line": 2342,
+      "id": "quotation.contract.update"
     },
     {
       "method": "POST",
       "path": "/quotation/contracts/:id/sign",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2372
+      "line": 2372,
+      "id": "quotation.contract.sign"
     },
     {
       "method": "GET",
       "path": "/quotation/acceptance-records",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2397
+      "line": 2397,
+      "id": "quotation.acceptance.list"
     },
     {
       "method": "POST",
       "path": "/quotation/acceptance-records",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2405
+      "line": 2405,
+      "id": "quotation.acceptance.create"
     },
     {
       "method": "GET",
       "path": "/quotation/acceptance-records/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2479
+      "line": 2479,
+      "id": "quotation.acceptance.detail"
     },
     {
       "method": "GET",
       "path": "/quotation/acceptance-records/:id/settlement.xlsx",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2574
+      "line": 2574,
+      "id": "quotation.acceptance.settlement"
     },
     {
       "method": "PATCH",
       "path": "/quotation/acceptance-records/:id",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2641
+      "line": 2641,
+      "id": "quotation.acceptance.update"
     },
     {
       "method": "POST",
       "path": "/quotation/acceptance-records/:id/complete",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2680
+      "line": 2680,
+      "id": "quotation.acceptance.complete"
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/:id/export/retry",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2705
+      "line": 2705,
+      "id": "quotation.quote.export-retry"
     },
     {
       "method": "GET",
       "path": "/quotation/quotes/:id/export",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2725
+      "line": 2725,
+      "id": "quotation.quote.export"
     },
     {
       "method": "GET",
       "path": "/quotation/quotes/:id/pdf",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2861
+      "line": 2861,
+      "id": "quotation.quote.pdf"
     },
     {
       "method": "GET",
@@ -10153,6 +10142,126 @@
       "id": "retail.coupon.create",
       "file": "server/modules/retail/routes/retail-coupon.routes.ts",
       "line": 76
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/settings",
+      "status": "manual",
+      "id": "quotation.settings.list",
+      "file": "server/modules/quotation/router-adapter.ts",
+      "line": 62
+    },
+    {
+      "method": "PUT",
+      "path": "/quotation/settings",
+      "status": "manual",
+      "id": "quotation.settings.update",
+      "file": "server/modules/quotation/router-adapter.ts",
+      "line": 65
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/catalog",
+      "status": "manual",
+      "id": "quotation.catalog.list",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 5
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog",
+      "status": "manual",
+      "id": "quotation.catalog.create",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 6
+    },
+    {
+      "method": "PATCH",
+      "path": "/quotation/catalog/:id",
+      "status": "manual",
+      "id": "quotation.catalog.update",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 9
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog/:id/duplicate",
+      "status": "manual",
+      "id": "quotation.catalog.duplicate",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 10
+    },
+    {
+      "method": "DELETE",
+      "path": "/quotation/catalog/:id",
+      "status": "manual",
+      "id": "quotation.catalog.delete",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 15
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog/:id/restore",
+      "status": "manual",
+      "id": "quotation.catalog.restore",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 16
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog/bulk",
+      "status": "manual",
+      "id": "quotation.catalog.bulk",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 8
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/contracts/:id/file",
+      "status": "manual",
+      "id": "quotation.contract.export",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2342
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records/:id/file",
+      "status": "manual",
+      "id": "quotation.acceptance.export",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2535
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records/:id/settlement/file",
+      "status": "manual",
+      "id": "quotation.acceptance.settlement",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2611
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog/bulk/preview",
+      "status": "manual",
+      "id": "quotation.catalog.bulk",
+      "file": "server/modules/quotation/catalog.routes.ts",
+      "line": 7
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/contracts/:id/docx",
+      "status": "manual",
+      "id": "quotation.contract.export",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2342
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records/:id/docx",
+      "status": "manual",
+      "id": "quotation.acceptance.export",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2535
     }
   ]
 }

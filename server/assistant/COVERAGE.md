@@ -4,10 +4,10 @@ Catalog chỉ đưa vào executor các route có hợp đồng dữ liệu, quy�
 
 ## Số liệu hiện tại
 
-- Inventory hiện có 1.183 route API; coverage gồm 3 adapter từ CRUD tổng quát chưa có trong inventory, tổng cộng 1.186 route. Inventory nhận diện quyền tường minh cho 960 route.
-- 793 hợp đồng sinh từ API và 47 adapter thủ công, tổng cộng 840 route đã nối; 26 adapter mới thuộc Quản lý y tế.
-- 0 route đang chờ rà soát; trợ lý chưa gọi các route này.
-- 346 route đã được đánh giá và chủ ý chưa nối; lý do cụ thể được liệt kê riêng trong `UNSUPPORTED.md`.
+- Coverage hiện có 1.282 route API, gồm các route được khai báo tường minh trong manifest adapter.
+- 797 hợp đồng sinh từ API và 109 route qua adapter thủ công, tổng cộng 906 route đã nối. Phân hệ Báo giá có 60 workflow, 60 route được duyệt và 17 API phụ hoặc tải tệp nhị phân chủ ý giữ ở giao diện.
+- 13 route ngoài Báo giá đang chờ rà soát; trợ lý chưa gọi các route này.
+- 363 route đã được đánh giá và chủ ý chưa nối; lý do cụ thể được liệt kê riêng trong `UNSUPPORTED.md`.
 - Các route tạo bằng vòng lặp và helper đã được mở rộng thành path cụ thể; inventory không còn route động chưa phân giải.
 
 Danh sách đầy đủ từng route chưa nối, lý do và tệp nguồn được sinh tại [UNSUPPORTED.md](./UNSUPPORTED.md).
@@ -37,9 +37,9 @@ Danh sách đầy đủ từng route chưa nối, lý do và tệp nguồn đư�
 
 | Lý do | Số route |
 | --- | ---: |
-| **Tổng đang chờ rà soát** | **0** |
+| **Tổng đang chờ rà soát** | **13** |
 
-Các route đã đánh giá và chủ ý chưa nối được thống kê riêng: 346 route. Chúng gồm thao tác có side effect khi đọc, route cần chọn tệp/tài khoản/phiên theo luồng riêng, route trùng workflow chuẩn hoặc cần xác nhận/kiểm soát chưa có trong chat. Danh sách và lý do từng route nằm trong [UNSUPPORTED.md](./UNSUPPORTED.md).
+Các route đã đánh giá và chủ ý chưa nối được thống kê riêng: 363 route. Chúng gồm thao tác có side effect khi đọc, route cần chọn tệp/tài khoản/phiên theo luồng riêng, route trùng workflow chuẩn hoặc cần xác nhận/kiểm soát chưa có trong chat. Danh sách và lý do từng route nằm trong [UNSUPPORTED.md](./UNSUPPORTED.md).
 
 ## Adapter thủ công
 

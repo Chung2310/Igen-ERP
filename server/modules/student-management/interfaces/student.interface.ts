@@ -1,7 +1,8 @@
 import { Document } from "mongoose";
 import type { CustomFieldValues } from "./custom-field.interface";
+import type { StudentStatus } from "../../../../shared/student-status";
 
-export type StudentStatus = 'Chờ KSK' | 'Đã KSK' | 'Đã nộp HS' | 'Đang học' | 'Đang thi' | 'Đã đậu' | 'Thi lại' | 'Nghỉ học' | 'Nợ học phí';
+export type { StudentStatus } from "../../../../shared/student-status";
 
 export interface IInstallmentStatus {
   installmentNo: number;     // Số thứ tự đợt (1, 2, 3...)

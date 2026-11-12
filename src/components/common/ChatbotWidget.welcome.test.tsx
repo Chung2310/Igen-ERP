@@ -57,6 +57,24 @@ describe("ChatbotWidget welcome", () => {
     expect(composer.querySelector('button[type="submit"]')).toBeNull();
   });
 
+  it("replaces two-way voice with send while a message is typed in work mode", () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    const input = container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!;
+    const composer = input.closest("form")!;
+
+    expect(composer.querySelector('[aria-label="Bật chế độ 2 chiều"]')).not.toBeNull();
+    expect(composer.querySelector('button[type="submit"]')).toBeNull();
+
+    fireEvent.change(input, { target: { value: "Hãy giúp tôi" } });
+    expect(composer.querySelector('[aria-label="Bật chế độ 2 chiều"]')).toBeNull();
+    expect(composer.querySelector('button[type="submit"]')).not.toBeNull();
+
+    fireEvent.change(input, { target: { value: "   " } });
+    expect(composer.querySelector('[aria-label="Bật chế độ 2 chiều"]')).not.toBeNull();
+    expect(composer.querySelector('button[type="submit"]')).toBeNull();
+  });
+
   it("inserts a library prompt into the composer and shows editable placeholder chips", async () => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "qa");
     const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
@@ -79,4 +97,16 @@ describe("ChatbotWidget welcome", () => {
     expect(input.selectionStart).toBe(input.value.indexOf("[thời gian]"));
     expect(input.selectionEnd).toBe(input.value.indexOf("[thời gian]") + "[thời gian]".length);
   }, 15000);
+
+  it("opens meeting notes history in the shared history view", () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    const sidebar = container.querySelector(".assistant-sidebar")!;
+    fireEvent.click(sidebar.querySelector<HTMLButtonElement>('button[aria-label="Ghi chép cuộc họp"]')!);
+    expect(container.querySelector('section[aria-label="Ghi chép cuộc họp"] button[aria-label="Lịch sử"]')).toBeNull();
+    fireEvent.click(sidebar.querySelector<HTMLButtonElement>('button[aria-label="Lịch sử trò chuyện"]')!);
+    const meetingTab = Array.from(container.querySelectorAll('div[aria-label="Loại lịch sử"] button')).find(button => button.textContent === "Ghi chép");
+    expect(meetingTab?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).toContain("Lịch sử Ghi chép sẽ xuất hiện khi tính năng này được kết nối.");
+  });
 });

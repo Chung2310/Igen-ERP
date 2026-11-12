@@ -1,14 +1,91 @@
-import { parseAssistantResultTable, parseAssistantSuccessCard } from "./assistant-message-format";
+import {
+  parseActionPreviewProductTable,
+  parseAssistantResultTable,
+  parseAssistantSuccessCard,
+  type AssistantPreviewProductTable,
+} from "./assistant-message-format";
 import { cn } from "../../modules/student-management/lib/utils";
-import { isAssistantImageUrl, safeAssistantHttpUrl } from "./assistant-link-utils";
+import { canonicalAssistantLinkUrl, isAssistantImageUrl, safeAssistantHttpUrl } from "./assistant-link-utils";
 
 const inlineLinkClass = "rounded-sm text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
+export function AssistantActionProductTable({
+  label,
+  table,
+}: {
+  label: string;
+  table: AssistantPreviewProductTable;
+}) {
+  return (
+    <div
+      role="region"
+      aria-label={`Bảng ${label}. Có thể cuộn ngang để xem đủ các cột.`}
+      tabIndex={0}
+      className="mt-1.5 max-w-full overflow-x-auto rounded-lg border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <table
+        aria-label={label}
+        className="w-full border-collapse text-left text-xs tabular-nums text-on-surface sm:text-sm"
+      >
+        <caption className="sr-only">{label}</caption>
+        <thead className="bg-surface-container-low text-on-surface">
+          <tr>
+            <th scope="col" className="w-12 border-b border-outline-variant px-2.5 py-2 text-center font-semibold">
+              STT
+            </th>
+            {table.hasSku && (
+              <th scope="col" className="w-48 border-b border-outline-variant px-2.5 py-2 font-semibold sm:px-3">
+                Mã sản phẩm
+              </th>
+            )}
+            <th scope="col" className="border-b border-outline-variant px-2.5 py-2 font-semibold sm:px-3">
+              Tên sản phẩm
+            </th>
+            {table.hasQuantity && (
+              <th scope="col" className="w-28 border-b border-outline-variant px-2.5 py-2 text-right font-semibold sm:px-3">
+                Số lượng
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-outline-variant bg-surface-container-lowest">
+          {table.rows.map(row => (
+            <tr key={row.number}>
+              <td className="w-12 px-2.5 py-2 text-center align-top tabular-nums text-on-surface/70">
+                {row.number}
+              </td>
+              {table.hasSku && (
+                <td className="whitespace-nowrap px-2.5 py-2 align-top font-medium text-on-surface sm:px-3">
+                  {row.sku || "—"}
+                </td>
+              )}
+              <td className="whitespace-normal break-words px-2.5 py-2 align-top text-on-surface sm:px-3">
+                {row.name}
+              </td>
+              {table.hasQuantity && (
+                <td className="whitespace-nowrap px-2.5 py-2 text-right align-top font-medium tabular-nums text-on-surface sm:px-3">
+                  {row.quantity || "—"}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function formattedText(content: string, allowedLinkUrls?: readonly string[]) {
-  const allowed = allowedLinkUrls === undefined
+  const allowedByCanonical = allowedLinkUrls === undefined
     ? null
-    : new Set(allowedLinkUrls.map(safeAssistantHttpUrl).filter((url): url is string => Boolean(url)));
-  const pattern = /(!?)\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(\*\*.+?\*\*)/g;
+    : new Map(
+      allowedLinkUrls.flatMap(raw => {
+        const safe = safeAssistantHttpUrl(raw);
+        const canonical = canonicalAssistantLinkUrl(raw);
+        return safe && canonical ? [[canonical, safe] as const] : [];
+      }),
+    );
+  const pattern = /(!?)\[([^\]]+)\]\((https?:\/\/[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)\)|(\*\*.+?\*\*)/g;
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   let key = 0;
@@ -18,20 +95,24 @@ function formattedText(content: string, allowedLinkUrls?: readonly string[]) {
     if (match[4]) {
       parts.push(<strong key={key++}>{match[4].slice(2, -2)}</strong>);
     } else {
-      const url = safeAssistantHttpUrl(match[3]);
+      const safeUrl = safeAssistantHttpUrl(match[3]);
+      const canonicalUrl = canonicalAssistantLinkUrl(match[3]);
+      const resolvedUrl = allowedByCanonical
+        ? (canonicalUrl ? allowedByCanonical.get(canonicalUrl) ?? null : null)
+        : safeUrl;
       const label = match[2];
       const isImage = match[1] === "!";
-      if (!url || (allowed && !allowed.has(url)) || (isImage && !allowed?.has(url))) {
-        parts.push(label);
-      } else if (isImage && isAssistantImageUrl(url) && new URL(url).protocol === "https:") {
-        parts.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className={inlineLinkClass}>
-          <img src={url} alt={label} loading="lazy" referrerPolicy="no-referrer" className="my-2 max-h-56 max-w-full rounded-lg border border-outline-variant object-contain" />
+      if (!resolvedUrl || (isImage && !allowedByCanonical)) {
+        if (!/^https?:\/\//i.test(label.trim())) parts.push(label);
+      } else if (isImage && isAssistantImageUrl(resolvedUrl) && new URL(resolvedUrl).protocol === "https:") {
+        parts.push(<a key={key++} href={resolvedUrl} target="_blank" rel="noopener noreferrer" className={inlineLinkClass}>
+          <img src={resolvedUrl} alt={label} loading="lazy" referrerPolicy="no-referrer" className="my-2 max-h-56 max-w-full rounded-lg border border-outline-variant object-contain" />
           <span className="sr-only"> (mở ảnh ở tab mới)</span>
         </a>);
       } else if (isImage) {
-        parts.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className={inlineLinkClass}>{label}<span className="sr-only"> (mở ảnh ở tab mới)</span></a>);
+        parts.push(<a key={key++} href={resolvedUrl} target="_blank" rel="noopener noreferrer" className={inlineLinkClass}>{label}<span className="sr-only"> (mở ảnh ở tab mới)</span></a>);
       } else {
-        parts.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className={inlineLinkClass}>{label}<span className="sr-only"> (mở tab mới)</span></a>);
+        parts.push(<a key={key++} href={resolvedUrl} target="_blank" rel="noopener noreferrer" className={inlineLinkClass}>{label}<span className="sr-only"> (mở tab mới)</span></a>);
       }
     }
     cursor = start + match[0].length;
@@ -133,10 +214,19 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
           <h3 className="mt-1 text-balance text-sm font-semibold text-on-surface">{successCard.title}</h3>
         </div>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 p-4 sm:grid-cols-2">
-          {successCard.fields.map((field, index) => <div key={`${field.label}-${index}`} className="min-w-0">
-            <dt className="text-xs text-on-surface-variant">{field.label}</dt>
-            <dd className="mt-1 break-words text-sm text-on-surface tabular-nums" style={{ overflowWrap: "anywhere" }}>{formattedText(field.value, allowedLinkUrls)}</dd>
-          </div>)}
+          {successCard.fields.map((field, index) => {
+            const productTable = parseActionPreviewProductTable(field.label, field.value);
+            return (
+              <div key={`${field.label}-${index}`} className={cn("min-w-0", productTable && "sm:col-span-2")}>
+                <dt className="text-xs text-on-surface-variant">{field.label}</dt>
+                <dd className="mt-1 break-words text-sm text-on-surface tabular-nums" style={{ overflowWrap: "anywhere" }}>
+                  {productTable
+                    ? <AssistantActionProductTable label={field.label} table={productTable} />
+                    : formattedText(field.value, allowedLinkUrls)}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
         {successCard.notes.length > 0 && <div className="space-y-2 border-t border-outline-variant px-4 py-3 text-sm text-on-surface-variant">
           {successCard.notes.map((note, index) => <MessageParagraph key={index} content={note} allowedLinkUrls={allowedLinkUrls} />)}

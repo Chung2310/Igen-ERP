@@ -53,7 +53,7 @@ export function StudentList({ students, onSelectStudent }: StudentListProps) {
                           st === 'Đã đậu' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
                             st === 'Đang thi' ? "bg-teal-50 text-teal-700 border-teal-100" :
                               st === 'Đang học' ? "bg-sky-50 text-sky-700 border-sky-100" :
-                                st === 'Chờ KSK' ? "bg-amber-50 text-amber-700 border-amber-100" :
+                              st === 'Chờ KSK' || st === 'Chờ nhập học' ? "bg-amber-50 text-amber-700 border-amber-100" :
                                   st === 'Thi lại' ? "bg-rose-50 text-rose-700 border-rose-100" :
                                     st === 'Đã KSK' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
                                       st === 'Đã nộp HS' ? "bg-cyan-50 text-cyan-700 border-cyan-100" :

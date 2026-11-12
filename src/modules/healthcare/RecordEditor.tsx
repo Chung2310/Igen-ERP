@@ -227,12 +227,14 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
           <Field name="result" label="Kết quả chăm sóc" value={editor.record?.result} error={error} maxLength={1000} placeholder="Ghi lại kết quả xử lý" />
         </>}
         {kind === "catalog" && <>
-          {editor.record ? <div><p className="text-sm font-medium">Loại danh mục</p><p className="text-sm">{catalogLabels[editor.record.kind]}</p>
-            <input type="hidden" name="kind" value={editor.record.kind} /></div>
+          {editor.record ? <div>
+            <Field name="kindLabel" label="Loại danh mục" value={catalogLabels[editor.record.kind]} disabled />
+            <input type="hidden" name="kind" value={editor.record.kind} />
+          </div>
             : <Field name="kind" label="Loại danh mục" options={[emptyChoice("Chọn loại danh mục"), ...choices(catalogLabels)]} error={error} required />}
           <Field name="code" label="Mã danh mục" value={editor.record?.code} error={error} required maxLength={50} placeholder="Ví dụ: BS001" />
           <Field name="name" label="Tên hiển thị" value={editor.record?.name} error={error} required maxLength={180} placeholder="Nhập tên hiển thị" />
-          <label className="flex items-center gap-2 self-end py-2 text-sm"><input type="checkbox" name="active" defaultChecked={editor.record?.active ?? true} /> Đang sử dụng</label>
+          <label className="flex items-center gap-2 self-end py-2 text-sm"><input type="checkbox" name="active" defaultChecked={editor.record?.active ?? true} className="size-4 accent-primary" /> Đang sử dụng</label>
         </>}
       </fieldset>
       <Feedback error={error?.message} />

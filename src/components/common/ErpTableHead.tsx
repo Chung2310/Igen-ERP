@@ -1,6 +1,7 @@
 const centeredColumns = new Set([
   "Trạng thái", "Ngày tạo hồ sơ", "Ngày sinh", "Ngày khám", "Tái khám", "Bắt đầu", "Kết thúc",
   "Ngày hẹn", "Hạn xử lý", "Lượt khám", "Lịch hẹn", "Chăm sóc", "Thời điểm", "Kiểm tra",
+  "Mã danh mục", "Loại danh mục",
 ]);
 
 export function ErpTableHead({ columns, selectAll, appearance = "default" }: {

@@ -82,7 +82,15 @@ export async function api<T>(url: string, options: RequestInit = {}): Promise<T>
   if (options.body && !(options.body instanceof FormData) && !(options.body instanceof Blob) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const canonical = quotationEndpoint(url).split("?")[0];
   if (["PATCH", "DELETE", "POST"].includes((options.method || "").toUpperCase()) && !headers.has("If-Unmodified-Since") && revisions.has(canonical.replace(/\/(?:approve|reject|submit-review|sign|complete)$/, ""))) headers.set("If-Unmodified-Since", revisions.get(canonical.replace(/\/(?:approve|reject|submit-review|sign|complete)$/, ""))!);
-  const response = await quotationFetch(url, { ...options, headers });
+  const routePath = new URL(clientUrl, window.location.origin).pathname;
+  const startsCustomerQuoteExport = task && (routePath === "/api/customer-quotes" || /\/quotes\/[^/]+\/export\/retry$/.test(routePath));
+  const response = startsCustomerQuoteExport
+    ? await generatedExportRequest(currentScope(), Date.now() + generatedExportRequestTimeoutMs, "Máy chủ không phản hồi khi tiếp nhận yêu cầu tạo file báo giá. Hãy mở lại báo giá để kiểm tra kết quả.", (signal) => quotationFetch(url, {
+      ...options,
+      headers,
+      signal: options.signal ? AbortSignal.any([signal, options.signal]) : signal,
+    }))
+    : await quotationFetch(url, { ...options, headers });
   if (!response.ok) throw await quotationApiError(response);
   if (response.status === 204) { task?.complete(); return undefined as T; }
   const payload = await response.json();
@@ -100,24 +108,41 @@ export async function api<T>(url: string, options: RequestInit = {}): Promise<T>
 }
 export type GeneratedFileRef = { id: string; filename: string; mimeType?: string; createdAt?: string };
 export type GeneratedExportStatus = { id: string; status: "queued" | "running" | "completed" | "failed"; error?: string; filename?: string; createdAt?: string; updatedAt?: string };
+const generatedExportRequestTimeoutMs = 30_000;
+async function generatedExportRequest<T>(scope: Scope, deadline: number, message: string, request: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) throw new ApiError("Tác vụ tạo file đã quá thời gian chờ. Dữ liệu chứng từ đã được lưu; hãy mở lại để kiểm tra hoặc tạo lại file.", 408);
+  try {
+    return await request(AbortSignal.timeout(Math.min(generatedExportRequestTimeoutMs, remaining)));
+  } catch (error) {
+    if (!scope.controller.signal.aborted && error instanceof Error && error.name === "TimeoutError") throw new ApiError(message, 408);
+    throw error;
+  }
+}
 export async function createGeneratedExport(url: string, timeoutMs = 15 * 60_000): Promise<GeneratedFileRef> {
   const scope = currentScope();
+  const deadline = Date.now() + timeoutMs;
   const task = aiProgress.begin({ ...exportTaskDescription(quotationEndpoint(url).replace(/^\/api\/v1\/quotation/, "/api")), detail: "Đang chuẩn bị nội dung và mẫu tài liệu…" });
   try {
-  const response = await quotationFetch(url);
-  if (!response.ok) throw await parseApiErrorResponse(response);
-  const queued = await response.json();
-  if (response.status !== 202 || !queued.jobId) throw new ApiError("Máy chủ chưa trả tác vụ xuất tài liệu.", response.status);
+  const queuedResult = await generatedExportRequest(scope, deadline, "Máy chủ không phản hồi khi bắt đầu tạo file. Dữ liệu đã được lưu; hãy mở lại chứng từ để kiểm tra hoặc tạo lại file.", async (signal) => {
+    const response = await quotationFetch(url, { signal });
+    if (!response.ok) throw await parseApiErrorResponse(response);
+    return { status: response.status, body: await response.json() };
+  });
+  const queued = queuedResult.body;
+  if (queuedResult.status !== 202 || !queued?.jobId) throw new ApiError("Máy chủ chưa trả tác vụ xuất tài liệu.", queuedResult.status);
   task.update(12, "Yêu cầu đã được tiếp nhận, đang chuẩn bị tạo file…");
-  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise<void>((resolve, reject) => {
+      const delay = Math.min(2000, deadline - Date.now());
       const cancel = () => { clearTimeout(timer); reject(new DOMException("Phạm vi làm việc đã thay đổi.", "AbortError")); };
-      const timer = setTimeout(() => { scope.controller.signal.removeEventListener("abort", cancel); resolve(); }, 2000);
+      const timer = setTimeout(() => { scope.controller.signal.removeEventListener("abort", cancel); resolve(); }, delay);
       scope.controller.signal.addEventListener("abort", cancel, { once: true });
       if (scope.controller.signal.aborted) cancel();
     });
-    const { job } = await api<{ job: GeneratedExportStatus & { fileId?: string } }>(`/api/export-jobs/${queued.jobId}`);
+    if (Date.now() >= deadline) break;
+    const { job } = await generatedExportRequest(scope, deadline, "Máy chủ không phản hồi khi kiểm tra tiến độ tạo file. Dữ liệu đã được lưu; hãy mở lại chứng từ để kiểm tra hoặc tạo lại file.", (signal) => api<{ job: GeneratedExportStatus & { fileId?: string } }>(`/api/export-jobs/${queued.jobId}`, { signal }));
+    if (!job || !["queued", "running", "completed", "failed"].includes(job.status)) throw new ApiError("Máy chủ trả về trạng thái tạo file không hợp lệ. Dữ liệu chứng từ đã được lưu; hãy mở lại để kiểm tra.", 502);
     if (job.status === "failed") throw new ApiError(job.error || "Không tạo được tài liệu. Bạn có thể kiểm tra và thử lại.", 422);
     if (job.status === "running") task.update(30, "AI đang điền nội dung và hoàn thiện file theo mẫu…");
     if (job.status === "completed") {
@@ -135,6 +160,7 @@ const backgroundExports = new Map<string, { controller: AbortController; task: A
 function watchCustomerQuoteExport(sourceId: string, initialTask?: AiTaskHandle) {
   const key = `export:customer_quote:${sourceId}`;
   if (backgroundExports.has(key)) return;
+  const scope = currentScope();
   const task = initialTask ?? aiProgress.begin({ key, label: "Đang tạo file báo giá khách" });
   const controller = new AbortController();
   const watcher = { controller, task };
@@ -143,8 +169,15 @@ function watchCustomerQuoteExport(sourceId: string, initialTask?: AiTaskHandle) 
     const deadline = Date.now() + 15 * 60_000;
     try {
       while (!controller.signal.aborted && Date.now() < deadline) {
-        const response = await quotationFetch(`/api/generated-export-files/latest?sourceId=${encodeURIComponent(sourceId)}&kind=customer_quote`, { signal: controller.signal });
-        const result = await response.json().catch(() => null) as { error?: string; file?: GeneratedFileRef; job?: GeneratedExportStatus } | null;
+        const { response, result } = await generatedExportRequest(scope, deadline, "Máy chủ không phản hồi khi kiểm tra tiến độ tạo file báo giá. Báo giá đã được lưu; hãy mở lại để kiểm tra hoặc tạo lại file.", async (timeoutSignal) => {
+          const signal = AbortSignal.any([timeoutSignal, controller.signal]);
+          const response = await quotationFetch(`/api/generated-export-files/latest?sourceId=${encodeURIComponent(sourceId)}&kind=customer_quote`, { signal });
+          const result = await response.json().catch((error) => {
+            if (signal.aborted) throw error;
+            return null;
+          }) as { error?: string; file?: GeneratedFileRef; job?: GeneratedExportStatus } | null;
+          return { response, result };
+        });
         if (!response.ok || !result) throw new Error(userMessage(result?.error, "Chưa kiểm tra được tiến độ tạo file."));
         if (result.job?.status === "failed") throw new Error(userMessage(result.job.error, "Chưa tạo được file báo giá. Vui lòng thử lại."));
         if (result.file?.id && (!result.job || result.job.status === "completed")) { task.complete(); return; }
@@ -171,7 +204,8 @@ export function resetAiProgressTracking() {
 
 
 export async function getLatestGeneratedFile(sourceId: string, kind: string) {
-  const result = await api<{ file: GeneratedFileRef | null; job: GeneratedExportStatus | null }>(`/api/generated-export-files/latest?${new URLSearchParams({ sourceId, kind })}`);
+  const scope = currentScope();
+  const result = await generatedExportRequest(scope, Date.now() + generatedExportRequestTimeoutMs, "Máy chủ không phản hồi khi kiểm tra file đã lưu. Hãy mở lại chứng từ để thử lại.", (signal) => api<{ file: GeneratedFileRef | null; job: GeneratedExportStatus | null }>(`/api/generated-export-files/latest?${new URLSearchParams({ sourceId, kind })}`, { signal }));
   if (result.job?.error) result.job.error = userMessage(result.job.error);
   if (kind === "customer_quote" && (result.job?.status === "queued" || result.job?.status === "running")) watchCustomerQuoteExport(sourceId);
   return result;
