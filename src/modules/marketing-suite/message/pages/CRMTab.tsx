@@ -243,7 +243,7 @@ export default function CRMTab() {
         ? Math.max(viewportPadding, bounds.top - gap - maxHeight)
         : Math.min(window.innerHeight - viewportPadding - maxHeight, bounds.bottom + gap);
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reposition the portal from measured viewport bounds before it is painted.
+
       setUnifiedDropdownPosition({ top, left, width, maxHeight });
     };
 
@@ -881,6 +881,11 @@ export default function CRMTab() {
     }, 180);
   };
 
+  const loadConversationMessagesRef = useRef(loadConversationMessages);
+  useEffect(() => {
+    loadConversationMessagesRef.current = loadConversationMessages;
+  });
+
   // Track Socket.IO connection status
   useEffect(() => {
     const unsubscribeStatus = socketService.onStatusChange(setSocketConnected);
@@ -888,7 +893,7 @@ export default function CRMTab() {
       const customer = activeCustomerRef.current;
       if (!customer || !socketService.isMessengerScopeReady(customer.channel, customer.accountId)) return;
       // Recover the small gap before room authorization completed, using DB history once.
-      void loadConversationMessages(customer.id, "replace", customer.channel, { accountId: customer.accountId })
+      void loadConversationMessagesRef.current(customer.id, "replace", customer.channel, { accountId: customer.accountId })
         .catch(error => console.error("[FE CRMTab] Không thể tải lịch sử sau khi đăng ký realtime:", error));
     });
 

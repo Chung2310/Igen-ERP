@@ -54,14 +54,17 @@ async function hasIntakeAccount(companyCode: string, pageId: string, platform: I
 function normalizeIntakeFields(fields: unknown) {
   const allowedTypes = new Set(["text", "long_text", "number", "currency", "date", "phone", "email", "single_select", "multi_select", "checkbox"]);
   if (!Array.isArray(fields) || fields.length === 0 || fields.length > 30) return undefined;
-  const normalized = fields.map((field: any) => ({
-    key: typeof field?.key === "string" ? field.key.trim() : "",
-    label: typeof field?.label === "string" ? field.label.trim() : "",
-    question: typeof field?.question === "string" ? field.question.trim() : "",
-    type: typeof field?.type === "string" ? field.type : "text",
-    required: field?.required !== false,
-    options: Array.isArray(field?.options) ? field.options.map((option: unknown) => typeof option === "string" ? option.trim() : "") : [],
-  }));
+  const normalized = fields.map((rawField: unknown) => {
+    const field = rawField && typeof rawField === "object" ? (rawField as Record<string, unknown>) : null;
+    return {
+      key: typeof field?.key === "string" ? field.key.trim() : "",
+      label: typeof field?.label === "string" ? field.label.trim() : "",
+      question: typeof field?.question === "string" ? field.question.trim() : "",
+      type: typeof field?.type === "string" ? field.type : "text",
+      required: field?.required !== false,
+      options: Array.isArray(field?.options) ? field.options.map((option: unknown) => typeof option === "string" ? option.trim() : "") : [],
+    };
+  });
   const valid = normalized.every(field => /^[a-z][a-z0-9_]{0,39}$/.test(field.key)
     && field.label.length > 0 && field.label.length <= 100
     && field.question.length > 0 && field.question.length <= 300
@@ -179,7 +182,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/suggest", requirePermission(
     const fields = normalizeIntakeFields(suggestion?.fields);
     if (!suggestion || !fields || typeof suggestion.completionMessage !== "string") return res.status(422).json({ status: "error", message: "Không tạo được bản nháp hợp lệ." });
     return res.json({ status: "success", data: { goal, fields, completionMessage: suggestion.completionMessage,
-      sourceDocumentIds: [...new Set(knowledge.items.map((item: any) => String(item.documentId)))] } });
+      sourceDocumentIds: [...new Set(knowledge.items.map((item: { documentId?: unknown }) => String(item.documentId)))] } });
   } catch (error) { next(error); }
 });
 
@@ -256,6 +259,6 @@ marketingSettingsRouter.post("/chat-flows/:pageId/suggest", requirePermission("o
     if (!suggestion || !fields || typeof suggestion.completionMessage !== "string")
       return res.status(422).json({ status: "error", message: "Không tạo được bản nháp hợp lệ." });
     return res.json({ status: "success", data: { goal, fields, completionMessage: suggestion.completionMessage,
-      sourceDocumentIds: [...new Set(knowledge.items.map((item: any) => String(item.documentId)))] } });
+      sourceDocumentIds: [...new Set(knowledge.items.map((item: { documentId?: unknown }) => String(item.documentId)))] } });
   } catch (error) { next(error); }
 });

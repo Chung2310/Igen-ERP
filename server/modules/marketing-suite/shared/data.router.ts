@@ -48,13 +48,15 @@ function leadAnswers(value: unknown) {
 }
 function leadFieldSnapshot(value: unknown) {
   if (!Array.isArray(value) || value.length > 30) throw Object.assign(new Error("Danh sách trường Lead không hợp lệ."), { statusCode: 400 });
-  return value.map((field: any) => {
-    if (!field || typeof field !== "object" || !/^[a-z][a-z0-9_]{0,39}$/.test(field.key)
+  return value.map((rawField: unknown) => {
+    const field = rawField && typeof rawField === "object" ? (rawField as Record<string, unknown>) : null;
+    const fieldType = typeof field?.type === "string" && field.type ? field.type : "text";
+    if (!field || typeof field.key !== "string" || !/^[a-z][a-z0-9_]{0,39}$/.test(field.key)
       || typeof field.label !== "string" || field.label.length > 100
       || typeof field.question !== "string" || field.question.length > 300
-      || !intakeFieldTypes.has(field.type || "text")) throw Object.assign(new Error("Một trường Lead không hợp lệ."), { statusCode: 400 });
+      || !intakeFieldTypes.has(fieldType)) throw Object.assign(new Error("Một trường Lead không hợp lệ."), { statusCode: 400 });
     return {
-      key: field.key, label: field.label, question: field.question, type: field.type || "text",
+      key: field.key, label: field.label, question: field.question, type: fieldType,
       required: field.required !== false, options: Array.isArray(field.options) ? field.options.filter((option: unknown) => typeof option === "string").slice(0, 30) : []
     };
   });

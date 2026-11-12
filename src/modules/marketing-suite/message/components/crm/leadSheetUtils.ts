@@ -145,7 +145,7 @@ export function leadIntakeSummaryText(lead: ExtendedLeadCard): string {
 
 function safeExcelCell(value: unknown) {
   const text = String(value ?? "").replace(/[\r\n]+/g, " ");
-  return /^[=+@\-]/.test(text) ? `'${text}` : text;
+  return /^[=+@-]/.test(text) ? `'${text}` : text;
 }
 
 export async function downloadLeadsExcel(leads: ExtendedLeadCard[], fields: LeadSheetColumn[]) {

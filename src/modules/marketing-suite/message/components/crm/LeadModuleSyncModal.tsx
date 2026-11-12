@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import type { LeadTargetModule } from "../../../../../../shared/marketing-suite/lead-intake";
@@ -57,8 +57,11 @@ async function postJson(path: string, body: unknown) {
   if (!response.ok) throw new Error(result.message || result.error || "Không thể tạo hồ sơ trong module đích.");
   return result;
 }
-function recordId(value: any): string {
-  const id = value?.data?._id || value?.data?.id || value?._id || value?.id || value?.worker?._id || value?.worker?.id;
+function recordId(value: unknown): string {
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  const data = raw?.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : null;
+  const worker = raw?.worker && typeof raw.worker === "object" ? (raw.worker as Record<string, unknown>) : null;
+  const id = data?._id || data?.id || raw?._id || raw?.id || worker?._id || worker?.id;
   if (typeof id !== "string" || !id) throw new Error("Module đã phản hồi thành công nhưng không trả mã hồ sơ. Hãy kiểm tra module đích trước khi thử lại.");
   return id;
 }
@@ -72,20 +75,18 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
   const [createdTarget, setCreatedTarget] = useState<{ targetModule: LeadTargetModule; targetRecordId: string } | null>(null);
   const notes = useMemo(() => collectedNotes(lead), [lead]);
   const selected = availableModules.find(module => module.value === targetModule) || availableModules[0];
-  useEffect(() => {
-    if (availableModules.length && !availableModules.some(module => module.value === targetModule)) setTargetModule(availableModules[0].value);
-  }, [availableModules, targetModule]);
+  const activeTargetModule = selected?.value || targetModule;
   const setValue = (key: keyof Values, value: string) => setValues(current => ({ ...current, [key]: value }));
 
   async function createTargetRecord() {
-    if (targetModule === "students") {
+    if (activeTargetModule === "students") {
       return recordId(await postJson("/api/v1/students", {
         fullName: values.fullName.trim(), phone: values.phone.trim(), email: values.email.trim(),
         registrationDate: values.registrationDate, birthday: values.dateOfBirth, address: values.address.trim(),
         referral: `Lead ${lead.sourcePlatform || "thủ công"}`,
       }));
     }
-    if (targetModule === "healthcare") {
+    if (activeTargetModule === "healthcare") {
       return recordId(await postJson("/api/v1/healthcare/patients", {
         name: values.fullName.trim(), phone: values.phone.trim(), dateOfBirth: values.dateOfBirth,
         address: values.address.trim(), note: notes,
@@ -102,7 +103,7 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
   async function submit() {
     setBusy(true); setError("");
     try {
-      const target = createdTarget || { targetModule, targetRecordId: await createTargetRecord() };
+      const target = createdTarget || { targetModule: activeTargetModule, targetRecordId: await createTargetRecord() };
       if (!createdTarget) setCreatedTarget(target);
       const linked = await crmService.markLeadModuleSynced(lead.id, target);
       onCompleted(linked);
@@ -112,7 +113,7 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
     } finally { setBusy(false); }
   }
 
-  const missingRequired = !selected || !values.fullName.trim() || (targetModule === "students" && (!values.phone.trim() || !values.email.trim() || !values.registrationDate));
+  const missingRequired = !selected || !values.fullName.trim() || (activeTargetModule === "students" && (!values.phone.trim() || !values.email.trim() || !values.registrationDate));
   return <ErpModal title={`Đồng bộ Lead: ${lead.customerName}`} onClose={onClose} maxWidth="max-w-2xl" closeDisabled={busy}>
     <p className="text-sm text-on-surface-variant">Lead sẽ được giữ nguyên trong Marketing. Xác nhận thông tin rồi tạo hồ sơ mới trong module đích.</p>
     <label className="block space-y-1 text-sm font-medium">Module đích
@@ -125,10 +126,10 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
       <label className="block space-y-1 text-sm">Họ và tên *
         <input className={inputClass} value={values.fullName} onChange={event => setValue("fullName", event.target.value)} autoComplete="name" />
       </label>
-      <label className="block space-y-1 text-sm">Số điện thoại{targetModule === "students" ? " *" : ""}
+      <label className="block space-y-1 text-sm">Số điện thoại{activeTargetModule === "students" ? " *" : ""}
         <input className={inputClass} value={values.phone} onChange={event => setValue("phone", event.target.value)} autoComplete="tel" />
       </label>
-      {(targetModule === "students" || targetModule === "workers") && <label className="block space-y-1 text-sm">Email{targetModule === "students" ? " *" : ""}
+      {(activeTargetModule === "students" || activeTargetModule === "workers") && <label className="block space-y-1 text-sm">Email{activeTargetModule === "students" ? " *" : ""}
         <input className={inputClass} type="email" value={values.email} onChange={event => setValue("email", event.target.value)} autoComplete="email" />
       </label>}
       <label className="block space-y-1 text-sm">Ngày sinh

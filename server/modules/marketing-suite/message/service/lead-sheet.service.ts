@@ -7,7 +7,12 @@ import { googleCustomerSheetService } from "./google-customer-sheet.service";
 export const LEAD_SHEET_MAX_ATTEMPTS = 5;
 const platformNames = { facebook: "Facebook", zalo: "Zalo", tiktok: "TikTok" } as const;
 const sheetDestination = (config: { spreadsheetId: string; sheetName: string }) => `${config.spreadsheetId}/${config.sheetName}`;
-function leadSheetPayload(lead: any) {
+function leadSheetPayload(lead: {
+  customerName?: unknown; phone?: unknown; email?: unknown; company?: unknown;
+  productOfChoice?: unknown; value?: unknown; status?: unknown; collectionStatus?: unknown;
+  sourcePlatform?: unknown; sourceAccountId?: unknown; intakeFields?: unknown; answers?: unknown;
+  createdAt?: unknown; updatedAt?: unknown;
+}) {
   return {
     customerName: lead.customerName, phone: lead.phone, email: lead.email, company: lead.company,
     productOfChoice: lead.productOfChoice, value: lead.value, status: lead.status,

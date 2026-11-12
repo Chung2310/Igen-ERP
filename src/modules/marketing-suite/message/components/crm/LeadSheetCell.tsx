@@ -46,10 +46,6 @@ export const LeadSheetCell: React.FC<LeadSheetCellProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
 
-  useEffect(() => {
-    if (!editing && !popoverOpen) setDraft(value);
-  }, [editing, popoverOpen, value]);
-
   useLayoutEffect(() => {
     if (!popoverOpen || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();

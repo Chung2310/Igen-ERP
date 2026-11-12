@@ -6,7 +6,6 @@ import {
   ArrowRightLeft,
   ArrowUp,
   ArrowUpDown,
-  Bot,
   Calendar,
   CheckSquare,
   Columns3,
@@ -266,17 +265,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
   const [totalItems, setTotalItems] = useState(0);
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [draftFilterColKey, setDraftFilterColKey] = useState<string>("none");
-  const [draftFilterValue, setDraftFilterValue] = useState<string>("");
-  const [pinnedFilters, setPinnedFilters] = useState<PinnedFieldFilter[]>([]);
   const [sortField, setSortField] = useState<string>("updatedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [profiles, setProfiles] = useState<ActiveLeadIntakeProfile[]>([]);
-  const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
 
   const [builderState, setBuilderState] = useState<{
@@ -312,20 +306,83 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     return activeChannel;
   }, [activeChannel, accountId]);
 
-  const [layoutPrefs, setLayoutPrefs] = useState(() => loadSheetLayout(effectiveScopeKey));
+  const [layoutPrefsByScope, setLayoutPrefsByScope] = useState<Record<string, ReturnType<typeof loadSheetLayout>>>({});
+  const layoutPrefs = useMemo(
+    () => layoutPrefsByScope[effectiveScopeKey] ?? loadSheetLayout(effectiveScopeKey),
+    [layoutPrefsByScope, effectiveScopeKey],
+  );
+  const setLayoutPrefs = useCallback(
+    (updater: React.SetStateAction<ReturnType<typeof loadSheetLayout>>) => {
+      setLayoutPrefsByScope(current => {
+        const base = current[effectiveScopeKey] ?? loadSheetLayout(effectiveScopeKey);
+        const next = typeof updater === "function" ? updater(base) : updater;
+        saveSheetLayout(effectiveScopeKey, next);
+        return { ...current, [effectiveScopeKey]: next };
+      });
+    },
+    [effectiveScopeKey],
+  );
 
-  useEffect(() => {
-    setLayoutPrefs(loadSheetLayout(effectiveScopeKey));
-    setDraftFilterColKey("none");
-    setDraftFilterValue("");
-    setPinnedFilters([]);
-    setPage(1);
-    setActiveCell(null);
-  }, [effectiveScopeKey]);
+  const [filterState, setFilterState] = useState<{
+    scopeKey: string;
+    draftColKey: string;
+    draftValue: string;
+    pinned: PinnedFieldFilter[];
+  }>({ scopeKey: "", draftColKey: "none", draftValue: "", pinned: [] });
+  const draftFilterColKey = filterState.scopeKey === effectiveScopeKey ? filterState.draftColKey : "none";
+  const draftFilterValue = filterState.scopeKey === effectiveScopeKey ? filterState.draftValue : "";
+  const pinnedFilters = useMemo(
+    () => (filterState.scopeKey === effectiveScopeKey ? filterState.pinned : []),
+    [filterState, effectiveScopeKey],
+  );
+  const setDraftFilterColKey = useCallback(
+    (nextColKey: string) => {
+      setFilterState(current => ({
+        scopeKey: effectiveScopeKey,
+        draftColKey: nextColKey,
+        draftValue: "",
+        pinned: current.scopeKey === effectiveScopeKey ? current.pinned : [],
+      }));
+    },
+    [effectiveScopeKey],
+  );
+  const setDraftFilterValue = useCallback(
+    (nextValue: string) => {
+      setFilterState(current => ({
+        scopeKey: effectiveScopeKey,
+        draftColKey: current.scopeKey === effectiveScopeKey ? current.draftColKey : "none",
+        draftValue: nextValue,
+        pinned: current.scopeKey === effectiveScopeKey ? current.pinned : [],
+      }));
+    },
+    [effectiveScopeKey],
+  );
+  const setPinnedFilters = useCallback(
+    (updater: React.SetStateAction<PinnedFieldFilter[]>) => {
+      setFilterState(current => {
+        const prevPinned = current.scopeKey === effectiveScopeKey ? current.pinned : [];
+        return {
+          scopeKey: effectiveScopeKey,
+          draftColKey: current.scopeKey === effectiveScopeKey ? current.draftColKey : "none",
+          draftValue: current.scopeKey === effectiveScopeKey ? current.draftValue : "",
+          pinned: typeof updater === "function" ? updater(prevPinned) : updater,
+        };
+      });
+    },
+    [effectiveScopeKey],
+  );
 
-  useEffect(() => {
-    saveSheetLayout(effectiveScopeKey, layoutPrefs);
-  }, [effectiveScopeKey, layoutPrefs]);
+  const [activeCellState, setActiveCellState] = useState<{
+    scopeKey: string;
+    cell: { row: number; col: number } | null;
+  }>({ scopeKey: "", cell: null });
+  const activeCell = activeCellState.scopeKey === effectiveScopeKey ? activeCellState.cell : null;
+  const setActiveCell = useCallback(
+    (cell: { row: number; col: number } | null) => {
+      setActiveCellState({ scopeKey: effectiveScopeKey, cell });
+    },
+    [effectiveScopeKey],
+  );
 
   useEffect(() => {
     if (!columnMenuOpen) return;
@@ -583,6 +640,22 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const hasCustomSort = sortField !== "updatedAt" || sortDir !== "desc";
   const hasActiveFilters = Boolean(searchQuery.trim() || effectiveFieldFilters.length > 0 || hasCustomSort);
 
+  const filterSignature = useMemo(
+    () => `${effectiveScopeKey}|${searchQuery}|${JSON.stringify(effectiveFieldFilters)}|${sortParam}`,
+    [effectiveScopeKey, searchQuery, effectiveFieldFilters, sortParam],
+  );
+  const [pageState, setPageState] = useState<{ sig: string; value: number }>({ sig: "", value: 1 });
+  const page = pageState.sig === filterSignature ? pageState.value : 1;
+  const setPage = useCallback(
+    (next: number | ((current: number) => number)) => {
+      setPageState(current => {
+        const base = current.sig === filterSignature ? current.value : 1;
+        return { sig: filterSignature, value: typeof next === "function" ? next(base) : next };
+      });
+    },
+    [filterSignature],
+  );
+
   const loadLeads = useCallback(async () => {
     const seq = ++requestSeqRef.current;
     setLoading(true);
@@ -609,16 +682,20 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   }, [activeChannel, accountId, searchQuery, effectiveFieldFilters, sortParam, page, pageSize]);
 
   useEffect(() => {
-    void loadProfiles();
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void loadProfiles();
+    });
+    return () => { cancelled = true; };
   }, [loadProfiles, refreshToken]);
 
   useEffect(() => {
-    void loadLeads();
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void loadLeads();
+    });
+    return () => { cancelled = true; };
   }, [loadLeads, refreshToken]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, effectiveFieldFilters, sortParam]);
 
   const visibleColumns = useMemo(() => {
     const hidden = new Set(layoutPrefs.hiddenKeys);
@@ -713,7 +790,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       const target = gridContainerRef.current?.querySelector<HTMLElement>(`[data-sheet-cell="${nextRow}:${nextCol}"]`);
       target?.focus();
     });
-  }, [leads.length, visibleColumns.length]);
+  }, [leads.length, visibleColumns.length, setActiveCell]);
 
   async function saveCell(lead: ExtendedLeadCard, col: LeadSheetColumn, nextValue: string) {
     try {

@@ -20,7 +20,7 @@ const fields = [
 describe("Page intake flow", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => null }) } as any);
+    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => null }) } as never);
   });
   it("asks only for the first missing field", () => {
     expect(nextIntakeReply(fields, { surface: "tường", area: "20 m²" }, "Đã nhận thông tin.")).toBe(fields[2].question);
@@ -37,9 +37,9 @@ describe("Page intake flow", () => {
     expect(normalizeIntakeValue({ key: "consent", label: "Đồng ý", question: "Đồng ý?", type: "checkbox" }, "không")).toBe("Không");
   });
   it("keeps Page state, skips supplied answers, and retries the same message without another extraction", async () => {
-    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ companyCode: "ACME", pageId: "PAGE", version: 2, goal: "Tư vấn sơn", fields, completionMessage: "Đã nhận thông tin." }) } as any);
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
-    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ surface: "tường", area: "20 m²" }) } as any);
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ companyCode: "ACME", pageId: "PAGE", version: 2, goal: "Tư vấn sơn", fields, completionMessage: "Đã nhận thông tin." }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ surface: "tường", area: "20 m²" }) } as never);
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường 20 m²", imageUrls: [] });
     expect(reply?.text).toBe(fields[2].question);
     expect(PageChatFlowStateModel.updateOne).toHaveBeenCalledWith(
@@ -48,7 +48,7 @@ describe("Page intake flow", () => {
       { upsert: true }
     );
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, lastMessageId: "M", lastReply: fields[2].question,
-      values: { surface: "tường", area: "20 m²" } }) } as any);
+      values: { surface: "tường", area: "20 m²" } }) } as never);
     const retried = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường 20 m²", imageUrls: [] });
     expect(retried?.text).toBe(fields[2].question);
     expect(retried?.consultationContext).toBe(reply?.consultationContext);
@@ -57,9 +57,9 @@ describe("Page intake flow", () => {
   });
   it("saves a Lead for a non-Facebook channel without creating an ERP customer", async () => {
     vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ _id: "PROFILE", companyCode: "ACME", pageId: "OA", platform: "zalo", version: 4,
-      goal: "Tư vấn", fields: [{ key: "name", label: "Họ tên", question: "Tên?", type: "text", required: true }], completionMessage: "Cảm ơn." }) } as any);
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
-    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Thủy" }) } as any);
+      goal: "Tư vấn", fields: [{ key: "name", label: "Họ tên", question: "Tên?", type: "text", required: true }], completionMessage: "Cảm ơn." }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Thủy" }) } as never);
     await pageIntakeFlow.process({ companyCode: "ACME", pageId: "OA", platform: "zalo", conversationId: "USER-1", messageId: "M1", message: "Thủy", imageUrls: [] });
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ platform: "zalo", accountId: "OA", conversationId: "USER-1", profileVersion: 4, collectionStatus: "complete" }));
     expect(savePageCustomer).not.toHaveBeenCalled();
@@ -68,9 +68,9 @@ describe("Page intake flow", () => {
   it("uses the intake profile configured for the exact social account", async () => {
     const profile = { _id: "ACCOUNT-PROFILE", companyCode: "ACME", platform: "zalo", accountId: "OA-1", version: 5, goal: "Tư vấn khóa học",
       fields: [{ key: "name", label: "Họ tên", question: "Tên học viên?", type: "text", required: true }], completionMessage: "Đã nhận thông tin." };
-    vi.mocked(LeadIntakeProfileModel.findOne).mockImplementation((filter: any) => ({ sort: () => ({ lean: async () => filter.accountId === "OA-1" ? profile : null }) }) as any);
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
-    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Nguyễn An" }) } as any);
+    vi.mocked(LeadIntakeProfileModel.findOne).mockImplementation(((filter: Record<string, unknown>) => ({ sort: () => ({ lean: async () => filter?.accountId === "OA-1" ? profile : null }) })) as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Nguyễn An" }) } as never);
     await pageIntakeFlow.process({ companyCode: "ACME", pageId: "OA-1", platform: "zalo", conversationId: "USER-2", messageId: "M2", message: "Nguyễn An", imageUrls: [] });
     expect(LeadIntakeProfileModel.findOne).toHaveBeenCalledTimes(1);
     expect(LeadIntakeProfileModel.findOne).toHaveBeenCalledWith({ companyCode: "ACME", platform: "zalo", accountId: "OA-1", status: "active" });
@@ -84,9 +84,9 @@ describe("Page intake flow", () => {
       { key: "name", label: "Họ tên", question: "Tên?", type: "text", required: true },
       { key: "phone", label: "Số điện thoại", question: "SĐT?", type: "phone", required: true },
     ];
-    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ _id: "PROFILE", version: 3, goal: "Tư vấn", fields: contactFields, completionMessage: "Đã đủ thông tin." }) } as any);
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 3, completedAt: new Date(), values: { name: "An", phone: "0900000000" } }) } as any);
-    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ phone: "0911111111" }) } as any);
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ _id: "PROFILE", version: 3, goal: "Tư vấn", fields: contactFields, completionMessage: "Đã đủ thông tin." }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 3, completedAt: new Date(), values: { name: "An", phone: "0900000000" } }) } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ phone: "0911111111" }) } as never);
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M3", message: "Số mới là 0911111111", imageUrls: [] });
     expect(reply).toBeUndefined();
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "An", phone: "0911111111" }, collectionStatus: "complete" }));
@@ -103,13 +103,13 @@ describe("Page intake flow", () => {
       { direction: "inbound", text: "Bên e có sản phẩm nào đang khuyến mại k" },
     ]);
     const history = grouped.historyMessages.map(turn => ({ sender: turn.direction === "inbound" ? "user" : "model", text: turn.text }));
-    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as any);
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
     vi.mocked(generateReplyCompletion).mockImplementation(async params => {
       const payload = JSON.parse(String(params.messages[1].content));
       expect(payload.history).toEqual(history);
       expect(payload.message).toBe("1. Thủy\n2. Bên e có sản phẩm nào đang khuyến mại k");
-      return { text: JSON.stringify({ name: "Thủy" }) } as any;
+      return { text: JSON.stringify({ name: "Thủy" }) } as never;
     });
     const reply = await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "PROMO",
       message: grouped.combinedText, history, imageUrls: [] });
@@ -128,9 +128,9 @@ describe("Page intake flow", () => {
       { key: "name", label: "Họ tên", question: "Cho em xin tên nhé?" },
       { key: "phone", label: "Số điện thoại", question: "Cho em xin số liên hệ nhé?" },
     ];
-    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as any);
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
-    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Thủy", phone: "0900000000" }) } as any);
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Thủy", phone: "0900000000" }) } as never);
     await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "NAME",
       message: "Thủy", imageUrls: [], history: [
         { sender: "model", text: "Hotline Ruby Queen là 0965959929. Cho em xin số điện thoại của mình nhé?" },
@@ -141,11 +141,11 @@ describe("Page intake flow", () => {
       values: { name: "Thủy", phone: "0900000000" } }));
   });
   it("keeps unconfigured customer facts and syncs later replies to the linked customer", async () => {
-    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, goal: "Tư vấn sơn", fields, completionMessage: "Đã nhận thông tin." }) } as any);
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, goal: "Tư vấn sơn", fields, completionMessage: "Đã nhận thông tin." }) } as never);
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, customerId: "CUSTOMER", values: new Map([
       ["surface", "tường"], [PAGE_CUSTOMER_NOTES_KEY, "Ngân sách: 50 triệu"],
-    ]) }) } as any);
-    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ area: "20 m²", [PAGE_CUSTOMER_NOTES_KEY]: "Ngân sách: 50 triệu\nChỉ gọi buổi chiều", injected: "ignored" }) } as any);
+    ]) }) } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ area: "20 m²", [PAGE_CUSTOMER_NOTES_KEY]: "Ngân sách: 50 triệu\nChỉ gọi buổi chiều", injected: "ignored" }) } as never);
     vi.mocked(savePageCustomer).mockResolvedValue("CUSTOMER");
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M2", message: "20 m², ngân sách 50 triệu, chỉ gọi buổi chiều", imageUrls: [] });
     expect(reply?.text).toBe(fields[2].question);

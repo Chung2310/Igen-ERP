@@ -34,7 +34,12 @@ const booleanSelectOptions = [
   { value: "Không", label: "Không" },
 ];
 
-export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
+export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, ...rest }) => {
+  if (!lead) return null;
+  return <LeadDetailDrawerPanel key={`${lead.id}:${String(lead.updatedAt || "")}`} lead={lead} {...rest} />;
+};
+
+function LeadDetailDrawerPanel({
   lead,
   configuredFields = [],
   onClose,
@@ -42,38 +47,23 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   onOpenChat,
   onOpenModuleSync,
   onRequestDelete,
-}) => {
+}: LeadDetailDrawerProps & { lead: ExtendedLeadCard }) {
   const titleId = useId();
   const baseId = useId();
   const drawerRef = useRef<HTMLDivElement>(null);
-  const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
-  const [productOfChoice, setProductOfChoice] = useState("");
-  const [status, setStatus] = useState<ExtendedLeadCard["status"]>("cold");
-  const [value, setValue] = useState(0);
-  const [collectionStatus, setCollectionStatus] = useState<LeadCollectionStatus | "">("");
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [customerName, setCustomerName] = useState(lead.customerName || "");
+  const [phone, setPhone] = useState(lead.phone || "");
+  const [email, setEmail] = useState(lead.email || "");
+  const [company, setCompany] = useState(lead.company || "");
+  const [productOfChoice, setProductOfChoice] = useState(lead.productOfChoice || "");
+  const [status, setStatus] = useState<ExtendedLeadCard["status"]>(lead.status || "cold");
+  const [value, setValue] = useState(Number(lead.value) || 0);
+  const [collectionStatus, setCollectionStatus] = useState<LeadCollectionStatus | "">(lead.collectionStatus || "");
+  const [answers, setAnswers] = useState<Record<string, string>>(() => ({ ...(lead.answers || {}) }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!lead) return;
-    setCustomerName(lead.customerName || "");
-    setPhone(lead.phone || "");
-    setEmail(lead.email || "");
-    setCompany(lead.company || "");
-    setProductOfChoice(lead.productOfChoice || "");
-    setStatus(lead.status || "cold");
-    setValue(Number(lead.value) || 0);
-    setCollectionStatus(lead.collectionStatus || "");
-    setAnswers({ ...(lead.answers || {}) });
-    setError("");
-  }, [lead]);
-
-  useEffect(() => {
-    if (!lead) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     drawerRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {

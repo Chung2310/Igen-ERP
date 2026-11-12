@@ -24,7 +24,13 @@ export default function LeadSheetConfigCard({ integration }: { integration: Soci
     catch (error) { setNotice({ error: true, text: error instanceof Error ? error.message : "Không thể tải cấu hình Sheet." }); }
     finally { setLoading(false); }
   }, [integrationId]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void load();
+    });
+    return () => { cancelled = true; };
+  }, [load]);
 
   async function run(action: "save" | "test" | "retry") {
     if (!integrationId) return;

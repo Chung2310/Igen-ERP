@@ -24,7 +24,7 @@ const save = vi.fn();
 const integration = { _id: "1234567890abcdef12345678", crmLeadSheetConfig: { enabled: true, spreadsheetId: "SHEET", sheetName: "Leads" }, save };
 beforeAll(async () => {
   const app = express(); app.use(express.json()); app.use("/integrations/:integrationId/leads", leadSheetRouter);
-  app.use(((error, _req, res, _next) => res.status(error.statusCode || 500).json({ message: error.message })) as ErrorRequestHandler);
+  app.use(((error, _req, res, _next) => { void _next; res.status(error.statusCode || 500).json({ message: error.message }); }) as ErrorRequestHandler);
   await new Promise<void>(resolve => { server = app.listen(0, "127.0.0.1", resolve); });
   const address = server.address(); if (!address || typeof address === "string") throw new Error("Test server missing");
   url = `http://127.0.0.1:${address.port}/integrations/${integration._id}/leads`;
@@ -51,7 +51,7 @@ it("only loads the caller's company and returns 404 for a foreign Page", async (
 it("rejects a non-Google destination before touching a Sheet or configuration", async () => {
   const response = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled: true, spreadsheetUrl: "https://example.com/spreadsheets/d/SHEET", sheetName: "Leads" }) });
-  expect(response.status).toBe(400); expect(save).not.toHaveBeenCalled(); expect(googleCustomerSheetService.prepare).not.toHaveBeenCalled();
+  expect(response.status).toBe(400); expect(save).not.toHaveBeenCalled(); expect(googleCustomerSheetService.prepareLead).not.toHaveBeenCalled();
 });
 it("keeps the existing saved setting if the new Sheet is not writable", async () => {
   vi.mocked(googleCustomerSheetService.prepareLead).mockRejectedValueOnce(new Error("Google Sheet permission denied"));

@@ -69,20 +69,38 @@ const fieldTypeSelectOptions = LEAD_INTAKE_FIELD_TYPES.map(type => ({
 
 export const LeadIntakeBuilderModal: React.FC<LeadIntakeBuilderModalProps> = ({
   isOpen,
+  initialAccountKey,
+  initialAddColumn = false,
+  focusFieldKey,
+  ...rest
+}) => {
+  if (!isOpen) return null;
+  return (
+    <LeadIntakeBuilderModalBody
+      key={`${initialAccountKey || "company"}:${initialAddColumn ? 1 : 0}:${focusFieldKey || ""}`}
+      initialAccountKey={initialAccountKey}
+      initialAddColumn={initialAddColumn}
+      focusFieldKey={focusFieldKey}
+      {...rest}
+    />
+  );
+};
+
+function LeadIntakeBuilderModalBody({
   accounts,
   initialAccountKey,
   initialAddColumn = false,
   focusFieldKey,
   onClose,
   onSaved,
-}) => {
+}: Omit<LeadIntakeBuilderModalProps, "isOpen">) {
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>(() => {
     if (initialAccountKey && initialAccountKey !== "company" && accounts.some(a => `${a.platform}:${a.accountId}` === initialAccountKey)) {
       return initialAccountKey;
     }
     return "company";
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"" | "suggest" | "save">("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -115,26 +133,17 @@ export const LeadIntakeBuilderModal: React.FC<LeadIntakeBuilderModalProps> = ({
   );
 
   useEffect(() => {
-    if (!isOpen) return;
-    if (initialAccountKey === "company") {
-      setSelectedAccountKey("company");
-    } else if (initialAccountKey && accounts.some(a => `${a.platform}:${a.accountId}` === initialAccountKey)) {
-      setSelectedAccountKey(initialAccountKey);
-    } else if (!selectedAccountKey) {
-      setSelectedAccountKey("company");
-    }
-  }, [isOpen, initialAccountKey, accounts, selectedAccountKey]);
-
-  useEffect(() => {
-    if (!isOpen) return;
     let cancelled = false;
-    setLoading(true);
-    setError("");
-    setNotice("");
-
-    void crmService
-      .getLeadIntakeProfilesForAccount(selectedAccount?.platform, selectedAccount?.accountId)
-      .then(({ profiles, fallbackProfiles }) => {
+    void Promise.resolve().then(async () => {
+      if (cancelled) return;
+      setLoading(true);
+      setError("");
+      setNotice("");
+      try {
+        const { profiles, fallbackProfiles } = await crmService.getLeadIntakeProfilesForAccount(
+          selectedAccount?.platform,
+          selectedAccount?.accountId,
+        );
         if (cancelled) return;
         const active = profiles.find(profile => profile.status === "active");
         const draft = profiles.find(profile => profile.status === "draft");
@@ -166,16 +175,15 @@ export const LeadIntakeBuilderModal: React.FC<LeadIntakeBuilderModalProps> = ({
         if (selectedAccount && !active && fallback) {
           setNotice("Đang dùng bộ cột mặc định chung. Bấm Lưu nếu muốn tùy biến riêng cho kênh này.");
         }
-      })
-      .catch(cause => {
+      } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "Không thể tải cấu hình cột Lead.");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    });
 
     return () => { cancelled = true; };
-  }, [isOpen, selectedAccount, initialAddColumn, focusFieldKey]);
+  }, [selectedAccount, initialAddColumn, focusFieldKey]);
 
   useEffect(() => {
     if (!loading && pendingFocusNewRowRef.current) {
@@ -338,7 +346,7 @@ export const LeadIntakeBuilderModal: React.FC<LeadIntakeBuilderModalProps> = ({
 
   return (
     <ErpModal
-      isOpen={isOpen}
+      isOpen
       title="Cấu hình cột Lead & câu hỏi Chatbot"
       maxWidth="max-w-3xl"
       closeDisabled={Boolean(busy)}

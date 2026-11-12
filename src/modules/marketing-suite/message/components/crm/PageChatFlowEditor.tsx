@@ -41,6 +41,8 @@ function normalizeFlow(flow: Flow): Flow {
 }
 
 export function PageChatFlowEditor({ pageId, platform = "facebook" }: { pageId: string; platform?: Platform }) {
+  const scopeKey = `${platform}:${pageId}`;
+  const [loadedScope, setLoadedScope] = useState("");
   const [goal, setGoal] = useState("");
   const [draft, setDraft] = useState<Flow | null>(null);
   const [activeVersion, setActiveVersion] = useState<number | null>(null);
@@ -50,7 +52,6 @@ export function PageChatFlowEditor({ pageId, platform = "facebook" }: { pageId: 
 
   useEffect(() => {
     let cancelled = false;
-    setDraft(null); setActiveVersion(null); setError(""); setNotice("");
     if (!pageId) return () => { cancelled = true; };
     void requestFlow(platform, pageId).then((data: { profiles?: Flow[]; fallbackProfiles?: Flow[] }) => {
       if (cancelled) return;
@@ -66,13 +67,25 @@ export function PageChatFlowEditor({ pageId, platform = "facebook" }: { pageId: 
         fields: [{ key: "ho_ten", label: "Họ tên", question: "Anh/chị cho em xin họ tên để tiện tư vấn ạ?", type: "text" as const, required: true, options: [] }],
         completionMessage: "Cảm ơn anh/chị, bên em sẽ liên hệ tư vấn sớm ạ.",
       };
+      setLoadedScope(scopeKey);
       setActiveVersion(active?.version || null);
       setDraft(nextDraft);
       setGoal(nextDraft.goal || "");
-      if (!active && !existingDraft && sharedTemplate) setNotice("Đang dùng cấu hình chung làm mẫu. Lưu và kích hoạt để tạo bộ trường riêng cho tài khoản này.");
-    }).catch((cause: Error) => { if (!cancelled) setError(cause.message); });
+      setError("");
+      setNotice(!active && !existingDraft && sharedTemplate
+        ? "Đang dùng cấu hình chung làm mẫu. Lưu và kích hoạt để tạo bộ trường riêng cho tài khoản này."
+        : "");
+    }).catch((cause: Error) => {
+      if (!cancelled) {
+        setLoadedScope(scopeKey);
+        setDraft(null);
+        setActiveVersion(null);
+        setNotice("");
+        setError(cause.message);
+      }
+    });
     return () => { cancelled = true; };
-  }, [pageId, platform]);
+  }, [pageId, platform, scopeKey]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true); setError(""); setNotice("");
@@ -85,6 +98,11 @@ export function PageChatFlowEditor({ pageId, platform = "facebook" }: { pageId: 
     setDraft(current => current ? { ...current, version: 0, fields: current.fields.map((field, fieldIndex) => fieldIndex === index ? { ...field, ...next } : field) } : current);
   }
 
+  const activeDraft = loadedScope === scopeKey ? draft : null;
+  const activeGoal = loadedScope === scopeKey ? goal : "";
+  const activeError = loadedScope === scopeKey ? error : "";
+  const activeNotice = loadedScope === scopeKey ? notice : "";
+
   if (!pageId) return <section className="space-y-2 border-t border-outline-variant pt-4" aria-label="Cấu hình thu thập Lead">
     <h5 className="text-sm font-semibold text-on-surface">Cấu hình thu thập Lead</h5>
     <p className="text-xs text-on-surface-variant">Chọn một tài khoản Facebook, Zalo hoặc TikTok để cấu hình riêng các trường Lead của tài khoản đó.</p>
@@ -95,19 +113,21 @@ export function PageChatFlowEditor({ pageId, platform = "facebook" }: { pageId: 
       <h5 className="text-sm font-semibold text-on-surface">Cấu hình thu thập Lead</h5>
       <p className="mt-1 text-xs text-on-surface-variant">Bộ trường chỉ áp dụng cho tài khoản đang chọn: <strong>{platform.toUpperCase()} · {pageId}</strong>. Cấu hình được tách riêng theo từng doanh nghiệp và tài khoản.</p>
     </div>
-      {activeVersion && <p className="text-xs text-on-surface-variant">Bản đang chạy: {activeVersion}. Lưu thay đổi thành bản nháp rồi kích hoạt để áp dụng.</p>}
+      {loadedScope === scopeKey && activeVersion && <p className="text-xs text-on-surface-variant">Bản đang chạy: {activeVersion}. Lưu thay đổi thành bản nháp rồi kích hoạt để áp dụng.</p>}
       <label className="block space-y-1 text-xs font-medium text-on-surface">Mục đích thu thập
-        <textarea className={input} rows={2} value={goal} onChange={event => setGoal(event.target.value)} placeholder="Ví dụ: Thu thập thông tin người cần tư vấn khóa học" />
+        <textarea className={input} rows={2} value={activeGoal} onChange={event => setGoal(event.target.value)} placeholder="Ví dụ: Thu thập thông tin người cần tư vấn khóa học" />
       </label>
-      <button type="button" disabled={busy || !goal.trim()} onClick={() => void run(async () => {
-        const suggestion = await requestFlow(platform, pageId, "/suggest", { goal });
+      <button type="button" disabled={busy || !activeGoal.trim()} onClick={() => void run(async () => {
+        const suggestion = await requestFlow(platform, pageId, "/suggest", { goal: activeGoal });
         setDraft(normalizeFlow({ ...suggestion, status: "draft", version: 0 }));
         setNotice("Đã tạo đề xuất. Kiểm tra câu hỏi và kiểu dữ liệu trước khi lưu.");
       })} className={button}>Đề xuất trường bằng AI</button>
       <p className="text-xs text-on-surface-variant">Nếu chọn tài khoản, AI dùng thêm tài liệu và kịch bản tư vấn của tài khoản đó để gợi ý.</p>
-      {draft && <div className="space-y-3 rounded-md border border-outline-variant bg-surface p-3">
-        <p className="text-xs text-on-surface-variant">Bản nháp {draft.version || "mới"} · Các trường bắt buộc sẽ được bot hỏi. Trường tùy chọn được lưu khi khách tự cung cấp.</p>
-        {draft.fields.map((field, index) => <fieldset key={field.key || index} className="space-y-2 border-b border-outline-variant pb-3">
+      {activeError && <p role="alert" className="text-xs text-error">{activeError}</p>}
+      {activeNotice && <p role="status" className="text-xs text-primary">{activeNotice}</p>}
+      {activeDraft && <div className="space-y-3 rounded-md border border-outline-variant bg-surface p-3">
+        <p className="text-xs text-on-surface-variant">Bản nháp {activeDraft.version || "mới"} · Các trường bắt buộc sẽ được bot hỏi. Trường tùy chọn được lưu khi khách tự cung cấp.</p>
+        {activeDraft.fields.map((field, index) => <fieldset key={field.key || index} className="space-y-2 border-b border-outline-variant pb-3">
           <legend className="px-1 text-xs font-semibold text-on-surface">Trường {index + 1}</legend>
           <label className="block space-y-1 text-xs text-on-surface">Mã trường
             <input className={input} value={field.key} onChange={event => updateField(index, { key: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 40) })} placeholder="vi_du: muc_dich" />
@@ -133,22 +153,22 @@ export function PageChatFlowEditor({ pageId, platform = "facebook" }: { pageId: 
             <input type="checkbox" checked={field.required !== false} onChange={event => updateField(index, { required: event.target.checked })} className="size-4 accent-primary focus-visible:outline-1 focus-visible:outline-primary" />
             Bắt buộc phải có câu trả lời
           </label>
-          <button type="button" disabled={busy || draft.fields.length <= 1} onClick={() => setDraft({ ...draft, version: 0, fields: draft.fields.filter((_, fieldIndex) => fieldIndex !== index) })} className="ml-3 text-xs text-error underline disabled:opacity-50 focus-visible:outline-1 focus-visible:outline-primary">Xóa trường</button>
+          <button type="button" disabled={busy || activeDraft.fields.length <= 1} onClick={() => setDraft({ ...activeDraft, version: 0, fields: activeDraft.fields.filter((_, fieldIndex) => fieldIndex !== index) })} className="ml-3 text-xs text-error underline disabled:opacity-50 focus-visible:outline-1 focus-visible:outline-primary">Xóa trường</button>
         </fieldset>)}
-        <button type="button" disabled={busy || draft.fields.length >= 30} onClick={() => setDraft({ ...draft, version: 0, fields: [...draft.fields, { key: "", label: "", question: "", type: "text", required: true, options: [] }] })} className={button}>Thêm trường thông tin</button>
+        <button type="button" disabled={busy || activeDraft.fields.length >= 30} onClick={() => setDraft({ ...activeDraft, version: 0, fields: [...activeDraft.fields, { key: "", label: "", question: "", type: "text", required: true, options: [] }] })} className={button}>Thêm trường thông tin</button>
         <label className="block space-y-1 text-xs text-on-surface">Lời nhắn khi thu thập xong
-          <textarea className={input} rows={2} value={draft.completionMessage} onChange={event => setDraft({ ...draft, version: 0, completionMessage: event.target.value })} placeholder="Cảm ơn anh/chị, bên em sẽ liên hệ tư vấn sớm ạ." />
+          <textarea className={input} rows={2} value={activeDraft.completionMessage} onChange={event => setDraft({ ...activeDraft, version: 0, completionMessage: event.target.value })} placeholder="Cảm ơn anh/chị, bên em sẽ liên hệ tư vấn sớm ạ." />
         </label>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={busy} onClick={() => void run(async () => {
-            const saved = await requestFlow(platform, pageId, "/draft", { goal: goal.trim() || draft.goal, fields: draft.fields, completionMessage: draft.completionMessage, sourceDocumentIds: draft.sourceDocumentIds });
+            const saved = await requestFlow(platform, pageId, "/draft", { goal: activeGoal.trim() || activeDraft.goal, fields: activeDraft.fields, completionMessage: activeDraft.completionMessage, sourceDocumentIds: activeDraft.sourceDocumentIds });
             setDraft(normalizeFlow(saved)); setNotice("Đã lưu bản nháp.");
           })} className={button}>{busy ? "Đang lưu…" : "Lưu bản nháp"}</button>
           <button
             type="button"
-            disabled={busy || draft.fields.some(field => !field.key.trim() || !field.label.trim() || !field.question.trim())}
+            disabled={busy || activeDraft.fields.some(field => !field.key.trim() || !field.label.trim() || !field.question.trim())}
             onClick={() => void run(async () => {
-              const saved = await requestFlow(platform, pageId, "/draft", { goal: goal.trim() || draft.goal, fields: draft.fields, completionMessage: draft.completionMessage, sourceDocumentIds: draft.sourceDocumentIds });
+              const saved = await requestFlow(platform, pageId, "/draft", { goal: activeGoal.trim() || activeDraft.goal, fields: activeDraft.fields, completionMessage: activeDraft.completionMessage, sourceDocumentIds: activeDraft.sourceDocumentIds });
               const normalized = normalizeFlow(saved);
               if (normalized.version > 0) {
                 await requestFlow(platform, pageId, `/${normalized.version}/activate`, {});
