@@ -57,9 +57,10 @@ async function authorizeSuiteRequest(req: AuthenticatedRequest, res: Response, n
   }
   const personalAiSettings = /^\/marketing-settings\/auto-reply\/?$/.test(path);
   const campaignSettings = /^\/marketing-settings\/authors\/[^/]+\/?$/.test(path);
-  const integrations = !personalAiSettings && !campaignSettings && /social-integrations|company-(?:telegram|sepay|cake|product)|marketing-settings|validate-token|validate-integration|save-integration|order-sheets|oauth|facebook\/config/.test(path);
+  const leadIntakeSettings = /^\/marketing-settings\/(?:lead-intake-profiles|chat-flows)(?:\/|$)/.test(path);
+  const integrations = !personalAiSettings && !campaignSettings && !leadIntakeSettings && /social-integrations|company-(?:telegram|sepay|cake|product)|marketing-settings|validate-token|validate-integration|save-integration|order-sheets|oauth|facebook\/config/.test(path);
   const knowledge = path.startsWith("/company-knowledge") || /^\/gemini\/(?:knowledge-health|clear-knowledge|customer-service-scenario|sync-drive|upload-document)/.test(path);
-  const inbox = personalAiSettings || /^\/(?:omni-inbox|zalo|tiktok\/messenger)/.test(path) || /^\/facebook\/(?:messenger|debug-ai-logs|comments)/.test(path) || /^\/gemini\/(?:chat|chat-comment|follow-up|test-reply|ai-reply-logs|extract-scenario)/.test(path);
+  const inbox = personalAiSettings || leadIntakeSettings || /^\/(?:omni-inbox|zalo|tiktok\/messenger)/.test(path) || /^\/facebook\/(?:messenger|debug-ai-logs|comments)/.test(path) || /^\/gemini\/(?:chat|chat-comment|follow-up|test-reply|ai-reply-logs|extract-scenario)/.test(path);
   const module: ModuleKey = knowledge ? "company-knowledge" : inbox ? "omni-inbox" : "social-marketing";
   const enabled = integrations
     ? await companyModuleEnabled(companyCode, "social-marketing") || await companyModuleEnabled(companyCode, "omni-inbox")
@@ -78,8 +79,12 @@ async function authorizeSuiteRequest(req: AuthenticatedRequest, res: Response, n
     const owned = await SocialIntegrationModel.exists({ _id: integrationId, companyCode });
     if (!owned) return res.status(403).json({ status: "error", message: "Bạn không có quyền truy cập tích hợp này." });
   }
+  const intakeProfilePath = /^\/marketing-settings\/lead-intake-profiles(?:\/|$)/.test(path);
+  const intakeScope = req.method === "GET" ? req.query : req.body;
+  const intakePlatform = intakeProfilePath ? intakeScope?.platform || req.query.platform : undefined;
+  const pagePlatform = intakePlatform === "zalo" ? "Zalo" : intakePlatform === "tiktok" ? "TikTok" : "Facebook";
   const identities = [
-    ["Facebook", req.query.pageId || req.body?.pageId],
+    [pagePlatform, intakeProfilePath ? intakeScope?.pageId : req.query.pageId || req.body?.pageId],
     ["Zalo", req.query.oaId || req.body?.oaId],
     ["TikTok", req.query.businessAccountId || req.body?.businessAccountId],
   ];

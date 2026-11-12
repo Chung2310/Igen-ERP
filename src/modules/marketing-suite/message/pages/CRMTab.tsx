@@ -2,11 +2,12 @@ import "../../shared/marketing-workspace.css";
 import "../crm-workspace.css";
 import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
-import { Zap, FileText, DollarSign, MessageSquare, Check } from "lucide-react";
+import { Zap, MessageSquare, Users } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
 import { toast } from "../../../../pages/Toast";
 import { crmService, ExtendedLeadCard } from "../services/crmService";
 import { useAuth } from "../../shared/context/AuthContext";
+import { useBranchOptional } from "../../../../context/BranchContext";
 import { fbMessengerService } from "../services/fbMessengerService";
 import { mapInboxMessages as mapFbMessages, type RawInboxMessage } from "../services/inboxMessageMapping";
 import { startInboxMessagePolling } from "../services/inboxMessagePolling";
@@ -16,9 +17,16 @@ import { getAccessToken } from "../../shared/services/authService";
 import { socketService, type MessengerScope } from "../../../../services/socketService";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
+import { CurrencyInput } from "../../../../components/common/CurrencyInput";
+import { ErpModal } from "../../../../components/common/ErpModal";
+import { StyledSelect } from "../../../../components/common/StyledSelect";
+import { DateInput24 } from "../../../../components/common/TimeInput24";
+import { primaryCreateButtonClass } from "../../../../components/common/primaryCreateButton";
 import { socialIntegrationService, SocialIntegration } from "../../shared/services/socialIntegrationService";
 import { resolveAiReplyScope } from "../../shared/utils/aiReplyScope";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
+import type { LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
+import { isNameField, parseMultiSelectValue } from "../components/crm/leadSheetUtils";
 import { SocialPlatformIcon } from "../components/crm/SocialPlatformIcon";
 
 function getCustomerInitials(customerName: string) {
@@ -42,9 +50,9 @@ function getInboxIdentityKey(customer: Pick<CustomerInbox, "id" | "channel" | "a
 }
 
 // Lazy-loaded subcomponents
-const PipelineTab = lazy(() =>
-  import("../components/crm/PipelineTab").then((module) => ({
-    default: module.PipelineTab,
+const LeadTable = lazy(() =>
+  import("../components/crm/LeadTable").then((module) => ({
+    default: module.LeadTable,
   }))
 );
 const OmniChatTab = lazy(() =>
@@ -59,19 +67,21 @@ const AiCommentReplyManager = lazy(() =>
 );
 
 const CRM_SUB_TAB_ROUTES = [
-  { slug: "pipeline", value: "PHỄU KHÁCH HÀNG" as CRMSubTabType },
+  { slug: "lead", value: "LEAD" as CRMSubTabType },
   { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
   { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
 ] as const;
 
 export default function CRMTab() {
-  const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES, "PHỄU KHÁCH HÀNG");
+  const [subTab, setSubTab] = useSubTabRouter<CRMSubTabType>(CRM_SUB_TAB_ROUTES, "LEAD");
   const [activeChannel, setActiveChannel] = useState<"all" | "facebook" | "zalo" | "tiktok">("all");
 
-  // 1. Leads Kanban Pipeline States loaded from Firebase
+  // Lead records are shared with the conversation inbox and shown in the sheet-style Lead table.
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
+  const [leadSheetRefreshToken, setLeadSheetRefreshToken] = useState(0);
 
   useEffect(() => {
+    if (subTab !== "OMNI-INBOX CHAT") return;
     const unsubscribe = crmService.subscribeLeads((loadedLeads) => {
       setLeads(loadedLeads);
     });
@@ -80,31 +90,24 @@ export default function CRMTab() {
         unsubscribe();
       }
     };
-  }, []);
+  }, [subTab]);
 
   const [newLeadName, setNewLeadName] = useState("");
-  const [newLeadValue, setNewLeadValue] = useState("");
-  const [newLeadStatus, setNewLeadStatus] = useState<"cold" | "warm" | "hot">("cold");
-  const [newLeadTouchpoint, setNewLeadTouchpoint] = useState("Mới tiếp cận");
+  const [newLeadPhone, setNewLeadPhone] = useState("");
+  const [newLeadEmail, setNewLeadEmail] = useState("");
   const [newLeadCompany, setNewLeadCompany] = useState("");
+  const [newLeadAnswers, setNewLeadAnswers] = useState<Record<string, string>>({});
+  const [activeLeadSheetFields, setActiveLeadSheetFields] = useState<LeadIntakeField[]>([]);
 
-  const [searchPipeline, setSearchPipeline] = useState("");
+  const [leadSearchQuery, setLeadSearchQuery] = useState("");
 
   // Modals state
   const [showCreateLeadModal, setShowCreateLeadModal] = useState(false);
   const [selectedInboxCustId, setSelectedInboxCustId] = useState("");
 
-  // Automation warning modal state
-  const [automationModal, setAutomationModal] = useState<{
-    isOpen: boolean;
-    leadName: string;
-    company: string;
-    contractLink: string;
-    paymentLink: string;
-  } | null>(null);
-
   // 2. Omni-Inbox States
   const { userProfile, updateAiAutoReplyConfig } = useAuth();
+  const branchContext = useBranchOptional();
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
 
   // Connection status requires a usable personal or company account.
@@ -191,7 +194,7 @@ export default function CRMTab() {
     if (userProfile?.tiktokIntegration?.isConnected && userProfile.tiktokIntegration.username) {
       list.push({
         _id: "personal",
-        displayName: userProfile.tiktokIntegration.displayName || userProfile.tiktokIntegration.username || "TÃ i khoáº£n TikTok cÃ¡ nhÃ¢n",
+        displayName: userProfile.tiktokIntegration.displayName || userProfile.tiktokIntegration.username || "Tài khoản TikTok cá nhân",
         username: userProfile.tiktokIntegration.username,
         isMock: !!userProfile.tiktokIntegration.isMock,
       });
@@ -240,7 +243,7 @@ export default function CRMTab() {
         ? Math.max(viewportPadding, bounds.top - gap - maxHeight)
         : Math.min(window.innerHeight - viewportPadding - maxHeight, bounds.bottom + gap);
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reposition the portal from measured viewport bounds before it is painted.
+
       setUnifiedDropdownPosition({ top, left, width, maxHeight });
     };
 
@@ -878,6 +881,11 @@ export default function CRMTab() {
     }, 180);
   };
 
+  const loadConversationMessagesRef = useRef(loadConversationMessages);
+  useEffect(() => {
+    loadConversationMessagesRef.current = loadConversationMessages;
+  });
+
   // Track Socket.IO connection status
   useEffect(() => {
     const unsubscribeStatus = socketService.onStatusChange(setSocketConnected);
@@ -885,7 +893,7 @@ export default function CRMTab() {
       const customer = activeCustomerRef.current;
       if (!customer || !socketService.isMessengerScopeReady(customer.channel, customer.accountId)) return;
       // Recover the small gap before room authorization completed, using DB history once.
-      void loadConversationMessages(customer.id, "replace", customer.channel, { accountId: customer.accountId })
+      void loadConversationMessagesRef.current(customer.id, "replace", customer.channel, { accountId: customer.accountId })
         .catch(error => console.error("[FE CRMTab] Không thể tải lịch sử sau khi đăng ký realtime:", error));
     });
 
@@ -1188,195 +1196,124 @@ export default function CRMTab() {
     }
   };
 
-  // Sync classification tags to Omni-Inbox
-  const syncLeadTagToInbox = (name: string, status: "cold" | "warm" | "hot" | "won" | "upsell", touchpoint?: string) => {
-    setInboxCustomers(prev => {
-      let hasChanges = false;
-
-      const nextCustomers = prev.map(cust => {
-        if (cust.name.toLowerCase() !== name.toLowerCase()) {
-          return cust;
-        }
-
-        const cleanTags = cust.tags.filter(t => !["Khách Lạnh", "Khách Ấm", "Khách Nóng", "Đã Chốt Đơn", "Khách Up-sell", "Khách bán thêm", "Sắp chốt HD", "Đã gửi báo giá", "Mới tiếp cận"].includes(t));
-        const newTempTag =
-          status === "cold" ? "Khách Lạnh" :
-            status === "warm" ? "Khách Ấm" :
-              status === "hot" ? "Khách Nóng" :
-                status === "won" ? "Đã Chốt Đơn" :
-                  "Khách bán thêm (Up-sell)";
-        const newTags = [...cleanTags, newTempTag];
-        if (touchpoint) {
-          newTags.push(touchpoint);
-        }
-
-        if (newTags.length === cust.tags.length && newTags.every((tag, index) => tag === cust.tags[index])) {
-          return cust;
-        }
-
-        hasChanges = true;
-        return { ...cust, tags: newTags };
-      });
-
-      return hasChanges ? nextCustomers : prev;
-    });
-  };
-
-  // Trigger automation modal when lead becomes "Sáº¯p chá»‘t HD" in Hot Column
-  const triggerAutoCloseWorkflow = (lead: ExtendedLeadCard) => {
-    const mockContract = `https://igen-erp.vn/contracts/HD-2026-${lead.id.substring(0, 8) || "X1"}.pdf`;
-    const mockPayment = `https://pay.igen-erp.vn/invoice/INV-2026-${lead.id.substring(0, 8) || "X1"}`;
-
-    setAutomationModal({
-      isOpen: true,
-      leadName: lead.customerName,
-      company: lead.company,
-      contractLink: mockContract,
-      paymentLink: mockPayment
-    });
-
-    const systemMsgText = `[AI AUTOMATION] Đã gửi tự động:
-- Hợp đồng điện tử: ${mockContract}
-- Link thanh toán: ${mockPayment}
-(Trạng thái: Sắp chốt HD - Khách Nóng)`;
-
-    if (activeCustomer && activeCustomer.name.toLowerCase() === lead.customerName.toLowerCase()) {
-      setChatHistory(prev => [
-        ...prev,
-        {
-          id: "system_" + Date.now(),
-          sender: "ai",
-          text: systemMsgText,
-          timestamp: new Date()
-        }
-      ]);
-    }
-    toast.success("Kịch bản chốt Sales tự động: Đã gửi hợp đồng điện tử!");
-  };
-
-  const handleCreateLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newLeadName.trim()) return;
-
-    const val = parseFloat(newLeadValue) || 0;
-    const selectedCust = inboxCustomers.find(c => getInboxIdentityKey(c) === selectedInboxCustId);
-    const avatarIcon = getCustomerInitials(selectedCust?.name || newLeadName);
-
-    const newLead: Omit<ExtendedLeadCard, "id"> = {
-      customerName: newLeadName.trim(),
-      company: newLeadCompany.trim() || "Liên hệ cá nhân mới",
-      value: val,
-      phone: "Chưa bổ sung",
-      avatar: avatarIcon,
-      email: "chua.co@igen.vn",
-      productOfChoice: "",
-      status: newLeadStatus,
-      lastInteraction: newLeadTouchpoint,
-      lastInteractionTime: "Vừa xong"
-    };
-
+  const resetNewLeadForm = () => {
     setNewLeadName("");
-    setNewLeadValue("");
+    setNewLeadPhone("");
+    setNewLeadEmail("");
     setNewLeadCompany("");
+    setNewLeadAnswers({});
     setSelectedInboxCustId("");
-    setShowCreateLeadModal(false);
+  };
 
+  const handleCreateLead = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const cleanedAnswers = Object.fromEntries(
+      Object.entries(newLeadAnswers)
+        .map(([k, v]) => [k, v.trim()])
+        .filter(([, v]) => Boolean(v)),
+    );
+    const customNameField = activeLeadSheetFields.find(isNameField);
+    const resolvedName = (
+      (customNameField ? cleanedAnswers[customNameField.key] : "")
+      || newLeadName.trim()
+      || Object.values(cleanedAnswers)[0]
+      || ""
+    ).trim();
+    if (!resolvedName) {
+      toast.error("Hãy nhập thông tin khách hàng.");
+      return;
+    }
+    const selectedCustomer = inboxCustomers.find(customer => getInboxIdentityKey(customer) === selectedInboxCustId);
+    const sourcePlatform = selectedCustomer?.channel || (activeChannel !== "all" ? activeChannel : "facebook");
+    const platformName = sourcePlatform === "zalo" ? "Zalo" : sourcePlatform === "tiktok" ? "TikTok" : "Facebook";
+    const personalUsername = sourcePlatform === "facebook"
+      ? userProfile?.facebookIntegration?.isConnected ? userProfile.facebookIntegration.pageId : undefined
+      : sourcePlatform === "zalo"
+        ? userProfile?.zaloIntegration?.isConnected ? userProfile.zaloIntegration.oaId : undefined
+        : userProfile?.tiktokIntegration?.isConnected ? userProfile.tiktokIntegration.username : undefined;
+    const sourceAccountIsManaged = Boolean(
+      selectedCustomer?.accountId
+      && (
+        companySocialIntegrations.some(item => item.platform === platformName && item.username === selectedCustomer.accountId)
+        || (personalUsername && personalUsername === selectedCustomer.accountId)
+      ),
+    );
+    const scopedFallback = !selectedCustomer && activeChannel !== "all" && leadAccountId
+      ? { sourcePlatform: activeChannel, sourceAccountId: leadAccountId }
+      : {};
+    const newLead: Omit<ExtendedLeadCard, "id"> = {
+      customerName: resolvedName,
+      company: newLeadCompany.trim(),
+      value: 0,
+      phone: newLeadPhone.trim(),
+      avatar: getCustomerInitials(selectedCustomer?.name || resolvedName),
+      email: newLeadEmail.trim(),
+      productOfChoice: "",
+      status: "cold",
+      lastInteraction: "Tạo Lead thủ công",
+      lastInteractionTime: "Vừa xong",
+      answers: cleanedAnswers,
+      ...(activeLeadSheetFields.length > 0 ? { intakeFields: activeLeadSheetFields } : {}),
+      ...(selectedCustomer && sourceAccountIsManaged
+        ? { sourcePlatform, sourceAccountId: selectedCustomer.accountId, sourceConversationId: selectedCustomer.id }
+        : scopedFallback),
+    };
     try {
-      const createdId = await crmService.createLead(newLead);
-      const fullLead = { ...newLead, id: createdId };
-
-      const customerExists = inboxCustomers.some(c => c.name.toLowerCase() === newLead.customerName.toLowerCase());
-      if (customerExists) {
-        syncLeadTagToInbox(newLead.customerName, newLeadStatus, newLeadTouchpoint);
-      }
-
-      if (newLeadStatus === "hot" && newLeadTouchpoint === "Sắp chốt HD") {
-        triggerAutoCloseWorkflow(fullLead);
-      }
-
-      toast.success("Đã thêm khách hàng tiềm năng thành công!");
+      await crmService.createLead(newLead);
+      setLeadSheetRefreshToken(count => count + 1);
+      resetNewLeadForm();
+      setShowCreateLeadModal(false);
+      toast.success("Đã thêm Lead vào bảng.");
     } catch {
-      toast.error("Không thể tạo khách hàng trên hệ thống.");
+      toast.error("Không thể tạo Lead trên hệ thống.");
     }
   };
 
-  const moveLeadPipeline = async (id: string, newStatus: "cold" | "warm" | "hot" | "won" | "upsell") => {
-    const lead = leads.find(l => l.id === id);
-    if (!lead) return;
-
+  const handleCreateLeadFromChat = async (customer: CustomerInbox) => {
+    const sourcePlatform = customer.channel || "facebook";
+    const platformName = sourcePlatform === "zalo" ? "Zalo" : sourcePlatform === "tiktok" ? "TikTok" : "Facebook";
+    const personalUsername = sourcePlatform === "facebook"
+      ? userProfile?.facebookIntegration?.isConnected ? userProfile.facebookIntegration.pageId : undefined
+      : sourcePlatform === "zalo"
+        ? userProfile?.zaloIntegration?.isConnected ? userProfile.zaloIntegration.oaId : undefined
+        : userProfile?.tiktokIntegration?.isConnected ? userProfile.tiktokIntegration.username : undefined;
+    const sourceAccountIsManaged = Boolean(
+      customer.accountId
+      && (
+        companySocialIntegrations.some(item => item.platform === platformName && item.username === customer.accountId)
+        || (personalUsername && personalUsername === customer.accountId)
+      ),
+    );
+    const newLead: Omit<ExtendedLeadCard, "id"> = {
+      customerName: customer.name,
+      company: "",
+      value: 0,
+      phone: "",
+      avatar: getCustomerInitials(customer.name),
+      email: "",
+      productOfChoice: "",
+      status: "cold",
+      lastInteraction: "Tạo Lead từ hội thoại",
+      lastInteractionTime: "Vừa xong",
+      ...(sourceAccountIsManaged ? { sourcePlatform, sourceAccountId: customer.accountId, sourceConversationId: customer.id } : {}),
+    };
     try {
-      await crmService.updateLead(id, { status: newStatus });
-      const updatedLead = { ...lead, status: newStatus };
-
-      if (newStatus === "hot" && lead.lastInteraction === "Sắp chốt HD") {
-        triggerAutoCloseWorkflow(updatedLead);
-      }
-
-      if (newStatus === "won") {
-        toast.success(`Chúc mừng! Chốt đơn thành công cho khách hàng ${lead.customerName}!`);
-      }
-
-      syncLeadTagToInbox(lead.customerName, newStatus, lead.lastInteraction);
+      await crmService.createLead(newLead);
+      setLeadSheetRefreshToken(count => count + 1);
+      toast.success(`Đã thêm ${customer.name} vào Lead.`);
     } catch {
-      toast.error("Không thể cập nhật trạng thái khách hàng.");
+      toast.error("Không thể tạo Lead trên hệ thống.");
     }
   };
 
   const deleteLead = async (id: string) => {
     try {
       await crmService.deleteLead(id);
-      toast.info("Đã xóa thẻ cơ hội bán hàng.");
+      toast.info("Đã xóa Lead.");
     } catch {
-      toast.error("Không thể xóa khách hàng trên hệ thống.");
+      toast.error("Không thể xóa Lead trên hệ thống.");
     }
   };
-
-  const triggerUpsellCampaignOptimized = async () => {
-    const coldLeads = leads.filter(l => l.status === "cold");
-    if (coldLeads.length === 0) {
-      toast.error("Không có khách hàng nào ở cột Khách Lạnh để gửi chiến dịch.");
-      return;
-    }
-
-    toast.success(`Đã kích hoạt chiến dịch Bán thêm (Up-sell)! Gửi tự động SMS & Voucher giảm giá 10% cho ${coldLeads.length} Khách Lạnh.`);
-
-    try {
-      await crmService.bulkUpdateLeads(
-        coldLeads.map((lead) => ({
-          id: lead.id,
-          lead: {
-            lastInteraction: "Gửi ưu đãi bán thêm (Up-sell)",
-            lastInteractionTime: "Vừa xong"
-          }
-        }))
-      );
-
-      setInboxCustomers(prev => {
-        let hasChanges = false;
-        const nextCustomers = prev.map(cust => {
-          const matchedLead = coldLeads.find(l => l.customerName.toLowerCase() === cust.name.toLowerCase());
-          if (!matchedLead) {
-            return cust;
-          }
-
-          const cleanTags = cust.tags.filter(t => !["Khách Lạnh", "Khách Ấm", "Khách Nóng", "Sắp chốt HD", "Đã gửi báo giá", "Mới tiếp cận"].includes(t));
-          const nextTags = [...cleanTags, "Khách Lạnh", "Gửi ưu đãi bán thêm (Up-sell)"];
-
-          if (nextTags.length === cust.tags.length && nextTags.every((tag, index) => tag === cust.tags[index])) {
-            return cust;
-          }
-
-          hasChanges = true;
-          return { ...cust, tags: nextTags };
-        });
-
-        return hasChanges ? nextCustomers : prev;
-      });
-    } catch (err) {
-      console.error("Error updating campaign status:", err);
-    }
-  };
-
   const handleResumeAI = async (conversationId: string, channel: "facebook" | "zalo" | "tiktok") => {
     try {
       if (channel === "zalo") {
@@ -1501,40 +1438,24 @@ export default function CRMTab() {
     }
   };
 
-  const handleGoToChat = (customerName: string) => {
-    const cust = inboxCustomers.find(c => c.name.toLowerCase() === customerName.toLowerCase());
+  const handleGoToChat = (customerName: string, conversationId?: string, channel?: string, accountId?: string) => {
+    const identityMatch = conversationId ? inboxCustomers.find(c => c.id === conversationId
+      && c.channel === channel && (!accountId || c.accountId === accountId)) : undefined;
+    const sameName = inboxCustomers.filter(c => c.name.toLowerCase() === customerName.toLowerCase());
+    const cust = identityMatch || (!conversationId && sameName.length === 1 ? sameName[0] : undefined);
     if (cust) {
       setActiveCustomer(cust);
       handleSelectCustomer(cust);
       setSubTab("OMNI-INBOX CHAT");
       toast.info(`Đã mở cuộc trò chuyện với ${customerName}`);
+    } else if (!conversationId && sameName.length > 1) {
+      toast.warning("Có nhiều khách trùng tên. Hãy mở hội thoại từ đúng tài khoản trong hộp thư.");
     } else {
-      toast.warning("Khách hàng này chưa từng tương tác/nhắn tin tới Fanpage, không thể tự khởi tạo chat.");
+      toast.warning("Chưa tìm thấy hội thoại nguồn của Lead trong hộp thư.");
     }
   };
 
-  const handleCreateLeadFromChat = async (customer: CustomerInbox, status: "cold" | "warm" | "hot") => {
-    const newLead: Omit<ExtendedLeadCard, "id"> = {
-      customerName: customer.name,
-      company: customer.channel === "zalo" ? "Khách hàng từ Zalo" : customer.channel === "tiktok" ? "Khách hàng từ TikTok" : "Khách hàng từ Facebook",
-      value: 0,
-      phone: "Chưa bổ sung",
-      avatar: getCustomerInitials(customer.name),
-      email: "chua.co@igen.vn",
-      productOfChoice: "",
-      status: status,
-      lastInteraction: "Mới tiếp cận",
-      lastInteractionTime: "Vừa xong"
-    };
-    try {
-      await crmService.createLead(newLead);
-      toast.success(`Đã tự động thêm ${customer.name} vào PHỄU KHÁCH HÀNG!`);
-    } catch {
-      toast.error("Không thể tạo khách hàng trên hệ thống.");
-    }
-  };
-
-  // Sync active Customer status tags when leads change
+  // Keep the selected conversation synchronized with inbox updates.
   useEffect(() => {
     if (!activeCustomer) return;
     const updatedActive = inboxCustomers.find(c => isSameInboxIdentity(c, activeCustomer));
@@ -1552,6 +1473,51 @@ export default function CRMTab() {
 
   const activeTiktokAccount = tiktokAccounts.find((a) => a.username === selectedTiktokAccountId);
   const activeTiktokAccountName = activeTiktokAccount?.displayName || "Chọn TikTok";
+  const leadAccountId = activeChannel === "facebook" ? selectedFacebookPageId
+    : activeChannel === "zalo" ? selectedZaloAccountId
+      : activeChannel === "tiktok" ? selectedTiktokAccountId : undefined;
+
+  const leadSheetAccounts = React.useMemo(() => {
+    const combined: Array<{ id: string; platform: "facebook" | "zalo" | "tiktok"; accountId: string; displayName: string; isMock?: boolean }> = [];
+    const seen = new Set<string>();
+    const pushItem = (
+      platform: "facebook" | "zalo" | "tiktok",
+      item: { _id: string; username: string; displayName: string; isMock?: boolean },
+    ) => {
+      const accountKey = item.username.trim();
+      if (!accountKey) return;
+      const dedupeKey = `${platform}:${accountKey}`;
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      combined.push({
+        id: item._id || accountKey,
+        platform,
+        accountId: accountKey,
+        displayName: item.displayName || accountKey,
+        isMock: item.isMock,
+      });
+    };
+
+    facebookPages.forEach(page => pushItem("facebook", page));
+    zaloAccounts.forEach(acc => pushItem("zalo", acc));
+    tiktokAccounts.forEach(acc => pushItem("tiktok", acc));
+    return combined;
+  }, [facebookPages, zaloAccounts, tiktokAccounts]);
+
+  const handleSelectLeadAccountScope = React.useCallback(
+    (channel: "all" | "facebook" | "zalo" | "tiktok", nextAccountId?: string) => {
+      setActiveChannel(channel);
+      if (channel === "facebook" && nextAccountId) {
+        setSelectedFacebookPageId(nextAccountId);
+        localStorage.setItem("crm_selected_fb_page_id", nextAccountId);
+      } else if (channel === "zalo" && nextAccountId) {
+        setSelectedZaloAccountId(nextAccountId);
+      } else if (channel === "tiktok" && nextAccountId) {
+        setSelectedTiktokAccountId(nextAccountId);
+      }
+    },
+    [],
+  );
   const hasSelectableChannels = facebookPages.length > 0 || zaloAccounts.length > 0 || tiktokAccounts.length > 0;
 
   useEffect(() => {
@@ -1707,28 +1673,30 @@ export default function CRMTab() {
           </div>
         </div>}>
         {[
-          { key: "PHỄU KHÁCH HÀNG" as CRMSubTabType, label: "Phễu khách hàng", icon: DollarSign },
+          { key: "LEAD" as CRMSubTabType, label: "Lead", icon: Users },
           { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại ", icon: MessageSquare },
           { key: "AI COMMENT AUTO-REPLY" as CRMSubTabType, label: "AI phản hồi bình luận", icon: Zap },
         ].map(({ key, label, icon: Icon }) => <ModuleNavigationButton key={key} active={subTab === key} icon={<Icon />} onClick={() => setSubTab(key)}>{label}</ModuleNavigationButton>)}
       </ModuleNavigation>
 
-      <div className="flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
+      <div className="min-h-0 flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>
-          {subTab === "PHỄU KHÁCH HÀNG" && (
-            <PipelineTab
-              leads={leads}
-              searchPipeline={searchPipeline}
-              setSearchPipeline={setSearchPipeline}
-              triggerUpsellCampaignOptimized={triggerUpsellCampaignOptimized}
+          {subTab === "LEAD" && (
+            <LeadTable
+              searchQuery={leadSearchQuery}
+              setSearchQuery={setLeadSearchQuery}
               setShowCreateLeadModal={setShowCreateLeadModal}
-              moveLeadPipeline={moveLeadPipeline}
               deleteLead={deleteLead}
               handleGoToChat={handleGoToChat}
               activeChannel={activeChannel}
-              inboxCustomers={inboxCustomers}
-              isFbConnected={isFbConnected}
-              isZaloConnected={isZaloConnected}
+              accountId={leadAccountId}
+              companyCode={userProfile?.companyCode || ""}
+              branchId={branchContext?.activeBranchId || userProfile?.branchId || ""}
+              enabledModules={userProfile?.enabledModules}
+              accounts={leadSheetAccounts}
+              onSelectAccountScope={handleSelectLeadAccountScope}
+              onActiveFieldsChange={setActiveLeadSheetFields}
+              refreshToken={leadSheetRefreshToken}
             />
           )}
 
@@ -1748,7 +1716,6 @@ export default function CRMTab() {
               handleLoadOlderMessages={handleLoadOlderMessages}
               leads={leads}
               onCreateLeadFromChat={handleCreateLeadFromChat}
-              onUpdateLeadStatus={moveLeadPipeline}
               facebookPages={facebookPages}
               selectedFacebookPageId={selectedFacebookPageId}
               selectedZaloAccountId={selectedZaloAccountId}
@@ -1783,202 +1750,148 @@ export default function CRMTab() {
         </Suspense>
       </div>
 
-      {/* Create Lead Modal Form */}
-      {showCreateLeadModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 flex flex-col gap-5 text-left animate-fade-in-up">
-
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100 shrink-0">
-              <h4 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">Thêm Cơ Hội Bán Hàng Mới</h4>
-              <button
-                onClick={() => {
-                  setShowCreateLeadModal(false);
-                  setSelectedInboxCustId("");
+      <ErpModal isOpen={showCreateLeadModal} title="Thêm Lead" maxWidth="max-w-xl" onClose={() => { resetNewLeadForm(); setShowCreateLeadModal(false); }}>
+        <form onSubmit={handleCreateLead} className="space-y-4">
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-on-surface">Liên kết hội thoại <span className="font-normal text-on-surface-variant">(tùy chọn)</span></span>
+            <StyledSelect
+              ariaLabel="Liên kết hội thoại"
+              value={selectedInboxCustId}
+              options={[
+                { value: "", label: "Chọn hội thoại nếu có" },
+                ...inboxCustomers.map(customer => ({
+                  value: getInboxIdentityKey(customer),
+                  label: `${customer.name} · ${customer.channel}`,
+                })),
+              ]}
+              onChange={(value) => {
+                setSelectedInboxCustId(value);
+                const customer = inboxCustomers.find(item => getInboxIdentityKey(item) === value);
+                if (customer) {
+                  setNewLeadName(customer.name);
+                  const customNameField = activeLeadSheetFields.find(isNameField);
+                  if (customNameField) {
+                    setNewLeadAnswers(current => ({ ...current, [customNameField.key]: customer.name }));
+                  }
+                } else {
                   setNewLeadName("");
                   setNewLeadCompany("");
-                }}
-                className="text-slate-400 hover:text-slate-700 font-extrabold text-lg focus:outline-none cursor-pointer"
-              >
-                —
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateLead} className="space-y-4">
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Liên kết với khách hàng từ Inbox (Tùy chọn)</label>
-                <select
-                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs outline-none focus:bg-white focus:ring-4 focus:ring-[#00ADFC]/10 cursor-pointer transition-all duration-200"
-                  value={selectedInboxCustId}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedInboxCustId(val);
-                    const found = inboxCustomers.find(c => getInboxIdentityKey(c) === val);
-                    if (found) {
-                      setNewLeadName(found.name);
-                      setNewLeadCompany(found.channel === "zalo" ? "Khách hàng từ Zalo" : "Khách hàng từ Facebook");
-                    } else {
-                      setNewLeadName("");
-                      setNewLeadCompany("");
-                    }
-                  }}
-                >
-                  <option value="">-- Chọn khách hàng từ hội thoại chat --</option>
-                  {inboxCustomers.map(c => (
-                    <option key={getInboxIdentityKey(c)} value={getInboxIdentityKey(c)}>
-                      {c.name} ({c.channel === "zalo" ? "Zalo" : "Facebook"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tên khách hàng tiềm năng *</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Lê Thị B..."
-                  required
-                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs focus:bg-white outline-none focus:ring-4 focus:ring-[#00ADFC]/10 focus:border-[#00ADFC] transition-all duration-200"
-                  value={newLeadName}
-                  onChange={(e) => setNewLeadName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tên doanh nghiệp / Công ty</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Công ty TNHH ABC..."
-                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs focus:bg-white outline-none focus:ring-4 focus:ring-[#00ADFC]/10 focus:border-[#00ADFC] transition-all duration-200"
-                  value={newLeadCompany}
-                  onChange={(e) => setNewLeadCompany(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Dự toán giá trị (đ)</label>
-                <input
-                  type="number"
-                  placeholder="Ví dụ: 15000000"
-                  className="w-full px-3.5 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs font-mono focus:bg-white outline-none focus:ring-4 focus:ring-[#00ADFC]/10 focus:border-[#00ADFC] transition-all duration-200"
-                  value={newLeadValue}
-                  onChange={(e) => setNewLeadValue(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Mức độ nhiệt độ</label>
-                  <select
-                    className="w-full px-3 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs outline-none focus:bg-white focus:ring-4 focus:ring-[#00ADFC]/10 cursor-pointer transition-all duration-200"
-                    value={newLeadStatus}
-                    onChange={(e) => setNewLeadStatus(e.target.value as "cold" | "warm" | "hot")}
-                  >
-                    <option value="cold">Khách Lạnh (Cold)</option>
-                    <option value="warm">Khách Ấm (Warm)</option>
-                    <option value="hot">Khách Nóng (Hot)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Bước xử lý (Tiến độ)</label>
-                  <select
-                    className="w-full px-3 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs outline-none focus:bg-white focus:ring-4 focus:ring-[#00ADFC]/10 cursor-pointer transition-all duration-200"
-                    value={newLeadTouchpoint}
-                    onChange={(e) => setNewLeadTouchpoint(e.target.value)}
-                  >
-                    <option value="Mới tiếp cận">Mới tiếp cận</option>
-                    <option value="Đã gửi báo giá">Đã gửi báo giá</option>
-                    <option value="Sắp chốt HD">Sắp chốt HD</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-[#00ADFC] hover:bg-[#008FCF] text-white rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  Lưu cơ hội
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateLeadModal(false)}
-                  className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
+                }
+              }}
+              className="h-9 rounded-xl"
+            />
           </div>
-        </div>
-      )}
-
-      {/* Automation Modal */}
-      {automationModal && automationModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col gap-4 text-left animate-fade-in-up">
-            <div className="flex items-center gap-3 text-emerald-600">
-              <div className="p-2 bg-emerald-50 rounded-2xl">
-                <Zap className="h-6 w-6" />
+          {(!activeLeadSheetFields.some(isNameField)) && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className={activeLeadSheetFields.length > 0 ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
+                <label htmlFor="lead-name" className="text-sm font-medium text-on-surface">Họ tên <span className="text-error">*</span></label>
+                <input id="lead-name" autoFocus placeholder="Nhập tên khách hàng" value={newLeadName} onChange={event => setNewLeadName(event.target.value)} className="min-h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary" />
               </div>
-              <div className="text-left">
-                <h4 className="font-extrabold text-slate-800 text-sm">Kích hoạt chốt sales tự động</h4>
-                <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">Đã tạo và gửi hợp đồng</p>
-              </div>
-            </div>
-
-            <div className="space-y-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200/50 text-xs">
-              <div>
-                <span className="text-slate-400 block text-[9px] uppercase font-bold tracking-wider">Khách hàng</span>
-                <strong className="text-slate-700 text-xs mt-0.5 block">{automationModal.leadName}</strong>
-                <span className="text-slate-400 block text-[9px] mt-0.5">{automationModal.company}</span>
-              </div>
-              <div className="h-px bg-slate-200/50 my-2" />
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span className="text-[10px] text-slate-500 truncate">Hợp đồng điện tử:</span>
-                  <a href={automationModal.contractLink} target="_blank" rel="noreferrer" className="text-[10px] text-[#008FCF] font-bold hover:underline truncate ml-auto">
-                    {automationModal.contractLink.substring(automationModal.contractLink.lastIndexOf("/") + 1)}
-                  </a>
+              {activeLeadSheetFields.length === 0 && (
+                <div className="space-y-1.5">
+                  <label htmlFor="lead-phone" className="text-sm font-medium text-on-surface">Số điện thoại</label>
+                  <input id="lead-phone" type="tel" placeholder="Nhập số điện thoại" value={newLeadPhone} onChange={event => setNewLeadPhone(event.target.value)} className="min-h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span className="text-[10px] text-slate-500 truncate">Link thanh toán:</span>
-                  <a href={automationModal.paymentLink} target="_blank" rel="noreferrer" className="text-[10px] text-[#008FCF] font-bold hover:underline truncate ml-auto">
-                    pay.igen-erp.vn/invoice...
-                  </a>
-                </div>
+              )}
+            </div>
+          )}
+          {activeLeadSheetFields.length > 0 && (
+            <div className="space-y-3">
+              <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+                {activeLeadSheetFields.map(field => {
+                  const val = newLeadAnswers[field.key] || "";
+                  const type = field.type || "text";
+                  const inputId = `new-lead-field-${field.key}`;
+                  return (
+                    <div key={field.key} className="space-y-1">
+                      <label htmlFor={inputId} className="block text-xs font-medium text-on-surface">
+                        {field.label}
+                      </label>
+                      {type === "long_text" ? (
+                        <textarea
+                          id={inputId}
+                          rows={2}
+                          value={val}
+                          onChange={event => setNewLeadAnswers(current => ({ ...current, [field.key]: event.target.value }))}
+                          className="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary"
+                        />
+                      ) : type === "single_select" ? (
+                        <StyledSelect
+                          ariaLabel={field.label}
+                          value={val}
+                          options={[{ value: "", label: "Chọn một mục" }, ...(field.options || []).map(opt => ({ value: opt, label: opt }))]}
+                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal }))}
+                          className="h-9 rounded-xl"
+                        />
+                      ) : type === "multi_select" ? (
+                        <div className="flex flex-wrap gap-1.5" role="group" aria-label={field.label}>
+                          {(field.options || []).map(opt => {
+                            const selected = new Set(parseMultiSelectValue(val));
+                            const checked = selected.has(opt);
+                            return (
+                              <label key={opt} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-outline-variant px-2.5 py-1 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={event => {
+                                    const next = new Set(parseMultiSelectValue(val));
+                                    if (event.target.checked) next.add(opt);
+                                    else next.delete(opt);
+                                    setNewLeadAnswers(current => ({ ...current, [field.key]: [...next].join(", ") }));
+                                  }}
+                                  className="size-3.5 accent-primary"
+                                />
+                                <span>{opt}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : type === "checkbox" ? (
+                        <StyledSelect
+                          ariaLabel={field.label}
+                          value={val}
+                          options={[{ value: "", label: "Chưa chọn" }, { value: "Có", label: "Có" }, { value: "Không", label: "Không" }]}
+                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal }))}
+                          className="h-9 rounded-xl"
+                        />
+                      ) : type === "currency" ? (
+                        <CurrencyInput
+                          id={inputId}
+                          aria-label={field.label}
+                          allowEmpty
+                          value={val}
+                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal ? String(nextVal) : "" }))}
+                          className="h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm tabular-nums text-on-surface outline-none focus:border-primary"
+                        />
+                      ) : type === "date" ? (
+                        <DateInput24
+                          ariaLabel={field.label}
+                          value={/^\d{4}-\d{2}-\d{2}$/.test(val) ? val : ""}
+                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal }))}
+                          className="min-h-9 rounded-xl"
+                        />
+                      ) : (
+                        <input
+                          id={inputId}
+                          type={type === "email" ? "email" : type === "phone" ? "tel" : "text"}
+                          inputMode={type === "number" ? "decimal" : undefined}
+                          value={val}
+                          onChange={event => setNewLeadAnswers(current => ({ ...current, [field.key]: event.target.value }))}
+                          className="h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-
-            <p className="flex items-start gap-1 text-[10px] leading-relaxed text-slate-400">
-              <Check size={12} className="shrink-0" />Trợ lý iGen AI đã tự động đóng gói hợp đồng, tạo mã thanh toán, và gửi trực tiếp qua Hộp thư hội thoại (Omni-Inbox) cho khách hàng để tối ưu hóa tỷ lệ chốt sales.
-            </p>
-
-            <div className="flex gap-2.5 mt-2">
-              <button
-                onClick={() => {
-                  setAutomationModal(null);
-                  setSubTab("OMNI-INBOX CHAT");
-                }}
-                className="flex-1 py-3 bg-[#00ADFC] hover:bg-[#008FCF] text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <MessageSquare className="h-4 w-4" />
-                Xem chat
-              </button>
-              <button
-                onClick={() => setAutomationModal(null)}
-                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
+          )}
+          <div className="flex justify-end gap-2 border-t border-outline-variant pt-3">
+            <button type="button" onClick={() => { resetNewLeadForm(); setShowCreateLeadModal(false); }} className="min-h-10 rounded-md border border-outline-variant px-4 text-sm text-on-surface hover:bg-surface-container-low">Hủy</button>
+            <button type="submit" className={primaryCreateButtonClass}>Lưu Lead</button>
           </div>
-        </div>
-      )}
-
+        </form>
+      </ErpModal>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { hasQuotationCapability } from "./api";
+import { userMessage } from "./user-message";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedFileRef } from "./api";
 import { formatVndInputValue, parseVndInputValue, updateVndInput } from "./money-input";
 import type { AcceptanceRecord, Contract, Quote } from "./types";
 import { AcceptanceCreationDialog, ApprovedEstimatePickerDialog, ContractCreationDialog } from "./DocumentDialogs";
 import VietnameseDatePicker from "./VietnameseDatePicker";
+import ThemedSelect from "./ThemedSelect";
 import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import "./contract-workflow.css";
 
@@ -59,6 +61,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
   const [downloading, setDownloading] = useState(false);
   const [generatingFile, setGeneratingFile] = useState(false);
   const [savedWordFile, setSavedWordFile] = useState<GeneratedFileRef | null>(null);
+  const [loadingSavedFile, setLoadingSavedFile] = useState(Boolean(id));
 
   useEffect(() => {
     const load = async () => {
@@ -107,15 +110,16 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
         setQuantities(data.record.lines.map((line) => line.acceptedQuantity));
       }
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Không tải được dữ liệu.", "error");
+      notify(userMessage(error, "Không tải được dữ liệu."), "error");
     } finally { setLoading(false); }
     };
     void load();
   }, [view, id, notify]);
   useEffect(() => {
-    if (!id) return;
+    if (!id) { setSavedWordFile(null); setLoadingSavedFile(false); return; }
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    setLoadingSavedFile(true);
     const wordKind = view === "contracts" ? "contract" : "acceptance";
     const poll = async () => {
       try {
@@ -124,6 +128,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
         setSavedWordFile(file);
         if (job?.status === "queued" || job?.status === "running") timer = setTimeout(() => void poll(), 2000);
       } catch { if (active) setSavedWordFile(null); }
+      finally { if (active) setLoadingSavedFile(false); }
     };
     void poll();
     return () => { active = false; clearTimeout(timer); };
@@ -146,7 +151,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       });
       setContract(data.contract);
       notify("Đã lưu hợp đồng.", "success");
-    } catch (error) { notify(error instanceof Error ? error.message : "Không lưu được hợp đồng.", "error"); }
+    } catch (error) { notify(userMessage(error, "Không lưu được hợp đồng."), "error"); }
     finally { setBusy(false); }
   };
 
@@ -159,7 +164,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       const data = await api<{ contract: Contract }>(`/api/contracts/${contract._id}/sign`, { method: "POST", body: JSON.stringify({ signedDate }) });
       setContract(data.contract);
       notify("Đã xác nhận hợp đồng.", "success");
-    } catch (error) { notify(error instanceof Error ? error.message : "Không xác nhận được hợp đồng.", "error"); }
+    } catch (error) { notify(userMessage(error, "Không xác nhận được hợp đồng."), "error"); }
     finally { setBusy(false); }
   };
 
@@ -175,7 +180,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
         setContract(latest);
         setShowAcceptanceDialog(true);
       }
-    } catch (error) { notify(error instanceof Error ? error.message : "Không tạo được nghiệm thu.", "error"); }
+    } catch (error) { notify(userMessage(error, "Không tạo được nghiệm thu."), "error"); }
     finally { setBusy(false); }
   };
 
@@ -193,7 +198,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       setRecord(next);
       notify("Đã lưu biên bản nghiệm thu.", "success");
       return true;
-    } catch (error) { notify(error instanceof Error ? error.message : "Không lưu được nghiệm thu.", "error"); return false; }
+    } catch (error) { notify(userMessage(error, "Không lưu được nghiệm thu."), "error"); return false; }
     finally { setBusy(false); }
   };
 
@@ -207,7 +212,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       const { record: next } = await api<{ record: AcceptanceRecord }>(`/api/acceptance-records/${record._id}/complete`, { method: "POST" });
       setRecord(next);
       notify("Đã hoàn tất nghiệm thu.", "success");
-    } catch (error) { notify(error instanceof Error ? error.message : "Không hoàn tất được nghiệm thu.", "error"); }
+    } catch (error) { notify(userMessage(error, "Không hoàn tất được nghiệm thu."), "error"); }
     finally { setBusy(false); }
   };
 
@@ -217,8 +222,8 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
     setDownloading(true);
     try {
       await downloadGeneratedFile(file.id);
-      notify("Đã tải file đã lưu từ Cloudinary.", "success");
-    } catch (error) { notify(error instanceof Error ? error.message : "Không tải được file đã lưu.", "error"); }
+      notify("Đã tải file đã lưu.", "success");
+    } catch (error) { notify(userMessage(error, "Không tải được file đã lưu."), "error"); }
     finally { setDownloading(false); }
   };
 
@@ -231,6 +236,24 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       notify("Đã tạo và lưu file từ nội dung chứng từ đã lưu.", "success");
     } catch (error) { notify(error instanceof Error ? error.message : "Chưa tạo được file. Chứng từ đã được giữ lại.", "error"); }
     finally { setGeneratingFile(false); }
+  };
+
+  const createContractFile = async (downloadAfterCreate = false) => {
+    if (!contract || busy || downloading || generatingFile || loadingSavedFile || !hasQuotationCapability("quotation-ai:manage")) return;
+    setBusy(true);
+    setGeneratingFile(true);
+    setSavedWordFile(null);
+    try {
+      if (contract.status === "draft" && hasQuotationCapability("quotation-contract:manage")) {
+        const saved = await api<{ contract: Contract }>(`/api/contracts/${contract._id}`, { method: "PATCH", body: JSON.stringify(contractPayload()) });
+        setContract(saved.contract);
+      }
+      const file = await createGeneratedExport(`/api/contracts/${contract._id}/file?background=1`);
+      setSavedWordFile(file);
+      if (downloadAfterCreate) await downloadSavedDocument(file);
+      else notify("Đã tạo và lưu file hợp đồng theo mẫu đã chọn.", "success");
+    } catch (error) { notify(`Hợp đồng vẫn được lưu. ${userMessage(error, "Chưa tạo được file. Vui lòng thử lại.")}`, "error"); }
+    finally { setBusy(false); setGeneratingFile(false); }
   };
 
   if (loading) return <div className="workflow-page"><div className="workflow-loading"><span className="spinner spinner-dark" />Đang tải dữ liệu…</div></div>;
@@ -256,7 +279,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
     {contractSourceQuote && <ContractCreationDialog quote={contractSourceQuote} notify={notify} onClose={() => setContractSourceQuote(null)} onCreated={(createdId, fileError) => {
       setContractSourceQuote(null);
       navigate("contracts", createdId);
-      notify(fileError ? `Đã tạo hợp đồng nhưng chưa tạo được file AI: ${fileError}` : "Đã tạo hợp đồng, AI đã điền mẫu và lưu file.", fileError ? "error" : "success");
+      notify(fileError ? `Hợp đồng đã lưu. ${fileError} Bấm “Tạo và tải file” để thử lại.` : "Đã tạo hợp đồng và lưu file theo mẫu.", fileError ? "error" : "success");
     }} />}
   </div>;
 
@@ -286,9 +309,11 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       <div className="workflow-toolbar">
         <button className="button button-soft" onClick={() => navigate("contracts")}>← Danh sách hợp đồng</button>
         <div className="workflow-toolbar-actions">
-          <button className="button button-primary" type="button" disabled={downloading || !savedWordFile} onClick={() => void downloadSavedDocument(savedWordFile)}>Tải file</button>
-          {hasQuotationCapability("quotation-ai:manage") && <button className="button button-soft" type="button" disabled={generatingFile || busy} onClick={() => void generateDocument()}>{generatingFile ? "Đang tạo file…" : "Tạo file từ bản đã lưu"}</button>}
-          {contract.status === "signed" && <button className="button button-soft" disabled={!hasQuotationCapability("quotation-acceptance:manage") || (busy)} onClick={() => void createAcceptance(contract)}>Tạo nghiệm thu</button>}
+          <div className="workflow-contract-file-actions">
+            <button className="button button-primary" type="button" disabled={busy || downloading || generatingFile || loadingSavedFile || (!savedWordFile && !hasQuotationCapability("quotation-ai:manage"))} onClick={() => void (savedWordFile ? downloadSavedDocument(savedWordFile) : createContractFile(true))}>{loadingSavedFile ? "Đang kiểm tra file…" : downloading ? "Đang tải file…" : generatingFile ? "Đang tạo file…" : savedWordFile ? "Tải file" : "Tạo và tải file"}</button>
+            {savedWordFile && hasQuotationCapability("quotation-ai:manage") && <ThemedSelect className="workflow-file-options" label="Tùy chọn file hợp đồng" value="" options={[{ value: "", label: "Tùy chọn file" }, { value: "regenerate", label: "Tạo lại file" }]} disabled={busy || downloading || generatingFile || loadingSavedFile} onChange={value => { if (value === "regenerate") void createContractFile(); }} />}
+          </div>
+          {contract.status === "signed" && <button className="button button-soft" disabled={busy || !hasQuotationCapability("quotation-acceptance:manage")} onClick={() => void createAcceptance(contract)}>Tạo nghiệm thu</button>}
         </div>
       </div>
 

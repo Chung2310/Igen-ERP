@@ -78,7 +78,7 @@ export async function editStudioImage(input: StudioEditInput): Promise<{ image: 
 
   try {
     const result = await openrouterGenerateImage({
-      model: process.env.IGENAI_IMAGE_EDIT_MODEL?.trim() || "google/gemini-3.1-flash-image",
+      model: process.env.IGENAI_IMAGE_EDIT_MODEL?.trim() || "google/gemini-3.1-flash-lite-image",
       prompt: buildStudioEditPrompt(input.mode, input.prompt, Boolean(target)),
       referenceImages: [reference],
       preserveInputAspectRatio: true,

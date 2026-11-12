@@ -1,25 +1,31 @@
-﻿import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
-import { Brain, History, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, RefreshCw, SendHorizontal, Settings2, Square, Trash2, UserRound, VolumeX, X } from "lucide-react";
-import { assistantService, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
+import { AudioLines, Brain, ChartNoAxesCombined, FileAudio, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, Network, NotebookPen, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Presentation, RefreshCw, SendHorizontal, Settings2, Square, Trash2, UserRound, Video, Volume2, VolumeX, WandSparkles, Youtube, X, type LucideIcon } from "lucide-react";
+import { assistantService, AssistantServiceError, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
+import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
 import { AssistantMemoryManager } from "./AssistantMemoryManager";
 import "./ChatbotWidget.css";
 import type { AssistantReply } from "../../shared/assistant-workflow";
 import { useAuth } from "../../context/AuthContext";
 import { useBranchOptional } from "../../context/BranchContext";
 import { getPosTerminalId } from "../../modules/retail/posTerminal";
-import { AssistantMessageContent } from "./AssistantMessageContent";
+import { AssistantActionProductTable, AssistantMessageContent } from "./AssistantMessageContent";
+import { formatActionPreviewValues } from "./assistant-message-format";
 import { AssistantGeneratedFiles } from "./AssistantGeneratedFiles";
-import type { AssistantChatMessage } from "../../shared/assistant-document";
+import type { AssistantChatMessage, AssistantIllustration, AssistantSource } from "../../shared/assistant-document";
+import { assistantSourceKind, isAssistantImageUrl, safeAssistantHttpUrl, safeAssistantIllustrationUrl } from "./assistant-link-utils";
 import { AssistantSidebarIcon, type AssistantSidebarIconName } from "./AssistantSidebarIcon";
 import { AssistantTools } from "./AssistantTools";
 import { AssistantStudio } from "./AssistantStudio";
 import { AssistantNotebook } from "./AssistantNotebook";
 import { AssistantMeetingNotes } from "./AssistantMeetingNotes";
 import { AssistantHistoryTabs } from "./AssistantHistoryTabs";
+import { AssistantStudioHistory } from "./AssistantStudioHistory";
+import { AssistantPromptLibrary, AssistantPromptLibraryAction } from "./AssistantPromptLibrary";
 import { assistantHistoryCategories, filterAssistantHistory, type AssistantHistoryCategory } from "./assistant-history";
+import type { AssistantStudioHistoryEntry } from "../../services/assistantStudioHistory";
 import { cn } from "../../modules/student-management/lib/utils";
 import { readAssistantTableFile } from "./assistant-table-file";
 import { AssistantTrainingContentForm } from "./AssistantTrainingContentForm";
@@ -28,6 +34,8 @@ import { StyledSelect } from "./StyledSelect";
 import { AiAssistantIcon } from "./HeaderShortcutIcons";
 import { messageDateLabel, messageLocalDateKey, messageTimeLabel } from "./chatMessageTime";
 import { startTwoWayVoice, type SpeechRecognitionInstance, type SpeechRecognitionConstructor } from "./assistant-two-way-voice";
+import { hasSquareBracketPlaceholders, renderPromptWithPlaceholderHighlights } from "./assistantPromptPlaceholder";
+import { AssistantQuickHistoryDropdown } from "./AssistantQuickHistoryDropdown";
 
 type SpeechWindow = Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
 type VoiceStatus = "off" | "manual" | "auto" | "waiting" | "command";
@@ -40,6 +48,40 @@ const assistantQuickPrompts: Record<AssistantMode, readonly string[]> = {
   work: ["Thêm nhân sự mới", "Tạo khách hàng mới", "Tạo một công việc mới"],
 };
 
+const chatFeatureActions = [
+  { label: "Tạo hình ảnh", Icon: Image, from: "#3865d8", middle: "#398ce9", to: "#735be8", studioToolId: "create-image" },
+  { label: "Tạo video", Icon: Video, from: "#df6043", middle: "#f28b4c", to: "#e6a454", comingSoon: true },
+  { label: "Tạo infographic", Icon: FileImage, from: "#3773d6", middle: "#5192eb", to: "#6862d9", studioToolId: "infographic" },
+  { label: "Tạo slide", Icon: Presentation, from: "#d69b2f", middle: "#f0bd47", to: "#e48935", studioToolId: "slide" },
+  { label: "Tạo nhạc", Icon: Music2, from: "#d34bc2", middle: "#ec62d4", to: "#8d53e4", comingSoon: true },
+  { label: "Tạo audio", Icon: Volume2, from: "#4864d5", middle: "#499ce4", to: "#744ce1", studioToolId: "speak" },
+  { label: "Tạo giọng cá nhân", Icon: AudioLines, from: "#d04a9e", middle: "#d95dc9", to: "#984be2", comingSoon: true },
+  { label: "iGen Voice", Icon: AssistantVoiceChatIcon, comingSoon: true, isVoiceChat: true },
+  { label: "Tạo biểu đồ", Icon: ChartNoAxesCombined, from: "#6349cd", middle: "#8d5be6", to: "#ba6ce5", studioToolId: "chart" },
+  { label: "Notebook", Icon: NotebookPen, from: "#398cd6", middle: "#5ba3e4", to: "#7757d8", view: "notebook", gradientOutline: true, comingSoon: true },
+  { label: "Ghi chép cuộc họp", Icon: FileText, from: "#d8784c", middle: "#e8a264", to: "#c8659c", view: "meeting", gradientOutline: true, comingSoon: true },
+  { label: "Tạo mindmap", Icon: WandSparkles, from: "#d4743c", middle: "#e79545", to: "#cb563e", studioToolId: "mindmap" },
+  { label: "Tóm tắt YouTube", Icon: Youtube, from: "#ca494f", middle: "#ea654c", to: "#d78446", comingSoon: true },
+] as const;
+
+type ChatFeatureAction = (typeof chatFeatureActions)[number];
+
+function AssistantGradientIcon({ Icon, from, middle, to, className = "size-5" }: { Icon: LucideIcon; from: string; middle: string; to: string; className?: string }) {
+  const gradientId = useId().replace(/:/g, "");
+  return <Icon className={cn(className, "shrink-0")} strokeWidth={2} stroke={`url(#${gradientId})`} aria-hidden="true">
+    <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor={from} /><stop offset="55%" stopColor={middle} /><stop offset="100%" stopColor={to} /></linearGradient></defs>
+  </Icon>;
+}
+
+function AssistantVoiceChatIcon() {
+  const gradientId = useId().replace(/:/g, "");
+  return <svg viewBox="0 0 24 24" fill="none" stroke={`url(#${gradientId})`} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0" aria-hidden="true" focusable="false">
+    <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor="#ee638a" /><stop offset="55%" stopColor="#c452df" /><stop offset="100%" stopColor="#7559ed" /></linearGradient></defs>
+    <path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.3A8 8 0 1 1 20 11.5Z" />
+    <path d="M9 10.5v2M12 8.5v6M15 10.5v2" />
+  </svg>;
+}
+
 const welcomeMessage: Message = {
   role: "assistant",
   content: "Chào bạn! Mình là trợ lý AI của iGen ERP. Mình có thể trả lời câu hỏi thông thường và hỗ trợ tra cứu, tạo hoặc cập nhật dữ liệu. Với thao tác dữ liệu, mình sẽ hỏi thêm nếu thiếu thông tin và xin bạn xác nhận trước khi thay đổi.",
@@ -49,6 +91,66 @@ const qaWelcomeMessage: Message = {
   content: "Chào bạn! Bạn có thể hỏi kiến thức, nhờ viết, tóm tắt, tạo file Excel, Word hoặc PDF và yêu cầu chỉnh sửa tiếp. Nội dung ở đây không truy cập hay thay đổi dữ liệu trong iGen ERP.",
 };
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
+function AssistantResearchSources({ sources }: { sources?: AssistantSource[]; illustrationUrls?: string[] }) {
+  const seen = new Set<string>();
+  const safeSources = (sources || []).slice(0, 16).flatMap(source => {
+    const safeUrl = safeAssistantHttpUrl(source.url);
+    if (!safeUrl || seen.has(safeUrl)) return [];
+    seen.add(safeUrl);
+    const url = new URL(safeUrl);
+    return [{ title: source.title?.trim() || url.hostname, url: safeUrl, kind: assistantSourceKind(safeUrl) }];
+  });
+  if (!safeSources.length) return null;
+  return <section aria-label="Nguồn tham khảo" className="mt-3 space-y-2 rounded-xl border border-outline-variant bg-surface-container-low p-3 text-sm">
+    <h3 className="text-balance font-semibold text-on-surface">Nguồn tham khảo</h3>
+    <ol className="list-decimal space-y-1.5 pl-5 text-pretty text-on-surface-variant">
+      {safeSources.map((source, index) => <li key={`${source.url}-${index}`} className="break-words">
+        <a href={source.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2 hover:text-on-surface", focusClass)}>
+          <span className="mr-1 font-medium text-on-surface-variant">{source.kind === "image" ? "Ảnh" : source.kind === "document" ? "Tài liệu" : "Trang web"}:</span>
+          {source.title}
+          <span className="sr-only"> (mở tab mới)</span>
+        </a>
+      </li>)}
+    </ol>
+  </section>;
+}
+
+function AssistantAnswerIllustrations({ illustrations }: { illustrations?: AssistantIllustration[] }) {
+  const safeIllustrations = (illustrations || []).slice(0, 4).flatMap(illustration => {
+    const url = safeAssistantIllustrationUrl(illustration.url);
+    const sourceUrl = illustration.sourceUrl ? safeAssistantHttpUrl(illustration.sourceUrl) : null;
+    return url ? [{
+      alt: illustration.alt?.trim() || "Minh họa cho câu trả lời",
+      url,
+      ...(illustration.sourceTitle?.trim() ? { sourceTitle: illustration.sourceTitle.trim() } : {}),
+      ...(sourceUrl ? { sourceUrl } : {}),
+      ...(illustration.sourceCredit?.trim() ? { sourceCredit: illustration.sourceCredit.trim() } : {}),
+    }] : [];
+  });
+  if (!safeIllustrations.length) return null;
+  if (safeIllustrations.length === 1) {
+    const illustration = safeIllustrations[0];
+    return <section className="mt-3 space-y-3" aria-label="Hình minh họa">
+      <figure className="max-w-2xl space-y-1.5">
+        <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="max-h-96 max-w-full rounded-xl border border-outline-variant object-contain" />
+        <figcaption className="text-pretty text-xs text-on-surface-variant">{illustration.sourceUrl
+          ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
+          : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
+      </figure>
+    </section>;
+  }
+  return <section className="mt-3 space-y-2" aria-label="Hình minh họa từ nguồn tham khảo">
+    <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
+      {safeIllustrations.map((illustration, index) => <figure key={`${illustration.url.slice(0, 80)}-${index}`} className="flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+        <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="h-44 w-full bg-surface-container-low object-cover" />
+        <figcaption className="border-t border-outline-variant px-3 py-2 text-pretty text-xs text-on-surface-variant">{illustration.sourceUrl
+          ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("font-medium text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
+          : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
+      </figure>)}
+    </div>
+  </section>;
+}
 function commandAfterWakeWord(text: string): string | null {
   const match = /\b(?:hey|hei)[,\s]+(?:i\s*gen|ai\s*gen)\b[,:.!?]?\s*/i.exec(text);
   return match ? text.slice(match.index + match[0].length).trim() : null;
@@ -61,18 +163,21 @@ function voiceContextError(): string {
 }
 type LauncherPosition = { x: number; y: number };
 
-function RevealingAssistantMessage({ content, requestId, onComplete, onProgress }: { content: string; requestId: string; onComplete: (requestId: string) => void; onProgress: () => void }) {
+function RevealingAssistantMessage({ content, allowedLinkUrls, requestId, onComplete, onProgress }: { content: string; allowedLinkUrls?: readonly string[]; requestId: string; onComplete: (requestId: string) => void; onProgress: () => void }) {
   const reduceMotion = useReducedMotion();
   const [visibleCharacters, setVisibleCharacters] = useState(0);
 
   useEffect(() => {
     const length = Array.from(content).length;
-    if (reduceMotion || length === 0) {
+    if (length === 0) {
       onComplete(requestId);
       return;
     }
+    // Keep the requested typing effect even when reduced motion is enabled;
+    // use a shorter cadence in that mode while still revealing each character.
+    const charactersPerSecond = reduceMotion ? 24 : 16;
     const playback = animate(0, length, {
-      duration: Math.min(18, Math.max(0.8, length / 32)),
+      duration: Math.min(24, Math.max(0.8, length / charactersPerSecond)),
       ease: "linear",
       onUpdate: value => {
         const next = Math.min(length, Math.floor(value));
@@ -89,7 +194,7 @@ function RevealingAssistantMessage({ content, requestId, onComplete, onProgress 
 
   return <>
     <span className="sr-only">{content}</span>
-    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} /></div>
+    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} allowedLinkUrls={allowedLinkUrls} /></div>
   </>;
 }
 function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
@@ -110,6 +215,23 @@ function AssistantVerifiedBadge() {
 function AssistantLiveVoiceIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5" aria-hidden="true" focusable="false">
     <path d="M4 10v4M7.2 7.5v9M10.4 5v14M13.6 8v8M16.8 6.5v11M20 10v4" />
+  </svg>;
+}
+
+type AssistantComposerPlaceholderIconName = "attachment" | "parallel-chat" | "deep-research";
+
+function AssistantComposerPlaceholderIcon({ name }: { name: AssistantComposerPlaceholderIconName }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true" focusable="false">
+    {name === "attachment" ? <path d="m8.1 12.4 5.8-5.8a3 3 0 0 1 4.2 4.2l-7.2 7.2a5 5 0 0 1-7.1-7.1l7.3-7.3a6.5 6.5 0 0 1 9.2 9.2l-6.3 6.3" /> : null}
+    {name === "parallel-chat" ? <>
+      <path d="M3.5 5.5A2 2 0 0 1 5.5 3.5h5A2 2 0 0 1 12.5 5.5v5a2 2 0 0 1-2 2H7l-3.5 2v-2.5a2 2 0 0 1 0-1.5Z" />
+      <path d="M11.5 9.5h7a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3.5l-3.5 2v-2.5a2 2 0 0 1 0-1.5Z" />
+    </> : null}
+    {name === "deep-research" ? <>
+      <circle cx="10.25" cy="10.25" r="5.75" />
+      <path d="m14.5 14.5 5.25 5.25M10.25 7.5v5.5m-2.75-2.75H13" />
+      <path d="m18.5 2.75.7 2.05 2.05.7-2.05.7-.7 2.05-.7-2.05-2.05-.7 2.05-.7.7-2.05Z" />
+    </> : null}
   </svg>;
 }
 function clampLauncherPosition(position: LauncherPosition, size = 56): LauncherPosition {
@@ -194,7 +316,10 @@ function storedConversation(key: string): string {
 
 function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId, mode, headerPanel, openRequest, assistantMode, initialConversationId, onAssistantModeChange }: { storageScope: string; launcherStorageScope: string; branchId: string; deviceId?: string; mode: "popup" | "standalone"; headerPanel: boolean; openRequest: number; assistantMode: AssistantMode; initialConversationId: string | null; onAssistantModeChange: (mode: AssistantMode, conversationId?: string) => void }) {
   const { userProfile } = useAuth();
-  const railGradientId = useId().replace(/:/g, "");
+  const greetingName = userProfile?.displayName || "bạn";
+  const isStandaloneChatHome = mode === "standalone" && assistantMode === "qa";
+  const chatGreeting = `Chào ${greetingName}, tôi có thể giúp gì cho bạn?`;
+  const workGreeting = `Xin chào ${greetingName}, iGen AI có thể giúp gì cho bạn?`;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const launcherStorageKey = `igen_erp_chatbot_launcher_position:${launcherStorageScope}`;
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -261,6 +386,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   }, [settingsRetry]);
   const [password, setPassword] = useState("");
   const [view, setView] = useState<"chat" | "history" | "studio" | "notebook" | "meeting" | "tools">("chat");
+  const [promptLibraryOpen, setPromptLibraryOpen] = useState(false);
   const [isViewingHistory, setIsViewingHistory] = useState(Boolean(initialConversationId));
   const [conversations, setConversations] = useState<AssistantConversationSummary[]>([]);
   const [historyCursor, setHistoryCursor] = useState<AssistantConversationCursor | null>(null);
@@ -269,6 +395,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [historyError, setHistoryError] = useState("");
   const [historyReload, setHistoryReload] = useState(0);
   const [historyCategory, setHistoryCategory] = useState<AssistantHistoryCategory>(assistantMode);
+  const [studioHistoryItem, setStudioHistoryItem] = useState<AssistantStudioHistoryEntry | null>(null);
+  const [studioToolRequest, setStudioToolRequest] = useState<{ toolId: string | null; requestId: number } | null>(null);
   const [pendingConversationDelete, setPendingConversationDelete] = useState<AssistantConversationSummary | null>(null);
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [lastReply, setLastReply] = useState<AssistantReply | null>(null);
@@ -290,12 +418,31 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     try { if (next) localStorage.setItem(draftKey, next); else localStorage.removeItem(draftKey); } catch { /* Keep the draft in memory. */ }
     return next;
   });
+  const usePromptTemplate = (prompt: string) => {
+    setInput(prompt);
+    setPromptLibraryOpen(false);
+  };
   const [attachment, setAttachment] = useState<AssistantTableAttachment | null>(null);
   const [attachmentSubmitted, setAttachmentSubmitted] = useState(false);
+  const [fileAttachment, setFileAttachment] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ file: File; url: string } | null>(null);
   const [attachmentError, setAttachmentError] = useState("");
+  const [recoverableAttachmentError, setRecoverableAttachmentError] = useState(false);
   const [isReadingAttachment, setIsReadingAttachment] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const attachmentButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!fileAttachment || !/\.(?:png|jpe?g|webp|mp4|mov|webm|m4v)$/i.test(fileAttachment.name)) {
+      setAttachmentPreview(null);
+      return;
+    }
+    const createObjectUrl = URL.createObjectURL;
+    const revokeObjectUrl = URL.revokeObjectURL;
+    if (typeof createObjectUrl !== "function" || typeof revokeObjectUrl !== "function") return;
+    const previewUrl = createObjectUrl.call(URL, fileAttachment);
+    setAttachmentPreview({ file: fileAttachment, url: previewUrl });
+    return () => revokeObjectUrl.call(URL, previewUrl);
+  }, [fileAttachment]);
   const [isListening, setIsListening] = useState(false);
   const [twoWayVoiceEnabled, setTwoWayVoiceEnabled] = useState(false);
   const [twoWayRestartVersion, setTwoWayRestartVersion] = useState(0);
@@ -413,9 +560,27 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const logRef = useRef<HTMLDivElement>(null);
   const historyBannerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputHighlightRef = useRef<HTMLDivElement>(null);
   const resumeFocusRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
   const previousAssistantModeRef = useRef(assistantMode);
+  const isWelcomeScreen = !isViewingHistory && messages.length === 1 && messages[0].role === "assistant" && messages[0].content === activeWelcomeMessage.content;
+
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const keepWelcomeComposerSize = isStandaloneChatHome && isWelcomeScreen;
+    const compactComposer = (headerPanel && !fullscreen) || (mode === "standalone" && (!isWelcomeScreen || !isStandaloneChatHome));
+    const maxHeight = keepWelcomeComposerSize ? 72 : compactComposer ? 40 : 120;
+    const minHeight = keepWelcomeComposerSize ? 72 : compactComposer ? 40 : 38;
+    const nextHeight = Math.max(minHeight, Math.min(el.scrollHeight, maxHeight));
+    el.style.height = `${nextHeight}px`;
+    if (inputHighlightRef.current) {
+      inputHighlightRef.current.style.height = `${nextHeight}px`;
+    }
+  }, [input, isStandaloneChatHome, isWelcomeScreen, mode, headerPanel, fullscreen]);
 
   useEffect(() => () => {
     twoWayVoiceRef.current = false;
@@ -466,6 +631,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   useEffect(() => {
     if (previousAssistantModeRef.current === assistantMode) return;
     previousAssistantModeRef.current = assistantMode;
+    setPromptLibraryOpen(false);
     closeSpeech();
     stopReplySpeech();
     const nextStorageKey = assistantMode === "work" ? storageBaseKey : `${storageBaseKey}:qa`;
@@ -479,6 +645,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setSelectedReferences({});
     setReferenceSelectionError("");
     setPassword("");
+    setAttachment(null);
+    setAttachmentSubmitted(false);
+    setFileAttachment(null);
     setAttachmentError("");
     setError("");
     setVoiceError("");
@@ -495,6 +664,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setReferenceSelectionError("");
     setPassword("");
     setInput("");
+    setAttachment(null);
+    setAttachmentSubmitted(false);
+    setFileAttachment(null);
     setAttachmentError("");
     setError("");
     setView("chat");
@@ -506,14 +678,21 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const controller = new AbortController();
     requestRef.current = controller;
     retryRef.current = turnRequest;
+    setRecoverableAttachmentError(false);
+    if (turnRequest.file || (turnRequest.attachment && turnRequest.mode === "qa")) {
+      setAttachment(null);
+      setAttachmentSubmitted(false);
+      setFileAttachment(null);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+    }
     try {
-      if (turnRequest.attachment) localStorage.removeItem(requestKey);
+      if (turnRequest.attachment || turnRequest.file) localStorage.removeItem(requestKey);
       else localStorage.setItem(requestKey, JSON.stringify({ ...turnRequest, decision: turnRequest.decision ? { id: turnRequest.decision.id, confirmed: turnRequest.decision.confirmed } : undefined }));
     } catch { /* Keep in memory. */ }
     setError(""); setIsLoading(true);
     try {
       let result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
-      for (let attempt = 0; result.status === "processing" && attempt < 40 && !controller.signal.aborted; attempt++) {
+      for (let attempt = 0; result.status === "processing" && attempt < 100 && !controller.signal.aborted; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         if (controller.signal.aborted) return;
         result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
@@ -528,6 +707,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       if (turnRequest.mode === "work" && (result.status === "completed" || result.status === "cancelled")) {
         setAttachment(null);
         setAttachmentSubmitted(false);
+        setFileAttachment(null);
+        if (attachmentInputRef.current) attachmentInputRef.current.value = "";
       } else if (turnRequest.mode === "work" && turnRequest.attachment && result.status !== "unsupported" && result.status !== "failed") {
         setAttachmentSubmitted(true);
       }
@@ -537,13 +718,26 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       }
       setMessages(current => {
         const last = current[current.length - 1];
-        const next: Message[] = last?.role === "assistant" && last.content === result.reply && last.files?.[0]?.id === result.files?.[0]?.id ? current : [...current, { role: "assistant", content: result.reply, createdAt: new Date().toISOString(), ...(result.files?.length ? { files: result.files } : {}) }];
+        const sameSources = JSON.stringify(last?.sources || []) === JSON.stringify(result.sources || []);
+        const sameIllustrations = JSON.stringify(last?.illustrations || []) === JSON.stringify(result.illustrations || []);
+        const next: Message[] = last?.role === "assistant" && last.content === result.reply && last.files?.[0]?.id === result.files?.[0]?.id && sameSources && sameIllustrations ? current : [...current, { role: "assistant", content: result.reply, createdAt: new Date().toISOString(), ...(result.files?.length ? { files: result.files } : {}), ...(result.sources?.length ? { sources: result.sources } : {}), ...(result.illustrations?.length ? { illustrations: result.illustrations } : {}) }];
         try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep in memory. */ }
         return next;
       });
       retryRef.current = null;
       try { localStorage.removeItem(requestKey); } catch { /* Keep in memory. */ }
-    } catch (cause) { if (!controller.signal.aborted) setError((cause as Error).message); }
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setError((cause as Error).message);
+        if (cause instanceof AssistantServiceError && cause.status >= 400 && cause.status < 500 && (turnRequest.file || turnRequest.attachment)) {
+          retryRef.current = null;
+          setFileAttachment(turnRequest.file || null);
+          setAttachment(turnRequest.attachment || null);
+          setAttachmentSubmitted(false);
+          setRecoverableAttachmentError(true);
+        }
+      }
+    }
     finally {
       requestRef.current = null;
       if (!controller.signal.aborted) {
@@ -662,22 +856,28 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   };
 
   const handleSend = async (textToSend = input) => {
-    const text = textToSend.trim();
+    const pendingAttachment = attachment && (assistantMode === "qa" || !attachmentSubmitted) ? attachment : undefined;
+    const pendingFile = fileAttachment || undefined;
+    const pendingFileName = pendingAttachment?.fileName || pendingFile?.name;
+    const rawText = textToSend.trim();
+    const text = rawText || (pendingFileName ? `Đính kèm tệp ${pendingFileName}` : "");
     if (isViewingHistory || !text || isLoading || !synced || isListening || isReadingAttachment || retryRef.current) return;
     stopReplySpeech();
-    const pendingAttachment = assistantMode === "work" && attachment && !attachmentSubmitted ? attachment : undefined;
-    saveHistory([...messages, { role: "user", content: `${text}${pendingAttachment ? `\n📎 ${pendingAttachment.fileName} · ${pendingAttachment.rows.length} dòng` : ""}`, createdAt: new Date().toISOString() }]);
+    const attachmentLabel = pendingFileName ? `📎 ${pendingFileName}${pendingAttachment ? ` · ${pendingAttachment.rows.length} dòng` : ""}` : "";
+    saveHistory([...messages, { role: "user", content: rawText ? `${rawText}${attachmentLabel ? `\n${attachmentLabel}` : ""}` : attachmentLabel, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setRevealingReply(null); setSelectedReferences({}); setReferenceSelectionError(""); setVoiceError("");
-    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
+    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}), ...(pendingFile ? { file: pendingFile } : {}) });
   };
   const submitRecognizedVoice = async (recognizedText: string) => {
     const text = recognizedText.trim();
     if (isViewingHistory || !text || isLoading || !synced || isReadingAttachment || retryRef.current) return;
     stopReplySpeech();
-    const pendingAttachment = assistantMode === "work" && attachment && !attachmentSubmitted ? attachment : undefined;
-    saveHistory([...messages, { role: "user", content: `${text}${pendingAttachment ? `\n📎 ${pendingAttachment.fileName} · ${pendingAttachment.rows.length} dòng` : ""}`, createdAt: new Date().toISOString() }]);
+    const pendingAttachment = attachment && (assistantMode === "qa" || !attachmentSubmitted) ? attachment : undefined;
+    const pendingFile = fileAttachment || undefined;
+    const pendingFileName = pendingAttachment?.fileName || pendingFile?.name;
+    saveHistory([...messages, { role: "user", content: `${text}${pendingFileName ? `\n📎 ${pendingFileName}${pendingAttachment ? ` · ${pendingAttachment.rows.length} dòng` : ""}` : ""}`, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setSelectedReferences({}); setReferenceSelectionError(""); setVoiceError("");
-    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
+    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}), ...(pendingFile ? { file: pendingFile } : {}) });
   };
   recognizedVoiceHandlerRef.current = text => { void submitRecognizedVoice(text); };
   useEffect(() => {
@@ -731,12 +931,27 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   };
   const selectAttachment = async (file?: File) => {
     if (!file) return;
-    setAttachmentError(""); setIsReadingAttachment(true);
+    setAttachmentError(""); setError(""); setIsReadingAttachment(true);
+    setRecoverableAttachmentError(false);
     try {
-      setAttachment(await readAssistantTableFile(file));
-      setAttachmentSubmitted(false);
+      const extension = file.name.split(".").pop()?.toLocaleLowerCase("en-US") || "";
+      if (["csv", "xlsx", "xls"].includes(extension)) {
+        setFileAttachment(null);
+        setAttachmentSubmitted(false);
+        setAttachment(await readAssistantTableFile(file));
+      } else {
+        if (assistantMode !== "qa") throw new Error("PDF, ảnh và video chỉ hỗ trợ trong mục Trò chuyện.");
+        if (!["pdf", "docx", "txt", "png", "jpg", "jpeg", "webp", "mp4", "mov", "webm", "m4v"].includes(extension)) throw new Error("Định dạng chưa hỗ trợ. Chọn PDF, DOCX, TXT, ảnh JPG/PNG/WebP hoặc video MP4/MOV/WebM.");
+        const maxBytes = ["mp4", "mov", "webm", "m4v"].includes(extension) ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
+        if (file.size > maxBytes) throw new Error(`Tệp không được vượt quá ${maxBytes === 50 * 1024 * 1024 ? "50" : "20"} MB.`);
+        setAttachment(null);
+        setAttachmentSubmitted(false);
+        setFileAttachment(file);
+      }
     } catch (cause) {
-      setAttachment(null); setAttachmentSubmitted(false);
+      setAttachment(null);
+      setAttachmentSubmitted(false);
+      setFileAttachment(null);
       setAttachmentError((cause as Error).message || "Mình chưa đọc được tệp này.");
     } finally {
       setIsReadingAttachment(false);
@@ -744,7 +959,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     }
   };
   const removeAttachment = () => {
-    setAttachment(null); setAttachmentSubmitted(false); setAttachmentError("");
+    setAttachment(null); setAttachmentSubmitted(false); setFileAttachment(null); setAttachmentError(""); setRecoverableAttachmentError(false); setError("");
     if (attachmentInputRef.current) attachmentInputRef.current.value = "";
     attachmentButtonRef.current?.focus({ preventScroll: true });
   };
@@ -1048,11 +1263,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const startNew = () => {
     const id = crypto.randomUUID();
     try { localStorage.setItem(conversationKey, id); localStorage.removeItem(requestKey); } catch { /* Keep in memory. */ }
-    closeSpeech(); stopReplySpeech(); retryRef.current = null; setIsViewingHistory(false); setView("chat"); setConversationId(id); setSynced(false); setLastReply(null); saveHistory([activeWelcomeMessage], true); setError(""); setInput(""); setAttachment(null); setAttachmentSubmitted(false); setAttachmentError(""); setVoiceError("");
+    closeSpeech(); stopReplySpeech(); retryRef.current = null; setIsViewingHistory(false); setView("chat"); setConversationId(id); setSynced(false); setLastReply(null); saveHistory([activeWelcomeMessage], true); setError(""); setInput(""); setAttachment(null); setAttachmentSubmitted(false); setFileAttachment(null); setAttachmentError(""); setVoiceError("");
     onAssistantModeChange(assistantMode);
   };
 
-  const isWelcomeScreen = !isViewingHistory && messages.length === 1 && messages[0].role === "assistant" && messages[0].content === activeWelcomeMessage.content;
   const displayMessages = messages.filter((message, index) => !(index === 0 && message.role === "assistant" && message.content === activeWelcomeMessage.content));
   const showReplyDetails = !revealingReply;
   const hasMissingRequiredReferenceSelection = Boolean(lastReply?.referenceSelections?.some(group => group.required && !selectedReferences[group.key]?.length));
@@ -1060,8 +1274,21 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const visibleHistoryConversations = filterAssistantHistory(conversations, historyCategory);
   const historyCategoryLabel = assistantHistoryCategories.find(category => category.value === historyCategory)?.label ?? "Lịch sử";
   const changeView = (nextView: "chat" | "history" | "studio" | "notebook" | "meeting" | "tools") => {
+    if (nextView === "notebook" || nextView === "meeting") return;
     if (nextView !== "chat") { closeSpeech(); stopReplySpeech(); }
     setView(nextView);
+  };
+  const openChatFeature = (action: ChatFeatureAction) => {
+    if ("comingSoon" in action && action.comingSoon) return;
+    if ("view" in action) {
+      changeView(action.view);
+      return;
+    }
+    if ("studioToolId" in action) {
+      setStudioHistoryItem(null);
+      setStudioToolRequest(request => ({ toolId: action.studioToolId, requestId: (request?.requestId ?? 0) + 1 }));
+      changeView("studio");
+    }
   };
   const openMode = (nextMode: AssistantMode) => {
     if (isLoading || retryRef.current) return;
@@ -1086,59 +1313,90 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
   };
-  const renderComposer = (placement: "landing" | "conversation") => <div className={cn("space-y-2", placement === "landing" ? "w-full text-left assistant-landing-composer-wrap" : "mx-auto w-full max-w-4xl")}>
-    {error && <div className="space-y-1">
-      <p id="erp-chatbot-error" role="alert" className="text-pretty text-sm text-error">{error}</p>
-      <button type="button" onClick={() => { if (retryRef.current) void submitTurn(retryRef.current); else { setSynced(false); if (mode === "popup") { setIsOpen(false); document.getElementById("erp-chatbot-panel")?.hidePopover(); } } }} className={cn("rounded px-2 py-1 text-sm font-medium text-primary underline", focusClass)}>{retryRef.current ? "Kiểm tra lại yêu cầu" : mode === "popup" ? "Đóng và mở lại để tải" : "Thử tải lại"}</button>
-    </div>}
-    <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className={cn("flex flex-wrap items-center gap-1 rounded-full border border-outline-variant bg-surface-container-lowest px-2 py-1 shadow-sm", placement === "landing" ? "assistant-landing-composer" : "assistant-conversation-composer")}>
-      <label className="sr-only" htmlFor="erp-chatbot-input">Tin nhắn cho trợ lý ảo</label>
-      <div className="relative order-2 min-w-0 flex-1">
-        <textarea ref={inputRef} id="erp-chatbot-input" rows={1} autoFocus={mode !== "standalone"} onKeyDown={event => { if ((placement === "conversation" || settings.enterToSend) && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} value={input} onChange={(event) => setInput(event.target.value)} placeholder={promptPlaceholder} aria-describedby={["erp-chatbot-voice-help", placement === "conversation" && "erp-chatbot-keyboard-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className="block max-h-24 w-full min-w-0 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-6 text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0" />
-      </div>
-      {assistantMode === "work" && <input ref={attachmentInputRef} className="sr-only" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" aria-label="Chọn tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />}
-      {assistantMode === "work" && attachment && <div className={cn("mx-1 mb-2 rounded-xl border border-outline-variant bg-surface-container-low p-3", placement === "conversation" && "order-5 w-full")}>
-        <div className="flex min-w-0 items-start gap-2">
-          <Paperclip className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+  const renderComposer = (placement: "landing" | "conversation") => {
+    const hasPlaceholderHighlights = assistantMode === "qa" && hasSquareBracketPlaceholders(input);
+    const showChatComposerActions = mode === "standalone" && assistantMode === "qa";
+    const currentAttachmentName = attachment?.fileName || fileAttachment?.name || "";
+    const isVideoAttachment = Boolean(fileAttachment && /\.(?:mp4|mov|webm|m4v)$/i.test(fileAttachment.name));
+    const attachmentPreviewUrl = fileAttachment && attachmentPreview?.file === fileAttachment ? attachmentPreview.url : null;
+    const attachmentAccept = ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" + (assistantMode === "qa" ? ",.pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.mp4,.mov,.webm,.m4v,application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" : "");
+    const compactConversationComposer = placement === "conversation" && ((headerPanel && !fullscreen) || mode === "standalone");
+    const stackedLandingComposer = placement === "landing" && mode === "standalone" && !isStandaloneChatHome;
+    const chatComposerActions = showChatComposerActions && <div role="group" aria-label="Công cụ trò chuyện" className={cn("flex min-w-0 items-center gap-1", !compactConversationComposer && "order-1")}>
+      <button type="button" disabled title="Trò chuyện song song (chưa tích hợp)" aria-label="Trò chuyện song song, chưa tích hợp" className={cn("assistant-composer-tool flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-45", focusClass)}>
+        <AssistantComposerPlaceholderIcon name="parallel-chat" />
+      </button>
+      <button type="button" disabled title="Nghiên cứu sâu (chưa tích hợp)" aria-label="Nghiên cứu sâu, chưa tích hợp" className={cn("assistant-composer-tool flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-45", focusClass)}>
+        <AssistantComposerPlaceholderIcon name="deep-research" />
+      </button>
+      <AssistantPromptLibraryAction open={promptLibraryOpen} onClick={() => setPromptLibraryOpen(true)} />
+    </div>;
+    const inputTypographyClass = placement === "landing" && isStandaloneChatHome ? "text-base leading-7 sm:text-lg" : "max-h-24 text-sm leading-6";
+    return <div className={cn("space-y-2", placement === "landing" ? "w-full text-left assistant-landing-composer-wrap" : "mx-auto w-full max-w-4xl")}>
+      {error && <div className="space-y-1">
+        <p id="erp-chatbot-error" role="alert" className="text-pretty text-sm text-error">{error}</p>
+        {!recoverableAttachmentError && <button type="button" onClick={() => { if (retryRef.current) void submitTurn(retryRef.current); else { setSynced(false); if (mode === "popup") { setIsOpen(false); document.getElementById("erp-chatbot-panel")?.hidePopover(); } } }} className={cn("rounded px-2 py-1 text-sm font-medium text-primary underline", focusClass)}>{retryRef.current ? "Kiểm tra lại yêu cầu" : mode === "popup" ? "Đóng và mở lại để tải" : "Thử tải lại"}</button>}
+      </div>}
+      {currentAttachmentName && <div className="min-w-0 max-w-full rounded-2xl border border-outline-variant bg-surface-container-low p-3 shadow-xs">
+        {attachmentPreviewUrl && fileAttachment && <div className="mb-3 w-fit max-w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+          {isVideoAttachment
+            ? <video src={attachmentPreviewUrl} controls playsInline preload="metadata" aria-label={`Xem trước video ${currentAttachmentName}`} className="max-h-32 w-56 max-w-full bg-surface-container-lowest object-contain">Trình duyệt không hỗ trợ xem video này.</video>
+            : <img src={attachmentPreviewUrl} alt={`Xem trước ảnh ${currentAttachmentName}`} className="mx-auto max-h-32 max-w-48 object-contain" />}
+        </div>}
+        <div className="flex min-w-0 items-start gap-2.5">
+          <AssistantFileTypeIcon fileName={currentAttachmentName} className="mt-0.5 size-7 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="break-all text-sm font-medium text-on-surface">{attachment.fileName}</p>
-            <p className="text-xs text-on-surface/70">{attachment.rows.length} dòng · {attachmentSubmitted ? "đã gửi cho trợ lý" : "sẵn sàng gửi"}</p>
+            <p className="break-all text-sm font-medium text-on-surface">{currentAttachmentName}</p>
+            <p className="text-pretty text-xs text-on-surface/70">{attachment ? `${attachment.rows.length} dòng · ${attachmentSubmitted ? "đã gửi cho trợ lý" : "sẵn sàng gửi"}` : "Tệp sẽ được đọc khi gửi"}</p>
           </div>
-          <button type="button" onClick={removeAttachment} aria-label={`Xóa tệp ${attachment.fileName}`} title="Xóa tệp" className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg hover:bg-surface-container-high", focusClass)}>
+          <button type="button" onClick={removeAttachment} aria-label={`Xóa tệp ${currentAttachmentName}`} title="Xóa tệp" className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg hover:bg-surface-container-high", focusClass)}>
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
-        <details className="mt-2 text-xs text-on-surface/80">
+        {attachment && <details className="mt-2 text-xs text-on-surface/80">
           <summary className={cn("w-fit cursor-pointer rounded-sm py-1 text-primary", focusClass)}>Xem toàn bộ bảng ({attachment.rows.length} dòng)</summary>
-          <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest">
+          <div className="mt-2 max-h-64 min-w-0 max-w-full overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest">
             <table className="min-w-full text-left text-xs">
               <caption className="sr-only">Bảng dữ liệu có {attachment.rows.length} dòng từ {attachment.fileName}</caption>
               <thead className="sticky top-0 bg-surface-container-low text-on-surface"><tr>{attachment.headers.map(header => <th key={header} scope="col" className="whitespace-nowrap px-2 py-1.5 font-medium">{header}</th>)}</tr></thead>
               <tbody>{attachment.rows.map((row, index) => <tr key={index} className="border-t border-outline-variant">{attachment.headers.map(header => <td key={header} className="max-w-64 whitespace-normal break-words px-2 py-1.5">{row[header]}</td>)}</tr>)}</tbody>
             </table>
           </div>
-        </details>
+        </details>}
       </div>}
-      {assistantMode === "work" && attachmentError && <p id="erp-chatbot-file-error" role="alert" className={cn("mx-2 mb-2 text-pretty text-sm text-error", placement === "conversation" && "order-6 w-full")}>{attachmentError}</p>}
-      {assistantMode === "work" && isReadingAttachment && <p role="status" className={cn("mx-2 mb-2 text-sm text-on-surface/70", placement === "conversation" && "order-6 w-full")}>Đang đọc bảng dữ liệu…</p>}
-      <div className="assistant-composer-toolbar contents">
-        {assistantMode === "work" && <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("assistant-composer-tool order-1 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-          <Plus className="size-5" aria-hidden="true" />
-        </button>}
-        <button type="button" onClick={toggleVoiceInput} aria-label={voiceStatus === "manual" ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "manual" ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool order-3 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-          {voiceStatus === "manual" ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
-        </button>
-        {input.trim() && !twoWayVoiceEnabled ? <button key="send" type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || Boolean(retryRef.current)} className={cn("order-4 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-          <SendHorizontal className="size-4" aria-hidden="true" />
-        </button> : <button key="two-way-voice" type="button" onClick={event => { event.preventDefault(); toggleTwoWayVoice(); }} aria-label={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} aria-pressed={twoWayVoiceEnabled} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={!twoWayVoiceEnabled && (isLoading || !synced || Boolean(retryRef.current))} title={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} className={cn("assistant-composer-tool assistant-live-voice-button order-4 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{twoWayVoiceEnabled ? <Square className="size-4" aria-hidden="true" /> : <AssistantLiveVoiceIcon />}</button>}
-      </div>
-    </form>
-    {placement === "conversation" && <p id="erp-chatbot-keyboard-help" className="sr-only">Nhấn Enter để gửi, Shift + Enter để xuống dòng.</p>}
-    <p id="erp-chatbot-file-help" className="sr-only">Có thể tải tệp CSV, XLSX hoặc XLS, tối đa 100 dòng dữ liệu.</p>
-    {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
-    {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
-    <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" || twoWayVoiceEnabled ? "status" : undefined} className={cn("text-pretty text-xs text-on-surface-variant", voiceStatus === "off" && !twoWayVoiceEnabled && "sr-only")}>{twoWayVoiceEnabled ? isSpeaking ? "Đang đọc câu trả lời…" : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu…" : retryRef.current ? "Đang chờ thử lại yêu cầu." : "Đang nghe. Dừng nói để gửi." : voiceStatus === "waiting" ? "Đang chờ “Hey Igen”. Hãy nói từ khóa rồi nêu yêu cầu." : voiceStatus === "command" ? "Đang nghe yêu cầu. Mình sẽ tự gửi khi bạn dừng nói." : voiceStatus === "manual" ? "Đang nghe tiếng Việt. Bấm micro để dừng và kiểm tra nội dung." : "Chế độ 2 chiều tự gửi khi bạn dừng nói và đọc câu trả lời có tính phí."}</p>
-  </div>;
+      {attachmentError && <p id="erp-chatbot-file-error" role="alert" className="text-pretty text-sm text-error">{attachmentError}</p>}
+      {isReadingAttachment && <p role="status" className="text-sm text-on-surface/70">Đang đọc tệp…</p>}
+      <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className={cn("border border-outline-variant bg-surface-container-lowest", placement === "landing" ? isStandaloneChatHome ? "assistant-landing-composer flex flex-col rounded-3xl p-3 shadow-sm sm:p-4" : stackedLandingComposer ? "assistant-landing-composer flex flex-col rounded-2xl px-3 py-2 shadow-sm" : "assistant-landing-composer flex flex-col rounded-3xl p-2.5 shadow-sm sm:p-3" : compactConversationComposer ? "assistant-conversation-composer flex flex-col items-stretch gap-1 rounded-2xl px-3 py-2 shadow-sm" : "assistant-conversation-composer flex items-center gap-1.5 rounded-full px-3 py-1.5 shadow-sm")}>
+        {showChatComposerActions && placement === "conversation" && !compactConversationComposer && chatComposerActions}
+        <label className="sr-only" htmlFor="erp-chatbot-input">Tin nhắn cho trợ lý ảo</label>
+        <div className={cn("relative min-w-0 order-2", compactConversationComposer || stackedLandingComposer ? "w-full flex-none" : "flex-1")}>
+          {hasPlaceholderHighlights && <div ref={inputHighlightRef} aria-hidden="true" className={cn("assistant-placeholder-highlight pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5", inputTypographyClass)}>{renderPromptWithPlaceholderHighlights(input, { backgroundOnly: true })}</div>}
+          <textarea ref={inputRef} id="erp-chatbot-input" rows={placement === "landing" ? isStandaloneChatHome ? 2 : 1 : 1} spellCheck={false} autoFocus={mode !== "standalone"} onKeyDown={event => { if ((placement === "conversation" || settings.enterToSend) && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} onScroll={event => { if (inputHighlightRef.current) inputHighlightRef.current.scrollTop = event.currentTarget.scrollTop; }} value={input} onChange={(event) => setInput(event.target.value)} placeholder={headerPanel && !fullscreen ? "" : placement === "landing" && isStandaloneChatHome ? "Hỏi tôi bất cứ điều gì" : promptPlaceholder} aria-describedby={["erp-chatbot-voice-help", placement === "conversation" && "erp-chatbot-keyboard-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className={cn("relative z-10 block w-full min-w-0 resize-none border-0 bg-transparent px-2.5 py-1.5 text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0", hasPlaceholderHighlights && "assistant-placeholder-textarea", inputTypographyClass)} />
+        </div>
+        <input ref={attachmentInputRef} className="sr-only" type="file" accept={attachmentAccept} aria-label="Chọn tệp đính kèm" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
+        <div className={cn("assistant-composer-toolbar", placement === "landing" && (isStandaloneChatHome || mode === "popup" || stackedLandingComposer) ? cn("flex w-full items-center gap-1", isStandaloneChatHome ? "justify-between pt-2" : "justify-end pt-1") : compactConversationComposer ? "order-3 flex w-full items-center justify-between gap-1" : "order-3 flex items-center gap-1 shrink-0")}>
+          {showChatComposerActions && (placement === "landing" || compactConversationComposer) && chatComposerActions}
+          <div className="flex items-center gap-1 shrink-0">
+            <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải tệp lên" className={cn("assistant-composer-tool order-1 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+              <Plus className="size-5" aria-hidden="true" />
+            </button>
+            {!isStandaloneChatHome && assistantMode === "qa" && <AssistantPromptLibraryAction open={promptLibraryOpen} onClick={() => setPromptLibraryOpen(true)} />}
+            <button type="button" onClick={toggleVoiceInput} aria-label={voiceStatus === "manual" ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "manual" ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool order-3 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+              {voiceStatus === "manual" ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
+            </button>
+            {(input.trim() || Boolean(attachment) || Boolean(fileAttachment)) && !twoWayVoiceEnabled ? <button key="send" type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || isReadingAttachment || Boolean(retryRef.current)} className={cn("order-4 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+              <SendHorizontal className="size-4" aria-hidden="true" />
+            </button> : <button key="two-way-voice" type="button" onClick={event => { event.preventDefault(); toggleTwoWayVoice(); }} aria-label={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} aria-pressed={twoWayVoiceEnabled} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={!twoWayVoiceEnabled && (isLoading || !synced || Boolean(retryRef.current))} title={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} className={cn("assistant-composer-tool assistant-live-voice-button order-4 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{twoWayVoiceEnabled ? <Square className="size-4" aria-hidden="true" /> : <AssistantLiveVoiceIcon />}</button>}
+          </div>
+        </div>
+      </form>
+      {placement === "conversation" && <p id="erp-chatbot-keyboard-help" className="sr-only">Nhấn Enter để gửi, Shift + Enter để xuống dòng.</p>}
+      <p id="erp-chatbot-file-help" className="sr-only">Excel và CSV hỗ trợ trong các mục. Trò chuyện hỗ trợ thêm PDF, DOCX, TXT, ảnh JPG, PNG, WebP và video MP4, MOV, M4V, WebM; tối đa 20 MB với tài liệu, ảnh và 50 MB với video.</p>
+      {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
+      {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
+      <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" || twoWayVoiceEnabled ? "status" : undefined} className={cn("text-pretty text-xs text-on-surface-variant", voiceStatus === "off" && !twoWayVoiceEnabled && "sr-only")}>{twoWayVoiceEnabled ? isSpeaking ? "Đang đọc câu trả lời…" : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu…" : retryRef.current ? "Đang chờ thử lại yêu cầu." : "Đang nghe. Dừng nói để gửi." : voiceStatus === "waiting" ? "Đang chờ “Hey Igen”. Hãy nói từ khóa rồi nêu yêu cầu." : voiceStatus === "command" ? "Đang nghe yêu cầu. Mình sẽ tự gửi khi bạn dừng nói." : voiceStatus === "manual" ? "Đang nghe tiếng Việt. Bấm micro để dừng và kiểm tra nội dung." : "Chế độ 2 chiều tự gửi khi bạn dừng nói và đọc câu trả lời có tính phí."}</p>
+    </div>;
+  };
 
   return <>
     {mode === "popup" && !headerPanel && <button
@@ -1206,6 +1464,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       } : undefined}
       data-fullscreen={mode === "popup" && fullscreen}
       data-standalone={mode === "standalone"}
+      data-chat-home={isStandaloneChatHome}
       data-header-panel={headerPanel}
       className="assistant-workspace m-0 overflow-hidden rounded-2xl border border-outline-variant bg-surface p-0 text-on-surface shadow-2xl"
     >
@@ -1234,233 +1493,261 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           </div>
         </header>}
         <div className="flex min-h-0 flex-1">
-        <aside aria-label="Điều hướng trợ lý" style={{ "--assistant-rail-gradient": `url(#${railGradientId})` } as React.CSSProperties} className={cn("assistant-sidebar assistant-reference-sidebar shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest px-2 py-3", sidebarCollapsed && "is-collapsed")}>
-          <svg className="absolute size-0" aria-hidden="true" focusable="false"><defs><linearGradient id={railGradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0"><stop offset="0%" stopColor="#00adfc" /><stop offset="55%" stopColor="#199bff" /><stop offset="100%" stopColor="#7567ff" /></linearGradient></defs></svg>
-          <div className="assistant-sidebar-header relative mb-3 flex items-center justify-between gap-1.5">
-            <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg hover:bg-surface-container-low", focusClass)}>{sidebarCollapsed ? <PanelLeftOpen className="size-5" aria-hidden="true" /> : <PanelLeftClose className="size-5" aria-hidden="true" />}</button>
-            <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined} disabled={sidebarCollapsed || isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("assistant-sidebar-tool assistant-sidebar-new-chat flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-5" aria-hidden="true" /></button>
-          </div>
-          <nav id="assistant-sidebar-navigation" className="flex flex-col gap-1.5" aria-label="Chế độ trợ lý">
-            <button type="button" aria-label="Trò chuyện" aria-current={view === "chat" && assistantMode === "qa" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={() => openMode("qa")} className={cn("assistant-side-item", view === "chat" && assistantMode === "qa" && "is-active", focusClass)}><AssistantRailIcon name="chat" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trò chuyện</span></button>
-            <button type="button" aria-label="AI Studio" aria-current={view === "studio" ? "page" : undefined} onClick={() => changeView("studio")} className={cn("assistant-side-item", view === "studio" && "is-active", focusClass)}><AssistantRailIcon name="studio" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>AI Studio</span></button>
-            <button type="button" aria-label="Notebook" aria-current={view === "notebook" ? "page" : undefined} onClick={() => changeView("notebook")} className={cn("assistant-side-item", view === "notebook" && "is-active", focusClass)}><AssistantRailIcon name="notebook" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Notebook</span></button>
-            <button type="button" aria-label="Ghi chép cuộc họp" aria-current={view === "meeting" ? "page" : undefined} onClick={() => changeView("meeting")} className={cn("assistant-side-item", view === "meeting" && "is-active", focusClass)}><AssistantRailIcon name="meeting" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Ghi chép cuộc họp</span></button>
-            <button type="button" aria-label="Trợ lý ERP" aria-current={view === "chat" && assistantMode === "work" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("assistant-side-item", view === "chat" && assistantMode === "work" && "is-active", focusClass)}><AssistantRailIcon name="assistant" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trợ lý ERP</span></button>
-            <button type="button" disabled title="Chưa có tính năng dự án" className="assistant-side-item" aria-label="Dự án (chưa có)"><AssistantRailIcon name="project" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Dự án</span></button>
-            <button type="button" aria-label="Công cụ trợ lý" aria-current={view === "tools" ? "page" : undefined} onClick={() => changeView("tools")} className={cn("assistant-side-item", view === "tools" && "is-active", focusClass)}><AssistantRailIcon name="tools" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Công cụ</span></button>
-            <button type="button" aria-label="Lịch sử trò chuyện" aria-current={view === "history" ? "page" : undefined} onClick={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} className={cn("assistant-side-item", view === "history" && "is-active", focusClass)}><AssistantRailIcon name="history" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Lịch sử</span></button>
-          </nav>
-          <div className="mt-auto border-t border-outline-variant pt-2"><button type="button" aria-label="Quản trị và thiết lập trợ lý" aria-haspopup="dialog" aria-controls="assistant-settings-dialog" aria-expanded={isSettingsDialogOpen} onClick={openSettings} className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="settings" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Quản trị và thiết lập</span></button></div>
-        </aside>
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {mode === "standalone" && isSpeaking && <div className="assistant-reference-top-actions flex items-center gap-1">
-          <button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" onClick={stopReplySpeech} className={cn("flex size-9 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button>
-        </div>}
-        <nav aria-label="Chế độ trợ lý" className="assistant-mobile-mode-nav flex shrink-0 gap-1 overflow-x-auto border-b border-outline-variant bg-surface-container-lowest p-2">
-          <button type="button" aria-pressed={view === "chat" && assistantMode === "qa"} disabled={isLoading || Boolean(retryRef.current)} onClick={() => openMode("qa")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "qa" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><MessageSquare className="size-4 shrink-0" aria-hidden="true" />Trò chuyện</span></button>
-          <button type="button" aria-pressed={view === "studio"} onClick={() => changeView("studio")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "studio" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="studio" />AI Studio</span></button>
-          <button type="button" aria-pressed={view === "notebook"} onClick={() => changeView("notebook")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "notebook" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="notebook" />Notebook</span></button>
-          <button type="button" aria-pressed={view === "meeting"} onClick={() => changeView("meeting")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "meeting" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="meeting" />Ghi chép cuộc họp</span></button>
-          <button type="button" aria-pressed={view === "chat" && assistantMode === "work"} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "work" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="assistant" />Trợ lý ERP</span></button>
-          <button type="button" aria-pressed={view === "tools"} onClick={() => changeView("tools")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "tools" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="tools" />Công cụ</span></button>
-          <button type="button" aria-pressed={view === "history"} onClick={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "history" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><History className="size-4 shrink-0" aria-hidden="true" />Lịch sử</span></button>
-          <button type="button" aria-haspopup="dialog" aria-expanded={isSettingsDialogOpen} aria-controls="assistant-settings-dialog" onClick={openSettings} className={cn("min-w-0 flex-1 rounded-xl px-1 py-2 text-sm", isSettingsDialogOpen && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><Settings2 className="size-4 shrink-0" aria-hidden="true" />Cài đặt</span></button>
-        </nav>
-        <div hidden={view !== "studio"} className={cn("min-h-0 flex-1 flex-col", view === "studio" && "flex")}>
-          <AssistantStudio />
-        </div>
-        <div hidden={view !== "notebook"} className={cn("min-h-0 flex-1 flex-col", view === "notebook" && "flex")}>
-          <AssistantNotebook />
-        </div>
-        <div hidden={view !== "meeting"} className={cn("min-h-0 flex-1 flex-col", view === "meeting" && "flex")}>
-          <AssistantMeetingNotes standalone={mode === "standalone"} />
-        </div>
-        <div hidden={view !== "tools"} className={cn("min-h-0 flex-1 flex-col", view === "tools" && "flex")}>
-          <AssistantTools />
-        </div>
-        <div hidden={view !== "history"} className={cn("min-h-0 flex-1 flex-col bg-surface-container-lowest", view === "history" && "flex")}>
-          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 py-3">
-            <div className="min-w-0">
-              <h3 className="text-balance text-sm font-semibold">Lịch sử</h3>
-              <p className="text-pretty text-xs text-on-surface/70">Xem lại nội dung theo từng loại hoạt động.</p>
+          <aside aria-label="Điều hướng trợ lý" className={cn("assistant-sidebar assistant-reference-sidebar shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest px-2 py-3", sidebarCollapsed && "is-collapsed")}>
+            <div className="assistant-sidebar-header relative mb-3 flex items-center justify-between gap-1.5">
+              <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg hover:bg-surface-container-low", focusClass)}>{sidebarCollapsed ? <PanelLeftOpen className="size-5" aria-hidden="true" /> : <PanelLeftClose className="size-5" aria-hidden="true" />}</button>
+              <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined} disabled={sidebarCollapsed || isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("assistant-sidebar-tool assistant-sidebar-new-chat flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-5" aria-hidden="true" /></button>
             </div>
-            {historyHasConversations && <button type="button" aria-label={`Tải lại lịch sử ${historyCategoryLabel}`} title="Tải lại" onClick={() => setHistoryReload(value => value + 1)} disabled={historyLoading || historyLoadingMore} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high disabled:opacity-40", focusClass)}>
-              <RefreshCw className="size-4" aria-hidden="true" />
-            </button>}
-          </header>
-          <AssistantHistoryTabs value={historyCategory} onChange={setHistoryCategory} showMeeting={mode === "standalone"} />
-          <div aria-busy={historyHasConversations && historyLoading} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest px-4", !historyHasConversations && "flex flex-col")}>
-            {!historyHasConversations && <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-5 px-4 py-8 text-center"><p className="text-pretty text-sm text-on-surface-variant">Lịch sử {historyCategoryLabel} sẽ xuất hiện khi tính năng này được kết nối.</p><button type="button" onClick={() => changeView(historyCategory === "studio" || historyCategory === "notebook" || historyCategory === "meeting" || historyCategory === "tools" ? historyCategory : "chat")} className={cn("min-h-10 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90", focusClass)}>Mở {historyCategoryLabel}</button></div>}
-            {historyHasConversations && historyLoading && <p role="status" className="p-3 text-sm text-on-surface/70">Đang tải lịch sử {historyCategoryLabel.toLowerCase()}…</p>}
-            {historyHasConversations && historyError && <div className="space-y-2 p-3"><p role="alert" className="text-pretty text-sm text-error">{historyError}</p><button type="button" onClick={() => setHistoryReload(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải lại</button></div>}
-            {historyHasConversations && !historyLoading && !historyError && visibleHistoryConversations.length === 0 && <div className="space-y-3 p-3">
-              <p className="text-sm">Chưa có phiên {historyCategoryLabel.toLowerCase()} nào trong danh sách đã tải.</p>
-              <button type="button" onClick={() => openMode(historyCategory === "qa" ? "qa" : "work")} className={cn("rounded-xl bg-primary px-3 py-2 text-sm text-on-primary hover:bg-primary/90", focusClass)}>Bắt đầu {historyCategoryLabel.toLowerCase()}</button>
+            <nav id="assistant-sidebar-navigation" className="flex flex-col gap-1.5" aria-label="Chế độ trợ lý">
+              <button type="button" aria-label="Trò chuyện" aria-current={view === "chat" && assistantMode === "qa" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={() => openMode("qa")} className={cn("assistant-side-item", view === "chat" && assistantMode === "qa" && "is-active", focusClass)}><AssistantRailIcon name="chat" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trò chuyện</span></button>
+              <button type="button" aria-label="AI Studio" aria-current={view === "studio" ? "page" : undefined} onClick={() => changeView("studio")} className={cn("assistant-side-item", view === "studio" && "is-active", focusClass)}><AssistantRailIcon name="studio" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>AI Studio</span></button>
+              <button type="button" aria-label="Notebook (tạm thời bị vô hiệu hóa)" title="Tính năng tạm thời bị vô hiệu hóa" disabled className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="notebook" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Notebook</span></button>
+              <button type="button" aria-label="Ghi chép cuộc họp (tạm thời bị vô hiệu hóa)" title="Tính năng tạm thời bị vô hiệu hóa" disabled className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="meeting" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Ghi chép cuộc họp</span></button>
+              <button type="button" aria-label="Trợ lý ERP" aria-current={view === "chat" && assistantMode === "work" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("assistant-side-item", view === "chat" && assistantMode === "work" && "is-active", focusClass)}><AssistantRailIcon name="assistant" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trợ lý ERP</span></button>
+              <button type="button" disabled title="Chưa có tính năng dự án" className="assistant-side-item" aria-label="Dự án (chưa có)"><AssistantRailIcon name="project" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Dự án</span></button>
+              <button type="button" aria-label="Công cụ trợ lý" aria-current={view === "tools" ? "page" : undefined} onClick={() => changeView("tools")} className={cn("assistant-side-item", view === "tools" && "is-active", focusClass)}><AssistantRailIcon name="tools" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Công cụ</span></button>
+              <div className="relative flex w-full items-center gap-0.5">
+                <button type="button" aria-label="Lịch sử trò chuyện" aria-current={view === "history" ? "page" : undefined} onClick={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} className={cn("assistant-side-item min-w-0 flex-1", view === "history" && "is-active", focusClass)}><AssistantRailIcon name="history" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Lịch sử</span></button>
+                {!sidebarCollapsed && <AssistantQuickHistoryDropdown branchId={branchId} onOpenConversation={(conv) => { openPreviousConversation(conv); }} onOpenStudio={(item) => { setStudioHistoryItem(item); changeView("studio"); }} onOpenHistory={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} />}
+              </div>
+            </nav>
+            <div className="mt-auto border-t border-outline-variant pt-2"><button type="button" aria-label="Quản trị và thiết lập trợ lý" aria-haspopup="dialog" aria-controls="assistant-settings-dialog" aria-expanded={isSettingsDialogOpen} onClick={openSettings} className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="settings" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Quản trị và thiết lập</span></button></div>
+          </aside>
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            {mode === "standalone" && isSpeaking && <div className="assistant-reference-top-actions flex items-center gap-1">
+              <button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" onClick={stopReplySpeech} className={cn("flex size-9 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button>
             </div>}
-            {historyHasConversations && (isLoading || retryRef.current) && <p role="status" className="p-3 text-pretty text-sm text-on-surface/70">Đợi yêu cầu hiện tại hoàn tất hoặc kiểm tra lại trước khi mở một phiên khác.</p>}
-            {historyHasConversations && visibleHistoryConversations.length > 0 && <ul className="divide-y divide-outline-variant" aria-label={`Danh sách lịch sử ${historyCategoryLabel.toLowerCase()}`}>
-              {visibleHistoryConversations.map(conversation => <li key={conversation.conversationId} className="flex items-center gap-2">
-                <button type="button" disabled={isLoading || Boolean(retryRef.current) || Boolean(deletingConversationId)} onClick={() => openPreviousConversation(conversation)} className={cn("min-w-0 flex-1 bg-transparent px-1 py-4 text-left hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>
-                  <span className="flex items-start justify-between gap-3">
-                    <span className="line-clamp-2 min-w-0 text-sm font-semibold">{conversation.title}</span>
-                    <time className="shrink-0 text-xs tabular-nums text-on-surface/70" dateTime={conversation.updatedAt}>{formatConversationTime(conversation.updatedAt)}</time>
-                  </span>
-                  <span className="mt-1 block line-clamp-2 text-pretty text-sm text-on-surface/80">{conversation.preview || "Chưa có nội dung tin nhắn."}</span>
-                  <span className="mt-2 block text-xs tabular-nums text-on-surface/70">{conversation.messageCount} tin nhắn · {conversation.mode === "qa" ? "Trò chuyện" : "Thao tác"}</span>
-                </button>
-                <button type="button" aria-label={`Xóa phiên trò chuyện: ${conversation.title}`} title="Xóa phiên trò chuyện" disabled={isLoading || Boolean(retryRef.current) || Boolean(deletingConversationId)} onClick={() => setPendingConversationDelete(conversation)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl text-error hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </button>
-              </li>)}
-            </ul>}
-            {historyHasConversations && historyCursor && !historyLoading && <div className="flex justify-center p-3">
-              <button type="button" onClick={() => void loadOlderConversations()} disabled={historyLoadingMore} className={cn("rounded-xl border border-outline-variant px-4 py-2 text-sm hover:bg-surface-container-low disabled:opacity-50", focusClass)}>{historyLoadingMore ? "Đang tải…" : "Tải thêm phiên cũ"}</button>
-            </div>}
-          </div>
-        </div>
-        <ConfirmDialog isOpen={Boolean(pendingConversationDelete)} isSubmitting={Boolean(deletingConversationId)} title="Xóa phiên trò chuyện?" description={`Tin nhắn và ngữ cảnh riêng của phiên “${pendingConversationDelete?.title || "này"}” sẽ bị xóa vĩnh viễn.`} confirmLabel="Xóa phiên" onClose={() => setPendingConversationDelete(null)} onConfirm={deleteConversation} />
-        <div hidden={view !== "chat"} className={cn("min-h-0 flex-1 flex-col", view === "chat" && "flex")}>
-        {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2 text-center", focusClass)}>
-          <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
-        </div>}
-        {isWelcomeScreen ? headerPanel ? <div ref={logRef} className="flex min-h-0 flex-1 flex-col justify-end gap-4 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
-            <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể trả lời câu hỏi kiến thức, giải thích, viết, tóm tắt hoặc lên ý tưởng." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
-            {isLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
-          </div>
-          {settings.showSuggestions && synced && <div role="group" aria-label={assistantMode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="flex flex-wrap gap-2">
-            {assistantQuickPrompts[assistantMode].map(prompt => <button key={prompt} type="button" onClick={() => void handleSend(prompt)} disabled={isLoading || Boolean(retryRef.current)} className={cn("min-h-8 rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-left text-xs text-on-surface hover:border-primary hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{prompt}</button>)}
-          </div>}
-          {renderComposer("conversation")}
-        </div> : <div ref={logRef} className="assistant-welcome assistant-reference-welcome min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
-          <section aria-labelledby="assistant-welcome-title" className="assistant-reference-content mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-5">
-            <h1 id="assistant-welcome-title" className="text-balance text-center text-2xl font-medium sm:text-3xl">Xin chào {userProfile?.displayName || "bạn"}, mình có thể giúp gì cho bạn?</h1>
-            {isLoading && <p role="status" className="text-center text-sm text-on-surface/70">Đang tải cuộc trò chuyện…</p>}
-            {renderComposer("landing")}
-          </section>
-        </div> : <>
-        <div ref={logRef} role="log" aria-label="Nội dung trò chuyện" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest px-4 py-5 sm:px-8 sm:py-6">
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-          {displayMessages.map((message, index) => {
-            const dateKey = messageLocalDateKey(message.createdAt);
-            const previousDateKey = messageLocalDateKey(displayMessages[index - 1]?.createdAt);
-            const dateLabel = messageDateLabel(message.createdAt);
-            const time = messageTimeLabel(message.createdAt);
-            return <React.Fragment key={index}>
-          {dateKey && dateKey !== previousDateKey && <div className="flex items-center gap-3 py-1"><span className="h-px min-w-0 flex-1 bg-outline-variant/60" aria-hidden="true" /><time dateTime={message.createdAt} className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-surface-container-low px-3 text-xs font-medium leading-5 text-on-surface-variant">{dateLabel}</time><span className="h-px min-w-0 flex-1 bg-outline-variant/60" aria-hidden="true" /></div>}
-          <div className={cn("flex w-full items-start gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
-            {message.role === "user" ? <div className="flex max-w-full flex-col items-end gap-1">
-            {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
-            <div className="max-w-3xl rounded-full bg-primary/10 px-3 py-2 text-sm leading-relaxed text-on-surface">
-              <span className="sr-only">Bạn: </span>
-              <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>
-                {message.content.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}
-              </p>
+            <nav aria-label="Chế độ trợ lý" className="assistant-mobile-mode-nav flex shrink-0 gap-1 overflow-x-auto border-b border-outline-variant bg-surface-container-lowest p-2">
+              <button type="button" aria-pressed={view === "chat" && assistantMode === "qa"} disabled={isLoading || Boolean(retryRef.current)} onClick={() => openMode("qa")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "qa" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><MessageSquare className="size-4 shrink-0" aria-hidden="true" />Trò chuyện</span></button>
+              <button type="button" aria-pressed={view === "studio"} onClick={() => changeView("studio")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "studio" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="studio" />AI Studio</span></button>
+              <button type="button" disabled title="Tính năng tạm thời bị vô hiệu hóa" aria-label="Notebook (tạm thời bị vô hiệu hóa)" className={cn("min-w-0 flex-1 cursor-not-allowed rounded-xl px-2 py-2 text-sm opacity-40", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="notebook" />Notebook</span></button>
+              <button type="button" disabled title="Tính năng tạm thời bị vô hiệu hóa" aria-label="Ghi chép cuộc họp (tạm thời bị vô hiệu hóa)" className={cn("min-w-0 flex-1 cursor-not-allowed rounded-xl px-2 py-2 text-sm opacity-40", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="meeting" />Ghi chép cuộc họp</span></button>
+              <button type="button" aria-pressed={view === "chat" && assistantMode === "work"} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "work" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="assistant" />Trợ lý ERP</span></button>
+              <button type="button" aria-pressed={view === "tools"} onClick={() => changeView("tools")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "tools" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="tools" />Công cụ</span></button>
+              <button type="button" aria-pressed={view === "history"} onClick={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "history" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><History className="size-4 shrink-0" aria-hidden="true" />Lịch sử</span></button>
+              <button type="button" aria-haspopup="dialog" aria-expanded={isSettingsDialogOpen} aria-controls="assistant-settings-dialog" onClick={openSettings} className={cn("min-w-0 flex-1 rounded-xl px-1 py-2 text-sm", isSettingsDialogOpen && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><Settings2 className="size-4 shrink-0" aria-hidden="true" />Cài đặt</span></button>
+            </nav>
+            <div hidden={view !== "studio"} className={cn("min-h-0 flex-1 flex-col", view === "studio" && "flex")}>
+              <AssistantStudio historyItem={studioHistoryItem} initialToolRequest={studioToolRequest} onHistoryItemBack={() => setStudioHistoryItem(null)} />
             </div>
-            </div> : <div className="min-w-0 w-full max-w-4xl">
-              <div className="flex items-center gap-2">
-                <p aria-hidden="true" className="assistant-message-author text-xs font-semibold">iGen AI</p>
-                {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
+            <div hidden={view !== "notebook"} className={cn("min-h-0 flex-1 flex-col", view === "notebook" && "flex")}>
+              <AssistantNotebook />
+            </div>
+            <div hidden={view !== "meeting"} className={cn("min-h-0 flex-1 flex-col", view === "meeting" && "flex")}>
+              <AssistantMeetingNotes standalone={mode === "standalone"} />
+            </div>
+            <div hidden={view !== "tools"} className={cn("min-h-0 flex-1 flex-col", view === "tools" && "flex")}>
+              <AssistantTools />
+            </div>
+            <div hidden={view !== "history"} className={cn("min-h-0 flex-1 flex-col bg-surface-container-lowest", view === "history" && "flex")}>
+              <header className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 py-3">
+                <div className="min-w-0">
+                  <h3 className="text-balance text-sm font-semibold">Lịch sử</h3>
+                  <p className="text-pretty text-xs text-on-surface/70">Xem lại nội dung theo từng loại hoạt động.</p>
+                </div>
+                {historyHasConversations && <button type="button" aria-label={`Tải lại lịch sử ${historyCategoryLabel}`} title="Tải lại" onClick={() => setHistoryReload(value => value + 1)} disabled={historyLoading || historyLoadingMore} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high disabled:opacity-40", focusClass)}>
+                  <RefreshCw className="size-4" aria-hidden="true" />
+                </button>}
+              </header>
+              <AssistantHistoryTabs value={historyCategory} onChange={setHistoryCategory} showMeeting={mode === "standalone"} />
+              <div aria-busy={historyHasConversations && historyLoading} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest px-4", !historyHasConversations && "flex flex-col")}>
+                {historyCategory === "studio" && <AssistantStudioHistory onOpen={(item) => { setStudioHistoryItem(item); changeView("studio"); }} onStart={() => { setStudioHistoryItem(null); changeView("studio"); }} />}
+                {!historyHasConversations && historyCategory !== "studio" && <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-5 px-4 py-8 text-center"><p className="text-pretty text-sm text-on-surface-variant">Lịch sử {historyCategoryLabel} sẽ xuất hiện khi tính năng này được kết nối.</p><button type="button" onClick={() => changeView(historyCategory === "notebook" || historyCategory === "meeting" || historyCategory === "tools" ? historyCategory : "chat")} className={cn("min-h-10 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90", focusClass)}>Mở {historyCategoryLabel}</button></div>}
+                {historyHasConversations && historyLoading && <p role="status" className="p-3 text-sm text-on-surface/70">Đang tải lịch sử {historyCategoryLabel.toLowerCase()}…</p>}
+                {historyHasConversations && historyError && <div className="space-y-2 p-3"><p role="alert" className="text-pretty text-sm text-error">{historyError}</p><button type="button" onClick={() => setHistoryReload(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải lại</button></div>}
+                {historyHasConversations && !historyLoading && !historyError && visibleHistoryConversations.length === 0 && <div className="space-y-3 p-3">
+                  <p className="text-sm">Chưa có phiên {historyCategoryLabel.toLowerCase()} nào trong danh sách đã tải.</p>
+                  <button type="button" onClick={() => openMode(historyCategory === "qa" ? "qa" : "work")} className={cn("rounded-xl bg-primary px-3 py-2 text-sm text-on-primary hover:bg-primary/90", focusClass)}>Bắt đầu {historyCategoryLabel.toLowerCase()}</button>
+                </div>}
+                {historyHasConversations && (isLoading || retryRef.current) && <p role="status" className="p-3 text-pretty text-sm text-on-surface/70">Đợi yêu cầu hiện tại hoàn tất hoặc kiểm tra lại trước khi mở một phiên khác.</p>}
+                {historyHasConversations && visibleHistoryConversations.length > 0 && <ul className="divide-y divide-outline-variant" aria-label={`Danh sách lịch sử ${historyCategoryLabel.toLowerCase()}`}>
+                  {visibleHistoryConversations.map(conversation => <li key={conversation.conversationId} className="flex items-center gap-2">
+                    <button type="button" disabled={isLoading || Boolean(retryRef.current) || Boolean(deletingConversationId)} onClick={() => openPreviousConversation(conversation)} className={cn("min-w-0 flex-1 bg-transparent px-1 py-4 text-left hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="line-clamp-2 min-w-0 text-sm font-semibold">{conversation.title}</span>
+                        <time className="shrink-0 text-xs tabular-nums text-on-surface/70" dateTime={conversation.updatedAt}>{formatConversationTime(conversation.updatedAt)}</time>
+                      </span>
+                      <span className="mt-1 block line-clamp-2 text-pretty text-sm text-on-surface/80">{conversation.preview || "Chưa có nội dung tin nhắn."}</span>
+                      <span className="mt-2 block text-xs tabular-nums text-on-surface/70">{conversation.messageCount} tin nhắn · {conversation.mode === "qa" ? "Trò chuyện" : "Thao tác"}</span>
+                    </button>
+                    <button type="button" aria-label={`Xóa phiên trò chuyện: ${conversation.title}`} title="Xóa phiên trò chuyện" disabled={isLoading || Boolean(retryRef.current) || Boolean(deletingConversationId)} onClick={() => setPendingConversationDelete(conversation)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl text-error hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
+                  </li>)}
+                </ul>}
+                {historyHasConversations && historyCursor && !historyLoading && <div className="flex justify-center p-3">
+                  <button type="button" onClick={() => void loadOlderConversations()} disabled={historyLoadingMore} className={cn("rounded-xl border border-outline-variant px-4 py-2 text-sm hover:bg-surface-container-low disabled:opacity-50", focusClass)}>{historyLoadingMore ? "Đang tải…" : "Tải thêm phiên cũ"}</button>
+                </div>}
               </div>
-              <div className="mt-1.5 min-w-0 text-sm leading-relaxed text-on-surface">
-                <span className="sr-only">iGen AI: </span>
-                {revealingReply && !isViewingHistory && message === messages[messages.length - 1] && message.content === revealingReply.content
-                  ? <RevealingAssistantMessage
-                    key={revealingReply.requestId}
-                    content={message.content}
-                    requestId={revealingReply.requestId}
-                    onProgress={followReplyReveal}
-                    onComplete={finishReplyReveal}
-                  />
-                    : <div className="assistant-message-final"><AssistantMessageContent content={message.content} /></div>}
-              </div>
-              {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
-            </div>}
-          </div>
-          </React.Fragment>;
-          })}
-          {showReplyDetails && lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
-            <header>
-              <h3 id="assistant-reference-selection-title" className="text-balance font-semibold">Chọn thông tin liên quan</h3>
-              <p className="mt-1 text-pretty text-xs text-on-surface/70">Chọn ngay tại đây để tiếp tục. Mục tùy chọn có thể bỏ qua.</p>
-            </header>
-            <div className="space-y-3">
-              {lastReply.referenceSelections.map((group, groupIndex) => {
-                const useCheckboxes = group.multiple || !group.required;
-                return <fieldset key={group.key} className="space-y-1.5">
-                  <legend className="mb-1.5 font-medium">{group.label}<span className="ml-2 text-xs font-normal text-on-surface/70">{group.required ? "Bắt buộc" : "Tùy chọn"}{group.multiple ? " · Có thể chọn nhiều" : ""}</span></legend>
-                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {group.options.map((option, optionIndex) => {
-                      const id = `assistant-reference-${groupIndex}-${optionIndex}`;
-                      const checked = Boolean(selectedReferences[group.key]?.includes(option.value));
-                      return <li key={option.value}>
-                        <label htmlFor={id} className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-surface px-2.5 py-2 hover:bg-surface-container-low", focusClass, (isLoading || isViewingHistory || Boolean(retryRef.current)) && "cursor-not-allowed opacity-50")}>
-                          <input id={id} type={useCheckboxes ? "checkbox" : "radio"} name={`assistant-reference-${groupIndex}`} value={option.value} checked={checked} disabled={isLoading || isViewingHistory || Boolean(retryRef.current)} onChange={event => toggleReferenceSelection(group.key, option.value, event.currentTarget.checked, group.multiple)} className="size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
-                          <span className="min-w-0 break-words text-pretty">{option.label}</span>
-                        </label>
-                      </li>;
+            </div>
+            <ConfirmDialog isOpen={Boolean(pendingConversationDelete)} isSubmitting={Boolean(deletingConversationId)} title="Xóa phiên trò chuyện?" description={`Tin nhắn và ngữ cảnh riêng của phiên “${pendingConversationDelete?.title || "này"}” sẽ bị xóa vĩnh viễn.`} confirmLabel="Xóa phiên" onClose={() => setPendingConversationDelete(null)} onConfirm={deleteConversation} />
+            <div hidden={view !== "chat"} className={cn("min-h-0 flex-1 flex-col", view === "chat" && "flex")}>
+              {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2 text-center", focusClass)}>
+                <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
+              </div>}
+              {isWelcomeScreen ? headerPanel ? <div ref={logRef} className="flex min-h-0 flex-1 flex-col justify-end gap-4 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
+                  <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể trả lời câu hỏi kiến thức, giải thích, viết, tóm tắt hoặc lên ý tưởng." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
+                  {isLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
+                </div>
+                {settings.showSuggestions && synced && <div role="group" aria-label={assistantMode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="flex flex-wrap gap-2">
+                  {assistantQuickPrompts[assistantMode].map(prompt => <button key={prompt} type="button" onClick={() => void handleSend(prompt)} disabled={isLoading || Boolean(retryRef.current)} className={cn("min-h-8 rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-left text-xs text-on-surface hover:border-primary hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{prompt}</button>)}
+                </div>}
+                {renderComposer("conversation")}
+              </div> : <div ref={logRef} className="assistant-welcome assistant-reference-welcome relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
+                <section aria-labelledby="assistant-welcome-title" className={cn("assistant-reference-content mx-auto flex min-h-full w-full flex-col justify-center", mode === "standalone" && !isStandaloneChatHome ? "max-w-5xl gap-5" : "max-w-6xl gap-7 sm:gap-8")}>
+                  <h1 id="assistant-welcome-title" aria-label={isStandaloneChatHome ? `${chatGreeting} 👋` : mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`} className={cn("text-balance text-center", mode === "standalone" && !isStandaloneChatHome ? "text-3xl font-normal sm:text-4xl" : "assistant-welcome-title")}>{isStandaloneChatHome ? <>{chatGreeting} <span aria-hidden="true">👋</span></> : <span aria-hidden="true">{mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`}</span>}</h1>
+                  {isLoading && <p role="status" className="text-center text-sm text-on-surface/70">Đang tải cuộc trò chuyện…</p>}
+                  {renderComposer("landing")}
+                  {mode === "standalone" && !isStandaloneChatHome && (
+                    <p className="flex items-center justify-center gap-1 text-xs font-normal text-on-surface-variant/60 -mt-3">
+                      <span aria-hidden="true" className="text-sm">💡</span>
+                      <span>Mẹo: Trợ lý ERP có thể thay bạn thao tác trực tiếp trên hệ thống</span>
+                    </p>
+                  )}
+                  {isStandaloneChatHome && <nav aria-label="Lối tắt công cụ AI" className="assistant-quick-actions">
+                    {chatFeatureActions.map(action => {
+                      const comingSoon = "comingSoon" in action && action.comingSoon;
+                      const accent = "middle" in action ? action.middle : "from" in action ? action.from : "var(--color-primary)";
+                      return <button key={action.label} type="button" disabled={Boolean(comingSoon)} title={comingSoon ? undefined : `Mở ${action.label}`} onClick={() => openChatFeature(action)} className={cn("assistant-action-chip", comingSoon && "is-coming-soon", "gradientOutline" in action && action.gradientOutline && "is-featured", focusClass)} style={{ "--assistant-accent": accent } as React.CSSProperties}>
+                        {"isVoiceChat" in action ? <AssistantVoiceChatIcon /> : <AssistantGradientIcon Icon={action.Icon} from={action.from} middle={action.middle} to={action.to} className="size-4" />}
+                        <span>{action.label}</span>
+                        {comingSoon && <span className="sr-only">Tính năng chưa khả dụng</span>}
+                      </button>;
                     })}
-                  </ul>
-                </fieldset>;
-              })}
+                  </nav>}
+                </section>
+              </div> : <>
+                <div ref={logRef} role="log" aria-label="Nội dung trò chuyện" aria-live="polite" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest", headerPanel && !fullscreen ? "px-3.5 py-4" : "px-4 py-5 sm:px-8 sm:py-6")}>
+                  <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+                    {displayMessages.map((message, index) => {
+                      const dateKey = messageLocalDateKey(message.createdAt);
+                      const previousDateKey = messageLocalDateKey(displayMessages[index - 1]?.createdAt);
+                      const dateLabel = messageDateLabel(message.createdAt);
+                      const time = messageTimeLabel(message.createdAt);
+                      return <React.Fragment key={index}>
+                        {dateKey && dateKey !== previousDateKey && <div className="flex items-center gap-3 py-1"><span className="h-px min-w-0 flex-1 bg-outline-variant/60" aria-hidden="true" /><time dateTime={message.createdAt} className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-surface-container-low px-3 text-xs font-medium leading-5 text-on-surface-variant">{dateLabel}</time><span className="h-px min-w-0 flex-1 bg-outline-variant/60" aria-hidden="true" /></div>}
+                        <div className={cn("flex w-full items-start gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
+                          {message.role === "user" ? <div className="flex min-w-0 max-w-full flex-col items-end gap-1">
+                            {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
+                            <div className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-primary/10 px-3.5 py-2.5 text-sm leading-relaxed text-on-surface sm:max-w-3xl">
+                              <span className="sr-only">Bạn: </span>
+                              <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>
+                                {message.content.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}
+                              </p>
+                            </div>
+                          </div> : <div className="min-w-0 w-full max-w-4xl">
+                            <div className="flex items-center gap-2">
+                              <p aria-hidden="true" className="assistant-message-author text-xs font-semibold">iGen AI</p>
+                              {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
+                            </div>
+                            <div className="mt-1.5 min-w-0 text-sm leading-relaxed text-on-surface">
+                              <span className="sr-only">iGen AI: </span>
+                              {revealingReply && !isViewingHistory && message === messages[messages.length - 1] && message.content === revealingReply.content
+                                ? <RevealingAssistantMessage
+                                  key={revealingReply.requestId}
+                                  content={message.content}
+                                  allowedLinkUrls={message.sources?.map(source => source.url) ?? []}
+                                  requestId={revealingReply.requestId}
+                                  onProgress={followReplyReveal}
+                                  onComplete={finishReplyReveal}
+                                />
+                                : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url) ?? []} /></div>}
+                            </div>
+                            <AssistantAnswerIllustrations illustrations={message.illustrations} />
+                            <AssistantResearchSources sources={message.sources} illustrationUrls={message.illustrations?.map(illustration => illustration.url)} />
+                            {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
+                          </div>}
+                        </div>
+                      </React.Fragment>;
+                    })}
+                    {showReplyDetails && lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
+                      <header>
+                        <h3 id="assistant-reference-selection-title" className="text-balance font-semibold">Chọn thông tin liên quan</h3>
+                        <p className="mt-1 text-pretty text-xs text-on-surface/70">Chọn ngay tại đây để tiếp tục. Mục tùy chọn có thể bỏ qua.</p>
+                      </header>
+                      <div className="space-y-3">
+                        {lastReply.referenceSelections.map((group, groupIndex) => {
+                          const useCheckboxes = group.multiple || !group.required;
+                          return <fieldset key={group.key} className="space-y-1.5">
+                            <legend className="mb-1.5 font-medium">{group.label}<span className="ml-2 text-xs font-normal text-on-surface/70">{group.required ? "Bắt buộc" : "Tùy chọn"}{group.multiple ? " · Có thể chọn nhiều" : ""}</span></legend>
+                            <ul className={cn("grid grid-cols-1 gap-2", (!headerPanel || fullscreen) && "sm:grid-cols-2")}>
+                              {group.options.map((option, optionIndex) => {
+                                const id = `assistant-reference-${groupIndex}-${optionIndex}`;
+                                const checked = Boolean(selectedReferences[group.key]?.includes(option.value));
+                                return <li key={option.value}>
+                                  <label htmlFor={id} className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-surface px-2.5 py-2 hover:bg-surface-container-low", focusClass, (isLoading || isViewingHistory || Boolean(retryRef.current)) && "cursor-not-allowed opacity-50")}>
+                                    <input id={id} type={useCheckboxes ? "checkbox" : "radio"} name={`assistant-reference-${groupIndex}`} value={option.value} checked={checked} disabled={isLoading || isViewingHistory || Boolean(retryRef.current)} onChange={event => toggleReferenceSelection(group.key, option.value, event.currentTarget.checked, group.multiple)} className="size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
+                                    <span className="min-w-0 break-words text-pretty">{option.label}</span>
+                                  </label>
+                                </li>;
+                              })}
+                            </ul>
+                          </fieldset>;
+                        })}
+                      </div>
+                      {referenceSelectionError && <p role="alert" className="text-pretty text-sm text-error">{referenceSelectionError}</p>}
+                      {hasMissingRequiredReferenceSelection && <p id="assistant-reference-selection-help" role="status" className="text-pretty text-xs text-on-surface/70">Chọn một mục cho mỗi thông tin bắt buộc để tiếp tục.</p>}
+                      <button type="button" aria-describedby={hasMissingRequiredReferenceSelection ? "assistant-reference-selection-help" : undefined} disabled={isLoading || !synced || Boolean(retryRef.current) || hasMissingRequiredReferenceSelection} onClick={() => void submitReferenceSelections()} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+                        Dùng lựa chọn
+                      </button>
+                    </section> : null}
+                    {showReplyDetails && lastReply?.trainingContentForm && <AssistantTrainingContentForm
+                      key={lastReply.action?.id || "assistant-training-content"}
+                      value={lastReply.trainingContentForm}
+                      readOnly={isViewingHistory}
+                      submitting={isLoading || Boolean(retryRef.current)}
+                      canSubmit={synced && !isLoading && !retryRef.current}
+                      onSubmit={trainingContent => void submitTrainingContent(trainingContent)}
+                    />}
+                    {showReplyDetails && lastReply?.action && <section aria-label="Bản xem trước thao tác" className="max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
+                      <header className="flex flex-wrap items-start justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 sm:px-4">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-primary">{lastReply.status === "confirmation" ? "XEM LẠI TRƯỚC KHI XÁC NHẬN" : "THÔNG TIN THAO TÁC"}</p>
+                          <h3 className="mt-1 text-balance font-semibold">{lastReply.action.title}</h3>
+                        </div>
+                        {lastReply.status === "confirmation" && <span className="inline-flex shrink-0 items-center rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-medium">Chờ xác nhận</span>}
+                      </header>
+                      {lastReply.action.values.some(item => !item.defaulted) && <dl className={cn("grid grid-cols-1 gap-2 p-3", (!headerPanel || fullscreen) && "sm:grid-cols-2")}>
+                        {formatActionPreviewValues(lastReply.action.values).map(item => <div key={item.label} className={cn("min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5", (!headerPanel || fullscreen) && item.fullWidth && "sm:col-span-2")}>
+                          <dt className="text-xs text-on-surface/70">{item.label}</dt>
+                          <dd className="mt-1 break-words font-medium tabular-nums">
+                            {item.productTable
+                              ? <AssistantActionProductTable label={item.label} table={item.productTable} />
+                              : String(item.value)}
+                          </dd>
+                        </div>)}
+                      </dl>}
+                      {lastReply.status === "confirmation" && <div className="space-y-2 border-t border-outline-variant px-3 py-2 sm:px-4">
+                        <p className="text-pretty text-xs text-on-surface/70">Thao tác chưa được thực hiện. Kiểm tra lại thông tin rồi xác nhận để tiếp tục.</p>
+                        {lastReply.action.requiresPassword && <div className="space-y-1.5 text-sm"><label htmlFor="assistant-account-password" className="font-medium">Mật khẩu khởi tạo</label><input id="assistant-account-password" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} aria-describedby="assistant-password-help" className={cn("min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-sm text-on-surface sm:max-w-sm", focusClass)} /><span id="assistant-password-help" className="block text-xs text-on-surface/70">Tối thiểu 6 ký tự. Mật khẩu không lưu trong hội thoại và không gửi cho AI.</span></div>}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button type="button" disabled={isLoading || Boolean(retryRef.current) || (lastReply.action.requiresPassword && password.length < 6)} onClick={() => decide(true)} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Xác nhận thực hiện</button>
+                          <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={() => decide(false)} className={cn("min-h-10 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Hủy thao tác</button>
+                        </div>
+                      </div>}
+                    </section>}
+                    {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
+                    {isLoading && isOpen && <div role="status" aria-label={retryRef.current?.research ? "Đang nghiên cứu web nhiều nguồn" : retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện"} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
+                      <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
+                      {retryRef.current?.research && <span className="ml-2 text-sm">Đang nghiên cứu và đối chiếu nhiều nguồn…</span>}
+                    </div>}
+                  </div>
+                </div>
+                <footer className={cn("shrink-0 bg-surface-container-lowest px-3 py-2", (!headerPanel || fullscreen) && "sm:px-6")}>
+                  {isViewingHistory ? <div className="space-y-2 text-center">
+                    {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
+                    <p className="text-pretty text-xs text-on-surface/70">Bạn có thể xem lại nội dung trước, hoặc tiếp tục làm việc trong chính phiên này.</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={continuePreviousConversation} className={cn("min-h-9 rounded-lg bg-primary px-3 py-1.5 text-sm text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Tiếp tục phiên này</button>
+                      <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={startNew} className={cn("min-h-9 rounded-lg border border-outline-variant px-3 py-1.5 text-sm hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Bắt đầu cuộc trò chuyện mới</button>
+                    </div>
+                  </div> : renderComposer("conversation")}
+                </footer>
+              </>}
             </div>
-            {referenceSelectionError && <p role="alert" className="text-pretty text-sm text-error">{referenceSelectionError}</p>}
-            {hasMissingRequiredReferenceSelection && <p id="assistant-reference-selection-help" role="status" className="text-pretty text-xs text-on-surface/70">Chọn một mục cho mỗi thông tin bắt buộc để tiếp tục.</p>}
-            <button type="button" aria-describedby={hasMissingRequiredReferenceSelection ? "assistant-reference-selection-help" : undefined} disabled={isLoading || !synced || Boolean(retryRef.current) || hasMissingRequiredReferenceSelection} onClick={() => void submitReferenceSelections()} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-              Dùng lựa chọn
-            </button>
-          </section> : null}
-          {showReplyDetails && lastReply?.trainingContentForm && <AssistantTrainingContentForm
-            key={lastReply.action?.id || "assistant-training-content"}
-            value={lastReply.trainingContentForm}
-            readOnly={isViewingHistory}
-            submitting={isLoading || Boolean(retryRef.current)}
-            canSubmit={synced && !isLoading && !retryRef.current}
-            onSubmit={trainingContent => void submitTrainingContent(trainingContent)}
-          />}
-          {showReplyDetails && lastReply?.action && <section aria-label="Bản xem trước thao tác" className="max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
-            <header className="flex flex-wrap items-start justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 sm:px-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-primary">{lastReply.status === "confirmation" ? "XEM LẠI TRƯỚC KHI XÁC NHẬN" : "THÔNG TIN THAO TÁC"}</p>
-                <h3 className="mt-1 text-balance font-semibold">{lastReply.action.title}</h3>
-              </div>
-              {lastReply.status === "confirmation" && <span className="inline-flex shrink-0 items-center rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-medium">Chờ xác nhận</span>}
-            </header>
-            {lastReply.action.values.some(item => !item.defaulted) && <dl className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
-              {lastReply.action.values.filter(item => !item.defaulted).map((item, index, visibleValues) => <div key={item.label} className={cn("min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5", visibleValues.length % 2 === 1 && index === visibleValues.length - 1 && "sm:col-span-2")}>
-                <dt className="text-xs text-on-surface/70">{item.label}</dt>
-                <dd className="mt-1 break-words font-medium tabular-nums">{String(item.value)}</dd>
-              </div>)}
-            </dl>}
-            {lastReply.status === "confirmation" && <div className="space-y-2 border-t border-outline-variant px-3 py-2 sm:px-4">
-              <p className="text-pretty text-xs text-on-surface/70">Thao tác chưa được thực hiện. Kiểm tra lại thông tin rồi xác nhận để tiếp tục.</p>
-              {lastReply.action.requiresPassword && <div className="space-y-1.5 text-sm"><label htmlFor="assistant-account-password" className="font-medium">Mật khẩu khởi tạo</label><input id="assistant-account-password" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} aria-describedby="assistant-password-help" className={cn("min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-sm text-on-surface sm:max-w-sm", focusClass)} /><span id="assistant-password-help" className="block text-xs text-on-surface/70">Tối thiểu 6 ký tự. Mật khẩu không lưu trong hội thoại và không gửi cho AI.</span></div>}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button type="button" disabled={isLoading || Boolean(retryRef.current) || (lastReply.action.requiresPassword && password.length < 6)} onClick={() => decide(true)} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Xác nhận thực hiện</button>
-                <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={() => decide(false)} className={cn("min-h-10 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Hủy thao tác</button>
-              </div>
-            </div>}
-          </section>}
-          {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
-          {isLoading && isOpen && <div role="status" aria-label={retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện"} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
-            <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
-          </div>}
           </div>
-        </div>
-        <footer className="shrink-0 bg-surface-container-lowest px-3 py-2 sm:px-6">
-          {isViewingHistory ? <div className="space-y-2 text-center">
-            {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
-            <p className="text-pretty text-xs text-on-surface/70">Bạn có thể xem lại nội dung trước, hoặc tiếp tục làm việc trong chính phiên này.</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={continuePreviousConversation} className={cn("min-h-9 rounded-lg bg-primary px-3 py-1.5 text-sm text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Tiếp tục phiên này</button>
-              <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={startNew} className={cn("min-h-9 rounded-lg border border-outline-variant px-3 py-1.5 text-sm hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Bắt đầu cuộc trò chuyện mới</button>
-            </div>
-          </div> : renderComposer("conversation")}
-        </footer>
-        </>}
-        </div>
-        </div>
         </div>
         <dialog
           ref={settingsDialogRef}
@@ -1481,18 +1768,19 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                 <button type="button" aria-pressed={configView === "settings"} aria-controls="assistant-settings-panel" onClick={() => setConfigView("settings")} className={cn("flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm md:justify-start", configView === "settings" ? "border-primary/20 bg-primary/10 font-medium text-on-surface" : "border-transparent text-on-surface hover:bg-surface-container-high", focusClass)}><Settings2 className="size-4 shrink-0" aria-hidden="true" />Cài đặt trợ lý</button>
                 <button type="button" aria-pressed={configView === "memory"} aria-controls="assistant-memory-panel" onClick={() => setConfigView("memory")} className={cn("flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm md:justify-start", configView === "memory" ? "border-primary/20 bg-primary/10 font-medium text-on-surface" : "border-transparent text-on-surface hover:bg-surface-container-high", focusClass)}><Brain className="size-4 shrink-0" aria-hidden="true" />Ghi nhớ</button>
               </nav>
-            <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-container-lowest">
-              <div id="assistant-settings-panel" hidden={configView !== "settings"} className={cn("min-h-0 h-full flex-col", configView === "settings" && "flex")}>
-                {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : <AssistantSettingsEditor settings={settings} onSave={applySettings} />}
+              <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-container-lowest">
+                <div id="assistant-settings-panel" hidden={configView !== "settings"} className={cn("min-h-0 h-full flex-col", configView === "settings" && "flex")}>
+                  {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : <AssistantSettingsEditor settings={settings} onSave={applySettings} />}
+                </div>
+                <div id="assistant-memory-panel" hidden={configView !== "memory"} className={cn("min-h-0 h-full flex-col", configView === "memory" && "flex")}>
+                  {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : configView === "memory" && <AssistantMemoryManager enabled={settings.memoryEnabled} conversationId={conversationId} branchId={branchId} />}
+                </div>
               </div>
-              <div id="assistant-memory-panel" hidden={configView !== "memory"} className={cn("min-h-0 h-full flex-col", configView === "memory" && "flex")}>
-                {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : configView === "memory" && <AssistantMemoryManager enabled={settings.memoryEnabled} conversationId={conversationId} branchId={branchId} />}
-              </div>
-            </div>
             </div>
           </div>
         </dialog>
       </div>
+      {assistantMode === "qa" && <AssistantPromptLibrary open={promptLibraryOpen} onClose={() => setPromptLibraryOpen(false)} onUsePrompt={usePromptTemplate} />}
     </section>
   </>;
 }

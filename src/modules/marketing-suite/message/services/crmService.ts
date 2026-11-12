@@ -1,5 +1,6 @@
 import { getAccessToken } from "../../shared/services/authService";
 import { LeadCard } from "../../shared/types/index";
+import type { LeadCollectionStatus, LeadIntakeField, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
 
 export interface LeadProductSelection {
   productId: string;
@@ -13,6 +14,67 @@ export interface ExtendedLeadCard extends LeadCard {
   createdAt?: string | number | Date;
   updatedAt?: string | number | Date;
   selectedProducts?: LeadProductSelection[];
+  answers?: Record<string, string>;
+  intakeFields?: LeadIntakeField[];
+  sourcePlatform?: "facebook" | "zalo" | "tiktok";
+  sourceAccountId?: string;
+  sourceConversationId?: string;
+  intakeProfileId?: string;
+  intakeProfileVersion?: number;
+  collectionStatus?: LeadCollectionStatus;
+  lastInteractionAt?: string;
+  moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: string; syncedBy: string };
+}
+
+export interface LeadPageResult {
+  data: ExtendedLeadCard[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface LeadFieldFilter {
+  key: string;
+  altKeys?: string[];
+  value: string;
+  mode?: "exact" | "contains" | "unchecked";
+}
+
+export interface LeadPageQueryOptions {
+  page: number;
+  limit?: number;
+  search?: string;
+  channel?: "all" | "facebook" | "zalo" | "tiktok";
+  accountId?: string;
+  status?: string;
+  collectionStatus?: string;
+  fieldFilters?: LeadFieldFilter[];
+  sort?: string;
+}
+
+export interface ActiveLeadIntakeProfile {
+  id: string;
+  platform?: "facebook" | "zalo" | "tiktok";
+  accountId?: string;
+  version?: number;
+  status?: "draft" | "active" | "archived";
+  goal?: string;
+  completionMessage?: string;
+  sourceDocumentIds?: string[];
+  fields: LeadIntakeField[];
+}
+
+export interface LeadIntakeProfileVersion {
+  _id?: string;
+  platform?: "facebook" | "zalo" | "tiktok";
+  accountId?: string;
+  version: number;
+  status: "draft" | "active" | "archived";
+  goal: string;
+  fields: LeadIntakeField[];
+  completionMessage: string;
+  sourceDocumentIds?: string[];
 }
 
 type CrmLeadRecord = ExtendedLeadCard & { _id?: string };
@@ -85,18 +147,18 @@ export const crmService = {
 
     activeGetLeadsPromise = (async () => {
       try {
-        const res = await fetch("/api/v1/omni-inbox/leads", {
+        const res = await fetch("/api/v1/omni-inbox/leads?limit=1000", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
           },
         });
         if (!res.ok) {
-          throw new Error("Không thể tải danh sách cơ hội bán hàng.");
+          throw new Error("Không thể tải danh sách Lead.");
         }
         const json = await res.json();
         return ((json.data as CrmLeadRecord[] | undefined) || []).map((item) => ({
           ...item,
-          id: item._id, // Bản đồ MongoDB _id sang id
+          id: item._id || item.id, // Bản đồ MongoDB _id sang id
         }));
       } finally {
         activeGetLeadsPromise = null;
@@ -104,6 +166,180 @@ export const crmService = {
     })();
 
     return activeGetLeadsPromise;
+  },
+
+  async getLeadPage(options: LeadPageQueryOptions): Promise<LeadPageResult> {
+    const params = new URLSearchParams({ page: String(options.page), limit: String(options.limit || 50) });
+    if (options.search?.trim()) params.set("search", options.search.trim());
+    if (options.channel && options.channel !== "all") params.set("sourcePlatform", options.channel);
+    if (options.accountId) params.set("sourceAccountId", options.accountId);
+    if (options.status && options.status !== "all") params.set("status", options.status);
+    if (options.collectionStatus && options.collectionStatus !== "all") params.set("collectionStatus", options.collectionStatus);
+    if (options.fieldFilters && options.fieldFilters.length > 0) {
+      params.set("fieldFilters", JSON.stringify(options.fieldFilters));
+    }
+    if (options.sort) params.set("sort", options.sort);
+    const response = await fetch(`/api/v1/omni-inbox/leads?${params.toString()}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    if (!response.ok) throw new Error("Không thể tải danh sách Lead.");
+    const json = await response.json();
+    return {
+      data: ((json.data as CrmLeadRecord[] | undefined) || []).map(item => ({ ...item, id: item._id || item.id })),
+      total: Number(json.total) || 0,
+      page: Number(json.page) || options.page,
+      limit: Number(json.limit) || options.limit || 50,
+      totalPages: Number(json.totalPages) || 0,
+    };
+  },
+
+  async getActiveLeadIntakeProfiles(): Promise<ActiveLeadIntakeProfile[]> {
+    const response = await fetch("/api/v1/marketing-settings/lead-intake-profiles", {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    if (!response.ok) return [];
+    const json = await response.json();
+    const rawActive = Array.isArray(json.data?.activeProfiles) ? json.data.activeProfiles as Array<LeadIntakeProfileVersion & { _id?: string }> : [];
+    const rawFallback = Array.isArray(json.data?.fallbackProfiles) ? json.data.fallbackProfiles as Array<LeadIntakeProfileVersion & { _id?: string }> : [];
+    const combined = [...rawFallback, ...rawActive];
+    const seenIds = new Set<string>();
+    const normalized: ActiveLeadIntakeProfile[] = [];
+    for (const profile of combined) {
+      if (!profile._id || seenIds.has(profile._id)) continue;
+      seenIds.add(profile._id);
+      normalized.push({
+        id: profile._id,
+        ...(profile.platform ? { platform: profile.platform } : {}),
+        ...(profile.accountId ? { accountId: profile.accountId } : {}),
+        version: profile.version,
+        status: profile.status,
+        goal: profile.goal,
+        completionMessage: profile.completionMessage,
+        sourceDocumentIds: profile.sourceDocumentIds,
+        fields: profile.fields || [],
+      });
+    }
+    return normalized;
+  },
+
+  async getLeadIntakeProfilesForAccount(platform?: "facebook" | "zalo" | "tiktok", accountId?: string): Promise<{
+    profiles: LeadIntakeProfileVersion[];
+    fallbackProfiles: LeadIntakeProfileVersion[];
+  }> {
+    const params = new URLSearchParams();
+    if (platform && accountId) {
+      params.set("platform", platform);
+      params.set("pageId", accountId);
+    } else {
+      params.set("scope", "company");
+    }
+    const response = await fetch(`/api/v1/marketing-settings/lead-intake-profiles?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Không thể tải cấu hình thu thập Lead.");
+    return {
+      profiles: Array.isArray(result.data?.profiles) ? result.data.profiles : [],
+      fallbackProfiles: Array.isArray(result.data?.fallbackProfiles) ? result.data.fallbackProfiles : [],
+    };
+  },
+
+  async suggestLeadIntakeProfile(input: { platform?: "facebook" | "zalo" | "tiktok"; accountId?: string; goal: string }): Promise<LeadIntakeProfileVersion> {
+    const response = await fetch("/api/v1/marketing-settings/lead-intake-profiles/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify({
+        ...(input.platform && input.accountId ? { platform: input.platform, pageId: input.accountId } : {}),
+        goal: input.goal,
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Không thể tạo đề xuất cột bằng AI.");
+    return result.data as LeadIntakeProfileVersion;
+  },
+
+  async saveAndActivateLeadIntakeProfile(input: {
+    platform?: "facebook" | "zalo" | "tiktok";
+    accountId?: string;
+    goal: string;
+    completionMessage: string;
+    fields: LeadIntakeField[];
+    sourceDocumentIds?: string[];
+  }): Promise<LeadIntakeProfileVersion> {
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` };
+    const scopePayload = input.platform && input.accountId
+      ? { platform: input.platform, pageId: input.accountId }
+      : {};
+    const draftRes = await fetch("/api/v1/marketing-settings/lead-intake-profiles/draft", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        ...scopePayload,
+        goal: input.goal,
+        completionMessage: input.completionMessage,
+        fields: input.fields,
+        sourceDocumentIds: input.sourceDocumentIds,
+      }),
+    });
+    const draftJson = await draftRes.json().catch(() => ({}));
+    if (!draftRes.ok) throw new Error(draftJson.message || "Không thể lưu cấu hình cột Lead.");
+    const version = Number(draftJson.data?.version);
+    if (!Number.isInteger(version) || version < 1) throw new Error("Phiên bản cấu hình không hợp lệ.");
+
+    const activateRes = await fetch(`/api/v1/marketing-settings/lead-intake-profiles/${version}/activate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(scopePayload),
+    });
+    const activateJson = await activateRes.json().catch(() => ({}));
+    if (!activateRes.ok) throw new Error(activateJson.message || "Đã lưu bản nháp nhưng chưa kích hoạt được cấu hình cột.");
+    return activateJson.data as LeadIntakeProfileVersion;
+  },
+
+  async archiveLeadIntakeProfile(input?: { platform?: "facebook" | "zalo" | "tiktok"; accountId?: string }): Promise<void> {
+    const scopePayload = input?.platform && input?.accountId
+      ? { platform: input.platform, pageId: input.accountId }
+      : {};
+    const response = await fetch("/api/v1/marketing-settings/lead-intake-profiles/archive-active", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify(scopePayload),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Không thể gỡ bộ cột tùy chỉnh.");
+  },
+
+  async getAllLeadRows(options: Omit<LeadPageQueryOptions, "page" | "limit">): Promise<ExtendedLeadCard[]> {
+    const result: ExtendedLeadCard[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const response = await crmService.getLeadPage({ ...options, page, limit: 1000 });
+      result.push(...response.data);
+      totalPages = response.totalPages;
+      page++;
+    } while (page <= totalPages);
+    return result;
+  },
+
+  async exportLeadsToGoogleSheets(ids: string[]): Promise<{ queued: number; skipped: number }> {
+    const response = await fetch("/api/v1/omni-inbox/leads/export-google-sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify({ ids }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Không thể xuất Lead sang Google Sheets.");
+    return result.data as { queued: number; skipped: number };
+  },
+
+  async markLeadModuleSynced(id: string, target: { targetModule: LeadTargetModule; targetRecordId: string }) {
+    const response = await fetch(`/api/v1/omni-inbox/leads/${encodeURIComponent(id)}/module-sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify(target),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Không thể lưu liên kết Lead với module đích.");
+    return result.data as NonNullable<ExtendedLeadCard["moduleSync"]>;
   },
 
   subscribeLeads(callback: (leads: ExtendedLeadCard[]) => void, onError?: (error: unknown) => void) {
@@ -157,7 +393,7 @@ export const crmService = {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Tạo cơ hội bán hàng thất bại.");
+        throw new Error(err.message || "Tạo Lead thất bại.");
       }
 
       const json = await res.json();
@@ -181,10 +417,10 @@ export const crmService = {
     }
   },
 
-  async updateLead(id: string, lead: Partial<ExtendedLeadCard>): Promise<void> {
+  async updateLead(id: string, lead: Partial<ExtendedLeadCard>): Promise<ExtendedLeadCard> {
     const startedAt = Date.now();
     
-    // 1. Optimistic Update (Immediate 120fps feel in Kanban DnD drag & drop)
+    // 1. Optimistic Update (Immediate 120fps feel)
     const oldLeads = [...cachedLeads];
     cachedLeads = cachedLeads.map((item) =>
       item.id === id ? { ...item, ...lead } : item
@@ -208,13 +444,20 @@ export const crmService = {
       cachedLeads = oldLeads;
       triggerListeners(cachedLeads);
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || "Cập nhật cơ hội bán hàng thất bại.");
+      throw new Error(err.message || "Cập nhật Lead thất bại.");
     }
 
+    const json = await res.json().catch(() => ({}));
+    const updatedItem = json.data as CrmLeadRecord | undefined;
+    const normalizedItem: ExtendedLeadCard = updatedItem
+      ? { ...updatedItem, id: updatedItem._id || updatedItem.id || id }
+      : { ...(cachedLeads.find((item) => item.id === id) || {}), ...lead, id } as ExtendedLeadCard;
+
+    cachedLeads = cachedLeads.map((item) => (item.id === id ? normalizedItem : item));
+    triggerListeners(cachedLeads);
+
     logCrmTiming("update", startedAt, { id, fields: Object.keys(lead) });
-    
-    // Background fetch to sync any server-computed fields
-    fetchLeadsInternal();
+    return normalizedItem;
   },
 
   async deleteLead(id: string): Promise<void> {
@@ -237,7 +480,7 @@ export const crmService = {
       cachedLeads = oldLeads;
       triggerListeners(cachedLeads);
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || "Xóa cơ hội bán hàng thất bại.");
+      throw new Error(err.message || "Xóa Lead thất bại.");
     }
 
     logCrmTiming("delete", startedAt, { id });

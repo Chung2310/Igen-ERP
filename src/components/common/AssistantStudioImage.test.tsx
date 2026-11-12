@@ -2,12 +2,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AssistantStudioImage } from "./AssistantStudioImage";
-import { requestEnhancedStudioImagePrompt, requestStudioImages } from "./assistantStudioImageApi";
+import { requestStudioImages } from "./assistantStudioImageApi";
 
 vi.mock("./assistantStudioImageApi", async importOriginal => ({
   ...(await importOriginal<typeof import("./assistantStudioImageApi")>()),
   requestStudioImages: vi.fn(),
-  requestEnhancedStudioImagePrompt: vi.fn(),
 }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -19,6 +18,7 @@ describe("AssistantStudioImage", () => {
     expect(screen.getByText("iGenAI")).toBeTruthy();
     expect(screen.getByLabelText("Mô hình iGenAI").querySelector("img")?.getAttribute("src")).toBe("/igenai.png");
     expect(screen.queryByRole("button", { name: "Mô hình" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /chuẩn hóa/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Tỷ lệ khung hình" }));
     fireEvent.click(screen.getByRole("option", { name: "16:9 · Ngang rộng" }));
     fireEvent.click(screen.getByRole("button", { name: "Số lượng hình ảnh" }));
@@ -41,8 +41,9 @@ describe("AssistantStudioImage", () => {
 
   it("shows guidance and the illustration before generation", () => {
     render(<AssistantStudioImage onBack={() => {}} />);
-    expect(screen.getByRole("img", { name: "Minh họa ý tưởng hình ảnh từ nhiều nguồn" }).getAttribute("src")).toBe("/ai-studio-image-empty.webp");
-    expect(screen.getByText(/Nhập mô tả bên trái/)).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Bộ ảnh phong cảnh, hoa và nội thất được sáng tạo bằng AI" }).getAttribute("src")).toBe("/ai-studio-image-hero.png");
+    expect(screen.getByText("Mô tả ý tưởng và chọn khung hình để bắt đầu.")).toBeTruthy();
+    expect(screen.queryByText("Gợi ý phong cách")).toBeNull();
   });
 
   it("shows the shape and orientation of aspect ratios in the menu and selected value", () => {
@@ -58,28 +59,18 @@ describe("AssistantStudioImage", () => {
     expect(trigger.querySelector("svg rect")).toBeTruthy();
   });
 
-  it("replaces a short description only after clicking the wand and can restore the original", async () => {
-    vi.mocked(requestEnhancedStudioImagePrompt).mockResolvedValue("Quán cà phê buổi sáng với ánh sáng tự nhiên dịu nhẹ.");
+  it("shows sample style library with 8 styles and applies prompt and ratio on selection", () => {
     render(<AssistantStudioImage onBack={() => {}} />);
-    const prompt = screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement;
-    fireEvent.change(prompt, { target: { value: "Quán cà phê buổi sáng" } });
-    fireEvent.click(screen.getByRole("button", { name: "Chuẩn hóa mô tả hình ảnh" }));
-    expect(requestEnhancedStudioImagePrompt).toHaveBeenCalledWith("Quán cà phê buổi sáng");
-    await waitFor(() => expect(prompt.value).toBe("Quán cà phê buổi sáng với ánh sáng tự nhiên dịu nhẹ."));
-    fireEvent.click(screen.getByRole("button", { name: "Khôi phục mô tả gốc" }));
-    expect(prompt.value).toBe("Quán cà phê buổi sáng");
-  });
-
-  it("keeps user edits made while prompt enhancement is pending", async () => {
-    let resolveRequest!: (value: string) => void;
-    vi.mocked(requestEnhancedStudioImagePrompt).mockReturnValue(new Promise(resolve => { resolveRequest = resolve; }));
-    render(<AssistantStudioImage onBack={() => {}} />);
-    const prompt = screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement;
-    fireEvent.change(prompt, { target: { value: "Quán cà phê" } });
-    fireEvent.click(screen.getByRole("button", { name: "Chuẩn hóa mô tả hình ảnh" }));
-    fireEvent.change(prompt, { target: { value: "Một chú mèo" } });
-    resolveRequest("Quán cà phê trong ánh nắng");
-    await waitFor(() => expect(screen.queryByText("Đang chuẩn hóa mô tả…")).toBeNull());
-    expect(prompt.value).toBe("Một chú mèo");
+    expect(screen.getByRole("heading", { name: "Thư viện mẫu" })).toBeTruthy();
+    const styleLabels = ["Poster", "Điện ảnh", "Quảng cáo", "Cổ trang", "Anime", "Ảnh thẻ", "Hoạt hình", "Banner"];
+    for (const label of styleLabels) {
+      expect(screen.getByRole("button", { name: new RegExp(label) })).toBeTruthy();
+    }
+    const posterButton = screen.getByRole("button", { name: /Poster/ });
+    fireEvent.click(posterButton);
+    const textarea = screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement;
+    expect(textarea.value).toContain("phong cách Poster");
+    const ratioTrigger = screen.getByRole("button", { name: "Tỷ lệ khung hình" });
+    expect(ratioTrigger.textContent).toContain("1:1 · Vuông");
   });
 });

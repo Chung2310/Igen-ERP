@@ -947,7 +947,6 @@
     padding: 25px;
   }
 }
-
 @media (max-width: 700px) {
   .quotation-module .workflow-page {
     gap: 16px;
@@ -1131,11 +1130,30 @@
     min-width: 0;
   }
 
-  .quotation-module .document-dialog-backdrop {
-    display: none;
-  }
-
   .quotation-module {
     background: var(--color-surface-container-lowest);
+  }
+}
+
+.quotation-module .workflow-contract-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quotation-module .workflow-file-options {
+  position: relative;
+  flex: none;
+}
+
+@media (max-width: 520px) {
+
+  .quotation-module .workflow-contract-file-actions {
+    width: 100%;
+  }
+
+  .quotation-module .workflow-contract-file-actions > .button {
+    flex: 1;
+    width: auto;
   }
 }

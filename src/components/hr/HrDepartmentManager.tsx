@@ -312,19 +312,16 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
     <>
       <ManagerFrame inline={inline} busy={busy} onClose={onClose} label="Quản lý phòng ban" initialFocusRef={nameInputRef}>
         <div className={cn("flex w-full flex-col", inline ? "gap-5" : "max-h-[calc(100dvh-2rem)] max-w-5xl overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl")}>
-          <header className={cn("flex flex-col gap-4", inline ? "sm:flex-row sm:items-center sm:justify-between" : "border-b border-outline-variant px-5 py-4 sm:flex-row sm:items-center sm:justify-between")}>
-            {!inline && (
+          {!inline && (
+            <header className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span className="mt-0.5 h-5 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container" aria-hidden="true"><Building2 className="size-4" /></span>
                 <h2 className="text-balance text-sm font-medium text-on-surface">Quản lý phòng ban</h2>
               </div>
-            )}
-
-            {inline && canManage ? (
-              <button type="button" onClick={() => setIsAddOpen(true)} className={cn(primaryCreateButtonClass, "ml-auto")}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Thêm phòng ban</button>
-            ) : !inline && <button type="button" aria-label="Đóng" onClick={onClose} disabled={busy} className={closeButtonClass} data-erp-modal-close><X className="size-4 stroke-[2.5]" aria-hidden="true" /></button>}
-          </header>
+              <button type="button" aria-label="Đóng" onClick={onClose} disabled={busy} className={closeButtonClass} data-erp-modal-close><X className="size-4 stroke-[2.5]" aria-hidden="true" /></button>
+            </header>
+          )}
 
           <div className={cn("min-h-0 overflow-y-auto", inline ? "space-y-4" : "grid gap-4 p-4 md:grid-cols-2 md:gap-5")}>
             {!inline && canManage && <div className="min-w-0 space-y-3">
@@ -357,7 +354,10 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
                     <button type="button" aria-label="Xem dạng bảng" aria-pressed={viewMode === "table"} onClick={() => setViewMode("table")} className={cn("flex size-9 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-primary", viewMode === "table" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container")}><List className="size-4" aria-hidden="true" /></button>
                   </div>
                 </div>}
-                <span className="ml-auto whitespace-nowrap tabular-nums text-xs text-on-surface-variant">{filteredDepartments.length}/{departments.length} phòng ban</span>
+                <div className="ml-auto flex shrink-0 items-center gap-3">
+                  <span className="whitespace-nowrap tabular-nums text-xs text-on-surface-variant">{filteredDepartments.length}/{departments.length} phòng ban</span>
+                  {inline && canManage && <button type="button" onClick={() => setIsAddOpen(true)} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Thêm phòng ban</button>}
+                </div>
               </div>
               {departments.length === 0 && <div className="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center text-pretty text-sm text-on-surface-variant"><HrEmptyIllustration kind="department" /><p className="mt-1">Chưa có phòng ban.{canManage ? " Hãy thêm phòng ban đầu tiên." : ""}</p></div>}
               {departments.length > 0 && filteredDepartments.length === 0 && <div className="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center text-pretty text-sm text-on-surface-variant"><HrEmptyIllustration kind="search" /><p className="mt-1">Không tìm thấy phòng ban phù hợp. Hãy đổi từ khóa hoặc bộ lọc.</p></div>}

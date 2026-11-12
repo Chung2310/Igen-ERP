@@ -50,15 +50,17 @@ const sectionHeaders = {
   visits: ["Bệnh nhân / Mã lượt", "Ngày khám", "Dịch vụ", "Bác sĩ / Phòng", "Trạng thái", "Thao tác"],
   appointments: ["Bệnh nhân", "Ngày và giờ", "Bác sĩ / Phòng", "Trạng thái", "Thao tác"],
   care: ["Việc chăm sóc", "Bệnh nhân", "Phụ trách", "Hạn xử lý", "Trạng thái", "Thao tác"],
+  settings: ["Tên danh mục", "Mã danh mục", "Loại danh mục", "Trạng thái", "Thao tác"],
 };
 const sectionTableWidths: Record<keyof typeof sectionHeaders, string[]> = {
   patients: ["290px", "150px", "140px", "120px", "170px"],
   visits: ["245px", "145px", "185px", "210px", "130px", "215px"],
   appointments: ["240px", "190px", "230px", "145px", "190px"],
   care: ["235px", "220px", "170px", "125px", "145px", "190px"],
+  settings: ["36%", "16%", "16%", "18%", "14%"],
 };
 const sectionTableMinWidths: Record<keyof typeof sectionHeaders, string> = {
-  patients: "914px", visits: "1130px", appointments: "995px", care: "1085px",
+  patients: "914px", visits: "1130px", appointments: "995px", care: "1085px", settings: "760px",
 };
 const dateLabels = { patients: "Ngày tạo hồ sơ", visits: "Ngày khám", appointments: "Ngày hẹn", care: "Hạn xử lý" };
 const searchHints = {
@@ -66,7 +68,10 @@ const searchHints = {
   visits: "Tìm lượt khám, bệnh nhân, bác sĩ hoặc dịch vụ",
   appointments: "Tìm bệnh nhân theo mã, tên hoặc số điện thoại",
   care: "Tìm tên công việc hoặc bệnh nhân",
+  settings: "Tìm mã hoặc tên danh mục",
 };
+const normalizeText = (value: string) =>
+  value.trim().toLocaleLowerCase("vi").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 const birthLabel = (patient: Patient) => patient.dateOfBirth ? dayLabel(patient.dateOfBirth) : patient.hospitalProfile?.birthYear || "—";
 const usesCatalog = (tab: Tab) => tab === "visits" || tab === "appointments" || tab === "settings";
 
@@ -95,6 +100,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   const [query, setQuery] = useState("");
   const [datePeriod, setDatePeriod] = useState(emptyDatePeriodFilter);
   const [status, setStatus] = useState("");
+  const [catalogKind, setCatalogKind] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   useEffect(() => {
@@ -139,6 +145,21 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
       : clinical && query ? JSON.stringify({ ...Object.fromEntries(params), q: query }) : undefined,
   );
   const rows = list.data?.items || [];
+  const normalizedCatalogSearch = normalizeText(search);
+  const filteredCatalog = (catalog.data || []).filter(row => {
+    if (catalogKind && row.kind !== catalogKind) return false;
+    if (status === "active" && !row.active) return false;
+    if (status === "inactive" && row.active) return false;
+    if (!normalizedCatalogSearch) return true;
+    return normalizeText(`${row.code} ${row.name} ${catalogLabels[row.kind]}`).includes(normalizedCatalogSearch);
+  });
+  const hasTable = hasList || tab === "settings";
+  const activeData = tab === "settings" ? catalog.data : list.data;
+  const totalItems = tab === "settings" ? filteredCatalog.length : list.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = tab === "settings" ? Math.min(page, totalPages) : page;
+  const pagedCatalog = filteredCatalog.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const tableRows = tab === "settings" ? pagedCatalog : rows;
   const patientRows = tab === "patients" ? rows as Patient[] : [];
   const patientPageIds = patientRows.map(row => row._id);
   const allPatientRowsSelected = patientPageIds.length > 0 && patientPageIds.every(id => selectedPatientIds.includes(id));
@@ -266,6 +287,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
     setQuery("");
     setDatePeriod(emptyDatePeriodFilter());
     setStatus("");
+    setCatalogKind("");
   }
 
   function patientLink(id: string, compact = false) {
@@ -288,7 +310,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   const tabs = sections.filter(section => canFeature(hasPermission, section.key, "read"));
   const pageTitle = tab === "settings" ? "Danh mục y tế" : sections.find(section => section.key === tab)?.label;
   const createLabel = { patients: "Thêm bệnh nhân", visits: "Ghi lượt khám", appointments: "Đặt lịch hẹn", care: "Tạo việc chăm sóc", settings: "Thêm danh mục" };
-  const listHeaders = tab === "settings" ? [] : sectionHeaders[tab];
+  const listHeaders = sectionHeaders[tab];
   const showCreate = canManage && (tab !== "patients" || !patientId);
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
@@ -372,12 +394,23 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
             {showCreate && <IconActionButton label={createLabel[tab]} icon={Plus} ariaHaspopup disabled={Boolean(patientId && !patient.data)} onClick={openNew} />}
           </div>
         </div>
-        {hasList && <TableFilterToolbar
+        {hasTable && <TableFilterToolbar
           search={{ value: search, onChange: value => { setSearch(value.slice(0, 100)); setPage(1); },
             placeholder: searchHints[tab], ariaLabel: searchHints[tab], className: "min-w-0" }}
-          dateFilter={{ label: dateLabels[tab], value: datePeriod, onChange: value => { setDatePeriod(value); setPage(1); }, compact: true }}
-          totalCount={list.data?.total} countLabel="bản ghi"
-          hasActiveFilters={Boolean(search || status || datePeriod.mode !== "all")} onResetFilters={resetFilters}>
+          dateFilter={tab !== "settings" ? { label: dateLabels[tab], value: datePeriod, onChange: value => { setDatePeriod(value); setPage(1); }, compact: true } : undefined}
+          totalCount={activeData ? totalItems : undefined} countLabel="bản ghi"
+          hasActiveFilters={Boolean(search || status || catalogKind || datePeriod.mode !== "all")} onResetFilters={resetFilters}>
+          {tab === "settings" && <>
+            <Dropdown aria-label="Loại danh mục" value={catalogKind} onChange={value => { setCatalogKind(value); setPage(1); }}
+              variant="filter" options={[{ value: "", label: "Tất cả loại danh mục" },
+                ...Object.entries(catalogLabels).map(([value, label]) => ({ value, label }))]} />
+            <Dropdown aria-label="Trạng thái" value={status} onChange={value => { setStatus(value); setPage(1); }}
+              variant="filter" options={[
+                { value: "", label: "Tất cả trạng thái" },
+                { value: "active", label: "Đang sử dụng" },
+                { value: "inactive", label: "Ngừng sử dụng" },
+              ]} />
+          </>}
           {clinical && <Dropdown aria-label="Trạng thái" value={status} onChange={value => { setStatus(value); setPage(1); }}
             variant="filter" options={[{ value: "", label: "Tất cả trạng thái" },
               ...Object.entries(labels[tab]).map(([value, label]) => ({ value, label }))]} />}
@@ -411,9 +444,9 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           <span>{recordId ? "Bản ghi liên quan" : patient.data ? `${patient.data.code} · ${patient.data.name}` : "Hồ sơ bệnh nhân đã chọn"}</span>
           <button type="button" className={buttonClass} onClick={() => navigate(tab)}>Xem tất cả</button>
         </div>}
-        {hasList && <>
-          <Feedback loading={list.loading} error={list.error} onRetry={list.refresh} />
-          {list.data && <Table headers={listHeaders}
+        {hasTable && <>
+          <Feedback loading={activeQuery.loading} error={activeQuery.error} onRetry={activeQuery.refresh} />
+          {activeData && <Table headers={listHeaders}
             columnWidths={sectionTableWidths[tab]}
             minWidth={sectionTableMinWidths[tab]}
             selectAll={tab === "patients" && canManage ? {
@@ -424,7 +457,9 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
                 ? [...new Set([...current, ...patientPageIds])].slice(0, 500)
                 : current.filter(id => !patientPageIds.includes(id))),
             } : undefined}
-            empty={!rows.length ? "Chưa có dữ liệu phù hợp." : undefined}>
+            empty={!tableRows.length ? (tab === "settings" && !catalog.data?.length
+              ? "Thêm bác sĩ, phòng khám hoặc dịch vụ để sử dụng khi đặt lịch và ghi lượt khám."
+              : "Chưa có dữ liệu phù hợp.") : undefined}>
             {tab === "patients" && (rows as Patient[]).map(row => <tr key={row._id}
               className={selectedPatientIds.includes(row._id) ? "bg-primary-container/20" : "transition-colors hover:bg-surface-container-low/40"}>
               {canManage && <td className="w-10 px-4 py-2.5 align-top">
@@ -522,24 +557,20 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
                 {withdrawalAction({ kind: "care", record: row })}
               </div></Cell>
             </tr>)}
-          </Table>}
-          {list.data && <TablePagination appearance="erp" currentPage={page} pageSize={pageSize} totalItems={list.data.total}
-            totalPages={Math.max(1, Math.ceil(list.data.total / pageSize))} onPageChange={setPage} onPageSizeChange={setPageSize}
-            pageSizeOptions={[10, 25, 50, 100]} />}
-        </>}
-        {tab === "settings" && <>
-          <p className="max-w-3xl text-sm text-on-surface-variant">Danh sách bác sĩ, phòng khám và dịch vụ để chọn nhanh khi ghi lượt khám hoặc đặt lịch. Bác sĩ bên ngoài ERP vẫn có thể nhập tên trực tiếp trong biểu mẫu.</p>
-          <Feedback loading={catalog.loading} error={catalog.error} onRetry={catalog.refresh} />
-          {catalog.data && <Table headers={["Loại", "Mã", "Tên", "Trạng thái", "Thao tác"]}
-            columnWidths={["150px", "180px", "300px", "160px", "150px"]} minWidth="940px"
-            empty={!catalog.data.length ? "Thêm bác sĩ, phòng khám hoặc dịch vụ để sử dụng khi đặt lịch và ghi lượt khám." : undefined}>
-            {catalog.data.map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40"><Cell><span className="rounded bg-surface-container px-1.5 py-0.5 text-xs">{catalogLabels[row.kind]}</span></Cell><Cell><span className="font-medium">{row.code}</span></Cell><Cell>{row.name}</Cell>
-              <Cell align="center"><StatusBadge status={row.active ? "completed" : "inactive"} label={row.active ? "Đang sử dụng" : "Ngừng sử dụng"} /></Cell>
-              <Cell align="right"><div className="flex items-center justify-end gap-2">
+            {tab === "settings" && (tableRows as CatalogItem[]).map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
+              <Cell className="min-w-0 align-middle"><span className="line-clamp-1 font-medium" title={row.name}>{row.name}</span></Cell>
+              <Cell align="center" className="align-middle whitespace-nowrap"><span className="inline-flex rounded bg-surface-container px-2 py-0.5 text-xs font-medium">{row.code}</span></Cell>
+              <Cell align="center" className="align-middle whitespace-nowrap"><span className="inline-flex rounded bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">{catalogLabels[row.kind]}</span></Cell>
+              <Cell align="center" className="align-middle whitespace-nowrap"><StatusBadge status={row.active ? "completed" : "inactive"} label={row.active ? "Đang sử dụng" : "Ngừng sử dụng"} /></Cell>
+              <Cell align="right" className="align-middle"><div className="flex items-center justify-end gap-2">
                 {canManage && <IconActionButton label={`Sửa danh mục ${row.code}`} icon={Pencil} ariaHaspopup onClick={() => openEditor({ kind: "catalog", record: row })} />}
                 {withdrawalAction({ kind: "catalog", record: row })}
-              </div></Cell></tr>)}
+              </div></Cell>
+            </tr>)}
           </Table>}
+          {activeData && <TablePagination appearance="erp" currentPage={currentPage} pageSize={pageSize} totalItems={totalItems}
+            totalPages={totalPages} onPageChange={setPage} onPageSizeChange={value => { setPageSize(value); setPage(1); }}
+            pageSizeOptions={[10, 25, 50, 100]} />}
         </>}
         {directory !== editorDirectory && <Feedback error={directory?.error} onRetry={directory?.refresh} />}
       </section>

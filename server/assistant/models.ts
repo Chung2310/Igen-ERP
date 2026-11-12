@@ -27,6 +27,21 @@ memorySchema.index({ companyCode: 1, userId: 1, normalizedContent: 1 }, { unique
 memorySchema.index({ companyCode: 1, userId: 1, updatedAt: -1 });
 export const AssistantMemoryModel = model("AssistantMemory", memorySchema);
 
+const promptTemplateSchema = new Schema({
+  companyCode: { type: String, required: true },
+  userId: { type: String, required: true },
+  templateId: { type: String, required: true },
+  owner: { type: String, enum: ["igen", "user"], required: true },
+  title: { type: String, required: true, maxlength: 100 },
+  description: { type: String, required: true, maxlength: 180 },
+  category: { type: String, required: true, maxlength: 60 },
+  prompt: { type: String, required: true, maxlength: 5000 },
+  favoriteBy: { type: [String], default: [] },
+}, { timestamps: true });
+promptTemplateSchema.index({ companyCode: 1, templateId: 1 }, { unique: true });
+promptTemplateSchema.index({ companyCode: 1, owner: 1, userId: 1, updatedAt: -1 });
+export const AssistantPromptTemplateModel = model("AssistantPromptTemplate", promptTemplateSchema);
+
 const documentFileSchema = new Schema({
   id: { type: String, required: true }, fileName: { type: String, required: true },
   format: { type: String, required: true }, mimeType: { type: String, required: true },
@@ -48,5 +63,5 @@ export const AssistantDocumentModel = model("AssistantDocument", documentSchema)
 let indexReadiness: Promise<unknown> | undefined;
 /** Do not accept deduplicated writes until their unique indexes exist. */
 export function ensureAssistantIndexes() {
-  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
+  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
 }

@@ -1,12 +1,27 @@
 import { AssistantError } from "./policy";
 import { defaultAssistantSpeechVoice, isAssistantSpeechVoice, type AssistantSpeechVoice } from "../../src/shared/assistant-speech-voices";
+import type { AssistantSpeechControls } from "../../src/shared/assistant-speech";
 
 const SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech";
 const SPEECH_MODEL = "elevenlabs/eleven-flash-v2.5";
 const MAX_AUDIO_BYTES = 20_000_000;
 
-export async function synthesizeVietnameseSpeech(text: string, signal?: AbortSignal, voice?: AssistantSpeechVoice): Promise<Buffer> {
-  const input = text.trim();
+function pauseTag(seconds: number): string {
+  return seconds > 0 ? `<break time="${Number(seconds.toFixed(2))}s" />` : "";
+}
+
+function applySpeechControls(text: string, controls: AssistantSpeechControls): string {
+  const safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\r\n?/g, "\n");
+  return safeText
+    .replace(/\.(?=\s|$)/g, (period) => `${period}${pauseTag(controls.pausePeriod)}`)
+    .replace(/,(?=\s|$)/g, (comma) => `${comma}${pauseTag(controls.pauseComma)}`)
+    .replace(/;(?=\s|$)/g, (semicolon) => `${semicolon}${pauseTag(controls.pauseSemicolon)}`)
+    .replace(/\n/g, pauseTag(controls.pauseNewline));
+}
+
+export async function synthesizeVietnameseSpeech(text: string, signal?: AbortSignal, voice?: AssistantSpeechVoice, controls?: AssistantSpeechControls): Promise<Buffer> {
+  const rawInput = text.trim();
+  const input = controls ? applySpeechControls(rawInput, controls) : rawInput;
   if (!input) throw new AssistantError("Không có nội dung để đọc thành tiếng.");
   const selectedVoice = voice || process.env.OPENROUTER_TTS_VOICE?.trim() || defaultAssistantSpeechVoice;
   if (!isAssistantSpeechVoice(selectedVoice)) throw new AssistantError("Giọng đọc đã chọn không hợp lệ.");
@@ -27,7 +42,7 @@ export async function synthesizeVietnameseSpeech(text: string, signal?: AbortSig
         input,
         voice: selectedVoice,
         response_format: "mp3",
-        provider: { options: { elevenlabs: { language_code: "vi" } } },
+        provider: { options: { elevenlabs: { language_code: "vi", ...(controls ? { voice_settings: { speed: controls.speed } } : {}) } } },
       }),
     });
   } catch (error) {

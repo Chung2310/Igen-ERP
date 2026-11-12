@@ -39,9 +39,12 @@ const generalParser = parserPair(ddosConfig.generalBodyLimit);
 const largeParser = parserPair(ddosConfig.largeBodyLimit);
 const studioImageParser = parserPair("8mb");
 const studioImageEditParser = parserPair("22mb");
+const studioSlideEditParser = parserPair("10mb");
 
 export const selectiveBodyParser: RequestHandler = (req, res, next) => {
-  const parser = req.path === "/api/v1/chatbot/assistant/studio/images/edit"
+  const parser = /^\/api\/v1\/chatbot\/assistant\/studio\/slides\/[a-f0-9]{24}$/i.test(req.path)
+    ? studioSlideEditParser
+    : req.path === "/api/v1/chatbot/assistant/studio/images/edit"
     ? studioImageEditParser
     : req.path === "/api/v1/chatbot/assistant/studio/images"
     ? studioImageParser

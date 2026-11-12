@@ -1,5 +1,9 @@
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { normalizeStudioAudio } from "./studio-transcription";
+import { resolveMediaBinary } from "../modules/marketing-suite/shared/service/media-binary.service";
+
+const ffmpegAvailable = spawnSync(resolveMediaBinary("ffmpeg"), ["-version"], { stdio: "ignore", windowsHide: true }).status === 0;
 
 function silentWav() {
   const samples = 16_000;
@@ -13,7 +17,7 @@ function silentWav() {
 }
 
 describe("studio audio normalization", () => {
-  it("transcodes uploaded WAV data into a compact MP3 for OpenRouter", async () => {
+  it.skipIf(!ffmpegAvailable)("transcodes uploaded WAV data into a compact MP3 for OpenRouter", async () => {
     const mp3 = await normalizeStudioAudio(silentWav());
     expect(mp3.length).toBeGreaterThan(100);
     expect(mp3.length).toBeLessThan(silentWav().length);
@@ -22,5 +26,10 @@ describe("studio audio normalization", () => {
 
   it("rejects a file without audio data", async () => {
     await expect(normalizeStudioAudio(Buffer.from("not audio"))).rejects.toThrow("Tệp không chứa âm thanh hợp lệ");
+  });
+
+  it("passes a supported MP3 under the provider limit through without requiring ffmpeg", async () => {
+    const mp3 = Buffer.concat([Buffer.from("ID3\u0004\u0000\u0000"), Buffer.alloc(256)]);
+    await expect(normalizeStudioAudio(mp3, "voice.mp3")).resolves.toBe(mp3);
   });
 });

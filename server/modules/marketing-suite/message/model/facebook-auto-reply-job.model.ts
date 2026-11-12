@@ -1,15 +1,17 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export type FacebookAutoReplyJobStatus = "pending" | "processing" | "completed" | "cancelled" | "failed";
+export type MessengerAutoReplyChannel = "facebook" | "zalo";
 
 export interface IFacebookAutoReplyJob extends Document {
-  channel: "facebook";
+  channel: MessengerAutoReplyChannel;
   conversationId: mongoose.Types.ObjectId;
   pageId: string;
   companyCode?: string;
   messageId: string;
   messageTimestamp: Date;
   messageCreatedAt: Date;
+  messageObjectId?: mongoose.Types.ObjectId;
   text: string;
   status: FacebookAutoReplyJobStatus;
   nextAttemptAt: Date;
@@ -25,13 +27,14 @@ export interface IFacebookAutoReplyJob extends Document {
 }
 
 const FacebookAutoReplyJobSchema = new Schema<IFacebookAutoReplyJob>({
-  channel: { type: String, enum: ["facebook"], default: "facebook", required: true },
-  conversationId: { type: Schema.Types.ObjectId, ref: "FBConversation", required: true },
+  channel: { type: String, enum: ["facebook", "zalo"], default: "facebook", required: true },
+  conversationId: { type: Schema.Types.ObjectId, required: true },
   pageId: { type: String, required: true, trim: true },
   companyCode: { type: String, trim: true },
   messageId: { type: String, required: true, trim: true },
   messageTimestamp: { type: Date, required: true, index: true },
   messageCreatedAt: { type: Date, required: true },
+  messageObjectId: { type: Schema.Types.ObjectId },
   text: { type: String, default: "" },
   status: { type: String, enum: ["pending", "processing", "completed", "cancelled", "failed"], default: "pending", index: true },
   nextAttemptAt: { type: Date, required: true, index: true },

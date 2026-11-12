@@ -1,6 +1,6 @@
 # Route chưa nối với trợ lý
 
-Tự sinh từ `coverage.generated.json`: 75 route đang chờ rà soát hợp đồng và 346 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
+Tự sinh từ `coverage.generated.json`: 13 route đang chờ rà soát hợp đồng và 363 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
 
 ## Route đang chờ rà soát
 
@@ -13,70 +13,8 @@ Tự sinh từ `coverage.generated.json`: 75 route đang chờ rà soát hợp �
 
 - `POST /order-sheets/integrations/:integrationId/leads/retry` — `server/modules/marketing-suite/message/router/lead-sheet.router.ts:67`
 
-### Hạ tầng, xác thực hoặc chưa xác định phân hệ (72)
+### Hạ tầng, xác thực hoặc chưa xác định phân hệ (10)
 
-- `GET /quotation/usage` — `server/modules/quotation/router.ts:554`
-- `GET /quotation/quote-templates` — `server/modules/quotation/router.ts:560`
-- `GET /quotation/quote-template` — `server/modules/quotation/router.ts:576`
-- `POST /quotation/quote-template` — `server/modules/quotation/router.ts:582`
-- `PATCH /quotation/quote-template/:id/category` — `server/modules/quotation/router.ts:614`
-- `DELETE /quotation/quote-template/:id` — `server/modules/quotation/router.ts:643`
-- `GET /quotation/quote-template/:id/file` — `server/modules/quotation/router.ts:668`
-- `GET /quotation/price-list/:id/file` — `server/modules/quotation/router.ts:685`
-- `GET /quotation/files` — `server/modules/quotation/router.ts:696`
-- `GET /quotation/export-jobs/:id` — `server/modules/quotation/router.ts:708`
-- `GET /quotation/generated-export-files/latest` — `server/modules/quotation/router.ts:731`
-- `GET /quotation/files/:id/download` — `server/modules/quotation/router.ts:828`
-- `GET /quotation/files/:id/preview` — `server/modules/quotation/router.ts:844`
-- `POST /quotation/files` — `server/modules/quotation/router.ts:857`
-- `GET /quotation/dashboard` — `server/modules/quotation/router.ts:914`
-- `GET /quotation/price-list` — `server/modules/quotation/router.ts:929`
-- `POST /quotation/price-list/preview` — `server/modules/quotation/router.ts:935`
-- `POST /quotation/price-list` — `server/modules/quotation/router.ts:952`
-- `POST /quotation/catalog/import/preview` — `server/modules/quotation/router.ts:1011`
-- `POST /quotation/catalog/import/confirm` — `server/modules/quotation/router.ts:1033`
-- `POST /quotation/request-files` — `server/modules/quotation/router.ts:1078`
-- `GET /quotation/request-files/:id/preview` — `server/modules/quotation/router.ts:1093`
-- `POST /quotation/quote-requests` — `server/modules/quotation/router.ts:1110`
-- `GET /quotation/quote-requests` — `server/modules/quotation/router.ts:1166`
-- `POST /quotation/quote-requests/:id/analyze` — `server/modules/quotation/router.ts:1174`
-- `GET /quotation/overview` — `server/modules/quotation/router.ts:1269`
-- `GET /quotation/quotes` — `server/modules/quotation/router.ts:1292`
-- `POST /quotation/customer-quotes/suggest` — `server/modules/quotation/router.ts:1357`
-- `GET /quotation/budget-plans` — `server/modules/quotation/router.ts:1369`
-- `PATCH /quotation/budget-plans/:id` — `server/modules/quotation/router.ts:1376`
-- `GET /quotation/budget-plans/:id/export` — `server/modules/quotation/router.ts:1451`
-- `POST /quotation/budget-plans/suggest` — `server/modules/quotation/router.ts:1497`
-- `POST /quotation/customer-quotes` — `server/modules/quotation/router.ts:1525`
-- `POST /quotation/quotes/from-customer` — `server/modules/quotation/router.ts:1594`
-- `POST /quotation/quotes` — `server/modules/quotation/router.ts:1639`
-- `GET /quotation/quotes/:id` — `server/modules/quotation/router.ts:1756`
-- `DELETE /quotation/quotes/:id` — `server/modules/quotation/router.ts:1815`
-- `GET /quotation/quotes/:id/request-file/preview` — `server/modules/quotation/router.ts:1832`
-- `POST /quotation/quotes/:id/recalculate` — `server/modules/quotation/router.ts:1856`
-- `PATCH /quotation/quotes/:id` — `server/modules/quotation/router.ts:1891`
-- `POST /quotation/quotes/:id/submit-review` — `server/modules/quotation/router.ts:2033`
-- `POST /quotation/quotes/:id/approve` — `server/modules/quotation/router.ts:2048`
-- `POST /quotation/quotes/:id/reject` — `server/modules/quotation/router.ts:2076`
-- `GET /quotation/document-templates/:kind` — `server/modules/quotation/router.ts:2133`
-- `GET /quotation/contract-templates` — `server/modules/quotation/router.ts:2154`
-- `GET /quotation/acceptance-templates` — `server/modules/quotation/router.ts:2160`
-- `GET /quotation/settlement-templates` — `server/modules/quotation/router.ts:2166`
-- `GET /quotation/contracts` — `server/modules/quotation/router.ts:2174`
-- `GET /quotation/contracts/prefill` — `server/modules/quotation/router.ts:2182`
-- `POST /quotation/contracts` — `server/modules/quotation/router.ts:2194`
-- `GET /quotation/contracts/:id` — `server/modules/quotation/router.ts:2283`
-- `PATCH /quotation/contracts/:id` — `server/modules/quotation/router.ts:2342`
-- `POST /quotation/contracts/:id/sign` — `server/modules/quotation/router.ts:2372`
-- `GET /quotation/acceptance-records` — `server/modules/quotation/router.ts:2397`
-- `POST /quotation/acceptance-records` — `server/modules/quotation/router.ts:2405`
-- `GET /quotation/acceptance-records/:id` — `server/modules/quotation/router.ts:2479`
-- `GET /quotation/acceptance-records/:id/settlement.xlsx` — `server/modules/quotation/router.ts:2574`
-- `PATCH /quotation/acceptance-records/:id` — `server/modules/quotation/router.ts:2641`
-- `POST /quotation/acceptance-records/:id/complete` — `server/modules/quotation/router.ts:2680`
-- `POST /quotation/quotes/:id/export/retry` — `server/modules/quotation/router.ts:2705`
-- `GET /quotation/quotes/:id/export` — `server/modules/quotation/router.ts:2725`
-- `GET /quotation/quotes/:id/pdf` — `server/modules/quotation/router.ts:2861`
 - `GET /chatbot/assistant/conversations/:id/files/:fileId` — `server/assistant/router.ts:29`
 - `POST /chatbot/assistant/studio/transcriptions` — `server/assistant/router.ts:45`
 - `GET /chatbot/assistant/studio/transcriptions` — `server/assistant/router.ts:50`
@@ -212,6 +150,23 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `POST /order-sheets/orders/:orderId/retry` — Gửi lại đồng bộ đơn sang Google Sheets có thể tạo bản ghi trùng ở hệ thống ngoài; chưa có workflow idempotent chọn theo mã đơn và tài liệu đích. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:18`
 - `POST /company-telegram-order/test` — Gửi thử qua Telegram phát nội dung ra kênh bên ngoài; chat chưa có người nhận/channel đích được chọn và preview an toàn. — `server/modules/marketing-suite/message/router/company-telegram-order.router.ts:22`
 - `POST /webhooks/sepay/:webhookId` — Webhook /webhooks/sepay/:webhookId nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/modules/marketing-suite/message/router/company-sepay.router.ts:24`
+- `GET /quotation/quote-template` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:576`
+- `POST /quotation/quote-template` — Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá. — `server/modules/quotation/router.ts:582`
+- `GET /quotation/price-list/:id/file` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:685`
+- `GET /quotation/export-jobs/:id` — Trợ lý tra tiến độ qua chứng từ nguồn bằng quotation.export.latest, không yêu cầu người dùng nhập ID tác vụ nội bộ. — `server/modules/quotation/router.ts:708`
+- `GET /quotation/files/:id/preview` — API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng. — `server/modules/quotation/router.ts:844`
+- `POST /quotation/files` — Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá. — `server/modules/quotation/router.ts:857`
+- `GET /quotation/dashboard` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:914`
+- `POST /quotation/price-list/preview` — Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá. — `server/modules/quotation/router.ts:935`
+- `POST /quotation/price-list` — Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá. — `server/modules/quotation/router.ts:952`
+- `POST /quotation/request-files` — Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá. — `server/modules/quotation/router.ts:1078`
+- `GET /quotation/request-files/:id/preview` — API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng. — `server/modules/quotation/router.ts:1093`
+- `GET /quotation/quotes/:id/request-file/preview` — API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng. — `server/modules/quotation/router.ts:1832`
+- `GET /quotation/document-templates/:kind` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:2133`
+- `GET /quotation/contract-templates` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:2154`
+- `GET /quotation/acceptance-templates` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:2160`
+- `GET /quotation/settlement-templates` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:2166`
+- `GET /quotation/contracts/prefill` — API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat. — `server/modules/quotation/router.ts:2182`
 - `GET /healthcare/visits` — Trợ lý dùng POST /healthcare/visits/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:104`
 - `GET /healthcare/appointments` — Trợ lý dùng POST /healthcare/appointments/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:134`
 - `GET /healthcare/care` — Trợ lý dùng POST /healthcare/care/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:154`
@@ -439,9 +394,6 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /worker-management/qr-attendance/session/:sessionId/status` — Đọc token/trạng thái phiên QR tại /worker-management/qr-attendance/session/:sessionId/status; phiên có thời hạn và cần được hiển thị/quét trên thiết bị thật. — `server/modules/worker-management/routes/worker-qr-attendance.routes.ts:55`
 - `POST /worker-management/qr-attendance/session/:sessionId/close` — Mở/đóng phiên điểm danh QR tại /worker-management/qr-attendance/session/:sessionId/close; cần quản lý vòng đời phiên trên màn hình và xác nhận thiết bị tại chỗ. — `server/modules/worker-management/routes/worker-qr-attendance.routes.ts:62`
 
-## Khai báo route động chưa phân giải
+## Route được sinh động
 
-Các khai báo này chưa có đường dẫn API ổn định trong inventory; cần rà soát router để tách thành route cụ thể trước khi đánh giá quyền và hợp đồng.
-
-- `server\modules\quotation\router.ts:2291`
-- `server\modules\quotation\router.ts:2489`
+Các route khai báo bằng vòng lặp và helper đã được mở rộng thành method/path cụ thể trong inventory; không còn khai báo route động chưa phân giải.

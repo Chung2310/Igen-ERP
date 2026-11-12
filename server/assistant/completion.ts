@@ -13,6 +13,7 @@ export interface AssistantCompletion {
 
 /** Scope, selected targets and private snapshots never count as requested edits. */
 export function hasAssistantUpdatePayload(op: AssistantOperation, values: Record<string, unknown>): boolean {
+  if (op.module === "quotation" && op.fixedBodyValues?.action === "recalculate") return true;
   return op.fields.some(field => field.source !== "path" && field.source !== "query" && field.key !== "id"
     && !field.key.startsWith("__assistant") && !op.systemBodyFields?.includes(field.apiKey || field.key)
     && !/^(?:expectedVersion|idempotencyKey)$/i.test(field.apiKey || field.key) && values[field.key] !== undefined);
@@ -57,7 +58,8 @@ export async function completeAssistantOperation(
   if (!record || typeof record !== "object" || Array.isArray(record)) return reply;
   const created = record as Record<string, unknown>;
   if (!["_id", "id", "code", "name", "title", "displayName", "fullName"].some(key => created[key] != null && String(created[key]).trim())) return reply;
-  const pairedUpdate = op.id.endsWith(".create") ? operations.find(candidate => candidate.id === op.id.replace(/\.create$/, ".update")) : undefined;
+  const pairedUpdate = op.completionUpdateId ? operations.find(candidate => candidate.id === op.completionUpdateId)
+    : op.id.endsWith(".create") ? operations.find(candidate => candidate.id === op.id.replace(/\.create$/, ".update")) : undefined;
   const update = (pairedUpdate && ["PATCH", "PUT"].includes(pairedUpdate.method) ? pairedUpdate : undefined)
     || operations.find(candidate => ["PATCH", "PUT"].includes(candidate.method) && candidate.module === op.module
       && candidate.path.startsWith(`${op.path}/:`) && !candidate.path.slice(op.path.length + 2).includes("/"));

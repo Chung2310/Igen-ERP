@@ -1,5 +1,6 @@
 import "./server/config/timezone"; // PHẢI đứng đầu — cố định TZ trước mọi phép tính ngày giờ
 import "dotenv/config";
+import "./server/config/load-local-env";
 import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
 import { startMarketingEventRelay } from "./server/modules/marketing-suite/shared/event-relay";
@@ -10,6 +11,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
 import { facebookCommentService } from "./server/modules/marketing-suite/message/service/facebook-comment.service";
+import { startMessengerBackgroundWorkers } from "./server/modules/marketing-suite/message/service/messenger-background-jobs";
 import { startCelebrationScheduler } from "./server/service/celebration-scheduler.service";
 import { startMarketingScheduler } from "./server/modules/marketing/services/marketing-scan.service";
 import { startResourceRetentionScheduler } from "./server/service/resource-retention.service";
@@ -22,6 +24,7 @@ import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-sc
 import { startPayrollPublicationScheduler } from "./server/service/payroll-publication-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
 import { startHealthcareImportWorker } from "./server/modules/healthcare/import-worker";
+import { startQuotationWorker } from "./server/modules/quotation/jobs";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
@@ -232,6 +235,9 @@ async function startServer() {
 
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+  const quotationWorker = process.env.QUOTATION_WORKERS_ENABLED === "true"
+    ? await startQuotationWorker()
+    : undefined;
   facebookCommentService.startWorker();
   startDomainEventWorker();
   const stopHealthcareImportWorker = startHealthcareImportWorker();
@@ -402,6 +408,7 @@ async function startServer() {
   // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
   const httpServer = createServer(app);
   await initSocketServer(httpServer);
+  const stopMessengerBackgroundWorkers = startMessengerBackgroundWorkers();
   void startMarketingEventRelay().catch((error: unknown) => console.warn("[Marketing events] Subscriber unavailable", error instanceof Error ? error.message : "unknown"));
 
   httpServer.listen(PORT, "0.0.0.0", () => {
@@ -415,8 +422,13 @@ async function startServer() {
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    stopMessengerBackgroundWorkers();
     httpServer.close(async () => {
-      await Promise.all([flushUserActivityQueue(), stopHealthcareImportWorker()]);
+      await Promise.all([
+        flushUserActivityQueue(),
+        stopHealthcareImportWorker(),
+        quotationWorker?.close() ?? Promise.resolve(),
+      ]);
       process.exit(0);
     });
   };

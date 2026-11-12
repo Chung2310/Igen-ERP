@@ -181,21 +181,21 @@ async function metadata(spreadsheetId: string) {
   return sheetsFetch(`${encodeURIComponent(spreadsheetId)}?fields=properties.title,sheets.properties`);
 }
 
-export async function ensureTabs(spreadsheetId: string, tabNames: string[]) {
+export async function ensureTabs(spreadsheetId: string, tabNames: string[], minColumnCount = ORDER_HEADERS.length + 2) {
   const info = await metadata(spreadsheetId) as {
     sheets?: Array<{ properties?: { title?: string; sheetId?: number; gridProperties?: { columnCount?: number } } }>;
   };
   const existing = new Set((info.sheets || []).map((item) => item.properties?.title).filter(Boolean));
   const missing = tabNames.filter((name) => !existing.has(name));
   const resize = (info.sheets || []).filter(sheet => tabNames.includes(sheet.properties?.title || "")
-    && sheet.properties?.sheetId !== undefined && (sheet.properties?.gridProperties?.columnCount || 0) < ORDER_HEADERS.length + 2)
+    && sheet.properties?.sheetId !== undefined && (sheet.properties?.gridProperties?.columnCount || 0) < minColumnCount)
     .map(sheet => ({ updateSheetProperties: { properties: { sheetId: sheet.properties!.sheetId,
-      gridProperties: { columnCount: ORDER_HEADERS.length + 2 } }, fields: "gridProperties.columnCount" } }));
+      gridProperties: { columnCount: minColumnCount } }, fields: "gridProperties.columnCount" } }));
   if (missing.length || resize.length) {
     await sheetsFetch(`${encodeURIComponent(spreadsheetId)}:batchUpdate`, {
       method: "POST",
       body: JSON.stringify({ requests: [...missing.map((title) => ({ addSheet: { properties: { title,
-        gridProperties: { columnCount: ORDER_HEADERS.length + 2 } } } })), ...resize] }),
+        gridProperties: { columnCount: minColumnCount } } } })), ...resize] }),
     });
   }
 }

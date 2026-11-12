@@ -1,41 +1,48 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Bot, Brain, MessageSquare, Volume2, type LucideIcon } from "lucide-react";
+import { Bot, Brain, MessageSquare, Settings2, type LucideIcon } from "lucide-react";
 import type { AssistantSettings } from "../../shared/assistant-workflow";
-import { assistantSpeechVoices, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
 import { assistantService } from "../../services/assistantService";
 import { cn } from "../../modules/student-management/lib/utils";
+import AssistantSpeechVoicePicker from "./AssistantSpeechVoicePicker";
 
 const control = "min-h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-base text-on-surface focus-visible:border-primary focus-visible:outline-none";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-type ToggleKey = "showSuggestions" | "alwaysConfirm" | "speakReplies" | "wakeWordEnabled" | "autoMemoryEnabled" | "memoryEnabled";
-type ToggleSetting = { key: ToggleKey; label: string; help?: string };
+type ToggleKey = "enterToSend" | "showSuggestions" | "alwaysConfirm" | "speakReplies" | "wakeWordEnabled" | "autoMemoryEnabled" | "memoryEnabled";
+type ToggleSetting = { key: ToggleKey; label: string; help: string };
 
 const conversationSettings: ToggleSetting[] = [
-  { key: "showSuggestions", label: "Hiện gợi ý yêu cầu khi bắt đầu trò chuyện" },
-  { key: "alwaysConfirm", label: "Luôn xác nhận trước khi thay đổi dữ liệu", help: "Vẫn giữ các xác nhận bắt buộc khi tắt." },
+  { key: "enterToSend", label: "Nhấn Enter để gửi tin nhắn", help: "Nhấn Shift + Enter để xuống dòng." },
+  { key: "showSuggestions", label: "Hiện gợi ý yêu cầu khi bắt đầu trò chuyện", help: "Gợi ý giúp bạn bắt đầu một yêu cầu mới nhanh hơn." },
+  { key: "wakeWordEnabled", label: "Nghe lệnh bằng từ khóa “Hey Igen”", help: "Khi bật, trình duyệt sẽ chờ từ khóa qua micro. Sau khi nghe câu lệnh, trợ lý tự dừng ghi âm, gửi yêu cầu rồi tiếp tục chờ từ khóa. Cần cấp quyền dùng micro cho trình duyệt." },
 ];
 
-const voiceSettings: ToggleSetting[] = [
-  { key: "speakReplies", label: "Đọc câu trả lời thành tiếng", help: "Tính phí theo số ký tự." },
-  { key: "wakeWordEnabled", label: "Nghe lệnh bằng từ khóa “Hey Igen”", help: "Cần cấp quyền micro. Câu lệnh tự gửi sau khi nói." },
+const responseSettings: ToggleSetting[] = [
+  { key: "alwaysConfirm", label: "Luôn xác nhận trước khi thay đổi dữ liệu", help: "Các xác nhận bắt buộc của từng workflow vẫn được giữ nguyên khi tắt tùy chọn này." },
+  { key: "speakReplies", label: "Đọc câu trả lời thành tiếng", help: "Tạo giọng tiếng Việt qua OpenRouter và phát khi trợ lý trả lời. Mỗi lần tạo âm thanh có tính phí theo số ký tự; câu trả lời cũ không tự phát." },
 ];
 
 const memorySettings: ToggleSetting[] = [
-  { key: "autoMemoryEnabled", label: "Tự động lưu thông tin hữu ích", help: "Lưu sở thích, quy ước; không lưu dữ liệu nhạy cảm." },
-  { key: "memoryEnabled", label: "Cho phép trợ lý dùng ghi nhớ của tôi", help: "Tắt không xóa ghi nhớ đã lưu." },
+  { key: "autoMemoryEnabled", label: "Tự động lưu thông tin hữu ích", help: "Chỉ lưu sở thích và quy ước ổn định. Bạn có thể xem, sửa hoặc xóa trong mục Ghi nhớ. Không lưu hồ sơ nghiệp vụ, dữ liệu nhạy cảm hay thông tin xác thực." },
+  { key: "memoryEnabled", label: "Cho phép trợ lý dùng ghi nhớ của tôi", help: "Khi bật, trợ lý có thể tham khảo ghi nhớ trong các cuộc trò chuyện. Tắt mục này không xóa ghi nhớ hiện có." },
 ];
 
-function SettingsSection({ id, title, icon: Icon, children }: {
+function SettingsSection({ id, title, description, icon: Icon, children }: {
   id: string;
   title: string;
+  description: string;
   icon: LucideIcon;
   children: ReactNode;
 }) {
-  return <section aria-labelledby={id} className="min-w-0 border-b border-outline-variant pb-6 last:border-0 last:pb-0">
-    <header className="mb-2 flex items-center gap-2">
-      <Icon className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
-      <h4 id={id} className="text-balance text-sm font-semibold text-on-surface">{title}</h4>
+  return <section aria-labelledby={id} className="min-w-0 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+    <header className="mb-4 flex items-start gap-3">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-container-high text-primary">
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <h4 id={id} className="text-balance text-base font-semibold">{title}</h4>
+        <p className="mt-1 text-pretty text-sm leading-6 text-on-surface-variant">{description}</p>
+      </div>
     </header>
     <div className="divide-y divide-outline-variant">{children}</div>
   </section>;
@@ -49,12 +56,12 @@ function PreferenceToggle({ item, checked, onChange }: {
   const inputId = `assistant-${item.key}`;
   const labelId = `${inputId}-label`;
   const helpId = `assistant-${item.key}-help`;
-  return <label htmlFor={inputId} className="flex min-h-14 cursor-pointer items-center justify-between gap-6 py-4 last:pb-0">
+  return <label htmlFor={inputId} className="flex min-h-14 cursor-pointer items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
     <span className="min-w-0">
       <span id={labelId} className="block text-sm font-medium leading-6 text-on-surface">{item.label}</span>
-      {item.help && <span id={helpId} className="mt-1 block text-pretty text-xs leading-5 text-on-surface-variant">{item.help}</span>}
+      <span id={helpId} className="mt-1 block text-pretty text-sm leading-6 text-on-surface-variant">{item.help}</span>
     </span>
-    <input id={inputId} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} aria-labelledby={labelId} aria-describedby={item.help ? helpId : undefined} className={cn("size-5 shrink-0 cursor-pointer accent-primary", focusClass)} />
+    <input id={inputId} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} aria-labelledby={labelId} aria-describedby={helpId} className={cn("mt-0.5 size-5 shrink-0 cursor-pointer accent-primary", focusClass)} />
   </label>;
 }
 
@@ -148,57 +155,64 @@ export function AssistantSettingsEditor({ settings, onSave }: { settings: Assist
   };
 
   return <form aria-label="Cài đặt trợ lý" aria-busy={busy} className="flex min-h-0 flex-1 flex-col" onSubmit={event => void save(event)}>
-    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4 sm:p-6">
-      <header>
+    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain bg-surface p-4 sm:p-6">
+      <header className="mx-auto max-w-3xl">
         <h3 className="text-balance text-lg font-semibold text-on-surface">Tùy chỉnh trải nghiệm</h3>
+        <p className="mt-1 text-pretty text-sm leading-6 text-on-surface-variant">Các tùy chọn dưới đây áp dụng cho tài khoản của bạn trên mọi thiết bị.</p>
       </header>
 
-      <fieldset disabled={busy} className="min-w-0 disabled:opacity-60">
+      <fieldset disabled={busy} className="mx-auto max-w-3xl min-w-0 space-y-4 disabled:opacity-60">
         <legend className="sr-only">Tùy chọn trợ lý</legend>
-        <div className="space-y-6">
-          <SettingsSection id="assistant-conversation-title" title="Trò chuyện" icon={MessageSquare}>
+        <div className="space-y-4">
+          <SettingsSection id="assistant-conversation-title" title="Trò chuyện" description="Thiết lập cách nhập yêu cầu và bắt đầu phiên chat." icon={MessageSquare}>
+            <div className="space-y-2 py-4 first:pt-0 last:pb-0">
+              <label htmlFor="assistant-window-mode" className="block text-sm font-medium">Kích thước khi mở</label>
+              <select id="assistant-window-mode" className={control} value={draft.windowMode} onChange={event => setDraft(current => ({ ...current, windowMode: event.target.value as AssistantSettings["windowMode"] }))} aria-describedby="assistant-window-mode-help">
+                <option value="window">Cửa sổ lớn</option>
+                <option value="fullscreen">Toàn màn hình</option>
+              </select>
+              <p id="assistant-window-mode-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Trên điện thoại, trợ lý luôn mở toàn màn hình.</p>
+            </div>
             {conversationSettings.map(item => <PreferenceToggle key={item.key} item={item} checked={draft[item.key]} onChange={value => updateToggle(item.key, value)} />)}
           </SettingsSection>
 
-          <SettingsSection id="assistant-response-title" title="Giọng nói" icon={Volume2}>
-            {voiceSettings.map(item => <PreferenceToggle key={item.key} item={item} checked={draft[item.key]} onChange={value => updateToggle(item.key, value)} />)}
-            <div className="space-y-3 pt-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-                <label htmlFor="assistant-speech-voice" className="text-sm font-medium">Giọng đọc tiếng Việt</label>
-                <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
-                  <select id="assistant-speech-voice" value={draft.speechVoice} onChange={event => {
-                    stopPreview();
-                    setPreviewError("");
-                    setDraft(current => ({ ...current, speechVoice: event.target.value as AssistantSpeechVoice }));
-                  }} aria-describedby="assistant-speech-voice-help" className={cn(control, "flex-1 sm:w-32")}>
-                    {assistantSpeechVoices.map(voice => <option key={voice} value={voice}>{voice[0].toUpperCase() + voice.slice(1)}</option>)}
-                  </select>
-                  <button type="button" onClick={() => void togglePreview()} aria-pressed={previewState !== "idle"} aria-describedby="assistant-speech-voice-help" className={cn("min-h-11 shrink-0 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low", focusClass)}>{previewState === "idle" ? "Nghe thử giọng" : "Dừng nghe thử"}</button>
-                </div>
-              </div>
-              <p id="assistant-speech-voice-help" className="text-pretty text-xs leading-5 text-on-surface-variant">Nghe thử giọng có tính phí.</p>
+          <SettingsSection id="assistant-response-title" title="Trả lời và xác nhận" description="Chọn cách trợ lý phản hồi và xử lý các thao tác cập nhật." icon={Settings2}>
+            {responseSettings.map(item => <PreferenceToggle key={item.key} item={item} checked={draft[item.key]} onChange={value => updateToggle(item.key, value)} />)}
+            <div className="space-y-2 py-4 first:pt-0 last:pb-0">
+              <AssistantSpeechVoicePicker
+                value={draft.speechVoice}
+                describedBy="assistant-speech-voice-help"
+                onChange={voice => {
+                  stopPreview();
+                  setPreviewError("");
+                  setDraft(current => ({ ...current, speechVoice: voice }));
+                }}
+              />
+              <p id="assistant-speech-voice-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Chọn giọng rồi lưu để dùng cho câu trả lời tiếp theo. Nghe thử cũng tạo âm thanh qua OpenRouter và có tính phí.</p>
+              <button type="button" onClick={() => void togglePreview()} aria-pressed={previewState !== "idle"} className={cn("min-h-11 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low", focusClass)}>{previewState === "idle" ? "Nghe thử giọng" : "Dừng nghe thử"}</button>
               {previewState !== "idle" && <p role="status" className="text-pretty text-sm text-on-surface-variant">{previewState === "loading" ? "Đang tạo đoạn nghe thử…" : "Đang phát đoạn nghe thử."}</p>}
               {previewError && <p role="alert" className="text-pretty text-sm text-error">{previewError}</p>}
             </div>
           </SettingsSection>
 
-          <SettingsSection id="assistant-personalization-title" title="Cá nhân hóa" icon={Bot}>
-            <div className="space-y-4 pt-4">
+          <SettingsSection id="assistant-memory-preferences-title" title="Ghi nhớ cá nhân" description="Kiểm soát việc lưu và sử dụng thông tin hữu ích cho riêng bạn." icon={Brain}>
+            {memorySettings.map(item => <PreferenceToggle key={item.key} item={item} checked={draft[item.key]} onChange={value => updateToggle(item.key, value)} />)}
+          </SettingsSection>
+
+          <SettingsSection id="assistant-personalization-title" title="Hướng dẫn và cách trả lời" description="Thêm quy ước riêng và điều chỉnh giọng điệu câu trả lời." icon={Bot}>
+            <div className="space-y-5">
               <div className="space-y-2">
                 <label htmlFor="assistant-instructions" className="block text-sm font-medium">Hướng dẫn hiểu yêu cầu</label>
-                <textarea id="assistant-instructions" rows={4} maxLength={2000} value={draft.instructions} onChange={event => setDraft(current => ({ ...current, instructions: event.target.value }))} className={cn(control, "resize-y")} placeholder="Ví dụ: “KT” là tên gọi tắt của phòng Kỹ thuật." />
+                <textarea id="assistant-instructions" rows={5} maxLength={2000} value={draft.instructions} onChange={event => setDraft(current => ({ ...current, instructions: event.target.value }))} aria-describedby="assistant-instructions-help" className={cn(control, "resize-y")} />
+                <p id="assistant-instructions-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Ví dụ: tên gọi nội bộ như “KT” nghĩa là “Kỹ thuật”. Quy tắc bắt buộc và giá trị mặc định được cài ở từng workflow.</p>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 border-t border-outline-variant pt-5">
                 <label htmlFor="assistant-response-rules" className="block text-sm font-medium">Quy tắc trả lời</label>
-                <textarea id="assistant-response-rules" rows={4} maxLength={2000} value={draft.responseRules} onChange={event => setDraft(current => ({ ...current, responseRules: event.target.value }))} aria-describedby="assistant-response-rules-help assistant-response-rules-count" className={cn(control, "resize-y")} placeholder="Ví dụ: Trả lời ngắn gọn bằng tiếng Việt, ưu tiên các bước rõ ràng." />
-                <p id="assistant-response-rules-help" className="text-pretty text-xs leading-5 text-on-surface-variant">Để trống rồi lưu để dùng mặc định.</p>
+                <textarea id="assistant-response-rules" rows={5} maxLength={2000} value={draft.responseRules} onChange={event => setDraft(current => ({ ...current, responseRules: event.target.value }))} aria-describedby="assistant-response-rules-help assistant-response-rules-count" className={cn(control, "resize-y")} />
+                <p id="assistant-response-rules-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Điều chỉnh cách diễn đạt; trợ lý vẫn giữ nguyên dữ liệu, quyền truy cập và các xác nhận bắt buộc. Xóa hết nội dung rồi lưu để khôi phục mặc định.</p>
                 <p id="assistant-response-rules-count" className="text-right text-xs tabular-nums text-on-surface-variant">{draft.responseRules.length}/2000</p>
               </div>
             </div>
-          </SettingsSection>
-
-          <SettingsSection id="assistant-memory-preferences-title" title="Ghi nhớ cá nhân" icon={Brain}>
-            {memorySettings.map(item => <PreferenceToggle key={item.key} item={item} checked={draft[item.key]} onChange={value => updateToggle(item.key, value)} />)}
           </SettingsSection>
         </div>
       </fieldset>
@@ -207,11 +221,10 @@ export function AssistantSettingsEditor({ settings, onSave }: { settings: Assist
     <footer className="shrink-0 space-y-2 border-t border-outline-variant bg-surface-container-lowest px-4 py-3 sm:px-6">
       {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
       {notice && <p role="status" className="text-pretty text-sm text-on-surface">{notice}</p>}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <p id="assistant-settings-save-status" className="mr-auto w-full text-pretty text-xs text-on-surface-variant sm:w-auto" role="status">{busy ? "Đang lưu cài đặt…" : dirty ? "Có thay đổi chưa lưu" : "Chưa có thay đổi"}</p>
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2">
+        <button type="submit" disabled={busy || !dirty} className={cn("min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{busy ? "Đang lưu…" : "Lưu cài đặt"}</button>
         <button type="button" disabled={busy || !dirty} onClick={() => { stopPreview(); setDraft(settings); setError(""); setNotice(""); }} className={cn("min-h-11 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Bỏ thay đổi</button>
-        {error && <button type="button" disabled={busy} onClick={() => void reload()} className={cn("min-h-11 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Tải lại cài đặt</button>}
-        <button type="submit" disabled={busy || !dirty} aria-describedby="assistant-settings-save-status" className={cn("min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{busy ? "Đang lưu…" : "Lưu cài đặt"}</button>
+        {error && <button type="button" disabled={busy} onClick={() => void reload()} className={cn("min-h-11 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low disabled:opacity-40", focusClass)}>Tải lại cài đặt</button>}
       </div>
     </footer>
   </form>;

@@ -2210,9 +2210,10 @@ Object.assign(reviewedContracts, {
 });
 
 const assistantBulkStudentRow = object({
- fullName:{...text(true),max:200},phone:{...text(true),max:40},email:{...text(true),format:'email',max:200},
- rank:text(),birthday:{type:'date'},idCard:text(),referral:text(),address:text(),registrationDate:{type:'date'},enrollmentDate:{type:'date'},
- fee:{...number(false,0,true),label:'Học phí (VND)'},status:text(false,['Chờ KSK','Đã KSK','Đã nộp HS','Đang học','Đang thi','Đã đậu','Thi lại','Nghỉ học','Nợ học phí']),
+ sourceRow:{type:'number',required:false,min:2,integer:true,label:'Dòng Excel'},
+ fullName:{...text(true),max:200},phone:{...text(true),max:40,pattern:'^0[35789]\\d{8}$',label:'Số điện thoại'},email:{...text(true),format:'email',max:200,label:'Email'},
+ rank:text(),birthday:{type:'date'},idCard:{...text(),pattern:'^(?:\\d{9}|\\d{12})$',label:'CCCD/CMND'},referral:text(),address:text(),registrationDate:{type:'date'},enrollmentDate:{type:'date'},
+ fee:{...number(false,0,true),label:'Học phí (VND)'},paidAmount:{...number(false,0,true),label:'Đã đóng'},status:{...text(false,['Chờ nhập học','Chờ KSK','Đã KSK','Đã nộp HS','Đang học','Đang thi','Đã đậu','Thi lại','Nghỉ học','Nợ học phí']),label:'Trạng thái học viên'},
  batchCode:{...text(),reference:'batch.list',referenceValueKey:'code',label:'Tên hoặc mã lớp'},
 });
 Object.assign(reviewedContracts, {
