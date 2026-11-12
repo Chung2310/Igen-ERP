@@ -11,7 +11,6 @@ const env = {
 };
 const commands = [
   ["ERP server", ["watch", "--exclude", "**/tmp/**", "--exclude", "**/dist/**", "--exclude", "**/dist-server/**", "server.ts"]],
-  ["Quotation worker", ["watch", "server/workers/quotation.worker.ts"]],
 ];
 
 let stopping = false;

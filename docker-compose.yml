@@ -9,6 +9,9 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      QUOTATION_WORKERS_ENABLED: "true"
+      QUOTATION_QUEUE_PREFIX: "${QUOTATION_QUEUE_PREFIX:-${CONTAINER_NAME:-igen-erp}-quotation}"
     volumes:
       - .env:/app/.env
       - ./logs:/app/logs
@@ -18,22 +21,6 @@ services:
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  quotation-worker:
-    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    command: ["node", "dist-server/quotation-worker.cjs"]
-    env_file: [.env]
-    volumes:
-      - ai_settlement_journal:/app/server/cache/ai-settlements
-    environment:
-      QUOTATION_WORKERS_ENABLED: "true"
-    networks: [default_network]
     logging:
       driver: "json-file"
       options:

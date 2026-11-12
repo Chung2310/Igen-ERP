@@ -23,6 +23,7 @@ import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-sc
 import { startPayrollPublicationScheduler } from "./server/service/payroll-publication-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
 import { startHealthcareImportWorker } from "./server/modules/healthcare/import-worker";
+import { startQuotationWorker } from "./server/modules/quotation/jobs";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
@@ -233,6 +234,9 @@ async function startServer() {
 
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+  const quotationWorker = process.env.QUOTATION_WORKERS_ENABLED === "true"
+    ? await startQuotationWorker()
+    : undefined;
   facebookCommentService.startWorker();
   startDomainEventWorker();
   const stopHealthcareImportWorker = startHealthcareImportWorker();
@@ -417,7 +421,11 @@ async function startServer() {
     if (shuttingDown) return;
     shuttingDown = true;
     httpServer.close(async () => {
-      await Promise.all([flushUserActivityQueue(), stopHealthcareImportWorker()]);
+      await Promise.all([
+        flushUserActivityQueue(),
+        stopHealthcareImportWorker(),
+        quotationWorker?.close() ?? Promise.resolve(),
+      ]);
       process.exit(0);
     });
   };

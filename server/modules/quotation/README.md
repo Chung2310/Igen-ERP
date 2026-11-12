@@ -36,15 +36,13 @@ Import giá dùng chung validation và transaction; SKU đã xóa bị chặn tr
 
 ## Worker và xuất tài liệu
 
-API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION_QUEUE_PREFIX`. Prefix phải riêng cho từng môi trường. MongoDB cần hỗ trợ transaction cho ledger AI ERP hiện có (replica set khi chạy cục bộ).
+API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION_QUEUE_PREFIX`. Prefix phải riêng cho từng môi trường. MongoDB cần hỗ trợ transaction cho ledger AI ERP hiện có (replica set khi chạy cục bộ). Worker chạy cùng tiến trình API khi `QUOTATION_WORKERS_ENABLED=true`; Docker Compose bật cờ này trong container `igen-erp`, không tạo container riêng.
 
 ```sh
 npm run dev
-# Terminal riêng, QUOTATION_WORKERS_ENABLED=true:
-npm run dev:quotation-worker
 ```
 
-Production: `npm run build` tạo `dist-server/quotation-worker.cjs`; chạy `npm run start:quotation-worker`. Docker: `docker compose --profile quotation up -d igen-erp quotation-worker`. Worker yêu cầu `QUOTATION_WORKERS_ENABLED=true` và prefix tường minh. Các biến còn lại được mô tả trong `.env.example`.
+Production và Docker: cấu hình `QUOTATION_QUEUE_PREFIX` riêng cho môi trường trong `.env`; Compose tự dùng `${CONTAINER_NAME}-quotation` nếu thiếu. `docker compose up -d igen-erp` chạy API và worker trong cùng container. Nếu chạy ngoài Docker, đặt `QUOTATION_WORKERS_ENABLED=true` cho tiến trình API. Các biến còn lại được mô tả trong `.env.example`.
 
 `QUOTATION_DOCUMENT_EDIT_MODE=direct` giữ cơ chế OpenRouter sửa file trực tiếp của QUOS mới. `mapping` giữ đường dựng file cục bộ của ERP khi cần kiểm thử hoặc vận hành. Toàn bộ luồng AI Báo giá dùng cố định `openai/gpt-6-luna`, giống bản nguồn; các biến model cũ không ghi đè lựa chọn này.
 
