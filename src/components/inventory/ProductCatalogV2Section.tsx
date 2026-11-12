@@ -1,19 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Folder,
-  FolderTree,
   ImageIcon,
   PackagePlus,
   Pencil,
   RotateCcw,
-  Search,
-  Sliders,
-  Tag,
+  Settings2,
   Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
@@ -21,7 +16,6 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import {
   type CatalogProduct,
   type CatalogProductDetail,
-  type ProductResource,
   type ProductResourceKind,
   productCatalogService,
   subscribeResourceChanges,
@@ -31,11 +25,10 @@ import {
   type VariantTarget,
   buildCategoryTree3,
   getCategoryDisplayName,
-  inputClassName,
   statusLabels,
+  typeLabels,
 } from "./catalog/catalogConstants";
 import { ProductViewerModal } from "./catalog/ProductViewerModal";
-import { productDescriptionToText } from "./catalog/productDescription";
 import { ProductEditorModal } from "./catalog/ProductEditorModal";
 import { CatalogSetupModal } from "./catalog/CatalogSetupModal";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
@@ -43,57 +36,104 @@ import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { ConfirmDialog } from "./InventoryConfirmDialog";
 import { VariantModal } from "./catalog/VariantModal";
 import { BulkVariantModal } from "./catalog/BulkVariantModal";
-import { TrackingModeIcon } from "./TrackingModeIcon";
 import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
+import { ErpTableHead } from "../common/ErpTableHead";
+import { ErpModal } from "../common/ErpModal";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import type { CatalogKind, CatalogWorkspaceSettings, InventoryWorkspaceMode } from "../../../shared/inventory/catalog-workspace";
+import type { BranchRecord } from "../../services/branchService";
 
-export function ProductCatalogV2Section() {
+type Props = {
+  workspace?: CatalogWorkspaceSettings;
+  branchId?: string;
+  branchName?: string;
+  branches?: BranchRecord[];
+  canManage?: boolean;
+  canConfigureWorkspace?: boolean;
+  onWorkspaceSaved?: (workspace: CatalogWorkspaceSettings) => void;
+  onCatalogChanged?: () => Promise<void>;
+};
+
+const workspaceOptions: { value: InventoryWorkspaceMode; label: string }[] = [
+  { value: "goods", label: "Chỉ bán hàng hóa" },
+  { value: "services", label: "Chỉ cung cấp dịch vụ" },
+  { value: "mixed", label: "Hàng hóa và dịch vụ" },
+];
+const rowActionClass = "inline-flex size-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary";
+const amount = new Intl.NumberFormat("vi-VN");
+
+export function ProductCatalogV2Section({ workspace, branchId, branchName, branches = [], canManage = true, canConfigureWorkspace, onWorkspaceSaved, onCatalogChanged }: Props = {}) {
   const handledDeepLink = useRef("");
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [resources, setResources] = useState<Resources>({ categories: [], brands: [], attributes: [] });
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
+  const [kind, setKind] = useState<CatalogKind | "">("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [editor, setEditor] = useState<CatalogProductDetail | "create" | null>(null);
   const [viewer, setViewer] = useState<CatalogProductDetail | null>(null);
   const [setupKind, setSetupKind] = useState<ProductResourceKind | "templates" | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [workspaceDraft, setWorkspaceDraft] = useState<InventoryWorkspaceMode>("goods");
+  const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [workspaceSaveError, setWorkspaceSaveError] = useState("");
   const [variantTarget, setVariantTarget] = useState<VariantTarget | null>(null);
   const [productToDelete, setProductToDelete] = useState<CatalogProduct | null>(null);
   const [deletingProduct, setDeletingProduct] = useState(false);
 
-  // 1. Chỉ tải danh sách sản phẩm khi đổi trang hoặc lọc
-  const loadProducts = async (pageToLoad = page) => {
+  const mode = workspace?.mode ?? "goods";
+  const catalogKind = mode === "mixed" ? kind || undefined : mode;
+  const serviceView = catalogKind === "services";
+  const mixedView = mode === "mixed" && !kind;
+  const createLabel = mixedView ? "Thêm" : serviceView ? "Thêm dịch vụ" : "Thêm hàng hóa";
+  const debouncedQuery = useDebouncedValue(query.trim(), 350);
+  const requestId = useRef(0);
+
+  const loadProducts = useCallback(async (pageToLoad: number, signal?: AbortSignal) => {
+    const id = ++requestId.current;
     setLoading(true);
+    setLoadError("");
     try {
       const productResult = await productCatalogService.listProducts({
-        q: query,
+        q: debouncedQuery,
         status,
+        catalogKind,
+        branchId: branchId || undefined,
         categoryCode: selectedCategory || undefined,
-        brandCode: selectedBrand || undefined,
+        brandCode: serviceView ? undefined : selectedBrand || undefined,
         page: pageToLoad,
         limit: 10,
-      });
+      }, signal);
+      if (signal?.aborted || id !== requestId.current) return;
+      const lastPage = Math.max(1, Math.ceil(productResult.total / 10));
+      if (!productResult.items.length && lastPage < pageToLoad) {
+        setPage(lastPage);
+        return;
+      }
       setProducts(productResult.items);
       setTotal(productResult.total);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể tải danh sách sản phẩm."));
+      if (!signal?.aborted && id === requestId.current) setLoadError(getApiErrorMessage(error, "Không thể tải danh mục."));
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && id === requestId.current) setLoading(false);
     }
-  };
+  }, [debouncedQuery, status, catalogKind, branchId, selectedCategory, selectedBrand, serviceView]);
 
   // 2. Tải Master Data (danh mục, thương hiệu, thuộc tính) có cơ chế Cache
   const loadMasterResources = async (force = false) => {
     try {
-      const [categories, brands, attributes] = await Promise.all([
+      const [categories, brands, attributes, units] = await Promise.all([
         productCatalogService.listResources("categories", { forceRefresh: force }),
         productCatalogService.listResources("brands", { forceRefresh: force }),
         productCatalogService.listResources("attributes", { forceRefresh: force }),
+        productCatalogService.listResources("units", { forceRefresh: force }),
       ]);
-      setResources({ categories, brands, attributes });
+      setResources({ categories, brands, attributes, units });
     } catch (error) {
       console.error("Không thể tải dữ liệu master data dùng chung:", error);
     }
@@ -134,39 +174,39 @@ export function ProductCatalogV2Section() {
     return unsubscribe;
   }, []);
 
-  // Tải sản phẩm khi chuyển trang
   useEffect(() => {
-    void loadProducts(page);
-  }, [page]);
+    const controller = new AbortController();
+    void loadProducts(page, controller.signal);
+    return () => controller.abort();
+  }, [page, loadProducts]);
 
-  // Hàm load tổng hợp khi cần làm mới toàn bộ
-  const load = async () => {
-    await Promise.all([loadProducts(page), loadMasterResources(false)]);
-  };
-
-  const applyFilter = async () => {
-    if (page === 1) await loadProducts(1);
-    else setPage(1);
-  };
-
-  const resetFilter = async () => {
+  const resetFilter = () => {
     setQuery("");
     setSelectedCategory("");
     setSelectedBrand("");
     setStatus("");
-    if (page === 1) {
-      setLoading(true);
-      try {
-        const productResult = await productCatalogService.listProducts({ page: 1, limit: 10 });
-        setProducts(productResult.items);
-        setTotal(productResult.total);
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không thể tải danh mục sản phẩm."));
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      setPage(1);
+    setKind("");
+    setPage(1);
+  };
+
+  const refreshCatalog = async () => {
+    await Promise.all([loadProducts(page), onCatalogChanged?.().catch(() => {})]);
+  };
+
+  const saveWorkspace = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingWorkspace(true);
+    setWorkspaceSaveError("");
+    try {
+      const result = await productCatalogService.updateWorkspace(workspaceDraft);
+      onWorkspaceSaved?.(result);
+      resetFilter();
+      setSetupOpen(false);
+      toast.success("Đã lưu chế độ danh mục.");
+    } catch (error) {
+      setWorkspaceSaveError(getApiErrorMessage(error, "Không thể lưu chế độ danh mục."));
+    } finally {
+      setSavingWorkspace(false);
     }
   };
 
@@ -182,7 +222,7 @@ export function ProductCatalogV2Section() {
   const openView = async (product: CatalogProduct) => {
     try {
       const detail = await productCatalogService.getProduct(product._id);
-      setViewer(detail);
+      setViewer({ ...detail, branchSummary: product.branchSummary });
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Không thể tải chi tiết sản phẩm."));
     }
@@ -193,9 +233,9 @@ export function ProductCatalogV2Section() {
     setDeletingProduct(true);
     try {
       await productCatalogService.deleteProduct(productToDelete._id);
-      toast.success(`Đã xóa sản phẩm "${productToDelete.name}".`);
+      toast.success(`Đã xóa ${productToDelete.productType === "service" ? "dịch vụ" : "sản phẩm"} "${productToDelete.name}".`);
       setProductToDelete(null);
-      await load();
+      await refreshCatalog();
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Lỗi: Không thể xóa sản phẩm đã có lịch sử giao dịch."));
     } finally {
@@ -203,364 +243,188 @@ export function ProductCatalogV2Section() {
     }
   };
 
-  // 3-Level Category Tree for filter dropdown
   const { tree: categoryTree } = useMemo(() => buildCategoryTree3(resources.categories), [resources.categories]);
-
-  const categoryFilterOptions = useMemo<DropdownOption<string>[]>(() => {
-    const list: DropdownOption<string>[] = [
-      {
-        value: "",
-        label: "Tất cả thể loại (thư mục)",
-        icon: <Folder className="h-4 w-4 text-amber-500" />,
-      },
-    ];
-    for (const root of categoryTree) {
-      list.push({
-        value: root.category.code,
-        label: `[Cấp 1] ${root.category.name}`,
-        icon: <Folder className="h-4 w-4 text-amber-500" />,
-        className: "font-bold text-slate-900 bg-slate-50/80",
-      });
-      for (const l2 of root.children) {
-        list.push({
-          value: l2.category.code,
-          label: `[Cấp 2] ${l2.category.name}`,
-          icon: <FolderTree className="h-3.5 w-3.5 text-cyan-600 ml-3" />,
-          className: "pl-5 font-semibold text-slate-800",
-        });
-        for (const l3 of l2.children) {
-          list.push({
-            value: l3.category.code,
-            label: `[Cấp 3] ${l3.category.name}`,
-            icon: <Tag className="h-3 w-3 text-slate-400 ml-6" />,
-            className: "pl-9 text-slate-600 font-normal",
-          });
-        }
-      }
-    }
-    return list;
-  }, [categoryTree]);
-
-  const brandFilterOptions = useMemo<DropdownOption<string>[]>(() => [
-    { value: "", label: "Tất cả thương hiệu" },
-    ...resources.brands.map((b) => ({
-      value: b.code,
-      label: b.name,
-    })),
-  ], [resources.brands]);
-
-  const statusFilterOptions = useMemo<DropdownOption<string>[]>(() => [
+  const categoryFilterOptions: DropdownOption<string>[] = [
+    { value: "", label: "Tất cả nhóm" },
+    ...categoryTree.flatMap(root => [
+      { value: root.category.code, label: root.category.name },
+      ...root.children.flatMap(child => [
+        { value: child.category.code, label: child.category.name, className: "pl-5" },
+        ...child.children.map(leaf => ({ value: leaf.category.code, label: leaf.category.name, className: "pl-9" })),
+      ]),
+    ]),
+  ];
+  const statusFilterOptions: DropdownOption<string>[] = [
     { value: "", label: "Tất cả trạng thái" },
-    { value: "active", label: "Đang kinh doanh", icon: <span className="h-2 w-2 rounded-full bg-emerald-500" /> },
-    { value: "draft", label: "Bản nháp", icon: <span className="h-2 w-2 rounded-full bg-amber-400" /> },
-    { value: "inactive", label: "Tạm ngừng", icon: <span className="h-2 w-2 rounded-full bg-slate-400" /> },
-    { value: "archived", label: "Lưu trữ", icon: <span className="h-2 w-2 rounded-full bg-rose-400" /> },
-  ], []);
-
-  // Quick statistics
-  const { serialCount, qtyCount } = useMemo(() => {
-    let serial = 0;
-    let qty = 0;
-    for (const p of products) {
-      const cat = resources.categories.find((c) => c.code === p.categoryCode);
-      if (cat?.defaultTrackingMode === "serial") {
-        serial++;
-      } else {
-        qty++;
-      }
-    }
-    return { serialCount: serial, qtyCount: qty };
-  }, [products, resources.categories]);
+    ...Object.entries(statusLabels).map(([value, label]) => ({ value, label })),
+  ];
+  const hasFilters = Boolean(query || selectedCategory || status || (!serviceView && selectedBrand) || (mode === "mixed" && kind));
+  const deletingService = productToDelete?.productType === "service";
+  const columns = [
+    serviceView ? "Dịch vụ" : mixedView ? "Sản phẩm / Dịch vụ" : "Hàng hóa",
+    ...(mixedView ? ["Loại"] : []),
+    "Nhóm",
+    ...(serviceView ? ["Đơn vị tính", "Cơ sở cung cấp"] : []),
+    "Giá bán",
+    ...(!serviceView ? ["Tồn khả dụng"] : []),
+    "Trạng thái",
+    "Thao tác",
+  ];
 
   return (
-    <section className="space-y-3" aria-label="Danh mục sản phẩm dùng chung">
-      {/* Header bar */}
-      <div className="flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {/* Grouped setup tools */}
-          <div className="inline-flex items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setSetupKind("categories")}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
-              title="Quản lý cây thư mục và thể loại (Ngành hàng > Hãng > Đời máy)"
-            >
-              <FolderTree className="h-3.5 w-3.5 text-primary" />
-              Cây thể loại / Thư mục
-            </button>
-            <div className="h-4 w-px bg-outline-variant mx-0.5" />
-            <button
-              type="button"
-              onClick={() => setSetupKind("brands")}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
-              title="Khai báo thương hiệu dùng chung"
-            >
-              <Tag className="h-3.5 w-3.5 text-primary" />
-              Thương hiệu
-            </button>
-            <div className="h-4 w-px bg-outline-variant mx-0.5" />
-            <button
-              type="button"
-              onClick={() => setSetupKind("attributes")}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
-              title="Cấu hình thuộc tính biến thể: Màu sắc, Dung lượng, Tình trạng..."
-            >
-              <Sliders className="h-3.5 w-3.5 text-primary" />
-              Thuộc tính
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              void load();
-              setEditor("create");
-            }}
-            className={`${primaryCreateButtonClass} min-h-9`}
-          >
-            <PackagePlus className="h-4 w-4" />
-            Tạo sản phẩm
-          </button>
+    <section className="min-w-0 space-y-3" aria-label="Danh mục sản phẩm và dịch vụ">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-on-surface">{mixedView || mode === "mixed" ? "Sản phẩm & dịch vụ" : serviceView ? "Dịch vụ" : "Hàng hóa"}</h2>
+          {branchName && <p className="mt-0.5 text-xs text-on-surface-variant">{branchName}</p>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(canManage || canConfigureWorkspace) && <button type="button" onClick={() => {
+            setWorkspaceDraft(mode);
+            setWorkspaceSaveError("");
+            setSetupOpen(true);
+          }} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+            <Settings2 className="size-4" aria-hidden="true" /> Thiết lập danh mục
+          </button>}
+          {canManage && <button type="button" onClick={() => setEditor("create")} className={primaryCreateButtonClass + " min-h-9"}>
+            <PackagePlus className="size-4" aria-hidden="true" /> {createLabel}
+          </button>}
         </div>
       </div>
 
-      {/* Unified Filter toolbar */}
       <TableFilterToolbar
         search={{
           value: query,
-          onChange: setQuery,
-          placeholder: "Tìm tên, mã sản phẩm hoặc SKU...",
-          ariaLabel: "Tìm tên, mã sản phẩm hoặc SKU",
-          onKeyDown: (event) => {
-            if (event.key === "Enter") void applyFilter();
-          },
+          onChange: value => { setQuery(value); setPage(1); },
+          placeholder: serviceView ? "Tìm tên hoặc mã dịch vụ..." : "Tìm tên, mã hoặc SKU...",
+          ariaLabel: "Tìm trong danh mục",
         }}
-        totalCount={total}
-        countLabel="sản phẩm"
-        hasActiveFilters={Boolean(query || selectedCategory || selectedBrand || status)}
-        onResetFilters={() => void resetFilter()}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface">
-              <TrackingModeIcon mode="serial" />
-              IMEI: <strong className="text-on-surface">{serialCount}</strong>
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface">
-              <TrackingModeIcon mode="quantity" />
-              Số lượng: <strong className="text-on-surface">{qtyCount}</strong>
-            </span>
-          </div>
-        }
+        totalCount={loading || loadError ? undefined : total}
+        countLabel={serviceView ? "dịch vụ" : mixedView ? "mục" : "hàng hóa"}
+        hasActiveFilters={hasFilters}
+        onResetFilters={resetFilter}
       >
-        {/* Category 3-Level Tree filter */}
         <Dropdown<string>
+          aria-label="Nhóm danh mục"
           value={selectedCategory}
-          onChange={(val) => {
-            setSelectedCategory(val);
-            setPage(1);
-          }}
+          onChange={value => { setSelectedCategory(value); setPage(1); }}
           options={categoryFilterOptions}
-          searchable={true}
-          searchPlaceholder="Tìm kiếm danh mục..."
-          placeholder="Tất cả thể loại (thư mục)"
+          searchable
+          searchPlaceholder="Tìm nhóm..."
           variant="filter"
           size="sm"
-          className="min-w-[210px] max-w-[280px]"
-          triggerClassName="text-xs font-medium"
+          className="min-w-36"
         />
-
-        {/* Brand filter */}
         <Dropdown<string>
-          value={selectedBrand}
-          onChange={(val) => {
-            setSelectedBrand(val);
-            setPage(1);
-          }}
-          options={brandFilterOptions}
-          searchable={resources.brands.length > 8}
-          searchPlaceholder="Tìm thương hiệu..."
-          placeholder="Tất cả thương hiệu"
-          variant="filter"
-          size="sm"
-          className="min-w-[160px]"
-          triggerClassName="text-xs font-medium"
-        />
-
-        {/* Status filter */}
-        <Dropdown<string>
+          aria-label="Trạng thái"
           value={status}
-          onChange={(val) => {
-            setStatus(val);
-            setPage(1);
-          }}
+          onChange={value => { setStatus(value); setPage(1); }}
           options={statusFilterOptions}
-          placeholder="Tất cả trạng thái"
           variant="filter"
           size="sm"
-          className="min-w-[165px]"
-          triggerClassName="text-xs font-medium"
+          className="min-w-36"
         />
+        {!serviceView && resources.brands.length > 0 && <Dropdown<string>
+          aria-label="Thương hiệu"
+          value={selectedBrand}
+          onChange={value => { setSelectedBrand(value); setPage(1); }}
+          options={[{ value: "", label: "Tất cả thương hiệu" }, ...resources.brands.map(brand => ({ value: brand.code, label: brand.name }))]}
+          searchable={resources.brands.length > 8}
+          variant="filter"
+          size="sm"
+          className="min-w-36"
+        />}
+        {mode === "mixed" && <div role="group" aria-label="Loại danh mục" className="flex flex-wrap gap-1 rounded-xl border border-outline-variant bg-surface-container-low p-1">
+          {([{ value: "", label: "Tất cả" }, { value: "goods", label: "Hàng hóa" }, { value: "services", label: "Dịch vụ" }] as const).map(option =>
+            <button key={option.value} type="button" aria-pressed={kind === option.value}
+              onClick={() => { setKind(option.value); setSelectedCategory(""); setSelectedBrand(""); setPage(1); }}
+              className={"rounded-lg px-2.5 py-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary " + (kind === option.value ? "bg-surface-container-lowest text-primary shadow-xs" : "text-on-surface hover:bg-surface-container-lowest")}>
+              {option.label}
+            </button>
+          )}
+        </div>}
       </TableFilterToolbar>
 
-      {/* Data Table Area */}
       {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white py-16 text-center shadow-xs">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-cyan-700 border-t-transparent mb-2" />
-          <p className="text-sm text-slate-500">Đang tải danh mục sản phẩm...</p>
+        <p role="status" className="rounded-xl border border-outline-variant bg-surface-container-lowest py-12 text-center text-sm text-on-surface-variant">Đang tải danh mục…</p>
+      ) : loadError ? (
+        <div role="alert" className="space-y-2 rounded-xl border border-outline-variant p-6 text-center text-sm">
+          <p>{loadError}</p>
+          <button type="button" className="font-medium text-primary underline" onClick={() => void loadProducts(page)}>Thử lại</button>
         </div>
       ) : products.length === 0 ? (
         <div className="rounded-xl border border-outline-variant bg-surface-container-lowest py-7 text-center shadow-xs">
-          <InventoryEmptyIllustration kind={query || selectedCategory || selectedBrand || status ? "search" : "product"} className="mx-auto" />
-          <p className="mt-1 text-sm font-semibold text-slate-800">Chưa có sản phẩm nào phù hợp</p>
-          <div className="mt-3">
-            {query || selectedCategory || selectedBrand || status ? (
-              <button
-                type="button"
-                onClick={() => void resetFilter()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Xóa bộ lọc
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEditor("create")}
-                className={`${primaryCreateButtonClass} min-h-9`}
-              >
-                <PackagePlus className="h-4 w-4" />
-                Tạo sản phẩm mới
-              </button>
-            )}
-          </div>
+          <InventoryEmptyIllustration kind={hasFilters ? "search" : "product"} className="mx-auto" />
+          <p className="mt-1 text-sm font-medium text-on-surface">{hasFilters ? "Không tìm thấy mục phù hợp" : serviceView ? "Chưa có dịch vụ" : mixedView ? "Danh mục chưa có dữ liệu" : "Chưa có hàng hóa"}</p>
+          {hasFilters && <button type="button" onClick={resetFilter} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface">
+            <RotateCcw className="size-3.5" aria-hidden="true" /> Xóa bộ lọc
+          </button>}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-xs">
+        <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50/90 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="px-4 py-3.5 w-16 text-center">Ảnh</th>
-                  <th className="px-4 py-3.5 w-40">Mã SP</th>
-                  <th className="px-4 py-3.5">Sản phẩm / Đời máy</th>
-                  <th className="px-4 py-3.5 w-36">Thương hiệu</th>
-                  <th className="px-4 py-3.5">Thể loại / Thư mục</th>
-                  <th className="px-4 py-3.5 w-44">Theo dõi kho</th>
-                  <th className="px-4 py-3.5 w-36">Trạng thái</th>
-                  <th className="px-4 py-3.5 text-right w-28">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {products.map((product) => {
-                  const brand = resources.brands.find((b) => b.code === product.brandCode);
-                  const categoryPath = getCategoryDisplayName(product.categoryCode, resources.categories);
-                  const catObj = resources.categories.find((c) => c.code === product.categoryCode);
-                  const isSerial = catObj?.defaultTrackingMode === "serial";
-
+            <table className="w-full min-w-[620px] text-left text-sm [&_th]:whitespace-nowrap">
+              <ErpTableHead columns={columns} appearance="healthcare" />
+              <tbody className="divide-y divide-outline-variant/60">
+                {products.map(product => {
+                  const unit = resources.units?.find(item => item.code === product.baseUnitCode);
+                  const offeredIds = product.serviceBranchIds || [];
+                  const branchLabels = branches.filter(item => offeredIds.includes(item._id)).map(item => item.name);
+                  const offeredHere = !offeredIds.length || (branchId && offeredIds.includes(branchId));
+                  const summary = product.branchSummary;
+                  const price = summary?.sellingPriceMin;
+                  const upperPrice = summary?.sellingPriceMax;
+                  const stock = summary?.availableStock;
+                  const noun = product.productType === "service" ? "dịch vụ" : "sản phẩm";
                   return (
-                    <tr key={product._id} className="hover:bg-cyan-50/20 transition-colors">
-                      <td className="px-4 py-3 text-center">
-                        <div className="mx-auto h-11 w-11 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center shadow-2xs">
-                          {product.mediaIds?.[0] ? (
-                            <img src={product.mediaIds[0]} alt={product.productCode} className="h-full w-full object-cover" />
-                          ) : (
-                            <ImageIcon className="h-4 w-4 text-slate-300" />
-                          )}
+                    <tr key={product._id} className="hover:bg-surface">
+                      <td className="min-w-44 px-3 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-surface text-on-surface-variant">
+                            {product.mediaIds?.[0] ? <img src={product.mediaIds[0]} alt="" className="size-full object-cover" /> : <ImageIcon className="size-4" aria-hidden="true" />}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-on-surface">{product.name}</div>
+                            <div className="text-xs text-on-surface-variant">{product.productCode}</div>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100/90 px-2 py-1 rounded border border-slate-200/70">
-                          {product.productCode}
+                      {mixedView && <td className="whitespace-nowrap px-3 py-2.5 text-on-surface-variant">{typeLabels[product.productType]}</td>}
+                      <td className="min-w-24 px-3 py-2.5 text-on-surface-variant">{getCategoryDisplayName(product.categoryCode, resources.categories) || "—"}</td>
+                      {serviceView && <>
+                        <td className="px-3 py-2.5">{unit?.name || product.baseUnitCode || "—"}</td>
+                        <td className="min-w-28 px-3 py-2.5 text-on-surface-variant">
+                          {!offeredIds.length ? "Tất cả cơ sở" : branchLabels.length ? branchLabels.join(", ") : offeredHere ? branchName || "Chi nhánh hiện tại" : "Cơ sở khác"}
+                        </td>
+                      </>}
+                      <td className="min-w-28 px-3 py-2.5 tabular-nums">
+                        {price == null ? <span className="text-on-surface-variant">{branchId && offeredHere ? "Chưa có giá" : "—"}</span> :
+                          upperPrice != null && upperPrice !== price ? <>
+                            <span className="whitespace-nowrap">{amount.format(price)}</span>{" – "}
+                            <span className="whitespace-nowrap">{amount.format(upperPrice)} ₫</span>
+                          </> : <span className="whitespace-nowrap">{amount.format(price)} ₫</span>}
+                      </td>
+                      {!serviceView && <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">
+                        {stock == null ? <span title={product.productType === "service" ? "Dịch vụ không theo dõi tồn" : "Chưa có dữ liệu tồn áp dụng"} className="text-on-surface-variant">—</span> : amount.format(stock)}
+                      </td>}
+                      <td className="whitespace-nowrap px-3 py-2.5 text-center">
+                        <span className={"inline-flex rounded-md px-2 py-1 text-xs font-medium " + (product.status === "active" ? "bg-primary/10 text-on-surface" : "bg-surface-container-low text-on-surface-variant")}>
+                          {statusLabels[product.status]}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <p
-                          onClick={() => void openView(product)}
-                          className="font-semibold text-slate-900 hover:text-cyan-700 cursor-pointer transition-colors line-clamp-1"
-                        >
-                          {product.name}
-                        </p>
-                        <p className="mt-0.5 max-w-sm truncate text-xs text-slate-500">
-                          {productDescriptionToText(product.shortDescription || product.description) || "Chưa có mô tả"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        {brand ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                            <Tag className="h-3 w-3 text-cyan-600" />
-                            {brand.name}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">Chưa gắn hãng</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-700 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200/60">
-                          <Folder className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                          {categoryPath}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {isSerial ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 border border-cyan-200">
-                            <TrackingModeIcon mode="serial" />
-                            Theo IMEI / Serial
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-                            <TrackingModeIcon mode="quantity" />
-                            Theo Số lượng
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {product.status === "active" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 border border-emerald-200/70">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Đang hoạt động
-                          </span>
-                        ) : product.status === "draft" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200/70">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                            Bản nháp
-                          </span>
-                        ) : product.status === "inactive" ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 border border-slate-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                            Ngừng bán
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                            Lưu trữ
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => void openView(product)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-cyan-700 transition-colors"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="h-4 w-4" />
+                      <td className="px-3 py-2.5">
+                        <div className="flex justify-end gap-1">
+                          <button type="button" onClick={() => void openView(product)} className={rowActionClass} title="Xem chi tiết" aria-label={"Xem " + product.name}>
+                            <Eye className="size-4" aria-hidden="true" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => void openEdit(product)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-cyan-700 transition-colors"
-                            title="Sửa sản phẩm"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setProductToDelete(product)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {canManage && <>
+                            <button type="button" onClick={() => void openEdit(product)} className={rowActionClass} title={"Sửa " + noun} aria-label={"Sửa " + product.name}>
+                              <Pencil className="size-4" aria-hidden="true" />
+                            </button>
+                            <button type="button" onClick={() => setProductToDelete(product)} className={rowActionClass + " hover:text-error"} title="Xóa" aria-label={"Xóa " + product.name}>
+                              <Trash2 className="size-4" aria-hidden="true" />
+                            </button>
+                          </>}
                         </div>
                       </td>
                     </tr>
@@ -572,28 +436,28 @@ export function ProductCatalogV2Section() {
 
           {/* Pagination */}
           {total > 10 && (
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-4 py-3">
-              <div className="text-xs text-slate-500">
-                Hiển thị {(page - 1) * 10 + 1}-{Math.min(page * 10, total)} trên <strong>{total}</strong> sản phẩm
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant bg-surface px-4 py-3">
+              <div className="text-xs text-on-surface-variant">
+                Hiển thị {(page - 1) * 10 + 1}–{Math.min(page * 10, total)} trên <strong>{total}</strong>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={page === 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   Trước
                 </button>
-                <span className="text-xs font-medium text-slate-600 px-1">
+                <span className="text-xs font-medium text-on-surface-variant px-1">
                   Trang {page} / {Math.ceil(total / 10)}
                 </span>
                 <button
                   type="button"
                   disabled={page * 10 >= total}
                   onClick={() => setPage((p) => p + 1)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Sau
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -605,18 +469,58 @@ export function ProductCatalogV2Section() {
       )}
 
       {/* Modals */}
-      {viewer && <ProductViewerModal product={viewer} resources={resources} onClose={() => setViewer(null)} />}
+      {setupOpen && <ErpModal title="Thiết lập danh mục" native onClose={() => setSetupOpen(false)} closeDisabled={savingWorkspace}>
+        {canManage && <div className="flex flex-wrap gap-2">
+          {([{ kind: "categories", label: "Nhóm danh mục" }, { kind: "brands", label: "Thương hiệu" }, { kind: "attributes", label: "Thuộc tính" }] as const)
+            .filter(option => mode !== "services" || option.kind !== "brands").map(option => (
+            <button key={option.kind} type="button" disabled={savingWorkspace}
+              onClick={() => { setSetupOpen(false); setSetupKind(option.kind); }}
+              className="flex min-h-9 flex-auto items-center justify-between gap-2 rounded-lg border border-outline-variant px-2.5 text-left text-xs hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
+              {option.label}
+              <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
+          ))}
+        </div>}
+        {canConfigureWorkspace && <form onSubmit={saveWorkspace} className={"space-y-3 " + (canManage ? "border-t border-outline-variant pt-3" : "")}>
+          <fieldset disabled={savingWorkspace} className="min-w-0 space-y-1.5 disabled:opacity-60">
+            <legend className="mb-2 text-sm font-medium">Chế độ hiển thị của doanh nghiệp</legend>
+            {workspaceOptions.map(option => (
+              <label key={option.value} className={"flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm " +
+                (workspaceDraft === option.value ? "border-primary bg-primary/5 font-medium" : "border-outline-variant hover:bg-surface")}>
+                <input type="radio" name="catalog-workspace-mode" value={option.value} checked={workspaceDraft === option.value}
+                  onChange={() => { setWorkspaceDraft(option.value); setWorkspaceSaveError(""); }}
+                  className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" />
+                {option.label}
+              </label>
+            ))}
+          </fieldset>
+          {!workspace?.configured && <p className="text-xs text-on-surface-variant">ERP gợi ý chế độ dựa trên danh mục hiện có.</p>}
+          {workspaceSaveError && <p role="alert" className="text-sm text-error">{workspaceSaveError}</p>}
+          <div className="flex justify-end">
+            <button type="submit" className={primaryCreateButtonClass} disabled={savingWorkspace}>
+              {savingWorkspace ? "Đang lưu…" : "Lưu chế độ"}
+            </button>
+          </div>
+        </form>}
+      </ErpModal>}
+      {viewer && <ProductViewerModal product={viewer} resources={resources} branches={branches} branchId={branchId} branchName={branchName} onClose={() => setViewer(null)} />}
       {editor && (
         <ProductEditorModal
           key={typeof editor === "object" && editor ? editor._id : "create"}
           product={editor === "create" ? null : editor}
           resources={resources}
+          initialType={serviceView ? "service" : "physical"}
+          allowTypeSelection={mode === "mixed"}
+          branches={branches}
+          branchId={branchId}
+          branchName={branchName}
+          onCreateCategory={() => setSetupKind("categories")}
           onClose={() => setEditor(null)}
           onSaved={async () => {
             setEditor(null);
-            await loadProducts(page);
+            await refreshCatalog();
           }}
-          onDataChanged={() => void loadProducts(page)}
+          onDataChanged={refreshCatalog}
           onVariantAction={(product, mode, ids, variant) => setVariantTarget({ product, mode, ids, variant })}
         />
       )}
@@ -633,6 +537,7 @@ export function ProductCatalogV2Section() {
                   : []
           }
           categories={resources.categories}
+          servicesOnly={mode === "services"}
           onClose={() => {
             setSetupKind(null);
           }}
@@ -650,7 +555,7 @@ export function ProductCatalogV2Section() {
           onSaved={async () => {
             const currentEditorId = typeof editor === "object" && editor ? editor._id : null;
             setVariantTarget(null);
-            await loadProducts(page);
+            await refreshCatalog();
             if (currentEditorId) {
               try {
                 const updated = await productCatalogService.getProduct(currentEditorId);
@@ -672,7 +577,7 @@ export function ProductCatalogV2Section() {
           onSaved={async () => {
             const currentEditorId = typeof editor === "object" && editor ? editor._id : null;
             setVariantTarget(null);
-            await loadProducts(page);
+            await refreshCatalog();
             if (currentEditorId) {
               try {
                 const updated = await productCatalogService.getProduct(currentEditorId);
@@ -686,9 +591,10 @@ export function ProductCatalogV2Section() {
       )}
       <ConfirmDialog
         isOpen={Boolean(productToDelete)}
-        title="Xác nhận xóa sản phẩm"
-        description={`Bạn có chắc chắn muốn xóa sản phẩm "${productToDelete?.name}"? Thao tác này chỉ xóa được khi sản phẩm và tất cả biến thể chưa phát sinh giao dịch tồn kho.`}
-        confirmLabel="Xóa sản phẩm"
+        title={deletingService ? "Xác nhận xóa dịch vụ" : "Xác nhận xóa sản phẩm"}
+        description={deletingService ? `Bạn có chắc chắn muốn xóa dịch vụ "${productToDelete?.name}"?` :
+          `Bạn có chắc chắn muốn xóa sản phẩm "${productToDelete?.name}"? Thao tác này chỉ xóa được khi sản phẩm và tất cả biến thể chưa phát sinh giao dịch tồn kho.`}
+        confirmLabel={deletingService ? "Xóa dịch vụ" : "Xóa sản phẩm"}
         cancelLabel="Hủy"
         tone="danger"
         isSubmitting={deletingProduct}

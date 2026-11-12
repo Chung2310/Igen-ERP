@@ -15,6 +15,7 @@ export type Resources = {
   categories: ProductResource[];
   brands: ProductResource[];
   attributes: ProductResource[];
+  units?: ProductResource[];
 };
 
 export type VariantModalMode = "single" | "edit" | "bulk-create" | "bulk-edit";

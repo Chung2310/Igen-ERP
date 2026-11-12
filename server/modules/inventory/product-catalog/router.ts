@@ -3,6 +3,8 @@ import { requirePermission } from "../../../middleware/auth";
 import { productCatalogController } from "./product-catalog.controller";
 
 export const productCatalogRouter = Router();
+productCatalogRouter.get("/workspace", requirePermission("inventory:read") as any, productCatalogController.getWorkspace);
+productCatalogRouter.patch("/workspace", requirePermission("inventory:read") as any, requirePermission("settings:manage") as any, productCatalogController.updateWorkspace);
 productCatalogRouter.get("/prices", requirePermission("inventory:read") as any, productCatalogController.listPrices);
 productCatalogRouter.put("/prices/:variantId", requirePermission("inventory:manage") as any, productCatalogController.upsertPrice);
 
