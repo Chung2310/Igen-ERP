@@ -21,9 +21,11 @@ describe("Assistant2DFileIcon", () => {
     expect(container.querySelector("svg text")?.textContent).toBe("XLSX");
   });
 
-  it.each(["upload", "download"] as const)("adds a visible file action for %s", action => {
-    const { container } = render(<Assistant2DFileIcon fileName="result.png" action={action} />);
-    expect(container.querySelector("svg")?.getAttribute("data-action")).toBe(action);
-    expect(container.querySelector("svg circle")).not.toBeNull();
+  it("shows only the file icon for upload, while retaining the download badge", () => {
+    const { container, rerender } = render(<Assistant2DFileIcon fileName="result.png" action="upload" />);
+    expect(container.querySelector('svg circle[cx="51"]')).toBeNull();
+    expect(container.querySelector("svg text")?.textContent).toBe("PNG");
+    rerender(<Assistant2DFileIcon fileName="result.png" action="download" />);
+    expect(container.querySelector('svg circle[cx="51"]')).not.toBeNull();
   });
 });

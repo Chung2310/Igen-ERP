@@ -17,8 +17,8 @@ describe("AssistantStudio", () => {
     render(<AssistantStudio />);
     const studioTitle = screen.getByRole("heading", { name: "Chào mừng đến với iGen AI Studio" });
     expect(studioTitle.parentElement?.className).toContain("text-left");
-    expect(studioTitle.className).toContain("text-[clamp(1rem,2.8vw,2.5rem)]!");
-    expect(studioTitle.className).toContain("whitespace-nowrap!");
+    expect(studioTitle.className).toContain("text-[27px]!");
+    expect(studioTitle.className).toContain("flex-wrap");
     expect(studioTitle.querySelector("svg")).not.toBeNull();
     expect(screen.queryByText("Khám phá iGen AI Studio")).toBeNull();
     expect(screen.getByRole("button", { name: /YouTube/ }).querySelector('img[src="/ai-studio-youtube-summary.webp"]')).not.toBeNull();
@@ -40,7 +40,7 @@ describe("AssistantStudio", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tất cả" }));
     fireEvent.click(screen.getByRole("button", { name: /Tạo slide/ }));
-    expect(screen.getByRole("heading", { name: "Tạo slide" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: /Tóm tắt tài liệu/ })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Chủ đề và nội dung" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "AI Studio" }));
     fireEvent.click(screen.getByRole("button", { name: /Tạo Mindmap/ }));

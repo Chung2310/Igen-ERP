@@ -41,6 +41,7 @@ import { startTwoWayVoice, type SpeechRecognitionInstance, type SpeechRecognitio
 import { hasSquareBracketPlaceholders, renderPromptWithPlaceholderHighlights } from "./assistantPromptPlaceholder";
 import { AssistantQuickHistoryDropdown } from "./AssistantQuickHistoryDropdown";
 import { AssistantMoveToProjectMenu } from "./AssistantMoveToProjectMenu";
+import { AssistantMessageActions } from "./AssistantMessageActions";
 
 type SpeechWindow = Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
 type VoiceStatus = "off" | "manual" | "auto" | "waiting" | "command";
@@ -1803,6 +1804,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                             <AssistantAnswerIllustrations illustrations={message.illustrations} />
                             <AssistantResearchSources sources={message.sources} illustrationUrls={message.illustrations?.map(illustration => illustration.url)} />
                             {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
+                            <AssistantMessageActions content={message.content} />
                           </div>}
                         </div>
                       </React.Fragment>;
