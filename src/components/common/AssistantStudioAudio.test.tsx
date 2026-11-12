@@ -10,9 +10,11 @@ it("shows three separate audio tools inside AI Studio", () => {
   render(<AssistantStudio />);
   const audio = screen.getByRole("region", { name: "Âm thanh" });
   expect(audio.querySelectorAll("button.assistant-studio-card")).toHaveLength(3);
-  for (const artwork of audio.querySelectorAll("button.assistant-studio-card span[aria-hidden]")) {
-    expect(artwork.getAttribute("style")).toContain("ai-studio-audio-tools.png");
-  }
+  expect(Array.from(audio.querySelectorAll("button.assistant-studio-card img"), image => image.getAttribute("src"))).toEqual([
+    "/ai-studio-voice-clone.webp",
+    "/ai-studio-text-to-speech.webp",
+    "/ai-studio-speech-to-text.webp",
+  ]);
   fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
   expect(screen.getByRole("heading", { name: /Biến giọng nói thành văn bản dễ dùng/, level: 2 })).toBeTruthy();
   expect(screen.getByRole("heading", { name: /Biến giọng nói thành văn bản dễ dùng/ }).parentElement?.className).toContain("text-center");

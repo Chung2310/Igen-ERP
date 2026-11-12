@@ -21,9 +21,9 @@ describe("AssistantStudio", () => {
     expect(studioTitle.className).toContain("whitespace-nowrap!");
     expect(studioTitle.querySelector("svg")).not.toBeNull();
     expect(screen.queryByText("Khám phá iGen AI Studio")).toBeNull();
-    expect(screen.getByRole("button", { name: /Tóm tắt YouTube/ }).querySelector("span[aria-hidden]")?.getAttribute("style")).toContain("ai-studio-content-tools.webp");
-    expect(screen.getByRole("button", { name: /Tạo slide/ }).querySelector('img[src="/assistant-studio/slide-color.webp"]')).not.toBeNull();
-    expect(screen.getByRole("button", { name: /Tạo Mindmap/ }).querySelector('img[src="/assistant-studio/mindmap-color.webp"]')).not.toBeNull();
+    expect(screen.getByRole("button", { name: /YouTube/ }).querySelector('img[src="/ai-studio-youtube-summary.webp"]')).not.toBeNull();
+    expect(screen.getByRole("button", { name: /Tạo slide/ }).querySelector('img[src="/ai-studio-slides.webp"]')).not.toBeNull();
+    expect(screen.getByRole("button", { name: /Tạo Mindmap/ }).querySelector('img[src="/ai-studio-mindmap.webp"]')).not.toBeNull();
     expect(screen.queryByRole("button", { name: /Soạn nội dung/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /^Video$/ }));
     const videoTool = screen.getByRole("button", { name: /Tạo video/ });
