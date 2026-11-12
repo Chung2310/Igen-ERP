@@ -3,14 +3,13 @@ import { UserModel } from "../../../../model/user.model.ts";
 import { companyModuleEnabled } from "../../shared/access";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model.ts";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model.ts";
-import { FacebookAutoReplyJobModel } from "../model/facebook-auto-reply-job.model.ts";
-import { enqueueFacebookReply, claimFacebookReply as claimFacebookAutoReplyJob, facebookReplyLease,
-  markFacebookReplySending as markFacebookAutoReplyDeliveryStarted,
-  facebookReplyOutcome, requireFacebookReplyText, FACEBOOK_REPLY_MAX_ATTEMPTS,
-  FACEBOOK_REPLY_LEASE_MS, FACEBOOK_REPLY_RETRY_BASE_MS, FACEBOOK_INBOUND_DISPATCH_LEASE_MS } from "./facebook-auto-reply-queue";
+import { FacebookAutoReplyJobModel, type MessengerAutoReplyChannel } from "../model/facebook-auto-reply-job.model.ts";
+import { enqueueMessengerReply, claimMessengerReply, messengerReplyLease,
+  markMessengerReplySending, expireMessengerReplyJobs,
+  messengerReplyOutcome, requireFacebookReplyText, MESSENGER_REPLY_MAX_ATTEMPTS,
+  MESSENGER_REPLY_LEASE_MS, MESSENGER_REPLY_RETRY_BASE_MS, FACEBOOK_INBOUND_DISPATCH_LEASE_MS } from "./facebook-auto-reply-queue";
 import { isFacebookReplyWindowOpen } from "./fb-messenger-error";
 import { reportFacebookReplyFailure } from "./facebook-reply-failure.service.ts";
-import { expireFacebookReplyJobs } from "./facebook-auto-reply-queue";
 import { claimFacebookFollowUp, renewFacebookFollowUp, isFacebookFollowUpCurrent,
   beginFacebookFollowUpDelivery, settleFacebookFollowUp, recordFacebookAssistantTurn,
   FacebookFollowUpCancelledError, type FacebookFollowUpLease } from "./facebook-follow-up.service";
@@ -34,6 +33,8 @@ import { prepareChatReplyContext, commitChatVisualContext, buildChatConversation
 import { visualToImageObservation } from "./chat-visual-context";
 import { createChatAiTrace, describeChatAiTrace, withChatAiTrace } from "./chat-ai-trace";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
+import { assertZaloDeliveryCurrent, readZaloFollowUpMessages, ZaloReplyCancelledError,
+  zaloFollowUpTurn, zaloMessageOrder } from "./zalo-reply-context";
 
 // In-memory timeouts map to manage debouncing per conversation.
 // messageKey prevents polling/sync from pushing the same inbound message forever.
@@ -65,29 +66,70 @@ function withFacebookActionPayload(messages: any[]) {
 const DEFAULT_MESSAGE_GROUPING_DELAY_MS = 7000;
 const DEFAULT_BUBBLE_DELAY_MS = 2000;
 
-async function persistFacebookAutoReplyJob(params: {
+async function persistAutoReplyJob(channel: MessengerAutoReplyChannel, params: {
   conversationId: string; pageId: string; companyCode: string; messageId: string;
   text: string; nextAttemptAt: Date;
 }) {
+  if (channel === "zalo") {
+    const latest = await ZaloMessageModel.findOne({ conversationId: params.conversationId })
+      .sort(zaloMessageOrder).select("direction recipientId messageId timestamp").lean();
+    if (latest?.direction !== "inbound" || latest.recipientId !== params.pageId || latest.messageId !== params.messageId) return null;
+    return enqueueMessengerReply({ ...params, messageTimestamp: latest.timestamp,
+      messageCreatedAt: latest.timestamp, messageObjectId: String(latest._id) }, channel);
+  }
   const inbound = await FBMessageModel.findOne({ conversationId: params.conversationId, messageId: params.messageId, direction: "inbound" })
     .select("timestamp createdAt").lean();
   if (!inbound) return null;
   const latest = await FBMessageModel.findOne({ conversationId: params.conversationId, direction: "inbound" })
     .sort({ timestamp: -1, createdAt: -1 }).select("messageId").lean();
   if (latest?.messageId !== params.messageId) return null;
-  return enqueueFacebookReply({ ...params, messageTimestamp: new Date(inbound.timestamp),
+  return enqueueMessengerReply({ ...params, messageTimestamp: new Date(inbound.timestamp),
     messageCreatedAt: new Date(inbound.createdAt || inbound.timestamp) });
 }
 
-async function cancelPendingFacebookAutoReplyJob(conversationId: string, messageId: string | undefined, reason: string) {
+async function cancelPendingAutoReplyJob(channel: MessengerAutoReplyChannel, conversationId: string, messageId: string | undefined, reason: string) {
   if (!messageId) return;
   await FacebookAutoReplyJobModel.updateOne({
-    channel: "facebook", conversationId, messageId, status: "pending",
+    channel, conversationId, messageId,
+    $or: [{ status: "pending" }, ...(channel === "zalo" ? [{
+      status: "processing" as const, leaseUntil: { $lte: new Date() }, deliveryStartedAt: { $exists: false },
+    }] : [])],
   }, { $set: { status: "cancelled", lastError: reason }, $unset: { leaseToken: 1, leaseUntil: 1 } });
 }
 
+export async function recoverZaloAutoReplyJobs() {
+  const now = new Date();
+  await expireMessengerReplyJobs(now, "zalo");
+  const jobs = await FacebookAutoReplyJobModel.find({
+    channel: "zalo", attempts: { $lt: MESSENGER_REPLY_MAX_ATTEMPTS },
+    $or: [
+      { status: "pending", nextAttemptAt: { $lte: now } },
+      { status: "processing", leaseUntil: { $lte: now }, deliveryStartedAt: { $exists: false } },
+    ],
+  }).sort({ nextAttemptAt: 1 }).limit(50).lean();
+  for (const job of jobs) {
+    const conversationId = String(job.conversationId);
+    if (pendingReplies.has(conversationId) || generatingReplies.has(conversationId)) continue;
+    try {
+      const [latest, conversation, owner] = await Promise.all([
+        ZaloMessageModel.findOne({ conversationId }).sort(zaloMessageOrder).lean(),
+        ZaloConversationModel.exists({ _id: conversationId, oaId: job.pageId, status: "open" }),
+        resolveAutoReplyOwner("zalo", job.pageId),
+      ]);
+      if (!conversation || latest?.direction !== "inbound" || latest.recipientId !== job.pageId
+        || owner.companyCode !== job.companyCode || owner.source === "module_disabled") {
+        await cancelPendingAutoReplyJob("zalo", conversationId, job.messageId, "Zalo reply is no longer current.");
+        continue;
+      }
+      await aiAutoReplyService.triggerAutoReply("zalo", job.pageId, conversationId, latest.text, latest.messageId, { propagateError: true });
+    } catch (error) {
+      console.error("[AI AutoReply] Zalo reply queue recovery failed:", error);
+    }
+  }
+}
+
 async function isFacebookAutoReplyLeaseActive(conversationId: string, messageId: string, leaseToken: string) {
-  return Boolean(await FacebookAutoReplyJobModel.exists(facebookReplyLease(conversationId, messageId, leaseToken)));
+  return Boolean(await FacebookAutoReplyJobModel.exists(messengerReplyLease(conversationId, messageId, leaseToken)));
 }
 
 /** Recover the gap between persisting an inbound and creating its AI reply job. */
@@ -116,7 +158,7 @@ async function recoverFacebookInboundDispatches(now: Date) {
       await FBMessageModel.updateOne(lease, { $unset: { autoReplyDispatchPending: 1, autoReplyDispatchAfter: 1 } });
     } catch (error) {
       await FBMessageModel.updateOne(lease, {
-        $set: { autoReplyDispatchAfter: new Date(Date.now() + FACEBOOK_REPLY_RETRY_BASE_MS) },
+        $set: { autoReplyDispatchAfter: new Date(Date.now() + MESSENGER_REPLY_RETRY_BASE_MS) },
       }).catch(() => undefined);
       console.error("[AI AutoReply] Facebook inbound dispatch recovery failed:", error);
     }
@@ -130,7 +172,7 @@ async function recoverFacebookAutoReplyJobs() {
     await FacebookAutoReplyJobModel.init();
     const now = new Date();
     await recoverFacebookInboundDispatches(now);
-    await expireFacebookReplyJobs(now);
+    await expireMessengerReplyJobs(now);
     const failures = await FacebookAutoReplyJobModel.find({ channel: "facebook", status: "failed",
       nextAttemptAt: { $lte: now } }).sort({ nextAttemptAt: 1 }).limit(50).lean();
     for (const job of failures) {
@@ -154,7 +196,7 @@ async function recoverFacebookAutoReplyJobs() {
       }
     }
     const jobs = await FacebookAutoReplyJobModel.find({
-      channel: "facebook", attempts: { $lt: FACEBOOK_REPLY_MAX_ATTEMPTS },
+      channel: "facebook", attempts: { $lt: MESSENGER_REPLY_MAX_ATTEMPTS },
       $or: [
         { status: "pending", nextAttemptAt: { $lte: now } },
         { status: "processing", leaseUntil: { $lte: now }, deliveryStartedAt: { $exists: false } },
@@ -572,7 +614,7 @@ export const aiAutoReplyService = {
   /**
    * Cancel any pending AI auto-reply for a conversation (e.g. when an agent replies manually)
    */
-  cancelPendingReply(conversationId: string, reason: "debounce" | "human_reply" = "debounce") {
+  cancelPendingReply(conversationId: string, reason: "debounce" | "human_reply" = "debounce", channel: MessengerAutoReplyChannel = "facebook") {
     if (reason === "human_reply" && !HUMAN_INTERVENTION_GUARD_ENABLED) {
       console.log(`[AI AutoReply] Human intervention guard is temporarily disabled. Keeping pending auto-reply for conversationId=${conversationId}.`);
       return;
@@ -580,11 +622,11 @@ export const aiAutoReplyService = {
 
     if (reason === "human_reply") {
       void FacebookAutoReplyJobModel.updateOne({
-        channel: "facebook", conversationId, status: { $in: ["pending", "processing"] },
+        channel, conversationId, status: { $in: ["pending", "processing"] },
       }, {
         $set: { status: "cancelled", lastError: "Cancelled after a human agent replied." },
         $unset: { leaseToken: 1, leaseUntil: 1 },
-      }).catch(error => console.error("[AI AutoReply] Could not cancel durable Facebook reply:", error));
+      }).catch(error => console.error(`[AI AutoReply] Could not cancel durable ${channel} reply:`, error));
     }
 
     const pending = pendingReplies.get(conversationId);
@@ -599,6 +641,7 @@ export const aiAutoReplyService = {
    * Triggers the AI auto-reply process. Debounces incoming messages to wait for the customer to finish typing.
    */
   async triggerAutoReply(channel: "facebook" | "zalo" | "tiktok", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string, options?: { propagateError?: boolean }) {
+    const queueChannel = channel === "facebook" || channel === "zalo" ? channel : undefined;
     try {
       const resolvedPlatformId = String(platformId).trim();
       const normalizedIncomingText = normalizeIncomingText(incomingText);
@@ -612,7 +655,7 @@ export const aiAutoReplyService = {
       }
 
       // Duplicate callbacks must not cancel an already scheduled timer.
-      this.cancelPendingReply(conversationId);
+      if (channel !== "zalo") this.cancelPendingReply(conversationId);
 
       // Find the user who owns this integration or the company-level integration
       let user = null;
@@ -648,8 +691,8 @@ export const aiAutoReplyService = {
       }
 
       if (!targetCompanyCode && !selectedUser) {
-        if (channel === "facebook") {
-          await cancelPendingFacebookAutoReplyJob(conversationId, incomingMessageId, "No Facebook integration owner is configured.");
+        if (queueChannel) {
+          await cancelPendingAutoReplyJob(queueChannel, conversationId, incomingMessageId, "No integration owner is configured.");
         }
         await logAutoReplyFailure({
           channel,
@@ -724,8 +767,8 @@ export const aiAutoReplyService = {
       );
 
       if (!aiConfig || !aiConfig.enabled) {
-        if (channel === "facebook") {
-          await cancelPendingFacebookAutoReplyJob(conversationId, incomingMessageId, "Facebook AI auto-reply is disabled.");
+        if (queueChannel) {
+          await cancelPendingAutoReplyJob(queueChannel, conversationId, incomingMessageId, "AI auto-reply is disabled.");
         }
         await logAutoReplyFailure({
           companyCode: targetCompanyCode,
@@ -763,8 +806,8 @@ export const aiAutoReplyService = {
       const delayMs = groupingDelayMs + userDelayMs;
       let scheduledDelayMs = delayMs;
 
-      if (channel === "facebook" && incomingMessageId) {
-        const persisted = await persistFacebookAutoReplyJob({
+      if (queueChannel && incomingMessageId) {
+        const persisted = await persistAutoReplyJob(queueChannel, {
           conversationId,
           pageId: resolvedPlatformId,
           companyCode: targetCompanyCode,
@@ -773,11 +816,13 @@ export const aiAutoReplyService = {
           nextAttemptAt: new Date(Date.now() + delayMs),
         });
         if (!persisted) {
-          console.log(`[AI AutoReply] Facebook reply not scheduled because message ${incomingMessageId} is stale, already handled, or currently leased.`);
+          console.log(`[AI AutoReply] ${channel} reply not scheduled because message ${incomingMessageId} is stale, already handled, or currently leased.`);
           return;
         }
         scheduledDelayMs = Math.max(0, persisted.getTime() - Date.now());
       }
+
+      if (channel === "zalo") this.cancelPendingReply(conversationId);
 
       // Cập nhật trạng thái tin nhắn mới từ khách hàng để theo dõi follow-up
       try {
@@ -786,11 +831,9 @@ export const aiAutoReplyService = {
           followUpStatus: "responded",
           followUpCount: 0,
         };
-        if (channel === "zalo") {
-          void ZaloConversationModel.findByIdAndUpdate(conversationId, customerStateUpdate);
-        } else if (channel === "tiktok") {
+        if (channel === "tiktok") {
           void TikTokConversationModel.findByIdAndUpdate(conversationId, customerStateUpdate);
-        } else {
+        } else if (channel === "facebook") {
           await FBConversationModel.updateOne({ _id: conversationId, pageId: resolvedPlatformId }, { $set: customerStateUpdate });
         }
       } catch (err) {
@@ -837,15 +880,19 @@ export const aiAutoReplyService = {
           generatingReplies.add(conversationId);
           ownsConversation = true;
 
-          if (channel === "facebook" && incomingMessageId) {
-            const claim = await claimFacebookAutoReplyJob(conversationId, incomingMessageId);
+          if (queueChannel && incomingMessageId) {
+            const claim = await claimMessengerReply(conversationId, incomingMessageId, queueChannel);
             if (!claim) return;
             queueLeaseToken = claim.leaseToken;
             claimedAttempts = claim.job.attempts;
+            if (queueChannel === "zalo" && claim.job.companyCode !== targetCompanyCode) {
+              executionCancelled = true;
+              return;
+            }
             heartbeat = setInterval(() => {
               void FacebookAutoReplyJobModel.updateOne(
-                facebookReplyLease(conversationId, incomingMessageId, claim.leaseToken),
-                { $set: { leaseUntil: new Date(Date.now() + FACEBOOK_REPLY_LEASE_MS) } }).catch(() => undefined);
+                messengerReplyLease(conversationId, incomingMessageId, claim.leaseToken, queueChannel),
+                { $set: { leaseUntil: new Date(Date.now() + MESSENGER_REPLY_LEASE_MS) } }).catch(() => undefined);
             }, 30_000);
             heartbeat.unref();
           }
@@ -1179,6 +1226,7 @@ export const aiAutoReplyService = {
                   { ...effectiveRagContext, visualInput: undefined, visualContext });
               }
               if (channel === "facebook") requireFacebookReplyText(aiResponse?.text);
+              if (channel === "zalo" && !aiResponse?.text?.trim()) throw new Error("AI returned an empty Zalo reply.");
               if (checkoutReply?.wordingSource && orderFlow?.preservesReplyFacts
                 && !orderFlow.preservesReplyFacts(checkoutReply.wordingSource, aiResponse.text)) {
                 if (aiConfig.imageReplyEnabled === true) throw new Error("AI reply changed verified order facts.");
@@ -1260,7 +1308,7 @@ export const aiAutoReplyService = {
                   throw new FacebookFollowUpCancelledError();
                 }
                 if (queueLeaseToken) {
-                  if (!await markFacebookAutoReplyDeliveryStarted(conversationId, incomingMessageId!, queueLeaseToken)) throw new FacebookFollowUpCancelledError();
+                  if (!await markMessengerReplySending(conversationId, incomingMessageId!, queueLeaseToken)) throw new FacebookFollowUpCancelledError();
                   outgoingSendStarted = true;
                 }
               };
@@ -1287,6 +1335,7 @@ export const aiAutoReplyService = {
               }
 
               let lastFacebookReplyMessageId: string | undefined;
+              let lastZaloReply: Awaited<ReturnType<typeof zaloMessengerService.sendReply>> | undefined;
               for (let index = 0; index < messagesToSend.length; index += 1) {
                 const bubbleText = messagesToSend[index];
                 if (!bubbleText) continue;
@@ -1297,9 +1346,19 @@ export const aiAutoReplyService = {
                 }
 
                 if (channel === "zalo") {
-                  const inbound = await ZaloMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1, _id: -1 });
-                  if (inbound?.messageId !== latestDbMessage?.messageId) return;
-                  await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
+                  lastZaloReply = await zaloMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai", async () => {
+                    const owner = await resolveAutoReplyOwner("zalo", resolvedPlatformId);
+                    if (owner.companyCode !== targetCompanyCode || owner.source === "module_disabled" || !owner.aiConfig?.enabled) {
+                      throw new ZaloReplyCancelledError();
+                    }
+                    await assertZaloDeliveryCurrent(conversationId, resolvedPlatformId, lastZaloReply?.messageId || latestDbMessage?.messageId);
+                    if (queueLeaseToken && incomingMessageId) {
+                      if (!await markMessengerReplySending(conversationId, incomingMessageId, queueLeaseToken, "zalo")) {
+                        throw new ZaloReplyCancelledError();
+                      }
+                      outgoingSendStarted = true;
+                    }
+                  });
                 } else if (channel === "tiktok") {
                   await tiktokMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai");
                 } else {
@@ -1363,7 +1422,14 @@ export const aiAutoReplyService = {
                   followUpStatus: "pending",
                 };
                 if (channel === "zalo") {
-                  void ZaloConversationModel.findByIdAndUpdate(conversationId, assistantStateUpdate);
+                  if (lastZaloReply) {
+                    await assertZaloDeliveryCurrent(conversationId, resolvedPlatformId, lastZaloReply.messageId);
+                    await ZaloConversationModel.updateOne({
+                      _id: conversationId, oaId: resolvedPlatformId, status: "open",
+                      lastMessageAt: lastZaloReply.sentAt, "pendingInboundMessageIds.0": { $exists: false },
+                    }, { $set: { ...assistantStateUpdate,
+                      lastAssistantMessageAt: lastZaloReply.sentAt, lastAssistantMessageId: lastZaloReply.messageId } });
+                  }
                 } else if (channel === "tiktok") {
                   void TikTokConversationModel.findByIdAndUpdate(conversationId, assistantStateUpdate);
                 } else {
@@ -1372,13 +1438,13 @@ export const aiAutoReplyService = {
                   }
                 }
               } catch (stateErr) {
-                console.warn("[AI AutoReply] Failed to update assistant state:", stateErr);
+                if (!(stateErr instanceof ZaloReplyCancelledError)) console.warn("[AI AutoReply] Failed to update assistant state:", stateErr);
               }
 
               console.log(`[AI AutoReply] Reply sent: conversationId=${conversationId}, channel=${channel}, latencyMs=${Date.now() - startedAt}`);
               console.log(`[AI AutoReply] ✅ THÀNH CÔNG: Đã gửi phản hồi tự động thành công cho hội thoại: ${conversationId} trong ${Date.now() - startedAt}ms`);
             } catch (sendErr: any) {
-              if (sendErr instanceof FacebookFollowUpCancelledError) {
+              if (sendErr instanceof FacebookFollowUpCancelledError || sendErr instanceof ZaloReplyCancelledError) {
                 executionCancelled = true;
                 return;
               }
@@ -1402,7 +1468,7 @@ export const aiAutoReplyService = {
           }
         } catch (err: any) {
           console.error(`[AI AutoReply Timeout Execution] ❌ LỖI NGHIÊM TRỌNG khi thực hiện gửi phản hồi tự động:`, err.message || err);
-          executionError = err ?? new Error("Facebook reply execution failed.");
+          executionError = err ?? new Error("AI reply execution failed.");
           try {
             await aiKnowledgeService.createReplyLog({
               companyCode: user?.companyCode || targetCompanyCode || "SYSTEM",
@@ -1418,12 +1484,12 @@ export const aiAutoReplyService = {
           }
         } finally {
           if (heartbeat) clearInterval(heartbeat);
-          if (queueLeaseToken && incomingMessageId) {
-            const outcome = facebookReplyOutcome(claimedAttempts, outgoingSendStarted, executionError);
+          if (queueChannel && queueLeaseToken && incomingMessageId) {
+            const outcome = messengerReplyOutcome(claimedAttempts, outgoingSendStarted, executionError);
             const { backoffMs } = outcome;
             const status = executionCancelled ? "cancelled" : outcome.status;
             await FacebookAutoReplyJobModel.updateOne({
-              ...facebookReplyLease(conversationId, incomingMessageId, queueLeaseToken),
+              ...messengerReplyLease(conversationId, incomingMessageId, queueLeaseToken, queueChannel),
               ...(status === "pending" ? { deliveryStartedAt: { $exists: false } } : {}),
             }, {
               $set: {
@@ -1432,7 +1498,7 @@ export const aiAutoReplyService = {
                 ...(status === "pending" ? { nextAttemptAt: new Date(Date.now() + backoffMs) } : { completedAt: new Date() }),
               },
               $unset: { leaseToken: 1, leaseUntil: 1 },
-            }).catch(error => console.error("[AI AutoReply] Could not finalize durable Facebook reply:", error));
+            }).catch(error => console.error(`[AI AutoReply] Could not finalize durable ${queueChannel} reply:`, error));
           }
           if (ownsConversation) {
             generatingReplies.delete(conversationId);
@@ -1447,11 +1513,11 @@ export const aiAutoReplyService = {
 
       pendingReplies.set(conversationId, { timeout: timeoutId, messageKey });
     } catch (error: any) {
-      if (channel === "facebook" && incomingMessageId) {
+      if (queueChannel && incomingMessageId) {
         await FacebookAutoReplyJobModel.updateOne({
-          channel: "facebook", conversationId, messageId: incomingMessageId, status: "pending",
+          channel: queueChannel, conversationId, messageId: incomingMessageId, status: "pending",
         }, { $set: {
-          nextAttemptAt: new Date(Date.now() + FACEBOOK_REPLY_RETRY_BASE_MS),
+          nextAttemptAt: new Date(Date.now() + MESSENGER_REPLY_RETRY_BASE_MS),
           lastError: String(error?.message || error).slice(0, 1000),
         } }).catch(() => undefined);
       }
@@ -1633,14 +1699,12 @@ export const aiAutoReplyService = {
           const lastMsgTime = conv.lastAssistantMessageAt ? new Date(conv.lastAssistantMessageAt).getTime() : 0;
           if (now - lastMsgTime < requiredDelayMs) continue;
 
-          const messages = await ZaloMessageModel.find({ conversationId: conv._id })
-            .sort({ createdAt: 1 })
-            .limit(10)
-            .lean();
-
-          if (messages.length === 0) continue;
-          const lastMsg = messages[messages.length - 1];
-          if (lastMsg.direction === "inbound") continue;
+          const conversationId = String(conv._id);
+          const messages = await readZaloFollowUpMessages(conversationId);
+          const lastMsg = messages.at(-1);
+          if (lastMsg?.direction !== "outbound") continue;
+          if (conv.lastAssistantMessageId ? lastMsg.messageId !== conv.lastAssistantMessageId
+            : lastMsg.timestamp.getTime() > lastMsgTime) continue;
 
           const history = messages.map((m) => ({
             sender: m.direction === "inbound" ? "user" as const : "ai" as const,
@@ -1676,18 +1740,31 @@ export const aiAutoReplyService = {
           }));
 
           if (followUpRes?.text) {
-            await zaloMessengerService.sendReply(
+            const sent = await zaloMessengerService.sendReply(
               conv.oaId,
-              String(conv._id),
+              conversationId,
               followUpRes.text,
-              "ai"
+              "ai",
+              async () => {
+                const currentOwner = await resolveAutoReplyOwner("zalo", conv.oaId);
+                if (currentOwner.companyCode !== owner.companyCode || currentOwner.source === "module_disabled"
+                  || currentOwner.aiConfig?.enabled === false || !currentOwner.aiConfig?.autoFollowUpEnabled) {
+                  throw new ZaloReplyCancelledError();
+                }
+                await assertZaloDeliveryCurrent(conversationId, conv.oaId, lastMsg.messageId, conv);
+              }
             );
 
-            await ZaloConversationModel.findByIdAndUpdate(conv._id, {
+            await ZaloConversationModel.updateOne({
+              ...zaloFollowUpTurn(conv),
+              lastMessageAt: sent.sentAt,
+              "pendingInboundMessageIds.0": { $exists: false },
+            }, {
               $set: {
                 followUpStatus: "sent",
                 followUpCount: 1,
-                lastAssistantMessageAt: new Date(),
+                lastAssistantMessageAt: sent.sentAt,
+                lastAssistantMessageId: sent.messageId,
               },
             });
 
@@ -1706,6 +1783,7 @@ export const aiAutoReplyService = {
             console.log(`[AI AutoReply] 🎯 FOLLOW-UP ĐÃ GỬI cho khách Zalo: ${conv.senderName} (${conv._id})`);
           }
         } catch (convErr: any) {
+          if (convErr instanceof ZaloReplyCancelledError) continue;
           console.error(`[AI AutoReply] Error processing Zalo follow-up for conv ${conv._id}:`, convErr.message || convErr);
         }
       }
