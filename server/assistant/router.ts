@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
 import { AssistantError } from "./policy";
+import { assistantPromptTemplateCreateSchema, assistantPromptTemplateFavoriteSchema, createAssistantPromptTemplate, listAssistantPromptTemplates, setAssistantPromptTemplateFavorite } from "./prompt-library";
 import { listWorkflows, saveWorkflow } from "./workflows";
 import { clearConversationMemory, conversationMemory, conversationState, deleteConversation, listConversations, processTurn, saveConversationMemory } from "./service";
 
@@ -18,6 +19,10 @@ import { enhanceStudioImagePrompt, generateStudioImages, studioImageRatios } fro
 import { editStudioImage, studioEditModes } from "./studio-image-edit";
 import { listStudioTranscripts, transcribeStudioAudio } from "./studio-transcription";
 import { downloadAssistantFile } from "./documents";
+import { extractSpeechDocument } from "./studio-speech-document";
+import { createStudioChart, deleteStudioChart, editStudioChart, getStudioChart, listStudioCharts, studioChartEditSchema, studioChartRequestSchema } from "./studio-charts";
+import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studioSlideDeckUpdateSchema, studioSlideRequestSchema, updateStudioSlideDeck } from "./studio-slides";
+import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -41,7 +46,50 @@ assistantRouter.get("/conversations/:id/files/:fileId", validateRequest({ params
   }
 });
 assistantRouter.get("/settings", wrap(getSettings));
+assistantRouter.get("/prompt-templates", wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem thư viện câu lệnh.", 403);
+  return listAssistantPromptTemplates({ companyCode: req.user.companyCode, userId: req.user.id });
+}));
+assistantRouter.post("/prompt-templates", validateRequest({ body: assistantPromptTemplateCreateSchema }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu mẫu câu lệnh.", 403);
+  return createAssistantPromptTemplate({ companyCode: req.user.companyCode, userId: req.user.id }, req.body);
+}));
+assistantRouter.patch("/prompt-templates/:templateId/favorite", validateRequest({
+  params: Joi.object({ templateId: Joi.string().pattern(/^(?:[a-f\d]{24}|igen-[a-z0-9-]+)$/i).required() }),
+  body: assistantPromptTemplateFavoriteSchema,
+}), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để cập nhật yêu thích.", 403);
+  return setAssistantPromptTemplateFavorite({ companyCode: req.user.companyCode, userId: req.user.id }, req.params.templateId, req.body.favorite);
+}));
 const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.originalname)) });
+const studioChartUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|xlsx|xls|docx|csv)$/i.test(file.originalname)) });
+const studioMindmapUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|pptx|txt)$/i.test(file.originalname)) });
+const studioSlideUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => /\.(pdf|docx|pptx|txt)$/i.test(file.originalname) ? callback(null, true) : callback(new Error("Unsupported slide source")) });
+const speechDocumentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|txt)$/i.test(file.originalname)) });
+assistantRouter.get("/studio/slides", wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem lịch sử slide.", 403);
+  return listStudioSlideDecks(req.user.companyCode, req.user.id);
+}));
+assistantRouter.get("/studio/slides/:deckId", validateRequest({ params: Joi.object({ deckId: Joi.string().hex().length(24).required() }) }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem bộ slide.", 403);
+  return getStudioSlideDeck(req.params.deckId, req.user.companyCode, req.user.id);
+}));
+assistantRouter.patch("/studio/slides/:deckId", validateRequest({ params: Joi.object({ deckId: Joi.string().hex().length(24).required() }), body: studioSlideDeckUpdateSchema }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu bộ slide.", 403);
+  return updateStudioSlideDeck({ deckId: req.params.deckId, companyCode: req.user.companyCode, userId: req.user.id, ...req.body });
+}));
+assistantRouter.post("/studio/slides", expensiveApiRateLimiter, (req, res, next) => studioSlideUpload.single("document")(req, res, (error) => error ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: error.code === "LIMIT_FILE_SIZE" ? "Tài liệu không được vượt quá 20 MB." : "Chỉ hỗ trợ PDF, Word (.docx), PowerPoint (.pptx) và TXT." }) : next()), validateRequest({ body: studioSlideRequestSchema }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để tạo slide.", 403);
+  return createStudioSlideDeck({ ...req.body, file: req.file ? { buffer: req.file.buffer, fileName: req.file.originalname } : undefined, companyCode: req.user.companyCode, userId: req.user.id });
+}));
+assistantRouter.post("/studio/mindmaps", expensiveApiRateLimiter, (req, res, next) => studioMindmapUpload.single("document")(req, res, (error) => error ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: error.code === "LIMIT_FILE_SIZE" ? "Tệp tài liệu không được vượt quá 20 MB." : "Chỉ hỗ trợ PDF, Word (.docx), PowerPoint (.pptx) và TXT." }) : next()), validateRequest({ body: studioMindmapRequestSchema }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để tạo mindmap.", 403);
+  return createStudioMindmap({ ...req.body, file: req.file ? { buffer: req.file.buffer, fileName: req.file.originalname } : undefined, companyCode: req.user.companyCode, userId: req.user.id });
+}));
+assistantRouter.post("/speech/document", expensiveApiRateLimiter, (req, res, next) => speechDocumentUpload.single("document")(req, res, (error) => error ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: error.code === "LIMIT_FILE_SIZE" ? "Tệp tài liệu không được vượt quá 20 MB." : "Chỉ hỗ trợ tệp PDF, Word (.docx) và văn bản (.txt)." }) : next()), wrap(req => {
+  if (!req.file) throw new AssistantError("Tải lên tệp PDF, Word (.docx) hoặc văn bản (.txt).", 400);
+  return extractSpeechDocument({ buffer: req.file.buffer, fileName: req.file.originalname });
+}));
 assistantRouter.post("/studio/transcriptions", expensiveApiRateLimiter, (req, res, next) => studioAudioUpload.single("audio")(req, res, (error) => error ? res.status(413).json({ success: false, message: "Tệp âm thanh vượt giới hạn 50 MB hoặc không hợp lệ." }) : next()), wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu bản chép lời.", 403);
   if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG hoặc FLAC.", 400);
@@ -52,6 +100,27 @@ assistantRouter.get("/studio/transcriptions", wrap(req => {
   return listStudioTranscripts(req.user.companyCode, req.user.id);
 }));
 assistantRouter.post("/studio/images/optimize-prompt", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ prompt: Joi.string().trim().min(3).max(2000).required() }) }), wrap(req => enhanceStudioImagePrompt(req.body.prompt)));
+assistantRouter.get("/studio/charts", wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem lịch sử biểu đồ.", 403);
+  return listStudioCharts(req.user.companyCode, req.user.id);
+}));
+assistantRouter.post("/studio/charts", expensiveApiRateLimiter, (req, res, next) => studioChartUpload.single("file")(req, res, (error) => error ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: error.code === "LIMIT_FILE_SIZE" ? "Tệp không được vượt quá 20 MB." : "Tệp tải lên không hợp lệ hoặc không đúng định dạng hỗ trợ." }) : next()), validateRequest({ body: studioChartRequestSchema }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để tạo biểu đồ.", 403);
+  if (!req.file) throw new AssistantError("Đính kèm tệp dữ liệu trước khi tạo biểu đồ.", 400);
+  return createStudioChart({ buffer: req.file.buffer, fileName: req.file.originalname, prompt: req.body.prompt, chartType: req.body.chartType, companyCode: req.user.companyCode, userId: req.user.id });
+}));
+assistantRouter.get("/studio/charts/:chartId", validateRequest({ params: Joi.object({ chartId: Joi.string().hex().length(24).required() }) }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem biểu đồ.", 403);
+  return getStudioChart(req.params.chartId, req.user.companyCode, req.user.id);
+}));
+assistantRouter.post("/studio/charts/:chartId/edit", expensiveApiRateLimiter, validateRequest({ params: Joi.object({ chartId: Joi.string().hex().length(24).required() }), body: studioChartEditSchema }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để chỉnh sửa biểu đồ.", 403);
+  return editStudioChart({ chartId: req.params.chartId, companyCode: req.user.companyCode, userId: req.user.id, ...req.body });
+}));
+assistantRouter.delete("/studio/charts/:chartId", validateRequest({ params: Joi.object({ chartId: Joi.string().hex().length(24).required() }) }), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xóa biểu đồ.", 403);
+  return deleteStudioChart(req.params.chartId, req.user.companyCode, req.user.id);
+}));
 assistantRouter.post("/studio/images/edit", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
   sourceImage: Joi.string().max(21_000_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/).required(),
   prompt: Joi.string().trim().min(3).max(2000).required(),

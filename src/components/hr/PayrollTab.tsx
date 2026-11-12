@@ -512,27 +512,26 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
   };
 
   return <section className="min-h-0 flex-1 space-y-2 overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="ml-auto"><MonthPicker value={period} onChange={setPeriod} /></div>
-    </div>
-
-    <div role="tablist" aria-label="Các mục bảng lương" className="flex gap-1 overflow-x-auto border-b border-outline-variant">
-      {([
-        ["overview", "Tổng quan kỳ lương"],
-        ["approval", "Chờ duyệt"],
-        ["policy", "Chính sách & cách tính"],
-        ["publication", "Phiếu lương & phát hành"],
-      ] as const).filter(([key]) => canManage || key === "overview" || key === "publication").map(([key, label]) => (
-        <button key={key} id={`payroll-tab-${key}`} type="button" role="tab" tabIndex={activePayrollSection === key ? 0 : -1} aria-selected={activePayrollSection === key} aria-controls="payroll-section-panel" onClick={() => setActivePayrollSection(key)} onKeyDown={(event) => {
-          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-          event.preventDefault();
-          const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
-          const current = tabs.indexOf(event.currentTarget);
-          const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-          tabs[next]?.focus();
-          tabs[next]?.click();
-        }} className={`shrink-0 border-b-2 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary ${activePayrollSection === key ? "border-primary font-medium text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>{label}</button>
-      ))}
+    <div className="flex flex-col gap-2 border-b border-outline-variant sm:flex-row sm:items-center sm:justify-between">
+      <div role="tablist" aria-label="Các mục bảng lương" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+        {([
+          ["overview", "Tổng quan kỳ lương"],
+          ["approval", "Chờ duyệt"],
+          ["policy", "Chính sách & cách tính"],
+          ["publication", "Phiếu lương & phát hành"],
+        ] as const).filter(([key]) => canManage || key === "overview" || key === "publication").map(([key, label]) => (
+          <button key={key} id={`payroll-tab-${key}`} type="button" role="tab" tabIndex={activePayrollSection === key ? 0 : -1} aria-selected={activePayrollSection === key} aria-controls="payroll-section-panel" onClick={() => setActivePayrollSection(key)} onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
+            const current = tabs.indexOf(event.currentTarget);
+            const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+            tabs[next]?.focus();
+            tabs[next]?.click();
+          }} className={`shrink-0 border-b-2 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary ${activePayrollSection === key ? "border-primary font-medium text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>{label}</button>
+        ))}
+      </div>
+      <div className="self-end pb-1 sm:shrink-0"><MonthPicker value={period} onChange={setPeriod} /></div>
     </div>
     <div id="payroll-section-panel" role="tabpanel" tabIndex={0} aria-labelledby={`payroll-tab-${activePayrollSection}`} className="space-y-4 focus-visible:outline-2 focus-visible:outline-primary">
 

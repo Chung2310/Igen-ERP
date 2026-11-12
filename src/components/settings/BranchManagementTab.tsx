@@ -153,10 +153,18 @@ export default function BranchManagementTab({ presentation = "cards" }: { presen
 
   if (userProfile?.role !== "admin") return null;
   return <section className="min-h-full rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-6">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <button type="button" onClick={openCreate} className={`ml-auto ${primaryCreateButtonClass}`}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Thêm chi nhánh</button>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <label className="relative min-w-0 flex-1 sm:max-w-3xl">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        <input aria-label="Tìm kiếm chi nhánh" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã hoặc tên" className="h-10 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" />
+      </label>
+      <div className="ml-auto flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <div className="w-full sm:w-48">
+          <RoadmapPicker ariaLabel="Lọc trạng thái" value={status} onChange={(value) => setStatus(value as typeof status)} placeholder="Tất cả trạng thái" allowClear={false} portal options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Đã vô hiệu hóa" }]} />
+        </div>
+        <button type="button" onClick={openCreate} className={`w-full justify-center sm:w-auto ${primaryCreateButtonClass}`}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Thêm chi nhánh</button>
+      </div>
     </div>
-    <div className="mt-4 flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm kiếm chi nhánh" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã hoặc tên" className="h-10 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label><div className="w-full sm:w-48"><RoadmapPicker ariaLabel="Lọc trạng thái" value={status} onChange={(value) => setStatus(value as typeof status)} placeholder="Tất cả trạng thái" allowClear={false} portal options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Đã vô hiệu hóa" }]} /></div></div>
     {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <div className="flex flex-col items-center py-10 text-center text-sm text-slate-500"><HrEmptyIllustration kind={query || status !== "all" ? "search" : "branch"} /><p className="mt-1">Chưa có chi nhánh phù hợp.</p></div> : presentation === "table" ? (
       <div className="mt-4 overflow-x-auto rounded-md border border-outline-variant">
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">

@@ -442,32 +442,29 @@ export function WorkerProjectsPage({
 
   return (
     <div className="space-y-3 text-left">
-      {/* Row 1: Title + count */}
-      <div>
-        <p className="mt-1 pl-4 text-xs tabular-nums text-on-surface-variant">
-          {loading ? "..." : `${total}`} dự án
-        </p>
-      </div>
-
-      {/* Row 2: Search + filters + add button inline */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        {/* Search */}
-        <div className="relative w-full md:max-w-sm">
-          <label htmlFor="worker-project-search" className="sr-only">
-            Tìm kiếm dự án
-          </label>
-          <input
-            id="worker-project-search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Tìm theo mã, tên, địa điểm..."
-            className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-2 focus:outline-primary"
-          />
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+      {/* Search + count */}
+      <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center 2xl:w-auto">
+          <div className="relative w-full sm:w-auto sm:min-w-0 sm:flex-1 2xl:w-96 2xl:flex-none">
+            <label htmlFor="worker-project-search" className="sr-only">
+              Tìm kiếm dự án
+            </label>
+            <input
+              id="worker-project-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm theo mã, tên, địa điểm..."
+              className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-2 focus:outline-primary"
+            />
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+          </div>
+          <span className="inline-flex w-fit shrink-0 items-center whitespace-nowrap rounded-full bg-primary/10 px-3 py-1.5 text-base font-medium tabular-nums text-on-surface">
+            {loading ? "..." : total} dự án
+          </span>
         </div>
 
         {/* Filters + view toggle + add button */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 2xl:ml-auto">
           <div className="flex max-w-full items-center gap-1 overflow-x-auto">
             <FilterButton active={status === "all"} onClick={() => setStatus("all")}>
               Tất cả

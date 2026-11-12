@@ -1,5 +1,6 @@
 import "./server/config/timezone"; // PHẢI đứng đầu — cố định TZ trước mọi phép tính ngày giờ
 import "dotenv/config";
+import "./server/config/load-local-env";
 import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
 import { startMarketingEventRelay } from "./server/modules/marketing-suite/shared/event-relay";

@@ -51,12 +51,16 @@ export async function generateStudioImages(input: StudioImageInput) {
     }
   }
 
+  const prompt = input.referenceImage && !/ảnh (gốc|đính kèm|tham chiếu)/i.test(input.prompt)
+    ? `Dựa trên ảnh tham chiếu được đính kèm, giữ lại đặc điểm nhận diện của chủ thể/sản phẩm/khuôn mặt trong ảnh đó và tạo ảnh mới theo yêu cầu: ${input.prompt}`
+    : input.prompt;
+
   const images: { url: string }[] = [];
   let warning: string | undefined;
   for (let index = 0; index < input.count; index += 1) {
     try {
       const result = await openrouterGenerateImage({
-        prompt: input.prompt,
+        prompt,
         model: input.referenceImage
           ? (process.env.IGENAI_IMAGE_EDIT_MODEL?.trim() || "google/gemini-3.1-flash-image")
           : (process.env.IGENAI_IMAGE_MODEL?.trim() || DEFAULT_STUDIO_IMAGE_PROVIDER_MODEL),

@@ -34,7 +34,7 @@ RUN yarn build
 FROM node:22-alpine AS runner
 
 # Cài ca-certificates và tzdata (Alpine)
-RUN apk add --no-cache ca-certificates tzdata chromium nss freetype harfbuzz ttf-freefont
+RUN apk add --no-cache ffmpeg ca-certificates tzdata chromium nss freetype harfbuzz ttf-freefont
 
 WORKDIR /app
 

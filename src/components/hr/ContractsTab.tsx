@@ -578,43 +578,6 @@ export default function ContractsTab({
   return (
     <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left sm:p-6">
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="mt-0.5 text-sm text-on-surface-variant">
-                {tab === "extensions"
-                  ? "Theo dõi lịch sử gia hạn hợp đồng của từng nhân viên."
-                  : "Theo dõi hợp đồng của từng nhân viên."}
-              </p>
-            </div>
-          </div>
-          {canManage && (
-            <div className="flex items-center gap-2">
-              {tab === "contracts" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettingDays(expiryAlertDays);
-                    setSettingsOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900"
-                  title="Cài đặt thời gian cảnh báo hợp đồng sắp hết hạn"
-                >
-                  <Settings size={14} className="text-[#00A4E8]" />
-                  <span>Báo trước: <strong className="tabular-nums">{expiryAlertDays} ngày</strong></span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => tab === "extensions" ? openExtension() : openContract()}
-                className={primaryCreateButtonClass}
-              >
-                <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
-                {tab === "extensions" ? "Tạo gia hạn" : "Tạo hợp đồng"}
-              </button>
-            </div>
-          )}
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex max-w-full gap-5 overflow-x-auto border-b border-outline-variant">
             <button
@@ -635,7 +598,7 @@ export default function ContractsTab({
             </button>
           </div>
           {!loading && tab === "contracts" && (
-            <div className="relative w-full sm:w-80">
+            <div className="relative min-w-0 flex-1 basis-56 sm:max-w-md">
               <Search className="absolute left-3 top-3 text-slate-400" size={15} aria-hidden="true" />
               <input
                 aria-label="Tìm nhân viên, email hoặc phòng ban"
@@ -646,6 +609,30 @@ export default function ContractsTab({
               />
             </div>
           )}
+          {canManage && <div className="ml-auto flex shrink-0 items-center gap-2">
+            {tab === "contracts" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingDays(expiryAlertDays);
+                  setSettingsOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-primary"
+                title="Cài đặt thời gian cảnh báo hợp đồng sắp hết hạn"
+              >
+                <Settings size={14} className="text-[#00A4E8]" aria-hidden="true" />
+                <span>Báo trước: <strong className="tabular-nums">{expiryAlertDays} ngày</strong></span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => tab === "extensions" ? openExtension() : openContract()}
+              className={primaryCreateButtonClass}
+            >
+              <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
+              {tab === "extensions" ? "Tạo gia hạn" : "Tạo hợp đồng"}
+            </button>
+          </div>}
         </div>
         {loading ? (
           <div className="rounded-2xl border border-[#DCE7F4] bg-white p-12 text-center text-xs text-slate-500">

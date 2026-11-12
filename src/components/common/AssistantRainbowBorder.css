@@ -24,9 +24,10 @@
 
 :is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::after {
   z-index: 1;
-  inset: 1px;
-  border-radius: calc(0.75rem - 1px);
+  inset: 1.5px;
+  border-radius: calc(0.75rem - 1.5px);
   background: var(--assistant-rainbow-fill, var(--color-surface-container-lowest));
+  transition: background 200ms ease;
 }
 
 :is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source) > * {
@@ -41,6 +42,21 @@
 
 :is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::after {
   opacity: 1;
+  --assistant-rainbow-fill: linear-gradient(
+    135deg,
+    color-mix(in srgb, #00adfc 10%, var(--color-surface-container-lowest)) 0%,
+    color-mix(in srgb, #7567ff 8%, var(--color-surface-container-lowest)) 50%,
+    color-mix(in srgb, #ff57b3 8%, var(--color-surface-container-lowest)) 100%
+  );
+}
+
+:is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:active, .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:active)::after {
+  --assistant-rainbow-fill: linear-gradient(
+    135deg,
+    color-mix(in srgb, #00adfc 18%, var(--color-surface-container-lowest)) 0%,
+    color-mix(in srgb, #7567ff 15%, var(--color-surface-container-lowest)) 50%,
+    color-mix(in srgb, #ff57b3 14%, var(--color-surface-container-lowest)) 100%
+  );
 }
 
 .assistant-meeting-source:hover {

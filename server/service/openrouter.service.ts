@@ -7,7 +7,7 @@
  * (OPENROUTER_FALLBACK_MODEL / OPENROUTER_FALLBACK_IMAGE_MODEL).
  */
 
-import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, generateRecraftImage } from "./openrouter-image-api";
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -37,7 +37,7 @@ function getFallbackModel(): string {
 }
 
 function getFallbackImageModel(): string {
-  return mapModelName(process.env.OPENROUTER_FALLBACK_IMAGE_MODEL || "google/gemini-3-pro-image");
+  return mapModelName(process.env.OPENROUTER_FALLBACK_IMAGE_MODEL || "google/gemini-3.1-flash-image");
 }
 
 /** Tầng fallback thứ 3: server LLM free tự host (OpenAI-compatible). Null nếu chưa cấu hình. */
@@ -291,9 +291,11 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
-  const model = configuredModel === DEFAULT_IMAGE_MODEL && (params.referenceImages?.length || !RECRAFT_ASPECT_RATIOS.has(ratioKey))
+  const model = params.referenceImages?.length
     ? IMAGE_EDIT_MODEL
-    : configuredModel;
+    : (configuredModel === RECRAFT_IMAGE_MODEL && !RECRAFT_ASPECT_RATIOS.has(ratioKey))
+      ? IMAGE_EDIT_MODEL
+      : configuredModel;
   const finalPrompt = params.preserveInputAspectRatio
     ? params.prompt
     : `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
@@ -304,14 +306,15 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     content.push({ type: "image_url", image_url: { url: img } });
   }
 
-  console.log(`[OpenRouter Image] chat+modalities | model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey}`);
+  console.log(`[OpenRouter Image] model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey} | hasReference=${Boolean(params.referenceImages?.length)}`);
 
   try {
-    if (model === DEFAULT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
+    if (!params.referenceImages?.length && model === DEFAULT_IMAGE_MODEL) return await generateImageViaImagesApi(apiKey, model, params.prompt, ratioKey, "low");
+    if (!params.referenceImages?.length && model === RECRAFT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
     return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
-    if (model === DEFAULT_IMAGE_MODEL || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
+    if ((!params.referenceImages?.length && (model === DEFAULT_IMAGE_MODEL || model === RECRAFT_IMAGE_MODEL)) || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
 
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
