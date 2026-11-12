@@ -16,6 +16,7 @@ export interface IZaloConversation extends Document {
   aiPausedUntil?: Date;
   lastSender?: "user" | "assistant";
   lastAssistantMessageAt?: Date;
+  lastAssistantMessageId?: string;
   followUpCount?: number;
   followUpStatus?: "idle" | "pending" | "sent" | "responded";
   createdAt: Date;
@@ -57,6 +58,7 @@ const ZaloConversationSchema: Schema = new Schema(
     aiPausedUntil: { type: Date, default: null },
     lastSender: { type: String, enum: ["user", "assistant"], default: "user" },
     lastAssistantMessageAt: { type: Date, default: null },
+    lastAssistantMessageId: { type: String },
     followUpCount: { type: Number, default: 0 },
     followUpStatus: { type: String, enum: ["idle", "pending", "sent", "responded"], default: "idle" },
   },
