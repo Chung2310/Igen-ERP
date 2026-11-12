@@ -26,7 +26,6 @@ services:
 
   quotation-worker:
     image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
-    profiles: ["quotation"]
     restart: unless-stopped
     command: ["node", "dist-server/quotation-worker.cjs"]
     env_file: [.env]

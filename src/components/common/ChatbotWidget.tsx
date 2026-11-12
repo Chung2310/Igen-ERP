@@ -11,7 +11,8 @@ import type { AssistantReply } from "../../shared/assistant-workflow";
 import { useAuth } from "../../context/AuthContext";
 import { useBranchOptional } from "../../context/BranchContext";
 import { getPosTerminalId } from "../../modules/retail/posTerminal";
-import { AssistantMessageContent } from "./AssistantMessageContent";
+import { AssistantActionProductTable, AssistantMessageContent } from "./AssistantMessageContent";
+import { formatActionPreviewValues } from "./assistant-message-format";
 import { AssistantGeneratedFiles } from "./AssistantGeneratedFiles";
 import type { AssistantChatMessage, AssistantIllustration, AssistantSource } from "../../shared/assistant-document";
 import { assistantSourceKind, isAssistantImageUrl, safeAssistantHttpUrl, safeAssistantIllustrationUrl } from "./assistant-link-utils";
@@ -91,10 +92,12 @@ const qaWelcomeMessage: Message = {
 };
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-function AssistantResearchSources({ sources, illustrationUrls = [] }: { sources?: AssistantSource[]; illustrationUrls?: string[] }) {
+function AssistantResearchSources({ sources }: { sources?: AssistantSource[]; illustrationUrls?: string[] }) {
+  const seen = new Set<string>();
   const safeSources = (sources || []).slice(0, 16).flatMap(source => {
     const safeUrl = safeAssistantHttpUrl(source.url);
-    if (!safeUrl) return [];
+    if (!safeUrl || seen.has(safeUrl)) return [];
+    seen.add(safeUrl);
     const url = new URL(safeUrl);
     return [{ title: source.title?.trim() || url.hostname, url: safeUrl, kind: assistantSourceKind(safeUrl) }];
   });
@@ -106,7 +109,6 @@ function AssistantResearchSources({ sources, illustrationUrls = [] }: { sources?
         <a href={source.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2 hover:text-on-surface", focusClass)}>
           <span className="mr-1 font-medium text-on-surface-variant">{source.kind === "image" ? "Ảnh" : source.kind === "document" ? "Tài liệu" : "Trang web"}:</span>
           {source.title}
-          {source.kind === "image" && !illustrationUrls.includes(source.url) && isAssistantImageUrl(source.url) && new URL(source.url).protocol === "https:" && <img src={source.url} alt={`Ảnh: ${source.title}`} loading="lazy" referrerPolicy="no-referrer" className="mt-2 block max-h-48 max-w-full rounded-lg border border-outline-variant object-contain" />}
           <span className="sr-only"> (mở tab mới)</span>
         </a>
       </li>)}
@@ -115,7 +117,7 @@ function AssistantResearchSources({ sources, illustrationUrls = [] }: { sources?
 }
 
 function AssistantAnswerIllustrations({ illustrations }: { illustrations?: AssistantIllustration[] }) {
-  const safeIllustrations = (illustrations || []).slice(0, 1).flatMap(illustration => {
+  const safeIllustrations = (illustrations || []).slice(0, 4).flatMap(illustration => {
     const url = safeAssistantIllustrationUrl(illustration.url);
     const sourceUrl = illustration.sourceUrl ? safeAssistantHttpUrl(illustration.sourceUrl) : null;
     return url ? [{
@@ -127,13 +129,26 @@ function AssistantAnswerIllustrations({ illustrations }: { illustrations?: Assis
     }] : [];
   });
   if (!safeIllustrations.length) return null;
-  return <section className="mt-3 space-y-3" aria-label="Hình minh họa">
-    {safeIllustrations.map((illustration, index) => <figure key={`${illustration.url.slice(0, 80)}-${index}`} className="max-w-2xl space-y-1.5">
-      <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="max-h-96 max-w-full rounded-xl border border-outline-variant object-contain" />
-      <figcaption className="text-xs text-on-surface-variant">{illustration.sourceUrl
-        ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
-        : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
-    </figure>)}
+  if (safeIllustrations.length === 1) {
+    const illustration = safeIllustrations[0];
+    return <section className="mt-3 space-y-3" aria-label="Hình minh họa">
+      <figure className="max-w-2xl space-y-1.5">
+        <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="max-h-96 max-w-full rounded-xl border border-outline-variant object-contain" />
+        <figcaption className="text-pretty text-xs text-on-surface-variant">{illustration.sourceUrl
+          ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
+          : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
+      </figure>
+    </section>;
+  }
+  return <section className="mt-3 space-y-2" aria-label="Hình minh họa từ nguồn tham khảo">
+    <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
+      {safeIllustrations.map((illustration, index) => <figure key={`${illustration.url.slice(0, 80)}-${index}`} className="flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+        <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="h-44 w-full bg-surface-container-low object-cover" />
+        <figcaption className="border-t border-outline-variant px-3 py-2 text-pretty text-xs text-on-surface-variant">{illustration.sourceUrl
+          ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("font-medium text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
+          : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
+      </figure>)}
+    </div>
   </section>;
 }
 function commandAfterWakeWord(text: string): string | null {
@@ -797,11 +812,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   };
 
   const handleSend = async (textToSend = input) => {
-    const text = textToSend.trim();
+    const pendingAttachment = assistantMode === "work" && attachment && !attachmentSubmitted ? attachment : undefined;
+    const rawText = textToSend.trim();
+    const text = rawText || (pendingAttachment ? `Đính kèm tệp ${pendingAttachment.fileName}` : "");
     if (isViewingHistory || !text || isLoading || !synced || isListening || isReadingAttachment || retryRef.current) return;
     stopReplySpeech();
-    const pendingAttachment = assistantMode === "work" && attachment && !attachmentSubmitted ? attachment : undefined;
-    saveHistory([...messages, { role: "user", content: `${text}${pendingAttachment ? `\n📎 ${pendingAttachment.fileName} · ${pendingAttachment.rows.length} dòng` : ""}`, createdAt: new Date().toISOString() }]);
+    saveHistory([...messages, { role: "user", content: rawText ? `${rawText}${pendingAttachment ? `\n📎 ${pendingAttachment.fileName} · ${pendingAttachment.rows.length} dòng` : ""}` : `📎 ${pendingAttachment!.fileName} · ${pendingAttachment!.rows.length} dòng`, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setRevealingReply(null); setSelectedReferences({}); setReferenceSelectionError(""); setVoiceError("");
     await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
   };
@@ -1290,14 +1306,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       <div className={cn("assistant-composer-toolbar", placement === "landing" && (isStandaloneChatHome || mode === "popup") ? cn("flex w-full items-center gap-1", isStandaloneChatHome ? "justify-between pt-2" : "justify-end pt-1") : "contents")}>
         {showChatComposerActions && placement === "landing" && chatComposerActions}
         <div className={cn("flex items-center gap-1", showChatComposerActions ? "order-3" : "contents")}>
-          {!isStandaloneChatHome && assistantMode === "work" && <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("assistant-composer-tool order-1 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+          {assistantMode === "work" && <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("assistant-composer-tool order-1 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
             <Plus className="size-5" aria-hidden="true" />
           </button>}
           {!isStandaloneChatHome && assistantMode === "qa" && <AssistantPromptLibraryAction open={promptLibraryOpen} onClick={() => setPromptLibraryOpen(true)} />}
           <button type="button" onClick={toggleVoiceInput} aria-label={voiceStatus === "manual" ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "manual" ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool order-3 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
             {voiceStatus === "manual" ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
           </button>
-          {input.trim() && !twoWayVoiceEnabled ? <button key="send" type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || Boolean(retryRef.current)} className={cn("order-4 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+          {(input.trim() || (assistantMode === "work" && Boolean(attachment && !attachmentSubmitted))) && !twoWayVoiceEnabled ? <button key="send" type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || isReadingAttachment || Boolean(retryRef.current)} className={cn("order-4 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
             <SendHorizontal className="size-4" aria-hidden="true" />
           </button> : <button key="two-way-voice" type="button" onClick={event => { event.preventDefault(); toggleTwoWayVoice(); }} aria-label={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} aria-pressed={twoWayVoiceEnabled} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={!twoWayVoiceEnabled && (isLoading || !synced || Boolean(retryRef.current))} title={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} className={cn("assistant-composer-tool assistant-live-voice-button order-4 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{twoWayVoiceEnabled ? <Square className="size-4" aria-hidden="true" /> : <AssistantLiveVoiceIcon />}</button>}
         </div>
@@ -1532,7 +1548,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </nav>}
           </section>
         </div> : <>
-        <div ref={logRef} role="log" aria-label="Nội dung trò chuyện" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest px-4 py-5 sm:px-8 sm:py-6">
+        <div ref={logRef} role="log" aria-label="Nội dung trò chuyện" aria-live="polite" className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest", headerPanel && !fullscreen ? "px-3.5 py-4" : "px-4 py-5 sm:px-8 sm:py-6")}>
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
           {displayMessages.map((message, index) => {
             const dateKey = messageLocalDateKey(message.createdAt);
@@ -1542,9 +1558,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             return <React.Fragment key={index}>
           {dateKey && dateKey !== previousDateKey && <div className="flex items-center gap-3 py-1"><span className="h-px min-w-0 flex-1 bg-outline-variant/60" aria-hidden="true" /><time dateTime={message.createdAt} className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-surface-container-low px-3 text-xs font-medium leading-5 text-on-surface-variant">{dateLabel}</time><span className="h-px min-w-0 flex-1 bg-outline-variant/60" aria-hidden="true" /></div>}
           <div className={cn("flex w-full items-start gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
-            {message.role === "user" ? <div className="flex max-w-full flex-col items-end gap-1">
+            {message.role === "user" ? <div className="flex min-w-0 max-w-full flex-col items-end gap-1">
             {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
-            <div className="max-w-3xl rounded-full bg-primary/10 px-3 py-2 text-sm leading-relaxed text-on-surface">
+            <div className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-primary/10 px-3.5 py-2.5 text-sm leading-relaxed text-on-surface sm:max-w-3xl">
               <span className="sr-only">Bạn: </span>
               <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>
                 {message.content.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}
@@ -1561,12 +1577,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                   ? <RevealingAssistantMessage
                     key={revealingReply.requestId}
                     content={message.content}
-                    allowedLinkUrls={message.sources?.map(source => source.url)}
+                    allowedLinkUrls={message.sources?.map(source => source.url) ?? []}
                     requestId={revealingReply.requestId}
                     onProgress={followReplyReveal}
                     onComplete={finishReplyReveal}
                   />
-                    : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url)} /></div>}
+                    : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url) ?? []} /></div>}
               </div>
               <AssistantAnswerIllustrations illustrations={message.illustrations} />
               <AssistantResearchSources sources={message.sources} illustrationUrls={message.illustrations?.map(illustration => illustration.url)} />
@@ -1585,7 +1601,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                 const useCheckboxes = group.multiple || !group.required;
                 return <fieldset key={group.key} className="space-y-1.5">
                   <legend className="mb-1.5 font-medium">{group.label}<span className="ml-2 text-xs font-normal text-on-surface/70">{group.required ? "Bắt buộc" : "Tùy chọn"}{group.multiple ? " · Có thể chọn nhiều" : ""}</span></legend>
-                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <ul className={cn("grid grid-cols-1 gap-2", (!headerPanel || fullscreen) && "sm:grid-cols-2")}>
                     {group.options.map((option, optionIndex) => {
                       const id = `assistant-reference-${groupIndex}-${optionIndex}`;
                       const checked = Boolean(selectedReferences[group.key]?.includes(option.value));
@@ -1622,10 +1638,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               </div>
               {lastReply.status === "confirmation" && <span className="inline-flex shrink-0 items-center rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-medium">Chờ xác nhận</span>}
             </header>
-            {lastReply.action.values.some(item => !item.defaulted) && <dl className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
-              {lastReply.action.values.filter(item => !item.defaulted).map((item, index, visibleValues) => <div key={item.label} className={cn("min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5", visibleValues.length % 2 === 1 && index === visibleValues.length - 1 && "sm:col-span-2")}>
+            {lastReply.action.values.some(item => !item.defaulted) && <dl className={cn("grid grid-cols-1 gap-2 p-3", (!headerPanel || fullscreen) && "sm:grid-cols-2")}>
+              {formatActionPreviewValues(lastReply.action.values).map(item => <div key={item.label} className={cn("min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5", (!headerPanel || fullscreen) && item.fullWidth && "sm:col-span-2")}>
                 <dt className="text-xs text-on-surface/70">{item.label}</dt>
-                <dd className="mt-1 break-words font-medium tabular-nums">{String(item.value)}</dd>
+                <dd className="mt-1 break-words font-medium tabular-nums">
+                  {item.productTable
+                    ? <AssistantActionProductTable label={item.label} table={item.productTable} />
+                    : String(item.value)}
+                </dd>
               </div>)}
             </dl>}
             {lastReply.status === "confirmation" && <div className="space-y-2 border-t border-outline-variant px-3 py-2 sm:px-4">
@@ -1644,7 +1664,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           </div>}
           </div>
         </div>
-        <footer className="shrink-0 bg-surface-container-lowest px-3 py-2 sm:px-6">
+        <footer className={cn("shrink-0 bg-surface-container-lowest px-3 py-2", (!headerPanel || fullscreen) && "sm:px-6")}>
           {isViewingHistory ? <div className="space-y-2 text-center">
             {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
             <p className="text-pretty text-xs text-on-surface/70">Bạn có thể xem lại nội dung trước, hoặc tiếp tục làm việc trong chính phiên này.</p>

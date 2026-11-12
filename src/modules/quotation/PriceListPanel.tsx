@@ -1,5 +1,5 @@
 import { hasQuotationCapability } from "./api";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { api, apiUploadWithProgress, formatDate, formatMoney } from "./api";
 import CatalogProductDialog from "./CatalogProductDialog";
 import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
@@ -177,11 +177,20 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<{ action: CatalogAction; items: CatalogItem[] } | null>(null);
   const [pendingImports, setPendingImports] = useState<PendingImport[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importError, setImportError] = useState("");
   const [preview, setPreview] = useState<PreviewFile | null>(null);
+  const importTrigger = useRef<HTMLButtonElement>(null);
+  const importDialog = useRef<HTMLDialogElement>(null);
+  const importDialogId = useId();
+  const importTitleId = useId();
+  const importHelpId = useId();
+  const importErrorId = useId();
   const input = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const today = new Date().toISOString().slice(0, 10);
   const canManage = hasQuotationCapability("quotation-price-book:manage");
+  const closeImport = () => { if (!busy) { setImportOpen(false); setPendingImports([]); setImportError(""); } };
   const openCreate = () => { setProductMode("create"); setEditingProduct({ _id: "", sku: "", name: "", description: "", unit: "cái", price: 0, currency: "VND", active: true }); };
   const openDuplicate = (item: CatalogItem) => { setProductMode("duplicate"); setEditingProduct({ ...item, sku: "", active: false, effectiveFrom: undefined, effectiveTo: undefined }); };
   const toggleSelection = (id: string, checked: boolean) => setSelectedIds(current => {
@@ -189,7 +198,25 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
   });
 
   useEffect(() => {
+    if (!importOpen) return;
+    const element = importDialog.current!;
+    const previousFocus = importTrigger.current;
+    const previousOverflow = document.body.style.overflow;
+    element.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      element.close();
+      document.body.style.overflow = previousOverflow;
+      const restoreFocus = () => { if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true }); };
+      const progressDialog = document.querySelector<HTMLDialogElement>("dialog.ai-progress-dialog[open]");
+      if (progressDialog) progressDialog.addEventListener("close", restoreFocus, { once: true });
+      else restoreFocus();
+    };
+  }, [importOpen]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (importDialog.current?.open) return;
       if (
         (event.key === "/" || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k")) &&
         document.activeElement?.tagName !== "INPUT" &&
@@ -350,7 +377,8 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
-    if (!selectedFiles.length) return;
+    if (!canManage || busy || !selectedFiles.length) return;
+    setImportError("");
     setBusy(true);
     const errors: string[] = [];
     const previews: PendingImport[] = [];
@@ -378,7 +406,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
         } catch (cause) { errors.push(`${selected.name}: ${cause instanceof Error ? cause.message : "Không đọc được file để xem trước."}`); }
       }
       setPendingImports(previews);
-      if (errors.length) onToast(errors.join(" "), "error");
+      if (errors.length) { setImportError(errors.join(" ")); onToast(errors.join(" "), "error"); }
     }
     finally { setBusy(false); setTaskProgress(null); if (input.current) input.current.value = ""; }
   };
@@ -391,7 +419,8 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
   };
 
   const confirmImports = async () => {
-    if (!pendingImports.length) return;
+    if (!canManage || busy || !pendingImports.length) return;
+    setImportError("");
     setBusy(true);
     const errors: string[] = [];
     const failed: PendingImport[] = [];
@@ -450,8 +479,8 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
           errors.push(`Đã nạp bảng giá nhưng không tải được danh sách sản phẩm: ${cause instanceof Error ? cause.message : "Vui lòng tải lại trang."}`);
         }
       }
-      if (errors.length) onToast([summary, ...errors].filter(Boolean).join(" "), "error");
-      else if (summary) onToast(summary, "success");
+      if (errors.length) { setImportError([summary, ...errors].filter(Boolean).join(" ")); onToast([summary, ...errors].filter(Boolean).join(" "), "error"); }
+      else if (summary) { onToast(summary, "success"); setImportOpen(false); }
     } finally { setBusy(false); setTaskProgress(null); }
   };
 
@@ -461,15 +490,20 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
       <div className="price-list-header-actions catalog-header-actions">
         <ErpRefreshButton className="price-list-refresh-button" loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
         {products.length > 0 && <button type="button" className="button price-list-export-button price-list-excel-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
-        <button type="button" className="button price-list-excel-button" disabled={!canManage || busy || loading || pendingImports.length > 0} onClick={() => input.current?.click()}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
+        <button ref={importTrigger} type="button" className="button price-list-excel-button" disabled={!canManage || busy || loading} aria-haspopup="dialog" aria-expanded={importOpen} aria-controls={importOpen ? importDialogId : undefined} onClick={() => { setPendingImports([]); setImportError(""); setImportOpen(true); }}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
         <button type="button" className="button button-primary price-list-add-button" disabled={!canManage || busy || loading} title={canManage ? "Nhập sản phẩm trực tiếp" : "Cần quyền quản lý bảng giá"} onClick={openCreate}>Thêm sản phẩm</button>
       </div>
-      <input ref={input} type="file" hidden multiple disabled={!hasQuotationCapability("quotation-price-book:manage") || (busy || pendingImports.length > 0)} accept=".csv,.xlsx,.xls" onChange={(event) => void upload(event)} />
     </section>
-    {taskProgress && <TaskProgress {...taskProgress} />}
     {loadError && <p className="form-error" role="alert">{loadError} Hãy bấm Làm mới để tải lại.</p>}
+    {importOpen && <dialog ref={importDialog} id={importDialogId} className="template-dialog catalog-bulk-dialog price-list-import-dialog" aria-labelledby={importTitleId} aria-describedby={importHelpId} onCancel={(event) => { event.preventDefault(); closeImport(); }}>
+      <div className="settings-card-heading"><h2 id={importTitleId} className="text-balance">Nhập bảng giá từ Excel/CSV</h2><button type="button" className="icon-button" aria-label="Đóng cửa sổ nhập bảng giá" disabled={busy} onClick={closeImport}>×</button></div>
+      <p id={importHelpId} className="text-pretty text-sm text-on-surface-variant">Chọn một hoặc nhiều file Excel (.xlsx, .xls) hoặc CSV, tối đa 5 MB mỗi file. Kiểm tra sheet và cột trước khi xác nhận nhập.</p>
+      <div className="preview-actions"><button type="button" autoFocus className="button button-soft" disabled={busy || !canManage} aria-describedby={importError ? `${importHelpId} ${importErrorId}` : importHelpId} onClick={() => input.current?.click()}>{pendingImports.length ? "Chọn lại file" : "Chọn file Excel/CSV"}</button></div>
+      <input ref={input} type="file" hidden multiple aria-label="Chọn file bảng giá Excel hoặc CSV" aria-describedby={importError ? `${importHelpId} ${importErrorId}` : importHelpId} aria-invalid={Boolean(importError)} disabled={!canManage || busy} accept=".csv,.xlsx,.xls" onChange={(event) => void upload(event)} />
+      {taskProgress && <TaskProgress {...taskProgress} />}
+      <div aria-busy={busy}>
     {pendingImports.length > 0 && <section className="content-card import-preview price-list-import-review">
-      <div className="price-list-review-heading"><div><h2>Kiểm tra cột trước khi nhập</h2><p className="muted">Chọn tiêu đề và ghép các cột. Cột để thành “Thuộc tính riêng” sẽ được lưu theo đúng tên cột.</p></div><span className="pending-count">{pendingImports.length} file</span></div>
+      <div className="price-list-review-heading"><div><h3 className="text-balance">Kiểm tra cột trước khi nhập</h3><p className="muted text-pretty">Chọn tiêu đề và ghép các cột. Cột để thành “Thuộc tính riêng” sẽ được lưu theo đúng tên cột.</p></div><span className="pending-count tabular-nums">{pendingImports.length} file</span></div>
       <div className="price-list-review-files">{pendingImports.map((pending, fileIndex) => <article className="price-list-review-file" key={`${pending.file.name}-${fileIndex}`}>
         <h3>{pending.file.name}</h3>
         {pending.sheets.map((sheet) => {
@@ -493,8 +527,11 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
           </section>;
         })}
       </article>)}</div>
-      <div className="preview-actions"><button type="button" className="button button-soft" disabled={busy} onClick={() => setPendingImports([])}>Hủy</button><button type="button" className="button button-primary" disabled={!hasQuotationCapability("quotation-price-book:manage") || (busy)} onClick={() => void confirmImports()}>{busy ? "Đang nhập…" : "Xác nhận và nhập"}</button></div>
     </section>}
+      </div>
+      {importError && <p id={importErrorId} className="form-error text-pretty" role="alert">{importError}</p>}
+      <div className="preview-actions"><button type="button" className="button button-soft" disabled={busy} onClick={closeImport}>Hủy</button><button type="button" className="button button-primary" disabled={!canManage || busy || !pendingImports.length} aria-describedby={importError ? importErrorId : !pendingImports.length ? importHelpId : undefined} onClick={() => void confirmImports()}>{busy ? "Đang xử lý…" : "Xác nhận và nhập"}</button></div>
+    </dialog>}
     <section className="content-card list-card price-list-product-card">
       {(loading || products.length > 0) && <div className="price-list-toolbar-section">
         <div className="price-list-search-row">

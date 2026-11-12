@@ -1,7 +1,56 @@
+const TRACKING_QUERY_PARAMS = new Set([
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "utm_id",
+  "fbclid",
+  "gclid",
+  "msclkid",
+  "mc_cid",
+  "mc_eid",
+]);
+
+function trimUrlCandidate(value: string): string {
+  return value.trim().replace(/[.,;:!?]+$/, "");
+}
+
 export function safeAssistantHttpUrl(value: string): string | null {
   try {
-    const url = new URL(value);
+    let url = new URL(trimUrlCandidate(value));
     if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password) return null;
+    if ((url.hostname === "www.google.com" || url.hostname === "google.com") && url.pathname === "/url") {
+      const target = url.searchParams.get("q") || url.searchParams.get("url");
+      if (target) {
+        const inner = new URL(trimUrlCandidate(target));
+        if ((inner.protocol === "http:" || inner.protocol === "https:") && !inner.username && !inner.password) {
+          url = inner;
+        }
+      }
+    }
+    for (const key of [...url.searchParams.keys()]) {
+      if (TRACKING_QUERY_PARAMS.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+    if (url.hash === "#") url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function canonicalAssistantLinkUrl(value: string): string | null {
+  const safe = safeAssistantHttpUrl(value);
+  if (!safe) return null;
+  try {
+    const url = new URL(safe);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (url.pathname.length > 1) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
     return url.toString();
   } catch {
     return null;

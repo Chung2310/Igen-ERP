@@ -1,0 +1,541 @@
+[
+  {
+    "method": "GET",
+    "path": "/quotation/overview",
+    "operationId": "quotation.overview",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1269
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/usage",
+    "operationId": "quotation.usage",
+    "file": "server/modules/quotation/router.ts",
+    "line": 557
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/settings",
+    "operationId": "quotation.settings.list",
+    "file": "server/modules/quotation/router-adapter.ts",
+    "line": 62
+  },
+  {
+    "method": "PUT",
+    "path": "/quotation/settings",
+    "operationId": "quotation.settings.update",
+    "file": "server/modules/quotation/router-adapter.ts",
+    "line": 65
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/catalog",
+    "operationId": "quotation.catalog.list",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 5
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog",
+    "operationId": "quotation.catalog.create",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 6
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotation/catalog/:id",
+    "operationId": "quotation.catalog.update",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 9
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog/:id/duplicate",
+    "operationId": "quotation.catalog.duplicate",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 10
+  },
+  {
+    "method": "DELETE",
+    "path": "/quotation/catalog/:id",
+    "operationId": "quotation.catalog.delete",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 15
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog/:id/restore",
+    "operationId": "quotation.catalog.restore",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 16
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog/bulk",
+    "operationId": "quotation.catalog.bulk",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 8
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog/import/preview",
+    "operationId": "quotation.catalog.import-preview",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1011
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog/import/confirm",
+    "operationId": "quotation.catalog.import",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1033
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/price-list",
+    "operationId": "quotation.price-list.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 929
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quote-templates",
+    "operationId": "quotation.template.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 563
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotation/quote-template/:id/category",
+    "operationId": "quotation.template.update",
+    "file": "server/modules/quotation/router.ts",
+    "line": 615
+  },
+  {
+    "method": "DELETE",
+    "path": "/quotation/quote-template/:id",
+    "operationId": "quotation.template.delete",
+    "file": "server/modules/quotation/router.ts",
+    "line": 643
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quote-template/:id/file",
+    "operationId": "quotation.template.download",
+    "file": "server/modules/quotation/router.ts",
+    "line": 668
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quote-requests",
+    "operationId": "quotation.request.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1166
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quote-requests",
+    "operationId": "quotation.request.create",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1110
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quote-requests/:id/analyze",
+    "operationId": "quotation.request.analyze",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1174
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/customer-quotes/suggest",
+    "operationId": "quotation.customer-quote.suggest",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1357
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quotes",
+    "operationId": "quotation.quote.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1292
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quotes/:id",
+    "operationId": "quotation.quote.detail",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1761
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/customer-quotes",
+    "operationId": "quotation.customer-quote.create",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1530
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes",
+    "operationId": "quotation.estimate.create",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1644
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes/from-customer",
+    "operationId": "quotation.estimate.from-customer",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1599
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotation/quotes/:id",
+    "operationId": "quotation.quote.update",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1896
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes/:id/submit-review",
+    "operationId": "quotation.quote.submit-review",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2080
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes/:id/approve",
+    "operationId": "quotation.quote.approve",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2095
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes/:id/reject",
+    "operationId": "quotation.quote.reject",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2124
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes/:id/recalculate",
+    "operationId": "quotation.quote.recalculate",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1861
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quotes/:id/export/retry",
+    "operationId": "quotation.quote.export-retry",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2747
+  },
+  {
+    "method": "DELETE",
+    "path": "/quotation/quotes/:id",
+    "operationId": "quotation.quote.delete",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1820
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/budget-plans",
+    "operationId": "quotation.budget.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1369
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/budget-plans/suggest",
+    "operationId": "quotation.budget.create",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1502
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotation/budget-plans/:id",
+    "operationId": "quotation.budget.quantity",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1376
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/contracts",
+    "operationId": "quotation.contract.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2222
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/contracts/:id",
+    "operationId": "quotation.contract.detail",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2331
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/contracts",
+    "operationId": "quotation.contract.create",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2242
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotation/contracts/:id",
+    "operationId": "quotation.contract.update",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2385
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/contracts/:id/sign",
+    "operationId": "quotation.contract.sign",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2415
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-records",
+    "operationId": "quotation.acceptance.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2440
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-records/:id",
+    "operationId": "quotation.acceptance.detail",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2522
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/acceptance-records",
+    "operationId": "quotation.acceptance.create",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2448
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotation/acceptance-records/:id",
+    "operationId": "quotation.acceptance.update",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2683
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/acceptance-records/:id/complete",
+    "operationId": "quotation.acceptance.complete",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2722
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quotes/:id/export",
+    "operationId": "quotation.quote.export",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2767
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quotes/:id/pdf",
+    "operationId": "quotation.quote.pdf",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2900
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/budget-plans/:id/export",
+    "operationId": "quotation.budget.export",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1451
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/contracts/:id/file",
+    "operationId": "quotation.contract.export",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2342
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-records/:id/file",
+    "operationId": "quotation.acceptance.export",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2535
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-records/:id/settlement/file",
+    "operationId": "quotation.acceptance.settlement",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2611
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/files",
+    "operationId": "quotation.file.list",
+    "file": "server/modules/quotation/router.ts",
+    "line": 696
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/files/:id/download",
+    "operationId": "quotation.file.download",
+    "file": "server/modules/quotation/router.ts",
+    "line": 828
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/generated-export-files/latest",
+    "operationId": "quotation.export.latest",
+    "file": "server/modules/quotation/router.ts",
+    "line": 731
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/catalog/bulk/preview",
+    "operationId": "quotation.catalog.bulk",
+    "file": "server/modules/quotation/catalog.routes.ts",
+    "line": 7
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/contracts/:id/docx",
+    "operationId": "quotation.contract.export",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2342
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-records/:id/docx",
+    "operationId": "quotation.acceptance.export",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2535
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-records/:id/settlement.xlsx",
+    "operationId": "quotation.acceptance.settlement",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2611
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quote-template",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 576
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/quote-template",
+    "assistantUnsupported": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 582
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/price-list/:id/file",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 685
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/export-jobs/:id",
+    "assistantUnsupported": "Trợ lý tra tiến độ qua chứng từ nguồn bằng quotation.export.latest, không yêu cầu người dùng nhập ID tác vụ nội bộ.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 708
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/files/:id/preview",
+    "assistantUnsupported": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 844
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/files",
+    "assistantUnsupported": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 857
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/dashboard",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 914
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/price-list/preview",
+    "assistantUnsupported": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 935
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/price-list",
+    "assistantUnsupported": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 952
+  },
+  {
+    "method": "POST",
+    "path": "/quotation/request-files",
+    "assistantUnsupported": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1078
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/request-files/:id/preview",
+    "assistantUnsupported": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1093
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/quotes/:id/request-file/preview",
+    "assistantUnsupported": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 1832
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/document-templates/:kind",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2133
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/contract-templates",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2154
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/acceptance-templates",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2160
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/settlement-templates",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2166
+  },
+  {
+    "method": "GET",
+    "path": "/quotation/contracts/prefill",
+    "assistantUnsupported": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
+    "file": "server/modules/quotation/router.ts",
+    "line": 2182
+  }
+]

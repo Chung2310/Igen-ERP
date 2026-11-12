@@ -1,6 +1,7 @@
 import { operationById, type AssistantOperation } from "./catalog";
 import { redactAssistantResult } from "./structured-data";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
+import { formatAssistantResultTable } from "../../src/shared/assistant-result-table";
 
 type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "path">>;
 type ResultRecord = Record<string, unknown>;
@@ -156,7 +157,7 @@ Object.assign(labels, { publishedCount: "Số phiếu lương đã công bố" }
 Object.assign(labels, { group: "Nhóm", action: "Thao tác" });
 Object.assign(labels, { withdrawn: "Đã thu hồi phiếu lương" });
 Object.assign(labels, { pendingOwnerSetup: "Cần thiết lập chủ chi nhánh" });
-Object.assign(labels, { totalCount: "Tổng lượt gửi", sentCount: "Đã gửi", failedCount: "Gửi lỗi", pendingCount: "Đang chờ", skippedCount: "Đã bỏ qua" });
+Object.assign(labels, { totalCount: "Tổng lượt gửi", sentCount: "Đã gửi", failedCount: "Gửi lỗi", pendingCount: "Đang chờ", skippedCount: "Đã bỏ qua", importedCount: "Đã nhập thành công", errors: "Dòng lỗi", row: "Dòng" });
 Object.assign(labels, { configured: "Đã cài đặt", birthdayEnabled: "Gửi email sinh nhật", holidayEnabled: "Gửi email ngày lễ", sendTime: "Giờ gửi", holidayOverridesCount: "Số ngày ngoại lệ" });
 
 Object.assign(labels, { partnerName: "Đối tác", partnerCode: "Mã đối tác", periodStart: "Từ ngày", periodEnd: "Đến ngày", balanceAmount: "Còn lại", version: "Phiên bản" });
@@ -845,6 +846,26 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const countValue = (value: unknown) => Number.isSafeInteger(Number(value)) && Number(value) >= 0
     ? new Intl.NumberFormat("vi-VN").format(Number(value))
     : "0";
+  if (["student.bulk.preview", "student.bulk.create"].includes(operation.id)) {
+    const errors = Array.isArray(dataResult.errors) ? dataResult.errors : [];
+    const importedCount = Number.isSafeInteger(Number(dataResult.importedCount)) ? Math.max(0, Number(dataResult.importedCount)) : 0;
+    const skippedCount = Number.isSafeInteger(Number(dataResult.skippedCount)) ? Math.max(0, Number(dataResult.skippedCount)) : errors.length;
+    const rows = errors.slice(0, 20).flatMap((entry: unknown, index: number) => {
+      const error = recordOf(entry);
+      if (!error) return [];
+      return [{
+        "Dòng": String(Number.isSafeInteger(Number(error.row)) && Number(error.row) > 0 ? Number(error.row) : index + 1),
+        ...(typeof error.name === "string" && error.name.trim() ? { "Học viên": error.name.trim().slice(0, 160) } : {}),
+        ...(typeof error.phone === "string" && error.phone.trim() ? { "Số điện thoại": error.phone.trim().slice(0, 40) } : {}),
+        "Lý do": typeof error.reason === "string" && error.reason.trim() ? error.reason.trim().slice(0, 240) : "Dữ liệu cần kiểm tra.",
+      }];
+    });
+    const summary = operation.id === "student.bulk.preview"
+      ? rows.length ? `Có ${errors.length} dòng cần sửa trước khi nhập.` : "Danh sách học viên chưa có dòng nào cần sửa."
+      : `Đã nhập ${countValue(importedCount)} học viên; bỏ qua ${countValue(skippedCount)} dòng.`;
+    const after = errors.length > rows.length ? [`Còn ${errors.length - rows.length} dòng lỗi chưa hiển thị.`] : [];
+    return rows.length ? formatAssistantResultTable(summary, rows, after) : summary;
+  }
   const moneyValue = (value: unknown) => Number.isFinite(Number(value))
     ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} ₫`
     : "0 ₫";
@@ -1461,6 +1482,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
 /** Add a natural Vietnamese conversational frame to the already-filtered result. */
 export function formatFriendlyAssistantResult(operation: ResultOperation & { method?: string }, input: unknown): string {
   const formatted = formatAssistantResult(operation, input);
+  if (["student.bulk.preview", "student.bulk.create"].includes(operation.id)) return formatted;
   const lines = formatted.split("\n");
   const firstLine = lines[0] || "";
   const listMatch = firstLine.match(/·\s*(\d+)\s+kết quả/i);

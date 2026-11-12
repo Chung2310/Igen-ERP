@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, apiUploadWithProgress, ApiError, canUseErpCustomers, configureQuotationClient, hasQuotationCapability, quotationEndpoint, quotationFetch } from "./api";
+import { api, apiUploadWithProgress, ApiError, canUseErpCustomers, configureQuotationClient, createGeneratedExport, hasQuotationCapability, quotationEndpoint, quotationFetch } from "./api";
+import { aiProgress } from "./ai-progress";
 const scope = (branchId = "branch-a", capabilities = ["quotation:manage"]) => ({ user: { id: "qa", name: "QA", email: "qa@example.test", role: "user" as const }, companyCode: "QA", branchId, capabilities });
 describe("quotation ERP transport", () => {
   let release: () => void;
@@ -69,6 +70,39 @@ describe("quotation ERP transport", () => {
     const assertion = expect(pending).rejects.toMatchObject({ name: "AbortError" });
     release = configureQuotationClient(scope("branch-b"));
     finish!(new Response("{}")); await assertion;
+  });
+  it("fails a generated export promptly when the server never acknowledges the queued job", async () => {
+    const fetch = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      const signal = init.signal as AbortSignal;
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(createGeneratedExport("/api/quotes/quote-id/export?draft=1&background=1", 25)).rejects.toMatchObject({
+      status: 408,
+      message: "Máy chủ không phản hồi khi bắt đầu tạo file. Dữ liệu đã được lưu; hãy mở lại chứng từ để kiểm tra hoặc tạo lại file.",
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it("ends customer quote processing when its background file status request stalls", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("Request timed out", "TimeoutError")), 20);
+      return controller.signal;
+    });
+    try {
+      const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes("/customer-quotes?")) return Promise.resolve(Response.json({ quote: { _id: "quote-id" } }));
+        const signal = init?.signal as AbortSignal;
+        return new Promise<Response>((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+      });
+      vi.stubGlobal("fetch", fetch);
+      await api("/api/customer-quotes", { method: "POST", body: "{}" });
+      await new Promise((resolve) => setTimeout(resolve, 45));
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(aiProgress.getSnapshot().some((task) => task.status === "failed" && task.label === "Đang tạo file báo giá khách")).toBe(true);
+    } finally {
+      timeout.mockRestore();
+    }
   });
   it("sends the loaded revision when saving and preserves domain status errors", async () => {
     const revision = "2026-11-06T00:00:00.000Z";
