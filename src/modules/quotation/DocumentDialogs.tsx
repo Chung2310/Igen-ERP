@@ -1,5 +1,5 @@
 import { userMessage } from "./user-message";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { api, createGeneratedExport, formatMoney, hasQuotationCapability } from "./api";
 import { formatVndInputValue, parseVndInputValue, updateVndInput } from "./money-input";
 import type { AcceptanceRecord, Contract, Quote } from "./types";
@@ -12,6 +12,23 @@ type ContractTemplateOption = { id: string; name: string; originalFilename: stri
 
 function templateFormat(extension: string) {
   return extension === "docx" ? "Word" : extension === "xlsx" ? "Excel" : "PDF";
+}
+
+function DocumentDialog({ className = "document-dialog", labelledBy, busy, onClose, children }: {
+  className?: string; labelledBy: string; busy: boolean; onClose: () => void; children: ReactNode;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element || element.open) return;
+    element.showModal();
+    return () => { if (element.open) element.close(); };
+  }, []);
+  return <dialog ref={dialog} className={className} aria-labelledby={labelledBy}
+    onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}
+    onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+    {children}
+  </dialog>;
 }
 
 async function loadContractTemplates() {
@@ -55,8 +72,7 @@ export function ApprovedEstimatePickerDialog({ contracts, onClose, onSelect, not
     setBusy(true);
     onSelect(quote);
   };
-  return <div className="document-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <section className="document-dialog document-dialog-picker" role="dialog" aria-modal="true" aria-labelledby="estimate-picker-title">
+  return <DocumentDialog className="document-dialog document-dialog-picker" labelledBy="estimate-picker-title" busy={busy} onClose={onClose}>
       <div className="document-dialog-head"><div><h2 id="estimate-picker-title">Tạo hợp đồng từ dự toán</h2><p>Chọn một dự toán đã duyệt để bắt đầu.</p></div><div className="document-dialog-head-actions"><button type="button" aria-label="Đóng" onClick={onClose}>×</button></div></div>
       <form onSubmit={submit}>
         <div className="document-dialog-body">
@@ -67,8 +83,7 @@ export function ApprovedEstimatePickerDialog({ contracts, onClose, onSelect, not
         </div>
         <div className="document-dialog-actions"><button type="button" className="button button-soft" onClick={onClose}>Đóng</button><button type="submit" className="button button-primary" disabled={loading || !quotes.length || !selectedId}>Tiếp tục</button></div>
       </form>
-    </section>
-  </div>;
+  </DocumentDialog>;
 }
 
 export function ContractCreationDialog({ quote, onClose, onCreated, notify }: {
@@ -169,8 +184,7 @@ export function ContractCreationDialog({ quote, onClose, onCreated, notify }: {
     } catch (error) { notify(error instanceof Error ? error.message : "Không tạo được hợp đồng.", "error"); }
     finally { setBusy(false); }
   };
-  return <div className="document-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <section className="document-dialog" role="dialog" aria-modal="true" aria-labelledby="contract-create-title">
+  return <DocumentDialog labelledBy="contract-create-title" busy={busy} onClose={onClose}>
       <div className="document-dialog-head"><div><h2 id="contract-create-title">Tạo hợp đồng từ dự toán</h2><p>{quote.quoteNumber} · {formatMoney(quote.total, quote.currency)} · {quote.lines.length} hạng mục</p></div><div className="document-dialog-head-actions"><button type="button" aria-label="Đóng" onClick={onClose} disabled={busy}>×</button></div></div>
       <form onSubmit={(event) => void submit(event)}>
         <div className="document-dialog-body">
@@ -194,8 +208,7 @@ export function ContractCreationDialog({ quote, onClose, onCreated, notify }: {
         </div>
         <div className="document-dialog-actions"><button type="button" className="button button-soft" onClick={onClose} disabled={busy}>Hủy</button><button type="submit" className="button button-primary" disabled={busy || loading || templatesLoading || Boolean(templateError)}>{generatingFile ? "AI đang điền và lưu mẫu…" : busy ? "Đang tạo hợp đồng…" : "Tạo hợp đồng"}</button></div>
       </form>
-    </section>
-  </div>;
+  </DocumentDialog>;
 }
 
 export function AcceptanceCreationDialog({ contract, onClose, onCreated, notify }: {
@@ -278,8 +291,7 @@ export function AcceptanceCreationDialog({ contract, onClose, onCreated, notify 
     } catch (error) { notify(error instanceof Error ? error.message : "Không tạo được nghiệm thu.", "error"); }
     finally { setBusy(false); }
   };
-  return <div className="document-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <section className="document-dialog" role="dialog" aria-modal="true" aria-labelledby="acceptance-create-title">
+  return <DocumentDialog labelledBy="acceptance-create-title" busy={busy} onClose={onClose}>
       <div className="document-dialog-head"><div><h2 id="acceptance-create-title">Tạo biên bản nghiệm thu</h2><p>Từ hợp đồng {contract.contractNumber}</p></div><div className="document-dialog-head-actions"><button type="button" aria-label="Đóng" onClick={onClose} disabled={busy}>×</button></div></div>
       <form onSubmit={(event) => void submit(event)}><div className="document-dialog-body">
         <h3>Mẫu nghiệm thu</h3>
@@ -302,6 +314,5 @@ export function AcceptanceCreationDialog({ contract, onClose, onCreated, notify 
         <label>Ghi chú / tồn tại<textarea maxLength={4000} rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
         {!quantities.some((quantity) => quantity > 0) && <p className="document-dialog-note">Cần nghiệm thu ít nhất một hạng mục có khối lượng lớn hơn 0.</p>}
       </div><div className="document-dialog-actions"><button type="button" className="button button-soft" disabled={busy} onClick={onClose}>Hủy</button><button type="submit" className="button button-primary" disabled={busy || templatesLoading || Boolean(templateError) || contractLinesLoading || Boolean(contractLinesError) || !contractLines.length || !quantities.some((quantity) => quantity > 0)}>{busy ? "Đang tạo…" : "Tạo biên bản"}</button></div></form>
-    </section>
-  </div>;
+  </DocumentDialog>;
 }
