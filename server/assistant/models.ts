@@ -7,6 +7,9 @@ const sessionSchema = new Schema({ ...scope, branchId: { type: String, default: 
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, conversationId: 1 }, { unique: true });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, updatedAt: -1, _id: -1 });
 export const AssistantSessionModel = model("AssistantSession", sessionSchema);
+const projectCollectionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, projects: { type: [Schema.Types.Mixed], default: [] } }, { timestamps: true });
+projectCollectionSchema.index({ companyCode: 1, userId: 1, branchId: 1 }, { unique: true });
+export const AssistantProjectCollectionModel = model("AssistantProjectCollection", projectCollectionSchema);
 const turnSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, requestId: { type: String, required: true }, conversationId: { type: String, required: true }, digest: { type: String, required: true }, status: { type: String, enum: ["processing", "executing", "completed", "uncertain"], default: "processing" }, actionId: String, workflowVersion: Number, payload: Schema.Types.Mixed, result: Schema.Types.Mixed }, { timestamps: true });
 turnSchema.index({ companyCode: 1, userId: 1, branchId: 1, requestId: 1 }, { unique: true });
 turnSchema.index({ companyCode: 1, userId: 1, conversationId: 1, createdAt: -1 });
@@ -63,5 +66,5 @@ export const AssistantDocumentModel = model("AssistantDocument", documentSchema)
 let indexReadiness: Promise<unknown> | undefined;
 /** Do not accept deduplicated writes until their unique indexes exist. */
 export function ensureAssistantIndexes() {
-  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
+  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
 }

@@ -10,6 +10,7 @@ import { downloadAssistantSlideDeck } from "./assistant-studio-pptx";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import { assistantSlideLayoutOptions, assistantSlideThemes, getAssistantSlideTheme, getSlideMetrics, inferSlideLayout } from "./assistant-slide-design";
 import { AssistantStudioSlideCanvas } from "./AssistantStudioSlideCanvas";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 import { StyledSelect } from "./StyledSelect";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -563,9 +564,9 @@ export function AssistantStudioSlideTool({ onBack, initialDeckId = null }: { onB
       <form onSubmit={createDeck} aria-busy={isGenerating} aria-describedby={error ? "assistant-slide-form-error" : undefined} className="mx-auto flex w-full max-w-4xl min-h-full flex-col px-4 pb-8 pt-4 sm:px-6 sm:pt-6">
       <div className="text-center">
         <div className="flex items-center justify-center gap-2.5">
-          <h1 className="text-balance text-2xl font-bold leading-tight text-on-surface sm:text-[37px] sm:leading-[1.2]">
+          <h1 className={assistantStudioTitleClass}>
             <span>Tóm tắt tài liệu thành slide báo cáo </span>
-            <span className="bg-[linear-gradient(90deg,#00adfc_0%,#199bff_55%,#7567ff_100%)] bg-clip-text text-transparent">với AI</span>
+            <span className={assistantStudioTitleAccentClass}>với AI</span>
           </h1>
           <AssistantStudioBrandMark className="size-7 shrink-0 sm:size-8" />
         </div>
@@ -750,11 +751,8 @@ export function AssistantStudioSlideTool({ onBack, initialDeckId = null }: { onB
         </aside>
 
         <section aria-label="Bản xem trước slide" className="min-w-0 bg-surface-container-low p-4 sm:p-6 min-h-0 overflow-y-auto lg:p-7">
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0"><p className="text-xs font-medium text-on-surface-variant">BẢN XEM TRƯỚC</p><h2 className="mt-0.5 truncate text-balance text-base font-semibold text-on-surface">{slideLabel(deck, activeIndex)}</h2></div>
-              {isSaving && <span role="status" className="text-xs text-on-surface-variant">Đang lưu thay đổi…</span>}
-            </div>
+          <div className="mx-auto w-full max-w-6xl rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:p-4">
+            {isSaving && <p role="status" className="mb-3 text-xs text-on-surface-variant">Đang lưu thay đổi…</p>}
             {directEditing && <section aria-label="Thanh công cụ định dạng slide" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-2">
               <StyledSelect
                 ariaLabel={"Font ch\u1eef"}

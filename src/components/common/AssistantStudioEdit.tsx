@@ -7,6 +7,7 @@ import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory,
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
@@ -366,12 +367,12 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
           /* Empty state with edit type picker */
           <div className="flex flex-1 flex-col items-center justify-center py-6 text-center lg:py-8">
             <div className="space-y-2.5">
-              <h2 className="mx-auto max-w-3xl text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]">
-                <span className="bg-[linear-gradient(90deg,#00adfc_0%,#7567ff_100%)] bg-clip-text text-transparent">
+              <h2 className={cn("mx-auto max-w-3xl", assistantStudioTitleClass)}>
+                <span className={assistantStudioTitleAccentClass}>
                   Chỉnh sửa hình ảnh
                 </span>{" "}
                 <span className="text-on-surface">thông minh</span>{" "}
-                <span className="text-primary">cùng AI</span>
+                <span className={assistantStudioTitleAccentClass}>cùng AI</span>
               </h2>
               <p className="text-pretty text-sm sm:text-base text-on-surface-variant">
                 Tải ảnh lên, chọn loại chỉnh sửa và mô tả yêu cầu để bắt đầu.

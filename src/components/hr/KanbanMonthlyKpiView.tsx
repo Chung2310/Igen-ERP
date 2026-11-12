@@ -143,7 +143,7 @@ export default function KanbanMonthlyKpiView({ activeBranchId, initialPeriod }: 
       {loading ? <p className="p-6 text-center text-xs text-slate-500">Đang tải KPI...</p> : (
         <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4]">
           <table className="w-full text-left text-xs tabular-nums">
-            <thead className="bg-[#F5FAFE] text-slate-600 font-medium"><tr><th className="px-3 py-2 font-medium">Nhân viên</th><th className="px-3 py-2 text-center font-medium">Đúng hạn</th><th className="px-3 py-2 text-center font-medium">Tổng công việc</th><th className="px-3 py-2 text-center font-medium">Chưa đạt KPI</th><th className="min-w-40 px-3 py-2 font-medium">KPI</th></tr></thead>
+            <thead className="bg-[#F5FAFE] text-slate-600 font-medium"><tr><th className="px-3 py-2 font-medium">Nhân viên</th><th className="px-3 py-2 text-center font-medium">Đạt KPI</th><th className="px-3 py-2 text-center font-medium">Tổng công việc</th><th className="px-3 py-2 text-center font-medium">Chưa đạt KPI</th><th className="min-w-40 px-3 py-2 font-medium">KPI</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {report?.rows.map((row) => (
                 <tr key={row.employeeId}>

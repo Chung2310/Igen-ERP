@@ -106,9 +106,9 @@ export function Assistant2DFileIcon({
     <FileArtwork kind={kind} accentClass={accentClass} />
     <rect x="9" y="44" width="29" height="11" rx="3" className={accentClass} />
     <text x="23.5" y="49.6" textAnchor="middle" dominantBaseline="middle" fontFamily="ui-sans-serif, system-ui, sans-serif" fontSize="8.5" fontWeight="700" className={contrastClass}>{format}</text>
-    {action && <g aria-hidden="true">
+    {action === "download" && <g aria-hidden="true">
       <circle cx="51" cy="49" r="10.5" className="fill-primary stroke-surface-container-lowest" strokeWidth="2" />
-      {action === "upload" ? <path d="M51 54V44m-4 4 4-4 4 4M47 57h8" className="stroke-on-primary" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /> : <path d="M51 44v10m-4-4 4 4 4-4M47 57h8" className="stroke-on-primary" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+      <path d="M51 44v10m-4-4 4 4 4-4M47 57h8" className="stroke-on-primary" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </g>}
   </svg>;
 }

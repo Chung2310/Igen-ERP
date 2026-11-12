@@ -676,7 +676,7 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
       const referralStatuses: Record<string, string> = { pending: "Đang chờ xác nhận", active: "Đang hoạt động", ended: "Đã kết thúc" };
       const referralSchemes: Record<string, string> = { official_monthly: "Chính thức", seasonal_hourly: "Thời vụ theo giờ" };
       const referralSources: Record<string, string> = { contract: "Hợp đồng", manual: "Thủ công", attendance: "Chấm công" };
-      const calendarAuditActions: Record<string, string> = { created: "Tạo", updated: "Cập nhật", synced: "Đồng bộ" };
+      const calendarAuditActions: Record<string, string> = { created: "Tạo", updated: "Cập nhật", deleted: "Xóa", synced: "Đồng bộ" };
       const reminderTriggers: Record<string, string> = { manual: "Chạy thủ công", scheduled: "Theo lịch" };
       const formatted = operation.id.startsWith("marketing.chat-flow.") && key === "fields" && Array.isArray(value)
         ? value.map((field: any) => [field?.label, field?.question].filter((part: unknown) => typeof part === "string" && part.trim()).join(": ")).filter(Boolean).join("; ")

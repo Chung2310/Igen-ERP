@@ -209,4 +209,5 @@ timekeepingRouter.get("/work-calendar", requireAuth as any, companyWorkCalendarC
 timekeepingRouter.post("/work-calendar/sync", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(calendarYearSchema), companyWorkCalendarController.sync as any);
 timekeepingRouter.post("/work-calendar", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(createCalendarDaySchema), companyWorkCalendarController.create as any);
 timekeepingRouter.patch("/work-calendar/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest(updateCalendarDaySchema), companyWorkCalendarController.update as any);
+timekeepingRouter.delete("/work-calendar/:id", requireAuth as any, requirePermission("timekeeping:manage") as any, validateRequest({ params: Joi.object({ id: Joi.string().hex().length(24).required() }) }), companyWorkCalendarController.delete as any);
 timekeepingRouter.get("/work-calendar/:id/audit", requireAuth as any, companyWorkCalendarController.audit as any);

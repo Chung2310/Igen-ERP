@@ -8,6 +8,8 @@ import {
   type AssistantStudioHistoryEntry,
 } from "../../services/assistantStudioHistory";
 import { getAssistantSpeechHistoryUserId, listAssistantSpeechHistory } from "../../services/assistantSpeechHistory";
+import type { AssistantProject } from "./assistant-project-data";
+import { AssistantMoveToProjectMenu } from "./AssistantMoveToProjectMenu";
 
 const focusClass =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -23,6 +25,10 @@ export interface AssistantQuickHistoryDropdownProps {
   onOpenConversation: (conversation: AssistantConversationSummary) => void;
   onOpenStudio: (item: AssistantStudioHistoryEntry) => void;
   onOpenHistory: () => void;
+  projects: AssistantProject[];
+  assignedConversationIds: ReadonlySet<string>;
+  onMoveConversation: (conversation: AssistantConversationSummary, projectId: string) => void;
+  onOpenProjects: () => void;
 }
 
 export function AssistantQuickHistoryDropdown({
@@ -30,6 +36,10 @@ export function AssistantQuickHistoryDropdown({
   onOpenConversation,
   onOpenStudio,
   onOpenHistory,
+  projects,
+  assignedConversationIds,
+  onMoveConversation,
+  onOpenProjects,
 }: AssistantQuickHistoryDropdownProps) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UnifiedItem[]>([]);
@@ -92,7 +102,7 @@ export function AssistantQuickHistoryDropdown({
       const target = e.target as Node;
       const inDropdown = containerRef.current?.contains(target);
       const inTrigger = triggerRef.current?.contains(target);
-      if (!inDropdown && !inTrigger) setOpen(false);
+      if (!inDropdown && !inTrigger && !(target instanceof Element && target.closest("[data-assistant-project-menu]"))) setOpen(false);
     }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -126,7 +136,7 @@ export function AssistantQuickHistoryDropdown({
         aria-label="Xem nhanh lịch sử"
         title="Xem nhanh lịch sử"
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-controls={open ? "assistant-quick-history-list" : undefined}
         onClick={toggle}
         className={cn(
           "flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface",
@@ -142,7 +152,8 @@ export function AssistantQuickHistoryDropdown({
       {open && (
         <div
           ref={containerRef}
-          role="listbox"
+          id="assistant-quick-history-list"
+          role="group"
           aria-label="Lịch sử gần nhất"
           className="absolute left-0 z-50 w-full overflow-y-auto bg-surface-container-lowest py-1"
           style={{ top: "calc(100% + 6px)", maxHeight: "16rem" }}
@@ -156,27 +167,26 @@ export function AssistantQuickHistoryDropdown({
           {error && !loading && (
             <p className="px-3 py-2 text-xs text-error">{error}</p>
           )}
-          {!loading && !error && items.length === 0 && (
+          {!loading && !error && items.filter(item => item.type !== "conversation" || !assignedConversationIds.has(item.data.conversationId)).length === 0 && (
             <p className="px-3 py-2 text-xs text-on-surface-variant">Chưa có lịch sử nào.</p>
           )}
           {!loading && items.length > 0 && (
             <ul>
-              {items.map((item, index) => {
+              {items.filter(item => item.type !== "conversation" || !assignedConversationIds.has(item.data.conversationId)).map((item, index) => {
                 const key = item.type === "conversation" ? item.data.conversationId : item.data.id;
                 return (
-                  <li key={`${item.type}-${key}-${index}`}>
+                  <li key={`${item.type}-${key}-${index}`} className="flex items-center">
                     <button
                       type="button"
-                      role="option"
-                      aria-selected="false"
                       onClick={() => handleSelect(item)}
                       className={cn(
-                        "w-full truncate px-3 py-1.5 text-left text-sm text-primary hover:bg-surface-container-low",
+                        "min-w-0 flex-1 truncate px-3 py-1.5 text-left text-sm text-on-surface hover:bg-surface-container-low hover:text-primary",
                         focusClass
                       )}
                     >
                       {getTitle(item)}
                     </button>
+                    {item.type === "conversation" && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
                   </li>
                 );
               })}

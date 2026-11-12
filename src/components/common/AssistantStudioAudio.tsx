@@ -8,6 +8,7 @@ import { AssistantStudioBrandMark } from "./AssistantStudioBrandMark";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 import AssistantSpeechVoicePicker from "./AssistantSpeechVoicePicker";
 import { assistantSpeechVoiceLabel, defaultAssistantSpeechVoice, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
 import { defaultAssistantSpeechControls, type AssistantSpeechControls } from "../../shared/assistant-speech";
@@ -328,15 +329,14 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
     {tool === "clone" && <section aria-labelledby="clone-title" className="mx-auto max-w-3xl space-y-6"><div className="text-center"><h2 id="clone-title" className="text-lg font-semibold text-balance">Tạo giọng cá nhân</h2><p className="mt-2 text-pretty text-sm text-on-surface-variant">Tính năng lưu giọng cá nhân đang được chuẩn bị.</p></div><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border border-outline-variant bg-surface p-6 text-center"><Assistant2DFileIcon fileName="voice-sample.mp3" className="mx-auto mb-4 size-24 shrink-0" /><h3 className="font-medium">Ghi âm trực tiếp</h3><p className="mt-1 text-pretty text-xs text-on-surface-variant">Ghi âm mẫu giọng nói trong không gian yên tĩnh.</p><button type="button" disabled className="mt-5 rounded-lg border border-outline-variant px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">Bắt đầu ghi âm · Sắp ra mắt</button></div><UploadArea disabled label="Tải tệp lên" hint="MP3, WAV, M4A; tối đa 10 MB" accept=".mp3,.wav,.m4a,.webm" file={null} onFile={() => undefined} /></div><ul className="list-inside list-disc space-y-2 rounded-xl border border-outline-variant p-5 text-sm text-on-surface-variant">{["Sử dụng giọng nói của chính bạn hoặc giọng đã được cho phép.", "Đọc trong không gian tĩnh, ít tạp âm.", "Chỉ dùng một giọng nói trong mẫu âm thanh."].map((tip) => <li key={tip}>{tip}</li>)}</ul></section>}
 
     {tool === "transcribe" && <section aria-labelledby="transcribe-title" aria-busy={busy} className="mx-auto w-full max-w-5xl space-y-6">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 id="transcribe-title" className="text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]">
-          Chuyển giọng nói thành{" "}
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap align-middle">
-            <span className="bg-[linear-gradient(90deg,#00adfc_0%,#199bff_55%,#7567ff_100%)] bg-clip-text text-transparent">văn bản</span>
+      <div className="mx-auto max-w-4xl text-center">
+        <h2 id="transcribe-title" className={cn("flex flex-wrap items-center justify-center gap-x-2", assistantStudioTitleClass)}>
+          <span className="min-w-0 text-balance">Chuyển giọng nói thành</span>{" "}
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span className={assistantStudioTitleAccentClass}>văn bản</span>
             <AssistantStudioBrandMark className="size-7 shrink-0" />
           </span>
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-pretty text-sm text-on-surface-variant">Chuyển đổi tệp âm thanh của bạn thành văn bản một cách nhanh chóng</p>
       </div>
 
       {!transcriptFile ? (

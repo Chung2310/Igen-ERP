@@ -97,6 +97,19 @@
   box-shadow: none;
 }
 
+.assistant-workspace[data-standalone="true"] .assistant-workspace-columns {
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.assistant-workspace[data-standalone="true"] .assistant-reference-sidebar,
+.assistant-workspace[data-standalone="true"] .assistant-content-panel {
+  overflow: hidden;
+  border: 0;
+  border-radius: 1rem;
+  background-color: var(--color-surface-container-lowest);
+}
+
 .assistant-reference-sidebar {
   width: 232px;
   overflow: hidden;

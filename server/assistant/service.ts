@@ -23,8 +23,9 @@ import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-exe
 import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
+import { projectInstructionsForConversation } from "./projects";
 export { missingOptionalCreateFields } from "./completion";
-export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
   if (!pending || operationById(pending.actionId)) return pending;
@@ -1370,7 +1371,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const scope = scopeOf(req);
   const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const projectInstructions = input.projectId ? await projectInstructionsForConversation(req, input.projectId, input.conversationId) : "";
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1831,7 +1833,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           question: input.text,
           research: true,
           messages: session.messages as { role: "user" | "assistant"; content: string }[],
-          instructions: settings?.instructions || "",
+          instructions: [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n\nChỉ dẫn của dự án:\n"),
           responseRules,
           memories,
           sessionMemory,
