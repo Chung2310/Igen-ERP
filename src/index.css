@@ -237,14 +237,14 @@ button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"])
 }
 
 /* Match the compact employee form across popup forms. */
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea) {
   border-radius: 0.75rem;
   border-color: var(--color-outline-variant);
   font-size: 0.875rem;
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select):not(:disabled):not([readonly]) {
   height: 2.25rem;
   min-height: 2.25rem;
@@ -252,54 +252,54 @@ button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"])
   color: var(--color-on-surface);
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   textarea:not(:disabled):not([readonly]) {
   padding: 0.5rem 0.875rem;
   background-color: var(--color-surface-container-lowest);
   color: var(--color-on-surface);
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   label:not(:has(input[type="checkbox"], input[type="radio"])) {
   color: var(--color-on-surface-variant);
   font-size: 0.75rem;
   font-weight: 400 !important;
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   label:not(:has(input[type="checkbox"], input[type="radio"])) > span:first-child:not([aria-hidden="true"]) {
   font-size: inherit;
   font-weight: inherit;
   line-height: inherit;
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   label:has(+ :is(input:not([type="search"]), select, textarea)) {
   margin-bottom: 0 !important;
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select)::placeholder,
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) textarea::placeholder {
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout)) textarea::placeholder {
   color: var(--color-on-surface-variant);
   opacity: 0.55;
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   label:has(> :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea)) > :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea),
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   label + :is(input:not([type="search"]), select, textarea) {
   margin-top: 0.5rem !important;
 }
 
-:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
   :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea):focus-visible {
   border-color: var(--color-primary);
   outline-color: var(--color-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)) { transition: none; }
+  :is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout)) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)) { transition: none; }
 }
 
 /* Calendar sub-tabs: mouse clicks stay clean, keyboard focus uses brand blue. */

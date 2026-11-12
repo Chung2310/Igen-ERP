@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ChevronDown, Clock3, Download, LoaderCircle, Plus } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, Download, LoaderCircle, Plus } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { StyledSelect } from "./StyledSelect";
 import { requestStudioImages, type StudioImageRequest, type StudioImageResponse } from "./assistantStudioImageApi";
+import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechHistory";
+import { saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
+import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
+import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const layouts = [
@@ -69,22 +74,66 @@ function LayoutArtwork({ kind, className = "" }: { kind: Layout["id"]; className
 function EmptyArtwork() {
   return <img src="/ai-studio-infographic-hero.png" alt="Minh họa infographic với quy trình, mốc thời gian và biểu đồ" width="1536" height="1024" className="h-auto max-h-[36dvh] w-full max-w-xl object-contain" />;
 }
-
-export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
-  const [prompt, setPrompt] = useState("");
+export function AssistantStudioInfographic({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
+  const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? "");
   const [layoutId, setLayoutId] = useState<Layout["id"]>("auto");
   const [layoutOpen, setLayoutOpen] = useState(false);
-  const layoutRef = useRef<HTMLDivElement>(null);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 460, maxHeight: 420 });
+  const layoutTriggerRef = useRef<HTMLButtonElement>(null);
+  const layoutMenuRef = useRef<HTMLDivElement>(null);
   const [ratio, setRatio] = useState<StudioImageRequest["aspectRatio"]>("3:4");
-  const [result, setResult] = useState<Result | null>(null);
-  const [history, setHistory] = useState<Result[]>([]);
+  const [result, setResult] = useState<Result | null>(() => historyItem?.kind === "infographic" ? historyItem.payload as Result : null);
+  const [history, setHistory] = useState<Result[]>(() => historyItem?.kind === "infographic" ? [historyItem.payload as Result] : []);
   const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const updateMenuPosition = useCallback(() => {
+    const bounds = layoutTriggerRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const desiredWidth = Math.min(460, window.innerWidth - 32);
+    const spaceBelow = window.innerHeight - bounds.bottom - 12;
+    const spaceAbove = bounds.top - 12;
+    const placeAbove = spaceBelow < 320 && spaceAbove > spaceBelow;
+    const maxHeight = Math.min(420, Math.max(160, placeAbove ? spaceAbove : spaceBelow));
+    const top = placeAbove ? bounds.top - maxHeight - 6 : bounds.bottom + 6;
+    const left = Math.max(12, Math.min(bounds.left, window.innerWidth - desiredWidth - 12));
+    setMenuPos({ top, left, width: desiredWidth, maxHeight });
+  }, []);
+
+  const openLayoutMenu = () => {
+    if (loading) return;
+    setPortalRoot(layoutTriggerRef.current?.closest<HTMLElement>("dialog, [popover]") || document.body);
+    updateMenuPosition();
+    setLayoutOpen(value => !value);
+  };
+
+  useLayoutEffect(() => {
+    if (!layoutOpen) return;
+    updateMenuPosition();
+    const handleResize = () => updateMenuPosition();
+    const handleScroll = (event: Event) => {
+      if (!layoutMenuRef.current?.contains(event.target as Node)) {
+        updateMenuPosition();
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [layoutOpen, updateMenuPosition]);
+
   useEffect(() => {
     if (!layoutOpen) return;
-    const closeOutside = (event: PointerEvent) => { if (!layoutRef.current?.contains(event.target as Node)) setLayoutOpen(false); };
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!layoutTriggerRef.current?.contains(target) && !layoutMenuRef.current?.contains(target)) {
+        setLayoutOpen(false);
+      }
+    };
     document.addEventListener("pointerdown", closeOutside);
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [layoutOpen]);
@@ -103,6 +152,16 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
       const next = { id: Date.now(), content: response, prompt: content, layout: layoutId };
       setResult(next);
       setHistory(previous => [next, ...previous]);
+      try {
+        await saveAssistantStudioCreationHistory({
+          userId: getAssistantSpeechHistoryUserId(),
+          kind: "infographic",
+          title: content.slice(0, 100) || "Infographic đã tạo",
+          summary: `${layout.label} · ${response.aspectRatio}`,
+          prompt: content,
+          payload: next,
+        });
+      } catch { /* Keep the generated graphic available even if browser storage is full. */ }
     } catch (requestError) { setError((requestError as Error).message); }
     finally { setLoading(false); }
   }
@@ -115,7 +174,7 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
   const selectedLayout = layouts.find(item => item.id === layoutId)!;
   return <div className="grid min-h-full min-w-0 lg:min-h-[calc(100dvh-5.5rem)] lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[24rem_minmax(0,1fr)]">
     <form onSubmit={createInfographic} aria-label="Thiết lập tạo infographic" className="flex min-w-0 flex-col gap-4 border-b border-outline-variant bg-surface-container-lowest p-4 sm:p-5 lg:min-h-full lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r">
-      <div className="flex min-h-9 items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm lg:text-xs"><button type="button" onClick={onBack} className={cn("inline-flex shrink-0 items-center gap-1 rounded-md py-1 text-on-surface-variant hover:text-primary", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />AI Studio</button><span className="text-on-surface-variant" aria-hidden="true">/</span><h1 className="min-w-0 truncate font-semibold">Tạo infographic</h1></div>
+      <AssistantStudioBreadcrumb title="Tạo infographic" onBack={onBack} />
       <div>
         <label htmlFor="studio-infographic-prompt" className="mb-1 block text-sm font-medium">Nội dung cần thể hiện <span className="text-error">*</span></label>
         <textarea
@@ -135,25 +194,93 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
           <span id="studio-infographic-count" className="shrink-0 tabular-nums">{prompt.length.toLocaleString("vi-VN")}/1.500</span>
         </div>
       </div>
-      <div ref={layoutRef} onKeyDown={event => { if (event.key === "Escape" && layoutOpen) { setLayoutOpen(false); (layoutRef.current?.querySelector("button") as HTMLButtonElement)?.focus(); } }} className="relative">
+      <div className="relative">
         <span className="mb-1 block text-sm font-medium">Bố cục</span>
-        <button type="button" aria-label="Bố cục" aria-expanded={layoutOpen} aria-controls={layoutOpen ? "studio-infographic-layouts" : undefined} onClick={() => setLayoutOpen(value => !value)} disabled={loading} className={cn("flex min-h-10 w-full items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm hover:border-primary", focusClass)}><span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-primary"><LayoutArtwork kind={selectedLayout.id} /></span><span className="min-w-0 flex-1 truncate">{selectedLayout.label}</span><ChevronDown className={cn("size-4 text-on-surface-variant", layoutOpen && "rotate-180")} aria-hidden="true" /></button>
-        {layoutOpen && <div id="studio-infographic-layouts" className="absolute left-0 top-full z-20 mt-1 max-h-96 w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-3 shadow-lg">
-          {(["", "Dòng thời gian", "So sánh", "Quy trình", "Mô hình kinh doanh"] as const).map(group => <div key={group} className="mb-3 last:mb-0">
-            {group && <p className="mb-2 text-xs font-medium text-on-surface-variant">{group}</p>}
-            <div className="grid grid-cols-4 gap-2">{layouts.filter(item => item.group === group).map(item => <button key={item.id} type="button" aria-pressed={layoutId === item.id} onClick={() => { setLayoutId(item.id); setLayoutOpen(false); }} className={cn("flex min-w-0 flex-col items-center gap-1 rounded-md p-1 text-center text-xs hover:bg-surface-container-low", layoutId === item.id && "text-primary", focusClass)}><span className={cn("block aspect-[4/3] w-full overflow-hidden rounded-md border", layoutId === item.id ? "border-primary" : "border-outline-variant")}><LayoutArtwork kind={item.id} /></span><span className="text-pretty">{item.label}</span></button>)}</div>
-          </div>)}
-        </div>}
+        <button
+          ref={layoutTriggerRef}
+          type="button"
+          aria-label="Bố cục"
+          aria-expanded={layoutOpen}
+          aria-controls={layoutOpen ? "studio-infographic-layouts" : undefined}
+          onClick={openLayoutMenu}
+          onKeyDown={event => {
+            if (event.key === "Escape" && layoutOpen) {
+              setLayoutOpen(false);
+              layoutTriggerRef.current?.focus();
+            }
+          }}
+          disabled={loading}
+          className={cn("flex min-h-10 w-full items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm hover:border-primary", focusClass)}
+        >
+          <span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-primary"><LayoutArtwork kind={selectedLayout.id} /></span>
+          <span className="min-w-0 flex-1 truncate">{selectedLayout.label}</span>
+          <ChevronDown className={cn("size-4 text-on-surface-variant transition-transform", layoutOpen && "rotate-180")} aria-hidden="true" />
+        </button>
+        {layoutOpen && portalRoot && createPortal(
+          <div
+            ref={layoutMenuRef}
+            id="studio-infographic-layouts"
+            role="dialog"
+            aria-label="Danh sách bố cục infographic"
+            style={{
+              position: "fixed",
+              top: `${menuPos.top}px`,
+              left: `${menuPos.left}px`,
+              width: `${menuPos.width}px`,
+              maxHeight: `${menuPos.maxHeight}px`,
+              zIndex: 9999,
+            }}
+            className="overflow-y-auto overscroll-contain rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-xl"
+          >
+            {(["", "Dòng thời gian", "So sánh", "Quy trình", "Mô hình kinh doanh"] as const).map(group => (
+              <div key={group} className="mb-3.5 last:mb-0">
+                {group && <p className="mb-2 text-xs font-semibold text-on-surface-variant">{group}</p>}
+                <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin overscroll-x-contain sm:grid sm:grid-cols-4 sm:overflow-visible sm:pb-0">
+                  {layouts.filter(item => item.group === group).map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-pressed={layoutId === item.id}
+                      onClick={() => {
+                        setLayoutId(item.id);
+                        setLayoutOpen(false);
+                        layoutTriggerRef.current?.focus();
+                      }}
+                      className={cn(
+                        "group flex w-24 shrink-0 flex-col items-center gap-1 rounded-md p-1.5 text-center text-xs transition-colors hover:bg-surface-container-low sm:w-auto",
+                        layoutId === item.id ? "bg-primary/5 font-medium text-primary" : "text-on-surface",
+                        focusClass
+                      )}
+                    >
+                      <span className={cn(
+                        "block aspect-[4/3] w-full overflow-hidden rounded-md border transition-all",
+                        layoutId === item.id ? "border-primary ring-2 ring-primary/20" : "border-outline-variant group-hover:border-primary/60"
+                      )}>
+                        <LayoutArtwork kind={item.id} />
+                      </span>
+                      <span className="block w-full truncate text-pretty">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>,
+          portalRoot
+        )}
       </div>
       <div><span className="mb-1 block text-sm font-medium">Tỷ lệ khung hình</span><StyledSelect appearance="erp" ariaLabel="Tỷ lệ infographic" value={ratio} onChange={value => setRatio(value as StudioImageRequest["aspectRatio"])} disabled={loading} options={[{ value: "3:4", label: "3:4 · Dọc" }, { value: "9:16", label: "9:16 · Dọc dài" }, { value: "1:1", label: "1:1 · Vuông" }, { value: "16:9", label: "16:9 · Ngang" }, { value: "4:3", label: "4:3 · Ngang gọn" }]} className="h-10 rounded-md" /></div>
       <button type="submit" disabled={loading || prompt.trim().length < 3} className={cn("inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 lg:sticky lg:bottom-0 lg:z-10 lg:mt-auto", focusClass)}>{loading ? <><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Đang tạo infographic…</> : "Tạo infographic"}</button>
       {error && <p role="alert" className="text-pretty rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">{error}</p>}
     </form>
-    <section aria-label="Kết quả tạo infographic" aria-busy={loading} className="flex min-h-96 min-w-0 flex-col bg-surface-container-lowest p-4 lg:min-h-full lg:p-6"><div className="flex items-center justify-end gap-2"><button type="button" onClick={reset} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-xs hover:bg-surface-container-low", focusClass)}><Plus className="size-4" aria-hidden="true" />Tạo mới</button><button type="button" aria-pressed={showHistory} onClick={() => setShowHistory(value => !value)} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-xs hover:bg-surface-container-low", focusClass)}><Clock3 className="size-4" aria-hidden="true" />Lịch sử</button></div>
-      {showHistory ? <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-8"><h2 className="text-balance text-lg font-semibold">Lịch sử trong phiên này</h2>{history.length ? <ul className="mt-4 space-y-2">{history.map(item => <li key={item.id}><button type="button" onClick={() => { setResult(item); setShowHistory(false); }} className={cn("flex w-full items-center gap-3 rounded-lg border border-outline-variant p-2 text-left hover:bg-surface-container-low", focusClass)}><img src={item.content.images[0]?.url} alt="" className="size-14 rounded-md object-cover" /><span className="min-w-0 flex-1 truncate text-sm">{item.prompt}</span></button></li>)}</ul> : <p className="mt-3 text-pretty text-sm text-on-surface-variant">Infographic bạn tạo sẽ xuất hiện ở đây.</p>}</div>
-        : loading ? <div role="status" className="flex flex-1 flex-col items-center justify-center gap-4 text-center"><LoaderCircle className="size-8 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" /><p className="text-pretty text-sm text-on-surface-variant">Đang tạo infographic. Quá trình này có thể mất một lúc…</p></div>
+    <section aria-label="Kết quả tạo infographic" aria-busy={loading} className="flex min-h-96 min-w-0 flex-col bg-surface-container-lowest p-4 lg:min-h-full lg:p-6"><div className="flex items-center justify-end gap-2"><button type="button" onClick={reset} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-xs hover:bg-surface-container-low", focusClass)}><Plus className="size-4" aria-hidden="true" />Tạo mới</button><AssistantStudioHistoryAction open={showHistory} onClick={() => setShowHistory(value => !value)} /></div>
+      {loading ? <div role="status" className="flex flex-1 flex-col items-center justify-center gap-4 text-center"><LoaderCircle className="size-8 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" /><p className="text-pretty text-sm text-on-surface-variant">Đang tạo infographic. Quá trình này có thể mất một lúc…</p></div>
           : result?.content.images.length ? <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-6"><div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-balance text-lg font-semibold">Infographic đã tạo</h2><p className="text-sm text-on-surface-variant">{layouts.find(item => item.id === result.layout)?.label} · iGenAI · {result.content.aspectRatio}</p></div><a href={result.content.images[0].url} download="igen-infographic.png" target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm font-medium text-primary hover:bg-primary/10", focusClass)}><Download className="size-4" aria-hidden="true" />Tải ảnh</a></div>{result.content.warning && <p role="status" className="mb-3 text-sm text-on-surface-variant">{result.content.warning}</p>}<img src={result.content.images[0].url} alt={`Infographic AI đã tạo từ nội dung: ${result.prompt.slice(0, 100)}`} className="max-h-[70dvh] w-full rounded-lg border border-outline-variant bg-surface-container-low object-contain" /></div>
-            : <div className="flex flex-1 flex-col items-center justify-center gap-5 py-8 text-center lg:py-10"><div className="space-y-2"><h2 className="mx-auto max-w-2xl text-balance text-xl font-semibold leading-tight sm:text-2xl"><span className="text-tertiary">Biến ý tưởng</span>{" "}<span className="text-on-surface">thành infographic</span>{" "}<span className="text-primary">trực quan</span></h2><p className="text-pretty text-sm text-on-surface-variant">Sắp xếp nội dung thành quy trình, dòng thời gian hoặc biểu đồ dễ theo dõi.</p></div><EmptyArtwork /><section aria-label="Gợi ý bố cục infographic" className="space-y-2"><h3 className="text-sm font-medium text-on-surface-variant">Thử một ý tưởng</h3><div className="flex flex-wrap justify-center gap-2">{infographicPromptIdeas.map(idea => <button key={idea.label} type="button" onClick={() => { setPrompt(idea.prompt); setLayoutId(idea.layout); setLayoutOpen(false); setError(""); }} disabled={loading} className={cn("min-h-9 rounded-full border px-3 py-1.5 text-xs font-medium hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50", idea.color, focusClass)}>{idea.label}</button>)}</div></section></div>}
+            : <div className="flex flex-1 flex-col items-center justify-center gap-5 py-8 text-center lg:py-10"><div className="space-y-2"><h2 className="mx-auto max-w-2xl text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]"><span className="text-tertiary">Biến ý tưởng</span>{" "}<span className="text-on-surface">thành infographic</span>{" "}<span className="text-primary">trực quan</span></h2><p className="text-pretty text-sm text-on-surface-variant">Sắp xếp nội dung thành quy trình, dòng thời gian hoặc biểu đồ dễ theo dõi.</p></div><EmptyArtwork /><section aria-label="Gợi ý bố cục infographic" className="space-y-2"><h3 className="text-sm font-medium text-on-surface-variant">Thử một ý tưởng</h3><div className="flex flex-wrap justify-center gap-2">{infographicPromptIdeas.map(idea => <button key={idea.label} type="button" onClick={() => { setPrompt(idea.prompt); setLayoutId(idea.layout); setLayoutOpen(false); setError(""); }} disabled={loading} className={cn("min-h-9 rounded-full border px-3 py-1.5 text-xs font-medium hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50", idea.color, focusClass)}>{idea.label}</button>)}</div></section></div>}
     </section>
+    <AssistantStudioHistoryDrawer open={showHistory} title="Lịch sử infographic" onClose={() => setShowHistory(false)}>
+      <section aria-label="Infographic đã tạo trong phiên" className="py-3">
+        {history.length ? <ul className="space-y-3">{history.map(item => <li key={item.id}><button type="button" onClick={() => { setResult(item); setShowHistory(false); }} className={cn("flex w-full items-center gap-3 rounded-xl border border-outline-variant p-2 text-left hover:bg-surface-container-low", focusClass)}>{item.content.images[0]?.url ? <img src={item.content.images[0].url} alt="" className="size-14 shrink-0 rounded-lg object-cover" /> : <AssistantStudioHistoryKindIcon kind="infographic" />}<span className="min-w-0 flex-1 truncate text-sm text-on-surface">{item.prompt}</span></button></li>)}</ul> : <p className="py-3 text-pretty text-sm text-on-surface-variant">Infographic bạn tạo sẽ xuất hiện ở đây.</p>}
+      </section>
+    </AssistantStudioHistoryDrawer>
   </div>;
 }

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateStudioImages, type StudioImageInput } from "./studio-images";
-import { openrouterGenerateImage } from "../service/openrouter.service";
+import { enhanceStudioImagePrompt, generateStudioImages, type StudioImageInput } from "./studio-images";
+import { openrouterChat, openrouterGenerateImage } from "../service/openrouter.service";
 
-vi.mock("../service/openrouter.service", () => ({ openrouterGenerateImage: vi.fn() }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: vi.fn(), openrouterGenerateImage: vi.fn() }));
 
 const input: StudioImageInput = {
   prompt: "Một khu vườn dưới nắng sớm",
@@ -35,5 +35,20 @@ describe("generateStudioImages", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "");
     await expect(generateStudioImages(input)).rejects.toMatchObject({ status: 503 });
     expect(openrouterGenerateImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("enhanceStudioImagePrompt", () => {
+  it("returns a refined prompt without generating an image", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    vi.mocked(openrouterChat).mockResolvedValue({ text: "  Quán cà phê buổi sáng, ánh sáng tự nhiên dịu nhẹ.  " });
+    await expect(enhanceStudioImagePrompt("Quán cà phê buổi sáng")).resolves.toEqual({ prompt: "Quán cà phê buổi sáng, ánh sáng tự nhiên dịu nhẹ." });
+    expect(openrouterChat).toHaveBeenCalledWith(expect.objectContaining({ model: "google/gemma-4-31b-it:free", fallbackModel: "qwen/qwen3.5-flash-02-23", messages: expect.arrayContaining([{ role: "user", content: "Quán cà phê buổi sáng" }]) }));
+    expect(openrouterGenerateImage).not.toHaveBeenCalled();
+  });
+
+  it("requires a configured OpenRouter key", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    await expect(enhanceStudioImagePrompt("Quán cà phê buổi sáng")).rejects.toMatchObject({ status: 503 });
   });
 });

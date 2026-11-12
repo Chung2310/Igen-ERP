@@ -1,3 +1,5 @@
+import { openAssistantStudioDatabase } from "./assistantStudioHistory";
+
 export interface AssistantSpeechHistoryItem {
   id: string;
   userId: string;
@@ -7,27 +9,9 @@ export interface AssistantSpeechHistoryItem {
   createdAt: string;
 }
 
-const databaseName = "igen-erp-ai-studio";
 const storeName = "speech-history";
 const maxHistoryItems = 20;
 const maxHistoryBytes = 50 * 1024 * 1024;
-
-function openDatabase(): Promise<IDBDatabase> {
-  if (typeof indexedDB === "undefined") return Promise.reject(new Error("Trình duyệt không hỗ trợ lưu lịch sử audio."));
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(databaseName, 1);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(storeName)) {
-        const store = database.createObjectStore(storeName, { keyPath: "id" });
-        store.createIndex("userId", "userId");
-        store.createIndex("createdAt", "createdAt");
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Không mở được kho lịch sử audio."));
-  });
-}
 
 function transactionDone(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -51,7 +35,7 @@ export function getAssistantSpeechHistoryUserId(): string {
 }
 
 export async function listAssistantSpeechHistory(userId: string): Promise<AssistantSpeechHistoryItem[]> {
-  const database = await openDatabase();
+  const database = await openAssistantStudioDatabase();
   const transaction = database.transaction(storeName, "readonly");
   const request = transaction.objectStore(storeName).index("userId").getAll(userId) as IDBRequest<AssistantSpeechHistoryItem[]>;
   const items = await new Promise<AssistantSpeechHistoryItem[]>((resolve, reject) => {
@@ -62,7 +46,7 @@ export async function listAssistantSpeechHistory(userId: string): Promise<Assist
 }
 
 export async function saveAssistantSpeechHistory(input: Omit<AssistantSpeechHistoryItem, "id" | "createdAt">): Promise<AssistantSpeechHistoryItem> {
-  const database = await openDatabase();
+  const database = await openAssistantStudioDatabase();
   const record: AssistantSpeechHistoryItem = {
     ...input,
     id: typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,

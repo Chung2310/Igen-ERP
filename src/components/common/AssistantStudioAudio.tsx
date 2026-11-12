@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock3, Download, Minus, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Download, FileText, Minus, Pause, Play, Plus, RotateCcw, RotateCw, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { UploadSimple } from "@phosphor-icons/react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService, type AssistantStudioTranscript } from "../../services/assistantService";
 import { getAssistantSpeechHistoryUserId, listAssistantSpeechHistory, saveAssistantSpeechHistory, type AssistantSpeechHistoryItem } from "../../services/assistantSpeechHistory";
+import type { AssistantStudioHistoryEntry } from "../../services/assistantStudioHistory";
+import { AssistantStudioBrandMark } from "./AssistantStudioBrandMark";
+import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
+import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import AssistantSpeechVoicePicker from "./AssistantSpeechVoicePicker";
 import { assistantSpeechVoiceLabel, defaultAssistantSpeechVoice, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
 import { defaultAssistantSpeechControls, type AssistantSpeechControls } from "../../shared/assistant-speech";
@@ -12,6 +17,7 @@ export type AudioTool = "clone" | "speak" | "transcribe";
 type AssistantSpeechHistoryEntry = AssistantSpeechHistoryItem & { audioUrl: string };
 const inputClass = "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none";
 const buttonClass = "rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
+const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest";
 const speechPauseLabels: { key: "pausePeriod" | "pauseComma" | "pauseSemicolon" | "pauseNewline"; label: string }[] = [
   { key: "pausePeriod", label: "Ngắt dấu chấm [.]" },
   { key: "pauseComma", label: "Ngắt dấu phẩy [,]" },
@@ -30,7 +36,7 @@ function UploadArea({ label, hint, accept, file, onFile, panel, disabled = false
     onDragOver={(event) => { event.preventDefault(); if (!disabled) setDragging(true); }}
     onDragLeave={() => setDragging(false)}
     onDrop={(event) => { event.preventDefault(); setDragging(false); const item = event.dataTransfer.files[0]; if (!disabled && item) onFile(item); }}>
-    <AudioArtwork panel={panel} />
+    {file ? <AssistantFileTypeIcon fileName={file.name} className="mx-auto mb-4 size-24 shrink-0" /> : <AudioArtwork panel={panel} />}
     <p className="text-pretty text-sm font-medium text-on-surface">{file ? file.name : label}</p>
     <p className="mt-1 text-pretty text-xs text-on-surface-variant">{hint}</p>
     <input ref={input} type="file" accept={accept} disabled={disabled} className="sr-only" aria-label="Chọn tệp âm thanh" onChange={(event) => { const item = event.target.files?.[0]; if (item) onFile(item); event.currentTarget.value = ""; }} />
@@ -38,7 +44,7 @@ function UploadArea({ label, hint, accept, file, onFile, panel, disabled = false
   </div>;
 }
 
-export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool; onBack: () => void }) {
+export default function AssistantStudioAudio({ tool, onBack, historyItem }: { tool: AudioTool; onBack: () => void; historyItem?: AssistantStudioHistoryEntry | null }) {
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState<AssistantSpeechVoice>(defaultAssistantSpeechVoice);
   const [speechControls, setSpeechControls] = useState<AssistantSpeechControls>(defaultAssistantSpeechControls);
@@ -55,10 +61,17 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
+  const [transcriptAudioUrl, setTranscriptAudioUrl] = useState<string>("");
+  const [transcriptAudioDuration, setTranscriptAudioDuration] = useState<number>(0);
+  const [transcriptCurrentTime, setTranscriptCurrentTime] = useState<number>(0);
+  const [transcriptPlaying, setTranscriptPlaying] = useState<boolean>(false);
+  const transcriptAudioRef = useRef<HTMLAudioElement | null>(null);
   const [transcript, setTranscript] = useState<AssistantStudioTranscript | null>(null);
   const [transcriptHistory, setTranscriptHistory] = useState<AssistantStudioTranscript[]>([]);
   const [showTranscriptHistory, setShowTranscriptHistory] = useState(false);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const transcriptInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const speechHistoryUrlsRef = useRef<string[]>([]);
   const speechHistoryRequestIdRef = useRef(0);
   const activeSpeechText = speechSource === "text" ? text : documentText;
@@ -69,6 +82,7 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
     speechHistoryUrlsRef.current = [];
   }
   useEffect(() => () => { if (audioUrl.startsWith("blob:")) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
+  useEffect(() => () => { if (transcriptAudioUrl.startsWith("blob:")) URL.revokeObjectURL(transcriptAudioUrl); }, [transcriptAudioUrl]);
   useEffect(() => () => {
     speechHistoryRequestIdRef.current += 1;
     speechHistoryUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -79,6 +93,21 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
     assistantService.studioTranscripts().then((items) => { if (active) setTranscriptHistory(items); }).catch(() => { if (active) setError("Không tải được lịch sử bản chép lời."); });
     return () => { active = false; };
   }, [tool]);
+
+  useEffect(() => {
+    if (!historyItem) return;
+    if (tool === "transcribe" && historyItem.kind === "transcription") {
+      setTranscript(historyItem.payload as AssistantStudioTranscript);
+      setShowTranscriptHistory(false);
+    }
+    if (tool === "speak" && historyItem.kind === "speech") {
+      const item = historyItem.payload as AssistantSpeechHistoryItem;
+      const itemUrl = URL.createObjectURL(item.audio);
+      speechHistoryUrlsRef.current.push(itemUrl);
+      setSpeechHistory([{ ...item, audioUrl: itemUrl }]);
+      setShowSpeechHistory(true);
+    }
+  }, [historyItem?.id, tool]);
 
   async function generate() {
     setError(""); setAudioUrl("");
@@ -131,11 +160,52 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
 
   const chooseAudio = (file: File) => {
     if (!/\.(mp3|wav|m4a|ogg|flac)$/i.test(file.name) || file.size === 0 || file.size > 50 * 1024 * 1024) {
-      setTranscriptFile(null); setTranscript(null);
+      if (transcriptAudioUrl.startsWith("blob:")) URL.revokeObjectURL(transcriptAudioUrl);
+      setTranscriptFile(null); setTranscriptAudioUrl(""); setTranscript(null);
       return setError("Chọn tệp MP3, WAV, M4A, OGG hoặc FLAC, tối đa 50 MB.");
     }
     setError("");
-    setTranscriptFile(file); setTranscript(null);
+    if (transcriptAudioUrl.startsWith("blob:")) URL.revokeObjectURL(transcriptAudioUrl);
+    const url = URL.createObjectURL(file);
+    setTranscriptFile(file);
+    setTranscriptAudioUrl(url);
+    setTranscriptAudioDuration(0);
+    setTranscriptCurrentTime(0);
+    setTranscriptPlaying(false);
+    setTranscript(null);
+  };
+
+  const removeTranscriptAudio = () => {
+    if (transcriptAudioUrl.startsWith("blob:")) URL.revokeObjectURL(transcriptAudioUrl);
+    setTranscriptFile(null);
+    setTranscriptAudioUrl("");
+    setTranscriptAudioDuration(0);
+    setTranscriptCurrentTime(0);
+    setTranscriptPlaying(false);
+    setTranscript(null);
+    setError("");
+  };
+
+  const toggleTranscriptPlayback = () => {
+    if (!transcriptAudioRef.current) return;
+    if (transcriptPlaying) {
+      transcriptAudioRef.current.pause();
+    } else {
+      void transcriptAudioRef.current.play();
+    }
+  };
+
+  const seekTranscriptAudio = (secondsOffset: number) => {
+    if (!transcriptAudioRef.current) return;
+    const target = Math.max(0, Math.min(transcriptAudioDuration, transcriptAudioRef.current.currentTime + secondsOffset));
+    transcriptAudioRef.current.currentTime = target;
+  };
+
+  const formatSeconds = (sec: number) => {
+    if (!Number.isFinite(sec) || sec < 0) return "00:00";
+    const minutes = Math.floor(sec / 60);
+    const seconds = Math.floor(sec % 60);
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
   async function chooseDocument(file: File) {
@@ -192,36 +262,28 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
     clearSpeechHistoryUrls();
     setSpeechHistoryError("");
     setError("");
+    if (transcriptAudioUrl.startsWith("blob:")) URL.revokeObjectURL(transcriptAudioUrl);
     setTranscriptFile(null);
+    setTranscriptAudioUrl("");
+    setTranscriptAudioDuration(0);
+    setTranscriptCurrentTime(0);
+    setTranscriptPlaying(false);
     setTranscript(null);
     setShowTranscriptHistory(false);
   }
 
   return <div className="flex min-h-full min-w-0 flex-col bg-surface-container-lowest text-on-surface">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-2.5 sm:px-5">
-      <div className="flex min-w-0 items-center gap-1 text-sm">
-        <button type="button" onClick={onBack} className="inline-flex items-center gap-1 rounded-md px-1 py-1 text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><ArrowLeft className="size-4" aria-hidden="true" />AI Studio</button>
-        <span className="text-on-surface-variant" aria-hidden="true">/</span>
-        <h1 className="truncate font-semibold text-balance">{pageTitle}</h1>
-        {tool === "clone" && <span className="shrink-0 rounded-full border border-outline-variant px-2 py-1 text-xs font-medium text-on-surface-variant">Sắp ra mắt</span>}
-      </div>
+      <div className="flex min-w-0 items-center gap-2"><AssistantStudioBreadcrumb title={pageTitle} onBack={onBack} />{tool === "clone" && <span className="shrink-0 rounded-full border border-outline-variant px-2 py-1 text-xs font-medium text-on-surface-variant">Sắp ra mắt</span>}</div>
       {(tool === "speak" || tool === "transcribe") && <div className="flex items-center gap-2">
-        <button type="button" onClick={reset} disabled={busy} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" aria-hidden="true" />Tạo mới</button>
-        {tool === "speak" && <button type="button" onClick={() => void toggleSpeechHistory()} aria-expanded={showSpeechHistory} aria-controls={showSpeechHistory ? "studio-speech-history" : undefined} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><Clock3 className="size-4" aria-hidden="true" />Lịch sử</button>}
-        {tool === "transcribe" && <button type="button" onClick={() => setShowTranscriptHistory((value) => !value)} aria-expanded={showTranscriptHistory} aria-controls={showTranscriptHistory ? "studio-transcript-history" : undefined} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><Clock3 className="size-4" aria-hidden="true" />Lịch sử</button>}
+        <button type="button" onClick={reset} disabled={busy} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" aria-hidden="true" />Tạo mới</button>
+        {tool === "speak" && <AssistantStudioHistoryAction open={showSpeechHistory} onClick={() => void toggleSpeechHistory()} />}
+        {tool === "transcribe" && <AssistantStudioHistoryAction open={showTranscriptHistory} onClick={() => setShowTranscriptHistory(value => !value)} />}
       </div>}
     </header>
     <main className="mx-auto w-full max-w-screen-2xl flex-1 space-y-4 p-3 text-on-surface sm:p-4">
 
-    {tool === "speak" && showSpeechHistory && <section id="studio-speech-history" aria-labelledby="speech-history-title" aria-busy={speechHistoryLoading} className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="speech-history-title" className="text-lg font-semibold text-balance">Lịch sử audio</h2><p className="mt-1 text-sm text-on-surface-variant">Lịch sử chỉ lưu trên trình duyệt và thiết bị này.</p></div></div>
-      {speechHistoryLoading && <p role="status" className="rounded-lg border border-outline-variant bg-surface p-4 text-pretty text-sm text-on-surface-variant">Đang tải lịch sử…</p>}
-      {speechHistoryError && <p role="alert" className="rounded-lg border border-outline bg-surface p-4 text-sm text-on-surface">{speechHistoryError}</p>}
-      {!speechHistoryLoading && !speechHistoryError && speechHistory.length === 0 && <div className="rounded-xl border border-outline-variant bg-surface p-8 text-center"><p className="text-pretty text-sm text-on-surface-variant">Bạn chưa tạo audio nào trên trình duyệt này.</p><button type="button" onClick={reset} className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" />Tạo audio mới</button></div>}
-      {!speechHistoryLoading && speechHistory.length > 0 && <ul className="grid gap-3 xl:grid-cols-2">{speechHistory.map((item) => <li key={item.id} className="min-w-0 space-y-3 rounded-xl border border-outline-variant bg-surface p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium text-on-surface">Giọng {item.voiceName}</p><time className="text-xs tabular-nums text-on-surface-variant" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("vi-VN")}</time></div><p className="line-clamp-2 whitespace-pre-wrap text-pretty text-sm text-on-surface-variant">{item.text}</p><audio controls preload="none" src={item.audioUrl} className="w-full" aria-label={`Phát audio giọng ${item.voiceName}`} /><a href={item.audioUrl} download={`igen-audio-${item.createdAt.slice(0, 16).replace(/[:T]/g, "-")}.mp3`} className="inline-block text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Tải audio xuống</a></li>)}</ul>}
-    </section>}
-
-    {tool === "speak" && !showSpeechHistory && <section aria-labelledby="speak-title" aria-busy={busy || documentBusy} className="grid gap-4 lg:grid-cols-5 lg:gap-5">
+    {tool === "speak" && <section aria-labelledby="speak-title" aria-busy={busy || documentBusy} className="grid gap-4 lg:grid-cols-5 lg:gap-5">
       <div className="space-y-3 lg:col-span-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="speak-title" className="text-lg font-semibold text-balance">Nội dung</h2>
@@ -240,7 +302,7 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
           onDrop={(event) => { event.preventDefault(); setDraggingDocument(false); const file = event.dataTransfer.files[0]; if (file) void chooseDocument(file); }}
           className={cn("flex min-h-80 lg:min-h-[28rem] flex-col items-center justify-center rounded-xl border border-dashed bg-surface p-6 text-center", draggingDocument ? "border-primary" : "border-outline-variant")}
         >
-          <AudioArtwork panel={1} />
+          {documentFile ? <AssistantFileTypeIcon fileName={documentFile.name} className="mx-auto mb-4 size-24 shrink-0" /> : <AudioArtwork panel={1} />}
           <p className="text-pretty text-sm font-medium">{documentFile?.name || "Kéo và thả tệp tài liệu vào đây"}</p>
           <p className="mt-1 text-pretty text-xs text-on-surface-variant">PDF, DOCX hoặc TXT · tối đa 20 MB.</p>
           <input ref={documentInputRef} type="file" accept=".pdf,.docx,.txt" className="sr-only" aria-label="Chọn tệp tài liệu" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void chooseDocument(file); event.currentTarget.value = ""; }} />
@@ -249,7 +311,7 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
           {documentText && <div className="mt-4 w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-left"><p className="mb-2 text-xs font-medium text-on-surface-variant">Đã trích xuất {documentText.length.toLocaleString("vi-VN")} ký tự</p><p className="max-h-28 overflow-y-auto whitespace-pre-wrap text-pretty text-sm text-on-surface">{documentText}</p></div>}
         </div>}
       </div>
-      <aside aria-label="Quản trị và thiết lập" className="space-y-3 rounded-xl border border-outline-variant bg-surface p-4 lg:col-span-2">
+      <aside aria-label="Quản trị và thiết lập" className="space-y-3 border-t border-outline-variant pt-4 lg:col-span-2 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
         <div className="flex items-center gap-2"><SlidersHorizontal className="size-4 text-on-surface-variant" aria-hidden="true" /><h2 className="text-lg font-semibold text-balance">Quản trị và thiết lập</h2></div>
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Giọng đọc</h3><button type="button" disabled aria-label="Tạo giọng cá nhân, sắp ra mắt" className="inline-flex min-h-8 items-center gap-2 rounded-full border border-outline-variant px-3 text-xs font-medium text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-70"><span>Tạo giọng cá nhân</span><span className="rounded-full bg-surface-container-low px-2 py-0.5">Sắp ra mắt</span></button></div>
@@ -270,13 +332,211 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
 
     {tool === "clone" && <section aria-labelledby="clone-title" className="mx-auto max-w-3xl space-y-6"><div className="text-center"><h2 id="clone-title" className="text-lg font-semibold text-balance">Tạo giọng cá nhân</h2><p className="mt-2 text-pretty text-sm text-on-surface-variant">Tính năng lưu giọng cá nhân đang được chuẩn bị cho luồng OpenRouter.</p></div><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border border-outline-variant bg-surface p-6 text-center"><AudioArtwork panel={0} /><h3 className="font-medium">Ghi âm trực tiếp</h3><p className="mt-1 text-pretty text-xs text-on-surface-variant">Ghi âm mẫu giọng nói trong không gian yên tĩnh.</p><button type="button" disabled className="mt-5 rounded-lg border border-outline-variant px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">Bắt đầu ghi âm · Sắp ra mắt</button></div><UploadArea panel={0} disabled label="Tải tệp lên" hint="MP3, WAV, M4A; tối đa 10 MB" accept=".mp3,.wav,.m4a,.webm" file={null} onFile={() => undefined} /></div><ul className="list-inside list-disc space-y-2 rounded-xl border border-outline-variant p-5 text-sm text-on-surface-variant">{["Sử dụng giọng nói của chính bạn hoặc giọng đã được cho phép.", "Đọc trong không gian tĩnh, ít tạp âm.", "Chỉ dùng một giọng nói trong mẫu âm thanh."].map((tip) => <li key={tip}>{tip}</li>)}</ul></section>}
 
-    {tool === "transcribe" && <section aria-labelledby="transcribe-title" aria-busy={busy} className="mx-auto max-w-3xl space-y-6">
-      <div><h2 id="transcribe-title" className="text-lg font-semibold text-balance">Chuyển giọng nói thành văn bản</h2><p className="mt-2 text-pretty text-sm text-on-surface-variant">Tải tệp âm thanh để nhận bản chép lời tiếng Việt.</p></div>
-      {showTranscriptHistory && <div id="studio-transcript-history" className="rounded-xl border border-outline-variant p-4"><h3 className="mb-3 text-sm font-semibold">Bản chép lời gần đây</h3>{transcriptHistory.length === 0 ? <p className="text-sm text-on-surface-variant">Chưa có bản chép lời.</p> : <ul className="space-y-2">{transcriptHistory.map((item) => <li key={item.id}><button type="button" onClick={() => setTranscript(item)} className="w-full rounded-lg border border-outline-variant p-3 text-left text-sm hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><span className="block truncate font-medium">{item.fileName}</span><span className="block text-xs text-on-surface-variant">{new Date(item.createdAt).toLocaleString("vi-VN")}</span></button></li>)}</ul>}</div>}
-      <UploadArea panel={2} label="Kéo và thả tệp vào đây" hint="Tối đa 50 MB · MP3, WAV, M4A, OGG, FLAC" accept=".mp3,.wav,.m4a,.ogg,.flac" file={transcriptFile} onFile={chooseAudio} />
-      <div className="flex justify-end"><button type="button" onClick={transcribe} disabled={!transcriptFile || busy} className={buttonClass}>{busy ? "Đang chuyển đổi..." : "Chuyển thành văn bản"}</button></div>
-      {transcript && <div className="rounded-xl border border-outline-variant bg-surface p-5"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Bản chép lời: {transcript.fileName}</h3><div className="flex gap-3"><button type="button" onClick={() => { if (!navigator.clipboard) return setError("Trình duyệt không hỗ trợ sao chép tự động."); navigator.clipboard.writeText(transcript.text).catch(() => setError("Không thể sao chép văn bản.")); }} className="text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Sao chép</button><button type="button" onClick={() => downloadTranscript(transcript)} className="text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Tải TXT</button></div></div><p className="whitespace-pre-wrap text-pretty text-sm leading-6">{transcript.text}</p></div>}
+    {tool === "transcribe" && <section aria-labelledby="transcribe-title" aria-busy={busy} className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-2xl text-center">
+        <h2 id="transcribe-title" className="text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]">
+          Chuyển giọng nói thành{" "}
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap align-middle">
+            <span className="bg-[linear-gradient(90deg,#00adfc_0%,#199bff_55%,#7567ff_100%)] bg-clip-text text-transparent">văn bản</span>
+            <AssistantStudioBrandMark className="size-7 shrink-0" />
+          </span>
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-pretty text-sm text-on-surface-variant">Chuyển đổi tệp âm thanh của bạn thành văn bản một cách nhanh chóng</p>
+      </div>
+
+      {!transcriptFile ? (
+        <div className="mx-auto max-w-2xl">
+          <div
+            onDragOver={(event) => { event.preventDefault(); if (!busy) setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(event) => { event.preventDefault(); setDragging(false); const item = event.dataTransfer.files[0]; if (!busy && item) chooseAudio(item); }}
+            className={cn(
+              "relative flex min-h-72 flex-col items-center justify-center rounded-2xl border bg-surface-container-lowest p-8 text-center transition-all",
+              dragging ? "border-primary bg-primary/5" : "border-outline-variant hover:border-primary/50 shadow-sm"
+            )}
+          >
+            <AudioArtwork panel={2} />
+            <p className="text-pretty text-base font-semibold text-on-surface">Kéo và thả tệp vào đây</p>
+            <p className="mt-1.5 text-pretty text-xs text-on-surface-variant">Tối đa 50 MB · MP3, WAV, M4A, OGG, FLAC</p>
+            <input
+              ref={transcriptInputRef}
+              type="file"
+              accept=".mp3,.wav,.m4a,.ogg,.flac"
+              disabled={busy}
+              className="sr-only"
+              aria-label="Chọn tệp âm thanh"
+              onChange={(event) => { const item = event.target.files?.[0]; if (item) chooseAudio(item); event.currentTarget.value = ""; }}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => transcriptInputRef.current?.click()}
+              className="mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-5 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <UploadSimple size={18} aria-hidden="true" />
+              Tải lên từ máy tính
+            </button>
+          </div>
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={transcribe}
+              disabled={!transcriptFile || busy}
+              className="inline-flex min-h-11 min-w-56 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(125deg,#00adfc_0%,#199bff_50%,#7567ff_100%)] px-6 text-sm font-semibold text-white shadow-sm hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FileText className="size-4" aria-hidden="true" />
+              {busy ? "Đang chuyển đổi..." : "Chuyển thành văn bản"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mx-auto max-w-2xl">
+          {/* Card xem trước & chuyển đổi OneAI style */}
+          <div className="relative rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-center shadow-sm">
+            {/* Nút X hủy file ở góc phải trên */}
+            <button
+              type="button"
+              onClick={removeTranscriptAudio}
+              disabled={busy}
+              aria-label="Xóa tệp đã chọn"
+              className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+
+            {/* Icon file audio cam/vàng giữa */}
+            <div className="mb-4 flex justify-center">
+              <AssistantFileTypeIcon fileName={transcriptFile.name} className="size-16 shrink-0" />
+            </div>
+
+            {/* Thông tin thời lượng */}
+            <div className="mb-3 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-on-surface">
+              <span>Thời lượng: <strong className="font-semibold">{formatSeconds(transcriptAudioDuration)}</strong></span>
+            </div>
+
+            {/* Dòng ghi chú cảnh báo */}
+            <p className="mx-auto max-w-md text-xs leading-5 text-on-surface-variant">
+              Quá trình chuyển đổi có thể kéo dài vài phút.<br />
+              Vui lòng kiểm tra kỹ nội dung trước khi thực hiện.
+            </p>
+
+            {/* Nút Chuyển đổi gradient thương hiệu */}
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={transcribe}
+                disabled={busy}
+                className="inline-flex min-h-10 min-w-36 items-center justify-center rounded-lg bg-[linear-gradient(125deg,#00adfc_0%,#199bff_50%,#7567ff_100%)] px-6 text-sm font-semibold text-white shadow-sm hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? "Đang chuyển đổi..." : "Chuyển đổi"}
+              </button>
+            </div>
+
+            {/* Trình phát audio nhỏ bên dưới */}
+            <div className="mt-8 border-t border-outline-variant pt-4">
+              <audio
+                ref={transcriptAudioRef}
+                src={transcriptAudioUrl}
+                preload="metadata"
+                onLoadedMetadata={(e) => {
+                  const duration = e.currentTarget.duration;
+                  if (Number.isFinite(duration)) setTranscriptAudioDuration(duration);
+                }}
+                onTimeUpdate={(e) => setTranscriptCurrentTime(e.currentTarget.currentTime)}
+                onPlay={() => setTranscriptPlaying(true)}
+                onPause={() => setTranscriptPlaying(false)}
+                onEnded={() => { setTranscriptPlaying(false); setTranscriptCurrentTime(0); }}
+                className="sr-only"
+              />
+
+              <div className="relative flex items-center justify-between text-xs text-on-surface-variant">
+                <span className="tabular-nums">
+                  {formatSeconds(transcriptCurrentTime)} / {formatSeconds(transcriptAudioDuration)}
+                </span>
+
+                <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => seekTranscriptAudio(-10)}
+                    aria-label="Tua lùi 10 giây"
+                    className="flex size-7 items-center justify-center rounded-full text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <RotateCcw className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleTranscriptPlayback}
+                    aria-label={transcriptPlaying ? "Tạm dừng" : "Phát âm thanh"}
+                    className="flex size-8 items-center justify-center rounded-full bg-[linear-gradient(125deg,#00adfc_0%,#199bff_50%,#7567ff_100%)] text-white shadow hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    {transcriptPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4 translate-x-0.5" aria-hidden="true" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => seekTranscriptAudio(10)}
+                    aria-label="Tua đi 10 giây"
+                    className="flex size-7 items-center justify-center rounded-full text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <RotateCw className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+
+                <a
+                  href={transcriptAudioUrl}
+                  download={transcriptFile.name}
+                  aria-label="Tải tệp âm thanh xuống"
+                  className="flex size-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transcript && (
+        <div className="rounded-xl border border-outline-variant bg-surface p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Bản chép lời: {transcript.fileName}</h3>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!navigator.clipboard) return setError("Trình duyệt không hỗ trợ sao chép tự động.");
+                  navigator.clipboard.writeText(transcript.text).catch(() => setError("Không thể sao chép văn bản."));
+                }}
+                className="text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                Sao chép
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadTranscript(transcript)}
+                className="text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                Tải TXT
+              </button>
+            </div>
+          </div>
+          <p className="whitespace-pre-wrap text-pretty text-sm leading-6">{transcript.text}</p>
+        </div>
+      )}
     </section>}
+    {tool === "speak" && <AssistantStudioHistoryDrawer open={showSpeechHistory} title="Lịch sử audio" onClose={() => setShowSpeechHistory(false)}>
+      <section aria-label="Các audio đã tạo" aria-busy={speechHistoryLoading} className="py-3">
+        <p className="mb-3 text-pretty text-xs text-on-surface-variant">Lịch sử được lưu trên trình duyệt và thiết bị này.</p>
+        {speechHistoryLoading && <p role="status" className="py-3 text-sm text-on-surface-variant">Đang tải lịch sử…</p>}
+        {speechHistoryError && <p role="alert" className="rounded-lg border border-error bg-error-container p-3 text-pretty text-sm text-on-error-container">{speechHistoryError}</p>}
+        {!speechHistoryLoading && !speechHistoryError && speechHistory.length === 0 && <p className="py-3 text-pretty text-sm text-on-surface-variant">Bạn chưa tạo audio nào trên trình duyệt này.</p>}
+        {!speechHistoryLoading && speechHistory.length > 0 && <ul className="divide-y divide-outline-variant">{speechHistory.map(item => <li key={item.id} className="flex min-w-0 items-start gap-3 py-3"><AssistantStudioHistoryKindIcon kind="speech" /><div className="min-w-0 flex-1 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium text-on-surface">Giọng {item.voiceName}</p><time className="text-xs tabular-nums text-on-surface-variant" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("vi-VN")}</time></div><p className="line-clamp-2 whitespace-pre-wrap text-pretty text-sm text-on-surface-variant">{item.text}</p><audio controls preload="none" src={item.audioUrl} className="w-full" aria-label={`Phát audio giọng ${item.voiceName}`} /><a href={item.audioUrl} download={`igen-audio-${item.createdAt.slice(0, 16).replace(/[:T]/g, "-")}.mp3`} className="inline-block text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Tải audio xuống</a></div></li>)}</ul>}
+      </section>
+    </AssistantStudioHistoryDrawer>}
+    {tool === "transcribe" && <AssistantStudioHistoryDrawer open={showTranscriptHistory} title="Lịch sử bản chép lời" onClose={() => setShowTranscriptHistory(false)}>
+      <section aria-label="Các bản chép lời gần đây" className="py-3">
+        {transcriptHistory.length === 0 ? <p className="py-3 text-sm text-on-surface-variant">Chưa có bản chép lời.</p> : <ul className="divide-y divide-outline-variant">{transcriptHistory.map(item => <li key={item.id}><button type="button" onClick={() => { setTranscript(item); setShowTranscriptHistory(false); }} className={cn("flex min-h-16 w-full items-center gap-3 py-3 text-left hover:bg-surface-container-low", focusClass)}><AssistantStudioHistoryKindIcon kind="transcription" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-on-surface">{item.fileName}</span><time className="mt-1 block text-xs tabular-nums text-on-surface-variant" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("vi-VN")}</time></span></button></li>)}</ul>}
+      </section>
+    </AssistantStudioHistoryDrawer>}
     {error && <p role="alert" className="rounded-lg border border-outline bg-surface p-3 text-sm text-on-surface">{error}</p>}
     </main>
   </div>;

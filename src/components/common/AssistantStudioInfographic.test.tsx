@@ -15,7 +15,7 @@ describe("AssistantStudioInfographic", () => {
   it("uses the selected layout and ratio to generate an infographic", async () => {
     vi.mocked(requestStudioImages).mockResolvedValue({ images: [{ url: "data:image/png;base64,YQ==" }], model: "iGenAI", aspectRatio: "9:16" });
     render(<AssistantStudioInfographic onBack={() => {}} />);
-    expect(screen.getByText("Nhập nội dung hoặc số liệu, chọn bố cục rồi tạo infographic.")).toBeTruthy();
+    expect(screen.getByRole("form", { name: "Thiết lập tạo infographic" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Bố cục" }));
     fireEvent.click(screen.getByRole("button", { name: "Timeline" }));
     expect(screen.getByRole("button", { name: "Bố cục" }).textContent).toContain("Timeline");
@@ -27,7 +27,7 @@ describe("AssistantStudioInfographic", () => {
     expect(screen.getByRole("img", { name: /Infographic AI đã tạo/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Tải ảnh" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Lịch sử" }));
-    expect(screen.getByText("Lịch sử trong phiên này")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Lịch sử infographic" })).toBeTruthy();
   });
 
   it("shows infographic generation errors", async () => {
@@ -37,5 +37,20 @@ describe("AssistantStudioInfographic", () => {
     fireEvent.change(prompt, { target: { value: "Quy trình bán hàng" } });
     fireEvent.submit(screen.getByRole("form", { name: "Thiết lập tạo infographic" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Không thể tạo ảnh lúc này.");
+  });
+
+  it("renders all layouts in the layout menu including the 4th item in each group", () => {
+    render(<AssistantStudioInfographic onBack={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Bố cục" }));
+    expect(screen.getByRole("dialog", { name: "Danh sách bố cục infographic" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Timeline" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Gantt" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Vòng tròn" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Trình tự" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Venn" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Vòng lặp" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sơ đồ cây" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Trình tự" }));
+    expect(screen.getByRole("button", { name: "Bố cục" }).textContent).toContain("Trình tự");
   });
 });

@@ -6,50 +6,50 @@ export type AssistantSidebarIconName =
 
 const artwork: Record<AssistantSidebarIconName, ReactNode> = {
   chat: <>
-    <path d="M7.2 3.5h10.6a3 3 0 0 1 3 3v9.2a3 3 0 0 1-3 3H9.4l-5.2 3V6.5a3 3 0 0 1 3-3Z" />
-    <path d="M12.1 8.1v6.1m-3.05-3.05h6.1" />
+    <path d="M6.25 4.75h11.5a2.75 2.75 0 0 1 2.75 2.75v7.75A2.75 2.75 0 0 1 17.75 18H9l-4.75 3v-13.5a2.75 2.75 0 0 1 2-2.65Z" />
+    <path d="M8.5 9h7m-7 3.5h5" />
   </>,
   studio: <>
-    <path d="m11.3 2.8 1.7 5.1 5.1 1.7-5.1 1.7-1.7 5.1-1.7-5.1-5.1-1.7 5.1-1.7 1.7-5.1Z" />
-    <path d="m18.9 15 .8 2.3 2.3.8-2.3.8-.8 2.3-.8-2.3-2.3-.8 2.3-.8.8-2.3Z" />
+    <rect x="3.75" y="5.25" width="16.5" height="14.25" rx="2.4" />
+    <circle cx="9" cy="9.5" r="1.15" />
+    <path d="m5.75 17 4-3.9 2.65 2.55 2.4-2.3 3.45 3.65M17.25 2.5l.65 1.9 1.9.65-1.9.65-.65 1.9-.65-1.9-1.9-.65 1.9-.65Z" />
   </>,
   notebook: <>
-    <path d="M5.2 4.2h13.2a2.2 2.2 0 0 1 2.2 2.2v13.4a2.2 2.2 0 0 1-2.2 2.2H5.2a2.2 2.2 0 0 1-2.2-2.2V6.4a2.2 2.2 0 0 1 2.2-2.2Z" />
-    <path d="M8 4.2v17.6m-4.9-12h3.1m-3.1 5h3.1M11.6 9.2h5.4m-5.4 4h5.4" />
+    <rect x="5" y="3.75" width="15.25" height="16.5" rx="2.25" />
+    <path d="M8.5 4v16m-3.25-11h2.9m-2.9 4h2.9m4.25-4h6m-6 4h6" />
   </>,
   meeting: <>
-    <rect x="8.2" y="2.5" width="7.6" height="13.2" rx="3.8" />
-    <path d="M5.2 11.8a6.8 6.8 0 0 0 13.6 0M12 18.6v3.1m-3.8 0h7.6" />
+    <rect x="8.5" y="3" width="7" height="12" rx="3.5" />
+    <path d="M5.25 11.25a6.75 6.75 0 0 0 13.5 0M12 18v3m-3.25 0h6.5" />
   </>,
   assistant: <>
-    <path d="M12 5.7V3.5m-1.2 0h2.4" />
-    <path d="M12 6.5c5 0 8.1 3 8.1 7.6v2c0 3.1-2.4 5-5.5 5H9.4c-3.1 0-5.5-1.9-5.5-5v-2c0-4.6 3.1-7.6 8.1-7.6Z" />
-    <path d="M3.9 12.1H2.5v3.6h1.4m16.2-3.6h1.4v3.6h-1.4M8.7 13.8h.1m6.4 0h.1M9.5 17.1c1.3 1 3.7 1 5 0" />
+    <path d="M12 6V4" />
+    <circle cx="12" cy="3" r="1" />
+    <rect x="5" y="7" width="14" height="13" rx="4" />
+    <circle cx="9.5" cy="13" r=".75" />
+    <circle cx="14.5" cy="13" r=".75" />
   </>,
   project: <>
-    <rect x="2.8" y="3.2" width="7.2" height="6.4" rx="2" />
-    <rect x="14" y="3.2" width="7.2" height="6.4" rx="2" />
-    <rect x="8.4" y="15.4" width="7.2" height="6.4" rx="2" />
-    <path d="M6.4 9.6v3h11.2v-3M12 12.6v2.8" />
+    <path d="M3.75 8a2.5 2.5 0 0 1 2.5-2.5h3.5l2 2h6A2.5 2.5 0 0 1 20.25 10v6.75a2.5 2.5 0 0 1-2.5 2.5H6.25a2.5 2.5 0 0 1-2.5-2.5Z" />
+    <path d="M4 9.5h16" />
   </>,
   tools: <>
     <circle cx="12" cy="12" r="9" />
-    <path d="m15.7 8.3-2.2 5.2-5.2 2.2 2.2-5.2 5.2-2.2Z" />
+    <path d="m15.5 8.5-2.25 4.75L8.5 15.5l2.25-4.75L15.5 8.5Z" />
+    <circle cx="12" cy="12" r=".55" />
   </>,
   history: <>
-    <path d="M4.6 8.1a8.5 8.5 0 1 1-1 5.2M4.6 3.8v4.3h4.3" />
-    <path d="M12 7.5v4.8l3.3 2" />
+    <path d="M4.5 8A8 8 0 1 1 4 14m.5-10v4h4" />
+    <path d="M12 7.5v4.75l3 1.75" />
   </>,
   settings: <>
-    <path d="M3.2 6.1h17.6M3.2 12h17.6M3.2 17.9h17.6" />
-    <circle cx="8" cy="6.1" r="2.2" fill="var(--color-surface-container-lowest)" />
-    <circle cx="16" cy="12" r="2.2" fill="var(--color-surface-container-lowest)" />
-    <circle cx="9.5" cy="17.9" r="2.2" fill="var(--color-surface-container-lowest)" />
+    <path d="M10 3.5h4l.55 2.15a6.8 6.8 0 0 1 1.55.9l2.1-.7 2 3.45-1.55 1.55a7 7 0 0 1 0 1.8l1.55 1.55-2 3.45-2.1-.7a6.8 6.8 0 0 1-1.55.9L14 20h-4l-.55-2.15a6.8 6.8 0 0 1-1.55-.9l-2.1.7-2-3.45L5.35 12.6a7 7 0 0 1 0-1.8L3.8 9.25l2-3.45 2.1.7a6.8 6.8 0 0 1 1.55-.9Z" />
+    <circle cx="12" cy="11.7" r="2.4" />
   </>,
 };
 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
   </svg>;
 }

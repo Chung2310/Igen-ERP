@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { AudioLines, FileAudio, FileText, History, Mic, Monitor, Upload } from "lucide-react";
+import { AudioLines, History, Mic, Monitor, Upload } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
+import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
 import "./AssistantRainbowBorder.css";
 
 type MeetingMode = "record" | "upload";
@@ -77,7 +78,7 @@ export function AssistantMeetingNotes({ standalone = true }: { standalone?: bool
           <p className="mt-2 text-pretty text-sm leading-6 text-on-surface-variant">Chọn tệp âm thanh hoặc tài liệu để chuẩn bị tạo ghi chép.</p>
           <label htmlFor="assistant-meeting-file" className="mt-5 block w-full text-left text-sm font-medium">Tệp cuộc họp</label>
           <input id="assistant-meeting-file" type="file" accept="audio/*,.pdf,.doc,.docx,.txt" onChange={event => { setFile(event.currentTarget.files?.[0] ?? null); setNotice(""); }} className="mt-2 block w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface-container-low file:px-3 file:py-2 file:text-on-surface focus:border-primary focus:outline-none" />
-          {file && <p className="mt-3 flex items-center gap-2 self-start text-pretty text-sm text-on-surface-variant">{standalone ? <MeetingIcon name={file.type.startsWith("audio/") ? "audioFile" : "document"} className="size-4 shrink-0" /> : file.type.startsWith("audio/") ? <FileAudio className="size-4 shrink-0" aria-hidden="true" /> : <FileText className="size-4 shrink-0" aria-hidden="true" />}<span className="break-all">{file.name}</span></p>}
+          {file && <p className="mt-3 flex items-center gap-2 self-start text-pretty text-sm text-on-surface-variant"><AssistantFileTypeIcon fileName={file.name} className="size-6 shrink-0" /><span className="break-all">{file.name}</span></p>}
           <button type="button" disabled={!file} onClick={() => setNotice("Tệp đã được chọn trên giao diện. Chức năng tạo ghi chép sẽ hoạt động khi dịch vụ được kết nối.")} className={cn("mt-6 min-h-10 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Tạo ghi chép</button>
         </div>}
         {notice && <p role="status" className="mt-5 max-w-xl rounded-lg border border-outline-variant bg-surface-container-low p-3 text-center text-pretty text-sm text-on-surface">{notice}</p>}
