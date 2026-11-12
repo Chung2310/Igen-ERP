@@ -10,6 +10,7 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
 import { facebookCommentService } from "./server/modules/marketing-suite/message/service/facebook-comment.service";
+import { startMessengerBackgroundWorkers } from "./server/modules/marketing-suite/message/service/messenger-background-jobs";
 import { startCelebrationScheduler } from "./server/service/celebration-scheduler.service";
 import { startMarketingScheduler } from "./server/modules/marketing/services/marketing-scan.service";
 import { startResourceRetentionScheduler } from "./server/service/resource-retention.service";
@@ -402,6 +403,7 @@ async function startServer() {
   // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
   const httpServer = createServer(app);
   await initSocketServer(httpServer);
+  const stopMessengerBackgroundWorkers = startMessengerBackgroundWorkers();
   void startMarketingEventRelay().catch((error: unknown) => console.warn("[Marketing events] Subscriber unavailable", error instanceof Error ? error.message : "unknown"));
 
   httpServer.listen(PORT, "0.0.0.0", () => {
@@ -415,6 +417,7 @@ async function startServer() {
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    stopMessengerBackgroundWorkers();
     httpServer.close(async () => {
       await Promise.all([flushUserActivityQueue(), stopHealthcareImportWorker()]);
       process.exit(0);

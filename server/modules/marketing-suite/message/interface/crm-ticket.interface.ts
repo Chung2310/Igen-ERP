@@ -39,6 +39,10 @@ export interface ICRMTicket extends Document {
   sourceConversationId?: string;
   intakeProfileId?: string;
   intakeProfileVersion?: number;
+  intakeRevision?: number;
+  intakeStaffFields?: string[];
+  lastIntakeMessageId?: string;
+  lastIntakeMessageAt?: Date;
   collectionStatus?: "collecting" | "complete" | "needs_human";
   lastInteractionAt?: Date;
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: Date; syncedBy: string };

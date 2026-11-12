@@ -26,6 +26,9 @@ const StateSchema = new Schema({
   platform: { type: String, enum: ["facebook", "zalo", "tiktok"], default: "facebook" }, leadId: { type: String },
   version: { type: Number, required: true }, profileId: { type: String }, values: { type: Map, of: String, default: {} },
   lastMessageId: { type: String, default: "" }, lastReply: { type: String, default: "" }, customerId: { type: String }, completedAt: Date,
+  lastMessageAt: Date,
+  lastReplyUsesIntake: Boolean,
+  hasLeadIntent: Boolean,
 }, { timestamps: true });
 StateSchema.index({ companyCode: 1, pageId: 1, conversationId: 1 }, { unique: true });
 export const PageChatFlowStateModel = model("PageChatFlowState", StateSchema);

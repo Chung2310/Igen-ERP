@@ -391,7 +391,7 @@ describe("LeadTable", () => {
     });
   });
 
-  it("filters by custom fields, pins multiple conditions, sorts by any field, and clears filters", async () => {
+  it("uses multi-condition Bộ lọc popover scoped to visible columns, sorts, and clears via Xóa bộ lọc", async () => {
     const setSearchQuery = vi.fn();
 
     render(
@@ -412,11 +412,18 @@ describe("LeadTable", () => {
 
     await screen.findByText("Nguyễn Minh Anh");
 
-    // 1. Filter by select-based custom column ("Dịch vụ quan tâm")
-    fireEvent.click(screen.getByRole("button", { name: "Chọn trường thông tin để lọc" }));
-    fireEvent.click(within(screen.getByRole("listbox")).getByText("Dịch vụ quan tâm"));
+    // 1. Open Bộ lọc popover — condition 1 appears immediately, no "+ Ghim lọc" step, hidden columns are excluded
+    fireEvent.click(screen.getByRole("button", { name: /Bộ lọc/ }));
+    const popover = screen.getByRole("dialog", { name: "Lọc theo cột hiển thị" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Giá trị lọc Dịch vụ quan tâm" }));
+    fireEvent.click(within(popover).getByRole("button", { name: "Trường lọc 1" }));
+    const colListbox = screen.getByRole("listbox");
+    expect(within(colListbox).queryByText("Email")).toBeNull();
+    expect(within(colListbox).queryByText("Doanh nghiệp")).toBeNull();
+    expect(within(colListbox).queryByText("Trạng thái chốt")).toBeNull();
+    fireEvent.click(within(colListbox).getByText("Dịch vụ quan tâm"));
+
+    fireEvent.click(within(popover).getByRole("button", { name: "Giá trị lọc Dịch vụ quan tâm" }));
     fireEvent.click(within(screen.getByRole("listbox")).getByText("Trị mụn"));
 
     await waitFor(() => {
@@ -427,14 +434,12 @@ describe("LeadTable", () => {
       );
     });
 
-    // 2. Pin the first filter, then add a 2nd custom column filter ("Ngân sách dự kiến")
-    fireEvent.click(screen.getByRole("button", { name: "Ghim điều kiện lọc" }));
-    expect(screen.getByLabelText("Bỏ lọc Dịch vụ quan tâm")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Chọn trường thông tin để lọc" }));
+    // 2. Add condition 2 inside the same popover ("Ngân sách dự kiến")
+    fireEvent.click(within(popover).getByRole("button", { name: "Thêm điều kiện" }));
+    fireEvent.click(within(popover).getByRole("button", { name: "Trường lọc 2" }));
     fireEvent.click(within(screen.getByRole("listbox")).getByText("Ngân sách dự kiến"));
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Giá trị lọc Ngân sách dự kiến" }), {
+    fireEvent.change(within(popover).getByRole("textbox", { name: "Giá trị lọc Ngân sách dự kiến" }), {
       target: { value: "5000000" },
     });
 
@@ -449,9 +454,28 @@ describe("LeadTable", () => {
       );
     });
 
-    // 3. Sort by custom column via toolbar Sort dropdown
+    // Close popover via "Xong" -> badge count and removable chips are visible
+    fireEvent.click(within(popover).getByRole("button", { name: "Xong" }));
+    expect(screen.getByRole("button", { name: /Bộ lọc/ }).textContent).toContain("2");
+    expect(screen.getByRole("button", { name: "Bỏ lọc Dịch vụ quan tâm" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Bỏ lọc Ngân sách dự kiến" })).toBeTruthy();
+
+    // Remove condition 1 chip directly
+    fireEvent.click(screen.getByRole("button", { name: "Bỏ lọc Dịch vụ quan tâm" }));
+    await waitFor(() => {
+      expect(crmService.getLeadPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          fieldFilters: [{ key: "answers.ngan_sach", value: "5000000", mode: "contains" }],
+        }),
+      );
+    });
+
+    // 3. Sort by visible custom column (hidden system columns excluded)
     fireEvent.click(screen.getByRole("button", { name: "Sắp xếp danh sách Lead theo trường" }));
-    fireEvent.click(within(screen.getByRole("listbox")).getByText("Dịch vụ quan tâm (A → Z)"));
+    const sortListbox = screen.getByRole("listbox");
+    expect(within(sortListbox).queryByText("Email (A → Z)")).toBeNull();
+    expect(within(sortListbox).queryByText("Trạng thái chốt (A → Z)")).toBeNull();
+    fireEvent.click(within(sortListbox).getByText("Dịch vụ quan tâm (A → Z)"));
 
     await waitFor(() => {
       expect(crmService.getLeadPage).toHaveBeenLastCalledWith(
@@ -461,16 +485,188 @@ describe("LeadTable", () => {
       );
     });
 
-    // 4. Clear all filters & sort via "Xóa bộ lọc"
+    // 4. Clear all search, filters, chips & sort via "Xóa bộ lọc"
     fireEvent.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
 
     expect(setSearchQuery).toHaveBeenCalledWith("");
-    expect(screen.queryByLabelText("Bỏ lọc Dịch vụ quan tâm")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Bỏ lọc Ngân sách dự kiến" })).toBeNull();
 
     await waitFor(() => {
       const lastCall = vi.mocked(crmService.getLeadPage).mock.calls.at(-1)?.[0];
       expect(lastCall?.fieldFilters).toBeUndefined();
       expect(lastCall?.sort).toBe("updatedAt:desc");
     });
+  });
+
+  it("deduplicates cross-channel columns and updates Bộ lọc / Sắp xếp when toggling Cột hiển thị", async () => {
+    vi.mocked(crmService.getActiveLeadIntakeProfiles).mockResolvedValue([
+      ...activeProfiles,
+      {
+        id: "profile-zalo",
+        platform: "zalo",
+        accountId: "zalo_01",
+        version: 1,
+        goal: "Tư vấn Zalo",
+        completionMessage: "Cảm ơn!",
+        fields: [
+          { key: "dich_vu", label: "Dịch vụ quan tâm", question: "Bạn cần dịch vụ gì?", type: "single_select", required: false, options: ["Gội đầu dưỡng sinh"] },
+        ],
+      },
+    ]);
+
+    render(
+      <LeadTable
+        searchQuery=""
+        setSearchQuery={vi.fn()}
+        setShowCreateLeadModal={vi.fn()}
+        deleteLead={vi.fn()}
+        handleGoToChat={vi.fn()}
+        activeChannel="all"
+        companyCode="SPA01"
+        branchId="main"
+        accounts={accounts}
+        onSelectAccountScope={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Nguyễn Minh Anh");
+
+    // On "Tất cả Lead", duplicate column label across Facebook & Zalo appears only ONCE in Sort & Filter
+    fireEvent.click(screen.getByRole("button", { name: "Sắp xếp danh sách Lead theo trường" }));
+    const initialSortListbox = screen.getByRole("listbox");
+    expect(within(initialSortListbox).getAllByText("Dịch vụ quan tâm (A → Z)")).toHaveLength(1);
+    expect(within(initialSortListbox).queryByText("Trạng thái chốt (A → Z)")).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    // Enable hidden system column "Trạng thái chốt" -> immediately available in Bộ lọc & Sắp xếp
+    fireEvent.click(screen.getByRole("button", { name: /Cột hiển thị/ }));
+    const colMenu = screen.getByRole("menu", { name: "Tùy chỉnh hiển thị cột Sheet" });
+    fireEvent.click(within(colMenu).getByLabelText("Trạng thái chốt"));
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Bộ lọc/ }));
+    const popover = screen.getByRole("dialog", { name: "Lọc theo cột hiển thị" });
+    fireEvent.click(within(popover).getByRole("button", { name: "Trường lọc 1" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByText("Trạng thái chốt"));
+    fireEvent.click(within(popover).getByRole("button", { name: "Giá trị lọc Trạng thái chốt" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByText("Đã chốt"));
+
+    await waitFor(() => {
+      expect(crmService.getLeadPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          fieldFilters: [{ key: "status", value: "won", mode: "exact" }],
+        }),
+      );
+    });
+    fireEvent.click(within(popover).getByRole("button", { name: "Xong" }));
+
+    // Turn off "Trạng thái chốt" again -> active filter on hidden column is cleared cleanly
+    fireEvent.click(screen.getByRole("button", { name: /Cột hiển thị/ }));
+    fireEvent.click(within(screen.getByRole("menu", { name: "Tùy chỉnh hiển thị cột Sheet" })).getByLabelText("Trạng thái chốt"));
+
+    await waitFor(() => {
+      const lastCall = vi.mocked(crmService.getLeadPage).mock.calls.at(-1)?.[0];
+      expect(lastCall?.fieldFilters).toBeUndefined();
+    });
+    expect(screen.queryByRole("button", { name: "Bỏ lọc Trạng thái chốt" })).toBeNull();
+  });
+
+  it("exposes visible horizontal scrollbar, scroll buttons, and centered empty state when many columns overflow", async () => {
+    vi.mocked(crmService.getLeadPage).mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 25,
+      totalPages: 1,
+    });
+
+    const { container } = render(
+      <LeadTable
+        searchQuery=""
+        setSearchQuery={vi.fn()}
+        setShowCreateLeadModal={vi.fn()}
+        deleteLead={vi.fn()}
+        handleGoToChat={vi.fn()}
+        activeChannel="all"
+        companyCode="SPA01"
+        branchId="main"
+        accounts={[]}
+        onSelectAccountScope={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Chưa có dữ liệu Lead");
+
+    // Empty state sits outside the horizontally overflowing <table> so it remains viewport-centered
+    const emptyHeading = screen.getByRole("heading", { name: "Chưa có dữ liệu Lead" });
+    expect(emptyHeading.closest("table")).toBeNull();
+
+    // Grid wrapper uses visible-scrollbar + overflow-auto + border-separate so sticky borders & scrollbar remain visible
+    const scrollWrapper = container.querySelector(".visible-scrollbar.overflow-auto") as HTMLDivElement | null;
+    expect(scrollWrapper).not.toBeNull();
+    expect(within(scrollWrapper!).getByRole("table").className).toContain("border-separate");
+
+    // Turn on many system columns
+    fireEvent.click(screen.getByRole("button", { name: /Cột hiển thị/ }));
+    const colMenu = screen.getByRole("menu", { name: "Tùy chỉnh hiển thị cột Sheet" });
+    for (const label of ["Số điện thoại", "Kênh / Tài khoản", "Tình trạng Bot", "Trạng thái chốt", "Giá trị dự kiến", "Email", "Doanh nghiệp", "Cập nhật"]) {
+      fireEvent.click(within(colMenu).getByLabelText(label));
+    }
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    // All columns exist in the table header without truncation of the column list
+    for (const label of ["Số điện thoại", "Kênh / Tài khoản", "Tình trạng Bot", "Trạng thái chốt", "Email", "Doanh nghiệp", "Cập nhật"]) {
+      expect(screen.getByRole("columnheader", { name: new RegExp(label) })).toBeTruthy();
+    }
+
+    // Simulate horizontal overflow and verify scroll arrows appear & pan horizontally
+    Object.defineProperty(scrollWrapper!, "clientWidth", { value: 900, configurable: true });
+    Object.defineProperty(scrollWrapper!, "scrollWidth", { value: 1850, configurable: true });
+    Object.defineProperty(scrollWrapper!, "scrollLeft", { value: 0, writable: true, configurable: true });
+    fireEvent.scroll(scrollWrapper!);
+
+    const scrollRightBtn = await screen.findByRole("button", { name: "Cuộn bảng sang phải" });
+    const scrollLeftBtn = screen.getByRole("button", { name: "Cuộn bảng sang trái" });
+    expect((scrollLeftBtn as HTMLButtonElement).disabled).toBe(true);
+    expect((scrollRightBtn as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(scrollRightBtn);
+    expect(scrollWrapper!.scrollLeft).toBeGreaterThan(0);
+  });
+
+  it("bounds table viewport into a 2-way scroll container with sticky column headers when rows exist", async () => {
+    const { container } = render(
+      <LeadTable
+        searchQuery=""
+        setSearchQuery={vi.fn()}
+        setShowCreateLeadModal={vi.fn()}
+        deleteLead={vi.fn()}
+        handleGoToChat={vi.fn()}
+        activeChannel="all"
+        companyCode="SPA01"
+        branchId="main"
+        accounts={accounts}
+        onSelectAccountScope={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Nguyễn Minh Anh");
+
+    const scrollWrapper = container.querySelector(".visible-scrollbar.overflow-auto") as HTMLDivElement | null;
+    expect(scrollWrapper).not.toBeNull();
+    expect(scrollWrapper!.className).toContain("sm:flex-1");
+    expect(scrollWrapper!.className).toContain("sm:min-h-0");
+
+    const table = within(scrollWrapper!).getByRole("table");
+    const thead = table.querySelector("thead");
+    expect(thead).not.toBeNull();
+    expect(thead!.className).toContain("sticky");
+    expect(thead!.className).toContain("top-0");
+
+    const firstBodyRow = table.querySelector("tbody tr");
+    expect(firstBodyRow).not.toBeNull();
+    const indexCell = firstBodyRow!.querySelector("td");
+    expect(indexCell!.className).toContain("border-b");
+    expect(indexCell!.className).not.toContain("group-last/row:border-b-0");
   });
 });

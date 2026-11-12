@@ -1,6 +1,7 @@
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import type { ILeadIntakeFieldSnapshot } from "../interface/crm-ticket.interface";
 import type { LeadCollectionStatus, LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
+import { parseIntakeNumber } from "./intake-number";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
 
@@ -28,8 +29,7 @@ function standardField(field: { key: string; label: string; type?: string }) {
 }
 
 export function parseLeadIntakeAmount(value: string) {
-  const parsed = Number(value.trim().replace(/[\s,]/g, ""));
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+  return parseIntakeNumber(value, true);
 }
 
 export function mapIntakeStandardFields(
@@ -45,25 +45,41 @@ export function mapIntakeStandardFields(
   return standard;
 }
 
-export async function upsertLeadFromIntake(input: {
+type LeadIntakeIdentity = {
   companyCode: string;
   platform: IntakePlatform;
   accountId: string;
   conversationId: string;
+};
+
+function intakeIdentity(input: LeadIntakeIdentity) {
+  return {
+    companyCode: input.companyCode.trim().toUpperCase(),
+    sourcePlatform: input.platform,
+    sourceAccountId: input.accountId.trim(),
+    sourceConversationId: input.conversationId.trim(),
+  };
+}
+
+export function findLeadForIntake(input: LeadIntakeIdentity) {
+  return CRMTicketModel.findOne(intakeIdentity(input))
+    .select("customerName phone email company avatar productOfChoice value answers intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus")
+    .lean();
+}
+
+export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
   profileId: string;
   profileVersion: number;
   fields: LeadIntakeField[];
   values: Record<string, string>;
-  collectionStatus: LeadCollectionStatus;
+  previousValues: Record<string, string>;
+  allowCreate: boolean;
+  messageId: string;
+  messageAt?: Date;
+  fillMissingOnly?: boolean;
+  preserveNewerValues?: boolean;
 }) {
-  const companyCode = input.companyCode.trim().toUpperCase();
-  const sourceAccountId = input.accountId.trim();
-  const sourceConversationId = input.conversationId.trim();
-  const identity = { companyCode, sourcePlatform: input.platform, sourceAccountId, sourceConversationId };
-  const current = await CRMTicketModel.findOne(identity).select("customerName phone email company productOfChoice value").lean();
-  const answers = Object.fromEntries(input.fields
-    .map(field => [field.key, String(input.values[field.key] || "").trim()])
-    .filter(([, value]) => value));
+  const identity = intakeIdentity(input);
   const fieldSnapshot: ILeadIntakeFieldSnapshot[] = input.fields.map(field => ({
     key: field.key,
     label: field.label,
@@ -73,46 +89,88 @@ export async function upsertLeadFromIntake(input: {
     options: field.options || [],
   }));
 
-  const standard = mapIntakeStandardFields(input.fields, answers);
-  const customerName = standard.name || current?.customerName || `Khách ${sourceConversationId.slice(-6) || "mới"}`;
-  const update: Record<string, unknown> = {
-    customerName: customerName.slice(0, 200),
-    avatar: initials(customerName),
-    answers,
-    intakeSearchText: Object.values(answers).join(" ").slice(0, 100000),
-    intakeFields: fieldSnapshot,
-    sourcePlatform: input.platform,
-    sourceAccountId,
-    sourceConversationId,
-    intakeProfileId: input.profileId,
-    intakeProfileVersion: input.profileVersion,
-    collectionStatus: input.collectionStatus,
-    lastInteraction: input.collectionStatus === "complete" ? "Đã thu thập đủ thông tin" : "Đang thu thập thông tin",
-    lastInteractionAt: new Date(),
-  };
-  if (standard.phone) update.phone = standard.phone.slice(0, 40);
-  if (standard.email) update.email = standard.email.slice(0, 254);
-  if (standard.company) update.company = standard.company.slice(0, 200);
-  if (standard.productOfChoice) update.productOfChoice = standard.productOfChoice.slice(0, 200);
-  if (standard.value) {
-    const amount = parseLeadIntakeAmount(standard.value);
-    if (amount !== undefined) update.value = amount;
-  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await findLeadForIntake(input);
+    if (!current && !input.allowCreate) return null;
+    const hasNewerLead = Boolean(current?.lastIntakeMessageAt && input.messageAt &&
+      (current.lastIntakeMessageAt > input.messageAt || (input.preserveNewerValues &&
+        current.lastIntakeMessageAt.getTime() === input.messageAt.getTime() && current.lastIntakeMessageId !== input.messageId)));
+    if (current?.lastIntakeMessageId === input.messageId || (hasNewerLead && !input.preserveNewerValues)) {
+      return current;
+    }
+    const fillMissingOnly = Boolean(current && (input.fillMissingOnly || hasNewerLead));
 
-  const createDefaults = {
-    status: "cold" as const,
-    companyCode,
-    selectedProducts: [],
-  };
-  let lead: { _id?: unknown } | null;
-  try {
-    lead = await CRMTicketModel.findOneAndUpdate(identity, {
-      $set: update,
-      $setOnInsert: createDefaults,
-    }, { upsert: true, new: true, runValidators: true }).select("_id").lean();
-  } catch (error) {
-    if ((error as { code?: number }).code !== 11000) throw error;
-    lead = await CRMTicketModel.findOneAndUpdate(identity, { $set: update }, { new: true, runValidators: true }).select("_id").lean();
+    const protectedFields = new Set(current?.intakeStaffFields);
+    const answers = { ...current?.answers };
+    const changedAnswers: Record<string, string> = {};
+    for (const field of input.fields) {
+      const value = input.values[field.key]?.trim();
+      if (!value || protectedFields.has(`answers.${field.key}`)) continue;
+      if (fillMissingOnly && answers[field.key]?.trim()) continue;
+      if (current && (value === answers[field.key] || (answers[field.key] && value === input.previousValues[field.key]))) continue;
+      changedAnswers[field.key] = value;
+      answers[field.key] = value;
+    }
+    if (!Object.keys(changedAnswers).length) return current;
+
+    const standard = mapIntakeStandardFields(input.fields, changedAnswers);
+    const complete = input.fields.every(field => field.required === false || Boolean(answers[field.key]?.trim()));
+    const collectionStatus = current?.collectionStatus === "needs_human" ? "needs_human" : complete ? "complete" : "collecting";
+    const changedAnswerPaths = Object.fromEntries(Object.entries(changedAnswers).map(([key, value]) => [`answers.${key}`, value]));
+    const update: Record<string, unknown> = {
+      ...(current ? changedAnswerPaths : { answers }),
+      intakeSearchText: Object.values(answers).join(" ").slice(0, 100000),
+      intakeFields: fieldSnapshot,
+      intakeProfileId: input.profileId,
+      intakeProfileVersion: input.profileVersion,
+      collectionStatus,
+      lastInteraction: collectionStatus === "complete" ? "Đã thu thập đủ thông tin" : "Đã cập nhật thông tin Lead",
+      lastInteractionAt: new Date(),
+      ...(!fillMissingOnly ? { lastIntakeMessageId: input.messageId,
+        ...(input.messageAt ? { lastIntakeMessageAt: input.messageAt } : {}) } : {}),
+    };
+
+    const fallbackName = `Khách ${identity.sourceConversationId.slice(-6) || "mới"}`;
+    const canUpdate = (field: "customerName" | "phone" | "email" | "company" | "productOfChoice" | "value") => {
+      const currentValue = current?.[field];
+      const missing = currentValue == null || currentValue === "" ||
+        (field === "value" && currentValue === 0) || (field === "customerName" && currentValue === fallbackName);
+      return !protectedFields.has(field) && (!fillMissingOnly || missing);
+    };
+    if (!current || (standard.name && canUpdate("customerName"))) {
+      const name = (standard.name || fallbackName).slice(0, 200);
+      update.customerName = name;
+      update.avatar = initials(name);
+    }
+    if (standard.phone && canUpdate("phone")) update.phone = standard.phone.slice(0, 40);
+    if (standard.email && canUpdate("email")) update.email = standard.email.slice(0, 254);
+    if (standard.company && canUpdate("company")) update.company = standard.company.slice(0, 200);
+    if (standard.productOfChoice && canUpdate("productOfChoice")) update.productOfChoice = standard.productOfChoice.slice(0, 200);
+    const budgetField = [...input.fields].reverse().find(field => standardField(field) === "value" && changedAnswers[field.key]);
+    const canonicalBudget = (budgetField?.type === "currency" || budgetField?.type === "number") && /^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/.test(standard.value || "");
+    // The typed extractor already stored a canonical decimal string.
+    const amount = standard.value ? (canonicalBudget ? parseIntakeNumber(Number(standard.value))
+      : parseLeadIntakeAmount(standard.value)) : undefined;
+    if (amount !== undefined && canUpdate("value")) update.value = amount;
+
+    try {
+      // The answer changes and the message that produced them commit together.
+      const result = await CRMTicketModel.findOneAndUpdate(
+        current
+          ? { ...identity, _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
+          : { ...identity, intakeRevision: { $exists: false } },
+        {
+          $set: update,
+          $inc: { intakeRevision: 1 },
+          ...(!current ? { $setOnInsert: { ...identity, status: "cold" as const, selectedProducts: [] } } : {}),
+        },
+        { upsert: !current, new: true, runValidators: true },
+      ).lean();
+      if (result) return result;
+    } catch (error) {
+      // Another worker or a staff edit may have created or advanced this Lead.
+      if ((error as { code?: number }).code !== 11000) throw error;
+    }
   }
-  return lead;
+  throw new Error("Lead vừa được cập nhật nhiều lần. Hãy thử lại.");
 }

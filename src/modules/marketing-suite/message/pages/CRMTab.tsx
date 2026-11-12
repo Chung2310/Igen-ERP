@@ -1679,7 +1679,7 @@ export default function CRMTab() {
         ].map(({ key, label, icon: Icon }) => <ModuleNavigationButton key={key} active={subTab === key} icon={<Icon />} onClick={() => setSubTab(key)}>{label}</ModuleNavigationButton>)}
       </ModuleNavigation>
 
-      <div className="flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
+      <div className="min-h-0 flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>
           {subTab === "LEAD" && (
             <LeadTable

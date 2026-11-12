@@ -38,6 +38,10 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   sourceConversationId: { type: String, default: "", index: true },
   intakeProfileId: { type: String, default: "" },
   intakeProfileVersion: { type: Number },
+  intakeRevision: { type: Number },
+  intakeStaffFields: { type: [String], default: undefined },
+  lastIntakeMessageId: { type: String },
+  lastIntakeMessageAt: { type: Date },
   collectionStatus: { type: String, enum: ["collecting", "complete", "needs_human"], index: true },
   lastInteractionAt: { type: Date, index: true },
   moduleSync: {

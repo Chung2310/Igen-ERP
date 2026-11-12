@@ -36,8 +36,9 @@ export interface LeadPageResult {
 
 export interface LeadFieldFilter {
   key: string;
+  altKeys?: string[];
   value: string;
-  mode?: "exact" | "contains";
+  mode?: "exact" | "contains" | "unchecked";
 }
 
 export interface LeadPageQueryOptions {

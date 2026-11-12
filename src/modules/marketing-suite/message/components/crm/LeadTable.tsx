@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   AlignLeft,
@@ -8,6 +9,8 @@ import {
   ArrowUpDown,
   Calendar,
   CheckSquare,
+  ChevronLeft,
+  ChevronRight,
   Columns3,
   DollarSign,
   Download,
@@ -21,6 +24,7 @@ import {
   Phone,
   Plus,
   Settings2,
+  SlidersHorizontal,
   Table2,
   Trash2,
   Type,
@@ -56,16 +60,21 @@ import { LeadModuleSyncModal } from "./LeadModuleSyncModal";
 import { LeadSheetCell, type CellDirection } from "./LeadSheetCell";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
 import {
+  buildLeadFieldFilter,
+  buildVisibleFilterColumns,
+  buildVisibleSortOptions,
   COLLECTION_STATUS_META,
   DEFAULT_HIDDEN_SYSTEM_COLUMNS,
   defaultBotQuestion,
   downloadLeadsExcel,
   FIELD_TYPE_META,
+  getSystemSortKey,
   isNameField,
   LEAD_STATUS_META,
   leadHasIntakeField,
   loadSheetLayout,
   PLATFORM_LABELS,
+  resolveFilterValueLabel,
   saveSheetLayout,
   toIntakeFieldKey,
   type LeadAccountOption,
@@ -109,74 +118,13 @@ const collectionRowOptions = [
 ];
 const statusRowOptions = Object.entries(LEAD_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label }));
 
-interface PinnedFieldFilter {
+interface FilterConditionRow {
   id: string;
   colKey: string;
-  label: string;
-  filterKey: string;
   value: string;
-  valueLabel: string;
-  mode: "exact" | "contains";
 }
 
-function getColumnFilterOptions(col: LeadSheetColumn): Array<{ value: string; label: string }> | null {
-  if (col.key === "collectionStatus") {
-    return Object.entries(COLLECTION_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label }));
-  }
-  if (col.key === "status") {
-    return Object.entries(LEAD_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label }));
-  }
-  if (col.key === "sourceChannel") {
-    return Object.entries(PLATFORM_LABELS).map(([key, label]) => ({ value: key, label }));
-  }
-  if (col.type === "checkbox") {
-    return [
-      { value: "Có", label: "Có / Đã chọn" },
-      { value: "Không", label: "Không / Chưa chọn" },
-    ];
-  }
-  if ((col.type === "single_select" || col.type === "multi_select") && col.options && col.options.length > 0) {
-    return col.options.map(option => ({ value: option, label: option }));
-  }
-  return null;
-}
-
-function getColumnFilterSpec(col: LeadSheetColumn): { filterKey: string; mode: "exact" | "contains" } | null {
-  if (col.kind === "intake" && col.answerKey) {
-    return {
-      filterKey: `answers.${col.answerKey}`,
-      mode: col.type === "single_select" || col.type === "checkbox" ? "exact" : "contains",
-    };
-  }
-  switch (col.key) {
-    case "customerName":
-    case "phone":
-    case "email":
-    case "company":
-    case "productOfChoice":
-      return { filterKey: col.key, mode: "contains" };
-    case "value":
-    case "status":
-    case "collectionStatus":
-    case "updatedAt":
-      return { filterKey: col.key, mode: "exact" };
-    case "sourceChannel":
-      return { filterKey: "sourcePlatform", mode: "exact" };
-    default:
-      return null;
-  }
-}
-
-function resolveFilterValueLabel(col: LeadSheetColumn, rawValue: string): string {
-  const options = getColumnFilterOptions(col);
-  const matched = options?.find(opt => opt.value === rawValue);
-  if (matched) return matched.label;
-  if (col.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
-    const [yyyy, mm, dd] = rawValue.split("-");
-    return `${dd}/${mm}/${yyyy}`;
-  }
-  return rawValue;
-}
+const FILTER_POPOVER_ID = "lead-filter-popover";
 
 const FieldTypeIcon: React.FC<{ type: LeadIntakeFieldType }> = ({ type }) => {
   const className = "size-3.5 shrink-0 text-on-surface-variant";
@@ -204,24 +152,12 @@ const FieldTypeIcon: React.FC<{ type: LeadIntakeFieldType }> = ({ type }) => {
 };
 
 function defaultWidthForType(type: LeadIntakeFieldType): number {
-  if (type === "checkbox") return 152;
-  if (type === "number" || type === "currency" || type === "date" || type === "phone") return 176;
-  if (type === "single_select") return 192;
-  if (type === "long_text" || type === "multi_select") return 240;
-  return 204;
-}
-
-function getSystemSortKey(key: string): string | undefined {
-  if (key === "customerName") return "customerName";
-  if (key === "phone") return "phone";
-  if (key === "email") return "email";
-  if (key === "company") return "company";
-  if (key === "sourceChannel") return "sourcePlatform";
-  if (key === "value") return "value";
-  if (key === "status") return "status";
-  if (key === "collectionStatus") return "collectionStatus";
-  if (key === "updatedAt") return "updatedAt";
-  return undefined;
+  if (type === "checkbox") return 136;
+  if (type === "number" || type === "date" || type === "phone") return 152;
+  if (type === "currency") return 160;
+  if (type === "single_select") return 172;
+  if (type === "long_text" || type === "multi_select") return 208;
+  return 164;
 }
 
 function readCellValue(lead: ExtendedLeadCard, col: LeadSheetColumn): string {
@@ -298,8 +234,20 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [exporting, setExporting] = useState(false);
 
   const columnMenuRef = useRef<HTMLDivElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
+  const filterRowSeqRef = useRef(0);
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const requestSeqRef = useRef(0);
+  const [scrollState, setScrollState] = useState({ canLeft: false, canRight: false });
+
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+  const [filterPopoverCoords, setFilterPopoverCoords] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
 
   const effectiveScopeKey = useMemo(() => {
     if (activeChannel !== "all" && accountId) return `${activeChannel}:${accountId}`;
@@ -325,47 +273,19 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
   const [filterState, setFilterState] = useState<{
     scopeKey: string;
-    draftColKey: string;
-    draftValue: string;
-    pinned: PinnedFieldFilter[];
-  }>({ scopeKey: "", draftColKey: "none", draftValue: "", pinned: [] });
-  const draftFilterColKey = filterState.scopeKey === effectiveScopeKey ? filterState.draftColKey : "none";
-  const draftFilterValue = filterState.scopeKey === effectiveScopeKey ? filterState.draftValue : "";
-  const pinnedFilters = useMemo(
-    () => (filterState.scopeKey === effectiveScopeKey ? filterState.pinned : []),
+    rows: FilterConditionRow[];
+  }>({ scopeKey: "", rows: [] });
+  const filterRows = useMemo(
+    () => (filterState.scopeKey === effectiveScopeKey ? filterState.rows : []),
     [filterState, effectiveScopeKey],
   );
-  const setDraftFilterColKey = useCallback(
-    (nextColKey: string) => {
-      setFilterState(current => ({
-        scopeKey: effectiveScopeKey,
-        draftColKey: nextColKey,
-        draftValue: "",
-        pinned: current.scopeKey === effectiveScopeKey ? current.pinned : [],
-      }));
-    },
-    [effectiveScopeKey],
-  );
-  const setDraftFilterValue = useCallback(
-    (nextValue: string) => {
-      setFilterState(current => ({
-        scopeKey: effectiveScopeKey,
-        draftColKey: current.scopeKey === effectiveScopeKey ? current.draftColKey : "none",
-        draftValue: nextValue,
-        pinned: current.scopeKey === effectiveScopeKey ? current.pinned : [],
-      }));
-    },
-    [effectiveScopeKey],
-  );
-  const setPinnedFilters = useCallback(
-    (updater: React.SetStateAction<PinnedFieldFilter[]>) => {
+  const updateFilterRows = useCallback(
+    (updater: React.SetStateAction<FilterConditionRow[]>) => {
       setFilterState(current => {
-        const prevPinned = current.scopeKey === effectiveScopeKey ? current.pinned : [];
+        const base = current.scopeKey === effectiveScopeKey ? current.rows : [];
         return {
           scopeKey: effectiveScopeKey,
-          draftColKey: current.scopeKey === effectiveScopeKey ? current.draftColKey : "none",
-          draftValue: current.scopeKey === effectiveScopeKey ? current.draftValue : "",
-          pinned: typeof updater === "function" ? updater(prevPinned) : updater,
+          rows: typeof updater === "function" ? updater(base) : updater,
         };
       });
     },
@@ -402,7 +322,62 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     };
   }, [columnMenuOpen]);
 
-  const sortParam = useMemo(() => `${sortField}:${sortDir}`, [sortField, sortDir]);
+  const computeFilterPopoverPosition = useCallback(() => {
+    const rect = filterTriggerRef.current?.getBoundingClientRect();
+    if (!rect) return { top: 64, left: 16, width: 480, maxHeight: 420 };
+    const width = Math.min(500, Math.max(280, window.innerWidth - 24));
+    const estimatedHeight = 320;
+    const spaceBelow = window.innerHeight - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const placeAbove = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxHeight = Math.min(460, Math.max(180, placeAbove ? spaceAbove : spaceBelow));
+    const top = placeAbove
+      ? Math.max(12, rect.top - Math.min(estimatedHeight, maxHeight) - 8)
+      : rect.bottom + 8;
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
+    return { top, left, width, maxHeight };
+  }, []);
+
+  const closeFilterPopover = useCallback(
+    (restoreFocus = false) => {
+      setFilterPopoverOpen(false);
+      updateFilterRows(current => current.filter(row => row.value.trim() !== ""));
+      if (restoreFocus) {
+        requestAnimationFrame(() => filterTriggerRef.current?.focus({ preventScroll: true }));
+      }
+    },
+    [updateFilterRows],
+  );
+
+  useEffect(() => {
+    if (!filterPopoverOpen) return;
+    const handleReposition = () => setFilterPopoverCoords(computeFilterPopoverPosition());
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (filterTriggerRef.current?.contains(target) || filterPopoverRef.current?.contains(target)) return;
+      if (target instanceof Element && (target.closest('[role="listbox"]') || target.closest('[role="dialog"][aria-label="Lịch chọn ngày"]'))) {
+        return;
+      }
+      closeFilterPopover(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (document.querySelector('[role="listbox"], [role="dialog"][aria-label="Lịch chọn ngày"]')) return;
+      event.preventDefault();
+      closeFilterPopover(true);
+    };
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [filterPopoverOpen, computeFilterPopoverPosition, closeFilterPopover]);
 
   const loadProfiles = useCallback(async () => {
     try {
@@ -545,104 +520,117 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     const hasCustomNameColumn = intakeColumns.some(col => isNameField({ key: col.answerKey || col.key, label: col.label }));
     const anchorNameCol: LeadSheetColumn[] = hasCustomNameColumn
       ? []
-      : [{ key: "customerName", label: "Họ và tên", type: "text", kind: "system", defaultWidth: 204, editable: true, sortable: true, sortKey: "customerName" }];
+      : [{ key: "customerName", label: "Họ và tên", type: "text", kind: "system", defaultWidth: 180, editable: true, sortable: true, sortKey: "customerName" }];
 
     // Optional CRM metadata columns: off by default so user sees only the columns they defined.
     const optionalSystemColumns: LeadSheetColumn[] = [
       ...(hasCustomNameColumn
-        ? [{ key: "customerName", label: "Tên hệ thống", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 196, editable: true, sortable: true, sortKey: "customerName" }]
+        ? [{ key: "customerName", label: "Tên hệ thống", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 172, editable: true, sortable: true, sortKey: "customerName" }]
         : []),
-      { key: "phone", label: "Số điện thoại", type: "phone", kind: "system", defaultWidth: 168, editable: true, sortable: true, sortKey: "phone" },
+      { key: "phone", label: "Số điện thoại", type: "phone", kind: "system", defaultWidth: 148, editable: true, sortable: true, sortKey: "phone" },
       ...(isScopedAccount
         ? []
-        : [{ key: "sourceChannel", label: "Kênh / Tài khoản", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 184, editable: false, sortable: true, sortKey: "sourcePlatform" }]),
-      { key: "collectionStatus", label: "Tình trạng Bot", type: "single_select", kind: "system", defaultWidth: 172, editable: true, sortable: true, sortKey: "collectionStatus" },
-      { key: "status", label: "Trạng thái chốt", type: "single_select", kind: "system", defaultWidth: 168, editable: true, sortable: true, sortKey: "status" },
-      { key: "value", label: "Giá trị dự kiến", type: "currency", kind: "system", defaultWidth: 168, editable: true, sortable: true, sortKey: "value" },
-      { key: "email", label: "Email", type: "email", kind: "system", defaultWidth: 196, editable: true, sortable: true, sortKey: "email" },
-      { key: "company", label: "Doanh nghiệp", type: "text", kind: "system", defaultWidth: 184, editable: true, sortable: true, sortKey: "company" },
-      { key: "updatedAt", label: "Cập nhật", type: "date", kind: "system", defaultWidth: 152, editable: false, sortable: true, sortKey: "updatedAt" },
+        : [{ key: "sourceChannel", label: "Kênh / Tài khoản", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 168, editable: false, sortable: true, sortKey: "sourcePlatform" }]),
+      { key: "collectionStatus", label: "Tình trạng Bot", type: "single_select", kind: "system", defaultWidth: 160, editable: true, sortable: true, sortKey: "collectionStatus" },
+      { key: "status", label: "Trạng thái chốt", type: "single_select", kind: "system", defaultWidth: 156, editable: true, sortable: true, sortKey: "status" },
+      { key: "value", label: "Giá trị dự kiến", type: "currency", kind: "system", defaultWidth: 156, editable: true, sortable: true, sortKey: "value" },
+      { key: "email", label: "Email", type: "email", kind: "system", defaultWidth: 180, editable: true, sortable: true, sortKey: "email" },
+      { key: "company", label: "Doanh nghiệp", type: "text", kind: "system", defaultWidth: 164, editable: true, sortable: true, sortKey: "company" },
+      { key: "updatedAt", label: "Cập nhật", type: "date", kind: "system", defaultWidth: 136, editable: false, sortable: true, sortKey: "updatedAt" },
     ];
 
     return [...anchorNameCol, ...intakeColumns, ...optionalSystemColumns];
   }, [activeChannel, accountId, scopedProfile, profiles, leads]);
 
-  const activeDraftFilterCol = useMemo(
-    () => (draftFilterColKey !== "none" ? allColumns.find(col => col.key === draftFilterColKey) || null : null),
-    [allColumns, draftFilterColKey],
+  const visibleColumns = useMemo(() => {
+    const hidden = new Set(layoutPrefs.hiddenKeys);
+    const hasCustomNameColumn = allColumns.some(col => col.kind === "intake" && isNameField({ key: col.answerKey || col.key, label: col.label }));
+    const filtered = allColumns.filter(col => {
+      if (col.key === "customerName" && hasCustomNameColumn) {
+        // Hide duplicate system customerName by default when user already added a name field
+        return layoutPrefs.hiddenKeys.includes("showSystemName");
+      }
+      return !hidden.has(col.key);
+    });
+    return filtered.length > 0 ? filtered : allColumns.slice(0, 1);
+  }, [allColumns, layoutPrefs.hiddenKeys]);
+
+  const visibleFilterColumns = useMemo(
+    () => buildVisibleFilterColumns(visibleColumns),
+    [visibleColumns],
+  );
+  const visibleFilterColByKey = useMemo(
+    () => new Map(visibleFilterColumns.map(col => [col.colKey, col])),
+    [visibleFilterColumns],
   );
 
-  const draftFilterOptions = useMemo(
-    () => (activeDraftFilterCol ? getColumnFilterOptions(activeDraftFilterCol) : null),
-    [activeDraftFilterCol],
+  const displayedFilterRows = useMemo(
+    () => filterRows.filter(row => visibleFilterColByKey.has(row.colKey)),
+    [filterRows, visibleFilterColByKey],
   );
 
-  const effectiveFieldFilters = useMemo<LeadFieldFilter[]>(() => {
-    const map = new Map<string, LeadFieldFilter>();
-    for (const chip of pinnedFilters) {
-      map.set(chip.colKey, { key: chip.filterKey, value: chip.value, mode: chip.mode });
+  const activeFilterEntries = useMemo(() => {
+    const entries: Array<{
+      id: string;
+      col: (typeof visibleFilterColumns)[number];
+      value: string;
+      valueLabel: string;
+      filter: LeadFieldFilter;
+    }> = [];
+    for (const row of displayedFilterRows) {
+      const col = visibleFilterColByKey.get(row.colKey);
+      if (!col) continue;
+      const filter = buildLeadFieldFilter(col, row.value);
+      if (!filter) continue;
+      entries.push({
+        id: row.id,
+        col,
+        value: filter.value,
+        valueLabel: resolveFilterValueLabel(
+          { key: col.colKey, type: col.type, options: col.options?.map(opt => opt.value) },
+          filter.value,
+          col.options,
+        ),
+        filter,
+      });
     }
-    if (activeDraftFilterCol && draftFilterValue.trim()) {
-      const spec = getColumnFilterSpec(activeDraftFilterCol);
-      if (spec) {
-        map.set(activeDraftFilterCol.key, {
-          key: spec.filterKey,
-          value: draftFilterValue.trim(),
-          mode: spec.mode,
-        });
-      }
-    }
-    return Array.from(map.values());
-  }, [pinnedFilters, activeDraftFilterCol, draftFilterValue]);
+    return entries;
+  }, [displayedFilterRows, visibleFilterColByKey]);
 
-  const filterFieldSelectOptions = useMemo(() => {
-    const seenKeys = new Set<string>();
-    const options: Array<{ value: string; label: string }> = [{ value: "none", label: "Lọc theo trường…" }];
-    for (const col of allColumns) {
-      const spec = getColumnFilterSpec(col);
-      if (!spec || seenKeys.has(col.key)) continue;
-      seenKeys.add(col.key);
-      options.push({ value: col.key, label: col.label });
-    }
-    return options;
-  }, [allColumns]);
+  const serializedFieldFilters = useMemo(
+    () => JSON.stringify(activeFilterEntries.map(entry => entry.filter)),
+    [activeFilterEntries],
+  );
+  const effectiveFieldFilters = useMemo<LeadFieldFilter[]>(
+    () => JSON.parse(serializedFieldFilters) as LeadFieldFilter[],
+    [serializedFieldFilters],
+  );
 
-  const sortSelectOptions = useMemo(() => {
-    const seen = new Set<string>(["updatedAt:desc"]);
-    const options: Array<{ value: string; label: string }> = [
-      { value: "updatedAt:desc", label: "Sắp xếp: Mới cập nhật" },
-    ];
-    for (const col of allColumns) {
-      const sortKey = col.sortKey || getSystemSortKey(col.key);
-      if (!sortKey) continue;
-      const ascVal = `${sortKey}:asc`;
-      const descVal = `${sortKey}:desc`;
-      const isNum = col.type === "number" || col.type === "currency";
-      const isDate = col.type === "date";
-      if (!seen.has(ascVal)) {
-        seen.add(ascVal);
-        options.push({
-          value: ascVal,
-          label: isNum ? `${col.label} (Thấp → Cao)` : isDate ? `${col.label} (Cũ nhất)` : `${col.label} (A → Z)`,
-        });
-      }
-      if (!seen.has(descVal)) {
-        seen.add(descVal);
-        options.push({
-          value: descVal,
-          label: isNum ? `${col.label} (Cao → Thấp)` : isDate ? `${col.label} (Mới nhất)` : `${col.label} (Z → A)`,
-        });
-      }
-    }
-    return options;
-  }, [allColumns]);
+  const visibleSortOptions = useMemo(
+    () => buildVisibleSortOptions(visibleColumns),
+    [visibleColumns],
+  );
 
-  const hasCustomSort = sortField !== "updatedAt" || sortDir !== "desc";
+  const hasVisibleSortTarget = useMemo(
+    () =>
+      (sortField === "updatedAt" && sortDir === "desc")
+      || visibleColumns.some(col => (col.sortKey || getSystemSortKey(col.key)) === sortField),
+    [visibleColumns, sortField, sortDir],
+  );
+  const effectiveSortParam = hasVisibleSortTarget ? `${sortField}:${sortDir}` : "updatedAt:desc";
+  const activeSortSep = effectiveSortParam.lastIndexOf(":");
+  const activeSortField = activeSortSep > 0 ? effectiveSortParam.slice(0, activeSortSep) : "updatedAt";
+  const activeSortDir: "asc" | "desc" = activeSortSep > 0 && effectiveSortParam.slice(activeSortSep + 1) === "asc" ? "asc" : "desc";
+  const sortDropdownValue = visibleSortOptions.some(opt => opt.value === effectiveSortParam)
+    ? effectiveSortParam
+    : "updatedAt:desc";
+
+  const hasCustomSort = effectiveSortParam !== "updatedAt:desc";
   const hasActiveFilters = Boolean(searchQuery.trim() || effectiveFieldFilters.length > 0 || hasCustomSort);
 
   const filterSignature = useMemo(
-    () => `${effectiveScopeKey}|${searchQuery}|${JSON.stringify(effectiveFieldFilters)}|${sortParam}`,
-    [effectiveScopeKey, searchQuery, effectiveFieldFilters, sortParam],
+    () => `${effectiveScopeKey}|${searchQuery}|${JSON.stringify(effectiveFieldFilters)}|${effectiveSortParam}`,
+    [effectiveScopeKey, searchQuery, effectiveFieldFilters, effectiveSortParam],
   );
   const [pageState, setPageState] = useState<{ sig: string; value: number }>({ sig: "", value: 1 });
   const page = pageState.sig === filterSignature ? pageState.value : 1;
@@ -666,7 +654,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         accountId,
         search: searchQuery,
         ...(effectiveFieldFilters.length > 0 ? { fieldFilters: effectiveFieldFilters } : {}),
-        sort: sortParam,
+        sort: effectiveSortParam,
         page,
         limit: pageSize,
       });
@@ -679,7 +667,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeChannel, accountId, searchQuery, effectiveFieldFilters, sortParam, page, pageSize]);
+  }, [activeChannel, accountId, searchQuery, effectiveFieldFilters, effectiveSortParam, page, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -697,18 +685,40 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     return () => { cancelled = true; };
   }, [loadLeads, refreshToken]);
 
-  const visibleColumns = useMemo(() => {
-    const hidden = new Set(layoutPrefs.hiddenKeys);
-    const hasCustomNameColumn = allColumns.some(col => col.kind === "intake" && isNameField({ key: col.answerKey || col.key, label: col.label }));
-    const filtered = allColumns.filter(col => {
-      if (col.key === "customerName" && hasCustomNameColumn) {
-        // Hide duplicate system customerName by default when user already added a name field
-        return layoutPrefs.hiddenKeys.includes("showSystemName");
-      }
-      return !hidden.has(col.key);
-    });
-    return filtered.length > 0 ? filtered : allColumns.slice(0, 1);
-  }, [allColumns, layoutPrefs.hiddenKeys]);
+  const syncGridScrollState = useCallback(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    const canLeft = el.scrollLeft > 4;
+    const canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setScrollState(current =>
+      current.canLeft === canLeft && current.canRight === canRight ? current : { canLeft, canRight },
+    );
+  }, []);
+
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    const frame = requestAnimationFrame(syncGridScrollState);
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncGridScrollState) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", syncGridScrollState);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", syncGridScrollState);
+    };
+  }, [syncGridScrollState, visibleColumns.length, leads.length, loading, layoutPrefs.widths]);
+
+  function scrollGridBy(deltaX: number) {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    if (typeof el.scrollBy === "function") {
+      el.scrollBy({ left: deltaX, behavior: "smooth" });
+    } else {
+      el.scrollLeft += deltaX;
+      syncGridScrollState();
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
@@ -751,8 +761,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   function toggleSort(col: LeadSheetColumn) {
     const key = col.sortKey || getSystemSortKey(col.key);
     if (!key) return;
-    if (sortField === key) {
-      setSortDir(current => (current === "asc" ? "desc" : "asc"));
+    if (activeSortField === key) {
+      setSortDir(activeSortDir === "asc" ? "desc" : "asc");
     } else {
       setSortField(key);
       setSortDir(key === "customerName" ? "asc" : "desc");
@@ -761,20 +771,32 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   }
 
   function toggleColumnVisibility(colKey: string) {
+    const hasCustomName = allColumns.some(
+      col => col.kind === "intake" && isNameField({ key: col.answerKey || col.key, label: col.label }),
+    );
+    const prefKey = colKey === "customerName" && hasCustomName ? "showSystemName" : colKey;
+    const targetColKey = colKey === "showSystemName" ? "customerName" : colKey;
+    const isCurrentlyVisible = visibleColumns.some(col => col.key === targetColKey);
+    if (isCurrentlyVisible && visibleColumns.length <= 1) return;
     setLayoutPrefs(current => {
-      const exists = current.hiddenKeys.includes(colKey);
+      const exists = current.hiddenKeys.includes(prefKey);
       if (!exists && visibleColumns.length <= 1) return current;
       return {
         ...current,
         hiddenKeys: exists
-          ? current.hiddenKeys.filter(k => k !== colKey)
-          : [...current.hiddenKeys, colKey],
+          ? current.hiddenKeys.filter(k => k !== prefKey)
+          : [...current.hiddenKeys, prefKey],
       };
     });
+    if (isCurrentlyVisible) {
+      updateFilterRows(current => current.filter(row => row.colKey !== targetColKey));
+    }
   }
 
   function resetLayout() {
     setLayoutPrefs({ widths: {}, hiddenKeys: [...DEFAULT_HIDDEN_SYSTEM_COLUMNS] });
+    const hiddenByDefault = new Set(DEFAULT_HIDDEN_SYSTEM_COLUMNS);
+    updateFilterRows(current => current.filter(row => !hiddenByDefault.has(row.colKey)));
   }
 
   const navigateCell = useCallback((rowIndex: number, colIndex: number, direction: CellDirection) => {
@@ -847,27 +869,62 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     }
   }
 
-  function handlePinCurrentFilter() {
-    if (!activeDraftFilterCol || !draftFilterValue.trim()) return;
-    const spec = getColumnFilterSpec(activeDraftFilterCol);
-    if (!spec) return;
-    const rawVal = draftFilterValue.trim();
-    const chip: PinnedFieldFilter = {
-      id: `${activeDraftFilterCol.key}:${spec.filterKey}`,
-      colKey: activeDraftFilterCol.key,
-      label: activeDraftFilterCol.label,
-      filterKey: spec.filterKey,
-      value: rawVal,
-      valueLabel: resolveFilterValueLabel(activeDraftFilterCol, rawVal),
-      mode: spec.mode,
-    };
-    setPinnedFilters(current => [...current.filter(item => item.colKey !== chip.colKey), chip]);
-    setDraftFilterColKey("none");
-    setDraftFilterValue("");
+  function nextFilterRowId() {
+    filterRowSeqRef.current += 1;
+    return `lead-filter-${filterRowSeqRef.current}`;
   }
 
-  function removePinnedFilter(chipId: string) {
-    setPinnedFilters(current => current.filter(item => item.id !== chipId));
+  function openFilterPopover() {
+    setFilterPopoverCoords(computeFilterPopoverPosition());
+    if (displayedFilterRows.length === 0 && visibleFilterColumns.length > 0) {
+      updateFilterRows([{ id: nextFilterRowId(), colKey: visibleFilterColumns[0].colKey, value: "" }]);
+    } else if (displayedFilterRows.length !== filterRows.length) {
+      updateFilterRows(displayedFilterRows);
+    }
+    setFilterPopoverOpen(true);
+    requestAnimationFrame(() => filterPopoverRef.current?.focus({ preventScroll: true }));
+  }
+
+  function toggleFilterPopover() {
+    if (filterPopoverOpen) {
+      closeFilterPopover(true);
+    } else {
+      openFilterPopover();
+    }
+  }
+
+  function handleAddFilterRow() {
+    const usedKeys = new Set(displayedFilterRows.map(row => row.colKey));
+    const nextCol = visibleFilterColumns.find(col => !usedKeys.has(col.colKey));
+    if (!nextCol) return;
+    updateFilterRows(current => [
+      ...current.filter(row => visibleFilterColByKey.has(row.colKey)),
+      { id: nextFilterRowId(), colKey: nextCol.colKey, value: "" },
+    ]);
+  }
+
+  function handleChangeFilterRowCol(rowId: string, nextColKey: string) {
+    updateFilterRows(current =>
+      current.map(row => (row.id === rowId ? { ...row, colKey: nextColKey, value: "" } : row)),
+    );
+  }
+
+  function handleChangeFilterRowValue(rowId: string, nextValue: string) {
+    updateFilterRows(current =>
+      current.map(row => (row.id === rowId ? { ...row, value: nextValue } : row)),
+    );
+  }
+
+  function handleRemoveFilterRow(rowId: string) {
+    updateFilterRows(current => current.filter(row => row.id !== rowId));
+  }
+
+  function handleClearAllFieldFilters() {
+    updateFilterRows(
+      filterPopoverOpen && visibleFilterColumns.length > 0
+        ? [{ id: nextFilterRowId(), colKey: visibleFilterColumns[0].colKey, value: "" }]
+        : [],
+    );
   }
 
   function handleSortSelectChange(nextSort: string) {
@@ -883,9 +940,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
   function handleResetAllFilters() {
     setSearchQuery("");
-    setDraftFilterColKey("none");
-    setDraftFilterValue("");
-    setPinnedFilters([]);
+    updateFilterRows([]);
+    setFilterPopoverOpen(false);
     setSortField("updatedAt");
     setSortDir("desc");
     setPage(1);
@@ -900,7 +956,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         accountId,
         search: searchQuery,
         ...(effectiveFieldFilters.length > 0 ? { fieldFilters: effectiveFieldFilters } : {}),
-        sort: sortParam,
+        sort: effectiveSortParam,
       });
       await downloadLeadsExcel(rows, visibleColumns);
       toast.success(`Đã xuất ${rows.length} Lead ra tệp Excel.`);
@@ -1038,7 +1094,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const intakeColumnCount = visibleColumns.filter(col => col.kind === "intake").length;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-surface p-3 sm:p-4">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-surface p-3 sm:overflow-hidden sm:p-4">
       {/* Page Header & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
         <HrPageTitle>Bảng dữ liệu Lead</HrPageTitle>
@@ -1081,82 +1137,40 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           onChange: setSearchQuery,
           placeholder: "Tìm kiếm trong bảng Lead…",
           ariaLabel: "Tìm Lead theo tên, số điện thoại, nội dung thu thập",
+          className: "w-full sm:w-auto",
         }}
         totalCount={totalItems}
         countLabel="Lead"
         hasActiveFilters={hasActiveFilters}
         onResetFilters={handleResetAllFilters}
       >
-        <div className="w-44">
-          <StyledSelect
-            ariaLabel="Chọn trường thông tin để lọc"
-            value={draftFilterColKey}
-            options={filterFieldSelectOptions}
-            onChange={(next) => {
-              setDraftFilterColKey(next);
-              setDraftFilterValue("");
-            }}
-            className="h-9 rounded-xl text-xs"
-          />
-        </div>
+        <button
+          ref={filterTriggerRef}
+          type="button"
+          aria-expanded={filterPopoverOpen}
+          aria-haspopup="dialog"
+          aria-controls={FILTER_POPOVER_ID}
+          onClick={toggleFilterPopover}
+          className={cn(
+            secondaryBtnClass,
+            (filterPopoverOpen || activeFilterEntries.length > 0) &&
+              "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
+          )}
+        >
+          <SlidersHorizontal aria-hidden="true" className="size-3.5 shrink-0" />
+          <span>Bộ lọc</span>
+          {activeFilterEntries.length > 0 && (
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-on-primary tabular-nums">
+              {activeFilterEntries.length}
+            </span>
+          )}
+        </button>
 
-        {activeDraftFilterCol && (
-          <div className="flex items-center gap-1.5">
-            {draftFilterOptions ? (
-              <div className="w-44">
-                <StyledSelect
-                  ariaLabel={`Giá trị lọc ${activeDraftFilterCol.label}`}
-                  value={draftFilterValue || "all"}
-                  options={[{ value: "all", label: "Chọn giá trị…" }, ...draftFilterOptions]}
-                  onChange={(next) => setDraftFilterValue(next === "all" ? "" : next)}
-                  className="h-9 rounded-xl text-xs"
-                />
-              </div>
-            ) : activeDraftFilterCol.type === "date" ? (
-              <DateInput24
-                ariaLabel={`Giá trị lọc ${activeDraftFilterCol.label}`}
-                value={draftFilterValue}
-                onChange={setDraftFilterValue}
-                className="h-9 w-40 rounded-xl text-xs"
-              />
-            ) : (
-              <input
-                type="text"
-                inputMode={activeDraftFilterCol.type === "number" || activeDraftFilterCol.type === "currency" ? "numeric" : undefined}
-                aria-label={`Giá trị lọc ${activeDraftFilterCol.label}`}
-                value={draftFilterValue}
-                onChange={(event) => setDraftFilterValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && draftFilterValue.trim()) {
-                    event.preventDefault();
-                    handlePinCurrentFilter();
-                  }
-                }}
-                placeholder={`Lọc ${activeDraftFilterCol.label.toLowerCase()}…`}
-                className="h-9 w-44 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface placeholder:text-on-surface-variant/60 outline-none focus:border-primary"
-              />
-            )}
-
-            {draftFilterValue.trim() && (
-              <button
-                type="button"
-                onClick={handlePinCurrentFilter}
-                aria-label="Ghim điều kiện lọc"
-                title="Ghim điều kiện này để lọc kết hợp thêm trường khác"
-                className={secondaryBtnClass}
-              >
-                <Plus aria-hidden="true" className="size-3.5 text-primary" />
-                Ghim lọc
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="w-48">
+        <div className="w-full sm:w-52">
           <StyledSelect
             ariaLabel="Sắp xếp danh sách Lead theo trường"
-            value={sortParam}
-            options={sortSelectOptions}
+            value={sortDropdownValue}
+            options={visibleSortOptions}
             onChange={handleSortSelectChange}
             className="h-9 rounded-xl text-xs"
           />
@@ -1190,7 +1204,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                   Mặc định
                 </button>
               </div>
-              <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+              <div className="visible-scrollbar max-h-72 space-y-1 overflow-y-auto pr-1">
                 {customColumns.length > 0 && (
                   <>
                     <p className="px-2 py-1 text-xs font-medium text-on-surface-variant">Cột bạn đã tạo</p>
@@ -1240,32 +1254,217 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         </div>
       </TableFilterToolbar>
 
-      {pinnedFilters.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 px-0.5" aria-label="Điều kiện lọc đang áp dụng">
-          {pinnedFilters.map(chip => (
-            <span
-              key={chip.id}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs text-on-surface"
+      {activeFilterEntries.length > 0 && (
+        <ul
+          className="flex flex-wrap items-center gap-1.5 px-0.5"
+          aria-label="Điều kiện lọc đang áp dụng"
+        >
+          {activeFilterEntries.map(entry => (
+            <li
+              key={entry.id}
+              className="inline-flex max-w-full items-center rounded-lg border border-primary/25 bg-primary/10 text-xs text-on-surface"
             >
-              <span className="font-medium text-on-surface-variant">{chip.label}:</span>
-              <span className="font-medium text-primary">{chip.valueLabel}</span>
               <button
                 type="button"
-                onClick={() => removePinnedFilter(chip.id)}
-                aria-label={`Bỏ lọc ${chip.label}`}
-                className="inline-flex size-4 items-center justify-center rounded text-on-surface-variant hover:bg-primary/15 hover:text-on-surface focus-visible:outline-1 focus-visible:outline-primary"
+                onClick={openFilterPopover}
+                className="inline-flex min-w-0 items-center gap-1.5 rounded-l-lg py-1 pl-2.5 pr-1.5 text-left hover:bg-primary/15 focus-visible:outline-1 focus-visible:outline-primary"
+              >
+                <span className="truncate font-medium text-on-surface-variant">{entry.col.label}:</span>
+                <span className="truncate font-medium text-primary">{entry.valueLabel}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemoveFilterRow(entry.id)}
+                aria-label={`Bỏ lọc ${entry.col.label}`}
+                className="mr-1 inline-flex size-5 shrink-0 items-center justify-center rounded text-on-surface-variant hover:bg-primary/15 hover:text-on-surface focus-visible:outline-1 focus-visible:outline-primary"
               >
                 <X aria-hidden="true" className="size-3" />
               </button>
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
+      )}
+
+      {filterPopoverOpen && filterPopoverCoords && createPortal(
+        <div
+          ref={filterPopoverRef}
+          id={FILTER_POPOVER_ID}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="lead-filter-popover-title"
+          tabIndex={-1}
+          style={{
+            top: filterPopoverCoords.top,
+            left: filterPopoverCoords.left,
+            width: filterPopoverCoords.width,
+            maxHeight: filterPopoverCoords.maxHeight,
+          }}
+          className="fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-lg outline-none"
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-outline-variant px-4 py-3">
+            <div className="min-w-0">
+              <h3 id="lead-filter-popover-title" className="text-sm font-semibold text-on-surface">
+                Lọc theo cột hiển thị
+              </h3>
+              <p className="text-xs text-on-surface-variant text-pretty">
+                Áp dụng đồng thời các điều kiện trên những cột đang bật.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => closeFilterPopover(true)}
+              aria-label="Đóng bảng lọc"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-1 focus-visible:outline-primary"
+            >
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+
+          <div className="visible-scrollbar flex-1 overflow-y-auto px-4 py-3">
+            {visibleFilterColumns.length === 0 ? (
+              <p className="py-3 text-center text-xs text-on-surface-variant">
+                Chưa có cột nào hỗ trợ lọc đang hiển thị trên Sheet.
+              </p>
+            ) : displayedFilterRows.length === 0 ? (
+              <p className="py-3 text-center text-xs text-on-surface-variant">
+                Chưa có điều kiện lọc nào. Bấm “Thêm điều kiện” bên dưới để lọc dữ liệu.
+              </p>
+            ) : (
+              <ul className="space-y-2.5" aria-label="Danh sách điều kiện lọc">
+                {displayedFilterRows.map((row, rowIndex) => {
+                  const selectedCol = visibleFilterColByKey.get(row.colKey) || visibleFilterColumns[0];
+                  const otherUsedKeys = new Set(
+                    displayedFilterRows.filter(item => item.id !== row.id).map(item => item.colKey),
+                  );
+                  const rowColOptions = visibleFilterColumns
+                    .filter(col => col.colKey === selectedCol.colKey || !otherUsedKeys.has(col.colKey))
+                    .map(col => ({ value: col.colKey, label: col.label }));
+                  const placeholderText = selectedCol.type === "currency" || selectedCol.type === "number"
+                    ? `Nhập ${selectedCol.label.toLowerCase()}…`
+                    : `Lọc ${selectedCol.label.toLowerCase()}…`;
+
+                  return (
+                    <li
+                      key={row.id}
+                      className="flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-low/50 p-2 sm:flex-row sm:items-center"
+                    >
+                      <div className="w-full sm:w-44 sm:shrink-0">
+                        <StyledSelect
+                          ariaLabel={`Trường lọc ${rowIndex + 1}`}
+                          value={selectedCol.colKey}
+                          options={rowColOptions}
+                          onChange={(nextColKey) => handleChangeFilterRowCol(row.id, nextColKey)}
+                          className="h-9 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        {selectedCol.options ? (
+                          <div className="min-w-0 flex-1">
+                            <StyledSelect
+                              ariaLabel={`Giá trị lọc ${selectedCol.label}`}
+                              value={row.value}
+                              placeholder="Chọn giá trị…"
+                              options={[
+                                { value: "", label: "Chọn giá trị…" },
+                                ...selectedCol.options,
+                              ]}
+                              onChange={(nextValue) => handleChangeFilterRowValue(row.id, nextValue)}
+                              className="h-9 rounded-xl text-xs"
+                            />
+                          </div>
+                        ) : selectedCol.type === "date" ? (
+                          <DateInput24
+                            ariaLabel={`Giá trị lọc ${selectedCol.label}`}
+                            value={row.value}
+                            onChange={(nextValue) => handleChangeFilterRowValue(row.id, nextValue)}
+                            className="!h-9 !min-h-9 min-w-0 flex-1 !rounded-xl !border-outline-variant !bg-surface-container-lowest text-xs hover:!border-primary focus-within:!border-primary focus-within:!ring-0"
+                          />
+                        ) : (
+                          <div className="relative min-w-0 flex-1">
+                            <input
+                              type="text"
+                              inputMode={selectedCol.type === "number" || selectedCol.type === "currency" ? "numeric" : undefined}
+                              aria-label={`Giá trị lọc ${selectedCol.label}`}
+                              value={row.value}
+                              onChange={(event) => handleChangeFilterRowValue(row.id, event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  closeFilterPopover(true);
+                                }
+                              }}
+                              placeholder={placeholderText}
+                              className="h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-3 pr-8 text-xs text-on-surface placeholder:text-on-surface-variant/60 outline-none focus:border-primary"
+                            />
+                            {row.value && (
+                              <button
+                                type="button"
+                                onClick={() => handleChangeFilterRowValue(row.id, "")}
+                                aria-label={`Xóa giá trị ${selectedCol.label}`}
+                                className="absolute right-2 top-1/2 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded text-on-surface-variant hover:text-on-surface focus-visible:outline-1 focus-visible:outline-primary"
+                              >
+                                <X aria-hidden="true" className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFilterRow(row.id)}
+                          aria-label={`Xóa điều kiện lọc ${selectedCol.label}`}
+                          title={`Xóa điều kiện ${selectedCol.label}`}
+                          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-error/40 hover:bg-error/10 hover:text-error focus-visible:outline-1 focus-visible:outline-primary"
+                        >
+                          <Trash2 aria-hidden="true" className="size-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant bg-surface-container-low/40 px-4 py-2.5">
+            <button
+              type="button"
+              disabled={!visibleFilterColumns.some(col => !displayedFilterRows.some(row => row.colKey === col.colKey))}
+              onClick={handleAddFilterRow}
+              className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-primary hover:bg-primary/10 focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <Plus aria-hidden="true" className="size-3.5" />
+              Thêm điều kiện
+            </button>
+
+            <div className="flex items-center gap-2">
+              {displayedFilterRows.some(row => row.value.trim() !== "") && (
+                <button
+                  type="button"
+                  onClick={handleClearAllFieldFilters}
+                  className="inline-flex h-8 items-center rounded-lg px-2.5 text-xs font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-1 focus-visible:outline-primary"
+                >
+                  Xóa tất cả
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => closeFilterPopover(true)}
+                className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-medium text-on-primary hover:opacity-95 focus-visible:outline-1 focus-visible:outline-primary"
+              >
+                Xong
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {/* Worksheet Tabs & Spreadsheet Grid */}
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-2xs">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-2xs sm:min-h-0 sm:flex-1">
         {accounts.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-low px-3 pt-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-low px-3 pt-2">
             <div role="tablist" aria-label="Sheet theo tài khoản Chatbot" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0">
               <button
                 type="button"
@@ -1325,7 +1524,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         )}
 
         {error && (
-          <div role="alert" className="flex items-center justify-between gap-2 border-b border-error/30 bg-error-container px-4 py-2.5 text-xs text-on-error-container">
+          <div role="alert" className="flex shrink-0 items-center justify-between gap-2 border-b border-error/30 bg-error-container px-4 py-2.5 text-xs text-on-error-container">
             <div className="flex items-center gap-2">
               <AlertCircle aria-hidden="true" className="size-4 shrink-0" />
               <span>{error}</span>
@@ -1340,15 +1539,50 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           </div>
         )}
 
+        {(scrollState.canLeft || scrollState.canRight) && (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-low/50 px-3 py-1.5 text-xs text-on-surface-variant">
+            <span className="min-w-0 truncate tabular-nums">
+              Đang bật <strong className="font-medium text-on-surface">{visibleColumns.length}</strong> cột · Kéo thanh cuộn hoặc bấm mũi tên để xem toàn bộ cột
+            </span>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                disabled={!scrollState.canLeft}
+                onClick={() => scrollGridBy(-260)}
+                aria-label="Cuộn bảng sang trái"
+                className="inline-flex size-7 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft aria-hidden="true" className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={!scrollState.canRight}
+                onClick={() => scrollGridBy(260)}
+                aria-label="Cuộn bảng sang phải"
+                className="inline-flex size-7 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight aria-hidden="true" className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Spreadsheet Grid */}
-        <div ref={gridContainerRef} className="relative overflow-x-auto bg-surface-container-lowest">
-          <table className="w-max min-w-full border-collapse text-left text-sm text-on-surface">
+        <div
+          ref={gridContainerRef}
+          onScroll={syncGridScrollState}
+          className={cn(
+            "visible-scrollbar relative overflow-auto bg-surface-container-lowest",
+            leads.length > 0 ? "max-h-96 sm:max-h-none sm:min-h-0 sm:flex-1" : "shrink-0",
+          )}
+        >
+          <table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm text-on-surface">
             <thead className="sticky top-0 z-20 bg-surface-container-low text-xs font-medium text-on-surface-variant">
-              <tr className="border-b border-outline-variant">
+              <tr>
                 <th
                   scope="col"
                   style={{ width: 48, minWidth: 48, maxWidth: 48 }}
-                  className="sticky left-0 z-30 w-12 border-r border-outline-variant bg-surface-container-low px-2 py-2.5 text-center font-medium tabular-nums"
+                  className="sticky left-0 z-30 w-12 border-b border-r border-outline-variant bg-surface-container-low px-2 py-2.5 text-center font-medium tabular-nums"
                 >
                   #
                 </th>
@@ -1357,15 +1591,15 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                   const width = getColumnWidth(col);
                   const isStickyFirst = colIdx === 0;
                   const sortKey = col.sortKey || getSystemSortKey(col.key);
-                  const isSorted = Boolean(sortKey && sortField === sortKey);
+                  const isSorted = Boolean(sortKey && activeSortField === sortKey);
                   return (
                     <th
                       key={col.key}
                       scope="col"
                       style={{ width, minWidth: width }}
                       className={cn(
-                        "group/col relative select-none border-r border-outline-variant bg-surface-container-low px-3 py-2 text-left font-medium",
-                        isStickyFirst && "sticky left-12 z-30 shadow-xs",
+                        "group/col relative select-none border-b border-r border-outline-variant bg-surface-container-low px-2.5 py-2 text-left font-medium",
+                        isStickyFirst && "sm:sticky sm:left-12 sm:z-30 sm:shadow-xs",
                       )}
                     >
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -1376,9 +1610,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                             onClick={() => toggleSort(col)}
                             className="inline-flex min-w-0 flex-1 items-center gap-1 text-left font-medium text-on-surface hover:text-primary focus-visible:outline-1 focus-visible:outline-primary"
                           >
-                            <span>{col.label}</span>
+                            <span className="truncate" title={col.label}>{col.label}</span>
                             {isSorted ? (
-                              sortDir === "asc"
+                              activeSortDir === "asc"
                                 ? <ArrowUp aria-hidden="true" className="size-3 shrink-0 text-primary" />
                                 : <ArrowDown aria-hidden="true" className="size-3 shrink-0 text-primary" />
                             ) : (
@@ -1386,7 +1620,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                             )}
                           </button>
                         ) : (
-                          <span className="min-w-0 flex-1 font-medium text-on-surface" title={col.label}>
+                          <span className="min-w-0 flex-1 truncate font-medium text-on-surface" title={col.label}>
                             {col.label}
                           </span>
                         )}
@@ -1438,7 +1672,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                   );
                 })}
 
-                <th scope="col" className="min-w-36 border-r border-outline-variant bg-surface-container-low px-2.5 py-2 text-left font-medium">
+                <th scope="col" className="min-w-28 border-b border-r border-outline-variant bg-surface-container-low px-2.5 py-2 text-left font-medium">
                   <button
                     type="button"
                     onClick={openQuickAddColumnModal}
@@ -1452,52 +1686,23 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                 <th
                   scope="col"
                   style={{ width: 112, minWidth: 112, maxWidth: 112 }}
-                  className="sticky right-0 z-30 w-28 border-l border-outline-variant bg-surface-container-low px-2.5 py-2 text-center font-medium shadow-xs"
+                  className={cn(
+                    "sm:sticky sm:right-0 sm:z-30 w-28 border-b border-l border-outline-variant bg-surface-container-low px-2.5 py-2 text-center font-medium",
+                    scrollState.canRight && "sm:border-l-outline sm:shadow-sm",
+                  )}
                 >
                   Thao tác
                 </th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-outline-variant text-sm font-normal">
-              {loading && leads.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumns.length + 3} className="px-4 py-12 text-center text-sm text-on-surface-variant">
-                    <div className="inline-flex items-center gap-2">
-                      <Loader2 aria-hidden="true" className="size-4 animate-spin text-primary" />
-                      <span>Đang tải dữ liệu Lead Sheet…</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : leads.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumns.length + 3} className="px-6 py-10 text-center">
-                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-pretty">
-                      <HrEmptyIllustration kind={hasActiveFilters ? "search" : "task"} />
-                      <h4 className="text-sm font-semibold text-on-surface text-balance">
-                        {hasActiveFilters ? "Không tìm thấy Lead phù hợp" : "Chưa có dữ liệu Lead"}
-                      </h4>
-                      <p className="text-xs text-on-surface-variant text-pretty">
-                        {hasActiveFilters
-                          ? "Thử thay đổi bộ lọc hoặc đặt lại để xem toàn bộ danh sách."
-                          : "Dữ liệu khách từ Chatbot hoặc Lead bạn tạo qua + Thêm Lead sẽ hiển thị tại đây."}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => (hasActiveFilters ? handleResetAllFilters() : setShowCreateLeadModal(true))}
-                        className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary hover:text-on-primary focus-visible:outline-1 focus-visible:outline-primary"
-                      >
-                        {hasActiveFilters ? "Đặt lại bộ lọc" : "Tạo Lead mới"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                leads.map((lead, rowIndex) => {
+            {leads.length > 0 && (
+              <tbody className="text-sm font-normal">
+                {leads.map((lead, rowIndex) => {
                   const rowNumber = (page - 1) * pageSize + rowIndex + 1;
                   return (
                     <tr key={lead.id} className="group/row transition-colors hover:bg-surface-container-low/65">
-                      <td style={{ width: 48, minWidth: 48, maxWidth: 48 }} className="sticky left-0 z-10 w-12 border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-xs tabular-nums text-on-surface-variant group-hover/row:bg-surface-container-low">
+                      <td style={{ width: 48, minWidth: 48, maxWidth: 48 }} className="sticky left-0 z-10 w-12 border-b border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-xs tabular-nums text-on-surface-variant group-hover/row:bg-surface-container-low">
                         <button
                           type="button"
                           onClick={() => setDetailLead(lead)}
@@ -1523,7 +1728,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                             ? accounts.find(acc => acc.platform === platform && acc.accountId === lead.sourceAccountId)
                             : null;
                           return (
-                            <td key={col.key} style={cellStyle} className="border-r border-outline-variant px-2.5 py-1.5 align-middle">
+                            <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-2.5 py-1.5 align-middle">
                               {platform ? (
                                 <div className="flex min-w-0 items-center gap-1.5 text-xs text-on-surface">
                                   <SocialPlatformIcon platform={platform} className="size-3.5 shrink-0" />
@@ -1540,7 +1745,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
                         if (col.key === "collectionStatus") {
                           return (
-                            <td key={col.key} style={cellStyle} className="border-r border-outline-variant px-1.5 py-1 align-middle">
+                            <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-1.5 py-1 align-middle">
                               <StyledSelect
                                 ariaLabel={`Tình trạng thu thập của ${lead.customerName}`}
                                 value={lead.collectionStatus || ""}
@@ -1557,7 +1762,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
                         if (col.key === "status") {
                           return (
-                            <td key={col.key} style={cellStyle} className="border-r border-outline-variant px-1.5 py-1 align-middle">
+                            <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-1.5 py-1 align-middle">
                               <StyledSelect
                                 ariaLabel={`Trạng thái xử lý của ${lead.customerName}`}
                                 value={lead.status}
@@ -1573,7 +1778,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
                         if (col.key === "updatedAt") {
                           return (
-                            <td key={col.key} style={cellStyle} className="border-r border-outline-variant px-2.5 py-1.5 align-middle text-xs tabular-nums text-on-surface-variant">
+                            <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-2.5 py-1.5 align-middle text-xs tabular-nums text-on-surface-variant">
                               <span className="block truncate">{lead.lastInteractionTime || "—"}</span>
                             </td>
                           );
@@ -1587,8 +1792,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                             key={col.key}
                             style={cellStyle}
                             className={cn(
-                              "border-r border-outline-variant p-0 align-middle",
-                              isStickyFirst && "sticky left-12 z-10 bg-surface-container-lowest shadow-xs group-hover/row:bg-surface-container-low",
+                              "border-b border-r border-outline-variant p-0 align-middle",
+                              isStickyFirst && "sm:sticky sm:left-12 sm:z-10 bg-surface-container-lowest sm:shadow-xs group-hover/row:bg-surface-container-low",
                               !intakeApplicable && "bg-surface-container-low/40",
                             )}
                           >
@@ -1612,9 +1817,15 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                         );
                       })}
 
-                      <td className="border-r border-outline-variant bg-surface-container-low/25 px-2 py-1 align-middle" />
+                      <td className="border-b border-r border-outline-variant bg-surface-container-low/25 px-2 py-1 align-middle" />
 
-                      <td style={{ width: 112, minWidth: 112, maxWidth: 112 }} className="sticky right-0 z-10 w-28 border-l border-outline-variant bg-surface-container-lowest px-2 py-1 align-middle text-center shadow-xs group-hover/row:bg-surface-container-low">
+                      <td
+                        style={{ width: 112, minWidth: 112, maxWidth: 112 }}
+                        className={cn(
+                          "sm:sticky sm:right-0 sm:z-10 w-28 border-b border-l border-outline-variant bg-surface-container-lowest px-2 py-1 align-middle text-center group-hover/row:bg-surface-container-low",
+                          scrollState.canRight && "sm:border-l-outline sm:shadow-sm",
+                        )}
+                      >
                         <div className="inline-flex items-center justify-end gap-1">
                           <button
                             type="button"
@@ -1659,15 +1870,46 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
+                })}
+              </tbody>
+            )}
           </table>
         </div>
+
+        {loading && leads.length === 0 ? (
+          <div className="bg-surface-container-lowest px-4 py-12 text-center text-sm text-on-surface-variant sm:flex sm:flex-1 sm:items-center sm:justify-center">
+            <div className="inline-flex items-center gap-2">
+              <Loader2 aria-hidden="true" className="size-4 animate-spin text-primary" />
+              <span>Đang tải dữ liệu Lead Sheet…</span>
+            </div>
+          </div>
+        ) : leads.length === 0 ? (
+          <div className="bg-surface-container-lowest px-6 py-10 text-center sm:flex sm:flex-1 sm:items-center sm:justify-center">
+            <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-pretty">
+              <HrEmptyIllustration kind={hasActiveFilters ? "search" : "task"} />
+              <h4 className="text-sm font-semibold text-on-surface text-balance">
+                {hasActiveFilters ? "Không tìm thấy Lead phù hợp" : "Chưa có dữ liệu Lead"}
+              </h4>
+              <p className="text-xs text-on-surface-variant text-pretty">
+                {hasActiveFilters
+                  ? "Thử thay đổi bộ lọc hoặc đặt lại để xem toàn bộ danh sách."
+                  : "Dữ liệu khách từ Chatbot hoặc Lead bạn tạo qua + Thêm Lead sẽ hiển thị tại đây."}
+              </p>
+              <button
+                type="button"
+                onClick={() => (hasActiveFilters ? handleResetAllFilters() : setShowCreateLeadModal(true))}
+                className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary hover:text-on-primary focus-visible:outline-1 focus-visible:outline-primary"
+              >
+                {hasActiveFilters ? "Đặt lại bộ lọc" : "Tạo Lead mới"}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {/* Pagination */}
         {totalItems > 0 && (
           <TablePagination
+            className="shrink-0"
             appearance="erp"
             currentPage={page}
             totalPages={totalPages}

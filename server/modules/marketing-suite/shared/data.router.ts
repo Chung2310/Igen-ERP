@@ -130,6 +130,63 @@ function parseLeadSort(raw: unknown): string {
   return `${desc ? "-" : ""}${field}`;
 }
 
+function buildLeadKeyFilterClause(key: string, rawValue: string, mode: string): Record<string, unknown> | null {
+  if (key === "value") {
+    const groupedNumberMatch = /^-?\d{1,3}(?:[.,\s]\d{3})+$/.test(rawValue);
+    const normalized = groupedNumberMatch
+      ? rawValue.replace(/[.,\s]/g, "")
+      : rawValue.replace(/[^\d.-]/g, "");
+    const numeric = Number(normalized);
+    return normalized && !Number.isNaN(numeric) ? { value: numeric } : null;
+  }
+
+  if ((key === "createdAt" || key === "lastInteractionAt" || key === "updatedAt") && /^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    const start = new Date(`${rawValue}T00:00:00.000+07:00`);
+    const end = new Date(`${rawValue}T23:59:59.999+07:00`);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      return { [key]: { $gte: start, $lte: end } };
+    }
+  }
+
+  if (mode === "unchecked") {
+    return {
+      $or: [
+        { [key]: { $exists: false } },
+        { [key]: { $in: ["", "Không", "không", "false", "0"] } },
+      ],
+    };
+  }
+
+  if (mode === "exact") {
+    if (key === "status" || key === "collectionStatus" || key === "sourcePlatform") {
+      return { [key]: rawValue };
+    }
+    return { [key]: { $regex: `^${escapeLeadRegex(rawValue)}$`, $options: "i" } };
+  }
+
+  if (CUSTOM_ANSWER_PATH_RE.test(key) && /^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    const [yyyy, mm, dd] = rawValue.split("-");
+    return {
+      [key]: {
+        $regex: `(${escapeLeadRegex(rawValue)}|${escapeLeadRegex(`${dd}/${mm}/${yyyy}`)})`,
+        $options: "i",
+      },
+    };
+  }
+
+  if (CUSTOM_ANSWER_PATH_RE.test(key) && /^-?\d{1,3}(?:[.,\s]\d{3})+$/.test(rawValue)) {
+    const digitsOnly = rawValue.replace(/[.,\s]/g, "");
+    return {
+      [key]: {
+        $regex: `(${escapeLeadRegex(rawValue)}|${escapeLeadRegex(digitsOnly)})`,
+        $options: "i",
+      },
+    };
+  }
+
+  return { [key]: { $regex: escapeLeadRegex(rawValue), $options: "i" } };
+}
+
 function parseLeadFieldFilters(raw: unknown): Array<Record<string, unknown>> {
   let parsed: unknown = raw;
   if (typeof raw === "string") {
@@ -146,53 +203,32 @@ function parseLeadFieldFilters(raw: unknown): Array<Record<string, unknown>> {
   const clauses: Array<Record<string, unknown>> = [];
   for (const entry of parsed.slice(0, 10)) {
     if (!entry || typeof entry !== "object") continue;
-    const key = typeof (entry as { key?: unknown }).key === "string" ? (entry as { key: string }).key.trim() : "";
-    const rawValue = typeof (entry as { value?: unknown }).value === "string" ? (entry as { value: string }).value.trim().slice(0, 200) : "";
-    const mode = typeof (entry as { mode?: unknown }).mode === "string" ? (entry as { mode: string }).mode : "contains";
+    const item = entry as { key?: unknown; altKeys?: unknown; value?: unknown; mode?: unknown };
+    const key = typeof item.key === "string" ? item.key.trim() : "";
+    const rawValue = typeof item.value === "string" ? item.value.trim().slice(0, 200) : "";
+    const mode = typeof item.mode === "string" ? item.mode : "contains";
     if (!key || !rawValue || !isAllowedLeadKey(key, ALLOWED_LEAD_FILTER_KEYS)) continue;
 
-    if (key === "value") {
-      const groupedNumberMatch = /^-?\d{1,3}(?:[.,\s]\d{3})+$/.test(rawValue);
-      const normalized = groupedNumberMatch
-        ? rawValue.replace(/[.,\s]/g, "")
-        : rawValue.replace(/[^\d.-]/g, "");
-      const numeric = Number(normalized);
-      if (normalized && !Number.isNaN(numeric)) {
-        clauses.push({ value: numeric });
-      }
-      continue;
-    }
+    const rawAltKeys = Array.isArray(item.altKeys) ? item.altKeys : [];
+    const safeKeys = [
+      key,
+      ...rawAltKeys
+        .filter((k): k is string => typeof k === "string")
+        .map(k => k.trim())
+        .filter(k => k && k !== key && isAllowedLeadKey(k, ALLOWED_LEAD_FILTER_KEYS)),
+    ].slice(0, 5);
 
-    if ((key === "createdAt" || key === "lastInteractionAt" || key === "updatedAt") && /^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
-      const start = new Date(`${rawValue}T00:00:00.000+07:00`);
-      const end = new Date(`${rawValue}T23:59:59.999+07:00`);
-      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-        clauses.push({ [key]: { $gte: start, $lte: end } });
-        continue;
-      }
-    }
+    const perKeyClauses = safeKeys
+      .map(targetKey => buildLeadKeyFilterClause(targetKey, rawValue, mode))
+      .filter((clause): clause is Record<string, unknown> => clause !== null);
 
-    if (mode === "exact") {
-      if (key === "status" || key === "collectionStatus" || key === "sourcePlatform") {
-        clauses.push({ [key]: rawValue });
-      } else {
-        clauses.push({ [key]: { $regex: `^${escapeLeadRegex(rawValue)}$`, $options: "i" } });
-      }
-      continue;
-    }
-
-    if (CUSTOM_ANSWER_PATH_RE.test(key) && /^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
-      const [yyyy, mm, dd] = rawValue.split("-");
+    if (perKeyClauses.length === 1) {
+      clauses.push(perKeyClauses[0]);
+    } else if (perKeyClauses.length > 1) {
       clauses.push({
-        [key]: {
-          $regex: `(${escapeLeadRegex(rawValue)}|${escapeLeadRegex(`${dd}/${mm}/${yyyy}`)})`,
-          $options: "i",
-        },
+        $or: perKeyClauses.flatMap(clause => (Array.isArray(clause.$or) ? (clause.$or as Array<Record<string, unknown>>) : [clause])),
       });
-      continue;
     }
-
-    clauses.push({ [key]: { $regex: escapeLeadRegex(rawValue), $options: "i" } });
   }
   return clauses;
 }
@@ -344,12 +380,19 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
   if (!Object.keys(updates).length) return res.status(400).json({ status: "error", message: "Không có trường Lead hợp lệ để cập nhật." });
 
   const scope = { _id: req.params.id, companyCode: req.user!.companyCode };
+  const staffFields = Object.keys(updates).filter(key => ["customerName", "company", "phone", "email", "productOfChoice", "value"].includes(key));
   const existing = nextAnswers !== undefined
-    ? await CRMTicketModel.findOne(scope).select("intakeFields sourcePlatform sourceAccountId sourceConversationId collectionStatus").lean()
+    ? await CRMTicketModel.findOne(scope).select("answers intakeRevision intakeFields sourcePlatform sourceAccountId sourceConversationId collectionStatus").lean()
     : null;
   if (nextAnswers !== undefined && !existing) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
 
+  const staffAnswerChanges: Record<string, string | undefined> = {};
   if (existing && nextAnswers !== undefined) {
+    for (const key of new Set([...Object.keys(existing.answers || {}), ...Object.keys(nextAnswers)])) {
+      if (existing.answers?.[key] === nextAnswers[key]) continue;
+      staffFields.push(`answers.${key}`);
+      staffAnswerChanges[key] = nextAnswers[key];
+    }
     const fields = existing.intakeFields || [];
     if (fields.length > 0) {
       const standard = mapIntakeStandardFields(fields, nextAnswers);
@@ -371,7 +414,13 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
   }
   updates.lastInteractionAt = new Date();
 
-  const item = await CRMTicketModel.findOneAndUpdate(scope, { $set: updates }, { new: true, runValidators: true }).lean();
+  const updateScope = existing ? { ...scope, intakeRevision: existing.intakeRevision ?? { $exists: false } } : scope;
+  const item = await CRMTicketModel.findOneAndUpdate(updateScope, {
+    $set: updates,
+    $inc: { intakeRevision: 1 },
+    ...(staffFields.length ? { $addToSet: { intakeStaffFields: { $each: staffFields } } } : {}),
+  }, { new: true, runValidators: true }).lean();
+  if (!item && existing) return res.status(409).json({ status: "error", message: "Lead vừa được cập nhật. Tải lại bảng trước khi sửa." });
   if (!item) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
 
   if (existing && nextAnswers !== undefined && existing.sourcePlatform && existing.sourceAccountId && existing.sourceConversationId) {
@@ -381,18 +430,19 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
       conversationId: existing.sourceConversationId,
       ...(existing.sourcePlatform === "facebook" ? {} : { platform: existing.sourcePlatform }),
     };
-    const flowState = await PageChatFlowStateModel.findOne(stateFilter).select("_id values").lean();
-    if (flowState) {
-      const currentValues = flowState.values instanceof Map ? Object.fromEntries(flowState.values) : { ...(flowState.values || {}) } as Record<string, string>;
-      for (const [key, value] of Object.entries(nextAnswers)) {
-        if (value) currentValues[key] = value;
-        else delete currentValues[key];
-      }
-      await PageChatFlowStateModel.updateOne({ _id: flowState._id }, {
-        $set: {
-          values: currentValues,
-          ...(updates.collectionStatus === "complete" ? { completedAt: new Date() } : updates.collectionStatus === "collecting" ? { completedAt: null } : {}),
-        },
+    const valuesToSet: Record<string, unknown> = {};
+    const valuesToUnset: Record<string, 1> = {};
+    for (const [key, value] of Object.entries(staffAnswerChanges)) {
+      if (!/^[a-z][a-z0-9_]{0,39}$/.test(key)) continue;
+      if (value) valuesToSet[`values.${key}`] = value;
+      else valuesToUnset[`values.${key}`] = 1;
+    }
+    if (updates.collectionStatus === "complete") valuesToSet.completedAt = new Date();
+    else if (updates.collectionStatus === "collecting") valuesToSet.completedAt = null;
+    if (Object.keys(valuesToSet).length || Object.keys(valuesToUnset).length) {
+      await PageChatFlowStateModel.updateOne(stateFilter, {
+        ...(Object.keys(valuesToSet).length ? { $set: valuesToSet } : {}),
+        ...(Object.keys(valuesToUnset).length ? { $unset: valuesToUnset } : {}),
       });
     }
   }

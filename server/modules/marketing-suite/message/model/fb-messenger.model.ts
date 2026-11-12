@@ -135,8 +135,8 @@ const FBMessageSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-FBMessageSchema.index({ conversationId: 1, timestamp: -1 });
-FBMessageSchema.index({ conversationId: 1, consultationSessionId: 1, timestamp: -1 });
+FBMessageSchema.index({ conversationId: 1, timestamp: -1, createdAt: -1, _id: -1 });
+FBMessageSchema.index({ conversationId: 1, consultationSessionId: 1, timestamp: -1, createdAt: -1, _id: -1 });
 FBMessageSchema.index({ autoReplyDispatchPending: 1, autoReplyDispatchAfter: 1 }, {
   partialFilterExpression: { autoReplyDispatchPending: true },
 });

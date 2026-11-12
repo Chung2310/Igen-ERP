@@ -79,8 +79,12 @@ async function authorizeSuiteRequest(req: AuthenticatedRequest, res: Response, n
     const owned = await SocialIntegrationModel.exists({ _id: integrationId, companyCode });
     if (!owned) return res.status(403).json({ status: "error", message: "Bạn không có quyền truy cập tích hợp này." });
   }
+  const intakeProfilePath = /^\/marketing-settings\/lead-intake-profiles(?:\/|$)/.test(path);
+  const intakeScope = req.method === "GET" ? req.query : req.body;
+  const intakePlatform = intakeProfilePath ? intakeScope?.platform || req.query.platform : undefined;
+  const pagePlatform = intakePlatform === "zalo" ? "Zalo" : intakePlatform === "tiktok" ? "TikTok" : "Facebook";
   const identities = [
-    ["Facebook", req.query.pageId || req.body?.pageId],
+    [pagePlatform, intakeProfilePath ? intakeScope?.pageId : req.query.pageId || req.body?.pageId],
     ["Zalo", req.query.oaId || req.body?.oaId],
     ["TikTok", req.query.businessAccountId || req.body?.businessAccountId],
   ];

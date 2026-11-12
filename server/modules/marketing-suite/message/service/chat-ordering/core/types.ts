@@ -15,12 +15,14 @@ export interface ChatOrderFlowSession {
 
 export interface ChatOrderFlowInput extends ChatOrderScope {
   messageId: string;
+  messageAt?: Date;
   message: string;
   history?: Array<{ sender: string; text: string }>;
   imageUrls: string[];
   observation?: ChatImageObservation;
   visualMode?: boolean;
   simulationMode?: boolean;
+  retryIntake?: boolean;
   freshImage?: boolean;
   replyDeadlineAt?: number;
   businessContext?: string;

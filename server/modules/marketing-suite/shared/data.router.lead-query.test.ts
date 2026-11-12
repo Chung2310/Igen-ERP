@@ -140,5 +140,34 @@ describe("GET /omni-inbox/leads dynamic field filtering & sorting", () => {
     expect(andClauses[4]).toHaveProperty("updatedAt.$gte");
     expect(andClauses[4]).toHaveProperty("updatedAt.$lte");
   });
+
+  it("handles unchecked checkbox filters, grouped currency text, and validated altKeys", async () => {
+    const fieldFilters = JSON.stringify([
+      { key: "answers.dat_lich", value: "Không", mode: "unchecked" },
+      { key: "answers.ngan_sach", value: "5.000.000", mode: "contains" },
+      { key: "answers.tuoi", altKeys: ["answers.do_tuoi", "secretToken", "answers.$where"], value: "25", mode: "contains" },
+    ]);
+
+    const res = await queryLeads({ fieldFilters });
+    expect(res.status).toBe(200);
+
+    const andClauses = state.findFilter.$and as Array<Record<string, unknown>>;
+    expect(andClauses).toHaveLength(3);
+    expect(andClauses[0]).toEqual({
+      $or: [
+        { "answers.dat_lich": { $exists: false } },
+        { "answers.dat_lich": { $in: ["", "Không", "không", "false", "0"] } },
+      ],
+    });
+    expect(andClauses[1]).toEqual({
+      "answers.ngan_sach": { $regex: "(5\\.000\\.000|5000000)", $options: "i" },
+    });
+    expect(andClauses[2]).toEqual({
+      $or: [
+        { "answers.tuoi": { $regex: "25", $options: "i" } },
+        { "answers.do_tuoi": { $regex: "25", $options: "i" } },
+      ],
+    });
+  });
 });
 

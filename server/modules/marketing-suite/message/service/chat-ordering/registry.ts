@@ -32,11 +32,12 @@ export const chatOrderFlowRegistry = {
   resolve: resolveFlow,
 
   async resolveForCompanyPage(companyCode: string, pageId: string, platform: "facebook" | "zalo" | "tiktok" = "facebook") {
-    if (await LeadIntakeProfileModel.exists({ companyCode, status: "active" })) return pageIntakeFlow;
+    if (await LeadIntakeProfileModel.exists({ companyCode, platform, accountId: pageId, status: "active" })) return pageIntakeFlow;
     const configured = await PageChatFlowModel.findOne({ companyCode, pageId, status: "active",
       ...(platform === "facebook" ? { $or: [{ platform }, { platform: { $exists: false } }] } : { platform }) }).select("flowKey").lean();
     if (configured?.flowKey === "bakery-default") return bakeryDefaultFlow;
     if (configured) return pageIntakeFlow;
+    if (await LeadIntakeProfileModel.exists({ companyCode, platform: { $exists: false }, status: "active" })) return pageIntakeFlow;
     return platform === "facebook" ? resolveFlow(companyCode) : undefined;
   },
 

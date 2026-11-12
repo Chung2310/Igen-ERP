@@ -1,5 +1,5 @@
 import type { LeadCollectionStatus, LeadIntakeFieldType } from "../../../../../../shared/marketing-suite/lead-intake";
-import type { ExtendedLeadCard } from "../../services/crmService";
+import type { ExtendedLeadCard, LeadFieldFilter } from "../../services/crmService";
 
 export type LeadSocialPlatform = "facebook" | "zalo" | "tiktok";
 
@@ -248,4 +248,211 @@ export function saveSheetLayout(scopeKey: string, layout: SheetLayoutPrefs) {
   } catch {
     // Ignore storage quota errors in restricted browsers.
   }
+}
+
+export interface FilterableLeadColumn {
+  colKey: string;
+  filterKey: string;
+  altKeys: string[];
+  label: string;
+  type: LeadIntakeFieldType;
+  mode: "exact" | "contains";
+  options: Array<{ value: string; label: string }> | null;
+}
+
+export function getSystemSortKey(key: string): string | undefined {
+  switch (key) {
+    case "customerName":
+      return "customerName";
+    case "phone":
+      return "phone";
+    case "email":
+      return "email";
+    case "company":
+      return "company";
+    case "sourceChannel":
+      return "sourcePlatform";
+    case "value":
+      return "value";
+    case "status":
+      return "status";
+    case "collectionStatus":
+      return "collectionStatus";
+    case "updatedAt":
+      return "updatedAt";
+    default:
+      return undefined;
+  }
+}
+
+export function getColumnFilterSpec(
+  col: Pick<LeadSheetColumn, "key" | "kind" | "answerKey" | "type">,
+): { filterKey: string; mode: "exact" | "contains" } | null {
+  if (col.kind === "intake" && col.answerKey) {
+    return {
+      filterKey: `answers.${col.answerKey}`,
+      mode: col.type === "single_select" || col.type === "checkbox" ? "exact" : "contains",
+    };
+  }
+  switch (col.key) {
+    case "customerName":
+    case "phone":
+    case "email":
+    case "company":
+    case "productOfChoice":
+      return { filterKey: col.key, mode: "contains" };
+    case "value":
+    case "status":
+    case "collectionStatus":
+    case "updatedAt":
+      return { filterKey: col.key, mode: "exact" };
+    case "sourceChannel":
+      return { filterKey: "sourcePlatform", mode: "exact" };
+    default:
+      return null;
+  }
+}
+
+export function getColumnFilterOptions(
+  col: Pick<LeadSheetColumn, "key" | "type" | "options">,
+): Array<{ value: string; label: string }> | null {
+  if (col.key === "collectionStatus") {
+    return Object.entries(COLLECTION_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label }));
+  }
+  if (col.key === "status") {
+    return Object.entries(LEAD_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label }));
+  }
+  if (col.key === "sourceChannel") {
+    return Object.entries(PLATFORM_LABELS).map(([key, label]) => ({ value: key, label }));
+  }
+  if (col.type === "checkbox") {
+    return [
+      { value: "Có", label: "Có / Đã chọn" },
+      { value: "Không", label: "Không / Chưa chọn" },
+    ];
+  }
+  if ((col.type === "single_select" || col.type === "multi_select") && col.options && col.options.length > 0) {
+    return col.options.map(option => ({ value: option, label: option }));
+  }
+  return null;
+}
+
+export function resolveFilterValueLabel(
+  col: Pick<LeadSheetColumn, "key" | "type" | "options">,
+  rawValue: string,
+  resolvedOptions?: Array<{ value: string; label: string }> | null,
+): string {
+  const options = resolvedOptions ?? getColumnFilterOptions(col);
+  const matched = options?.find(opt => opt.value === rawValue);
+  if (matched) return matched.label;
+  if (col.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    const [yyyy, mm, dd] = rawValue.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return rawValue;
+}
+
+function mergeFilterOptions(
+  current: Array<{ value: string; label: string }> | null,
+  incoming: Array<{ value: string; label: string }> | null,
+): Array<{ value: string; label: string }> | null {
+  if (!current && !incoming) return null;
+  const combined = [...(current || []), ...(incoming || [])];
+  const seen = new Set<string>();
+  const unique: Array<{ value: string; label: string }> = [];
+  for (const opt of combined) {
+    if (seen.has(opt.value)) continue;
+    seen.add(opt.value);
+    unique.push(opt);
+  }
+  return unique.length > 0 ? unique : null;
+}
+
+/** Build deduplicated filterable columns strictly from the columns visible in the sheet. */
+export function buildVisibleFilterColumns(visibleColumns: LeadSheetColumn[]): FilterableLeadColumn[] {
+  const result: FilterableLeadColumn[] = [];
+  const byFilterKey = new Map<string, FilterableLeadColumn>();
+  const byLabelToken = new Map<string, FilterableLeadColumn>();
+
+  for (const col of visibleColumns) {
+    const spec = getColumnFilterSpec(col);
+    if (!spec) continue;
+    const options = getColumnFilterOptions(col);
+    const labelToken = normalizeFieldToken(col.label);
+    const existing = byFilterKey.get(spec.filterKey) || (labelToken ? byLabelToken.get(labelToken) : undefined);
+
+    if (existing) {
+      if (spec.filterKey !== existing.filterKey && !existing.altKeys.includes(spec.filterKey)) {
+        existing.altKeys.push(spec.filterKey);
+      }
+      existing.options = mergeFilterOptions(existing.options, options);
+      continue;
+    }
+
+    const entry: FilterableLeadColumn = {
+      colKey: col.key,
+      filterKey: spec.filterKey,
+      altKeys: [],
+      label: col.label,
+      type: col.type,
+      mode: spec.mode,
+      options,
+    };
+    byFilterKey.set(spec.filterKey, entry);
+    if (labelToken) byLabelToken.set(labelToken, entry);
+    result.push(entry);
+  }
+
+  return result;
+}
+
+/** Build deduplicated sort options strictly from the columns visible in the sheet (plus default Mới cập nhật). */
+export function buildVisibleSortOptions(visibleColumns: LeadSheetColumn[]): Array<{ value: string; label: string }> {
+  const seenSortValues = new Set<string>(["updatedAt:desc"]);
+  const seenLabels = new Set<string>();
+  const options: Array<{ value: string; label: string }> = [
+    { value: "updatedAt:desc", label: "Sắp xếp: Mới cập nhật" },
+  ];
+
+  for (const col of visibleColumns) {
+    const sortKey = col.sortKey || getSystemSortKey(col.key);
+    if (!sortKey) continue;
+    const labelToken = normalizeFieldToken(col.label);
+    if (labelToken && seenLabels.has(labelToken)) continue;
+    if (labelToken) seenLabels.add(labelToken);
+
+    const ascVal = `${sortKey}:asc`;
+    const descVal = `${sortKey}:desc`;
+    const isNum = col.type === "number" || col.type === "currency";
+    const isDate = col.type === "date";
+
+    if (!seenSortValues.has(ascVal)) {
+      seenSortValues.add(ascVal);
+      options.push({
+        value: ascVal,
+        label: isNum ? `${col.label} (Thấp → Cao)` : isDate ? `${col.label} (Cũ nhất)` : `${col.label} (A → Z)`,
+      });
+    }
+    if (!seenSortValues.has(descVal)) {
+      seenSortValues.add(descVal);
+      options.push({
+        value: descVal,
+        label: isNum ? `${col.label} (Cao → Thấp)` : isDate ? `${col.label} (Mới nhất)` : `${col.label} (Z → A)`,
+      });
+    }
+  }
+
+  return options;
+}
+
+export function buildLeadFieldFilter(col: FilterableLeadColumn, rawValue: string): LeadFieldFilter | null {
+  const value = rawValue.trim();
+  if (!value) return null;
+  const mode: LeadFieldFilter["mode"] = col.type === "checkbox" && value === "Không" ? "unchecked" : col.mode;
+  return {
+    key: col.filterKey,
+    ...(col.altKeys.length > 0 ? { altKeys: col.altKeys } : {}),
+    value,
+    mode,
+  };
 }
