@@ -89,6 +89,18 @@ describe("AddWorkerModal", () => {
     expect(screen.getByRole("heading", { name: "Thêm lao động mới" })).toBeTruthy();
   });
 
+  it("lets users enter a birth year directly", async () => {
+    const { onSubmit } = setup({ profileFields: baseFields.map((field) => field.key === "birthday" ? { ...field, isVisible: true } : field) });
+    fireEvent.click(screen.getByRole("button", { name: "Ngày sinh" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Nhập năm sinh" }), { target: { value: "1990" } });
+    fireEvent.click(screen.getByRole("button", { name: /Chọn ngày 15\/\d+\/1990/ }));
+    fill("Họ và tên *", "Trần Thị B");
+    fill("Số điện thoại *", "0988888888");
+    save();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].birthday).toMatch(/^15\/\d{2}\/1990$/);
+  });
+
   it("honors configurable visible and required standard fields", () => {
     setup();
     expect(screen.getByLabelText("Họ và tên *")).toBeTruthy();

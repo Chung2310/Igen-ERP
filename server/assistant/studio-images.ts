@@ -1,5 +1,6 @@
 import { openrouterChat, openrouterGenerateImage } from "../service/openrouter.service";
 import { AssistantError } from "./policy";
+import { STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, studioImageSystemError } from "./studio-image-errors";
 
 const DEFAULT_STUDIO_IMAGE_PROVIDER_MODEL = "recraft/recraft-v4.1-flash";
 
@@ -14,7 +15,7 @@ export type StudioImageInput = {
 
 export async function enhanceStudioImagePrompt(prompt: string): Promise<{ prompt: string }> {
   if (!process.env.OPENROUTER_API_KEY?.trim()) {
-    throw new AssistantError("Chưa cấu hình OPENROUTER_API_KEY trên máy chủ.", 503);
+    throw new AssistantError(STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, 503);
   }
   try {
     const response = await openrouterChat({
@@ -31,18 +32,13 @@ export async function enhanceStudioImagePrompt(prompt: string): Promise<{ prompt
     if (!enhanced || enhanced.length > 2000) throw new Error("Invalid enhanced prompt");
     return { prompt: enhanced };
   } catch (error) {
-    const status = (error as { status?: number }).status;
-    const message = status === 401 ? "Khóa OpenRouter không hợp lệ."
-      : status === 402 ? "Tài khoản OpenRouter không đủ số dư để chuẩn hóa mô tả."
-      : status === 429 ? "OpenRouter đang giới hạn yêu cầu. Vui lòng thử lại sau."
-      : "Không thể chuẩn hóa mô tả lúc này. Vui lòng thử lại.";
-    throw new AssistantError(message, status === 429 ? 429 : 502);
+    throw studioImageSystemError(error);
   }
 }
 
 export async function generateStudioImages(input: StudioImageInput) {
   if (!process.env.OPENROUTER_API_KEY?.trim()) {
-    throw new AssistantError("Chưa cấu hình OPENROUTER_API_KEY trên máy chủ.", 503);
+    throw new AssistantError(STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, 503);
   }
   if (input.referenceImage) {
     const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(input.referenceImage);
@@ -73,13 +69,8 @@ export async function generateStudioImages(input: StudioImageInput) {
       }
       images.push({ url: result.url });
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      const message = status === 401 ? "Khóa OpenRouter không hợp lệ."
-        : status === 402 ? "Tài khoản OpenRouter không đủ số dư để tạo ảnh."
-        : status === 429 ? "OpenRouter đang giới hạn yêu cầu. Vui lòng thử lại sau."
-        : "Không thể tạo ảnh lúc này. Vui lòng thử lại sau.";
-      if (images.length === 0) throw new AssistantError(message, status === 429 ? 429 : 502);
-      warning = `Đã tạo ${images.length}/${input.count} ảnh. ${message}`;
+      if (images.length === 0) throw studioImageSystemError(error);
+      warning = `Đã tạo ${images.length}/${input.count} ảnh. ${STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE}`;
       break;
     }
   }

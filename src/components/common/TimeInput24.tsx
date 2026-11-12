@@ -290,7 +290,12 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
     const date = parseDateValue(value) || new Date();
     return new Date(date.getFullYear(), date.getMonth(), 1);
   });
+  const [yearText, setYearText] = useState(() => String((parseDateValue(value) || new Date()).getFullYear()));
   const [position, setPosition] = useState({ top: 0, left: 0, width: 288 });
+
+  useEffect(() => {
+    if (showYearSelect) setYearText(String(month.getFullYear()));
+  }, [month, showYearSelect]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -338,9 +343,6 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
   }, [open]);
 
   const selected = parseDateValue(value);
-  const currentYear = new Date().getFullYear();
-  const firstYear = Math.min(1900, month.getFullYear());
-  const lastYear = Math.max(currentYear, month.getFullYear());
   const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
   const days = Array.from({ length: 42 }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - firstWeekday + 1));
   const chooseDate = (date: Date) => {
@@ -362,6 +364,7 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
         onClick={() => {
           const date = selected || new Date();
           setMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+          setYearText(String(date.getFullYear()));
           setOpen((current) => !current);
         }}
         className="flex w-full min-w-0 items-center justify-between gap-1 rounded-md px-1 py-1 text-left text-sm font-normal text-on-surface outline-none hover:bg-primary/5 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -375,14 +378,21 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
             <span className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", showYearSelect ? { month: "long" } : { month: "long", year: "numeric" }).format(month)}</span>
             <div className="flex items-center gap-0.5">
               {showYearSelect && (
-                <select
-                  aria-label="Chọn năm sinh"
-                  value={month.getFullYear()}
-                  onChange={(event) => setMonth(new Date(Number(event.target.value), month.getMonth(), 1))}
-                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-1 py-1 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  {Array.from({ length: lastYear - firstYear + 1 }, (_, index) => lastYear - index).map((year) => <option key={year} value={year}>{year}</option>)}
-                </select>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  aria-label="Nhập năm sinh"
+                  value={yearText}
+                  maxLength={4}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => {
+                    const next = event.target.value.replace(/\D/g, "").slice(0, 4);
+                    setYearText(next);
+                    if (next.length === 4 && Number(next) >= 1000) setMonth(new Date(Number(next), month.getMonth(), 1));
+                  }}
+                  onBlur={() => setYearText(String(month.getFullYear()))}
+                  className="w-16 rounded-lg border border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
+                />
               )}
               <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft className="size-4" /></button>
               <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight className="size-4" /></button>

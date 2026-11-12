@@ -23,6 +23,7 @@ import { extractSpeechDocument } from "./studio-speech-document";
 import { createStudioChart, deleteStudioChart, editStudioChart, getStudioChart, listStudioCharts, studioChartEditSchema, studioChartRequestSchema } from "./studio-charts";
 import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studioSlideDeckUpdateSchema, studioSlideRequestSchema, updateStudioSlideDeck } from "./studio-slides";
 import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
+import { listAssistantProjects, saveAssistantProjectCollection } from "./projects";
 import { assistantConversationFileFilter } from "./conversation-file";
 
 export const assistantRouter = Router();
@@ -47,6 +48,19 @@ assistantRouter.get("/conversations/:id/files/:fileId", validateRequest({ params
   }
 });
 assistantRouter.get("/settings", wrap(getSettings));
+const assistantProjectSchema = Joi.object({
+  id, name: Joi.string().trim().min(1).max(100).required(),
+  icon: Joi.string().max(30).required(), tone: Joi.string().valid("primary", "secondary", "tertiary", "error").required(),
+  favorite: Joi.boolean().required(), instructions: Joi.string().max(10000).allow("").required(),
+  model: Joi.string().valid("iGenAI").required(), createdAt: Joi.string().isoDate().required(),
+  conversations: Joi.array().max(500).items(Joi.object({
+    id, title: Joi.string().max(100).allow("").required(), preview: Joi.string().max(6000).allow("").required(),
+    createdAt: Joi.string().isoDate().required(), sourceConversationId: id.optional(), sourceMode: Joi.string().valid("work", "qa"),
+  })).required(),
+  files: Joi.array().max(100).items(Joi.object({ id, name: Joi.string().max(255).required(), size: Joi.number().integer().min(0).max(15 * 1024 * 1024).required(), updatedAt: Joi.string().isoDate().required() })).required(),
+});
+assistantRouter.get("/projects", wrap(listAssistantProjects));
+assistantRouter.put("/projects", validateRequest({ body: Joi.object({ projects: Joi.array().max(100).items(assistantProjectSchema).required() }) }), wrap(req => saveAssistantProjectCollection(req, req.body.projects)));
 assistantRouter.get("/prompt-templates", wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem thư viện câu lệnh.", 403);
   return listAssistantPromptTemplates({ companyCode: req.user.companyCode, userId: req.user.id });
@@ -205,7 +219,7 @@ const trainingContent = Joi.object({
     ? helpers.error("any.invalid")
     : quiz)).required(),
 });
-const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
+const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
 assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(req => processTurn(req, req.body)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
   const controller = new AbortController();

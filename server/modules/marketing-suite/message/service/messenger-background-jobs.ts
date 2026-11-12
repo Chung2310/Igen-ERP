@@ -111,6 +111,10 @@ async function runJobs(kind: MessengerBackgroundJobKind) {
 export function startMessengerBackgroundWorkers() {
   const timers = [
     startQueueRecovery(() => runJobs("zalo-webhook"), 1_000),
+    startQueueRecovery(async () => {
+      const { recoverZaloAutoReplyJobs } = await import("./ai-auto-reply.service");
+      await recoverZaloAutoReplyJobs();
+    }, 5_000),
     startQueueRecovery(() => runJobs("lead-intake"), 3_000),
   ];
   return () => timers.forEach(clearInterval);

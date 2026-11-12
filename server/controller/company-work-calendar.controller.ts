@@ -5,6 +5,7 @@ import {
   CalendarNotFoundError,
   CalendarValidationError,
   createAdminDay,
+  deleteAdminDay,
   listAudit,
   listCalendarDays,
   syncYear,
@@ -62,6 +63,14 @@ export const companyWorkCalendarController = {
     try {
       const { companyCode, actorId } = assertCalendarAdmin(req.user);
       const data = await updateDay(companyCode, req.params.id, actorId, req.body);
+      return res.json({ status: "success", data });
+    } catch (error) { return respondError(res, error); }
+  },
+
+  async delete(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, actorId } = assertCalendarAdmin(req.user);
+      const data = await deleteAdminDay(companyCode, req.params.id, actorId);
       return res.json({ status: "success", data });
     } catch (error) { return respondError(res, error); }
   },

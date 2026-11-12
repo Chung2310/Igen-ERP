@@ -2192,6 +2192,7 @@ function WizardStepEditorModal({
               ))}
               <div className={`mt-1 flex h-9 items-center gap-2 rounded-xl border px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${isDark ? "border-zinc-700 bg-zinc-800/40" : "border-[#dce7f4] bg-white"}`}>
                 <input
+                  data-erp-inline-input
                   value={newSubTask}
                   onChange={(e) => setNewSubTask(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubTask(); } }}

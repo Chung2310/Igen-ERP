@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { Download } from "lucide-react";
 import type { AssistantMindmapNode, AssistantMindmapResult } from "../../shared/assistant-mindmap";
 import { cn } from "../../modules/student-management/lib/utils";
@@ -96,7 +96,7 @@ function edgePath(parent: MindmapPosition, child: MindmapPosition): string {
   return `M ${startX} ${parent.y} C ${curveX} ${parent.y}, ${curveX} ${child.y}, ${endX} ${child.y}`;
 }
 
-function exportSvg(source: SVGSVGElement): void {
+function serializeSvg(source: SVGSVGElement): string {
   const clone = source.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("xmlns", svgNamespace);
   clone.setAttribute("width", String(width));
@@ -113,26 +113,72 @@ function exportSvg(source: SVGSVGElement): void {
       if (value) clonedElements[index].style.setProperty(property, value);
     }
   });
-  const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" });
+  return new XMLSerializer().serializeToString(clone);
+}
+
+function downloadBlob(blob: Blob, fileName: string): void {
   const href = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = href;
-  link.download = `${source.getAttribute("data-filename") || "mindmap"}.svg`;
+  link.download = fileName;
   link.click();
   URL.revokeObjectURL(href);
+}
+
+function exportSvg(source: SVGSVGElement): void {
+  downloadBlob(new Blob([serializeSvg(source)], { type: "image/svg+xml;charset=utf-8" }), `${source.getAttribute("data-filename") || "mindmap"}.svg`);
+}
+
+async function exportPng(source: SVGSVGElement): Promise<void> {
+  const svgBlob = new Blob([serializeSvg(source)], { type: "image/svg+xml;charset=utf-8" });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  try {
+    const image = new Image();
+    image.src = svgUrl;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = Number(source.getAttribute("viewBox")?.split(" ")[3]) || 640;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Không thể tạo ảnh PNG.");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const pngBlob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Không thể tạo ảnh PNG.")), "image/png"));
+    downloadBlob(pngBlob, `${source.getAttribute("data-filename") || "mindmap"}.png`);
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
 }
 
 function MindmapCanvas({ map }: { map: AssistantMindmapResult }) {
   const titleId = useId();
   const descId = useId();
   const svgRef = useRef<SVGSVGElement>(null);
+  const [pngExporting, setPngExporting] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   const { positions, edges, height } = mapPositions(map.root);
+
+  async function downloadPng() {
+    if (!svgRef.current || pngExporting) return;
+    setPngExporting(true);
+    setDownloadError("");
+    try {
+      await exportPng(svgRef.current);
+    } catch {
+      setDownloadError("Không thể tải ảnh PNG. Vui lòng thử lại.");
+    } finally {
+      setPngExporting(false);
+    }
+  }
 
   return <section aria-label="Kết quả mindmap" className="w-full min-w-0">
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><h2 data-typography="section-title" className="text-balance text-lg font-semibold">{map.title}</h2>{map.subtitle && <p className="mt-1 text-pretty text-sm text-on-surface-variant">{map.subtitle}</p>}</div>
-      <button type="button" onClick={() => { if (svgRef.current) exportSvg(svgRef.current); }} className={cn("inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low", focusClass)}><Download className="size-4" aria-hidden="true" />Tải SVG</button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => void downloadPng()} disabled={pngExporting} className={cn("inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}><Download className="size-4" aria-hidden="true" />{pngExporting ? "Đang tải PNG…" : "Tải PNG"}</button>
+        <button type="button" onClick={() => { if (svgRef.current) exportSvg(svgRef.current); }} className={cn("inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low", focusClass)}><Download className="size-4" aria-hidden="true" />Tải SVG</button>
+      </div>
     </div>
+    {downloadError && <p role="alert" className="mb-3 text-sm text-error">{downloadError}</p>}
     <div className="overflow-auto rounded-xl border border-outline-variant bg-surface-container-low p-3 sm:p-5">
       <svg ref={svgRef} data-filename={map.title.toLocaleLowerCase("vi").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "mindmap"} viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={`${titleId} ${descId}`} className="h-auto min-h-96 w-full min-w-[900px]" xmlns={svgNamespace}>
         <title id={titleId}>{map.title}</title>
@@ -169,5 +215,5 @@ function MindmapCanvas({ map }: { map: AssistantMindmapResult }) {
 }
 
 export function AssistantStudioMindmapResult({ map }: { map: AssistantMindmapResult }) {
-  return <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-5 sm:px-6 lg:px-8"><MindmapCanvas map={map} /></main>;
+  return <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 lg:px-8"><MindmapCanvas map={map} /></main>;
 }
