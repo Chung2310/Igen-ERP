@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { googleCustomerSheetService, CUSTOMER_SHEET_HEADERS } from "./google-customer-sheet.service";
+import { googleCustomerSheetService, CUSTOMER_SHEET_HEADERS, LEAD_SHEET_BASE_HEADERS, resetLeadSheetHeaderCache } from "./google-customer-sheet.service";
 import { sheetsFetch, ensureTabs } from "./google-order-sheet.service";
 
 vi.mock("./google-order-sheet.service", async original => ({
   ...await original<typeof import("./google-order-sheet.service")>(), sheetsFetch: vi.fn(), ensureTabs: vi.fn(),
 }));
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(sheetsFetch).mockReset(); });
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(sheetsFetch).mockReset(); resetLeadSheetHeaderCache(); });
 describe("Customer Sheet rows", () => {
   it("creates a header and appends a new customer with formula-safe cells", async () => {
     vi.mocked(sheetsFetch).mockResolvedValueOnce({}).mockResolvedValueOnce({}).mockResolvedValueOnce({}).mockResolvedValueOnce({});
@@ -28,5 +28,48 @@ describe("Customer Sheet rows", () => {
     vi.mocked(sheetsFetch).mockResolvedValueOnce({ values: [["Existing customer records"]] });
     await expect(googleCustomerSheetService.prepare("SHEET", "Leads")).rejects.toThrow("mẫu cột khác");
     expect(sheetsFetch).toHaveBeenCalledTimes(1);
+  });
+});
+describe("Lead Sheet rows", () => {
+  it("updates a stable Lead row, appends dynamic intake columns, and protects formulas", async () => {
+    vi.mocked(sheetsFetch)
+      .mockResolvedValueOnce({ values: [LEAD_SHEET_BASE_HEADERS] } as never)
+      .mockResolvedValueOnce({} as never)
+      .mockResolvedValueOnce({} as never);
+    const row = await googleCustomerSheetService.upsertLead("SHEET", "Leads", {
+      key: "ACME:PAGE:LEAD", customerName: "An", status: "cold", sourcePlatform: "facebook",
+      answers: { need: "=IMPORTXML(1)" }, intakeFields: [{ key: "need", label: "Dịch vụ quan tâm" }],
+    }, 2);
+    expect(row).toBe(2);
+    const calls = vi.mocked(sheetsFetch).mock.calls;
+    expect(ensureTabs).toHaveBeenCalledWith("SHEET", ["Leads"], LEAD_SHEET_BASE_HEADERS.length + 50);
+    expect(JSON.parse(String(calls[1][1]?.body)).values[0]).toEqual([...LEAD_SHEET_BASE_HEADERS, "Dịch vụ quan tâm"]);
+    expect(decodeURIComponent(calls[2][0])).toContain("!A2:N2");
+    expect(calls[2][1]?.method).toBe("PUT");
+    expect(JSON.parse(String(calls[2][1]?.body)).values[0][13]).toBe("'=IMPORTXML(1)");
+  });
+  it("appends a new Lead and captures its row number for later updates", async () => {
+    vi.mocked(sheetsFetch)
+      .mockResolvedValueOnce({ values: [LEAD_SHEET_BASE_HEADERS] } as never)
+      .mockResolvedValueOnce({ updates: { updatedRange: "'Leads'!A2:M2" } } as never);
+    const row = await googleCustomerSheetService.upsertLead("SHEET", "Leads", {
+      key: "ACME:PAGE:LEAD", customerName: "An", status: "cold",
+    });
+    expect(row).toBe(2);
+    const calls = vi.mocked(sheetsFetch).mock.calls;
+    expect(calls[1][0]).toContain(":append?valueInputOption=RAW");
+    expect(JSON.parse(String(calls[1][1]?.body)).values[0][0]).toBe("ACME:PAGE:LEAD");
+  });
+  it("finds an existing row before retrying an uncertain append", async () => {
+    vi.mocked(sheetsFetch)
+      .mockResolvedValueOnce({ values: [LEAD_SHEET_BASE_HEADERS] } as never)
+      .mockResolvedValueOnce({ values: [["OTHER"], ["ACME:PAGE:LEAD"]] } as never)
+      .mockResolvedValueOnce({} as never);
+    const row = await googleCustomerSheetService.upsertLead("SHEET", "Leads", {
+      key: "ACME:PAGE:LEAD", customerName: "An", status: "cold",
+    }, undefined, true);
+    expect(row).toBe(3);
+    expect(decodeURIComponent(vi.mocked(sheetsFetch).mock.calls[2][0])).toContain("!A3:M3");
+    expect(vi.mocked(sheetsFetch).mock.calls[2][1]?.method).toBe("PUT");
   });
 });

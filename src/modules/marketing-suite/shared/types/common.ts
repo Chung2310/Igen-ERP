@@ -36,6 +36,8 @@ export interface UserProfile {
   division?: string;
   companyCode?: string;
   companyName?: string;
+  branchId?: string;
+  enabledModules?: string[];
   permissions?: string[];
 }
 

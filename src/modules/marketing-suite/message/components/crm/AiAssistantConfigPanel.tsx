@@ -7,6 +7,7 @@ import { KnowledgeCenterSummaryCard } from "../../../knowledge/components/knowle
 
 interface AiAssistantConfigPanelProps {
   pageId?: string;
+  platform?: "facebook" | "zalo" | "tiktok";
   onClose?: () => void;
   localConfig: AIChatConfig;
   setLocalConfig: (config: AIChatConfig) => void;
@@ -44,6 +45,7 @@ interface AiAssistantConfigPanelProps {
 export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   onClose,
   pageId,
+  platform = "facebook",
   localConfig,
   setLocalConfig,
   savingConfig,
@@ -83,11 +85,10 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   return (
     <div className="w-80 border-l border-slate-100 bg-white p-5 text-xs text-left overflow-y-auto shrink-0 h-full flex flex-col justify-between shadow-sm animate-slide-in-right" id="ai_assistant_config_side_panel">
       <div className="space-y-5">
-        <PageChatFlowEditor pageId={pageId || ""} />
         <div className="flex justify-between items-center">
           <h4 className="font-extrabold text-slate-800 text-sm font-sans tracking-tight flex items-center gap-2 uppercase">
             <Sliders className="h-4 w-4 text-blue-600" />
-            Cấu hình chatbot Page
+            Cấu hình chatbot
           </h4>
           {onClose && (
             <button
@@ -102,8 +103,9 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           )}
         </div>
         <p className="text-slate-400 text-[10px] leading-relaxed font-sans">
-          Thiết lập cách chatbot trả lời khách trên Page và luồng thu thập thông tin của Page.
+          Cấu hình chatbot và bộ trường Lead riêng cho tài khoản đang chọn.
         </p>
+        <PageChatFlowEditor pageId={pageId || ""} platform={platform} />
 
         {/* AI switchers */}
         <div className="space-y-4 pt-4 border-t border-slate-100" id="config_switches">
@@ -552,7 +554,7 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
               Đang lưu cấu hình...
             </>
           ) : (
-            <>Lưu cấu hình chatbot Page</>
+          <>Lưu cấu hình chatbot</>
           )}
         </button>
         {handleApplyToAll && (
@@ -566,7 +568,7 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           </button>
         )}
         <div className="font-mono text-center text-[9px] text-slate-400 select-none">
-          Cấu hình chatbot Page
+          Cấu hình chatbot
         </div>
       </div>
     </div>

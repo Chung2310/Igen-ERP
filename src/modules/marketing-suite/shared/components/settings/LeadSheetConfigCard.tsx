@@ -24,7 +24,13 @@ export default function LeadSheetConfigCard({ integration }: { integration: Soci
     catch (error) { setNotice({ error: true, text: error instanceof Error ? error.message : "Không thể tải cấu hình Sheet." }); }
     finally { setLoading(false); }
   }, [integrationId]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void load();
+    });
+    return () => { cancelled = true; };
+  }, [load]);
 
   async function run(action: "save" | "test" | "retry") {
     if (!integrationId) return;
@@ -36,11 +42,11 @@ export default function LeadSheetConfigCard({ integration }: { integration: Soci
       if (action === "save") {
         const saved = await leadSheetService.save(integrationId, input);
         setConfig(saved); setStatus(current => current ? { ...current, config: saved } : current);
-        text = "Đã lưu cấu hình. Hồ sơ khách vẫn được lưu vào ERP trước khi đồng bộ sang Sheet.";
+        text = "Đã lưu đích xuất. Lead chỉ được gửi sang Sheet khi bạn chọn Lead trong bảng và bấm Xuất Google Sheets.";
       } else if (action === "test") {
         const result = await leadSheetService.test(integrationId, input); text = `Đọc được Google Sheet: ${result.title}`;
       } else {
-        const result = await leadSheetService.retry(integrationId); text = `Đã xếp lịch thử lại ${result.queued} khách.`;
+        const result = await leadSheetService.retry(integrationId); text = `Đã xếp lịch thử lại ${result.queued} Lead.`;
         setStatus(await leadSheetService.get(integrationId));
       }
       setNotice({ error: false, text });
@@ -49,14 +55,14 @@ export default function LeadSheetConfigCard({ integration }: { integration: Soci
   }
 
   return <section aria-labelledby={`${id}-title`} aria-busy={loading || Boolean(busy)} className="space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-left text-on-surface">
-    <h3 id={`${id}-title`} className="text-balance text-sm font-semibold">Lưu khách tiềm năng vào Google Sheets</h3>
-    <p id={`${id}-help`} className="text-pretty text-xs text-on-surface-variant">Lưu khách vào ERP trước. Khi bật, tự đồng bộ thêm tên, số điện thoại, địa chỉ và ghi chú sang Sheet, kể cả khi khách chưa chốt đơn. Mỗi khách trên cùng Page được cập nhật một dòng.</p>
-    {!usable ? <p className="text-pretty text-xs">Lưu liên kết Fanpage của doanh nghiệp trước để cấu hình lưu khách.</p> : <>
+    <h3 id={`${id}-title`} className="text-balance text-sm font-semibold">Đích xuất Lead sang Google Sheets</h3>
+    <p id={`${id}-help`} className="text-pretty text-xs text-on-surface-variant">Lead luôn được lưu trong ERP. Cấu hình này chỉ cho phép xuất thủ công các Lead đã chọn; thay đổi Lead hoặc câu trả lời chatbot không tự ghi sang Google Sheets.</p>
+    {!usable ? <p className="text-pretty text-xs">Lưu tài khoản mạng xã hội của doanh nghiệp trước để cấu hình Sheet.</p> : <>
       {loading && <p role="status" className="text-pretty text-xs">Đang tải cấu hình…</p>}
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={config.enabled} onChange={event => setConfig({ ...config, enabled: event.target.checked })}
           disabled={loading || Boolean(busy) || !status} aria-describedby={`${id}-help`} className="size-4 accent-primary focus-visible:outline focus-visible:outline-primary" />
-        Bật đồng bộ khách sang Sheet
+        Cho phép xuất Lead sang Sheet
       </label>
       {status?.serviceAccountEmail && <p className="break-words text-pretty text-xs text-on-surface-variant">Chia sẻ Sheet quyền chỉnh sửa cho: <span>{status.serviceAccountEmail}</span></p>}
       <label className="block space-y-1 text-sm">Link Google Sheet
@@ -65,17 +71,17 @@ export default function LeadSheetConfigCard({ integration }: { integration: Soci
           required={config.enabled} aria-invalid={Boolean(notice?.error && config.enabled && !config.spreadsheetUrl.trim()) || undefined}
           aria-describedby={notice?.error ? `${id}-notice` : `${id}-help`} className={inputClass} />
       </label>
-      <label className="block space-y-1 text-sm">Tên tab lưu khách
+      <label className="block space-y-1 text-sm">Tên tab Lead
         <input value={config.sheetName} onChange={event => setConfig({ ...config, sheetName: event.target.value })} maxLength={80}
           disabled={loading || Boolean(busy) || !status} aria-describedby={notice?.error ? `${id}-notice` : `${id}-help`} className={inputClass} />
       </label>
-      {status && <p role="status" className="tabular-nums text-pretty text-xs text-on-surface-variant">Đã đồng bộ: {status.synced} · Đang chờ: {status.pending} · Lỗi: {status.failed}</p>}
-      {status?.lastError && <p role="alert" className="break-words text-pretty text-xs text-error">Lỗi đồng bộ gần nhất: {status.lastError}. Hồ sơ khách vẫn được giữ trong ERP.</p>}
+      {status && <p role="status" className="tabular-nums text-pretty text-xs text-on-surface-variant">Đã xuất: {status.synced} · Đang chờ: {status.pending} · Lỗi: {status.failed}</p>}
+      {status?.lastError && <p role="alert" className="break-words text-pretty text-xs text-error">Lỗi xuất gần nhất: {status.lastError}. Lead vẫn được lưu trong ERP.</p>}
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void run("save")} disabled={loading || Boolean(busy) || !status} className={cn(primaryCreateButtonClass, "text-sm")}>{busy === "save" ? "Đang lưu…" : "Lưu cấu hình khách"}</button>
+        <button type="button" onClick={() => void run("save")} disabled={loading || Boolean(busy) || !status} className={cn(primaryCreateButtonClass, "text-sm")}>{busy === "save" ? "Đang lưu…" : "Lưu cấu hình Sheet"}</button>
         <button type="button" onClick={() => void run("test")} disabled={loading || Boolean(busy) || !status} className={buttonClass}>{busy === "test" ? "Đang kiểm tra…" : "Kiểm tra kết nối"}</button>
         <button type="button" onClick={() => void load()} disabled={loading || Boolean(busy)} className={buttonClass}>{status ? "Làm mới trạng thái" : "Thử tải lại"}</button>
-        {Boolean(status?.failed) && <button type="button" onClick={() => void run("retry")} disabled={loading || Boolean(busy) || !status?.config.enabled} className={buttonClass}>{busy === "retry" ? "Đang xếp lịch…" : "Thử đồng bộ lại"}</button>}
+        {Boolean(status?.failed) && <button type="button" onClick={() => void run("retry")} disabled={loading || Boolean(busy) || !status?.config.enabled} className={buttonClass}>{busy === "retry" ? "Đang xếp lịch…" : "Thử xuất lại Lead lỗi"}</button>}
       </div>
     </>}
     {notice && <p id={`${id}-notice`} role={notice.error ? "alert" : "status"} className={cn("break-words text-pretty text-xs", notice.error ? "text-error" : "text-on-surface-variant")}>{notice.text}</p>}

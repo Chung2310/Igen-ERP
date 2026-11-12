@@ -50,6 +50,7 @@ const ZaloConversationSchema: Schema = new Schema(
     lastMessageText: { type: String, default: "" },
     lastMessageAt: { type: Date, default: Date.now },
     unreadCount: { type: Number, default: 0 },
+    pendingInboundMessageIds: { type: [String], default: undefined, select: false },
     status: { type: String, enum: ["open", "closed"], default: "open" },
     tags: { type: [String], default: [] },
     isVip: { type: Boolean, default: false },
@@ -87,7 +88,7 @@ const ZaloMessageSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-ZaloMessageSchema.index({ conversationId: 1, timestamp: -1 });
+ZaloMessageSchema.index({ conversationId: 1, timestamp: -1, _id: -1 });
 
 export const ZaloConversationModel = mongoose.model<IZaloConversation>("ZaloConversation", ZaloConversationSchema);
 export const ZaloMessageModel = mongoose.model<IZaloMessage>("ZaloMessage", ZaloMessageSchema);

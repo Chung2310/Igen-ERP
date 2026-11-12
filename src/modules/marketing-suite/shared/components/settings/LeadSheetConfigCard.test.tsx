@@ -9,29 +9,29 @@ const integration = { _id: "1234567890abcdef12345678", platform: "Facebook" as c
 const status = { config: { enabled: false, spreadsheetUrl: "", sheetName: "Leads" }, serviceAccountEmail: "sync@example.com", pending: 0, failed: 0, synced: 0, lastError: "" };
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(leadSheetService.get).mockResolvedValue(status); });
 afterEach(cleanup);
-it("keeps the Sheet option off until the user enables and saves it", async () => {
+it("keeps the optional Sheet export off until the user enables and saves it", async () => {
   render(<LeadSheetConfigCard integration={integration} />);
-  const toggle = await screen.findByRole("checkbox", { name: "Bật đồng bộ khách sang Sheet" });
+  const toggle = await screen.findByRole("checkbox", { name: "Cho phép xuất Lead sang Sheet" });
   await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
   expect((toggle as HTMLInputElement).checked).toBe(false);
   fireEvent.click(toggle);
   fireEvent.change(screen.getByRole("textbox", { name: "Link Google Sheet" }), { target: { value: "https://docs.google.com/spreadsheets/d/SHEET/edit" } });
   vi.mocked(leadSheetService.save).mockResolvedValue({ enabled: true, spreadsheetUrl: "https://docs.google.com/spreadsheets/d/SHEET/edit", sheetName: "Leads" });
-  fireEvent.click(screen.getByRole("button", { name: "Lưu cấu hình khách" }));
+  fireEvent.click(screen.getByRole("button", { name: "Lưu cấu hình Sheet" }));
   await waitFor(() => expect(leadSheetService.save).toHaveBeenCalledWith(integration._id, { enabled: true, spreadsheetUrl: "https://docs.google.com/spreadsheets/d/SHEET/edit", sheetName: "Leads" }));
 });
 it("reports a missing link inline without making a save request", async () => {
   render(<LeadSheetConfigCard integration={integration} />);
   await waitFor(() => expect(screen.getByRole("checkbox").hasAttribute("disabled")).toBe(false));
-  fireEvent.click(screen.getByRole("checkbox")); fireEvent.click(screen.getByRole("button", { name: "Lưu cấu hình khách" }));
+  fireEvent.click(screen.getByRole("checkbox")); fireEvent.click(screen.getByRole("button", { name: "Lưu cấu hình Sheet" }));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Cần nhập link Google Sheet.");
   expect(leadSheetService.save).not.toHaveBeenCalled();
 });
-it("shows sync failures and allows an explicit retry", async () => {
+it("shows export failures and allows an explicit retry", async () => {
   vi.mocked(leadSheetService.get).mockResolvedValue({ ...status, config: { ...status.config, enabled: true }, failed: 2, lastError: "Sheet permission denied" });
   vi.mocked(leadSheetService.retry).mockResolvedValue({ queued: 2 });
   render(<LeadSheetConfigCard integration={integration} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Thử đồng bộ lại" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Thử xuất lại Lead lỗi" }));
   await waitFor(() => expect(leadSheetService.retry).toHaveBeenCalledWith(integration._id));
-  expect(screen.getByText(/Hồ sơ khách vẫn được giữ trong ERP/)).toBeTruthy();
+  expect(screen.getByText(/thay đổi Lead hoặc câu trả lời chatbot không tự ghi/)).toBeTruthy();
 });

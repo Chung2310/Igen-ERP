@@ -70,10 +70,17 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const [fbPagesList, setFbPagesList] = useState<any[]>([]);
 
   // Form states for company integration
-  const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">("TikTok");
+  const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">(() => {
+    const status = new URLSearchParams(window.location.search).get("zalo_oauth");
+    return status ? "Zalo" : "TikTok";
+  });
   const [zaloManual, setZaloManual] = useState(false);
   const [connectingZalo, setConnectingZalo] = useState(false);
-  const [zaloNotice, setZaloNotice] = useState<{ message: string; success?: boolean } | null>(null);
+  const [zaloNotice, setZaloNotice] = useState<{ message: string; success?: boolean } | null>(() => {
+    const status = new URLSearchParams(window.location.search).get("zalo_oauth");
+    if (!status) return null;
+    return { message: zaloOAuthMessages.get(status) || zaloOAuthMessages.get("failed")!, success: status === "connected" };
+  });
   const [compDisplayName, setCompDisplayName] = useState("");
   const [compUsername, setCompUsername] = useState("");
   const [compBlotatoAccountId, setCompBlotatoAccountId] = useState("");
@@ -123,12 +130,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const status = url.searchParams.get("zalo_oauth");
-    if (!status) return;
+    if (!url.searchParams.has("zalo_oauth")) return;
     url.searchParams.delete("zalo_oauth");
     window.history.replaceState(window.history.state, "", url);
-    setCompPlatform("Zalo");
-    setZaloNotice({ message: zaloOAuthMessages.get(status) || zaloOAuthMessages.get("failed")!, success: status === "connected" });
   }, []);
 
   // Fetch company integrations
@@ -1556,9 +1560,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </div>
                     </div>
 
-                    {item.platform === "Facebook" && (
-                      <LeadSheetConfigCard integration={item} />
-                    )}
+                    <LeadSheetConfigCard integration={item} />
                     {item.platform === "Facebook" && (
                       <OrderSheetConfigCard
                         integration={item}
