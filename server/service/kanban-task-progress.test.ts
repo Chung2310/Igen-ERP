@@ -4,7 +4,7 @@ import { aggregateMonthlyKpiRows } from "./kanban-monthly-kpi.service";
 
 const owner = { uid: "owner", name: "An", manager: false };
 const helper = { uid: "helper", name: "Bình", manager: false };
-const task = { assigneeUid: "owner", status: "Not Started", dueDate: "2026-09-30T10:00:00Z" };
+const task = { assigneeUid: "owner", status: "Not Started", dueDate: "2026-09-30T10:00:00Z", startTime: "2026-09-16T07:00:00.000Z", estTime: 2 };
 const now = "2026-09-16T08:00:00.000Z";
 describe("task progress and support", () => {
   it.each([[0, "Not Started"], [1, "In Progress"], [99, "In Progress"], [100, "Done"]])("maps %s percent to %s", (progress, status) => {

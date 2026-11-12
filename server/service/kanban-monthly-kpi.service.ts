@@ -1,6 +1,7 @@
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { KanbanMonthlyKpiSnapshotModel } from "../model/kanban-monthly-kpi-snapshot.model";
 import { UserModel } from "../model/user.model";
+import { calculateTaskDeadlineKpi, parseVietnamTaskInstant } from "../../src/shared/kanbanDeadlineKpi";
 
 export const KPI_TIMEZONE = "Asia/Ho_Chi_Minh" as const;
 
@@ -9,8 +10,8 @@ export type MonthlyKpiTask = {
   assigneeUid: string;
   dueDate: string;
   status: string;
-  completedAt?: string;
   endTime?: string;
+  completedAt?: string;
 };
 export type MonthlyKpiRow = MonthlyKpiEmployee & {
   totalTasks: number;
@@ -42,27 +43,17 @@ export function previousPeriodKey(now = new Date()) {
   return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function dueInstant(value: string) {
-  const raw = String(value || "").trim();
-  if (!raw) return undefined;
-  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
-  const normalized = hasZone ? raw : /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00+07:00` : `${raw}+07:00`;
-  const date = new Date(normalized);
-  return Number.isNaN(date.valueOf()) ? undefined : date;
-}
-
 export function aggregateMonthlyKpiRows(employees: MonthlyKpiEmployee[], tasks: MonthlyKpiTask[], periodKey: string): MonthlyKpiRow[] {
   const { start, end } = periodBounds(periodKey);
   const counts = new Map<string, { total: number; completed: number }>();
   for (const task of tasks) {
     const status = task.status === "done" ? "Done" : task.status;
     if (status === "Archived") continue;
-    const due = dueInstant(task.dueDate);
+    const due = parseVietnamTaskInstant(task.dueDate);
     if (!due || due < start || due >= end) continue;
     const count = counts.get(String(task.assigneeUid)) || { total: 0, completed: 0 };
     count.total += 1;
-    const completed = dueInstant(task.completedAt || task.endTime || "");
-    if (status === "Done" && completed && completed <= due) count.completed += 1;
+    if (calculateTaskDeadlineKpi(task)?.status === "ontime") count.completed += 1;
     counts.set(String(task.assigneeUid), count);
   }
   return employees.map((employee) => {
@@ -83,7 +74,7 @@ async function calculateRows(scope: MonthlyKpiScope) {
   const filter = { companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}) };
   const [users, tasks] = await Promise.all([
     UserModel.find({ ...filter, role: { $ne: "superadmin" }, isActive: { $ne: false } }).select("_id displayName email photoURL").lean(),
-    KanbanTaskModel.find(filter).select("assigneeUid dueDate status completedAt endTime").lean(),
+    KanbanTaskModel.find(filter).select("assigneeUid dueDate status endTime completedAt").lean(),
   ]);
   return { users, tasks };
 }

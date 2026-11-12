@@ -7,6 +7,7 @@ import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechH
 import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -263,15 +264,15 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
           : result?.images.length ? <><div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-balance text-lg font-semibold">Ảnh đã tạo</h2><p className="text-sm text-on-surface-variant">{result.images.length} ảnh · iGenAI · {result.aspectRatio}</p></div></div>{result.warning && <p role="status" className="mb-4 text-sm text-on-surface-variant">{result.warning}</p>}<div className={cn("grid gap-4", result.images.length > 1 && "sm:grid-cols-2")}>{result.images.map((image, index) => <figure key={`${image.url.slice(0, 40)}-${index}`} className="min-w-0 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low"><img src={image.url} alt={`Ảnh AI đã tạo ${index + 1}`} className="max-h-[34rem] w-full object-contain" /><figcaption className="flex items-center justify-between gap-2 p-3 text-sm"><span>Ảnh {index + 1}</span><a href={image.url} download={`igen-ai-studio-${index + 1}.png`} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-primary hover:bg-primary/10", focusClass)}><Download className="size-4" aria-hidden="true" />Tải ảnh</a></figcaption></figure>)}</div></>
           : <div className="flex flex-1 flex-col items-center justify-center py-6 text-center lg:py-8">
               <div className="space-y-2.5">
-                <h2 className="mx-auto max-w-3xl text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]">
-                  <span className="bg-[linear-gradient(90deg,#ea580c_0%,#ff7a00_50%,#f59e0b_100%)] bg-clip-text text-transparent">Thỏa sức sáng tạo</span>{" "}
+                <h2 className={cn("mx-auto max-w-3xl", assistantStudioTitleClass)}>
+                  <span className={assistantStudioTitleAccentClass}>Thỏa sức sáng tạo</span>{" "}
                   <span className="text-on-surface">hình ảnh đa phong cách</span>{" "}
                   <span className="text-primary">cùng AI</span>
                 </h2>
                 <p className="text-pretty text-sm sm:text-base text-on-surface-variant">Mô tả ý tưởng và chọn khung hình để bắt đầu.</p>
               </div>
               <div className="my-5 flex w-full justify-center">
-                <img src="/ai-studio-image-hero.png" alt="Bộ ảnh phong cảnh, hoa và nội thất được sáng tạo bằng AI" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />
+                <img src="/ai-studio-image-hero.png" alt="Minh họa bãi biển, bình hoa và đồ uống được tạo bằng AI" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />
               </div>
               <section aria-label="Thư viện mẫu" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
                 <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>

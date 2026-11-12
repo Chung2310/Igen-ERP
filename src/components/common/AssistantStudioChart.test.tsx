@@ -108,6 +108,6 @@ describe("AssistantStudioChart", () => {
     fireEvent.click(savedChart);
 
     expect(await screen.findByRole("heading", { level: 1, name: "Doanh thu theo tháng" })).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "Lịch sử biểu đồ" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Lịch sử biểu đồ" })).toBeNull());
   });
 });

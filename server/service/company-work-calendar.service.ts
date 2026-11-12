@@ -173,6 +173,18 @@ export async function updateDay(companyCode: string, id: string, actorId: string
   return after;
 }
 
+export async function deleteAdminDay(companyCode: string, id: string, actorId: string) {
+  const deleted = await CompanyWorkCalendarDayModel.findOneAndDelete({ _id: id, companyCode, source: "admin" });
+  if (!deleted) {
+    const existing = await CompanyWorkCalendarDayModel.findOne({ _id: id, companyCode }).select("source").lean();
+    if (existing?.source === "system") throw new CalendarValidationError("Không thể xóa ngày lịch hệ thống. Hãy tắt áp dụng nếu cần.");
+    throw new CalendarNotFoundError("Không tìm thấy ngày lịch làm việc.");
+  }
+  const before = JSON.parse(JSON.stringify(deleted.toObject())) as Record<string, unknown>;
+  await CompanyWorkCalendarAuditModel.create({ companyCode, calendarDayId: id, action: "deleted", actorId, before });
+  return before;
+}
+
 export async function listAudit(companyCode: string, calendarDayId: string) {
   return CompanyWorkCalendarAuditModel.find({ companyCode, calendarDayId }).sort({ createdAt: -1 }).lean();
 }

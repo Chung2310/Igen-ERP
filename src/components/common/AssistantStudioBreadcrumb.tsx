@@ -7,8 +7,8 @@ export function AssistantStudioBreadcrumb({ title, onBack, titleAsHeading = true
   const currentTitleClass = "min-w-0 truncate text-on-surface";
 
   return <div className="flex min-w-0 items-center gap-1 text-sm">
-    <button type="button" onClick={onBack} className={cn("inline-flex shrink-0 items-center gap-1 rounded-md px-1 py-1 text-on-surface-variant hover:text-primary", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />AI Studio</button>
-    <span className="text-on-surface-variant" aria-hidden="true">/</span>
+    <button type="button" onClick={onBack} className={cn("inline-flex shrink-0 items-center gap-1 rounded-md px-1 py-1 text-on-surface/60 hover:text-on-surface", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />AI Studio</button>
+    <span className="text-on-surface/60" aria-hidden="true">/</span>
     {titleAsHeading ? <h1 className={cn(currentTitleClass, "text-sm! leading-5! font-medium! text-balance")}>{title}</h1> : <span className={cn(currentTitleClass, "font-medium")} aria-current="page">{title}</span>}
   </div>;
 }

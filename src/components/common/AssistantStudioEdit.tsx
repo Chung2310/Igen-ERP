@@ -5,7 +5,9 @@ import { requestStudioImageEdit, type StudioEditMode } from "./assistantStudioIm
 import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechHistory";
 import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
@@ -16,7 +18,10 @@ interface EditType {
   label: string;
   description: string;
   hint: string;
-  emoji: string;
+  prompt?: string;
+  requiresDetails?: boolean;
+  detailsHint?: string;
+  artwork: string;
 }
 
 const editTypes: EditType[] = [
@@ -25,42 +30,52 @@ const editTypes: EditType[] = [
     label: "Xóa vùng ảnh",
     description: "Xóa một phần ảnh và tái tạo tự nhiên",
     hint: "Ví dụ: Xóa chiếc cốc trên bàn và lấp phần trống theo mặt bàn xung quanh.",
-    emoji: "✂️",
+    prompt: "Xóa đúng đối tượng được mô tả ở cuối prompt khỏi ảnh gốc. Chỉ xóa đối tượng đó; tái tạo tự nhiên vùng bị che, khớp kết cấu, màu sắc, ánh sáng và phối cảnh xung quanh. Giữ nguyên hoàn toàn các phần còn lại.\n\nĐối tượng/vùng cần xóa: ",
+    requiresDetails: true,
+    detailsHint: "Thêm mô tả vật thể hoặc vùng cần xóa ở cuối prompt mẫu.",
+    artwork: "/ai-studio-edit-erase.webp",
   },
   {
     id: "remove-background",
     label: "Xóa nền",
     description: "Tách chủ thể ra khỏi nền ảnh",
     hint: "Ví dụ: Tách người khỏi nền, giữ nguyên tóc và đường viền tự nhiên.",
-    emoji: "🖼️",
+    prompt: "Tách toàn bộ phông nền khỏi ảnh gốc để chỉ còn chủ thể. Giữ nguyên khuôn mặt, tóc, quần áo, hình dáng, màu sắc và các chi tiết của chủ thể. Xuất tệp PNG có kênh alpha trong suốt thật; làm trong suốt mọi pixel thuộc nền. Không thay nền bằng màu trắng hoặc màu khác, không vẽ ô caro giả, không thêm viền, bóng đổ hay vật thể mới.",
+    artwork: "/ai-studio-edit-remove-background.webp",
   },
   {
     id: "change-background",
-    label: "Đổi màu nền",
+    label: "Đổi nền",
     description: "Thay nền bằng màu hoặc cảnh mới",
     hint: "Ví dụ: Đổi nền phía sau thành màu xanh nhạt, giữ nguyên người ở phía trước.",
-    emoji: "🎨",
+    prompt: "Thay nền hiện tại bằng bối cảnh được mô tả ở cuối prompt. Chỉ chỉnh nền; giữ nguyên chủ thể, khuôn mặt, tóc, quần áo, tư thế, tỷ lệ và các chi tiết nhận diện. Khớp ánh sáng và phối cảnh giữa chủ thể với nền mới; không thêm chủ thể hoặc vật thể khác.\n\nNền mới: ",
+    requiresDetails: true,
+    detailsHint: "Mô tả màu sắc hoặc cảnh nền muốn thay vào ở cuối prompt mẫu.",
+    artwork: "/ai-studio-edit-change-background.webp",
   },
   {
     id: "enhance",
     label: "Nâng cao chất lượng",
     description: "Làm nét, giảm nhiễu và cải thiện chi tiết",
     hint: "Ví dụ: Làm ảnh rõ nét hơn, giảm nhiễu, giữ nguyên mọi chi tiết và khuôn mặt.",
-    emoji: "✨",
-  },
-  {
-    id: "custom",
-    label: "Theo mô tả",
-    description: "Chỉnh sửa tùy ý theo yêu cầu của bạn",
-    hint: "Ví dụ: Chỉ đổi màu chiếc áo thành xanh dương; giữ nguyên khuôn mặt, tóc và bối cảnh.",
-    emoji: "💬",
+    prompt: "Cải thiện chất lượng ảnh gốc: làm rõ nét, giảm nhiễu và khôi phục chi tiết tự nhiên. Giữ nguyên nội dung, khuôn mặt, nhận diện, bố cục, màu sắc, chữ và logo. Không thêm, xóa hay thay đổi đối tượng; tránh làm mịn da hoặc tạo chi tiết giả.",
+    artwork: "/ai-studio-edit-enhance.webp",
   },
 ];
+
+const legacyCustomEditType: EditType = {
+  id: "custom",
+  label: "Tùy chỉnh (lịch sử)",
+  description: "Dùng cho lịch sử chỉnh sửa cũ.",
+  hint: "Nhập yêu cầu chỉnh sửa cho lịch sử này.",
+  artwork: "",
+};
 
 type EditedResult = { url: string; source: string; name: string; prompt: string; mode: StudioEditMode; regionApplied: boolean };
 
 export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const initialResult = historyItem?.kind === "edit-image" ? historyItem.payload as EditedResult : null;
   const [sourceImage, setSourceImage] = useState(() => initialResult?.source ?? "");
   const [fileName, setFileName] = useState(() => initialResult?.name ?? "");
@@ -74,7 +89,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
-  const activeEditType = editTypes.find(t => t.id === mode) ?? editTypes[0];
+  const activeEditType = editTypes.find(t => t.id === mode) ?? (mode === "custom" ? legacyCustomEditType : editTypes[0]);
 
   async function openHistory() {
     if (showHistory) { setShowHistory(false); return; }
@@ -136,6 +151,11 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
     if (loading) return;
     if (!sourceImage) { setError("Tải ảnh cần chỉnh sửa lên trước."); return; }
     if (prompt.trim().length < 3) { setError("Nhập yêu cầu chỉnh sửa ít nhất 3 ký tự."); return; }
+    if (activeEditType.requiresDetails && prompt.trim() === activeEditType.prompt?.trim()) {
+      setError(activeEditType.detailsHint || "Bổ sung chi tiết cần chỉnh sửa vào prompt mẫu trước khi tiếp tục.");
+      promptRef.current?.focus();
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -154,6 +174,22 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
       } catch { /* ignore storage errors */ }
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
+  }
+
+  function selectEditType(editType: EditType) {
+    const nextPrompt = editType.prompt ?? "";
+    if (mode === editType.id && prompt.trim() && prompt !== nextPrompt) {
+      setError("");
+      return;
+    }
+    setMode(editType.id);
+    setPrompt(nextPrompt);
+    setResult(null);
+    setError("");
+    requestAnimationFrame(() => {
+      promptRef.current?.focus();
+      promptRef.current?.setSelectionRange(nextPrompt.length, nextPrompt.length);
+    });
   }
 
   return (
@@ -213,7 +249,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                   focusClass
                 )}
               >
-                <Plus className="size-6 text-on-surface-variant" aria-hidden="true" />
+                <Assistant2DFileIcon fileName="image.png" action="upload" className="size-20 shrink-0" />
                 <span className="text-sm font-medium text-on-surface">Tải ảnh lên</span>
                 <span className="text-xs text-on-surface-variant">PNG, JPG, WebP · tối đa 15 MB</span>
                 <input
@@ -241,13 +277,20 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
               maxLength={2000}
               rows={6}
               value={prompt}
+              ref={promptRef}
               onChange={e => { setPrompt(e.target.value); setResult(null); setError(""); }}
               disabled={loading}
               placeholder={activeEditType.hint}
+              aria-describedby="studio-edit-prompt-guidance studio-edit-prompt-count"
               className={cn(fieldClass, "min-h-32 resize-none")}
             />
+            <p id="studio-edit-prompt-guidance" className="mt-1 text-pretty text-xs text-on-surface-variant">
+              {activeEditType.requiresDetails && prompt.trim() === activeEditType.prompt?.trim()
+                ? activeEditType.detailsHint
+                : "Prompt mẫu đã điền sẵn; bạn có thể chỉnh sửa trước khi gửi."}
+            </p>
             <div className="mt-1 flex justify-end text-xs text-on-surface-variant">
-              <span className="shrink-0 tabular-nums">{prompt.length}/2.000</span>
+              <span id="studio-edit-prompt-count" className="shrink-0 tabular-nums">{prompt.length}/2.000</span>
             </div>
           </div>
         </div>
@@ -324,12 +367,12 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
           /* Empty state with edit type picker */
           <div className="flex flex-1 flex-col items-center justify-center py-6 text-center lg:py-8">
             <div className="space-y-2.5">
-              <h2 className="mx-auto max-w-3xl text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]">
-                <span className="bg-[linear-gradient(90deg,#00adfc_0%,#7567ff_100%)] bg-clip-text text-transparent">
+              <h2 className={cn("mx-auto max-w-3xl", assistantStudioTitleClass)}>
+                <span className={assistantStudioTitleAccentClass}>
                   Chỉnh sửa hình ảnh
                 </span>{" "}
                 <span className="text-on-surface">thông minh</span>{" "}
-                <span className="text-primary">cùng AI</span>
+                <span className={assistantStudioTitleAccentClass}>cùng AI</span>
               </h2>
               <p className="text-pretty text-sm sm:text-base text-on-surface-variant">
                 Tải ảnh lên, chọn loại chỉnh sửa và mô tả yêu cầu để bắt đầu.
@@ -339,46 +382,45 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
             {/* Hero image */}
             <div className="my-5 flex w-full justify-center">
               <img
-                src="/ai-studio-image-hero.png"
+                src="/ai-studio-image-edit-hero.png"
                 alt="Minh hoạ chỉnh sửa hình ảnh bằng AI"
                 width="1536"
                 height="1024"
-                className="h-auto max-h-[28dvh] w-full max-w-2xl object-contain drop-shadow-xs"
+                className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs"
               />
             </div>
 
             {/* Edit type picker */}
             <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
-              <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+              <h3 className="px-1 text-balance text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>
+              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
                 {editTypes.map(editType => {
                   const isSelected = mode === editType.id;
                   return (
                     <button
                       key={editType.id}
                       type="button"
-                      onClick={() => setMode(editType.id)}
+                      onClick={() => selectEditType(editType)}
                       aria-pressed={isSelected}
+                      title={editType.description}
                       className={cn(
-                        "group flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                        isSelected
-                          ? "border-primary bg-primary-container ring-2 ring-primary/30"
-                          : "border-outline-variant bg-surface-container-low hover:bg-surface-container"
+                        "overflow-hidden rounded-xl border border-outline-variant hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50",
+                        isSelected && "border-primary ring-2 ring-primary/30"
                       )}
                     >
-                      <span className="text-2xl leading-none" aria-hidden="true">{editType.emoji}</span>
-                      <span className={cn(
-                        "text-xs font-semibold leading-tight",
-                        isSelected ? "text-on-primary-container" : "text-on-surface"
-                      )}>
-                        {editType.label}
-                      </span>
-                      <span className={cn(
-                        "text-xs leading-snug",
-                        isSelected ? "text-on-primary-container/80" : "text-on-surface-variant"
-                      )}>
-                        {editType.description}
-                      </span>
+                      <div className="aspect-[3/2] w-full bg-surface-container-low">
+                        <img
+                          src={editType.artwork}
+                          alt=""
+                          aria-hidden="true"
+                          width={768}
+                          height={512}
+                          loading="lazy"
+                          decoding="async"
+                          className="size-full object-cover"
+                        />
+                      </div>
+                      <span className={cn("block truncate bg-surface-container-lowest px-2 py-1.5 text-center text-xs font-semibold text-on-surface", isSelected && "text-primary")}>{editType.label}</span>
                     </button>
                   );
                 })}

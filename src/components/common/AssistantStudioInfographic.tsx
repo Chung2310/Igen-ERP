@@ -8,6 +8,7 @@ import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechH
 import { saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const layouts = [
@@ -45,11 +46,6 @@ const layoutColors: Record<Layout["id"], string> = {
   loop: illustrationColors.teal, funnel: illustrationColors.violet, pyramid: illustrationColors.coral,
   tree: illustrationColors.blue,
 };
-const infographicPromptIdeas = [
-  { label: "Quy trình", color: "border-primary/20 bg-primary/10 text-primary", layout: "flow" as const, prompt: "Quy trình tuyển dụng nhân sự gồm tiếp nhận nhu cầu, đăng tuyển, phỏng vấn, đánh giá và nhận việc." },
-  { label: "Dòng thời gian", color: "border-tertiary/20 bg-tertiary-container text-tertiary", layout: "timeline" as const, prompt: "Lộ trình triển khai dự án trong 4 tuần, từ khảo sát yêu cầu đến bàn giao và đánh giá." },
-  { label: "So sánh", color: "border-secondary/20 bg-secondary-container text-secondary", layout: "compare" as const, prompt: "So sánh làm việc tại văn phòng và làm việc từ xa theo chi phí, giao tiếp, tập trung và tính linh hoạt." },
-];
 
 function LayoutArtwork({ kind, className = "" }: { kind: Layout["id"]; className?: string }) {
   return <svg viewBox="0 0 120 90" className={cn("size-full", className)} style={{ color: layoutColors[kind] }} fill="none" aria-hidden="true">
@@ -72,7 +68,7 @@ function LayoutArtwork({ kind, className = "" }: { kind: Layout["id"]; className
 }
 
 function EmptyArtwork() {
-  return <img src="/ai-studio-infographic-hero.png" alt="Minh họa infographic với quy trình, mốc thời gian và biểu đồ" width="1536" height="1024" className="h-auto max-h-[36dvh] w-full max-w-xl object-contain" />;
+  return <img src="/ai-studio-infographic-hero.png" alt="Minh họa infographic với quy trình, mốc thời gian và biểu đồ" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />;
 }
 export function AssistantStudioInfographic({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
   const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? "");
@@ -275,7 +271,7 @@ export function AssistantStudioInfographic({ onBack, historyItem }: { onBack: ()
     <section aria-label="Kết quả tạo infographic" aria-busy={loading} className="flex min-h-96 min-w-0 flex-col bg-surface-container-lowest p-4 lg:min-h-full lg:p-6"><div className="flex items-center justify-end gap-2"><button type="button" onClick={reset} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-xs hover:bg-surface-container-low", focusClass)}><Plus className="size-4" aria-hidden="true" />Tạo mới</button><AssistantStudioHistoryAction open={showHistory} onClick={() => setShowHistory(value => !value)} /></div>
       {loading ? <div role="status" className="flex flex-1 flex-col items-center justify-center gap-4 text-center"><LoaderCircle className="size-8 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" /><p className="text-pretty text-sm text-on-surface-variant">Đang tạo infographic. Quá trình này có thể mất một lúc…</p></div>
           : result?.content.images.length ? <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-6"><div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-balance text-lg font-semibold">Infographic đã tạo</h2><p className="text-sm text-on-surface-variant">{layouts.find(item => item.id === result.layout)?.label} · iGenAI · {result.content.aspectRatio}</p></div><a href={result.content.images[0].url} download="igen-infographic.png" target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm font-medium text-primary hover:bg-primary/10", focusClass)}><Download className="size-4" aria-hidden="true" />Tải ảnh</a></div>{result.content.warning && <p role="status" className="mb-3 text-sm text-on-surface-variant">{result.content.warning}</p>}<img src={result.content.images[0].url} alt={`Infographic AI đã tạo từ nội dung: ${result.prompt.slice(0, 100)}`} className="max-h-[70dvh] w-full rounded-lg border border-outline-variant bg-surface-container-low object-contain" /></div>
-            : <div className="flex flex-1 flex-col items-center justify-center gap-5 py-8 text-center lg:py-10"><div className="space-y-2"><h2 className="mx-auto max-w-2xl text-balance text-2xl font-bold leading-tight sm:text-[37px] sm:leading-[1.2]"><span className="text-tertiary">Biến ý tưởng</span>{" "}<span className="text-on-surface">thành infographic</span>{" "}<span className="text-primary">trực quan</span></h2><p className="text-pretty text-sm text-on-surface-variant">Sắp xếp nội dung thành quy trình, dòng thời gian hoặc biểu đồ dễ theo dõi.</p></div><EmptyArtwork /><section aria-label="Gợi ý bố cục infographic" className="space-y-2"><h3 className="text-sm font-medium text-on-surface-variant">Thử một ý tưởng</h3><div className="flex flex-wrap justify-center gap-2">{infographicPromptIdeas.map(idea => <button key={idea.label} type="button" onClick={() => { setPrompt(idea.prompt); setLayoutId(idea.layout); setLayoutOpen(false); setError(""); }} disabled={loading} className={cn("min-h-9 rounded-full border px-3 py-1.5 text-xs font-medium hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50", idea.color, focusClass)}>{idea.label}</button>)}</div></section></div>}
+            : <div className="flex flex-1 flex-col items-center justify-center py-6 text-center lg:py-8"><div className="space-y-2.5"><h2 className={cn("mx-auto max-w-3xl", assistantStudioTitleClass)}><span className={assistantStudioTitleAccentClass}>Biến ý tưởng</span>{" "}<span>thành infographic</span>{" "}<span className={assistantStudioTitleAccentClass}>trực quan</span></h2><p className="text-pretty text-sm text-on-surface-variant sm:text-base">Sắp xếp nội dung thành quy trình, dòng thời gian hoặc biểu đồ dễ theo dõi.</p></div><div className="my-5 flex w-full justify-center"><EmptyArtwork /></div></div>}
     </section>
     <AssistantStudioHistoryDrawer open={showHistory} title="Lịch sử infographic" onClose={() => setShowHistory(false)}>
       <section aria-label="Infographic đã tạo trong phiên" className="py-3">

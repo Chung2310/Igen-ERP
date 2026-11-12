@@ -2,6 +2,7 @@
 import { cn } from "../../modules/student-management/lib/utils";
 import "./AssistantRainbowBorder.css";
 import { AssistantToolArtwork } from "./AssistantToolArtwork";
+import { AssistantExcelExplainer } from "./AssistantExcelExplainer";
 
 function SearchIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>;
@@ -18,7 +19,6 @@ export type AssistantTool = {
   description: string;
 };
 
-// UI catalog only. The tool id is stable so a future API can map each card to an action.
 export const assistantTools: AssistantTool[] = [
   { id: "explain-excel", category: "Kinh doanh", title: "Giải thích công thức Excel", description: "Giải thích chi tiết thành phần, ý nghĩa và cách sử dụng của công thức Excel bất kỳ." },
   { id: "business-plan", category: "Kinh doanh", title: "Lập kế hoạch kinh doanh", description: "Hỗ trợ lập kế hoạch giúp định hướng chiến lược kinh doanh đạt kết quả tối ưu." },
@@ -43,7 +43,7 @@ export const assistantTools: AssistantTool[] = [
 const categories = ["Tất cả", "Kinh doanh", "Marketing", "Tài chính", "Nhân sự", "Văn phòng", "Chiến lược", "CNTT", "Y tế", "Giáo dục", "Hành chính công"];
 const focusClass = "focus-visible:outline-none focus-visible:border-primary";
 
-export function AssistantTools() {
+export function AssistantTools({ branchId = "" }: { branchId?: string }) {
   const [category, setCategory] = useState("Tất cả");
   const [tab, setTab] = useState<"all" | "favorites">("all");
   const [query, setQuery] = useState("");
@@ -56,6 +56,8 @@ export function AssistantTools() {
     (!normalizedQuery || `${tool.title} ${tool.description} ${tool.category}`.toLocaleLowerCase("vi-VN").includes(normalizedQuery))
   );
   const groupedTools = categories.slice(1).map(name => ({ name, tools: visibleTools.filter(tool => tool.category === name) })).filter(group => group.tools.length);
+
+  if (selectedId === "explain-excel") return <AssistantExcelExplainer branchId={branchId} onBack={() => setSelectedId(null)} />;
 
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-container-lowest text-on-surface">
     <header className="flex flex-col gap-4 border-b border-outline-variant px-4 py-5 sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-8">
@@ -90,7 +92,6 @@ export function AssistantTools() {
               <button type="button" aria-label={`${favorites.includes(tool.id) ? "Bỏ yêu thích" : "Thêm vào yêu thích"}: ${tool.title}`} aria-pressed={favorites.includes(tool.id)} onClick={() => setFavorites(current => current.includes(tool.id) ? current.filter(id => id !== tool.id) : [...current, tool.id])} className={cn("shrink-0 rounded-md border border-transparent p-1 text-on-surface-variant hover:text-on-surface", focusClass)}><FavoriteIcon filled={favorites.includes(tool.id)} /></button>
               {selectedId === tool.id && <div className="w-full border-t border-outline-variant pt-3">
                 <p className="text-pretty text-xs text-on-surface-variant">Công cụ đang chờ kết nối để sử dụng.</p>
-                <button type="button" disabled className="mt-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary opacity-50">Sử dụng công cụ</button>
               </div>}
             </article>)}
           </div>

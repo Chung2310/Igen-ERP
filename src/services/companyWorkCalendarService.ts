@@ -27,4 +27,5 @@ export const companyWorkCalendarService = {
   sync: (year: number) => request<WorkCalendarDay[]>("/api/v1/timekeeping/work-calendar/sync", { method: "POST", body: JSON.stringify({ year }) }),
   create: (input: Pick<WorkCalendarDay, "date" | "name" | "dayType">) => request<WorkCalendarDay>("/api/v1/timekeeping/work-calendar", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: Partial<Pick<WorkCalendarDay, "date" | "name" | "dayType" | "isApplied" | "adminReason">>) => request<WorkCalendarDay>(`/api/v1/timekeeping/work-calendar/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  delete: (id: string) => request<WorkCalendarDay>(`/api/v1/timekeeping/work-calendar/${id}`, { method: "DELETE" }),
 };

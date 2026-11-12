@@ -3,7 +3,7 @@ import { ChevronDown, Clock3, FileText, Lightbulb, Link2, Mic, Minus, Paperclip,
 import { cn } from "../../modules/student-management/lib/utils";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioBrandMark } from "./AssistantStudioBrandMark";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 
 type ContentToolKind = "slide" | "mindmap";
 type SlideStyle = "rewrite" | "preserve" | "shorten";
@@ -79,7 +79,7 @@ export function AssistantStudioContentTool({ kind, onBack }: { kind: ContentTool
             <textarea id={textareaId} maxLength={10000} rows={5} value={prompt} onChange={event => setPrompt(event.target.value)} placeholder={isSlide ? "Nhập chủ đề, nội dung hoặc các yêu cầu cần thiết khi tạo slide" : "Nhập chủ đề hoặc nội dung văn bản bạn muốn tạo thành sơ đồ"} aria-describedby={countId} className="min-h-36 w-full resize-y border-0 bg-transparent px-1 py-1 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none sm:min-h-40 sm:text-base" />
             {fileName && <p className="mt-2 truncate text-xs text-on-surface-variant">{fileName}</p>}
           </> : mindmapSource === "document" ? <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant p-5 text-center sm:min-h-40">
-            <AssistantFileTypeIcon fileName={fileName} className="size-10 shrink-0" />
+            <Assistant2DFileIcon fileName={fileName || "file"} action={fileName ? undefined : "upload"} className="size-12 shrink-0" />
             <p className="text-sm font-medium">{fileName || "Tải tài liệu lên để tạo mindmap"}</p>
             <p className="text-xs text-on-surface-variant">PDF, Word, PowerPoint · tối đa 20 MB</p>
             <button type="button" onClick={() => fileRef.current?.click()} className={cn("mt-1 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5", focusClass)}>Chọn tài liệu</button>

@@ -1,17 +1,20 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { ChevronRight, FileText, Link2, LoaderCircle, Paperclip, Plus, Sparkles, Workflow, X } from "lucide-react";
+import { ChevronRight, FileText, Link2, LoaderCircle, Paperclip, Plus, Sparkles, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService } from "../../services/assistantService";
 import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechHistory";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
+import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
+import { StyledSelect } from "./StyledSelect";
 import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory, type AssistantStudioCreationRecord } from "../../services/assistantStudioHistory";
-import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../../shared/assistant-mindmap";
+import type { AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../../shared/assistant-mindmap";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioBrandMark } from "./AssistantStudioBrandMark";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
+import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
 import { AssistantStudioMindmapResult as MindmapResult } from "./AssistantStudioMindmapResult";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const sourceInputHeightClass = "min-h-48 sm:min-h-52";
 const maxFileSize = 20 * 1024 * 1024;
 const sourceOptions: Array<{ id: AssistantMindmapSourceType; label: string; icon: typeof FileText }> = [
   { id: "text", label: "Văn bản", icon: FileText },
@@ -35,7 +38,6 @@ export function AssistantStudioMindmap({ onBack, historyItem }: { onBack: () => 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sourceType, setSourceType] = useState<AssistantMindmapSourceType>("text");
   const [prompt, setPrompt] = useState(() => initialResult?.prompt || "");
-  const [locale, setLocale] = useState<AssistantMindmapLocale>("vi");
   const [writeMode, setWriteMode] = useState<AssistantMindmapWriteMode>("ai");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<AssistantMindmapResult | null>(initialResult);
@@ -78,7 +80,7 @@ export function AssistantStudioMindmap({ onBack, historyItem }: { onBack: () => 
     setBusy(true);
     setError("");
     try {
-      const generated = await assistantService.createStudioMindmap({ sourceType, prompt: prompt.trim(), locale, writeMode, ...(file ? { file } : {}) });
+      const generated = await assistantService.createStudioMindmap({ sourceType, prompt: prompt.trim(), locale: "vi", writeMode, ...(file ? { file } : {}) });
       setResult(generated);
       setScreen("result");
       try {
@@ -134,7 +136,7 @@ export function AssistantStudioMindmap({ onBack, historyItem }: { onBack: () => 
 
   const canSubmit = !busy && (sourceType === "document" ? Boolean(file) : prompt.trim().length >= 3);
 
-  return <div className="flex min-h-full min-w-0 flex-col bg-surface-container-lowest text-on-surface">
+  return <div className={cn("flex h-full min-h-0 min-w-0 flex-col bg-surface-container-lowest text-on-surface", screen === "input" && "overflow-y-auto overscroll-contain")}>
     <header className="grid shrink-0 grid-cols-1 items-center gap-3 border-b border-outline-variant px-4 py-3 sm:px-6 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
       <AssistantStudioBreadcrumb title="Tạo mindmap" onBack={onBack} titleAsHeading={false} />
       {screen === "result" && <nav aria-label="Tiến trình tạo mindmap" className="order-3 flex justify-center xl:order-none"><ol className="flex items-center gap-2"><li aria-current="step" className="inline-flex items-center gap-2 text-sm font-semibold text-primary"><span className="grid size-7 place-items-center rounded-full bg-primary text-xs text-on-primary">1</span>Nhập yêu cầu</li><li aria-hidden="true" className="h-px w-6 bg-outline-variant" /><li className="inline-flex items-center gap-2 text-sm font-medium text-primary"><span className="grid size-7 place-items-center rounded-full border border-primary text-xs">2</span>Tạo mindmap</li></ol></nav>}
@@ -143,7 +145,7 @@ export function AssistantStudioMindmap({ onBack, historyItem }: { onBack: () => 
 
     {screen === "result" && result ? <MindmapResult map={result} /> : <form onSubmit={createMindmap} aria-label="Thiết lập tạo mindmap" aria-busy={busy} className="flex flex-1 flex-col">
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-8 pt-8 sm:px-8 sm:pt-10">
-        <div className="text-center"><div className="flex items-center justify-center gap-2"><span className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary"><Workflow className="size-5" aria-hidden="true" /></span><h1 data-typography="page-title" className="text-balance text-[37px] font-bold leading-[1.2]">Tạo mindmap</h1><AssistantStudioBrandMark className="size-7 shrink-0" /></div><p className="mt-2 text-pretty text-base text-on-surface-variant sm:text-lg">Biến ý tưởng thành sơ đồ tư duy rõ ràng, hấp dẫn trong vài giây</p></div>
+        <div className="text-center"><div className="flex items-center justify-center gap-2"><h1 data-typography="page-title" className={assistantStudioTitleClass}>Tạo <span className={assistantStudioTitleAccentClass}>mindmap</span></h1><AssistantStudioBrandMark className="size-7 shrink-0" /></div><p className="mt-2 text-pretty text-base text-on-surface-variant sm:text-lg">Biến ý tưởng thành sơ đồ tư duy rõ ràng, hấp dẫn trong vài giây</p></div>
 
         <fieldset className="mx-auto mt-7 flex w-fit flex-wrap justify-center gap-1 rounded-full border border-outline-variant bg-surface-container-low p-1" disabled={busy}>
           <legend className="sr-only">Nguồn nội dung tạo mindmap</legend>
@@ -151,14 +153,13 @@ export function AssistantStudioMindmap({ onBack, historyItem }: { onBack: () => 
         </fieldset>
 
         <div className="assistant-slide-composer mt-6 sm:mt-7"><div className="rounded-[27px] bg-surface-container-lowest px-3 py-3 sm:px-4 sm:py-3.5">
-          {sourceType === "text" && <><label htmlFor={promptId} className="sr-only">Chủ đề và nội dung tạo mindmap</label><textarea id={promptId} maxLength={10_000} rows={3} value={prompt} onChange={event => { setPrompt(event.currentTarget.value); setError(""); }} placeholder="Nhập chủ đề hoặc nội dung văn bản bạn muốn tạo thành sơ đồ" aria-describedby={`${countId} ${error ? errorId : ""}`} disabled={busy} className="min-h-24 w-full resize-y border-0 bg-transparent px-1 py-1 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none sm:min-h-28 sm:text-base" /></>}
-          {sourceType === "document" && <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant p-5 text-center sm:min-h-28"><AssistantFileTypeIcon fileName={file?.name ?? ""} className="size-10 shrink-0" /><p className="text-sm font-medium">{file?.name || "Tải tài liệu lên để tạo mindmap"}</p><p id={fileHintId} className="text-xs text-on-surface-variant">PDF, Word, PowerPoint, TXT · tối đa 20 MB</p>{file ? <button type="button" disabled={busy} onClick={() => { setFile(null); setError(""); }} className={cn("inline-flex min-h-9 items-center gap-1 rounded-lg border border-outline-variant px-3 text-sm text-on-surface hover:bg-surface-container-low disabled:opacity-50", focusClass)}><X className="size-4" aria-hidden="true" />Bỏ tài liệu</button> : <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} aria-describedby={error ? errorId : fileHintId} className={cn("mt-1 inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm font-medium text-primary hover:bg-primary/5 disabled:opacity-50", focusClass)}><Paperclip className="size-4" aria-hidden="true" />Chọn tài liệu</button>}</div>}
-          {sourceType === "link" && <div className="flex min-h-24 items-center px-1 sm:min-h-28"><label htmlFor={promptId} className="sr-only">Đường dẫn nguồn</label><input id={promptId} type="url" maxLength={2048} required value={prompt} onChange={event => { setPrompt(event.currentTarget.value); setError(""); }} placeholder="Dán đường dẫn web công khai bạn muốn chuyển thành mindmap" aria-describedby={`${countId} ${error ? errorId : ""}`} disabled={busy} className="h-12 w-full rounded-xl border border-outline-variant bg-surface-container-low px-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none" /></div>}
+          {sourceType === "text" && <><label htmlFor={promptId} className="sr-only">Chủ đề và nội dung tạo mindmap</label><textarea id={promptId} maxLength={10_000} rows={3} value={prompt} onChange={event => { setPrompt(event.currentTarget.value); setError(""); }} placeholder="Nhập chủ đề hoặc nội dung văn bản bạn muốn tạo thành sơ đồ" aria-describedby={`${countId} ${error ? errorId : ""}`} disabled={busy} className={cn(sourceInputHeightClass, "w-full resize-y border-0 bg-transparent px-1 py-1 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none sm:text-base")} /></>}
+          {sourceType === "document" && <div className={cn(sourceInputHeightClass, "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant p-5 text-center")}><Assistant2DFileIcon fileName={file?.name ?? "file"} action={file ? undefined : "upload"} className="size-12 shrink-0" /><p className="text-sm font-medium">{file?.name || "Tải tài liệu lên để tạo mindmap"}</p><p id={fileHintId} className="text-xs text-on-surface-variant">PDF, Word, PowerPoint, TXT · tối đa 20 MB</p>{file ? <button type="button" disabled={busy} onClick={() => { setFile(null); setError(""); }} className={cn("inline-flex min-h-9 items-center gap-1 rounded-lg border border-outline-variant px-3 text-sm text-on-surface hover:bg-surface-container-low disabled:opacity-50", focusClass)}><X className="size-4" aria-hidden="true" />Bỏ tài liệu</button> : <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} aria-describedby={error ? errorId : fileHintId} className={cn("mt-1 inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm font-medium text-primary hover:bg-primary/5 disabled:opacity-50", focusClass)}><Paperclip className="size-4" aria-hidden="true" />Chọn tài liệu</button>}</div>}
+          {sourceType === "link" && <div className={sourceInputHeightClass}><label htmlFor={promptId} className="sr-only">Đường dẫn nguồn</label><input id={promptId} type="url" maxLength={2048} required value={prompt} onChange={event => { setPrompt(event.currentTarget.value); setError(""); }} placeholder="Dán đường dẫn web công khai bạn muốn chuyển thành mindmap" aria-describedby={`${countId} ${error ? errorId : ""}`} disabled={busy} className="h-9 w-full border-0 bg-transparent px-1 py-1 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none" /></div>}
 
           <div className="mt-2 flex min-h-10 flex-wrap items-center justify-between gap-3 border-t border-outline-variant/60 pt-2.5 text-sm text-on-surface-variant">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="sr-only" htmlFor="studio-mindmap-locale">Ngôn ngữ mindmap</label><select id="studio-mindmap-locale" value={locale} onChange={event => setLocale(event.currentTarget.value as AssistantMindmapLocale)} disabled={busy} className={cn("min-h-9 rounded-full border border-outline-variant bg-surface-container-low px-3 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-50", focusClass)}><option value="vi">🇻🇳 Việt Nam</option><option value="en">🇺🇸 English</option><option value="ja">🇯🇵 日本語</option></select>
-              <label className="sr-only" htmlFor="studio-mindmap-write-mode">Cách xử lý nội dung</label><select id="studio-mindmap-write-mode" value={writeMode} onChange={event => setWriteMode(event.currentTarget.value as AssistantMindmapWriteMode)} disabled={busy} className={cn("min-h-9 rounded-full border border-outline-variant bg-surface-container-low px-3 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-50", focusClass)}><option value="ai">✦ Viết bằng AI</option><option value="preserve">Giữ nội dung gốc</option></select>
+              <StyledSelect ariaLabel="Cách xử lý nội dung" value={writeMode} onChange={value => setWriteMode(value as AssistantMindmapWriteMode)} disabled={busy} options={[{ value: "ai", label: "✦ Viết bằng AI" }, { value: "preserve", label: "Giữ nội dung gốc" }]} appearance="erp" className="h-9 w-48 rounded-md" menuClassName="rounded-md [&_[role=option]]:rounded-sm" />
             </div>
             <span id={countId} className="tabular-nums text-xs">{prompt.length.toLocaleString("vi-VN")} / {sourceType === "link" ? "2.048" : "10.000"}</span>
           </div>

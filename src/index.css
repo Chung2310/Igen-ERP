@@ -245,7 +245,7 @@ button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"])
 }
 
 :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0:not(#app_root_layout))
-  :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select):not(:disabled):not([readonly]) {
+  :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select):not(:disabled):not([readonly]):not([data-erp-inline-input]) {
   height: 2.25rem;
   min-height: 2.25rem;
   background-color: var(--color-surface-container-lowest);

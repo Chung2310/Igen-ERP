@@ -19,7 +19,7 @@ const conversationSettings: ToggleSetting[] = [
 
 const responseSettings: ToggleSetting[] = [
   { key: "alwaysConfirm", label: "Luôn xác nhận trước khi thay đổi dữ liệu", help: "Các xác nhận bắt buộc của từng workflow vẫn được giữ nguyên khi tắt tùy chọn này." },
-  { key: "speakReplies", label: "Đọc câu trả lời thành tiếng", help: "Tạo giọng tiếng Việt qua OpenRouter và phát khi trợ lý trả lời. Mỗi lần tạo âm thanh có tính phí theo số ký tự; câu trả lời cũ không tự phát." },
+  { key: "speakReplies", label: "Đọc câu trả lời thành tiếng", help: "Tạo giọng tiếng Việt và phát khi trợ lý trả lời. Mỗi lần tạo âm thanh có tính phí theo số ký tự; câu trả lời cũ không tự phát." },
 ];
 
 const memorySettings: ToggleSetting[] = [
@@ -188,7 +188,7 @@ export function AssistantSettingsEditor({ settings, onSave }: { settings: Assist
                   setDraft(current => ({ ...current, speechVoice: voice }));
                 }}
               />
-              <p id="assistant-speech-voice-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Chọn giọng rồi lưu để dùng cho câu trả lời tiếp theo. Nghe thử cũng tạo âm thanh qua OpenRouter và có tính phí.</p>
+              <p id="assistant-speech-voice-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Chọn giọng rồi lưu để dùng cho câu trả lời tiếp theo. Nghe thử cũng tạo âm thanh và có tính phí.</p>
               <button type="button" onClick={() => void togglePreview()} aria-pressed={previewState !== "idle"} className={cn("min-h-11 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low", focusClass)}>{previewState === "idle" ? "Nghe thử giọng" : "Dừng nghe thử"}</button>
               {previewState !== "idle" && <p role="status" className="text-pretty text-sm text-on-surface-variant">{previewState === "loading" ? "Đang tạo đoạn nghe thử…" : "Đang phát đoạn nghe thử."}</p>}
               {previewError && <p role="alert" className="text-pretty text-sm text-error">{previewError}</p>}
