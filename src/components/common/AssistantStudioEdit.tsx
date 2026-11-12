@@ -16,7 +16,7 @@ interface EditType {
   label: string;
   description: string;
   hint: string;
-  emoji: string;
+  artwork: string;
 }
 
 const editTypes: EditType[] = [
@@ -25,37 +25,38 @@ const editTypes: EditType[] = [
     label: "Xóa vùng ảnh",
     description: "Xóa một phần ảnh và tái tạo tự nhiên",
     hint: "Ví dụ: Xóa chiếc cốc trên bàn và lấp phần trống theo mặt bàn xung quanh.",
-    emoji: "✂️",
+    artwork: "/ai-studio-edit-erase.webp",
   },
   {
     id: "remove-background",
     label: "Xóa nền",
     description: "Tách chủ thể ra khỏi nền ảnh",
     hint: "Ví dụ: Tách người khỏi nền, giữ nguyên tóc và đường viền tự nhiên.",
-    emoji: "🖼️",
+    artwork: "/ai-studio-edit-remove-background.webp",
   },
   {
     id: "change-background",
-    label: "Đổi màu nền",
+    label: "Đổi nền",
     description: "Thay nền bằng màu hoặc cảnh mới",
     hint: "Ví dụ: Đổi nền phía sau thành màu xanh nhạt, giữ nguyên người ở phía trước.",
-    emoji: "🎨",
+    artwork: "/ai-studio-edit-change-background.webp",
   },
   {
     id: "enhance",
     label: "Nâng cao chất lượng",
     description: "Làm nét, giảm nhiễu và cải thiện chi tiết",
     hint: "Ví dụ: Làm ảnh rõ nét hơn, giảm nhiễu, giữ nguyên mọi chi tiết và khuôn mặt.",
-    emoji: "✨",
-  },
-  {
-    id: "custom",
-    label: "Theo mô tả",
-    description: "Chỉnh sửa tùy ý theo yêu cầu của bạn",
-    hint: "Ví dụ: Chỉ đổi màu chiếc áo thành xanh dương; giữ nguyên khuôn mặt, tóc và bối cảnh.",
-    emoji: "💬",
+    artwork: "/ai-studio-edit-enhance.webp",
   },
 ];
+
+const legacyCustomEditType: EditType = {
+  id: "custom",
+  label: "Tùy chỉnh (lịch sử)",
+  description: "Dùng cho lịch sử chỉnh sửa cũ.",
+  hint: "Nhập yêu cầu chỉnh sửa cho lịch sử này.",
+  artwork: "",
+};
 
 type EditedResult = { url: string; source: string; name: string; prompt: string; mode: StudioEditMode; regionApplied: boolean };
 
@@ -74,7 +75,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
-  const activeEditType = editTypes.find(t => t.id === mode) ?? editTypes[0];
+  const activeEditType = editTypes.find(t => t.id === mode) ?? (mode === "custom" ? legacyCustomEditType : editTypes[0]);
 
   async function openHistory() {
     if (showHistory) { setShowHistory(false); return; }
@@ -348,9 +349,9 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
             </div>
 
             {/* Edit type picker */}
-            <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
-              <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+            <section aria-label="Loại chỉnh sửa" className="w-full max-w-6xl space-y-3.5 pt-6 sm:pt-8">
+              <h3 className="px-1 text-balance text-left text-base font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 {editTypes.map(editType => {
                   const isSelected = mode === editType.id;
                   return (
@@ -360,21 +361,30 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                       onClick={() => setMode(editType.id)}
                       aria-pressed={isSelected}
                       className={cn(
-                        "group flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                        "group flex min-w-0 flex-col items-stretch gap-2.5 rounded-xl border p-2.5 text-center transition-colors hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                         isSelected
                           ? "border-primary bg-primary-container ring-2 ring-primary/30"
                           : "border-outline-variant bg-surface-container-low hover:bg-surface-container"
                       )}
                     >
-                      <span className="text-2xl leading-none" aria-hidden="true">{editType.emoji}</span>
+                      <img
+                        src={editType.artwork}
+                        alt=""
+                        aria-hidden="true"
+                        width={768}
+                        height={512}
+                        loading="lazy"
+                        decoding="async"
+                        className="aspect-[3/2] w-full rounded-lg border border-outline-variant bg-surface-container-low object-cover"
+                      />
                       <span className={cn(
-                        "text-xs font-semibold leading-tight",
+                        "text-sm font-semibold leading-tight sm:text-base",
                         isSelected ? "text-on-primary-container" : "text-on-surface"
                       )}>
                         {editType.label}
                       </span>
                       <span className={cn(
-                        "text-xs leading-snug",
+                        "text-pretty text-sm leading-5",
                         isSelected ? "text-on-primary-container/80" : "text-on-surface-variant"
                       )}>
                         {editType.description}
