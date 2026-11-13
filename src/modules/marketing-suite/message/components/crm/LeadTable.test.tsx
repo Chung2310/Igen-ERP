@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LeadTable } from "./LeadTable";
+import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
 import { crmService, type ActiveLeadIntakeProfile, type ExtendedLeadCard } from "../../services/crmService";
 import type { LeadAccountOption } from "./leadSheetUtils";
 
@@ -22,6 +23,7 @@ vi.mock("../../services/crmService", () => ({
     createLead: vi.fn(),
     getLeadIntakeProfilesForAccount: vi.fn(),
     suggestLeadIntakeProfile: vi.fn(),
+    saveLeadIntakeDraft: vi.fn(),
     saveAndActivateLeadIntakeProfile: vi.fn(),
     archiveLeadIntakeProfile: vi.fn(),
   },
@@ -103,6 +105,40 @@ afterEach(() => {
 });
 
 describe("LeadTable", () => {
+  it("activates the starter columns without requiring field details", async () => {
+    vi.mocked(crmService.getLeadIntakeProfilesForAccount).mockResolvedValue({ profiles: [], fallbackProfiles: [] });
+    render(<LeadIntakeBuilderModal isOpen accounts={accounts} initialAccountKey="zalo:zalo_01"
+      onClose={vi.fn()} onSaved={vi.fn()} />);
+    const dialog = within(screen.getByRole("dialog", { name: "Thiết lập thu thập Lead" }));
+    fireEvent.click(await dialog.findByRole("button", { name: "Dùng bộ cơ bản" }));
+    expect(dialog.queryByLabelText("Kiểu dữ liệu cột 2")).toBeNull();
+    fireEvent.click(dialog.getByRole("button", { name: "Lưu & áp dụng" }));
+    await waitFor(() => expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledWith(expect.objectContaining({
+      platform: "zalo", accountId: "zalo_01",
+      fields: [expect.objectContaining({ key: "ho_va_ten", required: false }),
+        expect.objectContaining({ key: "so_dien_thoai", type: "phone", required: false }),
+        expect.objectContaining({ key: "nhu_cau", required: true })],
+    })));
+  });
+
+  it("adds AI suggestions without replacing existing Lead columns", async () => {
+    vi.mocked(crmService.suggestLeadIntakeProfile).mockResolvedValue({
+      version: 4, status: "draft", goal: "Tư vấn", completionMessage: "Cảm ơn", sourceDocumentIds: [],
+      fields: [{ ...activeProfiles[0].fields[0], label: "Tên khác" },
+        { key: "email", label: "Email", type: "email", question: "Email liên hệ", required: false }],
+    });
+    render(<LeadIntakeBuilderModal isOpen accounts={accounts} initialAccountKey="facebook:page_spa_01"
+      onClose={vi.fn()} onSaved={vi.fn()} />);
+    const dialog = within(screen.getByRole("dialog", { name: "Thiết lập thu thập Lead" }));
+    await dialog.findByDisplayValue("Dịch vụ quan tâm");
+    fireEvent.click(dialog.getByRole("button", { name: "AI gợi ý" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Gợi ý cột" }));
+    expect(await dialog.findByDisplayValue("Email")).toBeTruthy();
+    expect(dialog.getByDisplayValue("Dịch vụ quan tâm")).toBeTruthy();
+    expect(dialog.queryByDisplayValue("Tên khác")).toBeNull();
+    expect(crmService.saveAndActivateLeadIntakeProfile).not.toHaveBeenCalled();
+  });
+
   it("renders account worksheet tabs, custom chatbot columns, and avoids noisy empty cell placeholders", async () => {
     const onSelectAccountScope = vi.fn();
     render(
@@ -223,11 +259,11 @@ describe("LeadTable", () => {
     await screen.findByText("Nguyễn Minh Anh");
 
     fireEvent.click(screen.getByRole("button", { name: "Thêm cột Bot" }));
-    expect(await screen.findByText("Cấu hình cột Lead & câu hỏi Chatbot")).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Thiết lập thu thập Lead" })).toBeTruthy();
 
-    const newLabelInput = screen.getByRole("textbox", { name: "Tên cột 4" });
+    const newLabelInput = await screen.findByRole("textbox", { name: "Tên cột 4" });
     fireEvent.change(newLabelInput, { target: { value: "Khung giờ gọi lại" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu & Áp dụng cho Chatbot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu & áp dụng" }));
 
     await waitFor(() => {
       expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledWith(
@@ -244,6 +280,32 @@ describe("LeadTable", () => {
       );
     });
     expect(onSelectAccountScope).toHaveBeenCalledWith("facebook", "page_spa_01");
+  });
+
+  it("keeps field details and draft saving behind their controls", async () => {
+    vi.mocked(crmService.saveLeadIntakeDraft).mockResolvedValue({
+      version: 4, status: "draft", goal: "Tư vấn", completionMessage: "Cảm ơn", fields: [],
+    });
+    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} setShowCreateLeadModal={vi.fn()}
+      deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="facebook" accountId="page_spa_01"
+      companyCode="SPA01" branchId="main" accounts={accounts} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Thiết lập thu thập Lead" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Thiết lập thu thập Lead" }));
+    const details = await dialog.findByRole("button", { name: "Tùy chỉnh cột Dịch vụ quan tâm" });
+    expect(dialog.queryByLabelText("Mã cột")).toBeNull();
+    expect(dialog.queryByRole("button", { name: "Lưu nháp" })).toBeNull();
+    fireEvent.click(details);
+    expect(dialog.getByLabelText("Mã cột")).toBeTruthy();
+    expect(dialog.getByLabelText("Gợi ý nhận diện dữ liệu cho cột Dịch vụ quan tâm")).toBeTruthy();
+    fireEvent.click(dialog.getByRole("button", { name: "Nâng cao" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Lưu nháp" }));
+
+    await waitFor(() => expect(crmService.saveLeadIntakeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ platform: "facebook", accountId: "page_spa_01" }),
+    ));
+    expect(crmService.saveAndActivateLeadIntakeProfile).not.toHaveBeenCalled();
+    expect(await dialog.findByText("Bản nháp")).toBeTruthy();
   });
 
   it("omits bottom quick-add row, opens detail drawer, edits lead, and confirms deletion with ConfirmDialog", async () => {
@@ -321,7 +383,7 @@ describe("LeadTable", () => {
     );
 
     await screen.findByText("Nguyễn Minh Anh");
-    const configBtn = screen.getByRole("button", { name: "Cấu hình cột & Chatbot" });
+    const configBtn = screen.getByRole("button", { name: "Thiết lập thu thập Lead" });
     expect(configBtn.hasAttribute("disabled")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Thêm cột" }));

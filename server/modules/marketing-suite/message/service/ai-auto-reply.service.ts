@@ -1210,17 +1210,24 @@ export const aiAutoReplyService = {
                 });
                 return undefined;
               });
-              let aiResponse = checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
+              const leadIntake = checkoutReply?.leadIntake ?? (orderFlow?.key === "page-intake"
+                ? { status: "inactive" as const, goal: "", collected: {}, missingRequiredFields: [] }
+                : undefined);
+              let aiResponse = leadIntake ? await geminiService.chat(groupedCustomerMessage, history,
+                { ...aiConfig, advancedInstructions: conversationalInstructions }, {
+                  ...effectiveRagContext, visualInput: undefined, visualContext,
+                  imageDescription: imageObservation?.description, pricingContextText, leadIntake,
+                }) : checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
                 ...aiConfig,
                 advancedInstructions: [conversationalInstructions, orderFlow?.conversationInstructions,
                   orderFlow?.consultationInstructions].filter(Boolean).join("\n"),
               }, { ...effectiveRagContext, visualInput: undefined, visualContext, imageObservation: undefined, imageDescription: imageObservation?.description, pricingContextText,
-                contextText: `${effectiveRagContext.contextText || ""}\n${orderFlow?.key === "page-intake" ? "Thông tin khách đã cung cấp" : "Thông tin đơn đang tư vấn"} (dữ liệu): ${checkoutReply.consultationContext}`,
-              }).catch(error => { if (aiConfig.imageReplyEnabled === true || orderFlow?.key === "page-intake") throw error; return checkoutReply; }) : checkoutReply || visualReply || await geminiService.chat(groupedCustomerMessage, history,
+                contextText: `${effectiveRagContext.contextText || ""}\nThông tin đơn đang tư vấn (dữ liệu): ${checkoutReply.consultationContext}`,
+              }).catch(error => { if (aiConfig.imageReplyEnabled === true) throw error; return checkoutReply; }) : checkoutReply || visualReply || await geminiService.chat(groupedCustomerMessage, history,
                 { ...aiConfig, advancedInstructions: conversationalInstructions }, {
                 ...effectiveRagContext, imageObservation, imageDescription: imageObservation?.description, pricingContextText,
               });
-              if (aiConfig.imageReplyEnabled === true && checkoutReply && !checkoutReply.consultationContext) {
+              if (aiConfig.imageReplyEnabled === true && checkoutReply && !checkoutReply.consultationContext && !checkoutReply.leadIntake) {
                 aiResponse = await geminiService.reviewReply(groupedCustomerMessage, history,
                   { ...aiConfig, advancedInstructions: conversationalInstructions }, checkoutReply.text,
                   { ...effectiveRagContext, visualInput: undefined, visualContext });
