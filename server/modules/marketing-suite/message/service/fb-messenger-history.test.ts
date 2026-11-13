@@ -1,8 +1,17 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), latest: vi.fn(), persist: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), latest: vi.fn(),
+  persist: vi.fn(), updateInbound: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn(),
+}));
 vi.mock("../model/fb-messenger.model.ts", () => ({
-  FBConversationModel: { findOne: mocks.conversation, findOneAndUpdate: mocks.conversationUpdate }, FBMessageModel: { find: mocks.messages, findOne: mocks.latest, findOneAndUpdate: mocks.persist },
+  FBConversationModel: {
+    findOne: mocks.conversation, findOneAndUpdate: mocks.conversationUpdate, findByIdAndUpdate: mocks.conversationUpdate,
+  },
+  FBMessageModel: {
+    find: mocks.messages, findOne: mocks.latest, findOneAndUpdate: mocks.persist, updateOne: mocks.updateInbound,
+    exists: async () => null,
+  },
 }));
 vi.mock("../../../../model/user.model.ts", () => ({ UserModel: {} }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: mocks.emit }));
@@ -13,6 +22,11 @@ vi.mock("./facebook-comment.service.ts", () => ({ facebookCommentService: { proc
 vi.mock("../../shared/model/social-integration.model.ts", () => ({ SocialIntegrationModel: {} }));
 vi.mock("./messenger-order.service.ts", () => ({ messengerOrderService: {} }));
 vi.mock("./company-product-catalog.service.ts", () => ({ companyProductCatalogService: {} }));
+vi.mock("./chat-ordering/registry", () => ({
+  chatOrderFlowRegistry: {
+    resolveForPage: async () => ({ isEnabled: async () => true, isActive: async () => true }),
+  },
+}));
 import { fbMessengerService } from "./fb-messenger.service";
 
 const inbound = { messageId: "in", direction: "inbound", timestamp: new Date("2026-11-03T08:56:00Z") };
@@ -114,4 +128,42 @@ it("subscribes to outbound echoes once per Page/token instead of on every histor
   await fbMessengerService.subscribePageWebhooks("subscription-page", "token");
   expect(fetch).toHaveBeenCalledOnce();
   expect(new URL(fetch.mock.calls[0][0]).searchParams.get("subscribed_fields")?.split(",")).toContain("message_echoes");
+});
+
+it("makes a failed inbound dispatch eligible for recovery before its original lease expires", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-token");
+  mocks.latest.mockResolvedValue(inbound);
+  mocks.conversationUpdate.mockResolvedValue({ _id: "conversation" });
+  mocks.updateInbound.mockResolvedValueOnce({ upsertedCount: 1 }).mockResolvedValueOnce({ matchedCount: 1 });
+  mocks.trigger.mockRejectedValueOnce(new Error("Temporary scheduling failure"));
+
+  await fbMessengerService.processIncomingMessage({
+    sender: { id: "customer" }, recipient: { id: "page" },
+    timestamp: Date.now(), message: { mid: "in", text: "Xin tư vấn" },
+  }, "page");
+
+  await vi.waitFor(() => expect(mocks.updateInbound).toHaveBeenCalledTimes(2));
+  const originalLease = mocks.updateInbound.mock.calls[0][1].$setOnInsert.autoReplyDispatchAfter;
+  const [filter, update] = mocks.updateInbound.mock.calls[1];
+  expect(filter).toMatchObject({
+    messageId: "in", conversationId: "conversation", autoReplyDispatchPending: true, autoReplyDispatchAfter: originalLease,
+  });
+  expect(update.$set.autoReplyDispatchAfter.getTime() - Date.now()).toBeGreaterThan(25_000);
+  expect(update.$set.autoReplyDispatchAfter.getTime()).toBeLessThan(originalLease.getTime());
+});
+
+it("cancels a typing indicator that is still in progress when delivery starts", async () => {
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-token");
+  const fetchMock = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    init.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  const controller = new AbortController();
+
+  const typing = fbMessengerService.sendSenderAction("page", "conversation", "typing_on", undefined, controller.signal);
+  await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  controller.abort();
+  await expect(typing).resolves.toBeUndefined();
+  expect(fetchMock.mock.calls[0][1].signal?.aborted).toBe(true);
 });
