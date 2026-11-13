@@ -21,7 +21,7 @@ import { normalizeAssistantReply } from "./general-answer";
 import { answerAssistantConversation } from "./documents";
 import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
 import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
-import { formatQuotationResult, quotationValue } from "./quotation-result";
+import { formatQuotationResult, quotationResultLink, quotationValue } from "./quotation-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
 import { projectInstructionsForConversation } from "./projects";
@@ -1742,6 +1742,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if (op.module === "quotation") {
       const result = await dispatch(checked.values);
       pending = null;
+      const resultLink = quotationResultLink(op, result);
       const attachment = result?.__assistantQuotationFile;
       if (attachment) {
         const documentId = randomUUID();
@@ -1749,9 +1750,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         await AssistantDocumentModel.create({ ...scopeOf(req), conversationId: input.conversationId, requestId: input.requestId,
           documentId, version: 1, title: op.title, content: { title: op.title }, files: [file] });
         const { bytes: _bytes, ...metadata } = file;
-        return { status: "completed", reply: friendlyResult(op, result), files: [{ ...metadata, documentId, conversationId: input.conversationId, version: 1 }], link: op.link };
+        return { status: "completed", reply: friendlyResult(op, result), files: [{ ...metadata, documentId, conversationId: input.conversationId, version: 1 }], link: resultLink };
       }
-      return { status: "completed", reply: friendlyResult(op, result), link: op.link };
+      return { status: "completed", reply: friendlyResult(op, result), link: resultLink };
     }
     if (op.module === "healthcare") {
       const result = await dispatch(checked.values);
