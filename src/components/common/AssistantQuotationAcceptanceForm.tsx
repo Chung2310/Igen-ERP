@@ -51,6 +51,39 @@ export function AssistantQuotationAcceptanceForm({ value, readOnly, submitting, 
     onSubmit({ lines });
   };
 
+  if (readOnly) return <section aria-labelledby="assistant-acceptance-lines-title" className="max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
+    <header className="border-b border-outline-variant px-3 py-2 sm:px-4">
+      <h3 id="assistant-acceptance-lines-title" className="text-balance font-semibold">Khối lượng nghiệm thu{value.contractNumber ? ` · Hợp đồng ${value.contractNumber}` : ""}</h3>
+      <p className="mt-1 text-pretty text-xs text-on-surface-variant">Kiểm tra số lượng và thông tin nghiệm thu từng sản phẩm trước khi xác nhận.</p>
+    </header>
+    <ol className="space-y-2 p-3 sm:p-4">
+      {value.lines.map(line => <li key={line.lineIndex} className="rounded-lg border border-outline-variant bg-surface p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="font-semibold text-on-surface">{line.name}</h4>
+            {line.sku && <p className="mt-0.5 text-xs text-on-surface-variant">{line.sku}</p>}
+            {line.description && <p className="mt-1 text-xs text-on-surface-variant">{line.description}</p>}
+          </div>
+          <span className="shrink-0 rounded-md bg-surface-container-low px-2 py-1 text-xs tabular-nums text-on-surface-variant">Dòng {line.lineIndex}</span>
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-md bg-surface-container-low p-2">
+            <dt className="text-xs text-on-surface-variant">Theo hợp đồng</dt>
+            <dd className="mt-0.5 font-medium tabular-nums text-on-surface">{line.contractQuantity} {line.unit}</dd>
+          </div>
+          <div className="rounded-md bg-surface-container-low p-2">
+            <dt className="text-xs text-on-surface-variant">Khối lượng nghiệm thu</dt>
+            <dd className="mt-0.5 font-medium tabular-nums text-on-surface">{line.acceptedQuantity ?? "Chưa nhập"}{line.acceptedQuantity === undefined ? "" : ` ${line.unit}`}</dd>
+          </div>
+        </dl>
+        <dl className="mt-2 rounded-md border border-outline-variant px-2 py-1.5">
+          <dt className="text-xs text-on-surface-variant">Thông tin nghiệm thu sản phẩm</dt>
+          <dd className="mt-0.5 break-words text-on-surface">{line.acceptedDetails?.trim() || "Không có ghi chú"}</dd>
+        </dl>
+      </li>)}
+    </ol>
+  </section>;
+
   return <section aria-labelledby="assistant-acceptance-lines-title" className="@container max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
     <header className="border-b border-outline-variant px-3 py-2 sm:px-4">
       <h3 id="assistant-acceptance-lines-title" className="text-balance font-semibold">Khối lượng nghiệm thu{value.contractNumber ? ` · Hợp đồng ${value.contractNumber}` : ""}</h3>

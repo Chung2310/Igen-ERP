@@ -41,6 +41,7 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistantActionProductTable, AssistantMessageContent } from "../../src/components/common/AssistantMessageContent";
+import { AssistantQuotationAcceptanceForm } from "../../src/components/common/AssistantQuotationAcceptanceForm";
 import { formatActionPreviewValues } from "../../src/components/common/assistant-message-format";
 const branchId = "507f1f77bcf86cd799439012", productId = "507f1f77bcf86cd799439021", templateId = "507f1f77bcf86cd799439022", quoteId = "507f1f77bcf86cd799439023", contractId = "507f1f77bcf86cd799439024", acceptanceId = "507f1f77bcf86cd799439025";
 const req = { user: { id: "actor", companyCode: "TEST", branchId, role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
@@ -133,6 +134,20 @@ it("shows signed-contract products and amounts in acceptance chat, then creates 
   ] } });
   expect(preview.status, preview.reply).toBe("confirmation");
   expect(preview.action.values).toContainEqual({ label: "Giá trị quyết toán theo hợp đồng", value: "1.500.000 VND", defaulted: false });
+  expect(preview.action.values.map(value => value.label)).not.toContain("Khối lượng nghiệm thu theo thứ tự dòng hợp đồng (từ 0)");
+  expect(preview.quotationAcceptanceForm).toMatchObject({
+    lines: [
+      { lineIndex: 0, name: "Máy lọc nước", contractQuantity: 2, acceptedQuantity: 1.5, acceptedDetails: "Đã kiểm tra hoạt động" },
+      { lineIndex: 1, name: "Vòi inox", contractQuantity: 3, acceptedQuantity: 2, acceptedDetails: "Đủ số lượng" },
+    ],
+  });
+  const acceptanceSummary = renderToStaticMarkup(createElement(AssistantQuotationAcceptanceForm, {
+    value: preview.quotationAcceptanceForm!, readOnly: true, submitting: false, canSubmit: false, onSubmit: vi.fn(),
+  }));
+  expect(acceptanceSummary).toContain("Máy lọc nước");
+  expect(acceptanceSummary).toContain("1.5 cái");
+  expect(acceptanceSummary).toContain("Đã kiểm tra hoạt động");
+  expect(acceptanceSummary).not.toMatch(/lineIndex|acceptedQuantity|<input|<button/);
 
   const created = await confirm(preview);
   expect(created.status).toBe("completed");
