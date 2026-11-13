@@ -1603,6 +1603,7 @@ app.post("/quotes/from-customer", async (request, response) => {
   const sourceRequirements = request.body?.sourceRequirements ?? "";
   if (!sourceId || !templateId || !validText(idempotencyKey, 100)) return fail(response, "Hãy chọn báo giá khách và mẫu dự toán hợp lệ.");
   if (typeof sourceRequirements !== "string" || sourceRequirements.length > 10_000) return fail(response, "Yêu cầu bổ sung không hợp lệ hoặc vượt quá 10.000 ký tự.");
+  if (!sourceRequirements.trim()) return fail(response, "Hãy nhập yêu cầu cụ thể để tính dự toán.");
   const db = await connectDatabase();
   const user = userOf(request);
   const quotes = db.collection<Quote>("quotes");
@@ -2261,7 +2262,7 @@ app.post("/contracts", async (request, response) => {
     : (await usableContractTemplates(db, user.companyId))[0] ?? null;
   if (requestedTemplateId && !selectedTemplate) return fail(response, "Không tìm thấy mẫu hợp đồng đã chọn.", 404);
   if (selectedTemplate && !contractTemplateMode(selectedTemplate)) return fail(response, "Mẫu hợp đồng cần là file Word (.docx) hợp lệ.", 422);
-  const requiredFields = ["customerName", "customerAddress", "customerRepresentative", "companyName", "companyAddress", "companyRepresentative", "scope", "projectName", "projectAddress", "deliverables", "paymentTerms", "deliveryTerms", "signingPlace"] as const;
+  const requiredFields = ["customerName", "customerAddress", "customerRepresentative", "scope", "projectName", "projectAddress", "deliverables", "paymentTerms", "deliveryTerms", "signingPlace"] as const;
   for (const field of requiredFields) {
     if (!validText(body[field], ["scope", "deliverables", "paymentTerms", "deliveryTerms"].includes(field) ? 4000 : 250)) {
       return fail(response, `Vui lòng nhập ${field} hợp lệ.`);
@@ -2271,10 +2272,15 @@ app.post("/contracts", async (request, response) => {
   for (const field of optionalFields) {
     if (typeof body[field] !== "string" || body[field].length > 250) return fail(response, `Thông tin ${field} không hợp lệ.`);
   }
+  const optionalSellerFields = ["companyName", "companyAddress", "companyRepresentative"] as const;
+  for (const field of optionalSellerFields) {
+    if (body[field] !== undefined && (typeof body[field] !== "string" || body[field].length > 250)) return fail(response, `Thông tin ${field} không hợp lệ.`);
+  }
   if (body.customerEmail.trim() && !validEmail(body.customerEmail.trim())) return fail(response, "Email khách hàng không hợp lệ.");
   if (body.companyEmail.trim() && !validEmail(body.companyEmail.trim())) return fail(response, "Email doanh nghiệp không hợp lệ.");
   if (!validDocumentDate(body.signedDate)) return fail(response, "Hãy nhập ngày ký dự kiến hợp lệ.");
-  if (!validMoneyAmount(body.depositAmount, quote.total)) return fail(response, "Tiền đặt cọc phải từ 0 đến tổng giá trị dự toán.");
+  const depositAmount = body.depositAmount == null ? 0 : body.depositAmount;
+  if (!validMoneyAmount(depositAmount, quote.total)) return fail(response, "Tiền đặt cọc phải từ 0 đến tổng giá trị dự toán.");
   if (typeof body.bankDetails !== "string" || body.bankDetails.length > 1000 || typeof body.otherTerms !== "string" || body.otherTerms.length > 10000) {
     return fail(response, "Thông tin tài khoản hoặc điều khoản bổ sung quá dài.");
   }
@@ -2286,13 +2292,13 @@ app.post("/contracts", async (request, response) => {
     ...(selectedTemplate ? { template: { id: selectedTemplate._id!.toHexString(), name: selectedTemplate.name || selectedTemplate.originalFilename, originalFilename: selectedTemplate.originalFilename } } : {}),
     customerName: body.customerName.trim(), customerEmail: body.customerEmail.trim(), customerPhone: body.customerPhone.trim(),
     customerAddress: body.customerAddress.trim(), customerTaxId: body.customerTaxId.trim(), customerRepresentative: body.customerRepresentative.trim(),
-    companyName: body.companyName.trim(), companyAddress: body.companyAddress.trim(), companyTaxId: body.companyTaxId.trim(),
-    companyRepresentative: body.companyRepresentative.trim(), companyPhone: body.companyPhone.trim(), companyEmail: body.companyEmail.trim(),
+    companyName: typeof body.companyName === "string" ? body.companyName.trim() : "", companyAddress: typeof body.companyAddress === "string" ? body.companyAddress.trim() : "", companyTaxId: body.companyTaxId.trim(),
+    companyRepresentative: typeof body.companyRepresentative === "string" ? body.companyRepresentative.trim() : "", companyPhone: body.companyPhone.trim(), companyEmail: body.companyEmail.trim(),
     lines: quote.lines.map((line) => ({ ...line })),
     subtotal: quote.subtotal, taxRate: quote.taxRate, taxAmount: quote.taxAmount,
     shippingFee: quote.shippingFee ?? 0, total: quote.total, currency: quote.currency,
     scope: body.scope.trim(), projectName: body.projectName.trim(), projectAddress: body.projectAddress.trim(),
-    deliverables: body.deliverables.trim(), depositAmount: body.depositAmount, bankDetails: body.bankDetails.trim(), otherTerms: body.otherTerms.trim(),
+    deliverables: body.deliverables.trim(), depositAmount, bankDetails: body.bankDetails.trim(), otherTerms: body.otherTerms.trim(),
     paymentTerms: body.paymentTerms.trim(), deliveryTerms: body.deliveryTerms.trim(),
     signingPlace: body.signingPlace.trim(), signedDate: body.signedDate,
     createdBy: user.id, createdAt: now, updatedAt: now,
@@ -2401,10 +2407,11 @@ app.patch("/contracts/:id", async (request, response) => {
     if (typeof value !== "string" || value.length > limit) return fail(response, `Thông tin ${field} không hợp lệ.`);
     updates[field] = value.trim();
   }
-  if (!validMoneyAmount(request.body?.depositAmount, current.total) || !validDocumentDate(request.body?.signedDate)) return fail(response, "Tiền đặt cọc hoặc ngày ký dự kiến không hợp lệ.");
+  const depositAmount = request.body?.depositAmount == null ? current.depositAmount ?? 0 : request.body.depositAmount;
+  if (!validMoneyAmount(depositAmount, current.total) || !validDocumentDate(request.body?.signedDate)) return fail(response, "Tiền đặt cọc hoặc ngày ký dự kiến không hợp lệ.");
   const contract = await db.collection<Contract>("contracts").findOneAndUpdate(
     { _id: id, companyId: user.companyId, status: "draft" },
-    { $set: { ...updates, depositAmount: request.body.depositAmount, signedDate: request.body.signedDate, updatedAt: new Date() } }, { returnDocument: "after" },
+    { $set: { ...updates, depositAmount, signedDate: request.body.signedDate, updatedAt: new Date() } }, { returnDocument: "after" },
   );
   if (!contract) return fail(response, "Chỉ có thể sửa hợp đồng nháp.", 409);
   await writeAudit(db, user, "contract_updated", "contract", id.toHexString());
@@ -2424,8 +2431,8 @@ app.post("/contracts/:id/sign", async (request, response) => {
     return fail(response, "Hãy hoàn thiện phạm vi, thanh toán và tiến độ trước khi xác nhận ký.", 409);
   }
   if (!validText(draft.projectName, 250) || !validText(draft.projectAddress, 250)
-    || !validText(draft.deliverables, 4000) || !validMoneyAmount(draft.depositAmount, draft.total)) {
-    return fail(response, "Hãy bổ sung công trình, hồ sơ bàn giao và tiền đặt cọc trước khi xác nhận ký.", 409);
+    || !validText(draft.deliverables, 4000) || (draft.depositAmount !== undefined && !validMoneyAmount(draft.depositAmount, draft.total))) {
+    return fail(response, "Hãy bổ sung công trình và hồ sơ bàn giao trước khi xác nhận ký.", 409);
   }
   const contract = await db.collection<Contract>("contracts").findOneAndUpdate(
     { _id: id, companyId: user.companyId, status: "draft" },
@@ -2469,7 +2476,9 @@ app.post("/acceptance-records", async (request, response) => {
     return fail(response, "Vui lòng nhập đầy đủ ngày, địa điểm, kết quả và khối lượng nghiệm thu hợp lệ.");
   }
   if (contract.signedDate && acceptedDate < contract.signedDate) return fail(response, "Ngày nghiệm thu không thể trước ngày ký hợp đồng.");
-  const detailError = acceptanceDetailsError(request.body, contract);
+  const settlementAmount = contract.total;
+  const amountPaid = contract.depositAmount ?? 0;
+  const detailError = acceptanceDetailsError({ ...request.body, settlementAmount, amountPaid }, contract);
   if (detailError) return fail(response, detailError);
   const id = new ObjectId();
   const now = new Date();
@@ -2480,7 +2489,7 @@ app.post("/acceptance-records", async (request, response) => {
     acceptedDate, location: location.trim(), result: result.trim(), notes: notes.trim(), lines,
     startTime: request.body.startTime, endTime: request.body.endTime,
     handoverDetails: request.body.handoverDetails.trim(), qualityAssessment: request.body.qualityAssessment.trim(),
-    settlementAmount: request.body.settlementAmount, amountPaid: request.body.amountPaid, paymentDueDays: request.body.paymentDueDays,
+    settlementAmount, amountPaid, paymentDueDays: request.body.paymentDueDays,
     createdBy: user.id, createdAt: now, updatedAt: now,
   };
   try {
@@ -2501,7 +2510,17 @@ function validAcceptanceLines(lines: unknown, contract: Contract): lines is Acce
   return Array.isArray(lines) && lines.length === contract.lines.length && lines.some((line) => line?.acceptedQuantity > 0)
     && lines.every((line, index) => typeof line === "object" && line !== null && line.lineIndex === index
       && typeof line.acceptedQuantity === "number" && Number.isFinite(line.acceptedQuantity)
-      && line.acceptedQuantity >= 0 && line.acceptedQuantity <= contract.lines[index]!.quantity);
+      && line.acceptedQuantity >= 0 && line.acceptedQuantity <= contract.lines[index]!.quantity
+      && (line.acceptedDetails === undefined || (typeof line.acceptedDetails === "string" && line.acceptedDetails.length <= 1000)));
+}
+
+function acceptanceLineSummary(record: Pick<AcceptanceRecord, "lines">, contract: Contract) {
+  return record.lines.filter((line) => line.acceptedQuantity > 0).map((line) => {
+    const item = contract.lines[line.lineIndex];
+    if (!item) return "";
+    const details = line.acceptedDetails?.trim();
+    return `${item.name}: theo hợp đồng ${item.quantity} ${item.unit}, nghiệm thu ${line.acceptedQuantity} ${item.unit}${details ? `; thông tin nghiệm thu: ${details}` : ""}`;
+  }).filter(Boolean).join("; ");
 }
 
 
@@ -2582,13 +2601,20 @@ app.get(["/acceptance-records/:id/docx", "/acceptance-records/:id/file"], async 
             acceptanceNumber: record.acceptanceNumber, acceptedDate: record.acceptedDate,
             startTime: record.startTime, endTime: record.endTime, location: record.location,
             result: record.result, handoverDetails: record.handoverDetails, qualityAssessment: record.qualityAssessment,
+            acceptanceLines: record.lines,
             contractValue: contract.total, settlementAmount: record.settlementAmount, amountPaid: record.amountPaid, balance,
             paymentDueDays: record.paymentDueDays, notes: record.notes,
           },
         };
-        const inputContext = `Hồ sơ nghiệm thu và quyết toán ${record.acceptanceNumber} theo hợp đồng ${contract.contractNumber}. Dùng số lượng nghiệm thu đã lưu, giá trị quyết toán ${record.settlementAmount} ${contract.currency}, đã thanh toán ${record.amountPaid}, còn phải thanh toán ${balance}. Ngày nghiệm thu ${record.acceptedDate}; địa điểm ${record.location}; kết quả ${record.result}; bàn giao ${record.handoverDetails}; đánh giá chất lượng ${record.qualityAssessment}; ghi chú ${record.notes}.`;
+        const inputContext = `Hồ sơ nghiệm thu và quyết toán ${record.acceptanceNumber} theo hợp đồng ${contract.contractNumber}. Dùng số lượng nghiệm thu đã lưu, giá trị quyết toán ${record.settlementAmount} ${contract.currency}, đã thanh toán ${record.amountPaid}, còn phải thanh toán ${balance}. Ngày nghiệm thu ${record.acceptedDate}; địa điểm ${record.location}; kết quả ${record.result}; bàn giao ${record.handoverDetails}; đánh giá chất lượng ${record.qualityAssessment}; ghi chú ${record.notes}; thông tin theo từng sản phẩm: ${acceptanceLineSummary(record, contract) || "chưa nhập"}.`;
         return { filename: `${record.acceptanceNumber}.xlsx`, mimeType: templateFormats.xlsx, bytes: await withAiUsage(db, user, "acceptance_template_map", () => renderAiMappedXlsxTemplate(exportTemplate, exportQuote, inputContext)) };
       }
+      if (!selectedTemplate) return {
+        filename: `${record.acceptanceNumber}.docx`,
+        mimeType: templateFormats.docx,
+        bytes: makeDocumentWord("acceptance", contract, record),
+        extension: "docx" as const,
+      };
       const file = await renderAcceptanceFile(db, exportTemplate, contract, record, (work) => withAiUsage(db, user, "acceptance_template_map", work));
       return { ...file, filename: `${record.acceptanceNumber}.${file.extension}`, mimeType: templateFormats[file.extension] };
     };
@@ -2651,11 +2677,12 @@ app.get(["/acceptance-records/:id/settlement/file", "/acceptance-records/:id/set
       acceptanceNumber: record.acceptanceNumber, acceptedDate: record.acceptedDate,
       startTime: record.startTime, endTime: record.endTime, location: record.location,
       result: record.result, handoverDetails: record.handoverDetails, qualityAssessment: record.qualityAssessment,
+      acceptanceLines: record.lines,
       contractValue: contract.total, settlementAmount: record.settlementAmount, amountPaid: record.amountPaid, balance,
       paymentDueDays: record.paymentDueDays, notes: record.notes,
     },
   };
-  const inputContext = `Hồ sơ quyết toán theo biên bản nghiệm thu ${record.acceptanceNumber}, hợp đồng ${contract.contractNumber}. Dùng số lượng nghiệm thu đã lưu, không dùng số lượng dự toán/hợp đồng. Giá trị quyết toán: ${record.settlementAmount} ${contract.currency}; đã thanh toán: ${record.amountPaid}; còn phải thanh toán: ${balance}. Ngày nghiệm thu: ${record.acceptedDate}; địa điểm: ${record.location}; kết quả: ${record.result}; bàn giao: ${record.handoverDetails}; đánh giá chất lượng: ${record.qualityAssessment}; thời hạn thanh toán còn lại: ${record.paymentDueDays ?? "chưa nhập"} ngày; ghi chú: ${record.notes}. Chỉ điền tab quyết toán/nghiệm thu phù hợp; giữ nguyên các tab của báo giá, dự toán và hợp đồng.`;
+  const inputContext = `Hồ sơ quyết toán theo biên bản nghiệm thu ${record.acceptanceNumber}, hợp đồng ${contract.contractNumber}. Dùng số lượng nghiệm thu đã lưu, không dùng số lượng dự toán/hợp đồng. Giá trị quyết toán: ${record.settlementAmount} ${contract.currency}; đã thanh toán: ${record.amountPaid}; còn phải thanh toán: ${balance}. Ngày nghiệm thu: ${record.acceptedDate}; địa điểm: ${record.location}; kết quả: ${record.result}; bàn giao: ${record.handoverDetails}; đánh giá chất lượng: ${record.qualityAssessment}; thời hạn thanh toán còn lại: ${record.paymentDueDays ?? "chưa nhập"} ngày; ghi chú: ${record.notes}; thông tin theo từng sản phẩm: ${acceptanceLineSummary(record, contract) || "chưa nhập"}. Chỉ điền tab quyết toán/nghiệm thu phù hợp; giữ nguyên các tab của báo giá, dự toán và hợp đồng.`;
   const render = async () => {
     if (template.extension === "xlsx") return {
       filename: `Ho-so-quyet-toan-${record.acceptanceNumber}.xlsx`, mimeType: templateFormats.xlsx,

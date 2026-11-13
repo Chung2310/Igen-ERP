@@ -26,12 +26,15 @@ import { inInventoryTransaction } from "./inventory-transaction";
 import { reverseManualOutbound } from "./stock-log-reversal.service";
 import { RetailProductService } from "../retail/services/retail-product.service";
 import { applyOrderStockOut } from "../retail/services/retail-stock.service";
+import { CompanyModel } from "../../model/company.model";
+import { ProductCatalogService } from "./product-catalog/product-catalog.service";
+import { readCatalogWorkspace, updateCatalogWorkspace } from "./product-catalog/catalog-workspace.service";
 
 const id = () => new mongoose.Types.ObjectId().toString();
 const companyCode = "AUDIT";
 const branchId = id(), warehouseId = id(), otherWarehouseId = id(), productId = id(), variantId = id(), secondVariantId = id();
 const scope = { companyCode, branchId };
-const models = [BranchModel, WarehouseModel, ProductCatalogModel, ProductVariantModel, InventoryBalanceModel, InventoryLedgerEntryModel, StockLogModel, SerialUnitModel, SerialEventModel, GoodsReceiptModel, ProductModel, InventoryCountModel, ReceiptCounterModel, SupplierModel];
+const models = [CompanyModel, BranchModel, WarehouseModel, ProductCatalogModel, ProductVariantModel, InventoryBalanceModel, InventoryLedgerEntryModel, StockLogModel, SerialUnitModel, SerialEventModel, GoodsReceiptModel, ProductModel, InventoryCountModel, ReceiptCounterModel, SupplierModel];
 let replica: MongoMemoryReplSet;
 const line = (more: any = {}) => ({ productId, variantId, sku: "SKU-A", productName: "Phone", quantity: 1, unitPrice: 200, unitCost: 0, ...more });
 const ticket = (more: any = {}) => ({ type: "xuất", purpose: "bán", status: "Hoàn thành", operatorName: "Tester", title: "Outbound", warehouseId, items: [line()], ...more });
@@ -68,6 +71,32 @@ describe("inventory posting invariants", () => {
     const supplier = await SupplierModel.create({ companyCode, branchId, code: "NCC", name: "Supplier", status: "active", createdBy: "u", updatedBy: "u" });
     return { supplierId: String(supplier._id), warehouseId, items: [line({ unitCost: 100 })] };
   }
+  it("changes the catalog display repeatedly without changing existing products, balances or serials", async () => {
+    await CompanyModel.create({ code: companyCode, name: "Audit", ownerEmail: "audit@example.test" });
+    const serial = await machine();
+    await ProductCatalogModel.create({
+      companyCode, productCode: "DV", name: "Installation", normalizedName: "installation", productType: "service",
+      categoryCode: "GENERAL", baseUnitCode: "PCS", status: "active", createdBy: "test", updatedBy: "test",
+    });
+    const [products, balances, serials] = await Promise.all([
+      ProductCatalogModel.find({ companyCode }).sort({ _id: 1 }).lean(),
+      InventoryBalanceModel.find({ companyCode }).lean(),
+      SerialUnitModel.find({ companyCode }).lean(),
+    ]);
+    for (const mode of ["goods", "services", "mixed", "services", "goods", "mixed"] as const) {
+      const settings = { mode, configured: true, hasSerial: true };
+      expect(await updateCatalogWorkspace(companyCode, mode)).toEqual(settings);
+      expect(await readCatalogWorkspace(companyCode)).toEqual(settings);
+      const { items } = await ProductCatalogService.list(companyCode, { catalogKind: mode === "mixed" ? undefined : mode });
+      expect(items.map(item => item.productCode).sort()).toEqual(mode === "mixed" ? ["DV", "P"] : mode === "goods" ? ["P"] : ["DV"]);
+    }
+    expect(await ProductCatalogModel.find({ companyCode }).sort({ _id: 1 }).lean()).toEqual(products);
+    expect(await InventoryBalanceModel.find({ companyCode }).lean()).toEqual(balances);
+    expect(await SerialUnitModel.find({ companyCode }).lean()).toEqual(serials);
+    expect(await SerialUnitModel.exists({ _id: serial._id })).toBeTruthy();
+    expect(await InventoryLedgerEntryModel.countDocuments({ companyCode })).toBe(0);
+  });
+
   it("shares catalog definitions but never uses another branch's stock for POS", async () => {
     const destinationBranch = id(), destinationWarehouse = id();
     const destinationScope = { companyCode, branchId: destinationBranch };

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { openrouterGenerateImage } from "../service/openrouter.service";
 import { AssistantError } from "./policy";
+import { STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, studioImageSystemError } from "./studio-image-errors";
 
 export const studioEditModes = ["custom", "erase", "remove-background", "change-background", "enhance"] as const;
 export type StudioEditMode = (typeof studioEditModes)[number];
@@ -28,15 +29,32 @@ export function buildStudioEditPrompt(mode: StudioEditMode, request: string, isL
   const actions: Record<StudioEditMode, string> = {
     custom: "Thực hiện đúng thay đổi được yêu cầu.",
     erase: "Xóa đúng đối tượng hoặc chi tiết được nêu, rồi lấp vùng trống tự nhiên theo các chi tiết kề bên.",
-    "remove-background": "Tách chủ thể khỏi nền; tạo nền trong suốt nếu model hỗ trợ. Giữ nguyên chủ thể và các cạnh tự nhiên.",
+    "remove-background": "Tách toàn bộ phông nền và chỉ giữ lại chủ thể. Trả về PNG có kênh alpha thật; mọi vùng nền phải trong suốt hoàn toàn. Không thay nền bằng màu trắng hoặc màu khác, không vẽ ô caro giả, không thêm viền hay bóng đổ.",
     "change-background": "Chỉ thay đổi nền theo yêu cầu. Giữ nguyên chủ thể, khuôn mặt, tóc, quần áo và tư thế.",
     enhance: "Cải thiện độ rõ và chất lượng theo yêu cầu mà không thay đổi nội dung ảnh.",
   };
   const action = actions[mode];
   const boundary = isLocalEdit
     ? "Ảnh đầu vào là vùng người dùng đã chọn. Chỉ thay đổi chi tiết được mô tả bên trong vùng này; giữ nguyên mọi khuôn mặt, nét nhận dạng, người, đồ vật, ánh sáng và bối cảnh còn lại ngay cả khi chúng xuất hiện trong vùng chọn. Không thêm viền, chú thích hoặc bố cục mới."
-    : "Chỉ thay đổi phần được người dùng mô tả. Giữ nguyên mọi phần khác của ảnh gốc: khuôn mặt, nét nhận dạng, tư thế, bối cảnh, bố cục, ánh sáng, màu sắc và chữ/logo không được yêu cầu sửa. Không vẽ lại toàn cảnh.";
+    : mode === "remove-background"
+      ? "Giữ nguyên chính xác chủ thể, khuôn mặt, tóc, quần áo, hình dáng, màu sắc và chi tiết. Xóa nền ở mọi khoảng hở quanh và giữa các phần của chủ thể. Không vẽ lại chủ thể, thêm viền, bóng đổ hoặc vật thể mới."
+      : "Chỉ thay đổi phần được người dùng mô tả. Giữ nguyên mọi phần khác của ảnh gốc: khuôn mặt, nét nhận dạng, tư thế, bối cảnh, bố cục, ánh sáng, màu sắc và chữ/logo không được yêu cầu sửa. Không vẽ lại toàn cảnh.";
   return `Chỉnh sửa ẢNH GỐC được đính kèm, không tạo một cảnh mới. ${action}\nYêu cầu của người dùng: ${request.trim()}\n${boundary}\nTrả về duy nhất ảnh đã chỉnh sửa.`;
+}
+
+async function hasVisibleSubjectAndTransparentPixels(imageBytes: Buffer): Promise<boolean> {
+  const { data, info } = await sharp(imageBytes, { limitInputPixels: MAX_PIXELS })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  let hasTransparentPixel = false;
+  let hasVisiblePixel = false;
+  for (let offset = info.channels - 1; offset < data.length; offset += info.channels) {
+    if (data[offset] < 255) hasTransparentPixel = true;
+    if (data[offset] > 0) hasVisiblePixel = true;
+    if (hasTransparentPixel && hasVisiblePixel) return true;
+  }
+  return false;
 }
 
 function pixelRegion(region: StudioEditRegion, imageWidth: number, imageHeight: number) {
@@ -49,7 +67,10 @@ function pixelRegion(region: StudioEditRegion, imageWidth: number, imageHeight: 
 }
 
 export async function editStudioImage(input: StudioEditInput): Promise<{ image: { url: string }; model: "iGenAI"; regionApplied: boolean }> {
-  if (!process.env.OPENROUTER_API_KEY?.trim()) throw new AssistantError("Chưa cấu hình OPENROUTER_API_KEY trên máy chủ.", 503);
+  if (!process.env.OPENROUTER_API_KEY?.trim()) throw new AssistantError(STUDIO_IMAGE_SYSTEM_ERROR_MESSAGE, 503);
+  if (input.mode === "remove-background" && input.region) {
+    throw new AssistantError("Xóa nền áp dụng cho toàn bộ ảnh; hãy bỏ chọn vùng chỉnh sửa.");
+  }
   const sourceBytes = decodeImage(input.sourceImage, MAX_SOURCE_BYTES);
   let source: Buffer | undefined;
   let imageWidth = 0;
@@ -77,15 +98,26 @@ export async function editStudioImage(input: StudioEditInput): Promise<{ image: 
   }
 
   try {
+    const removeBackground = input.mode === "remove-background";
     const result = await openrouterGenerateImage({
-      model: process.env.IGENAI_IMAGE_EDIT_MODEL?.trim() || "google/gemini-3.1-flash-lite-image",
+      model: removeBackground
+        ? process.env.IGENAI_TRANSPARENT_IMAGE_EDIT_MODEL?.trim() || "openai/gpt-image-2.6-flare"
+        : process.env.IGENAI_IMAGE_EDIT_MODEL?.trim() || "google/gemini-3.1-flash-lite-image",
       prompt: buildStudioEditPrompt(input.mode, input.prompt, Boolean(target)),
       referenceImages: [reference],
       preserveInputAspectRatio: true,
+      ...(removeBackground ? { background: "transparent" as const, outputFormat: "png" as const, quality: "medium" as const } : {}),
       allowFallback: false,
     });
     if (!target) {
       if (!IMAGE_DATA_URL.test(result.url)) throw new Error("Invalid image response");
+      if (removeBackground) {
+        const png = await sharp(decodeImage(result.url, 30 * 1024 * 1024), { limitInputPixels: MAX_PIXELS }).png().toBuffer();
+        if (!await hasVisibleSubjectAndTransparentPixels(png)) {
+          throw new AssistantError("Mô hình không trả ảnh có nền trong suốt. Vui lòng thử lại.");
+        }
+        return { image: { url: `data:image/png;base64,${png.toString("base64")}` }, model: "iGenAI", regionApplied: false };
+      }
       return { image: { url: result.url }, model: "iGenAI", regionApplied: false };
     }
     // Ghép lại trên máy chủ để mọi pixel ngoài vùng chọn không bị model thay đổi.
@@ -96,11 +128,6 @@ export async function editStudioImage(input: StudioEditInput): Promise<{ image: 
     return { image: { url: `data:image/png;base64,${combined.toString("base64")}` }, model: "iGenAI", regionApplied: true };
   } catch (error) {
     if (error instanceof AssistantError) throw error;
-    const status = (error as { status?: number }).status;
-    const message = status === 401 ? "Khóa OpenRouter không hợp lệ."
-      : status === 402 ? "Tài khoản OpenRouter không đủ số dư để sửa ảnh."
-      : status === 429 ? "OpenRouter đang giới hạn yêu cầu. Vui lòng thử lại sau."
-      : "Không thể chỉnh sửa ảnh lúc này. Vui lòng thử lại.";
-    throw new AssistantError(message, status === 429 ? 429 : 502);
+    throw studioImageSystemError(error);
   }
 }

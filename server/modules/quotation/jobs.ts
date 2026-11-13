@@ -61,7 +61,22 @@ export async function queueQuotationExport(kind: string, sourceId: string) {
     await jobs.updateOne({ _id: job._id, status: "failed" }, { $set: { status: "queued", updatedAt: now, actorId: context.actorId }, $unset: { error: "", startedAt: "" } });
     job.status = "queued";
   }
-  if (job.status === "queued") void enqueueQuotationJob(String(job._id)).catch(() => undefined); // Mongo intent is recovered by the worker if Redis is temporarily unavailable.
+  if (job.status === "queued") {
+    const jobId = String(job._id);
+    const processLocally = async (reason: unknown) => {
+      console.warn("[quotation-queue] Processing export in this server:", reason instanceof Error ? reason.message : reason);
+      try { await processQuotationJob(jobId); } catch (fallbackError) {
+        console.error("[quotation-queue] In-process export failed:", fallbackError instanceof Error ? fallbackError.message : fallbackError);
+      }
+    };
+    void enqueueQuotationJob(jobId).catch(processLocally);
+    if (process.env.NODE_ENV !== "production") {
+      const fallbackTimer = setTimeout(async () => {
+        if (await jobs.findOne({ _id: job!._id, status: "queued" })) await processLocally("No worker claimed the local export job.");
+      }, 5_000);
+      fallbackTimer.unref();
+    }
+  }
   return { jobId: String(job._id), status: job.status };
 }
 

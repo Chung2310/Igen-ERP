@@ -13,27 +13,62 @@ import {
 } from "./catalogConstants";
 import { Modal } from "./catalogUi";
 import { sanitizeProductDescriptionHtml } from "./productDescription";
+import { productDescriptionToText } from "./productDescription";
+import type { BranchRecord } from "../../../services/branchService";
 
 interface ProductViewerModalProps {
   product: CatalogProductDetail;
   resources: Resources;
+  branches?: BranchRecord[];
+  branchId?: string;
+  branchName?: string;
   onClose: () => void;
 }
 
-export function ProductViewerModal({ product, resources, onClose }: ProductViewerModalProps) {
+export function ProductViewerModal({ product, resources, branches = [], branchId, branchName, onClose }: ProductViewerModalProps) {
   const categoryName = getCategoryDisplayName(product.categoryCode, resources.categories);
   const brandName = resources.brands.find((b) => b.code === product.brandCode)?.name || product.brandCode || "Không có";
   const description = product.description || product.shortDescription || "";
   const [pricesByVariant, setPricesByVariant] = useState<Record<string, number>>({});
+  const isService = product.productType === "service";
 
   useEffect(() => {
+    if (isService) return;
     void productCatalogService
-      .listPrices()
+      .listPrices(undefined, branchId, product._id)
       .then((prices) => {
-        setPricesByVariant(Object.fromEntries(prices.map((p) => [p.variantId, p.sellingPrice])));
+        setPricesByVariant(Object.fromEntries(prices.filter(price => price.status !== "inactive").map(price => [price.variantId, price.sellingPrice])));
       })
       .catch(() => {});
-  }, [product._id]);
+  }, [product._id, branchId, isService]);
+
+  if (isService) {
+    const offered = product.serviceBranchIds || [];
+    const facilities = branches.filter(branch => offered.includes(branch._id)).map(branch => branch.name);
+    const appliesHere = !offered.length || Boolean(branchId && offered.includes(branchId));
+    const min = product.branchSummary?.sellingPriceMin;
+    const max = product.branchSummary?.sellingPriceMax;
+    const price = min == null ? appliesHere ? "Chưa có giá" : "—" :
+      max == null || max === min ? min.toLocaleString("vi-VN") + " ₫" :
+        min.toLocaleString("vi-VN") + " – " + max.toLocaleString("vi-VN") + " ₫";
+    const fields = [
+      ["Mã dịch vụ", product.productCode],
+      ["Nhóm", categoryName],
+      ["Đơn vị tính", resources.units?.find(unit => unit.code === product.baseUnitCode)?.name || product.baseUnitCode],
+      ["Trạng thái", statusLabels[product.status]],
+      ["Cơ sở cung cấp", !offered.length ? "Tất cả cơ sở" : facilities.join(", ") || (appliesHere ? branchName || "Chi nhánh hiện tại" : "Cơ sở khác")],
+      [branchName ? "Giá tại " + branchName : "Giá bán", price],
+    ];
+    return <Modal title={product.name} onClose={onClose}>
+      <dl className="grid grid-cols-2 gap-4 text-sm">
+        {fields.map(([label, value]) => <div key={label}>
+          <dt className="text-xs text-on-surface-variant">{label}</dt>
+          <dd className="mt-1 font-medium text-on-surface">{value}</dd>
+        </div>)}
+      </dl>
+      {description && <p className="mt-4 whitespace-pre-wrap border-t border-outline-variant pt-3 text-sm text-on-surface-variant">{productDescriptionToText(description)}</p>}
+    </Modal>;
+  }
 
   return (
     <Modal title={`Chi tiết: ${product.name}`} onClose={onClose} wide>
@@ -67,7 +102,7 @@ export function ProductViewerModal({ product, resources, onClose }: ProductViewe
               <p className="text-sm font-semibold text-slate-900 font-mono">{product.productCode}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Tên sản phẩm / Đời máy</p>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Tên hàng hóa</p>
               <p className="text-sm font-medium text-slate-900">{product.name}</p>
             </div>
             <div>
@@ -147,7 +182,7 @@ export function ProductViewerModal({ product, resources, onClose }: ProductViewe
                         {item.displayName || <span className="text-slate-400 italic font-normal">Mặc định</span>}
                       </td>
                       <td className="px-4 py-3 font-semibold text-cyan-700">
-                        {pricesByVariant[item._id] ? (
+                        {pricesByVariant[item._id] !== undefined ? (
                           `${pricesByVariant[item._id].toLocaleString("vi-VN")} ₫`
                         ) : (
                           <span className="font-normal text-rose-500 text-xs">Chưa có giá</span>

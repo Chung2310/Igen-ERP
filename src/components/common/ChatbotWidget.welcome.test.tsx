@@ -10,6 +10,8 @@ vi.mock("../../context/AuthContext", () => ({
 }));
 vi.mock("../../context/BranchContext", () => ({ useBranchOptional: () => null }));
 vi.mock("../../services/assistantService", () => ({ assistantService: {
+  projects: () => Promise.resolve([]),
+  saveProjects: (projects: unknown[]) => Promise.resolve(projects),
   settings: () => new Promise(() => undefined),
   state: vi.fn(() => new Promise(() => undefined)),
   turn: vi.fn(),
@@ -49,6 +51,67 @@ afterEach(() => {
 });
 
 describe("ChatbotWidget welcome", () => {
+  it("keeps the Trợ lý AI tab locked in desktop and mobile navigation", () => {
+    const { container } = render(<ChatbotWidget storageScope="agents-navigation-test" mode="standalone" />);
+    const sidebar = container.querySelector(".assistant-sidebar")!;
+    const agentButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Trợ lý AI"]')!;
+    const historyButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Lịch sử trò chuyện"]')!;
+    expect(agentButton.compareDocumentPosition(historyButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(agentButton.disabled).toBe(true);
+    fireEvent.click(agentButton);
+    const mobileAgent = Array.from(container.querySelectorAll<HTMLButtonElement>(".assistant-mobile-mode-nav button")).find(button => button.textContent?.includes("Trợ lý AI"))!;
+    expect(mobileAgent.disabled).toBe(true);
+    fireEvent.click(mobileAgent);
+    expect(screen.queryByRole("button", { name: "Tạo Trợ lý AI" })).toBeNull();
+  });
+
+  it("keeps the Dự án tab locked in desktop and mobile navigation", () => {
+    const { container } = render(<ChatbotWidget storageScope="projects-navigation-test" mode="standalone" />);
+    const desktopProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
+    const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>('.assistant-mobile-mode-nav button')).find(button => button.textContent?.includes("Dự án"))!;
+
+    expect(desktopProjects.disabled).toBe(true);
+    fireEvent.click(desktopProjects);
+    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
+    expect(desktopProjects.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector('.assistant-sidebar button[aria-label="Mở danh sách dự án"]')).toBeNull();
+    expect(mobileProjects.disabled).toBe(true);
+    fireEvent.click(mobileProjects);
+    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
+  });
+
+  it("mounts AI Studio on demand and preserves it when switching views", () => {
+    localStorage.setItem("igen_erp_chatbot_mode:studio-switch-test:company", "qa");
+    const { container } = render(<ChatbotWidget storageScope="studio-switch-test" mode="standalone" />);
+
+    expect(container.querySelector('section[aria-label="AI Studio"]')).toBeNull();
+    const studioButton = container.querySelector<HTMLButtonElement>('nav[aria-label="Chế độ trợ lý"] button[aria-label="AI Studio"]')!;
+    const toolsButton = container.querySelector<HTMLButtonElement>('nav[aria-label="Chế độ trợ lý"] button[aria-label="Công cụ trợ lý"]')!;
+    fireEvent.click(studioButton);
+    const studio = container.querySelector('section[aria-label="AI Studio"]');
+    expect(studio).not.toBeNull();
+
+    fireEvent.click(toolsButton);
+    expect(container.querySelector('section[aria-label="AI Studio"]')).toBe(studio);
+    fireEvent.click(studioButton);
+    expect(container.querySelector('section[aria-label="AI Studio"]')).toBe(studio);
+  });
+
+  it("keeps the prompt library out of the compact popup composer", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:popup-test:company", "qa");
+    const originalShowPopover = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "showPopover");
+    Object.defineProperty(HTMLElement.prototype, "showPopover", { configurable: true, value: vi.fn() });
+    try {
+      const { container } = render(<ChatbotWidget storageScope="popup-test" mode="popup" headerPanel openRequest={1} />);
+
+      await waitFor(() => expect(container.querySelector("form")).not.toBeNull());
+      expect(container.querySelector('button[aria-label="Mở thư viện câu lệnh mẫu"]')).toBeNull();
+    } finally {
+      if (originalShowPopover) Object.defineProperty(HTMLElement.prototype, "showPopover", originalShowPopover);
+      else delete (HTMLElement.prototype as HTMLElement & { showPopover?: () => void }).showPopover;
+    }
+  });
+
   it.each(["qa", "work"] as const)("shows greeting and composer in %s mode", mode => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", mode);
     const markup = renderToStaticMarkup(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);

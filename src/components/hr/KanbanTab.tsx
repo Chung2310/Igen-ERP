@@ -49,6 +49,8 @@ import { KanbanProjectSummary } from "./KanbanProjectSummary";
 import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 import { calculateEstimatedHours } from "./kanbanTaskTime";
 import KanbanMonthlyKpiView from "./KanbanMonthlyKpiView";
+import { calculateTaskDeadlineKpi } from "../../shared/kanbanDeadlineKpi";
+import { calculateEstimatedTimeProgress } from "../../shared/kanbanEstimatedTime";
 import "./KanbanTab.css";
 
 interface KanbanTabProps {
@@ -441,30 +443,6 @@ const getMissingDoneFields = (info: {
   return missing;
 };
 
-const calculateKPI = (task: HRTask) => {
-  if (!task.startTime || !task.endTime || !task.estTime) return null;
-  const start = new Date(task.startTime).getTime();
-  const end = new Date(task.endTime).getTime();
-  if (isNaN(start) || isNaN(end) || end < start) return null;
-
-  const actualHours = (end - start) / (1000 * 60 * 60);
-  const estHours = task.estTime;
-
-  if (actualHours <= estHours) {
-    return {
-      status: "ontime",
-      text: "Đúng tiến độ (Đạt KPI)",
-      diff: Number((estHours - actualHours).toFixed(1)),
-    };
-  } else {
-    return {
-      status: "late",
-      text: `Trễ tiến độ (Trễ ${(actualHours - estHours).toFixed(1)}h)`,
-      diff: Number((actualHours - estHours).toFixed(1)),
-    };
-  }
-};
-
 const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
   if (isUrl(avatar)) {
     return (
@@ -509,7 +487,7 @@ function TaskTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-[#E7EEF5] bg-white">
-        <table className={`w-full border-collapse text-left text-sm [&_th]:border-r [&_td]:border-r [&_th]:border-[#EEF3F8] [&_td]:border-[#F0F4F8] [&_th]:font-medium [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1460px]" : "min-w-[1360px]"}`}>
+        <table className={`w-full border-collapse text-left text-sm [&_th]:border-r [&_td]:border-r [&_th]:border-[#EEF3F8] [&_td]:border-[#F0F4F8] [&_th]:font-medium [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1560px]" : "min-w-[1460px]"}`}>
         <thead>
           <tr className="select-none border-b border-[#EEF3F8] bg-[#F8FBFE] text-slate-600">
             <th className="w-[180px] px-2 py-2">Công việc</th>
@@ -523,19 +501,21 @@ function TaskTable({
             <th className="w-[108px] px-2 py-2.5">Kết thúc</th>
             <th className="w-[52px] px-2 py-2.5 text-center">Dự tính</th>
             <th className="w-[52px] px-2 py-2.5 text-center">Thực tế</th>
-            <th className="w-[96px] px-2 py-2.5">Đánh giá KPI</th>
+            <th className="w-[96px] px-2 py-2.5">So giờ dự tính</th>
+            <th className="w-[96px] px-2 py-2.5">KPI theo hạn</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#F0F4F8] bg-white">
           {tasks.length === 0 ? (
             <tr>
-              <td colSpan={showProjectColumn ? 12 : 11} className="text-center py-8 text-gray-450 italic bg-white">
+              <td colSpan={showProjectColumn ? 13 : 12} className="text-center py-8 text-gray-450 italic bg-white">
                 <div className="flex flex-col items-center"><HrEmptyIllustration kind="task" /><p className="mt-1">Không có công việc nào.</p></div>
               </td>
             </tr>
           ) : (
             tasks.map((task) => {
-              const kpi = calculateKPI(task);
+              const kpi = calculateTaskDeadlineKpi(task);
+              const estimatedProgress = calculateEstimatedTimeProgress(task);
               return (
                 <tr
                   key={task.id}
@@ -616,7 +596,18 @@ function TaskTable({
                   {/* Thực tế */}
                   <td className="px-2 py-2 text-center tabular-nums text-slate-700">{task.actualTime ?? 0}h</td>
 
-                  {/* Đánh giá KPI */}
+                  {/* So giờ dự tính */}
+                  <td className="select-none px-2 py-2">
+                    {!estimatedProgress ? (
+                      <span className="text-xs italic text-gray-400">-</span>
+                    ) : estimatedProgress.status === "withinEstimate" ? (
+                      <span className="text-xs text-emerald-700" title={estimatedProgress.text}>✓ Trong dự tính</span>
+                    ) : (
+                      <span className="text-xs text-error" title={estimatedProgress.text}>Vượt {estimatedProgress.diff}h</span>
+                    )}
+                  </td>
+
+                  {/* KPI theo hạn */}
                   <td className="select-none px-2 py-2">
                     {!kpi ? (
                       <span className="text-xs italic text-gray-400">-</span>
@@ -626,7 +617,7 @@ function TaskTable({
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-0.5 rounded-sm bg-rose-100 px-2 py-0.5 text-xs text-rose-800" title={kpi.text}>
-                        ⚠️ Trễ {kpi.diff}h
+                        ⚠️ Trễ hạn {kpi.diff}h
                       </span>
                     )}
                   </td>
@@ -933,29 +924,11 @@ export default function KanbanTab({
     }
   }, [editStartTime, editEndTime]);
 
-  const getDynamicKPI = () => {
-    if (!editStartTime || !editEndTime || !editEstTime) return null;
-    const start = new Date(editStartTime).getTime();
-    const end = new Date(editEndTime).getTime();
-    if (isNaN(start) || isNaN(end) || end < start) return null;
-
-    const actualHours = (end - start) / (1000 * 60 * 60);
-    const estHours = Number(editEstTime);
-
-    if (actualHours <= estHours) {
-      return {
-        status: "ontime",
-        text: "Đúng tiến độ (Đạt KPI)",
-        diff: Number((estHours - actualHours).toFixed(1)),
-      };
-    } else {
-      return {
-        status: "late",
-        text: `Trễ tiến độ (Trễ ${(actualHours - estHours).toFixed(1)} giờ)`,
-        diff: Number((actualHours - estHours).toFixed(1)),
-      };
-    }
-  };
+  const getDynamicEstimatedProgress = () => calculateEstimatedTimeProgress({
+    startTime: editStartTime,
+    endTime: editEndTime,
+    estTime: Number(editEstTime),
+  });
 
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2058,20 +2031,20 @@ export default function KanbanTab({
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-[#00ADFC]" /> Đánh giá KPI</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-[#00ADFC]" /> So giờ dự tính</span>
                   <div className="flex-1">
                     {(() => {
-                      const kpi = getDynamicKPI();
-                      if (!kpi) return <span className="text-gray-450 italic text-[10px]">Chưa đủ dữ liệu tính KPI</span>;
-                      return kpi.status === "ontime" ? (
+                      const progress = getDynamicEstimatedProgress();
+                      if (!progress) return <span className="text-gray-450 italic text-[10px]">Chưa đủ dữ liệu so giờ</span>;
+                      return progress.status === "withinEstimate" ? (
                         <span className="inline-flex items-center gap-1 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-normal text-[#15803D]">
                           <CheckCircle className="w-3.5 h-3.5 text-[#16A34A]" />
-                          {kpi.text}
+                          {progress.text}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-250 font-normal rounded-lg text-[10px]">
                           <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                          {kpi.text}
+                          {progress.text}
                         </span>
                       );
                     })()}
@@ -2343,7 +2316,8 @@ function KanbanCard({
   const projectName = task.projectId
     ? projects.find((project) => project.id === task.projectId)?.name || "Không có dự án"
     : null;
-  const kpi = calculateKPI(task);
+  const kpi = calculateTaskDeadlineKpi(task);
+  const estimatedProgress = calculateEstimatedTimeProgress(task);
   const priorityLabel = task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình";
   const priorityTone = task.priority === "High"
     ? "bg-[#FFE5E8] text-[#C62B45] [.dark_&]:bg-red-950 [.dark_&]:text-red-200"
@@ -2393,12 +2367,18 @@ function KanbanCard({
         <span className={cn("shrink-0 px-1.5 py-0.5 text-[10px] font-semibold leading-tight uppercase", priorityTone)}>
           {priorityLabel}
         </span>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          {estimatedProgress && <span
+            className={cn("shrink-0 whitespace-nowrap rounded-full bg-white/75 px-2 py-0.5 text-[10px] font-medium [.dark_&]:bg-white/10", estimatedProgress.status === "withinEstimate" ? "text-[#087D5A] [.dark_&]:text-emerald-300" : "text-error")}
+            title="So giờ thực tế với giờ dự tính"
+          >
+            {estimatedProgress.status === "withinEstimate" ? "✓ Trong dự tính" : `Vượt ${estimatedProgress.diff}h`}
+          </span>}
           {kpi && <span
             className={cn("shrink-0 whitespace-nowrap rounded-full bg-white/75 px-2 py-0.5 text-[10px] font-medium [.dark_&]:bg-white/10", kpi.status === "ontime" ? "text-[#087D5A] [.dark_&]:text-emerald-300" : "text-error")}
             title="Kết quả KPI"
           >
-            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ ${kpi.diff}h`}
+            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ hạn ${kpi.diff}h`}
           </span>}
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate" title={task.assignee}>{task.assignee}</span>

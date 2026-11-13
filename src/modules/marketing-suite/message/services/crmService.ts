@@ -79,6 +79,12 @@ export interface LeadIntakeProfileVersion {
 
 type CrmLeadRecord = ExtendedLeadCard & { _id?: string };
 
+type LeadIntakeProfileInput = Pick<LeadIntakeProfileVersion, "platform" | "accountId" | "goal" | "completionMessage" | "fields" | "sourceDocumentIds">;
+
+function leadIntakeScopePayload(input: Pick<LeadIntakeProfileInput, "platform" | "accountId">) {
+  return input.platform && input.accountId ? { platform: input.platform, pageId: input.accountId } : {};
+}
+
 function logCrmTiming(
   operation: "subscribe" | "create" | "update" | "delete" | "bulkUpdate",
   startedAt: number,
@@ -256,23 +262,12 @@ export const crmService = {
     return result.data as LeadIntakeProfileVersion;
   },
 
-  async saveAndActivateLeadIntakeProfile(input: {
-    platform?: "facebook" | "zalo" | "tiktok";
-    accountId?: string;
-    goal: string;
-    completionMessage: string;
-    fields: LeadIntakeField[];
-    sourceDocumentIds?: string[];
-  }): Promise<LeadIntakeProfileVersion> {
-    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` };
-    const scopePayload = input.platform && input.accountId
-      ? { platform: input.platform, pageId: input.accountId }
-      : {};
+  async saveLeadIntakeDraft(input: LeadIntakeProfileInput): Promise<LeadIntakeProfileVersion> {
     const draftRes = await fetch("/api/v1/marketing-settings/lead-intake-profiles/draft", {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
       body: JSON.stringify({
-        ...scopePayload,
+        ...leadIntakeScopePayload(input),
         goal: input.goal,
         completionMessage: input.completionMessage,
         fields: input.fields,
@@ -283,11 +278,15 @@ export const crmService = {
     if (!draftRes.ok) throw new Error(draftJson.message || "Không thể lưu cấu hình cột Lead.");
     const version = Number(draftJson.data?.version);
     if (!Number.isInteger(version) || version < 1) throw new Error("Phiên bản cấu hình không hợp lệ.");
+    return { ...draftJson.data, version } as LeadIntakeProfileVersion;
+  },
 
+  async saveAndActivateLeadIntakeProfile(input: LeadIntakeProfileInput): Promise<LeadIntakeProfileVersion> {
+    const { version } = await this.saveLeadIntakeDraft(input);
     const activateRes = await fetch(`/api/v1/marketing-settings/lead-intake-profiles/${version}/activate`, {
       method: "POST",
-      headers,
-      body: JSON.stringify(scopePayload),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify(leadIntakeScopePayload(input)),
     });
     const activateJson = await activateRes.json().catch(() => ({}));
     if (!activateRes.ok) throw new Error(activateJson.message || "Đã lưu bản nháp nhưng chưa kích hoạt được cấu hình cột.");

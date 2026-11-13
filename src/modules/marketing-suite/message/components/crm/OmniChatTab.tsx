@@ -75,10 +75,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   isInboxLoading,
   onResumeAI,
 }) => {
-  const intakePlatform = activeCustomer?.channel || (activeChannel === "all" ? "facebook" : activeChannel);
-  const intakeAccountId = activeCustomer
-    ? intakePlatform === "facebook" ? activeCustomer.pageId || activeCustomer.accountId || selectedFacebookPageId : activeCustomer.accountId || (intakePlatform === "zalo" ? selectedZaloAccountId : selectedTiktokAccountId)
-    : intakePlatform === "facebook" ? selectedFacebookPageId : intakePlatform === "zalo" ? selectedZaloAccountId : selectedTiktokAccountId;
   const [filterInbox, setFilterInbox] = useState("");
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -1185,8 +1181,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       {/* R-Col: Config side-panel sidebar for custom AI assistant parameters (Collapsible) */}
       {showConfig && (
         <AiAssistantConfigPanel
-          pageId={intakeAccountId}
-          platform={intakePlatform}
           onClose={() => setShowConfig(false)}
           localConfig={localConfig}
           setLocalConfig={updateLocalConfig}

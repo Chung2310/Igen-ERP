@@ -26,7 +26,7 @@ test("birth date can jump directly to an earlier year", () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Ngày sinh" }));
   const calendar = screen.getByRole("dialog", { name: "Lịch chọn ngày" });
-  fireEvent.change(within(calendar).getByRole("combobox", { name: "Chọn năm sinh" }), { target: { value: "1990" } });
+  fireEvent.change(within(calendar).getByRole("textbox", { name: "Nhập năm sinh" }), { target: { value: "1990" } });
   fireEvent.click(within(calendar).getByRole("button", { name: /Chọn ngày 15\/\d+\/1990/ }));
 
   expect(onChange).toHaveBeenCalledWith(expect.stringMatching(/^1990-\d{2}-15$/));

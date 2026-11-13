@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { nextIntakeReply, normalizeIntakeValue, pageIntakeFlow } from "./page-intake";
+import { normalizeIntakeValue, pageIntakeFlow } from "./page-intake";
 import { PageChatFlowModel, PageChatFlowStateModel } from "../../../model/page-chat-flow.model";
 import { LeadIntakeProfileModel } from "../../../model/lead-intake-profile.model";
 import { generateReplyCompletion } from "../../ai-reply-provider";
@@ -24,10 +24,6 @@ describe("Page intake flow", () => {
     vi.mocked(findLeadForIntake).mockResolvedValue(null);
     vi.mocked(upsertLeadFromIntake).mockResolvedValue({ _id: "LEAD" } as never);
   });
-  it("asks only for the first missing field", () => {
-    expect(nextIntakeReply(fields, { surface: "tường", area: "20 m²" }, "Đã nhận thông tin.")).toBe(fields[2].question);
-    expect(nextIntakeReply(fields, { surface: "tường", area: "20 m²", paint: "nội thất", phone: "0900000000" }, "Đã nhận thông tin.")).toBe("Đã nhận thông tin.");
-  });
   it("validates and normalizes answers according to each configured field type", () => {
     expect(normalizeIntakeValue({ key: "email", label: "Email", question: "Email?", type: "email" }, " lead@example.com ")).toBe("lead@example.com");
     expect(normalizeIntakeValue({ key: "phone", label: "Điện thoại", question: "SĐT?", type: "phone" }, "+84 90 123 4567")).toBe("+84 90 123 4567");
@@ -44,7 +40,11 @@ describe("Page intake flow", () => {
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
     vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ __lead_intent: true, surface: "tường", area: "20 m²" }) } as never);
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường 20 m²", imageUrls: [] });
-    expect(reply?.text).toBe(fields[2].question);
+    expect(reply?.text).toBe("");
+    expect(reply?.leadIntake).toMatchObject({
+      collected: { surface: "tường", area: "20 m²" }, status: "collecting",
+      missingRequiredFields: [{ label: "Loại sơn", type: "text" }, { label: "Số điện thoại", type: "text" }],
+    });
     expect(PageChatFlowStateModel.updateOne).toHaveBeenCalledWith(
       { companyCode: "ACME", pageId: "PAGE", conversationId: "C" },
       expect.objectContaining({ $set: expect.objectContaining({ version: 2, values: { surface: "tường", area: "20 m²" }, lastMessageId: "M" }) }),
@@ -53,8 +53,8 @@ describe("Page intake flow", () => {
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, lastMessageId: "M", lastReply: fields[2].question,
       values: { surface: "tường", area: "20 m²" } }) } as never);
     const retried = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường 20 m²", imageUrls: [] });
-    expect(retried?.text).toBe(fields[2].question);
-    expect(retried?.consultationContext).toBe(reply?.consultationContext);
+    expect(retried?.text).toBe("");
+    expect(retried?.leadIntake).toEqual(reply?.leadIntake);
     expect(generateReplyCompletion).toHaveBeenCalledTimes(1);
     expect(upsertLeadFromIntake).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ platform: "facebook", accountId: "PAGE", conversationId: "C", messageId: "M", allowCreate: true }));
     expect(savePageCustomer).not.toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe("Page intake flow", () => {
     vi.mocked(findLeadForIntake).mockResolvedValue({ _id: "LEAD", answers: { name: "An", phone: "0900000000" } } as never);
     vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ phone: "0911111111" }) } as never);
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M3", message: "Số mới là 0911111111", imageUrls: [] });
-    expect(reply).toBeUndefined();
+    expect(reply).toMatchObject({ text: "", leadIntake: { status: "complete", missingRequiredFields: [], collected: { name: "An", phone: "0911111111" } } });
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "An", phone: "0911111111" }, previousValues: { name: "An", phone: "0900000000" } }));
   });
   it("preserves a short name and the promotion question grouped after the bot asks for a name", async () => {
@@ -118,14 +118,9 @@ describe("Page intake flow", () => {
     });
     const reply = await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "PROMO",
       message: grouped.combinedText, history, imageUrls: [] });
-    const guidance = JSON.parse(reply!.consultationContext!);
-    expect(guidance.collected).toEqual({ name: "Thủy" });
-    expect(guidance.missingFields.map((field: { key: string }) => field.key)).toEqual(["phone"]);
-    expect(guidance.requiredReply).toBeUndefined();
-    expect(guidance.suggestedQuestion).toBeUndefined();
-    expect(guidance.completionMessage).toBeUndefined();
-    expect(guidance.missingFields).toEqual([{ key: "phone", label: "Số điện thoại" }]);
-    expect(guidance.instruction).toContain("Trả lời câu hỏi mới nhất");
+    expect(reply?.text).toBe("");
+    expect(reply?.leadIntake).toEqual({ goal: "Tư vấn Ruby Queen", collected: { name: "Thủy" },
+      status: "collecting", missingRequiredFields: [{ label: "Số điện thoại", type: "text" }] });
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "Thủy" } }));
   });
   it("can save a phone supplied in earlier customer history without using the bot's hotline as source proof", async () => {
@@ -151,7 +146,7 @@ describe("Page intake flow", () => {
     ]) }) } as never);
     vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ __lead_intent: true, area: "20 m²", [PAGE_CUSTOMER_NOTES_KEY]: "Ngân sách: 50 triệu\nChỉ gọi buổi chiều", injected: "ignored" }) } as never);
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M2", message: "20 m², ngân sách 50 triệu, chỉ gọi buổi chiều", imageUrls: [] });
-    expect(reply?.text).toBe(fields[2].question);
+    expect(reply?.text).toBe("");
     const expectedValues = { surface: "tường", area: "20 m²", [PAGE_CUSTOMER_NOTES_KEY]: "Ngân sách: 50 triệu\nChỉ gọi buổi chiều" };
     expect(savePageCustomer).not.toHaveBeenCalled();
     expect(PageChatFlowStateModel.updateOne).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
@@ -163,7 +158,21 @@ describe("Page intake flow", () => {
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
     vi.mocked(generateReplyCompletion).mockResolvedValue({ text: "{}" } as never);
     const reply = await pageIntakeFlow.process({ companyCode: "ACME", platform, pageId: "PAGE", conversationId: "C", messageId: "M", message: "Chào shop", imageUrls: [] });
-    expect(reply).toBeUndefined();
+    expect(reply).toMatchObject({ text: "", leadIntake: { status: "inactive", missingRequiredFields: [] } });
+    expect(upsertLeadFromIntake).not.toHaveBeenCalled();
+  });
+
+  it("previews contextual guidance without creating a Lead or writing intake state", async () => {
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn", fields: [
+      { key: "name", label: "Họ tên", required: true, question: "Tên?" },
+      { key: "phone", label: "Số điện thoại", required: false, question: "Số?" },
+    ], completionMessage: "Cảm ơn." }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ __lead_intent: true, name: "An" }) } as never);
+    const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "OA", platform: "zalo", conversationId: "C",
+      messageId: "PREVIEW", message: "Mình là An, muốn đăng ký", imageUrls: [], simulationMode: true });
+    expect(reply?.leadIntake).toEqual({ goal: "Tư vấn", status: "just_completed", collected: { name: "An" }, missingRequiredFields: [] });
+    expect(PageChatFlowStateModel.updateOne).not.toHaveBeenCalled();
     expect(upsertLeadFromIntake).not.toHaveBeenCalled();
   });
 });

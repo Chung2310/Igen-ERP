@@ -176,7 +176,7 @@ export interface AcceptanceRecord {
   amountPaid: number;
   paymentDueDays: number | null;
   notes: string;
-  lines: Array<{ lineIndex: number; acceptedQuantity: number }>;
+  lines: Array<{ lineIndex: number; acceptedQuantity: number; acceptedDetails?: string }>;
   createdAt: string;
   updatedAt: string;
 }

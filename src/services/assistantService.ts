@@ -1,4 +1,4 @@
-import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
+import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantQuotationAcceptanceLinesInput, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
 import type { AssistantSpeechVoice } from "../shared/assistant-speech-voices";
 import type { AssistantSpeechControls } from "../shared/assistant-speech";
 import type { AssistantChatMessage, AssistantGeneratedFile } from "../shared/assistant-document";
@@ -6,7 +6,8 @@ import type { AssistantChartHistoryItem, AssistantChartResult, AssistantChartTyp
 import type { AssistantSlideDeck, AssistantSlideDeckUpdate, AssistantSlideHistoryItem, AssistantSlideStyle } from "../shared/assistant-slide";
 import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../shared/assistant-mindmap";
 import type { AssistantPromptTemplate } from "../components/common/assistant-prompt-library-data";
-export interface AssistantTurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+import type { AssistantProject } from "../components/common/assistant-project-data";
+export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }
@@ -25,6 +26,8 @@ async function request<T>(path: string, init: RequestInit = {}, branchId?: strin
   return result.data;
 }
 export const assistantService = {
+  projects: (branchId?: string) => request<AssistantProject[]>("/projects", {}, branchId),
+  saveProjects: (projects: AssistantProject[], branchId?: string) => request<AssistantProject[]>("/projects", { method: "PUT", body: JSON.stringify({ projects }) }, branchId),
   promptTemplates: (signal?: AbortSignal) => request<{ templates: AssistantPromptTemplate[]; favoriteIds: string[] }>("/prompt-templates", { signal }),
   createPromptTemplate: (data: Omit<AssistantPromptTemplate, "id" | "owner">) => request<AssistantPromptTemplate>("/prompt-templates", { method: "POST", body: JSON.stringify(data) }),
   setPromptTemplateFavorite: (id: string, favorite: boolean) => request<{ favorite: boolean }>(`/prompt-templates/${encodeURIComponent(id)}/favorite`, { method: "PATCH", body: JSON.stringify({ favorite }) }),

@@ -56,6 +56,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
   const [showEstimatePicker, setShowEstimatePicker] = useState(false);
   const [contractSourceQuote, setContractSourceQuote] = useState<Quote | null>(null);
   const [quantities, setQuantities] = useState<number[]>([]);
+  const [acceptedDetails, setAcceptedDetails] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -108,6 +109,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
         setAmountPaidText(isVnd ? formatVndInputValue(paidValue) : String(paidValue));
         setPaymentDueDaysText(data.record.paymentDueDays == null ? "" : String(data.record.paymentDueDays));
         setQuantities(data.record.lines.map((line) => line.acceptedQuantity));
+        setAcceptedDetails(data.record.lines.map((line) => line.acceptedDetails ?? ""));
       }
     } catch (error) {
       notify(userMessage(error, "Không tải được dữ liệu."), "error");
@@ -192,7 +194,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       const { record: next } = await api<{ record: AcceptanceRecord }>(`/api/acceptance-records/${record._id}`, {
         method: "PATCH", body: JSON.stringify({ acceptedDate, location, result, notes, startTime, endTime, handoverDetails,
           qualityAssessment, settlementAmount, amountPaid, paymentDueDays: paymentDueDaysText === "" ? null : Number(paymentDueDaysText),
-          lines: quantities.map((acceptedQuantity, lineIndex) => ({ lineIndex, acceptedQuantity })),
+          lines: quantities.map((acceptedQuantity, lineIndex) => ({ lineIndex, acceptedQuantity, acceptedDetails: acceptedDetails[lineIndex] ?? "" })),
         }),
       });
       setRecord(next);
@@ -450,17 +452,18 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
         <div className="workflow-detail-section-heading"><h2>Khối lượng nghiệm thu</h2><span>{selectedItemCount} / {contract.lines.length} hạng mục</span></div>
         <div className="workflow-table-wrap workflow-acceptance-table-wrap">
           <table>
-            <thead><tr><th>STT</th><th>Sản phẩm / hạng mục</th><th>ĐVT</th><th>Số lượng theo hợp đồng</th><th>Chọn</th><th>Số lượng nghiệm thu</th><th>Đơn giá</th><th>Giá trị NT</th></tr></thead>
+            <thead><tr><th>STT</th><th>Sản phẩm / hạng mục</th><th>ĐVT</th><th>Số lượng theo hợp đồng</th><th>Chọn</th><th>Số lượng nghiệm thu</th><th>Đơn giá</th><th>Giá trị NT</th><th>Thông tin sản phẩm nghiệm thu</th></tr></thead>
             <tbody>{contract.lines.length ? contract.lines.map((line, index) => {
               const acceptedQuantity = quantities[index] ?? 0;
               const lineTotal = Math.round(acceptedQuantity * line.unitPrice * 100) / 100;
+              const acceptedDetailsValue = acceptedDetails[index] ?? "";
               return <tr key={index}>
                 <td>{index + 1}</td><td><strong>{line.name}</strong>{line.description && <small>{line.description}</small>}</td><td>{line.unit}</td><td>{line.quantity}</td>
                 <td><input type="checkbox" aria-label={"Chọn hạng mục " + line.name + " để nghiệm thu"} checked={acceptedQuantity > 0} disabled={!editable} onChange={(event) => { const checked = event.currentTarget.checked; setQuantities((current) => current.map((value, i) => i === index ? checked ? line.quantity : 0 : value)); }} /></td>
                 <td><input aria-label={"Khối lượng nghiệm thu " + line.name} type="number" min="0" max={line.quantity} step="any" disabled={!editable || acceptedQuantity <= 0} value={acceptedQuantity} onChange={(event) => setQuantities((current) => current.map((value, i) => i === index ? Number(event.target.value) : value))} /></td>
-                <td>{formatMoney(line.unitPrice, contract.currency)}</td><td>{formatMoney(lineTotal, contract.currency)}</td>
+                <td>{formatMoney(line.unitPrice, contract.currency)}</td><td>{formatMoney(lineTotal, contract.currency)}</td><td>{editable ? <input type="text" aria-label={"Thông tin nghiệm thu " + line.name} maxLength={1000} disabled={acceptedQuantity <= 0} value={acceptedDetailsValue} onChange={(event) => setAcceptedDetails((current) => current.map((value, i) => i === index ? event.target.value : value))} /> : <span className="workflow-acceptance-line-details">{acceptedDetailsValue || "—"}</span>}</td>
               </tr>;
-            }) : <tr><td colSpan={8}>Hợp đồng chưa có sản phẩm hoặc hạng mục để đối soát.</td></tr>}</tbody>
+            }) : <tr><td colSpan={9}>Hợp đồng chưa có sản phẩm hoặc hạng mục để đối soát.</td></tr>}</tbody>
           </table>
         </div>
         <div className="workflow-totals"><strong>Giá trị các hạng mục đã nghiệm thu: {formatMoney(acceptedValue, contract.currency)}</strong></div>

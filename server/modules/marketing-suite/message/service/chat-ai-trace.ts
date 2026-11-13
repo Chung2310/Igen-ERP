@@ -1,17 +1,17 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export interface ChatAiTrace {
-  attempts: Array<{ model: string; hasImages: boolean; durationMs: number; succeeded: boolean }>;
+  attempts: Array<{ model: string; operation: string; hasImages: boolean; durationMs: number; succeeded: boolean }>;
 }
 const traces = new AsyncLocalStorage<ChatAiTrace>();
 export function createChatAiTrace(): ChatAiTrace { return { attempts: [] }; }
 export function withChatAiTrace<T>(trace: ChatAiTrace | undefined, action: () => Promise<T>): Promise<T> {
   return trace ? traces.run(trace, action) : action();
 }
-export function beginChatAiAttempt(model: string, hasImages: boolean) {
+export function beginChatAiAttempt(model: string, hasImages: boolean, operation = "text_generation") {
   const trace = traces.getStore();
   const started = Date.now();
-  const attempt = { model, hasImages, durationMs: 0, succeeded: false };
+  const attempt = { model, operation, hasImages, durationMs: 0, succeeded: false };
   let finished = false;
   trace?.attempts.push(attempt);
   return (succeeded: boolean) => {
@@ -28,5 +28,6 @@ export function describeChatAiTrace(trace: ChatAiTrace) {
     providerDurationMs: trace.attempts.reduce((total, attempt) => total + attempt.durationMs, 0),
     failedRequestCount: trace.attempts.filter(attempt => !attempt.succeeded).length,
     models: [...new Set(trace.attempts.map(attempt => attempt.model))],
+    operations: trace.attempts.map(({ operation, durationMs, succeeded }) => ({ operation, durationMs, succeeded })),
   };
 }

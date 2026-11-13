@@ -36,6 +36,7 @@ export interface IProductCatalog extends Document {
   normalizedName: string;
   productType: ProductCatalogType;
   templateCode?: string;
+  serviceBranchIds?: string[];
   categoryCode: string;
   brandCode?: string;
   baseUnitCode: string;

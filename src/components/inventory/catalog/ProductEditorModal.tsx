@@ -33,10 +33,18 @@ import {
 } from "./catalogConstants";
 import { Field, ImageUploadBox, Modal, NumberInput } from "./catalogUi";
 import { VariantMatrixBuilder } from "./VariantMatrixBuilder";
+import type { BranchRecord } from "../../../services/branchService";
+import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
 
 interface ProductEditorModalProps {
   product: CatalogProductDetail | null;
   resources: Resources;
+  initialType?: ProductCatalogType;
+  allowTypeSelection?: boolean;
+  branches?: BranchRecord[];
+  branchId?: string;
+  branchName?: string;
+  onCreateCategory?: () => void;
   onClose: () => void;
   onSaved: () => Promise<void>;
   onDataChanged: () => Promise<void>;
@@ -46,6 +54,12 @@ interface ProductEditorModalProps {
 export function ProductEditorModal({
   product,
   resources,
+  initialType = "physical",
+  allowTypeSelection = true,
+  branches = [],
+  branchId,
+  branchName,
+  onCreateCategory,
   onClose,
   onSaved,
   onDataChanged,
@@ -100,15 +114,16 @@ export function ProductEditorModal({
           status: product.status,
           mediaIds: product.mediaIds || [],
         }
-      : emptyProductForm()
+      : { ...emptyProductForm(), productType: initialType, ...(initialType === "service" ? { baseUnitCode: "" } : {}) }
   );
 
   const [variant, setVariant] = useState<VariantInput>(() => {
-    const base = product ? emptyVariant(product.baseUnitCode, product.productType) : emptyVariant();
+    const type = product?.productType ?? initialType;
+    const base = emptyVariant(product?.baseUnitCode ?? (type === "service" ? "" : DEFAULT_UNIT_CODE), type);
     if (product?.variants?.[0]?.trackingMode) {
       base.trackingMode = product.variants[0].trackingMode;
-    } else if (product?.productType !== "service") {
-      base.trackingMode = "serial";
+    } else if (type !== "service") {
+      base.trackingMode = "quantity";
     }
     return base;
   });
@@ -121,6 +136,15 @@ export function ProductEditorModal({
   );
   const [variantQuery, setVariantQuery] = useState("");
   const [pricesByVariant, setPricesByVariant] = useState<Record<string, { sellingPrice: number; costPrice: number }>>({});
+  const [priceDraft, setPriceDraft] = useState<string | null>(null);
+  const [pricesReady, setPricesReady] = useState(false);
+  const [serviceBranchIds, setServiceBranchIds] = useState(product?.serviceBranchIds || []);
+  const [serviceBranchesChanged, setServiceBranchesChanged] = useState(false);
+  const isService = form.productType === "service";
+  const singleVariant = currentProduct?.variants.length === 1 ? currentProduct.variants[0] : undefined;
+  const existingPrice = singleVariant ? pricesByVariant[singleVariant._id] : undefined;
+  const appliesAtBranch = !isService || !serviceBranchIds.length || (branchId && serviceBranchIds.includes(branchId));
+  const visibleServiceBranchCount = branches.filter(branch => serviceBranchIds.includes(branch._id)).length;
 
   // Local brands state for instant update upon creation
   const [localBrands, setLocalBrands] = useState<ProductResource[]>(() => resources.brands || []);
@@ -246,27 +270,33 @@ export function ProductEditorModal({
 
   useEffect(() => {
     if (!currentProduct) return;
+    let cancelled = false;
+    setPricesReady(false);
     void productCatalogService
-      .listPrices()
+      .listPrices(undefined, branchId, currentProduct._id)
       .then((prices) => {
+        if (cancelled) return;
         const map: Record<string, { sellingPrice: number; costPrice: number }> = {};
         for (const p of prices) {
+          if (p.status === "inactive") continue;
           map[p.variantId] = {
             sellingPrice: Number(p.sellingPrice || 0),
             costPrice: Number(p.costPrice || 0),
           };
         }
         setPricesByVariant(map);
+        setPricesReady(true);
       })
       .catch(() => {});
-  }, [currentProduct?._id, currentProduct?.variants]);
+    return () => { cancelled = true; };
+  }, [currentProduct?._id, currentProduct?.variants, branchId]);
 
   // Handle category change: auto-set tracking mode based on category defaults
   const handleCategoryChange = (categoryCode: string) => {
     setField("categoryCode", categoryCode);
     const cat = resources.categories.find((c) => c.code === categoryCode);
-    if (cat?.defaultTrackingMode && form.productType !== "service") {
-      setVariant((curr) => ({ ...curr, trackingMode: cat.defaultTrackingMode! }));
+    if (!isService) {
+      setVariant((curr) => ({ ...curr, trackingMode: cat?.defaultTrackingMode || "quantity" }));
     }
   };
   const handleBaseUnitChange = (unitCode: string) => {
@@ -499,6 +529,11 @@ export function ProductEditorModal({
       toast.error("Vui lòng chọn đơn vị tính cho sản phẩm.");
       return;
     }
+    const sellingPrice = priceDraft?.trim() ? Number(priceDraft) : undefined;
+    if (sellingPrice !== undefined && (!Number.isSafeInteger(sellingPrice) || sellingPrice < 0)) {
+      toast.error("Giá bán phải là số nguyên không âm.");
+      return;
+    }
 
     setSubmitting(true);
     const payload = {
@@ -516,12 +551,17 @@ export function ProductEditorModal({
       warrantyMonths: form.warrantyMonths,
       status: form.status,
       mediaIds: form.mediaIds,
+      ...(isService && serviceBranchesChanged ? { serviceBranchIds } : {}),
     };
 
     try {
       if (currentProduct) {
         const { productCode: _productCode, productType: _productType, ...update } = payload;
         await productCatalogService.updateProduct(currentProduct._id, { ...update, brandCode: form.brandCode || null });
+        if (pricesReady && singleVariant?.status === "active" && branchId && appliesAtBranch && form.status === "active"
+          && sellingPrice !== undefined && sellingPrice !== existingPrice?.sellingPrice) {
+          await productCatalogService.upsertPrice(singleVariant._id, sellingPrice, existingPrice?.costPrice, branchId);
+        }
 
         // Nếu người dùng có chọn sinh biến thể mới từ ma trận trong khi chỉnh sửa
         if (newMatrixVariants.length > 0) {
@@ -558,7 +598,7 @@ export function ProductEditorModal({
           toast.success("Đã cập nhật thông tin sản phẩm.");
         }
       } else {
-        if (options.some((o) => o.values.length > 0)) {
+        if (!isService && options.some((o) => o.values.length > 0)) {
           // Bulk create via Matrix
           if (variantsMatrix.length === 0) {
             throw new Error("Không có SKU nào được sinh ra từ ma trận thuộc tính.");
@@ -605,20 +645,20 @@ export function ProductEditorModal({
           if (!sku) {
             sku = payload.productCode || cleanOptionSlug(form.name, 40) || `SKU-${generateEAN13().slice(6)}`;
           }
-          const created = await productCatalogService.createProduct({
+          const productInput = {
             ...payload,
             variant: {
               ...variant,
               sku,
               unitCode: variant.unitCode || form.baseUnitCode,
-              trackingMode: form.productType === "service" ? "none" : variant.trackingMode,
+              trackingMode: isService ? "none" as const : variant.trackingMode,
+              status: form.status === "inactive" || form.status === "archived" ? "inactive" as const : variant.status,
             },
-          });
-          const createdVariant = created.variants?.[0];
-          if (createdVariant && shouldCreateInitialPrice(form.status)) {
-            await productCatalogService.upsertPrice(String(createdVariant._id), Number(variant.sellingPrice || 0), Number(variant.costPrice || 0));
-          }
-          toast.success("Đã tạo sản phẩm và SKU đầu tiên.");
+          };
+          const price = branchId && appliesAtBranch && sellingPrice !== undefined && shouldCreateInitialPrice(form.status)
+            ? { branchId, sellingPrice } : undefined;
+          await productCatalogService.createProduct(productInput, price);
+          toast.success(isService ? "Đã thêm dịch vụ." : "Đã thêm hàng hóa.");
         }
       }
       await onSaved();
@@ -633,8 +673,8 @@ export function ProductEditorModal({
   const { tree: categoryTree } = useMemo(() => buildCategoryTree3(resources.categories), [resources.categories]);
 
   const typeOptions = useMemo<DropdownOption<ProductCatalogType>[]>(() => [
-    { value: "physical", label: "Hàng hóa vật lý (quản lý kho, IMEI/SL)" },
-    { value: "service", label: "Dịch vụ (sửa chữa, thay pin, không theo dõi kho)" },
+    { value: "physical", label: "Hàng hóa" },
+    { value: "service", label: "Dịch vụ" },
   ], []);
 
   const categoryDropdownOptions = useMemo<DropdownOption<string>[]>(() => {
@@ -706,67 +746,64 @@ export function ProductEditorModal({
 
   return (
     <>
-      <Modal title={isEditing ? `Sản phẩm: ${product!.name}` : "Tạo sản phẩm & Các phiên bản"} onClose={onClose} wide>
-        <form noValidate onSubmit={submit} className="bg-slate-50/50 -m-5 p-5 space-y-5">
+      <Modal title={isEditing ? `Sửa ${isService ? "dịch vụ" : "hàng hóa"}: ${product!.name}` : isService ? "Thêm dịch vụ" : "Thêm hàng hóa"} onClose={onClose} wide={!isService} closeDisabled={submitting}>
+        <form noValidate onSubmit={submit} className="space-y-4">
           {/* Khối 1: Thông tin cơ bản */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-            <h4 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">1</span>
-              Thông tin Đời máy / Sản phẩm
-            </h4>
-            <div className="grid gap-6 md:grid-cols-[140px_1fr]">
+          <div className="space-y-4">
+            {!isEditing && allowTypeSelection && <Field label="Loại danh mục">
+              <Dropdown<ProductCatalogType>
+                aria-label="Loại danh mục"
+                value={form.productType}
+                onChange={(productType) => {
+                  const service = productType === "service";
+                  const baseUnitCode = service ? "" : DEFAULT_UNIT_CODE;
+                  setForm(current => ({ ...current, productType, baseUnitCode }));
+                  setVariant(current => ({ ...current, unitCode: baseUnitCode, trackingMode: service ? "none" : "quantity" }));
+                }}
+                options={typeOptions}
+                variant="form"
+                size="md"
+                className="w-full"
+              />
+            </Field>}
+            <div className={"grid gap-4 " + (isService ? "" : "md:grid-cols-[140px_1fr]")}>
+              {!isService &&
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-slate-700">Ảnh đại diện</label>
+                <span className="text-xs font-medium text-on-surface-variant">Ảnh đại diện</span>
                 <ImageUploadBox value={form.mediaIds[0]} onChange={(url) => setField("mediaIds", [url])} className="w-full aspect-square" />
-              </div>
+              </div>}
               <div className="grid gap-4 md:grid-cols-2 h-fit">
                 {isEditing && (
-                  <Field label="Mã sản phẩm">
-                    <input readOnly value={form.productCode} className={inputClassName("bg-slate-50 text-slate-500 font-mono")} />
+                  <Field label={isService ? "Mã dịch vụ" : "Mã hàng hóa"}>
+                    <input readOnly value={form.productCode} className={inputClassName("bg-surface text-on-surface-variant")} />
                   </Field>
                 )}
-                <Field label="Tên sản phẩm / Đời máy *">
+                <Field label={isService ? "Tên dịch vụ *" : "Tên hàng hóa *"}>
                   <input
                     required
                     value={form.name}
                     onChange={(event) => setField("name", event.target.value)}
                     className={inputClassName()}
-                    placeholder="VD: iPhone 16 Pro Max, Củ sạc 65W GaN..."
+                    placeholder={isService ? "Ví dụ: Lắp đặt tại nhà" : "Ví dụ: Áo thun cotton"}
                   />
                 </Field>
-                <Field label="Loại sản phẩm">
-                  <Dropdown<ProductCatalogType>
-                    disabled={isEditing}
-                    value={form.productType}
-                    onChange={(productType) => {
-                      setField("productType", productType);
-                      setVariant((current) => ({
-                        ...current,
-                        trackingMode: productType === "service" ? "none" : current.trackingMode === "none" ? "quantity" : current.trackingMode,
-                      }));
-                    }}
-                    options={typeOptions}
-                    variant="form"
-                    size="md"
-                    className="w-full"
-                    triggerClassName="w-full text-xs font-medium"
-                  />
-                </Field>
-                <Field label="Thể loại / thư mục *">
+                <Field label={isService ? "Nhóm dịch vụ *" : "Nhóm hàng *"}>
                   <div className="space-y-1">
                     <Dropdown<string>
                       value={form.categoryCode}
                       onChange={handleCategoryChange}
                       options={categoryDropdownOptions}
-                      placeholder="-- Chọn thể loại / thư mục --"
+                      aria-label={isService ? "Nhóm dịch vụ" : "Nhóm hàng"}
+                      placeholder={isService ? "Chọn nhóm dịch vụ" : "Chọn nhóm hàng"}
                       searchable={true}
                       searchPlaceholder="Tìm thể loại / thư mục..."
                       variant="form"
                       size="md"
                       className="w-full"
                       triggerClassName="w-full text-xs font-medium"
+                      actionButton={onCreateCategory ? { label: "Thêm nhóm", onClick: onCreateCategory } : undefined}
                     />
-                    {selectedCategoryObj?.defaultTrackingMode && (
+                    {!isService && selectedCategoryObj?.defaultTrackingMode && (
                       <p className="text-[11px] text-cyan-700 flex items-center gap-1 font-medium">
                         <CheckCircle2 className="h-3 w-3" />
                         Hình thức quản lý kho mặc định:{" "}
@@ -782,7 +819,7 @@ export function ProductEditorModal({
                     value={form.baseUnitCode}
                     onChange={handleBaseUnitChange}
                     options={unitDropdownOptions}
-                    placeholder="Chọn đơn vị tính"
+                    placeholder={isService ? "Chọn đơn vị như buổi, lượt, gói" : "Chọn đơn vị tính"}
                     searchable={unitDropdownOptions.length > 8}
                     searchPlaceholder="Tìm đơn vị tính..."
                     variant="form"
@@ -821,7 +858,7 @@ export function ProductEditorModal({
                           onKeyDown={(event) => {
                             if (event.key === "Enter") { event.preventDefault(); void handleQuickCreateUnit(); }
                           }}
-                          placeholder="Ví dụ: Cái, Hộp, Kilogram"
+                          placeholder={isService ? "Ví dụ: Buổi, Lượt, Gói" : "Ví dụ: Cái, Hộp, Kilogram"}
                           className={inputClassName()}
                         />
                       </Field>
@@ -832,7 +869,7 @@ export function ProductEditorModal({
                           onKeyDown={(event) => {
                             if (event.key === "Enter") { event.preventDefault(); void handleQuickCreateUnit(); }
                           }}
-                          placeholder="Ví dụ: cái, hộp, kg"
+                          placeholder={isService ? "Ví dụ: buổi, lượt, gói" : "Ví dụ: cái, hộp, kg"}
                           className={inputClassName()}
                         />
                       </Field>
@@ -880,27 +917,9 @@ export function ProductEditorModal({
                     </div>
                   </div>
                 )}
-                <Field label="Thương hiệu / Hãng">
-                  <Dropdown<string>
-                    value={form.brandCode}
-                    onChange={(val) => setField("brandCode", val)}
-                    options={brandDropdownOptions}
-                    searchable={localBrands.length > 8}
-                    searchPlaceholder="Tìm hãng..."
-                    placeholder="Không chọn thương hiệu"
-                    variant="form"
-                    size="md"
-                    className="w-full"
-                    triggerClassName="w-full text-xs font-medium"
-                    actionButton={{
-                      label: "Tạo nhanh nhà cung cấp / hãng",
-                      icon: <Plus className="h-3.5 w-3.5 text-cyan-600" />,
-                      onClick: () => setIsQuickCreatingBrand(true),
-                    }}
-                  />
-                </Field>
                 <Field label="Trạng thái">
                   <Dropdown<ProductCatalogStatus>
+                    aria-label="Trạng thái"
                     value={form.status}
                     onChange={(status) => setField("status", status)}
                     options={statusDropdownOptions}
@@ -910,20 +929,59 @@ export function ProductEditorModal({
                     triggerClassName="w-full text-xs font-medium"
                   />
                 </Field>
-                <Field label="Bảo hành khách hàng (tháng)">
+                {!isService && <Field label="Bảo hành khách hàng (tháng)">
                   <NumberInput value={form.warrantyMonths} onChange={(value) => setField("warrantyMonths", value)} className={inputClassName()} placeholder="0" />
-                </Field>
+                </Field>}
+                {!isEditing && !isService && <Field label="Theo dõi kho">
+                  <Dropdown<ProductTrackingMode> aria-label="Theo dõi kho" value={variant.trackingMode}
+                    onChange={trackingMode => setVariant(current => ({ ...current, trackingMode }))}
+                    options={Object.entries(trackingLabels).map(([value, label]) => ({ value: value as ProductTrackingMode, label }))}
+                    variant="form" size="md" className="w-full" />
+                </Field>}
+                {branchId && appliesAtBranch
+                  && (isEditing ? singleVariant?.status === "active" : !options.some(option => option.values.length)) && (
+                  <Field label={branchName ? `Giá bán tại ${branchName} (₫)` : "Giá bán tại chi nhánh (₫)"}>
+                    <input type="number" min="0" step="1" inputMode="numeric"
+                      value={priceDraft ?? existingPrice?.sellingPrice ?? ""}
+                      disabled={form.status !== "active" || (isEditing && !pricesReady)}
+                      onChange={event => setPriceDraft(event.target.value)}
+                      className={inputClassName("disabled:opacity-70")}
+                      placeholder={form.status === "active" ? "Nhập giá bán" : "Chọn trạng thái Đang kinh doanh"} />
+                  </Field>
+                )}
               </div>
             </div>
+            {isService && branches.length > 0 && <fieldset className="space-y-2 rounded-lg border border-outline-variant px-3 pb-3">
+              <legend className="px-1 text-xs font-medium text-on-surface-variant">Cơ sở cung cấp</legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="service-branch-scope" checked={!serviceBranchIds.length} className="accent-primary"
+                  onChange={() => { setServiceBranchIds([]); setServiceBranchesChanged(true); }} /> Tất cả cơ sở
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="service-branch-scope" checked={serviceBranchIds.length > 0} className="accent-primary"
+                  onChange={() => { setServiceBranchIds([branches.find(branch => branch._id === branchId)?._id ?? branches[0]._id]); setServiceBranchesChanged(true); }} /> Chọn cơ sở
+              </label>
+              {serviceBranchIds.length > 0 && <div className="grid gap-2 pl-5 sm:grid-cols-2">
+                {branches.map(branch => <label key={branch._id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={serviceBranchIds.includes(branch._id)}
+                    disabled={visibleServiceBranchCount === 1 && serviceBranchIds.includes(branch._id)}
+                    className="accent-primary" onChange={event => {
+                      setServiceBranchIds(ids => {
+                        const visible = ids.filter(id => branches.some(item => item._id === id));
+                        return event.target.checked ? [...visible, branch._id] : visible.filter(id => id !== branch._id);
+                      });
+                      setServiceBranchesChanged(true);
+                    }} />
+                  {branch.name}
+                </label>)}
+              </div>}
+            </fieldset>}
           </div>
 
           {/* Khối 2: Bộ sinh Ma trận Biến thể (Khi tạo mới sản phẩm) */}
-          {!isEditing && (
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">2</span>
-                <span className="text-sm font-semibold text-slate-900">Thiết lập thuộc tính sản phẩm</span>
-              </div>
+          {!isEditing && !isService && (
+            <details className="space-y-3 rounded-lg border border-outline-variant p-3">
+              <summary className="cursor-pointer text-sm font-medium text-on-surface">Biến thể và thuộc tính</summary>
               <VariantMatrixBuilder
                 options={options}
                 setOptions={setOptions}
@@ -934,27 +992,23 @@ export function ProductEditorModal({
                 onTrackingModeChange={(mode) => setVariant((c) => ({ ...c, trackingMode: mode }))}
                 baseSku={form.productCode || form.name}
               />
-            </div>
+            </details>
           )}
 
           {/* Khối 2: Quản lý Biến thể & Ma trận SKU khi đang Edit sản phẩm */}
           {isEditing && (
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">2</span>
-                  <span className="text-sm font-semibold text-slate-900">
-                    {variantTab === "matrix" ? "Tạo phiên bản hàng loạt" : `Danh sách phiên bản SKU (${currentProduct!.variants.length})`}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
+            <details className="space-y-4 rounded-lg border border-outline-variant p-3">
+              <summary className="cursor-pointer text-sm font-medium text-on-surface">
+                {isService ? "Phiên bản và giá" : "Biến thể"} ({currentProduct!.variants.length})
+              </summary>
+              <div className="flex flex-wrap items-center justify-end gap-2">
                   {variantTab === "list" ? (
                     <>
                       <div className="relative">
                         <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                         <input
                           type="text"
+                          aria-label="Tìm SKU hoặc tên biến thể"
                           value={variantQuery}
                           onChange={(e) => setVariantQuery(e.target.value)}
                           placeholder="Tìm SKU, tên biến thể..."
@@ -992,20 +1046,19 @@ export function ProductEditorModal({
                       &larr; Quay lại danh sách SKU ({currentProduct!.variants.length})
                     </button>
                   )}
-                </div>
               </div>
 
               {variantTab === "list" ? (
                 <>
-                  <div className="overflow-hidden rounded-lg border border-slate-200">
-                    <table className="w-full text-left text-sm">
+                  <div className="overflow-x-auto rounded-lg border border-outline-variant">
+                    <table className="w-full min-w-[500px] text-left text-sm">
                       <thead className="bg-slate-50 text-xs font-semibold text-slate-600 uppercase">
                         <tr>
                           <th className="px-3 py-2.5 w-[50px]">Ảnh</th>
                           <th className="px-3 py-2.5">Mã SKU</th>
                           <th className="px-3 py-2.5">Tên biến thể</th>
                           <th className="px-3 py-2.5">Giá bán</th>
-                          <th className="px-3 py-2.5">Theo dõi kho</th>
+                          {!isService && <th className="px-3 py-2.5">Theo dõi kho</th>}
                           <th className="px-3 py-2.5">Trạng thái</th>
                           <th className="px-3 py-2.5 text-right">Thao tác</th>
                         </tr>
@@ -1013,7 +1066,7 @@ export function ProductEditorModal({
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {visibleVariants.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                            <td colSpan={isService ? 6 : 7} className="py-8 text-center text-xs text-on-surface-variant">
                               {variantQuery ? "Không tìm thấy SKU nào khớp với tìm kiếm." : "Sản phẩm chưa có biến thể nào."}
                             </td>
                           </tr>
@@ -1049,9 +1102,9 @@ export function ProductEditorModal({
                                   Vốn: {pricesByVariant[item._id]?.costPrice ? `${pricesByVariant[item._id].costPrice.toLocaleString("vi-VN")} ₫` : "0 ₫"}
                                 </div>
                               </td>
-                              <td className="px-3 py-2.5 text-xs text-slate-500">
+                              {!isService && <td className="px-3 py-2.5 text-xs text-slate-500">
                                 <span className="bg-slate-100 px-2 py-0.5 rounded">{trackingLabels[item.trackingMode]}</span>
-                              </td>
+                              </td>}
                               <td className="px-3 py-2.5">
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${item.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                                   {item.status === "active" ? "Đang dùng" : "Ngừng dùng"}
@@ -1155,50 +1208,66 @@ export function ProductEditorModal({
                   </div>
                 </div>
               )}
-            </div>
+            </details>
           )}
 
           {/* Khối 3: Thông tin mở rộng */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-            <h4 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">3</span>
-              Thông tin mở rộng &amp; Mô tả
-            </h4>
+          <details className="space-y-3 rounded-lg border border-outline-variant p-3">
+            <summary className="cursor-pointer text-sm font-medium text-on-surface">Mô tả và thông tin bổ sung</summary>
             <div className="grid gap-4 md:grid-cols-2">
+            {!isService && <Field label="Thương hiệu / Hãng">
+              <Dropdown<string>
+                value={form.brandCode}
+                onChange={(val) => setField("brandCode", val)}
+                options={brandDropdownOptions}
+                searchable={localBrands.length > 8}
+                searchPlaceholder="Tìm hãng..."
+                placeholder="Không chọn thương hiệu"
+                variant="form"
+                size="md"
+                className="w-full"
+                triggerClassName="w-full text-xs font-medium"
+                actionButton={{
+                  label: "Tạo nhanh nhà cung cấp / hãng",
+                  icon: <Plus className="h-3.5 w-3.5 text-cyan-600" />,
+                  onClick: () => setIsQuickCreatingBrand(true),
+                }}
+              />
+            </Field>}
               <Field label="Mô tả ngắn">
                 <input value={form.shortDescription} onChange={(event) => setField("shortDescription", event.target.value)} className={inputClassName()} placeholder="Tóm tắt tính năng chính" />
               </Field>
-              <Field label="Nhà sản xuất">
+              {!isService && <Field label="Nhà sản xuất">
                 <input value={form.manufacturer} onChange={(event) => setField("manufacturer", event.target.value)} className={inputClassName()} />
-              </Field>
-              <Field label="Xuất xứ">
+              </Field>}
+              {!isService && <Field label="Xuất xứ">
                 <input value={form.countryOfOrigin} onChange={(event) => setField("countryOfOrigin", event.target.value)} className={inputClassName()} />
-              </Field>
+              </Field>}
               <Field label="Nhóm thuế">
                 <input value={form.taxCategory} onChange={(event) => setField("taxCategory", event.target.value)} className={inputClassName()} />
               </Field>
             </div>
             <Field label="Mô tả chi tiết">
-              <textarea rows={3} value={form.description} onChange={(event) => setField("description", event.target.value)} className={inputClassName("resize-y font-sans")} placeholder="Chi tiết sản phẩm..." />
+              <textarea rows={3} value={form.description} onChange={(event) => setField("description", event.target.value)} className={inputClassName("resize-y font-sans")} placeholder={isService ? "Nội dung dịch vụ..." : "Chi tiết hàng hóa..."} />
             </Field>
-          </div>
+          </details>
 
           {/* Sticky Footer */}
-          <div className="sticky bottom-0 -mx-5 -mb-5 mt-8 flex justify-end gap-3 rounded-b-lg border-t border-slate-200 bg-white px-5 py-4 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)]">
+          <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-3 rounded-b-lg border-t border-outline-variant bg-surface-container-lowest px-5 py-4">
             <button
               type="button"
               disabled={submitting}
               onClick={onClose}
-              className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              className="rounded-lg border border-outline-variant px-5 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-cyan-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800 shadow-sm transition-colors disabled:opacity-60"
+              className={primaryCreateButtonClass}
             >
-              {submitting ? "Đang lưu..." : isEditing ? "Lưu thay đổi" : `Tạo sản phẩm ${variantsMatrix.length > 0 ? `(${variantsMatrix.length} SKU)` : ""}`}
+              {submitting ? "Đang lưu…" : isEditing ? "Lưu thay đổi" : isService ? "Thêm dịch vụ" : variantsMatrix.length ? `Thêm hàng hóa (${variantsMatrix.length} SKU)` : "Thêm hàng hóa"}
             </button>
           </div>
         </form>

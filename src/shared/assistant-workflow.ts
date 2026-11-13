@@ -102,6 +102,23 @@ export interface AssistantTrainingContentForm {
   lessons: AssistantTrainingLessonAnswer[];
   quizzes: AssistantTrainingQuizAnswer[];
 }
+export interface AssistantQuotationAcceptanceLine {
+  lineIndex: number;
+  name: string;
+  sku?: string;
+  description?: string;
+  unit: string;
+  contractQuantity: number;
+  acceptedQuantity?: number;
+  acceptedDetails?: string;
+}
+export interface AssistantQuotationAcceptanceForm {
+  contractNumber: string;
+  lines: AssistantQuotationAcceptanceLine[];
+}
+export interface AssistantQuotationAcceptanceLinesInput {
+  lines: Array<{ lineIndex: number; acceptedQuantity: number; acceptedDetails?: string }>;
+}
 export interface AssistantReply {
   reply: string;
   files?: AssistantGeneratedFile[];
@@ -111,6 +128,7 @@ export interface AssistantReply {
   action?: { requiresPassword?: boolean; id: string; title: string; values: { label: string; value: AssistantValue; defaulted?: boolean }[] };
   referenceSelections?: AssistantReferenceSelection[];
   trainingContentForm?: AssistantTrainingContentForm;
+  quotationAcceptanceForm?: AssistantQuotationAcceptanceForm;
   link?: string;
 }
 

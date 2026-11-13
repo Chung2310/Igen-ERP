@@ -2,7 +2,7 @@ import "../../shared/marketing-workspace.css";
 import "../crm-workspace.css";
 import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
-import { Zap, MessageSquare, Users } from "lucide-react";
+import { Zap, MessageSquare, Settings2, Users } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
 import { toast } from "../../../../pages/Toast";
 import { crmService, ExtendedLeadCard } from "../services/crmService";
@@ -55,6 +55,9 @@ const LeadTable = lazy(() =>
     default: module.LeadTable,
   }))
 );
+const LeadIntakeBuilderModal = lazy(() =>
+  import("../components/crm/LeadIntakeBuilderModal").then(module => ({ default: module.LeadIntakeBuilderModal }))
+);
 const OmniChatTab = lazy(() =>
   import("../components/crm/OmniChatTab").then((module) => ({
     default: module.OmniChatTab,
@@ -79,6 +82,7 @@ export default function CRMTab() {
   // Lead records are shared with the conversation inbox and shown in the sheet-style Lead table.
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
   const [leadSheetRefreshToken, setLeadSheetRefreshToken] = useState(0);
+  const [inboxLeadSettingsScope, setInboxLeadSettingsScope] = useState<string | null>(null);
 
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT") return;
@@ -106,7 +110,7 @@ export default function CRMTab() {
   const [selectedInboxCustId, setSelectedInboxCustId] = useState("");
 
   // 2. Omni-Inbox States
-  const { userProfile, updateAiAutoReplyConfig } = useAuth();
+  const { userProfile, hasPermission, updateAiAutoReplyConfig } = useAuth();
   const branchContext = useBranchOptional();
   const [companySocialIntegrations, setCompanySocialIntegrations] = useState<SocialIntegration[]>([]);
 
@@ -1519,6 +1523,15 @@ export default function CRMTab() {
     [],
   );
   const hasSelectableChannels = facebookPages.length > 0 || zaloAccounts.length > 0 || tiktokAccounts.length > 0;
+  const canConfigureInboxLead = subTab === "OMNI-INBOX CHAT" && hasPermission("omni-inbox:manage");
+
+  const openInboxLeadSettings = () => {
+    const channel = activeCustomer?.channel || activeChannel;
+    const accountId = activeCustomer?.accountId || activeCustomer?.pageId || leadAccountId;
+    const account = leadSheetAccounts.find(item => item.platform === channel && item.accountId === accountId)
+      ?? (leadSheetAccounts.length === 1 ? leadSheetAccounts[0] : undefined);
+    setInboxLeadSettingsScope(account ? `${account.platform}:${account.accountId}` : "company");
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the source UI's selector closure when linked accounts become unavailable.
@@ -1530,8 +1543,13 @@ export default function CRMTab() {
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
-      <ModuleNavigation label="Mục CRM" activeValue={subTab} id="crm_sub_tabs_switch" actions={hasSelectableChannels && <div className="flex items-center gap-2 relative">
-          <div className="flex items-center gap-1.5" id="inbox_channel_filters">
+      <ModuleNavigation label="Mục CRM" activeValue={subTab} id="crm_sub_tabs_switch" actions={(hasSelectableChannels || canConfigureInboxLead) && <div className="relative flex flex-wrap items-center gap-2">
+          {canConfigureInboxLead && <button type="button" aria-haspopup="dialog" onClick={openInboxLeadSettings}
+            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary">
+            <Settings2 aria-hidden="true" className="size-4 text-primary" />
+            Thu thập Lead
+          </button>}
+          {hasSelectableChannels && <div className="flex items-center gap-1.5" id="inbox_channel_filters">
             {/* Unified Account Selector Button */}
             <div className="relative">
               <button
@@ -1670,7 +1688,7 @@ export default function CRMTab() {
                   document.body,
                 )}
             </div>
-          </div>
+          </div>}
         </div>}>
         {[
           { key: "LEAD" as CRMSubTabType, label: "Lead", icon: Users },
@@ -1749,6 +1767,19 @@ export default function CRMTab() {
           )}
         </Suspense>
       </div>
+
+      {inboxLeadSettingsScope !== null && <Suspense fallback={null}>
+        <LeadIntakeBuilderModal
+          isOpen
+          accounts={leadSheetAccounts}
+          initialAccountKey={inboxLeadSettingsScope}
+          onClose={() => setInboxLeadSettingsScope(null)}
+          onSaved={() => {
+            setLeadSheetRefreshToken(current => current + 1);
+            toast.success("Đã cập nhật cấu hình Lead.");
+          }}
+        />
+      </Suspense>}
 
       <ErpModal isOpen={showCreateLeadModal} title="Thêm Lead" maxWidth="max-w-xl" onClose={() => { resetNewLeadForm(); setShowCreateLeadModal(false); }}>
         <form onSubmit={handleCreateLead} className="space-y-4">

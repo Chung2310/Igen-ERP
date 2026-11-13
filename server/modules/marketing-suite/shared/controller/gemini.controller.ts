@@ -717,11 +717,27 @@ export const geminiController = {
         companyCode,
       }));
 
-      let result = await withChatAiTrace<ChatReply>(aiTrace, () => geminiService.chat(message, preview.history, aiConfig.imageReplyEnabled
+      const intakeFlow = preview.platformId && preview.channel !== "tiktok"
+        ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, preview.platformId, preview.channel)
+        : undefined;
+      const leadPreview = intakeFlow?.key === "page-intake" ? await intakeFlow.process({
+        companyCode, pageId: preview.platformId!, platform: preview.channel,
+        conversationId: conversationId || preparedReplyContext.sourceMessageId,
+        messageId: preparedReplyContext.sourceMessageId, message, history: preview.history,
+        imageUrls: [], simulationMode: true,
+        replyDeadlineAt: Math.min(effectiveRagContext.replyDeadlineAt ?? Infinity, Date.now() + 12_000),
+      }).catch(error => {
+        console.warn("[geminiController.testReply] Lead preview extraction failed:", error?.name);
+        return undefined;
+      }) : undefined;
+      const leadIntake = leadPreview?.leadIntake ?? (intakeFlow?.key === "page-intake"
+        ? { status: "inactive" as const, goal: "", collected: {}, missingRequiredFields: [] }
+        : undefined);
+      let result = await withChatAiTrace<ChatReply>(aiTrace, () => geminiService.chat(message, preview.history, aiConfig.imageReplyEnabled || leadIntake
         ? { ...aiConfig, advancedInstructions: buildChatConversationInstructions(String(aiConfig.advancedInstructions || "")) }
-        : aiConfig, effectiveRagContext));
-      const orderPreview = channel === "facebook" && conversationId && preview.pageId && result.visual
-        ? await withChatAiTrace(aiTrace, async () => chatOrderFlowRegistry.resolve(companyCode).preview?.({
+        : aiConfig, { ...effectiveRagContext, leadIntake }));
+      const orderPreview = intakeFlow?.key !== "page-intake" && channel === "facebook" && conversationId && preview.pageId && result.visual
+        ? await withChatAiTrace(aiTrace, async () => chatOrderFlowRegistry.resolve(companyCode)?.preview?.({
           companyCode, pageId: preview.pageId, conversationId, message,
           messageId: preparedReplyContext.sourceMessageId,
           imageUrls: preparedReplyContext.memoryImages.flatMap(image => image.url ? [image.url] : []),

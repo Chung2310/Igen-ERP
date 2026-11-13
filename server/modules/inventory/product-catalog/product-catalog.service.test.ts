@@ -19,6 +19,12 @@ test("bulk SKU creation uses ordered writes inside a transaction", () => {
   assert.ok(bulkVariantCreates.length >= 2);
 });
 
+test("service facilities are deduplicated and must be branch identifiers", () => {
+  const id = "0123456789ABCDEF01234567";
+  assert.deepEqual(normalizeProductInput({ serviceBranchIds: [id, id.toLowerCase()] }, true).serviceBranchIds, [id.toLowerCase()]);
+  assert.throws(() => normalizeProductInput({ serviceBranchIds: ["branch name"] }, true), ProductCatalogValidationError);
+});
+
 test("catalog scope and codes are normalized centrally", () => {
   assert.equal(normalizeCompanyCode(" acme "), "ACME");
   assert.equal(normalizeCode(" sku-001 ", "SKU"), "SKU-001");

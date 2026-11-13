@@ -5,6 +5,8 @@ export function quotationIntent(text: string): { domain: boolean; actionId?: str
   const domain = /\b(?:bao gia|du toan|bang gia|nghiem thu|quyet toan)\b/.test(t) || /\b(?:bg|nt)-[\w-]+/i.test(t);
   if (!domain || /\b(?:la gi|huong dan|cach (?:tao|lap|su dung))\b/.test(t)) return { domain: false };
   const create = /\b(?:tao|lap|them|nhap moi)\b/.test(t);
+  const estimateFromQuote = /\b(?:tu|theo) bao gia\b/.test(t);
+  const estimateFromAnalyzedRequest = /\byeu cau da (?:duoc )?phan tich\b/.test(t);
   const update = /\b(?:cap nhat|sua|chinh sua|bo sung|thay doi)\b/.test(t);
   const remove = /\b(?:xoa|go bo)\b/.test(t);
   const exportFile = /\b(?:xuat|tai|download)\b/.test(t) && /\b(?:file|tep|excel|xlsx|word|docx|pdf|tai lieu|quyet toan|bao gia|du toan|hop dong|nghiem thu|phuong an)\b/.test(t);
@@ -33,7 +35,7 @@ export function quotationIntent(text: string): { domain: boolean; actionId?: str
   else if (exportFile) id = /\bpdf\b/.test(t) ? "quote.pdf" : "quote.export";
   else if (remove) id = "quote.delete";
   else if (update) id = "quote.update";
-  else if (create) id = /\bdu toan\b/.test(t) ? /\btu bao gia\b/.test(t) ? "estimate.from-customer" : "estimate.create" : "customer-quote.create";
+  else if (create) id = /\bdu toan\b/.test(t) ? estimateFromQuote ? "estimate.from-customer" : estimateFromAnalyzedRequest ? "estimate.create" : "request.create" : "customer-quote.create";
   else if (/\b(?:de xuat|goi y)\b/.test(t)) id = "customer-quote.suggest";
   else if (/\b(?:chi tiet|thong tin)\b/.test(t)) id = "quote.detail";
   else if (/\b(?:xem|tra cuu|danh sach|liet ke|tim)\b/.test(t)) id = "quote.list";

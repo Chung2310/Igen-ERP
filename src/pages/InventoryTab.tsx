@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { CheckCircle, FolderTree, Pencil, Plus, Search, Tags, Trash2, Package, ArrowLeftRight, Warehouse, PackagePlus, Barcode, PackageMinus, ClipboardList, TrendingUp } from "lucide-react";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
@@ -24,6 +24,8 @@ import { SerialRegistrySection } from "../components/inventory/SerialRegistrySec
 import { OutboundSection } from "../components/inventory/OutboundSection";
 import { InventoryTransferSection } from "../components/inventory/InventoryTransferSection";
 import { ConfirmationProvider } from "../context/ConfirmationContext";
+import { productCatalogService } from "../services/productCatalogService";
+import type { CatalogWorkspaceSettings } from "../../shared/inventory/catalog-workspace";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -73,8 +75,16 @@ export default function InventoryTab() {
 
 function InventoryWorkspace() {
   const { user, hasPermission } = useAuth();
-  const { activeBranchId, loading: branchLoading } = useBranch();
+  const { activeBranchId, activeBranch, branches, loading: branchLoading } = useBranch();
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
+  const [workspace, setWorkspace] = useState<CatalogWorkspaceSettings>();
+  const [workspaceError, setWorkspaceError] = useState(false);
+  const workspaceRequest = useRef<AbortController | null>(null);
+  const showStock = Boolean(workspace && workspace.mode !== "services");
+  const isHiddenStockTab = Boolean(workspace && (workspace.mode === "services"
+    || (subTab === "IMEI / SERIAL" && !workspace.hasSerial)));
+  const isCatalogTab = subTab === "SẢN PHẨM" || isHiddenStockTab || (!workspace && workspaceError);
+  const catalogLabel = workspace?.mode === "services" ? "Dịch vụ" : workspace?.mode === "mixed" ? "Sản phẩm & dịch vụ" : "Hàng hóa";
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
@@ -94,6 +104,35 @@ function InventoryWorkspace() {
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
+  const refreshWorkspace = useCallback(async () => {
+    workspaceRequest.current?.abort();
+    const controller = new AbortController();
+    workspaceRequest.current = controller;
+    try {
+      const result = await productCatalogService.getWorkspace(controller.signal);
+      if (!controller.signal.aborted) {
+        setWorkspace(result);
+        setWorkspaceError(false);
+      }
+    } catch {
+      if (!controller.signal.aborted) setWorkspaceError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshWorkspace();
+    return () => workspaceRequest.current?.abort();
+  }, [refreshWorkspace]);
+
+  useEffect(() => {
+    if (isHiddenStockTab && subTab !== "SẢN PHẨM") setSubTab("SẢN PHẨM");
+  }, [isHiddenStockTab, subTab, setSubTab]);
+
+  const applySavedWorkspace = (settings: CatalogWorkspaceSettings) => {
+    workspaceRequest.current?.abort();
+    setWorkspace(settings);
+    setWorkspaceError(false);
+  };
 
   useEffect(() => {
     if (!user) {
@@ -122,7 +161,7 @@ function InventoryWorkspace() {
       return;
     }
 
-    if (branchLoading || !activeBranchId) {
+    if (!showStock || branchLoading || !activeBranchId) {
       if (!branchLoading) {
         setStockLogLoading(false);
       }
@@ -157,7 +196,7 @@ function InventoryWorkspace() {
       unsubscribeProducts();
       unsubscribeStockLogs();
     };
-  }, [user, activeBranchId, branchLoading]);
+  }, [user, activeBranchId, branchLoading, showStock]);
 
   const forecastSummary = useMemo<InventoryForecastSummary>(
     () => buildInventoryForecast(products, stockLogs),
@@ -666,17 +705,21 @@ function InventoryWorkspace() {
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
       <ModuleNavigation
         label="Mục Kho & Sản phẩm"
-        activeValue={subTab}
+        activeValue={isCatalogTab ? "SẢN PHẨM" : subTab}
         id="inventory_tabs_switch"
       >
-        {[
-          { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
+        <ModuleNavigationButton active={isCatalogTab} icon={<Package />} onClick={() => setSubTab("SẢN PHẨM")}>
+          {catalogLabel}
+        </ModuleNavigationButton>
+        {workspace && showStock && <>
+          <span aria-hidden="true" className="hidden px-3 pb-1 pt-3 text-xs font-medium text-on-surface-variant lg:block [[data-collapsed=true]_&]:lg:hidden">Vận hành kho</span>
+          {[
           { id: "KHO HÀNG", label: "Kho hàng", icon: Warehouse },
           { id: "NHẬP HÀNG", label: "Nhập hàng", icon: PackagePlus },
-          { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Barcode },
           { id: "XUẤT HÀNG", label: "Xuất hàng", icon: PackageMinus },
           { id: "ĐIỀU CHUYỂN", label: "Điều chuyển", icon: ArrowLeftRight },
           { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ClipboardList },
+          ...(workspace.hasSerial ? [{ id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Barcode }] : []),
           { id: "DỰ BÁO", label: "Dự báo", icon: TrendingUp },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -690,20 +733,36 @@ function InventoryWorkspace() {
               {tab.label}
             </ModuleNavigationButton>
           );
-        })}
+          })}
+        </>}
       </ModuleNavigation>
 
       <div className="inventory-workspace min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" id="inventory_tab_content">
-        {subTab === "SẢN PHẨM" && (
+        {!workspace && !workspaceError && <p role="status" className="p-4 text-sm text-on-surface-variant">Đang tải danh mục…</p>}
+        {workspaceError && <div role="status" className="mb-3 flex items-center gap-3 text-sm text-on-surface-variant">
+          Chưa tải được thiết lập danh mục.
+          <button type="button" className="font-medium text-primary underline" onClick={() => void refreshWorkspace()}>Thử lại</button>
+        </div>}
+        {(workspace || workspaceError) && isCatalogTab && (
           <div className="space-y-6" id="product_catalog_menu">
-            <ProductCatalogV2Section />
+            <ProductCatalogV2Section
+              workspace={workspace ?? { mode: "mixed", configured: false, hasSerial: false }}
+              branchId={activeBranchId}
+              branchName={activeBranch?.name}
+              branches={branches}
+              canManage={hasPermission?.("inventory:manage") || false}
+              canConfigureWorkspace={!workspaceError && (hasPermission?.("settings:manage") || false)}
+              onWorkspaceSaved={applySavedWorkspace}
+              onCatalogChanged={refreshWorkspace}
+            />
           </div>
         )}
 
+        {workspace && showStock && <>
         {subTab === "KHO HÀNG" && <WarehouseSection />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
         {subTab === "ĐIỀU CHUYỂN" && activeBranchId && <InventoryTransferSection key={activeBranchId} branchId={activeBranchId} canManage={hasPermission?.("inventory:manage") || false} />}
-        {subTab === "IMEI / SERIAL" && <SerialRegistrySection key={activeBranchId} onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
+        {subTab === "IMEI / SERIAL" && workspace.hasSerial && <SerialRegistrySection key={activeBranchId} onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">
@@ -909,6 +968,7 @@ function InventoryWorkspace() {
             />
           )}
         </Suspense>
+        </>}
       </div>
 
       {showCategoryModal && (

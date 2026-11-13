@@ -32,7 +32,8 @@ describe("AssistantTools", () => {
     expect(screen.getByText("Giải thích công thức Excel")).toBeTruthy();
 
     await user.click(screen.getByText("Giải thích công thức Excel"));
-    expect((screen.getByRole("button", { name: "Sử dụng công cụ" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("Công cụ đang chờ kết nối để sử dụng.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Giải thích công thức Excel" }).tagName).toBe("H3");
+    expect(screen.getByRole("textbox", { name: /Công thức cần giải thích/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sử dụng công cụ" })).toBeNull();
   });
 });

@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
+import { AssistantAgentIcon } from "./AssistantAgentIcon";
 
 export type AssistantSidebarIconName =
   | "chat" | "studio" | "notebook" | "meeting" | "assistant"
-  | "project" | "tools" | "history" | "settings";
+  | "project" | "tools" | "agents" | "history" | "settings";
 
-const artwork: Record<AssistantSidebarIconName, ReactNode> = {
+const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = {
   chat: <>
     <path d="M6.25 4.75h11.5a2.75 2.75 0 0 1 2.75 2.75v7.75A2.75 2.75 0 0 1 17.75 18H9l-4.75 3v-13.5a2.75 2.75 0 0 1 2-2.65Z" />
     <path d="M8.5 9h7m-7 3.5h5" />
@@ -49,6 +50,7 @@ const artwork: Record<AssistantSidebarIconName, ReactNode> = {
 };
 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
+  if (name === "agents") return <AssistantAgentIcon />;
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
   </svg>;
