@@ -8,6 +8,7 @@ import { WarehouseModel } from "../../../model/warehouse.model";
 import { ProductModel } from "../../../model/product.model";
 import { SerialUnitModel } from "../serials/serial-unit.model";
 import { readCatalogBranchSummaries, readCatalogWorkspace, updateCatalogWorkspace } from "./catalog-workspace.service";
+import type { InventoryWorkspaceMode } from "../../../../shared/inventory/catalog-workspace";
 
 vi.mock("../../../model/company.model", () => ({ CompanyModel: { findOne: vi.fn(), updateOne: vi.fn() } }));
 vi.mock("../../../model/product-catalog.model", () => ({ ProductCatalogModel: { exists: vi.fn() } }));
@@ -35,11 +36,26 @@ describe("catalog workspace", () => {
   it("validates and persists mode only for the current company", async () => {
     await expect(updateCatalogWorkspace("ACME", "anything")).rejects.toMatchObject({ statusCode: 400 });
     expect(CompanyModel.updateOne).not.toHaveBeenCalled();
-    vi.mocked(CompanyModel.findOne).mockReturnValue(result({ inventoryWorkspaceMode: "services" }));
     vi.mocked(CompanyModel.updateOne).mockResolvedValue({ matchedCount: 1 } as never);
     vi.mocked(SerialUnitModel.exists).mockResolvedValue({ _id: "previous-serial" } as never);
     expect(await updateCatalogWorkspace("ACME", "services")).toEqual({ mode: "services", configured: true, hasSerial: true });
     expect(CompanyModel.updateOne).toHaveBeenCalledWith({ code: "ACME" }, { $set: { inventoryWorkspaceMode: "services" } }, { runValidators: true });
+    expect(CompanyModel.findOne).not.toHaveBeenCalled();
+  });
+
+  it("round-trips repeated mode changes while retaining access to existing serials", async () => {
+    let savedMode: InventoryWorkspaceMode | undefined;
+    vi.mocked(CompanyModel.findOne).mockImplementation(() => result({ inventoryWorkspaceMode: savedMode }));
+    vi.mocked(CompanyModel.updateOne).mockImplementation((_filter, update) => {
+      savedMode = (update as { $set: { inventoryWorkspaceMode: InventoryWorkspaceMode } }).$set.inventoryWorkspaceMode;
+      return Promise.resolve({ matchedCount: 1 }) as never;
+    });
+    vi.mocked(SerialUnitModel.exists).mockResolvedValue({ _id: "previous-serial" } as never);
+    for (const mode of ["services", "mixed", "goods", "services", "goods"] as const) {
+      expect(await updateCatalogWorkspace("ACME", mode)).toEqual({ mode, configured: true, hasSerial: true });
+      expect(await readCatalogWorkspace("ACME")).toEqual({ mode, configured: true, hasSerial: true });
+    }
+    expect(ProductCatalogModel.exists).not.toHaveBeenCalled();
   });
 
   it("reads scoped selling balances and distinguishes service, zero stock and zero price", async () => {

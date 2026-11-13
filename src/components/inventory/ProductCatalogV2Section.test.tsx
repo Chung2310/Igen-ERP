@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductCatalogV2Section } from "./ProductCatalogV2Section";
 import { productCatalogService } from "../../services/productCatalogService";
@@ -159,5 +159,30 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     expect(await screen.findByRole("columnheader", { name: "Cơ sở cung cấp" })).toBeTruthy();
     expect(screen.queryByRole("columnheader", { name: "Tồn khả dụng" })).toBeNull();
     expect(screen.queryByText("Áo thun")).toBeNull();
+  });
+
+  it("discards list results arriving after switching between goods and services", async () => {
+    type CatalogResult = Awaited<ReturnType<typeof productCatalogService.listProducts>>;
+    let finishGoods!: (value: CatalogResult) => void;
+    let finishServices!: (value: CatalogResult) => void;
+    const goodsRequest = new Promise<CatalogResult>(resolve => { finishGoods = resolve; });
+    const serviceRequest = new Promise<CatalogResult>(resolve => { finishServices = resolve; });
+    const service = { ...product, _id: "service-1", name: "Lắp đặt", productType: "service" as const };
+    vi.mocked(productCatalogService.listProducts)
+      .mockReturnValueOnce(goodsRequest)
+      .mockReturnValueOnce(serviceRequest)
+      .mockResolvedValueOnce({ items: [product, service], total: 2, page: 1, limit: 10 });
+    const { rerender } = render(<ProductCatalogV2Section workspace={{ mode: "goods", configured: true, hasSerial: false }} />);
+    rerender(<ProductCatalogV2Section workspace={{ mode: "services", configured: true, hasSerial: false }} />);
+    rerender(<ProductCatalogV2Section workspace={{ mode: "mixed", configured: true, hasSerial: false }} />);
+    await screen.findByText("Lắp đặt");
+    await act(async () => {
+      finishGoods({ items: [product], total: 1, page: 1, limit: 10 });
+      finishServices({ items: [service], total: 1, page: 1, limit: 10 });
+    });
+    expect(screen.getByText("Áo thun")).toBeTruthy();
+    expect(screen.getByText("Lắp đặt")).toBeTruthy();
+    expect(vi.mocked(productCatalogService.listProducts).mock.calls[0]?.[1]?.aborted).toBe(true);
+    expect(vi.mocked(productCatalogService.listProducts).mock.calls[1]?.[1]?.aborted).toBe(true);
   });
 });
