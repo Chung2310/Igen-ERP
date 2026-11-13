@@ -9,6 +9,7 @@ export const ProductPriceService = {
   async list(companyCode: string, branchId: string, query: any = {}) {
     const filter: any = { companyCode, branchId };
     if (query.variantId) filter.variantId = String(query.variantId);
+    if (query.productId) filter.productId = String(query.productId);
     const items = await ProductPriceModel.find(filter).sort({ sku: 1 }).lean();
     return { items };
   },

@@ -1803,6 +1803,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                                 />
                                 : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url) ?? []} illustrations={message.illustrations} /></div>}
                             </div>
+
                             <AssistantResearchSources sources={message.sources} />
                             {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
                             <AssistantMessageActions content={message.content} />

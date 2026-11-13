@@ -2,6 +2,7 @@ import { Schema, model } from "mongoose";
 import { ICompany } from "../interface/company.interface";
 import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/module-keys";
 import { addMarketingCompanyFields } from "../modules/marketing-suite/shared/model/company-integration.schema";
+import { INVENTORY_WORKSPACE_MODES } from "../../shared/inventory/catalog-workspace";
 
 const CompanyDriveOAuthSchema = new Schema(
   {
@@ -84,6 +85,7 @@ const CompanySchema = new Schema<ICompany>({
   createdAt: { type: Date, default: Date.now },
   ownerEmail: { type: String, required: true },
   businessType: { type: String, enum: ["education", "labor", "service", "recruitment", "general"], default: "general", index: true },
+  inventoryWorkspaceMode: { type: String, enum: INVENTORY_WORKSPACE_MODES },
   enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...DEFAULT_MODULE_KEYS] },
   serviceSubscription: { type: ServiceSubscriptionSchema, default: null },
   driveFolderLink: { type: String, default: "" },

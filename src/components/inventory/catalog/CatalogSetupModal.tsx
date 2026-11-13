@@ -51,6 +51,7 @@ interface CatalogSetupModalProps {
   kind: ProductResourceKind | "templates";
   items: Array<ProductResource | ProductTemplate>;
   categories: ProductResource[];
+  servicesOnly?: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }
@@ -59,6 +60,7 @@ export function CatalogSetupModal({
   kind,
   items,
   categories,
+  servicesOnly,
   onClose,
   onSaved,
 }: CatalogSetupModalProps) {
@@ -67,7 +69,7 @@ export function CatalogSetupModal({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [parentCode, setParentCode] = useState("");
-  const [defaultTrackingMode, setDefaultTrackingMode] = useState<ProductTrackingMode>("serial");
+  const [defaultTrackingMode, setDefaultTrackingMode] = useState<ProductTrackingMode>(servicesOnly ? "none" : "quantity");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
   const [attributeType, setAttributeType] = useState<"select" | "multi-select" | "text" | "number">("select");
@@ -77,7 +79,7 @@ export function CatalogSetupModal({
 
   const title =
     kind === "categories"
-      ? "Cây Thư Mục & Thể Loại (Tối đa 3 Cấp)"
+      ? servicesOnly ? "Nhóm dịch vụ" : "Nhóm sản phẩm và dịch vụ"
       : kind === "brands"
         ? "Quản lý Thương hiệu / Hãng"
         : kind === "attributes"
@@ -89,7 +91,7 @@ export function CatalogSetupModal({
     setName("");
     setCode("");
     setParentCode("");
-    setDefaultTrackingMode("serial");
+    setDefaultTrackingMode(servicesOnly ? "none" : "quantity");
     setDescription("");
     setStatus("active");
     setAttributeType("select");
@@ -104,7 +106,7 @@ export function CatalogSetupModal({
     setDescription(item.description || "");
     if (kind === "categories") {
       setParentCode(item.parentCode || "");
-      setDefaultTrackingMode(item.defaultTrackingMode || "serial");
+      setDefaultTrackingMode(item.defaultTrackingMode || (servicesOnly ? "none" : "quantity"));
     } else if (kind === "attributes") {
       setAttributeType(item.type || "select");
       setAttributeOptions(Array.isArray(item.options) ? [...item.options] : []);
@@ -243,7 +245,7 @@ export function CatalogSetupModal({
           name,
           status,
           parentCode: parentCode || undefined,
-          defaultTrackingMode,
+          defaultTrackingMode: servicesOnly && !editingId ? "none" : defaultTrackingMode,
           description,
         };
         if (code) input.code = code;
@@ -461,15 +463,15 @@ export function CatalogSetupModal({
                               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
                                 {root.children.length} mục Cấp 2
                               </span>
-                              <span
+                              {!servicesOnly && <span
                                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                   root.category.defaultTrackingMode === "serial"
                                     ? "bg-cyan-50 text-cyan-700 border border-cyan-200/80"
                                     : "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
                                 }`}
                               >
-                                {trackingLabels[root.category.defaultTrackingMode || "serial"]}
-                              </span>
+                                {trackingLabels[root.category.defaultTrackingMode || "quantity"]}
+                              </span>}
                             </div>
                             {root.category.description && (
                               <p className="text-xs text-slate-500 truncate mt-0.5">{root.category.description}</p>
@@ -730,7 +732,7 @@ export function CatalogSetupModal({
                   onChange={(e) => setName(e.target.value)}
                   className={inputClassName("bg-white")}
                   placeholder={
-                    targetLevel === 1
+                    servicesOnly ? "Ví dụ: Gói tư vấn" : targetLevel === 1
                       ? "VD: Điện thoại, Phụ kiện, Máy tính bảng..."
                       : targetLevel === 2
                       ? "VD: Apple (iPhone), Samsung Galaxy, Củ cáp sạc..."
@@ -770,7 +772,7 @@ export function CatalogSetupModal({
                 />
               </Field>
 
-              <Field label="Quản lý kho mặc định">
+              {!servicesOnly && <Field label="Quản lý kho mặc định">
                 <Dropdown<ProductTrackingMode>
                   value={defaultTrackingMode}
                   onChange={setDefaultTrackingMode}
@@ -781,7 +783,7 @@ export function CatalogSetupModal({
                   className="w-full"
                   triggerClassName="w-full text-xs font-medium"
                 />
-              </Field>
+              </Field>}
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Trạng thái">

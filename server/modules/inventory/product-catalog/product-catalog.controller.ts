@@ -5,6 +5,7 @@ import { ProductCatalogService } from "./product-catalog.service";
 import { ProductCatalogResourceService } from "./product-catalog-resource.service";
 import { ProductPriceService } from "./product-price.service";
 import { CatalogSeedService } from "./catalog-seed.service";
+import { readCatalogBranchSummaries, readCatalogWorkspace, updateCatalogWorkspace } from "./catalog-workspace.service";
 
 function companyCode(req: AuthenticatedRequest): string {
   if (!req.user?.companyCode) {
@@ -25,6 +26,16 @@ function query(req: AuthenticatedRequest): Record<string, unknown> {
 }
 
 export const productCatalogController = {
+  getWorkspace: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      res.json({ success: true, data: await readCatalogWorkspace(companyCode(req)) });
+    } catch (error) { next(error); }
+  },
+  updateWorkspace: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      res.json({ success: true, data: await updateCatalogWorkspace(companyCode(req), req.body?.mode) });
+    } catch (error) { next(error); }
+  },
   listPrices: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => { try { res.json({ success: true, data: await ProductPriceService.list(companyCode(req), (await customerScopeFromRequest(req)).branchId!, query(req)) }); } catch (error) { next(error); } },
   upsertPrice: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => { try { res.json({ success: true, data: await ProductPriceService.upsert(companyCode(req), (await customerScopeFromRequest(req)).branchId!, req.params.variantId, req.body, actor(req)) }); } catch (error) { next(error); } },
   listTemplates: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -93,7 +104,12 @@ export const productCatalogController = {
 
   list: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      res.json({ success: true, data: await ProductCatalogService.list(companyCode(req), query(req)) });
+      const company = companyCode(req);
+      const branchId = req.query.branchId ? (await customerScopeFromRequest(req)).branchId : undefined;
+      const result = await ProductCatalogService.list(company, query(req));
+      const summaries = branchId ? await readCatalogBranchSummaries(company, branchId, result.items) : undefined;
+      const items = summaries ? result.items.map(item => ({ ...item, branchSummary: summaries.get(String(item._id)) })) : result.items;
+      res.json({ success: true, data: { ...result, items } });
     } catch (error) {
       next(error);
     }

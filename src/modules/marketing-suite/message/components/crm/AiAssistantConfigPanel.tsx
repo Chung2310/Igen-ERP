@@ -2,12 +2,9 @@
 import React from "react";
 import { Sliders, Zap, Clock3, FileText, UploadCloud, Trash2, Lightbulb } from "lucide-react";
 import { AIChatConfig } from "../../../shared/types/index";
-import { PageChatFlowEditor } from "./PageChatFlowEditor";
 import { KnowledgeCenterSummaryCard } from "../../../knowledge/components/knowledge/KnowledgeCenterSummaryCard";
 
 interface AiAssistantConfigPanelProps {
-  pageId?: string;
-  platform?: "facebook" | "zalo" | "tiktok";
   onClose?: () => void;
   localConfig: AIChatConfig;
   setLocalConfig: (config: AIChatConfig) => void;
@@ -44,8 +41,6 @@ interface AiAssistantConfigPanelProps {
 
 export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   onClose,
-  pageId,
-  platform = "facebook",
   localConfig,
   setLocalConfig,
   savingConfig,
@@ -102,11 +97,6 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
             </button>
           )}
         </div>
-        <p className="text-slate-400 text-[10px] leading-relaxed font-sans">
-          Cấu hình chatbot và bộ trường Lead riêng cho tài khoản đang chọn.
-        </p>
-        <PageChatFlowEditor pageId={pageId || ""} platform={platform} />
-
         {/* AI switchers */}
         <div className="space-y-4 pt-4 border-t border-slate-100" id="config_switches">
           {/* auto reply status */}
@@ -567,9 +557,6 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
             {copyingConfig ? "Đang đồng bộ..." : "Đồng bộ cho Fanpage khác"}
           </button>
         )}
-        <div className="font-mono text-center text-[9px] text-slate-400 select-none">
-          Cấu hình chatbot
-        </div>
       </div>
     </div>
   );

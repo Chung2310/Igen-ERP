@@ -28,6 +28,7 @@ const StateSchema = new Schema({
   lastMessageId: { type: String, default: "" }, lastReply: { type: String, default: "" }, customerId: { type: String }, completedAt: Date,
   lastMessageAt: Date,
   lastReplyUsesIntake: Boolean,
+  lastReplyCompletedIntake: Boolean,
   hasLeadIntent: Boolean,
 }, { timestamps: true });
 StateSchema.index({ companyCode: 1, pageId: 1, conversationId: 1 }, { unique: true });

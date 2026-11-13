@@ -17,6 +17,7 @@ const ProductCatalogSchema = new Schema<IProductCatalog>(
     name: { type: String, required: true, trim: true, index: true },
     normalizedName: { type: String, required: true, trim: true, lowercase: true, index: true },
     productType: { type: String, enum: ["physical", "service", "bundle"], required: true },
+    serviceBranchIds: { type: [String], default: undefined },
     templateCode: { type: String, trim: true, uppercase: true, index: true },
     categoryCode: { type: String, required: true, trim: true, uppercase: true, index: true },
     brandCode: { type: String, trim: true, uppercase: true, index: true },

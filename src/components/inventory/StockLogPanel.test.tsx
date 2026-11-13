@@ -286,11 +286,13 @@ describe("StockLogPanel", () => {
     expect(screen.getByText("Phiếu tháng 1")).toBeTruthy();
     expect(screen.getByText("Phiếu tháng 3")).toBeTruthy();
 
-    // Enter date range for March only: 2026-03-01 to 2026-03-31 directly
+    // Enter and apply a date range for March.
+    fireEvent.click(screen.getByRole("button", { name: "Tùy chọn thời gian thời gian phiếu kho" }));
     const fromInput = screen.getByLabelText("Từ ngày");
     const toInput = screen.getByLabelText("Đến ngày");
     fireEvent.change(fromInput, { target: { value: "2026-03-01" } });
     fireEvent.change(toInput, { target: { value: "2026-03-31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng" }));
 
     // Jan ticket is filtered out, Mar ticket remains
     expect(screen.queryByText("Phiếu tháng 1")).toBeNull();
@@ -337,16 +339,15 @@ describe("StockLogPanel", () => {
       />
     );
 
-    const fromInput = screen.getByLabelText("Từ ngày") as HTMLInputElement;
-    const toInput = screen.getByLabelText("Đến ngày") as HTMLInputElement;
-
-    // Both dates are initially visible and empty
-    expect(fromInput).toBeTruthy();
-    expect(toInput).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Tùy chọn thời gian thời gian phiếu kho" }));
+    const fromInput = screen.getByLabelText("Từ ngày");
+    const toInput = screen.getByLabelText("Đến ngày");
 
     // Directly type date range: 2026-03-20 to 2026-03-31
     fireEvent.change(fromInput, { target: { value: "2026-03-20" } });
     fireEvent.change(toInput, { target: { value: "2026-03-31" } });
+    expect(screen.getByText("Giao dịch ngày 10/03")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng" }));
 
     // log-1 (10/03) is filtered out, log-2 (25/03) remains
     expect(screen.queryByText("Giao dịch ngày 10/03")).toBeNull();

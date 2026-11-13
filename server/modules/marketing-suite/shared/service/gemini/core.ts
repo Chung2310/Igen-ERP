@@ -222,7 +222,7 @@ export function detectChatIntent(message: string, history: any[] = []): ChatInte
   return "company_faq";
 }
 
-export function formatHumanLikeChatReply(rawText: string): string {
+export function formatHumanLikeChatReply(rawText: string, emptyReply = "Dạ, em kiểm tra lại rồi phản hồi mình ngay nhé ạ."): string {
   const cleaned = String(rawText || "")
     .replace(/\r/g, "")
     .replace(/```[\s\S]*?```/g, "")
@@ -233,7 +233,7 @@ export function formatHumanLikeChatReply(rawText: string): string {
     .trim();
 
   if (!cleaned) {
-    return "Dạ, em kiểm tra lại rồi phản hồi mình ngay nhé ạ.";
+    return emptyReply;
   }
 
   const rawLines = cleaned

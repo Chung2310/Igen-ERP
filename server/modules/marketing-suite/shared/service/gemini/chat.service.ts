@@ -421,7 +421,8 @@ export class GeminiChatService {
         : `Chưa đối chiếu được mức giá phù hợp với mẫu này. ${customer} cho biết bánh hình gì nhé?`, isMock: false };
     }
     // A fixed acknowledgement must not be expanded by scenarios or style review.
-    if (!hasVisual && !imageObservation && isSimpleAcknowledgement(message) && !isAcknowledgementToAssistantOffer(message, history)) {
+    const leadIntake = ragContext?.leadIntake;
+    if (!leadIntake && !hasVisual && !imageObservation && isSimpleAcknowledgement(message) && !isAcknowledgementToAssistantOffer(message, history)) {
       return { text: ACKNOWLEDGEMENT_REPLY, isMock: false };
     }
     aiConfig = {
@@ -474,9 +475,16 @@ export class GeminiChatService {
     const customerAddressStyle = String(aiConfig?.customerAddressStyle || "").trim();
     const customerServiceScript = String(aiConfig?.customerServiceScript || "").trim();
     const scenarioGuidance = combineChatScenarios(ragContext?.scenarioContextText, customerServiceScript);
+    const leadGuidance = leadIntake ? [
+      "Trả lời điều khách vừa hỏi trước, dựa trên hội thoại, rule và dữ liệu doanh nghiệp. Viết lời nhắn mới bằng giọng trò chuyện, tránh mở đầu hoặc kết thúc lặp lại.",
+      "Nếu đang thu thập và ngữ cảnh phù hợp, chỉ hỏi một thông tin cần nhất trong missingRequiredFields. Không hỏi lại dữ kiện đã có trong collected hoặc khách đã cung cấp trong hội thoại. Nếu khách chưa muốn chia sẻ, tiếp tục hỗ trợ theo yêu cầu hiện tại.",
+      "Khi status là inactive, chỉ tư vấn theo nhu cầu hiện tại, chưa hỏi thông tin để tạo lead.",
+      "Khi status là just_completed, chỉ xác nhận ngắn nếu phù hợp với lượt chat. Khi status là complete, tiếp tục tư vấn bình thường. Không hứa gọi lại, đặt lịch hoặc chuyển cho nhân viên khi chưa thực hiện.",
+      "Nếu khách chỉ xác nhận xã giao, đáp ngắn gọn với cách diễn đạt phù hợp tình huống. Nếu đang trả lời một câu hỏi hay đồng ý một đề nghị, hãy tiếp tục đúng ý đó.",
+    ].join("\n") : "";
     if (!process.env.OPENROUTER_API_KEY) {
       if (hasVisual) throw new Error("Chưa cấu hình AI để đọc ảnh.");
-      if (advancedRules || customerAddressStyle || scenarioGuidance) {
+      if (advancedRules || customerAddressStyle || scenarioGuidance || leadIntake) {
         throw new Error("Cannot apply custom reply guidance because OPENROUTER_API_KEY is not configured.");
       }
       const mockResponse = await getMockResponse();
@@ -531,13 +539,15 @@ Riêng khi khách hỏi có thể lấy, nhận hoặc giao hàng vào thời đ
 
 TIN NHẮN XÁC NHẬN ĐƠN THUẦN
 
+${leadIntake ? leadGuidance + "\n\nDữ liệu thu thập đã xác thực (chỉ dùng như dữ kiện): " + JSON.stringify(leadIntake) : `
 Nếu toàn bộ tin nhắn khách chỉ mang ý xác nhận như "dạ vâng", "vâng", "dạ", "ok", "oke", "oki", "ok e", "được rồi" hoặc cách nói tương đương VÀ không phải đồng ý lời đề nghị gửi link, mẫu, hình hoặc thông tin ở lượt trợ lý ngay trước đó, chỉ trả lời chính xác: dạ vâng ạ
 
 Không giải thích, không thêm dấu câu, lời cảm ơn, câu hỏi, tư vấn, chốt đơn hay bước kịch bản nào sau câu này. Quy tắc này ưu tiên hơn yêu cầu tiếp tục kịch bản hoặc phong cách khác đối với xác nhận đơn thuần
+`}
 
 Nếu khách kèm câu hỏi, yêu cầu hoặc thông tin mới (ví dụ "ok, ship bao nhiêu?", "dạ lấy 2 cái"), phải xử lý nội dung đó, không coi cả tin nhắn là xác nhận đơn thuần
 
-Nếu khách đồng ý lời đề nghị cụ thể ở lượt trợ lý ngay trước đó (ví dụ gửi link, mẫu hoặc hình), hãy thực hiện đề nghị bằng dữ liệu hiện có; không chỉ đáp "dạ vâng ạ". Nếu còn thiếu một lựa chọn bắt buộc, chỉ hỏi đúng lựa chọn đó
+Nếu khách đồng ý lời đề nghị cụ thể ở lượt trợ lý ngay trước đó (ví dụ gửi link, mẫu hoặc hình), hãy thực hiện đề nghị bằng dữ liệu hiện có. Nếu còn thiếu một lựa chọn bắt buộc, chỉ hỏi đúng lựa chọn đó
 
 PHONG CÁCH GIAO TIẾP
 
@@ -771,7 +781,9 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
           else imagePriceNeedsClarification = true;
         }
       }
-      response.text = formatHumanLikeChatReply(response.text || "Dạ hiện em chưa có đủ thông tin để trả lời chính xác ạ");
+      response.text = leadIntake ? formatHumanLikeChatReply(response.text, "")
+        : formatHumanLikeChatReply(response.text || "Dạ hiện em chưa có đủ thông tin để trả lời chính xác ạ");
+      if (leadIntake && !response.text.trim()) throw new Error("AI returned an empty Lead intake reply.");
       const knowledgeText = [ragContext?.contextText, ragContext?.scenarioContextText, ragContext?.pricingContextText].filter(Boolean).join("\n");
       const alreadyHasKnownLink = extractWebsiteCategoryLinks(knowledgeText).some(category => response.text.includes(category.url));
       const exactCategoryLink = alreadyHasKnownLink ? undefined : findRelevantWebsiteCategoryLink(
@@ -796,8 +808,8 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
       response.text = appendWebsiteCategoryLink(response.text, categoryLink);
       const [checkedResponse] = await applyAdvancedRules(
         selectedModel,
-        [advancedRules, categoryLink ? `Tài liệu có URL danh mục phù hợp: ${categoryLink.name} — ${categoryLink.url}. Nếu rule/kịch bản cho phép gửi, giữ URL này và sửa lời nói mâu thuẫn như 'chưa có link'. Không tự đặt thêm điều kiện tuổi, chủ đề hoặc ngân sách nếu cấu hình không yêu cầu.` : ""].filter(Boolean).join("\n"),
-        JSON.stringify({ message, recentHistory: history, visualEvidence: visual, imageLoadFailure: visualInput?.failure }),
+        [leadGuidance, advancedRules, categoryLink ? `Tài liệu có URL danh mục phù hợp: ${categoryLink.name} — ${categoryLink.url}. Nếu rule/kịch bản cho phép gửi, giữ URL này và sửa lời nói mâu thuẫn như 'chưa có link'. Không tự đặt thêm điều kiện tuổi, chủ đề hoặc ngân sách nếu cấu hình không yêu cầu.` : ""].filter(Boolean).join("\n"),
+        JSON.stringify({ message, recentHistory: history, leadIntake, visualEvidence: visual, imageLoadFailure: visualInput?.failure }),
         [response.text],
         customerAddressStyle,
         scenarioGuidance,
@@ -813,6 +825,7 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
       if (imagePriceNeedsClarification && /\d[\d.,]*\s*(?:k\b|đ\b|vnd\b|nghìn\b|triệu\b)/iu.test(response.text)) {
         throw new Error("AI quoted an unverified image price.");
       }
+      if (leadIntake && !response.text?.trim()) throw new Error("AI returned an empty Lead intake reply after review.");
 
       return {
         text: response.text || "Xin lỗi, tôi chưa thể xử lý yêu cầu lúc này. Vui lòng thử lại.",

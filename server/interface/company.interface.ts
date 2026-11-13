@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import type { InventoryWorkspaceMode } from "../../shared/inventory/catalog-workspace";
 
 export interface ICompanyDriveOAuth {
   refreshToken: string;
@@ -51,6 +52,7 @@ export interface ICompany extends Document {
   createdAt: Date;
   ownerEmail: string;
   businessType?: "education" | "labor" | "service" | "recruitment" | "general";
+  inventoryWorkspaceMode?: InventoryWorkspaceMode;
   /** Các module nghiệp vụ được bật cho doanh nghiệp. Rỗng/thiếu = bật tất cả. */
   enabledModules?: string[];
   serviceSubscription?: { planId: unknown; planName: string; priceVnd: number; modules: string[]; startsAt: Date; expiresAt: Date; status: "active" | "cancelled"; assignedBy: string } | null;

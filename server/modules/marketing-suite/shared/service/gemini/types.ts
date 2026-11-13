@@ -29,6 +29,7 @@ export interface GenerateTextConfig {
 }
 
 export interface ChatRagContext {
+  leadIntake?: import("../../../message/service/chat-ordering/core/types").LeadIntakeContext;
   imageObservation?: import("../../../message/service/chat-image-context").ChatImageObservation;
   imageDescription?: string;
   visualInput?: import("../../../message/service/chat-visual-context").ChatVisualInput;
