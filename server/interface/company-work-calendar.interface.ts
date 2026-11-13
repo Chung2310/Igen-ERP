@@ -2,7 +2,7 @@ import type { Document } from "mongoose";
 
 export type CompanyWorkCalendarDayType = "holiday" | "substitute_holiday" | "working_override";
 export type CompanyWorkCalendarSource = "system" | "admin";
-export type CompanyWorkCalendarAction = "created" | "updated" | "enabled" | "disabled" | "synced";
+export type CompanyWorkCalendarAction = "created" | "updated" | "enabled" | "disabled" | "deleted" | "synced";
 
 export interface ICompanyWorkCalendarDay extends Document {
   companyCode: string;
@@ -15,7 +15,7 @@ export interface ICompanyWorkCalendarDay extends Document {
   sourceYear: number;
   isApplied: boolean;
   adminReason?: string;
-  lastAdminAction?: Exclude<CompanyWorkCalendarAction, "synced">;
+  lastAdminAction?: Exclude<CompanyWorkCalendarAction, "synced" | "deleted">;
   lastAdminBy?: string;
   lastAdminAt?: Date;
   createdAt: Date;

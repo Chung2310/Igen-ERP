@@ -4,7 +4,7 @@ import type { ICompanyWorkCalendarAudit } from "../interface/company-work-calend
 const CompanyWorkCalendarAuditSchema = new Schema<ICompanyWorkCalendarAudit>({
   companyCode: { type: String, required: true, index: true },
   calendarDayId: { type: String, required: true, index: true },
-  action: { type: String, enum: ["created", "updated", "enabled", "disabled", "synced"], required: true },
+  action: { type: String, enum: ["created", "updated", "enabled", "disabled", "deleted", "synced"], required: true },
   actorId: { type: String, required: true, index: true },
   reason: { type: String, trim: true },
   before: { type: Schema.Types.Mixed },

@@ -1,7 +1,14 @@
 export const DEFAULT_IMAGE_MODEL = "google/gemini-3.1-flash-lite-image";
 export const RECRAFT_IMAGE_MODEL = "recraft/recraft-v4.1-flash";
 export const IMAGE_EDIT_MODEL = "google/gemini-3.1-flash-image";
+export const TRANSPARENT_IMAGE_EDIT_MODEL = "openai/gpt-image-2.6-flare";
 export const RECRAFT_ASPECT_RATIOS = new Set(["1:1", "4:3", "3:4", "16:9", "9:16"]);
+
+export interface OpenRouterImagesApiOptions {
+  background?: "auto" | "transparent" | "opaque";
+  outputFormat?: "png" | "jpeg" | "webp";
+  inputReferences?: string[];
+}
 
 /** Text-only image models use OpenRouter's dedicated Images API. */
 export async function generateImageViaImagesApi(
@@ -9,7 +16,8 @@ export async function generateImageViaImagesApi(
   model: string,
   prompt: string,
   aspectRatio?: string,
-  quality?: "low" | "medium" | "high",
+  quality?: "low" | "medium" | "high" | "auto",
+  options: OpenRouterImagesApiOptions = {},
 ): Promise<{ url: string }> {
   const response = await fetch("https://openrouter.ai/api/v1/images", {
     method: "POST",
@@ -25,6 +33,11 @@ export async function generateImageViaImagesApi(
       prompt,
       ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
       ...(quality ? { quality } : {}),
+      ...(options.background ? { background: options.background } : {}),
+      ...(options.outputFormat ? { output_format: options.outputFormat } : {}),
+      ...(options.inputReferences?.length ? {
+        input_references: options.inputReferences.map(url => ({ type: "image_url", image_url: { url } })),
+      } : {}),
     }),
   });
   if (!response.ok) {

@@ -7,7 +7,7 @@
  * (OPENROUTER_FALLBACK_MODEL / OPENROUTER_FALLBACK_IMAGE_MODEL).
  */
 
-import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -304,6 +304,9 @@ export interface OpenRouterImageParams {
   model?: string;
   aspectRatio?: string;
   resolution?: string;
+  quality?: "low" | "medium" | "high" | "auto";
+  background?: "auto" | "transparent" | "opaque";
+  outputFormat?: "png" | "jpeg" | "webp";
   /** Reference images (base64 data URL hoặc https URL) cho image-to-image */
   referenceImages?: string[];
   allowFallback?: boolean;
@@ -320,11 +323,15 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const configuredModel = params.model
     ? mapModelName(params.model)
+    : params.background === "transparent"
+      ? mapModelName(process.env.IGENAI_TRANSPARENT_IMAGE_EDIT_MODEL || TRANSPARENT_IMAGE_EDIT_MODEL)
     : (process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
 
   const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
-  const model = params.referenceImages?.length
+  const model = params.background === "transparent"
+    ? configuredModel
+    : params.referenceImages?.length
     ? IMAGE_EDIT_MODEL
     : (configuredModel === RECRAFT_IMAGE_MODEL && !RECRAFT_ASPECT_RATIOS.has(ratioKey))
       ? IMAGE_EDIT_MODEL
@@ -332,6 +339,9 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   const finalPrompt = params.preserveInputAspectRatio
     ? params.prompt
     : `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
+  const requestAspectRatio = params.preserveInputAspectRatio
+    ? params.background === "transparent" ? "auto" : undefined
+    : ratioKey;
 
   // Build message content — text prompt + optional reference images
   const content: any[] = [{ type: "text", text: finalPrompt }];
@@ -342,6 +352,20 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   console.log(`[OpenRouter Image] model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey} | hasReference=${Boolean(params.referenceImages?.length)}`);
 
   try {
+    if (params.background === "transparent") {
+      return await generateImageViaImagesApi(
+        apiKey,
+        model,
+        finalPrompt,
+        requestAspectRatio,
+        params.quality ?? "medium",
+        {
+          background: params.background,
+          outputFormat: params.outputFormat ?? "png",
+          inputReferences: params.referenceImages,
+        },
+      );
+    }
     if (!params.referenceImages?.length && model === DEFAULT_IMAGE_MODEL) return await generateImageViaImagesApi(apiKey, model, params.prompt, ratioKey, "low");
     if (!params.referenceImages?.length && model === RECRAFT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
     return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);

@@ -6,6 +6,7 @@ import { companyWorkCalendarService, type WorkCalendarDay, type WorkCalendarDayT
 import { DateInput24 } from "../common/TimeInput24";
 import { StyledSelect } from "../common/StyledSelect";
 import { HrPageTitle } from "../hr/HrPageTitle";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 
 const TYPE_LABELS: Record<WorkCalendarDayType, string> = {
   holiday: "Ngày nghỉ lễ", substitute_holiday: "Ngày nghỉ bù", working_override: "Ngày làm bù",
@@ -19,6 +20,9 @@ export default function CompanyWorkCalendarTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [reasonTarget, setReasonTarget] = useState<WorkCalendarDay | null>(null);
   const [reason, setReason] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<WorkCalendarDay | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [form, setForm] = useState({ date: `${year}-01-01`, name: "", dayType: "holiday" as WorkCalendarDayType });
 
   const load = useCallback(async () => {
@@ -52,13 +56,41 @@ export default function CompanyWorkCalendarTab() {
 
   const openCreate = () => { setEditingId(null); setForm({ date: `${year}-01-01`, name: "", dayType: "holiday" }); setFormOpen(true); };
   const openEdit = (day: WorkCalendarDay) => { setEditingId(day._id); setForm({ date: day.date, name: day.name, dayType: day.dayType }); setFormOpen(true); };
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await companyWorkCalendarService.delete(deleteTarget._id);
+      setDays((current) => current.filter((day) => day._id !== deleteTarget._id));
+      setDeleteTarget(null);
+      toast.success("Đã xóa ngày khỏi lịch công ty.");
+    } catch (error) {
+      setDeleteError((error as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return <div className="space-y-4 text-left text-on-surface">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
       <HrPageTitle level={3}>Lịch nghỉ lễ & ngày làm bù</HrPageTitle>
       <div className="flex items-center gap-2"><StyledSelect appearance="erp" ariaLabel="Năm lịch" value={String(year)} onChange={(value) => setYear(Number(value))} options={[{ value: "2026", label: "2026" }]} className="w-32" /><button type="button" onClick={sync} className="flex min-h-10 items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><RefreshCw className="size-4" aria-hidden="true" />Đồng bộ</button><button type="button" onClick={openCreate} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" />Thêm ngày</button></div>
     </div>
-    {loading ? <p className="py-5 text-center text-sm text-on-surface-variant">Đang tải lịch...</p> : <div className="overflow-x-auto rounded-xl"><table className="w-full text-sm"><thead className="bg-surface-container-low text-on-surface"><tr><th scope="col" className="p-3 text-left font-medium">Ngày</th><th scope="col" className="p-3 text-left font-medium">Tên</th><th scope="col" className="p-3 text-left font-medium">Loại</th><th scope="col" className="p-3 text-left font-medium">Nguồn</th><th scope="col" className="p-3 text-left font-medium">Áp dụng</th><th scope="col" className="p-3 text-left font-medium">Thao tác</th></tr></thead><tbody>{days.map((day) => <tr key={day._id} className={!day.isApplied ? "opacity-50" : ""}><td className="p-3">{day.date.split("-").reverse().join("/")}</td><td className="p-3 font-medium">{day.name}</td><td className="p-3">{TYPE_LABELS[day.dayType]}</td><td className="p-3"><span className="rounded-full bg-surface-container-low px-2 py-1">{day.source === "system" ? "Hệ thống" : "Admin"}</span></td><td className="p-3"><input aria-label={`Áp dụng ${day.name}`} type="checkbox" checked={day.isApplied} onChange={() => void toggle(day)} /></td><td className="p-3">{day.source === "admin" && <button type="button" aria-label={`Sửa ${day.name}`} onClick={() => openEdit(day)} className="font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Sửa</button>}</td></tr>)}</tbody></table></div>}
+    {loading ? <p className="py-5 text-center text-sm text-on-surface-variant">Đang tải lịch...</p> : <div className="overflow-x-auto rounded-xl"><table className="w-full text-sm"><thead className="bg-surface-container-low text-on-surface"><tr><th scope="col" className="p-3 text-left font-medium">Ngày</th><th scope="col" className="p-3 text-left font-medium">Tên</th><th scope="col" className="p-3 text-left font-medium">Loại</th><th scope="col" className="p-3 text-left font-medium">Nguồn</th><th scope="col" className="p-3 text-left font-medium">Áp dụng</th><th scope="col" className="p-3 text-left font-medium">Thao tác</th></tr></thead><tbody>{days.map((day) => <tr key={day._id} className={!day.isApplied ? "opacity-50" : ""}><td className="p-3">{day.date.split("-").reverse().join("/")}</td><td className="p-3 font-medium">{day.name}</td><td className="p-3">{TYPE_LABELS[day.dayType]}</td><td className="p-3"><span className="rounded-full bg-surface-container-low px-2 py-1">{day.source === "system" ? "Hệ thống" : "Admin"}</span></td><td className="p-3"><input aria-label={`Áp dụng ${day.name}`} type="checkbox" checked={day.isApplied} onChange={() => void toggle(day)} /></td><td className="p-3"><div className="flex items-center gap-3">{day.source === "admin" && <><button type="button" aria-label={`Sửa ${day.name}`} onClick={() => openEdit(day)} className="font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Sửa</button><button type="button" aria-label={`Xóa ${day.name} ngày ${day.date.split("-").reverse().join("/")}`} onClick={() => { setDeleteError(""); setDeleteTarget(day); }} className="font-medium text-error hover:underline focus-visible:outline-2 focus-visible:outline-primary">Xóa</button></>}</div></td></tr>)}</tbody></table></div>}
+    <ConfirmDialog
+      appearance="erp"
+      native
+      isOpen={deleteTarget !== null}
+      title="Xóa ngày khỏi lịch công ty?"
+      description={deleteTarget ? `Xóa “${deleteTarget.name}” ngày ${deleteTarget.date.split("-").reverse().join("/")}? Ngày này sẽ không còn được dùng để tính ngày làm việc.` : ""}
+      confirmLabel="Xóa ngày"
+      tone="danger"
+      isSubmitting={deleting}
+      error={deleteError}
+      onClose={() => { if (!deleting) setDeleteTarget(null); }}
+      onConfirm={confirmDelete}
+    />
     {formOpen && createPortal(
       <div role="dialog" aria-modal="true" aria-labelledby="work-calendar-form-title" className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/55 p-4">
         <form

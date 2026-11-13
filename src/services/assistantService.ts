@@ -6,7 +6,8 @@ import type { AssistantChartHistoryItem, AssistantChartResult, AssistantChartTyp
 import type { AssistantSlideDeck, AssistantSlideDeckUpdate, AssistantSlideHistoryItem, AssistantSlideStyle } from "../shared/assistant-slide";
 import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../shared/assistant-mindmap";
 import type { AssistantPromptTemplate } from "../components/common/assistant-prompt-library-data";
-export interface AssistantTurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+import type { AssistantProject } from "../components/common/assistant-project-data";
+export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }
@@ -14,14 +15,19 @@ export interface AssistantMemory { id: string; content: string; source?: "explic
 export interface AssistantSessionMemory { summary: string; summaryMessageCount: number; version: number; messageCount: number; busy?: boolean; updatedAt?: string | null; }
 export interface AssistantStudioTranscript { id: string; fileName: string; text: string; createdAt: string; }
 export interface AssistantStudioMindmapRequest { sourceType: AssistantMindmapSourceType; prompt: string; locale: AssistantMindmapLocale; writeMode: AssistantMindmapWriteMode; file?: File; }
+export class AssistantServiceError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); this.name = "AssistantServiceError"; }
+}
 async function request<T>(path: string, init: RequestInit = {}, branchId?: string, deviceId?: string): Promise<T> {
   const token = localStorage.getItem("accessToken");
-  const response = await fetch(`/api/v1/chatbot/assistant${path}`, { ...init, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branchId ? { "x-branch-id": branchId } : {}), ...(deviceId ? { "x-device-id": deviceId } : {}), ...init.headers } });
+  const response = await fetch(`/api/v1/chatbot/assistant${path}`, { ...init, headers: { ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branchId ? { "x-branch-id": branchId } : {}), ...(deviceId ? { "x-device-id": deviceId } : {}), ...init.headers } });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok || !result.success) throw new Error(result.message || "Không thể kết nối trợ lý AI.");
+  if (!response.ok || !result.success) throw new AssistantServiceError(result.message || "Không thể kết nối trợ lý AI.", response.status);
   return result.data;
 }
 export const assistantService = {
+  projects: (branchId?: string) => request<AssistantProject[]>("/projects", {}, branchId),
+  saveProjects: (projects: AssistantProject[], branchId?: string) => request<AssistantProject[]>("/projects", { method: "PUT", body: JSON.stringify({ projects }) }, branchId),
   promptTemplates: (signal?: AbortSignal) => request<{ templates: AssistantPromptTemplate[]; favoriteIds: string[] }>("/prompt-templates", { signal }),
   createPromptTemplate: (data: Omit<AssistantPromptTemplate, "id" | "owner">) => request<AssistantPromptTemplate>("/prompt-templates", { method: "POST", body: JSON.stringify(data) }),
   setPromptTemplateFavorite: (id: string, favorite: boolean) => request<{ favorite: boolean }>(`/prompt-templates/${encodeURIComponent(id)}/favorite`, { method: "PATCH", body: JSON.stringify({ favorite }) }),
@@ -129,7 +135,14 @@ export const assistantService = {
   clearSessionMemory: (id: string, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { method: "DELETE" }, branchId),
   deleteConversation: (id: string, branchId?: string) => request<{ deleted: boolean }>(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }, branchId),
   state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: AssistantChatMessage[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
-  turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId),
+  turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => {
+    if (!data.file) return request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId);
+    const { file, ...payload } = data;
+    const form = new FormData();
+    form.append("payload", JSON.stringify(payload));
+    form.append("file", file);
+    return request<AssistantReply>("/turns", { method: "POST", body: form, signal }, branchId, deviceId);
+  },
   downloadFile: async (file: AssistantGeneratedFile, branchId?: string, signal?: AbortSignal): Promise<Blob> => {
     const token = localStorage.getItem("accessToken");
     const response = await fetch(`/api/v1/chatbot/assistant/conversations/${encodeURIComponent(file.conversationId)}/files/${encodeURIComponent(file.id)}`, {

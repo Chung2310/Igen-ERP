@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import KanbanTab from "./KanbanTab";
 
@@ -15,6 +15,26 @@ afterEach(() => {
 });
 
 describe("Kanban work board", () => {
+  it("shows estimated hours and deadline KPI as separate results for a completed task", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => ({
+      ok: true,
+      json: async () => ({ data: String(input).includes("/api/v1/kanban/tasks") ? [{
+        _id: "task-metrics", title: "JOB_METRICS", status: "Done", priority: "Medium",
+        assignee: "An", assigneeUid: "u1", creatorUid: "admin", companyCode: "MAIN",
+        createdAt: "2026-11-12T00:00:00.000Z", dueDate: "2026-11-12T08:30",
+        startTime: "2026-11-12T08:00", endTime: "2026-11-12T09:00", estTime: 2,
+      }] : [] }),
+    })));
+    render(<KanbanTab userProfile={{ uid: "admin" }} selectedCompanyCode="MAIN" employees={[]} isManager usersList={[]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tất cả công việc" }));
+    const row = (await screen.findByText("JOB_METRICS")).closest("tr")!;
+    expect(within(row).getByText("✓ Trong dự tính")).toBeTruthy();
+    expect(within(row).getByText(/Trễ hạn/)).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "So giờ dự tính" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "KPI theo hạn" })).toBeTruthy();
+  });
+
   it("moves a dragged task into another status column using the existing update request", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

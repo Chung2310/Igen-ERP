@@ -1,16 +1,20 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ChatbotWidget } from "./ChatbotWidget";
+import { assistantService } from "../../services/assistantService";
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ userProfile: { displayName: "An", companyCode: "MAIN", uid: "test" } }),
 }));
 vi.mock("../../context/BranchContext", () => ({ useBranchOptional: () => null }));
 vi.mock("../../services/assistantService", () => ({ assistantService: {
+  projects: () => Promise.resolve([]),
+  saveProjects: (projects: unknown[]) => Promise.resolve(projects),
   settings: () => new Promise(() => undefined),
-  state: () => new Promise(() => undefined),
+  state: vi.fn(() => new Promise(() => undefined)),
+  turn: vi.fn(),
   conversations: () => Promise.resolve({ items: [], nextCursor: null }),
   promptTemplates: () => Promise.resolve({
     templates: [
@@ -25,10 +29,107 @@ vi.mock("../../services/assistantService", () => ({ assistantService: {
     ],
   }),
 } }));
+vi.mock("./assistant-table-file", () => ({
+  readAssistantTableFile: vi.fn(async (file: File) => ({
+    fileName: file.name,
+    headers: ["Học viên"],
+    rows: [{ "Học viên": "Minh" }],
+  })),
+}));
+const originalCreateObjectURL = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => {
+  cleanup(); localStorage.clear();
+  if (originalCreateObjectURL) Object.defineProperty(URL, "createObjectURL", originalCreateObjectURL);
+  else Reflect.deleteProperty(URL, "createObjectURL");
+  if (originalRevokeObjectURL) Object.defineProperty(URL, "revokeObjectURL", originalRevokeObjectURL);
+  else Reflect.deleteProperty(URL, "revokeObjectURL");
+  vi.clearAllMocks();
+  vi.mocked(assistantService.state).mockImplementation(() => new Promise(() => undefined));
+  vi.mocked(assistantService.turn).mockReset();
+});
 
 describe("ChatbotWidget welcome", () => {
+  it("opens the separate Trợ lý AI area above history", () => {
+    const { container } = render(<ChatbotWidget storageScope="agents-navigation-test" mode="standalone" />);
+    const sidebar = container.querySelector(".assistant-sidebar")!;
+    const agentButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Trợ lý AI"]')!;
+    const historyButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Lịch sử trò chuyện"]')!;
+    expect(agentButton.compareDocumentPosition(historyButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(agentButton);
+    expect(agentButton.getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("heading", { name: "Trợ lý AI" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tạo Trợ lý AI" })).toBeTruthy();
+  });
+
+  it("opens the Projects area from desktop and mobile navigation", async () => {
+    const { container } = render(<ChatbotWidget storageScope="projects-navigation-test" mode="standalone" />);
+    const desktopProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
+    const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>('.assistant-mobile-mode-nav button')).find(button => button.textContent?.includes("Dự án"))!;
+
+    expect(desktopProjects.disabled).toBe(false);
+    fireEvent.click(desktopProjects);
+    await waitFor(() => expect(container.querySelector("h1")?.textContent).toContain("Dự án"));
+    expect(desktopProjects.getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("heading", { name: "Dự án" })).toBeTruthy();
+    fireEvent.click(container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="AI Studio"]')!);
+    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
+
+    fireEvent.click(mobileProjects);
+    expect(mobileProjects.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Dự án" })).toBeTruthy();
+  });
+
+  it("creates a local project and shows it in the sidebar dropdown", async () => {
+    const { container } = render(<ChatbotWidget storageScope="projects-create-test" mode="standalone" />);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    fireEvent.click(container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!);
+    fireEvent.click(screen.getByRole("button", { name: "Tạo dự án" }));
+    expect(screen.queryByRole("button", { name: "Báo cáo" })).toBeNull();
+    expect(container.querySelectorAll('button[aria-label^="Biểu tượng "]')).toHaveLength(28);
+    fireEvent.click(screen.getByRole("button", { name: "Biểu tượng Tên lửa" }));
+    fireEvent.change(screen.getByLabelText("Tên dự án"), { target: { value: "Chiến dịch Marketing" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
+    expect(screen.getByRole("heading", { name: "Chiến dịch Marketing" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mở danh sách dự án" }));
+    expect(container.querySelector("#assistant-project-sidebar-list")?.textContent).toContain("Chiến dịch Marketing");
+    expect(localStorage.getItem("igen_erp_assistant_projects:projects-create-test:company")).toContain("Chiến dịch Marketing");
+    expect(localStorage.getItem("igen_erp_assistant_projects:projects-create-test:company")).toContain('"icon":"rocket"');
+  });
+
+  it("mounts AI Studio on demand and preserves it when switching views", () => {
+    localStorage.setItem("igen_erp_chatbot_mode:studio-switch-test:company", "qa");
+    const { container } = render(<ChatbotWidget storageScope="studio-switch-test" mode="standalone" />);
+
+    expect(container.querySelector('section[aria-label="AI Studio"]')).toBeNull();
+    const studioButton = container.querySelector<HTMLButtonElement>('nav[aria-label="Chế độ trợ lý"] button[aria-label="AI Studio"]')!;
+    const toolsButton = container.querySelector<HTMLButtonElement>('nav[aria-label="Chế độ trợ lý"] button[aria-label="Công cụ trợ lý"]')!;
+    fireEvent.click(studioButton);
+    const studio = container.querySelector('section[aria-label="AI Studio"]');
+    expect(studio).not.toBeNull();
+
+    fireEvent.click(toolsButton);
+    expect(container.querySelector('section[aria-label="AI Studio"]')).toBe(studio);
+    fireEvent.click(studioButton);
+    expect(container.querySelector('section[aria-label="AI Studio"]')).toBe(studio);
+  });
+
+  it("keeps the prompt library out of the compact popup composer", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:popup-test:company", "qa");
+    const originalShowPopover = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "showPopover");
+    Object.defineProperty(HTMLElement.prototype, "showPopover", { configurable: true, value: vi.fn() });
+    try {
+      const { container } = render(<ChatbotWidget storageScope="popup-test" mode="popup" headerPanel openRequest={1} />);
+
+      await waitFor(() => expect(container.querySelector("form")).not.toBeNull());
+      expect(container.querySelector('button[aria-label="Mở thư viện câu lệnh mẫu"]')).toBeNull();
+    } finally {
+      if (originalShowPopover) Object.defineProperty(HTMLElement.prototype, "showPopover", originalShowPopover);
+      else delete (HTMLElement.prototype as HTMLElement & { showPopover?: () => void }).showPopover;
+    }
+  });
+
   it.each(["qa", "work"] as const)("shows greeting and composer in %s mode", mode => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", mode);
     const markup = renderToStaticMarkup(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
@@ -73,6 +174,77 @@ describe("ChatbotWidget welcome", () => {
     fireEvent.change(input, { target: { value: "   " } });
     expect(composer.querySelector('[aria-label="Bật chế độ 2 chiều"]')).not.toBeNull();
     expect(composer.querySelector('button[type="submit"]')).toBeNull();
+  });
+
+  it("sends an attached table with a question in chat mode and clears the upload preview", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "qa");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "qa" });
+    let finishTurn!: (result: Awaited<ReturnType<typeof assistantService.turn>>) => void;
+    vi.mocked(assistantService.turn).mockReturnValue(new Promise(resolve => { finishTurn = resolve; }));
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(["Học viên\nMinh"], "danh_sach.csv", { type: "text/csv" })] } });
+    await screen.findByText("1 dòng · sẵn sàng gửi");
+    const input = container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!;
+    fireEvent.change(input, { target: { value: "Tóm tắt tệp này" } });
+    fireEvent.click(container.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText("1 dòng · sẵn sàng gửi")).toBeNull());
+    finishTurn({ status: "completed", reply: "done" });
+    expect(vi.mocked(assistantService.turn).mock.calls[0]?.[0]).toMatchObject({
+      mode: "qa",
+      text: "Tóm tắt tệp này",
+      attachment: { fileName: "danh_sach.csv", rows: [{ "Học viên": "Minh" }] },
+    });
+    await waitFor(() => expect(screen.queryByText("1 dòng · sẵn sàng gửi")).toBeNull());
+  });
+
+  it("sends a PDF file with its question and clears the composer preview", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "qa");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "qa" });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "completed", reply: "Đã đọc tài liệu." });
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    const file = new File(["%PDF-1.7"], "huong-dan.pdf", { type: "application/pdf" });
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, { target: { files: [file] } });
+    expect(await screen.findByText("Tệp sẽ được đọc khi gửi")).toBeTruthy();
+    fireEvent.change(container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!, { target: { value: "Tóm tắt tài liệu này" } });
+    fireEvent.click(container.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
+      mode: "qa",
+      text: "Tóm tắt tài liệu này",
+      file,
+    });
+    await waitFor(() => expect(screen.queryByText("Tệp sẽ được đọc khi gửi")).toBeNull());
+  });
+
+  it.each([
+    { fileName: "logo.png", mimeType: "image/png", selector: "img", label: "Xem trước ảnh logo.png" },
+    { fileName: "gioi-thieu.mp4", mimeType: "video/mp4", selector: "video", label: "Xem trước video gioi-thieu.mp4" },
+  ])("shows a direct preview for $selector attachments", async ({ fileName, mimeType, selector, label }) => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "qa");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "qa" });
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:chat-preview") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [new File(["media"], fileName, { type: mimeType })] },
+    });
+
+    const preview = selector === "img"
+      ? await screen.findByAltText(label)
+      : await screen.findByLabelText(label);
+    expect(preview.tagName.toLocaleLowerCase()).toBe(selector);
+    expect(preview.getAttribute("src")).toBe("blob:chat-preview");
+    if (selector === "video") expect(preview.hasAttribute("controls")).toBe(true);
   });
 
   it("inserts a library prompt into the composer and shows editable placeholder chips", async () => {

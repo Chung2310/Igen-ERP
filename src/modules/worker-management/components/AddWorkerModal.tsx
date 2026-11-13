@@ -281,7 +281,7 @@ export function AddWorkerModal({
           />
         )}
         {visible("birthday") && (
-          <DateField label={label("birthday")} value={toInputDate(form.birthday)} onChange={(value) => setForm((curr) => ({ ...curr, birthday: fromInputDate(value) }))} disabled={submitting} />
+          <DateField label={label("birthday")} value={toInputDate(form.birthday)} onChange={(value) => setForm((curr) => ({ ...curr, birthday: fromInputDate(value) }))} disabled={submitting} showYearSelect />
         )}
         {visible("registrationDate") && (
           <DateField label={label("registrationDate")} value={toInputDate(form.registrationDate)} onChange={(value) => setForm((curr) => ({ ...curr, registrationDate: fromInputDate(value) }))} disabled={submitting} />
@@ -552,11 +552,11 @@ export function PartnerSearchSelect({
   );
 }
 
-function DateField({ label, value, onChange, disabled }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
+function DateField({ label, value, onChange, disabled, showYearSelect = false }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; showYearSelect?: boolean }) {
   return (
     <div className="space-y-1.5">
       <span className="block text-xs text-slate-600">{label}</span>
-      <DateInput24 value={value} onChange={onChange} disabled={disabled} ariaLabel={label} />
+      <DateInput24 value={value} onChange={onChange} disabled={disabled} ariaLabel={label} showYearSelect={showYearSelect} />
     </div>
   );
 }
