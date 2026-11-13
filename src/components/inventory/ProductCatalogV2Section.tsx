@@ -75,12 +75,14 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [reloadCount, setReloadCount] = useState(0);
   const [editor, setEditor] = useState<CatalogProductDetail | "create" | null>(null);
   const [viewer, setViewer] = useState<CatalogProductDetail | null>(null);
   const [setupKind, setSetupKind] = useState<ProductResourceKind | "templates" | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [workspaceDraft, setWorkspaceDraft] = useState<InventoryWorkspaceMode>("goods");
   const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const savingWorkspaceRef = useRef(false);
   const [workspaceSaveError, setWorkspaceSaveError] = useState("");
   const [variantTarget, setVariantTarget] = useState<VariantTarget | null>(null);
   const [productToDelete, setProductToDelete] = useState<CatalogProduct | null>(null);
@@ -92,10 +94,7 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
   const mixedView = mode === "mixed" && !kind;
   const createLabel = mixedView ? "Thêm" : serviceView ? "Thêm dịch vụ" : "Thêm hàng hóa";
   const debouncedQuery = useDebouncedValue(query.trim(), 350);
-  const requestId = useRef(0);
-
-  const loadProducts = useCallback(async (pageToLoad: number, signal?: AbortSignal) => {
-    const id = ++requestId.current;
+  const loadProducts = useCallback(async (pageToLoad: number, signal: AbortSignal) => {
     setLoading(true);
     setLoadError("");
     try {
@@ -109,7 +108,7 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
         page: pageToLoad,
         limit: 10,
       }, signal);
-      if (signal?.aborted || id !== requestId.current) return;
+      if (signal.aborted) return;
       const lastPage = Math.max(1, Math.ceil(productResult.total / 10));
       if (!productResult.items.length && lastPage < pageToLoad) {
         setPage(lastPage);
@@ -118,9 +117,9 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
       setProducts(productResult.items);
       setTotal(productResult.total);
     } catch (error) {
-      if (!signal?.aborted && id === requestId.current) setLoadError(getApiErrorMessage(error, "Không thể tải danh mục."));
+      if (!signal.aborted) setLoadError(getApiErrorMessage(error, "Không thể tải danh mục."));
     } finally {
-      if (!signal?.aborted && id === requestId.current) setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [debouncedQuery, status, catalogKind, branchId, selectedCategory, selectedBrand, serviceView]);
 
@@ -178,7 +177,7 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
     const controller = new AbortController();
     void loadProducts(page, controller.signal);
     return () => controller.abort();
-  }, [page, loadProducts]);
+  }, [page, loadProducts, reloadCount]);
 
   const resetFilter = () => {
     setQuery("");
@@ -190,11 +189,14 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
   };
 
   const refreshCatalog = async () => {
-    await Promise.all([loadProducts(page), onCatalogChanged?.().catch(() => {})]);
+    setReloadCount(count => count + 1);
+    await onCatalogChanged?.().catch(() => {});
   };
 
   const saveWorkspace = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (savingWorkspaceRef.current || !canConfigureWorkspace) return;
+    savingWorkspaceRef.current = true;
     setSavingWorkspace(true);
     setWorkspaceSaveError("");
     try {
@@ -206,6 +208,7 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
     } catch (error) {
       setWorkspaceSaveError(getApiErrorMessage(error, "Không thể lưu chế độ danh mục."));
     } finally {
+      savingWorkspaceRef.current = false;
       setSavingWorkspace(false);
     }
   };
@@ -350,7 +353,7 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
       ) : loadError ? (
         <div role="alert" className="space-y-2 rounded-xl border border-outline-variant p-6 text-center text-sm">
           <p>{loadError}</p>
-          <button type="button" className="font-medium text-primary underline" onClick={() => void loadProducts(page)}>Thử lại</button>
+          <button type="button" className="font-medium text-primary underline" onClick={() => setReloadCount(count => count + 1)}>Thử lại</button>
         </div>
       ) : products.length === 0 ? (
         <div className="rounded-xl border border-outline-variant bg-surface-container-lowest py-7 text-center shadow-xs">

@@ -40,7 +40,15 @@ export interface ChatOrderFlowReply {
   sampleImageUrl?: string;
   isSummary?: boolean;
   consultationContext?: string;
+  leadIntake?: LeadIntakeContext;
   wordingSource?: string;
+}
+
+export interface LeadIntakeContext {
+  goal: string;
+  collected: Record<string, string>;
+  missingRequiredFields: Array<{ label: string; type: string; options?: string[] }>;
+  status: "inactive" | "collecting" | "just_completed" | "complete";
 }
 
 export interface ChatOrderFlowPreview {

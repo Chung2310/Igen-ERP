@@ -1108,11 +1108,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           />
           <button
             type="button"
+            aria-haspopup="dialog"
             onClick={() => setBuilderState({ open: true, addColumn: false, accountKey: builderInitialAccountKey })}
             className={secondaryBtnClass}
           >
             <Settings2 aria-hidden="true" className="size-3.5 text-primary" />
-            Cấu hình cột & Chatbot
+            Thiết lập thu thập Lead
           </button>
           <button
             type="button"
@@ -2047,10 +2048,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         onClose={() => setBuilderState({ open: false, addColumn: false })}
         onSaved={(savedAccount) => {
           if (savedAccount) {
-            toast.success(`Đã cập nhật bộ cột Lead & Chatbot cho ${PLATFORM_LABELS[savedAccount.platform]} · ${savedAccount.displayName}.`);
+            toast.success(`Đã áp dụng cấu hình Lead cho ${savedAccount.displayName}.`);
             onSelectAccountScope?.(savedAccount.platform, savedAccount.accountId);
           } else {
-            toast.success("Đã cập nhật bộ cột Lead mặc định cho toàn doanh nghiệp.");
+            toast.success("Đã áp dụng cấu hình Lead mặc định.");
           }
           void loadProfiles();
           void loadLeads();

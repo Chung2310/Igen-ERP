@@ -8,12 +8,16 @@ import { WarehouseModel } from "../../../model/warehouse.model";
 import { SerialUnitModel } from "../serials/serial-unit.model";
 import { INVENTORY_WORKSPACE_MODES, type CatalogBranchSummary, type CatalogWorkspaceSettings, type InventoryWorkspaceMode } from "../../../../shared/inventory/catalog-workspace";
 
+async function hasSerialTracking(companyCode: string) {
+  const serialVariant = await ProductVariantModel.exists({ companyCode, trackingMode: { $in: ["serial", "unit_barcode"] } });
+  return Boolean(serialVariant || await SerialUnitModel.exists({ companyCode }));
+}
+
 export async function readCatalogWorkspace(companyCode: string): Promise<CatalogWorkspaceSettings> {
-  const [company, serialVariant] = await Promise.all([
+  const [company, hasSerial] = await Promise.all([
     CompanyModel.findOne({ code: companyCode }).select("inventoryWorkspaceMode businessType").lean(),
-    ProductVariantModel.exists({ companyCode, trackingMode: { $in: ["serial", "unit_barcode"] } }),
+    hasSerialTracking(companyCode),
   ]);
-  const hasSerial = Boolean(serialVariant || await SerialUnitModel.exists({ companyCode }));
   if (company?.inventoryWorkspaceMode) return { mode: company.inventoryWorkspaceMode, configured: true, hasSerial };
 
   const [goods, services] = await Promise.all([
@@ -26,15 +30,17 @@ export async function readCatalogWorkspace(companyCode: string): Promise<Catalog
   return { mode, configured: false, hasSerial };
 }
 
-export async function updateCatalogWorkspace(companyCode: string, mode: unknown) {
+export async function updateCatalogWorkspace(companyCode: string, mode: unknown): Promise<CatalogWorkspaceSettings> {
   if (!INVENTORY_WORKSPACE_MODES.some(option => option === mode)) {
     throw Object.assign(new Error("Chế độ danh mục không hợp lệ."), { statusCode: 400 });
   }
+  const selectedMode = mode as InventoryWorkspaceMode;
+  const hasSerial = await hasSerialTracking(companyCode);
   const company = await CompanyModel.updateOne(
-    { code: companyCode }, { $set: { inventoryWorkspaceMode: mode as InventoryWorkspaceMode } }, { runValidators: true },
+    { code: companyCode }, { $set: { inventoryWorkspaceMode: selectedMode } }, { runValidators: true },
   );
   if (!company.matchedCount) throw Object.assign(new Error("Không tìm thấy doanh nghiệp."), { statusCode: 404 });
-  return readCatalogWorkspace(companyCode);
+  return { mode: selectedMode, configured: true, hasSerial };
 }
 
 export async function readCatalogBranchSummaries(

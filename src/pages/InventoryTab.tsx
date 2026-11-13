@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { CheckCircle, FolderTree, Pencil, Plus, Search, Tags, Trash2, Package, ArrowLeftRight, Warehouse, PackagePlus, Barcode, PackageMinus, ClipboardList, TrendingUp } from "lucide-react";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
@@ -79,9 +79,11 @@ function InventoryWorkspace() {
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
   const [workspace, setWorkspace] = useState<CatalogWorkspaceSettings>();
   const [workspaceError, setWorkspaceError] = useState(false);
-  const [workspaceRetry, setWorkspaceRetry] = useState(0);
+  const workspaceRequest = useRef<AbortController | null>(null);
   const showStock = Boolean(workspace && workspace.mode !== "services");
-  const isCatalogTab = subTab === "SẢN PHẨM" || workspace?.mode === "services";
+  const isHiddenStockTab = Boolean(workspace && (workspace.mode === "services"
+    || (subTab === "IMEI / SERIAL" && !workspace.hasSerial)));
+  const isCatalogTab = subTab === "SẢN PHẨM" || isHiddenStockTab || (!workspace && workspaceError);
   const catalogLabel = workspace?.mode === "services" ? "Dịch vụ" : workspace?.mode === "mixed" ? "Sản phẩm & dịch vụ" : "Hàng hóa";
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -102,26 +104,32 @@ function InventoryWorkspace() {
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
+  const refreshWorkspace = useCallback(async () => {
+    workspaceRequest.current?.abort();
     const controller = new AbortController();
-    setWorkspaceError(false);
-    void productCatalogService.getWorkspace(controller.signal).then(result => {
-      if (!controller.signal.aborted) setWorkspace(result);
-    }).catch(() => {
+    workspaceRequest.current = controller;
+    try {
+      const result = await productCatalogService.getWorkspace(controller.signal);
       if (!controller.signal.aborted) {
-        setWorkspace({ mode: "mixed", configured: false, hasSerial: true });
-        setWorkspaceError(true);
+        setWorkspace(result);
+        setWorkspaceError(false);
       }
-    });
-    return () => controller.abort();
-  }, [workspaceRetry]);
+    } catch {
+      if (!controller.signal.aborted) setWorkspaceError(true);
+    }
+  }, []);
 
   useEffect(() => {
-    if (workspace?.mode === "services" && subTab !== "SẢN PHẨM") setSubTab("SẢN PHẨM");
-  }, [workspace?.mode, subTab, setSubTab]);
+    void refreshWorkspace();
+    return () => workspaceRequest.current?.abort();
+  }, [refreshWorkspace]);
 
-  const refreshWorkspace = async () => {
-    const settings = await productCatalogService.getWorkspace();
+  useEffect(() => {
+    if (isHiddenStockTab && subTab !== "SẢN PHẨM") setSubTab("SẢN PHẨM");
+  }, [isHiddenStockTab, subTab, setSubTab]);
+
+  const applySavedWorkspace = (settings: CatalogWorkspaceSettings) => {
+    workspaceRequest.current?.abort();
     setWorkspace(settings);
     setWorkspaceError(false);
   };
@@ -730,21 +738,21 @@ function InventoryWorkspace() {
       </ModuleNavigation>
 
       <div className="inventory-workspace min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" id="inventory_tab_content">
-        {!workspace && <p role="status" className="p-4 text-sm text-on-surface-variant">Đang tải danh mục…</p>}
+        {!workspace && !workspaceError && <p role="status" className="p-4 text-sm text-on-surface-variant">Đang tải danh mục…</p>}
         {workspaceError && <div role="status" className="mb-3 flex items-center gap-3 text-sm text-on-surface-variant">
           Chưa tải được thiết lập danh mục.
-          <button type="button" className="font-medium text-primary underline" onClick={() => setWorkspaceRetry(value => value + 1)}>Thử lại</button>
+          <button type="button" className="font-medium text-primary underline" onClick={() => void refreshWorkspace()}>Thử lại</button>
         </div>}
-        {workspace && isCatalogTab && (
+        {(workspace || workspaceError) && isCatalogTab && (
           <div className="space-y-6" id="product_catalog_menu">
             <ProductCatalogV2Section
-              workspace={workspace}
+              workspace={workspace ?? { mode: "mixed", configured: false, hasSerial: false }}
               branchId={activeBranchId}
               branchName={activeBranch?.name}
               branches={branches}
               canManage={hasPermission?.("inventory:manage") || false}
               canConfigureWorkspace={!workspaceError && (hasPermission?.("settings:manage") || false)}
-              onWorkspaceSaved={setWorkspace}
+              onWorkspaceSaved={applySavedWorkspace}
               onCatalogChanged={refreshWorkspace}
             />
           </div>
@@ -754,7 +762,7 @@ function InventoryWorkspace() {
         {subTab === "KHO HÀNG" && <WarehouseSection />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
         {subTab === "ĐIỀU CHUYỂN" && activeBranchId && <InventoryTransferSection key={activeBranchId} branchId={activeBranchId} canManage={hasPermission?.("inventory:manage") || false} />}
-        {subTab === "IMEI / SERIAL" && <SerialRegistrySection key={activeBranchId} onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
+        {subTab === "IMEI / SERIAL" && workspace.hasSerial && <SerialRegistrySection key={activeBranchId} onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">
