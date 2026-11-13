@@ -1,4 +1,5 @@
 import { apiFetch } from "../modules/shared/lib/apiFetch";
+import type { CatalogBranchSummary, CatalogKind, CatalogWorkspaceSettings, InventoryWorkspaceMode } from "../../shared/inventory/catalog-workspace";
 
 export type ProductCatalogType = "physical" | "service" | "bundle";
 export type ProductCatalogStatus = "draft" | "active" | "inactive" | "archived";
@@ -62,6 +63,8 @@ export type CatalogProduct = {
   name: string;
   productType: ProductCatalogType;
   templateCode?: string;
+  serviceBranchIds?: string[];
+  branchSummary?: CatalogBranchSummary;
   categoryCode: string;
   brandCode?: string;
   baseUnitCode: string;
@@ -84,6 +87,7 @@ export type ProductInput = {
   name: string;
   productType: ProductCatalogType;
   templateCode?: string;
+  serviceBranchIds?: string[];
   categoryCode: string;
   brandCode?: string;
   baseUnitCode: string;
@@ -133,6 +137,17 @@ interface ResourceCacheEntry {
 const RESOURCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
 const resourcesCache = new Map<ProductResourceKind, ResourceCacheEntry>();
 const inFlightResourceRequests = new Map<ProductResourceKind, Promise<ProductResource[]>>();
+let catalogSessionToken: string | null = null;
+
+function syncResourceSession() {
+  const token = getAccessToken();
+  if (token !== catalogSessionToken) {
+    catalogSessionToken = token;
+    resourcesCache.clear();
+    inFlightResourceRequests.clear();
+  }
+  return token;
+}
 
 export type ResourceChangeEvent = {
   kind: ProductResourceKind;
@@ -151,6 +166,7 @@ export function subscribeResourceChanges(listener: ResourceChangeListener): () =
 }
 
 function notifyResourceChange(kind: ProductResourceKind, action: "create" | "update" | "delete", item?: any) {
+  syncResourceSession();
   // 1. Invalidate cache for this kind immediately
   resourcesCache.delete(kind);
   // 2. Notify all subscribers
@@ -204,8 +220,18 @@ export const productCatalogService = {
     return data.url as string;
   },
 
-  async listProducts(params: { q?: string; status?: string; productType?: string; categoryCode?: string; brandCode?: string; page?: number; limit?: number } = {}) {
-    const result = await apiFetch<ApiEnvelope<ListResult<CatalogProduct>>>(`${root}/products`, { params });
+  async getWorkspace(signal?: AbortSignal) {
+    const result = await apiFetch<ApiEnvelope<CatalogWorkspaceSettings>>(`${root}/workspace`, { signal });
+    return result.data;
+  },
+
+  async updateWorkspace(mode: InventoryWorkspaceMode) {
+    const result = await apiFetch<ApiEnvelope<CatalogWorkspaceSettings>>(`${root}/workspace`, { method: "PATCH", body: JSON.stringify({ mode }) });
+    return result.data;
+  },
+
+  async listProducts(params: { q?: string; status?: string; productType?: string; catalogKind?: CatalogKind; branchId?: string; categoryCode?: string; brandCode?: string; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+    const result = await apiFetch<ApiEnvelope<ListResult<CatalogProduct>>>(`${root}/products`, { params, signal });
     return result.data;
   },
 
@@ -214,12 +240,15 @@ export const productCatalogService = {
     return result.data;
   },
 
-  async createProduct(input: ProductInput & { variant: VariantInput }) {
+  async createProduct(input: ProductInput & { variant: VariantInput }, price?: { branchId: string; sellingPrice: number }) {
     const payload = {
       ...input,
       variant: stripCatalogVariantPricing(input.variant),
+      ...(price ? { sellingPrice: price.sellingPrice } : {}),
     };
-    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products`, { method: "POST", body: JSON.stringify(payload) });
+    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products${price ? "/with-price" : ""}`, {
+      method: "POST", params: { branchId: price?.branchId }, body: JSON.stringify(payload),
+    });
     return result.data;
   },
 
@@ -260,11 +289,11 @@ export const productCatalogService = {
     return result.data;
   },
   async upsertPrice(variantId: string, sellingPrice: number, costPrice = 0, branchId?: string) {
-    const result = await apiFetch<ApiEnvelope<any>>(`${root}/prices/${variantId}`, { method: "PUT", body: JSON.stringify({ sellingPrice, costPrice, branchId }) });
+    const result = await apiFetch<ApiEnvelope<any>>(`${root}/prices/${variantId}`, { method: "PUT", params: { branchId }, body: JSON.stringify({ sellingPrice, costPrice }) });
     return result.data;
   },
-  async listPrices() {
-    const result = await apiFetch<ApiEnvelope<{ items: Array<{ variantId: string; sellingPrice: number; costPrice?: number }> }>>(`${root}/prices`);
+  async listPrices(variantId?: string, branchId?: string, productId?: string) {
+    const result = await apiFetch<ApiEnvelope<{ items: Array<{ variantId: string; sellingPrice: number; costPrice?: number; status?: string }> }>>(`${root}/prices`, { params: { variantId, branchId, productId } });
     return result.data.items;
   },
 
@@ -280,6 +309,7 @@ export const productCatalogService = {
 
 
   async listResources(kind: ProductResourceKind, options: { forceRefresh?: boolean } = {}) {
+    const session = syncResourceSession();
     const now = Date.now();
     if (!options.forceRefresh) {
       const cached = resourcesCache.get(kind);
@@ -296,10 +326,12 @@ export const productCatalogService = {
       try {
         const result = await apiFetch<ApiEnvelope<ProductResource[]>>(`${root}/resources/${kind}`, { params: { status: "active" } });
         const data = result.data || [];
-        resourcesCache.set(kind, { data, timestamp: Date.now() });
+        if (getAccessToken() === session && inFlightResourceRequests.get(kind) === fetchPromise) {
+          resourcesCache.set(kind, { data, timestamp: Date.now() });
+        }
         return data;
       } finally {
-        inFlightResourceRequests.delete(kind);
+        if (inFlightResourceRequests.get(kind) === fetchPromise) inFlightResourceRequests.delete(kind);
       }
     })();
 

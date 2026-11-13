@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { ImageIcon, X } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { productCatalogService } from "../../../services/productCatalogService";
@@ -46,7 +46,7 @@ export function ImageUploadBox({
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-600 border-t-transparent" />
         </div>
       )}
-      <input type="file" accept="image/*" onChange={handleFile} className="absolute inset-0 cursor-pointer opacity-0" />
+      <input type="file" accept="image/*" aria-label="Chọn ảnh" onChange={handleFile} className="absolute inset-0 cursor-pointer opacity-0" />
     </div>
   );
 }
@@ -93,19 +93,58 @@ export function Modal({
   children,
   wide = false,
   stacked = false,
+  closeDisabled = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
   stacked?: boolean;
+  closeDisabled?: boolean;
 }) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  const disabledRef = useRef(closeDisabled);
+  closeRef.current = onClose;
+  disabledRef.current = closeDisabled;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousFocus = document.activeElement;
+    dialog.querySelector<HTMLElement>("[data-erp-modal-close]")?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || Array.from(document.querySelectorAll('[role="dialog"]')).at(-1) !== dialog) return;
+      if (event.key === "Escape" && !disabledRef.current) closeRef.current();
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, a[href], [tabindex="0"]',
+      )).filter(item => item.getClientRects().length > 0);
+      const first = focusable.at(0);
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+
   return (
     <div className={`fixed inset-0 ${stacked || title.includes("SKU") ? "z-[60]" : "z-50"} flex items-center justify-center bg-slate-950/40 p-4`}>
-      <div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-lg bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng" data-erp-modal-close>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className={`max-h-[92dvh] w-full overflow-y-auto rounded-lg bg-surface-container-lowest text-on-surface shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-5 py-4">
+          <h3 id={titleId} className="text-base font-semibold text-on-surface">{title}</h3>
+          <button type="button" onClick={onClose} disabled={closeDisabled} className="inline-flex size-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" title="Đóng" aria-label="Đóng" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -118,7 +157,7 @@ export function Modal({
 export function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="block text-xs font-medium text-slate-600">{label}</span>
+      <span className="block text-xs font-medium text-on-surface-variant">{label}</span>
       {children}
     </label>
   );

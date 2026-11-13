@@ -5,6 +5,7 @@ import { publishDomainEvent } from "../../../integrations/shared/event-bus";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { InventoryLedgerEntryModel } from "../../../model/inventory-ledger-entry.model";
+import { BranchModel } from "../../../model/branch.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductPriceModel } from "../../../model/product-price.model";
 import { ProductTemplateModel } from "../../../model/product-template.model";
@@ -64,6 +65,7 @@ export interface ProductCatalogCreateInput {
   name: string;
   productType: ProductCatalogType;
   templateCode?: string;
+  serviceBranchIds?: string[];
   categoryCode: string;
   brandCode?: string;
   baseUnitCode?: string;
@@ -87,6 +89,7 @@ export interface ProductCatalogBulkCreateInput extends Omit<ProductCatalogCreate
 
 export interface ProductCatalogUpdateInput {
   name?: string;
+  serviceBranchIds?: string[];
   categoryCode?: string;
   brandCode?: string | null;
   baseUnitCode?: string;
@@ -311,6 +314,13 @@ export function normalizeProductInput(input: unknown, partial = false): ProductC
     if (!PRODUCT_TYPES.includes(value.productType as ProductCatalogType)) throw new ProductCatalogValidationError("productType không hợp lệ.");
     output.productType = value.productType;
   }
+  if (value.serviceBranchIds !== undefined) {
+    if (!Array.isArray(value.serviceBranchIds) || value.serviceBranchIds.length > 200
+      || value.serviceBranchIds.some(id => typeof id !== "string" || !/^[a-f0-9]{24}$/i.test(id))) {
+      throw new ProductCatalogValidationError("Danh sách cơ sở cung cấp dịch vụ không hợp lệ.");
+    }
+    output.serviceBranchIds = [...new Set(value.serviceBranchIds.map(id => id.toLowerCase()))];
+  }
   for (const field of ["shortDescription", "description", "countryOfOrigin", "manufacturer", "taxCategory"] as const) {
     if (!partial || value[field] !== undefined) output[field] = optionalText(value[field], field, field === "description" ? 20_000 : field === "shortDescription" ? 500 : 200);
   }
@@ -330,6 +340,14 @@ export function normalizeProductInput(input: unknown, partial = false): ProductC
     output.status = nextStatus;
   }
   return output as ProductCatalogUpdateInput & Partial<ProductCatalogCreateInput>;
+}
+
+async function assertServiceBranches(companyCode: string, productType: ProductCatalogType, branchIds?: string[]) {
+  if (branchIds === undefined) return;
+  if (productType !== "service") throw new ProductCatalogValidationError("Cơ sở cung cấp chỉ áp dụng cho dịch vụ.");
+  if (branchIds.length && await BranchModel.countDocuments({ companyCode, _id: { $in: branchIds }, isActive: true }) !== branchIds.length) {
+    throw new ProductCatalogValidationError("Có cơ sở cung cấp không hoạt động hoặc không thuộc doanh nghiệp.");
+  }
 }
 
 function assertVariantStatus(status: unknown): asserts status is (typeof VARIANT_STATUSES)[number] {
@@ -523,6 +541,8 @@ export const ProductCatalogService = {
       }
     }
     if (filter.productType && !PRODUCT_TYPES.includes(filter.productType as ProductCatalogType)) throw new ProductCatalogValidationError("productType không hợp lệ.");
+    if (!filter.productType && query.catalogKind === "goods") filter.productType = { $in: ["physical", "bundle"] };
+    if (!filter.productType && query.catalogKind === "services") filter.productType = "service";
     if (filter.status && !PRODUCT_STATUSES.includes(filter.status as (typeof PRODUCT_STATUSES)[number])) throw new ProductCatalogValidationError("Trạng thái sản phẩm không hợp lệ.");
     const q = String(query.q || "").trim();
     if (q) {
@@ -554,6 +574,7 @@ export const ProductCatalogService = {
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
     if (!normalized.productType) throw new ProductCatalogValidationError("productType là bắt buộc.");
+    await assertServiceBranches(companyCode, normalized.productType, normalized.serviceBranchIds);
     const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
     const requestedVariant = input.variant || {};
@@ -643,6 +664,7 @@ export const ProductCatalogService = {
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
     if (!normalized.productType) throw new ProductCatalogValidationError("productType là bắt buộc.");
+    await assertServiceBranches(companyCode, normalized.productType, normalized.serviceBranchIds);
     const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
 
@@ -706,6 +728,7 @@ export const ProductCatalogService = {
     const current = await ProductCatalogModel.findOne({ _id: id, companyCode }).lean();
     if (!current) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
     const normalized = normalizeProductInput(input, true) as ProductCatalogUpdateInput;
+    await assertServiceBranches(companyCode, current.productType, normalized.serviceBranchIds);
     if (normalized.attributes !== undefined) {
       if (current.templateCode) {
         const template = await findTemplate(companyCode, current.templateCode);

@@ -41,6 +41,7 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     const { container } = render(<ProductCatalogV2Section />);
     await screen.findByText("Áo thun");
     fireEvent.click(container.querySelector('button[title="Sửa sản phẩm"]')!);
+    fireEvent.click(await screen.findByText("Biến thể (1)"));
     await screen.findByText("Thêm một SKU");
     fireEvent.click(screen.getByText("Thêm một SKU"));
 
@@ -58,6 +59,7 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     const editProductButton = Array.from(container.querySelectorAll("button")).find((button) => button.title.includes("sản phẩm"));
     fireEvent.click(editProductButton!);
     await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1));
+    fireEvent.click(screen.getByText("Biến thể (1)"));
 
     const editSkuButton = Array.from(container.querySelectorAll("button")).find((button) => button.title.includes("SKU"));
     fireEvent.click(editSkuButton!);
@@ -83,6 +85,7 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     });
     fireEvent.click(editProductButton);
     await waitFor(() => expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(1));
+    fireEvent.click(screen.getByText("Biến thể (1)"));
     const editSkuButton = Array.from(container.querySelectorAll("button")).find((button) => button.title.includes("SKU"));
     fireEvent.click(editSkuButton!);
 
@@ -131,5 +134,30 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Xóa sản phẩm" }));
 
     await waitFor(() => expect(productCatalogService.deleteProduct).toHaveBeenCalledWith("product-1"));
+  });
+
+  it("shows zero stock on goods, zero price on services, and filters service rows on the server", async () => {
+    const service = { ...product, _id: "service-1", productCode: "DV-1", name: "Lắp đặt",
+      productType: "service" as const, branchSummary: { sellingPriceMin: 0, sellingPriceMax: 0, availableStock: null } };
+    const goods = { ...product, branchSummary: { sellingPriceMin: null, sellingPriceMax: null, availableStock: 0 } };
+    vi.mocked(productCatalogService.listProducts).mockImplementation(async ({ catalogKind } = {}) => ({
+      items: catalogKind === "services" ? [service] : [goods, service], total: catalogKind === "services" ? 1 : 2, page: 1, limit: 10,
+    }));
+    render(<ProductCatalogV2Section workspace={{ mode: "mixed", configured: true, hasSerial: false }} branchId="branch-a" />);
+
+    const table = await screen.findByRole("table");
+    const goodsRow = within(table).getByRole("row", { name: /Áo thun/ });
+    const serviceRow = within(table).getByRole("row", { name: /Lắp đặt/ });
+    expect(within(goodsRow).getByText("0")).toBeTruthy();
+    expect(within(serviceRow).getByText("0 ₫")).toBeTruthy();
+    expect(within(serviceRow).getByTitle("Dịch vụ không theo dõi tồn")).toBeTruthy();
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Loại danh mục" })).getByRole("button", { name: "Dịch vụ" }));
+    await waitFor(() => expect(productCatalogService.listProducts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ catalogKind: "services", branchId: "branch-a", page: 1 }), expect.anything(),
+    ));
+    expect(await screen.findByRole("columnheader", { name: "Cơ sở cung cấp" })).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: "Tồn khả dụng" })).toBeNull();
+    expect(screen.queryByText("Áo thun")).toBeNull();
   });
 });
