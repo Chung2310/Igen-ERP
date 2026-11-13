@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import type { AssistantDataShape, AssistantField, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
+import type { AssistantDataShape, AssistantField, AssistantQuotationAcceptanceForm, AssistantQuotationAcceptanceLinesInput, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { TRAINING_CATEGORY_OPTIONS } from "../../src/shared/training-categories";
 import { AssistantDocumentModel, AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
 import { actorScope, assertOperation, currentWorkflow, listWorkflows } from "./workflows";
@@ -27,7 +27,8 @@ import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePaylo
 import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
 export { missingOptionalCreateFields } from "./completion";
-export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
+export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
   if (!pending || operationById(pending.actionId)) return pending;
@@ -117,6 +118,67 @@ function normalizeStructuredAssistantValues(op: AssistantOperation, values: Reco
     normalized[field.key] = JSON.stringify(prior === undefined
       ? incoming
       : mergeStructuredAssistantValue(prior, incoming, field.structure));
+  }
+  return normalized;
+}
+const acceptanceFieldAliases: Record<string, string> = {
+  acceptanceDate: "acceptedDate",
+  acceptanceLocation: "location",
+  acceptanceResult: "result",
+  handedOverDocuments: "handoverDetails",
+  finalSettlementValue: "settlementAmount",
+};
+function parseVietnameseClock(hourText: string, minuteText = "0", period = "") {
+  let hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return "";
+  if ((period === "chieu" || period === "toi") && hour < 12) hour += 12;
+  if (period === "sang" && hour === 12) hour = 0;
+  if (period === "trua" && hour > 0 && hour < 11) hour += 12;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+function parseVietnameseTimeRange(text: string) {
+  const normalized = normalizeAssistantText(text);
+  const match = normalized.match(/(?:\btu\s+)?(\d{1,2})\s*(?:h|:)\s*(?:(\d{1,2})\s*(?:p|phut)?)?\s*(sang|trua|chieu|toi)?\s*(?:den|toi)\s*(\d{1,2})\s*(?:h|:)\s*(?:(\d{1,2})\s*(?:p|phut)?)?\s*(sang|trua|chieu|toi)?\b/);
+  if (!match) return undefined;
+  const startTime = parseVietnameseClock(match[1], match[2], match[3]);
+  const endTime = parseVietnameseClock(match[4], match[5], match[6]);
+  return startTime && endTime ? { startTime, endTime } : undefined;
+}
+function normalizeAcceptanceValues(op: AssistantOperation, values: Record<string, unknown>, responseText: string) {
+  if (!op.id.startsWith("quotation.acceptance.")) return values;
+  const normalized = { ...values };
+  const fieldKeys = new Set(op.fields.map(field => field.key));
+  for (const [alias, key] of Object.entries(acceptanceFieldAliases)) {
+    if (!fieldKeys.has(key)) continue;
+    if ((normalized[key] === undefined || isBlank(normalized[key])) && normalized[alias] !== undefined && !isBlank(normalized[alias])) {
+      normalized[key] = normalized[alias];
+    }
+    delete normalized[alias];
+  }
+
+  const response = normalizeAssistantText(responseText);
+  const mentionsAbsence = /\b(?:k|ko|khong|chua)\s*(?:co|can|phat sinh)?\b/.test(response);
+  if (mentionsAbsence) {
+    if (/\b(?:ho so ban giao|ban giao)\b/.test(response)) normalized.handoverDetails = "Không có";
+    if (/\b(?:danh gia chat luong|chat luong)\b/.test(response)) normalized.qualityAssessment = "Không có";
+    if (/\b(?:gia tri quyet toan|quyet toan)\b/.test(response)) delete normalized.settlementAmount;
+    if (/\b(?:so tien da thanh toan|da thanh toan|thanh toan)\b/.test(response)) delete normalized.amountPaid;
+  }
+  const responseWithoutEndingPunctuation = response.replace(/[.!?,;:]+$/, "").trim();
+  if (/\b(?:gia tri quyet toan|quyet toan)\s*$/.test(responseWithoutEndingPunctuation)) delete normalized.settlementAmount;
+  if (/\b(?:so tien da thanh toan|da thanh toan)\s*$/.test(responseWithoutEndingPunctuation)) delete normalized.amountPaid;
+
+  const timeRange = parseVietnameseTimeRange(responseText);
+  if (timeRange && fieldKeys.has("startTime") && fieldKeys.has("endTime")) Object.assign(normalized, timeRange);
+  for (const key of ["startTime", "endTime"]) {
+    const value = normalized[key];
+    if (typeof value !== "string") continue;
+    const time = normalizeAssistantText(value).match(/^(\d{1,2})\s*(?:h|:)\s*(?:(\d{1,2})\s*(?:p|phut)?)?\s*(sang|trua|chieu|toi)?$/);
+    if (time) {
+      const parsed = parseVietnameseClock(time[1], time[2], time[3]);
+      if (parsed) normalized[key] = parsed;
+    }
   }
   return normalized;
 }
@@ -698,6 +760,16 @@ const isReferenceCorrectionReply = (text: string) => {
 };
 const isSkippingReference = (text: string) => /^(?:thoi\s+)?(?:bo qua|khong can|de trong|khong gan|khong lien ket|khong chon)(?:\s|$)/.test(normalizeAssistantText(text));
 function unavailableReferencePrompt(op: AssistantOperation, field: AssistantField, label: string, skipHint = "", lookupFailed = false) {
+  if (op.id === "quotation.contract.create" && field.key === "quoteId") {
+    return lookupFailed
+      ? "Mình chưa tải được danh sách dự toán đã duyệt. Bạn thử lại sau hoặc gửi mã dự toán nếu đã biết nhé."
+      : "Chưa có dự toán đã duyệt và đủ thông tin để tạo hợp đồng. Hãy duyệt, bổ sung đầy đủ dự toán rồi thử lại nhé.";
+  }
+  if (op.id === "quotation.estimate.from-customer" && field.key === "sourceQuoteId") {
+    return lookupFailed
+      ? "Mình chưa tải được danh sách báo giá khách hàng. Bạn thử lại sau hoặc gửi mã/tên báo giá nếu đã biết nhé."
+      : "Chưa có báo giá khách hàng nào để chọn. Bạn có thể tạo báo giá trước, hoặc gửi “tạo dự toán” để bắt đầu bằng yêu cầu mới.";
+  }
   if (field.reference === "batch.list" && field.key === "path_id") {
     return lookupFailed
       ? "M\u00ECnh ch\u01B0a t\u1EA3i \u0111\u01B0\u1EE3c danh s\u00E1ch l\u1EDBp trong chi nh\u00E1nh hi\u1EC7n t\u1EA1i. B\u1EA1n th\u1EED l\u1EA1i sau ho\u1EB7c g\u1EEDi m\u00E3 l\u1EDBp n\u1EBFu \u0111\u00E3 bi\u1EBFt nh\u00E9."
@@ -839,6 +911,49 @@ function trainingContentFormFromValues(values: Record<string, unknown>): Assista
   });
   return { lessons, quizzes };
 }
+function quotationAcceptanceFormFromValues(values: Record<string, unknown>): AssistantQuotationAcceptanceForm | undefined {
+  const contract = parseStructuredAssistantValue(values.__assistantQuotationAcceptanceContract);
+  if (!isAssistantRecord(contract) || !Array.isArray(contract.lines) || !contract.lines.length) return undefined;
+  const priorLines = parseStructuredAssistantValue(values.lines);
+  const priorByIndex = new Map<number, Record<string, unknown>>();
+  if (Array.isArray(priorLines)) for (const value of priorLines) {
+    if (isAssistantRecord(value) && Number.isInteger(value.lineIndex)) priorByIndex.set(Number(value.lineIndex), value);
+  }
+  const lines = contract.lines.flatMap((value, lineIndex) => {
+    if (!isAssistantRecord(value)) return [];
+    const name = typeof value.name === "string" ? value.name.trim().slice(0, 250) : "";
+    const unit = typeof value.unit === "string" ? value.unit.trim().slice(0, 50) : "";
+    const contractQuantity = Number(value.quantity);
+    if (!name || !Number.isFinite(contractQuantity) || contractQuantity < 0) return [];
+    const prior = priorByIndex.get(lineIndex);
+    return [{
+      lineIndex,
+      name,
+      ...(typeof value.sku === "string" && value.sku.trim() ? { sku: value.sku.trim().slice(0, 100) } : {}),
+      ...(typeof value.description === "string" && value.description.trim() ? { description: value.description.trim().slice(0, 500) } : {}),
+      unit,
+      contractQuantity,
+      ...(typeof prior?.acceptedQuantity === "number" ? { acceptedQuantity: prior.acceptedQuantity } : {}),
+      ...(typeof prior?.acceptedDetails === "string" ? { acceptedDetails: prior.acceptedDetails.slice(0, 1000) } : {}),
+    }];
+  });
+  if (lines.length !== contract.lines.length) return undefined;
+  return { contractNumber: String(contract.contractNumber || "").slice(0, 100), lines };
+}
+function quotationAcceptanceFinancialDetails(values: Record<string, unknown>) {
+  const contract = parseStructuredAssistantValue(values.__assistantQuotationAcceptanceContract);
+  if (!isAssistantRecord(contract)) return [];
+  const currency = typeof contract.currency === "string" ? contract.currency : "";
+  const formatAmount = (value: unknown) => typeof value === "number" && Number.isFinite(value)
+    ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value)}${currency ? ` ${currency}` : ""}`
+    : "";
+  const settlementAmount = formatAmount(contract.total);
+  const amountPaid = formatAmount(typeof contract.depositAmount === "number" ? contract.depositAmount : 0);
+  return [
+    ...(settlementAmount ? [{ label: "Giá trị quyết toán theo hợp đồng", value: settlementAmount }] : []),
+    ...(amountPaid ? [{ label: "Số tiền đã thanh toán theo hợp đồng", value: amountPaid }] : []),
+  ];
+}
 function assistantChoiceOptions(op: AssistantOperation, field: AssistantField, values: string[]) {
   return values.map(value => ({ value, label: assistantOptionLabel(op, field, value) }));
 }
@@ -927,6 +1042,7 @@ export async function missingReferencePrompts(
   };
   for (const field of op.fields) {
     if (!isAssistantFieldApplicable(workflow, field)) continue;
+    if (op.id === "quotation.contract.create" && field.key !== "quoteId" && isBlank(values.quoteId)) continue;
     if (op.id === "retail.coupon.create" && field.apiKey === "customerId" && values.targetType !== "specific_customer") continue;
     if (op.path === "/inventory/catalog/resources/:kind") {
       const applicableKind = INVENTORY_RESOURCE_FIELD_KINDS[field.apiKey || field.key];
@@ -1506,7 +1622,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     fileName: input.conversationUpload.fileName,
     digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
   } : null;
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1525,7 +1641,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
       return sanitizeReplyPreview(cached, operation, assistantMode)!;
     }
-    return Date.now() - new Date(existing.updatedAt).getTime() > 120_000 ? uncertainReply() : processingReply();
+    return Date.now() - new Date(existing.updatedAt).getTime() > ASSISTANT_TURN_RECOVERY_WINDOW_MS ? uncertainReply() : processingReply();
   }
   const sessionFilter = { ...scope, conversationId: input.conversationId };
   try { await AssistantSessionModel.updateOne(sessionFilter, { $setOnInsert: { ...sessionFilter, mode: assistantMode } }, { upsert: true }); }
@@ -1549,9 +1665,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const trainingContentSummary = input.trainingContent
     ? `Đã gửi biểu mẫu với ${input.trainingContent.lessons.length} bài giảng và ${input.trainingContent.quizzes.length} câu hỏi trắc nghiệm.`
     : "";
+  const acceptanceLinesSummary = input.acceptanceLines
+    ? `Đã nhập khối lượng nghiệm thu cho ${input.acceptanceLines.lines.length} dòng hợp đồng.`
+    : "";
   const uploadedFileSummary = input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
   let conversationFile: AssistantConversationFileContext | undefined;
-  const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
+  const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || acceptanceLinesSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
   const forgetMemoryCommand = input.text ? parseExplicitMemoryForgetCommand(input.text) : null;
   const historyContent = forgetMemoryCommand
@@ -1732,6 +1851,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       else if (/(?:cau hinh hoa hong|hoa hong|commission)/.test(normalizedIntent)) actionId = "partner.commission.update";
     }
     const op = await assertOperation(req, actionId);
+    provided = normalizeAcceptanceValues(op, provided, input.text || "");
     const workflow = await currentWorkflow(req, actionId);
     const requestWorkflow = workflowForRequest(op, workflow, intent);
     const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
@@ -1843,6 +1963,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       } catch { /* structured validation will keep malformed values from reaching the route */ }
     }
     const confirmationDetails = references.confirmationDetails || {};
+    const acceptanceFinancialDetails = op.id === "quotation.acceptance.create"
+      ? quotationAcceptanceFinancialDetails(references.values)
+      : [];
+    if (acceptanceFinancialDetails.length) confirmationDetails.acceptanceContractFinancials = acceptanceFinancialDetails;
+    if (collected.missing.length && acceptanceFinancialDetails.length) preview.values.push(...acceptanceFinancialDetails.map(detail => ({ ...detail, defaulted: false })));
     // Keep partial structured input available to reference prompting if a
     // nested reference lookup fails. Missing required scalar siblings are
     // tracked separately by collectValues, so valid selected references can
@@ -1910,11 +2035,19 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       || collected.errors.some(error => [...trainingContentLabels].some(label => error.startsWith(`${label}:`))
         || /^(?:Bài giảng|Câu hỏi trắc nghiệm) · Mục \d+:/u.test(error))
     );
+    const acceptanceLinesLabel = op.fields.find(field => field.key === "lines")?.label || "";
+    const acceptanceForm = op.id === "quotation.acceptance.create"
+      ? quotationAcceptanceFormFromValues(references.values)
+      : undefined;
+    const acceptanceLinesNeedForm = Boolean(acceptanceForm && (
+      collected.missing.some(label => acceptanceLinesLabel && label.startsWith(acceptanceLinesLabel))
+      || collected.errors.some(error => acceptanceLinesLabel && error.startsWith(`${acceptanceLinesLabel}:`))
+    ));
     const receiptScalarLabels = op.id === "inventory.receipt.create"
       ? new Set(collected.missing.filter(label => /^items · Mục \d+ · (?:quantity|unitCost)$/u.test(label)))
       : new Set<string>();
     const customWorkHoursLabels = new Set(missingWorkHours);
-    const missingWithoutReferenceLabels = collected.missing.filter(label => label !== customerQuoteMissingProductLabel && !trainingContentLabels.has(label) && !receiptScalarLabels.has(label) && !customWorkHoursLabels.has(label) && !selectionLabels.has(label) && !op.fields.some(field => field.reference && field.label === label && selectedValues[field.key] === undefined));
+    const missingWithoutReferenceLabels = collected.missing.filter(label => label !== customerQuoteMissingProductLabel && !(acceptanceLinesNeedForm && label.startsWith(acceptanceLinesLabel)) && !trainingContentLabels.has(label) && !receiptScalarLabels.has(label) && !customWorkHoursLabels.has(label) && !selectionLabels.has(label) && !op.fields.some(field => field.reference && field.label === label && selectedValues[field.key] === undefined));
     pending = {
       id,
       actionId,
@@ -1944,6 +2077,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         ...(receiptQuestion ? [receiptQuestion] : []),
         ...(customWorkHoursQuestion ? [customWorkHoursQuestion] : []),
         ...(trainingContentQuestion ? [trainingContentQuestion] : []),
+        ...(acceptanceLinesNeedForm ? ["Bạn nhập khối lượng nghiệm thu cho từng sản phẩm trong bảng bên dưới nhé."] : []),
         ...(visibleCollectedErrors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...visibleCollectedErrors, ...visibleReferenceErrors].join("\n")}`] : []),
         ...(relationshipPrompts.textPrompts.length ? [relationshipPrompts.textPrompts.join("\n")] : []),
         ...(relationshipPrompts.referenceSelections.length && !customerQuoteQuestion ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
@@ -1951,6 +2085,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       return { status: "collecting", reply: lines.join("\n"), action: preview,
         ...(relationshipPrompts.referenceSelections.length ? { referenceSelections: relationshipPrompts.referenceSelections } : {}),
         ...(trainingContentNeedsForm ? { trainingContentForm: trainingContentFormFromValues(selectedValues) } : {}),
+        ...(acceptanceLinesNeedForm && acceptanceForm ? { quotationAcceptanceForm: acceptanceForm } : {}),
       };
     }
     if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, collected.values)) {
@@ -2002,7 +2137,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     responseRules = settings.responseRules || "";
     autoMemoryEnabled = settings.autoMemoryEnabled ?? false;
     const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
-    if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.trainingContent)) {
+    if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.trainingContent || input.acceptanceLines)) {
       throw new AssistantError("Tab Trò chuyện cần có nội dung tin nhắn. Hãy nhập câu hỏi hoặc yêu cầu kèm tệp.");
     }
     if (forgetMemoryCommand !== null) {
@@ -2067,6 +2202,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         for (const key of applied.skipped) if (operation.fields.some(field => field.key === key)) delete applied.provided[key];
         reply = await prepare(pending.actionId, applied.provided, false, pending.intent, Object.keys(input.referenceSelections));
       }
+    } else if (input.acceptanceLines) {
+      if (!pending || pending.actionId !== "quotation.acceptance.create") throw new AssistantError("Biểu mẫu khối lượng nghiệm thu đã hết hiệu lực. Gửi lại yêu cầu lập biên bản nghiệm thu giúp mình nhé.", 409);
+      const provided = { ...pending.provided, lines: JSON.stringify(input.acceptanceLines.lines) };
+      reply = await prepare(pending.actionId, provided, false, pending.intent);
     } else if (input.trainingContent) {
       if (!pending || pending.actionId !== "training.create") throw new AssistantError("Biểu mẫu bài giảng và câu hỏi đã hết hiệu lực. Bạn gửi lại yêu cầu tạo khóa đào tạo giúp mình nhé.", 409);
       const operation = await assertOperation(req, pending.actionId);

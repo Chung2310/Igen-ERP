@@ -248,6 +248,7 @@ export interface Quote {
     result: string;
     handoverDetails: string;
     qualityAssessment: string;
+    acceptanceLines?: AcceptanceRecord["lines"];
     contractValue: number;
     settlementAmount: number;
     amountPaid: number;
@@ -328,7 +329,7 @@ export interface AcceptanceRecord {
   amountPaid: number;
   paymentDueDays: number | null;
   notes: string;
-  lines: Array<{ lineIndex: number; acceptedQuantity: number }>;
+  lines: Array<{ lineIndex: number; acceptedQuantity: number; acceptedDetails?: string }>;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;

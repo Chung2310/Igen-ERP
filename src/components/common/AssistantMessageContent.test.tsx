@@ -32,6 +32,45 @@ describe("AssistantMessageContent progressive display", () => {
     expect(complete).toContain("hỗ trợ bạn");
   });
 
+  it("places a sourced illustration after the paragraph that cites its source", () => {
+    const content = [
+      "Cầu Rồng là một điểm tham quan nổi bật ([nguồn](https://example.com/dragon-bridge)).",
+      "Cầu phun lửa vào cuối tuần.",
+    ].join("\n\n");
+    const markup = renderToStaticMarkup(<AssistantMessageContent
+      content={content}
+      illustrations={[{
+        alt: "Cầu Rồng nhìn từ xa",
+        url: "https://images.example.com/dragon-bridge.jpg",
+        sourceTitle: "Cầu Rồng Đà Nẵng",
+        sourceUrl: "https://example.com/dragon-bridge?utm_source=search",
+      }]}
+    />);
+
+    const citedParagraph = markup.indexOf("Cầu Rồng là một điểm tham quan nổi bật");
+    const figure = markup.indexOf("<figure");
+    const nextParagraph = markup.indexOf("Cầu phun lửa vào cuối tuần.");
+    expect(citedParagraph).toBeGreaterThanOrEqual(0);
+    expect(figure).toBeGreaterThan(citedParagraph);
+    expect(nextParagraph).toBeGreaterThan(figure);
+    expect(markup).toContain('alt="Cầu Rồng nhìn từ xa"');
+    expect(markup).toContain("Cầu Rồng Đà Nẵng");
+  });
+
+  it("labels generated illustrations when the provider returns a hosted image URL", () => {
+    const markup = renderToStaticMarkup(<AssistantMessageContent
+      content="Đây là bản xem trước mình vừa tạo."
+      illustrations={[{
+        alt: "Logo quán cà phê",
+        url: "https://images.example.com/coffee-logo.webp",
+        generatedByAi: true,
+      }]}
+    />);
+
+    expect(markup).toContain("Hình minh họa được tạo bằng AI.");
+    expect(markup).toContain('alt="Logo quán cà phê"');
+  });
+
   it("keeps structured results as a table while revealing rows", () => {
     const content = [
       "Mình tìm thấy 2 kết quả phù hợp cho bạn.",

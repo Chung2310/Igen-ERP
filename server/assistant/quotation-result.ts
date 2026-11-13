@@ -9,6 +9,16 @@ Object.assign(labels, { startTime: "Giờ bắt đầu", endTime: "Giờ kết t
 export function quotationValue(key: string, value: any, depth = 0): string {
   if (value == null) return "—";
   if (depth > 3) return "…";
+  if (key === "lines" && Array.isArray(value)) {
+    const products = value.slice(0, 3).map(item => {
+      if (!item || typeof item !== "object") return String(item ?? "").trim();
+      const name = String(item.name || item.sku || "Sản phẩm").trim();
+      const quantity = item.quantity == null ? "" : ` × ${quotationValue("quantity", item.quantity)}`;
+      return `${name}${quantity}`;
+    }).filter(Boolean);
+    const remainder = value.length > products.length ? `; +${value.length - products.length} dòng` : "";
+    return `${value.length} dòng hàng${products.length ? `: ${products.join("; ")}` : ""}${remainder}`;
+  }
   if (Array.isArray(value)) return value.slice(0, 15).map(item => quotationValue(key, item, depth + 1)).join("; ") || "Không có";
   if (typeof value === "object") {
     return Object.entries(value).flatMap(([k, v]) => {
@@ -34,5 +44,14 @@ export function formatQuotationResult(op: AssistantOperation, value: any): strin
     return Object.keys(record).length ? record : { "Trạng thái": "Đã xử lý" };
   });
   const queued = rows.some(row => ["queued", "running"].includes(String(row.status)));
-  return formatAssistantResultTable("Kết quả", records, queued ? ["File đang được xử lý. Bạn có thể yêu cầu xem tiến độ hoặc tải file khi hoàn tất."] : rows.length > 15 ? ["Đang hiển thị 15 kết quả. Hãy lọc theo mã hoặc tên để xem cụ thể hơn."] : []);
+  const exportStatus = value && typeof value === "object" ? String(value.__assistantExportStatus || "") : "";
+  const exportNote = exportStatus === "completed"
+    ? ["File đã được tạo theo mẫu và đính kèm bên dưới."]
+    : exportStatus === "failed"
+      ? [`Hồ sơ đã được lưu nhưng chưa tạo được file theo mẫu: ${String(value.__assistantExportError || "Hãy thử tạo lại file trong phân hệ Báo giá.").slice(0, 500)}`]
+      : exportStatus === "running"
+        ? ["Hồ sơ đã được lưu. File đang được tạo theo mẫu; hãy mở lại hồ sơ để tải file khi hoàn tất."]
+        : [];
+  const notes = exportNote.length ? exportNote : queued ? ["File đang được xử lý. Bạn có thể yêu cầu xem tiến độ hoặc tải file khi hoàn tất."] : rows.length > 15 ? ["Đang hiển thị 15 kết quả. Hãy lọc theo mã hoặc tên để xem cụ thể hơn."] : [];
+  return formatAssistantResultTable("Kết quả", records, notes);
 }

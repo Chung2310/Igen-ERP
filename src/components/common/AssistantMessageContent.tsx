@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import {
   parseActionPreviewProductTable,
   parseAssistantResultTable,
@@ -5,7 +6,8 @@ import {
   type AssistantPreviewProductTable,
 } from "./assistant-message-format";
 import { cn } from "../../modules/student-management/lib/utils";
-import { canonicalAssistantLinkUrl, isAssistantImageUrl, safeAssistantHttpUrl } from "./assistant-link-utils";
+import type { AssistantIllustration } from "../../shared/assistant-document";
+import { canonicalAssistantLinkUrl, isAssistantImageUrl, safeAssistantHttpUrl, safeAssistantIllustrationUrl } from "./assistant-link-utils";
 
 const inlineLinkClass = "rounded-sm text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
@@ -187,31 +189,36 @@ function parseAssistantTextBlocks(content: string): AssistantTextBlock[] {
   return blocks;
 }
 
+function AssistantTextBlockView({ block, allowedLinkUrls }: { block: AssistantTextBlock; allowedLinkUrls?: readonly string[] }) {
+  if (block.type === "paragraph") return <MessageParagraph content={block.content} allowedLinkUrls={allowedLinkUrls} />;
+  if (block.type === "heading") {
+    const headingTags = ["h3", "h4", "h5", "h6", "h6", "h6"] as const;
+    const Heading = headingTags[block.level - 1];
+    const className = cn("font-semibold text-on-surface", block.level <= 2 ? "text-base" : "text-sm");
+    return <Heading className={className}>{formattedText(block.content, allowedLinkUrls)}</Heading>;
+  }
+  if (block.type === "divider") return <hr className="border-outline-variant" />;
+  const List = block.ordered ? "ol" : "ul";
+  return <List className={cn("space-y-1.5", block.ordered ? "list-decimal pl-5" : "list-none pl-0")}>
+    {block.items.map((item, itemIndex) => <li key={itemIndex} className={cn(!block.ordered && "pl-4")} style={{ marginLeft: `${item.depth}rem` }}>
+      {formattedText(item.content, allowedLinkUrls)}
+    </li>)}
+  </List>;
+}
+
 function AssistantTextContent({ content, allowedLinkUrls }: { content: string; allowedLinkUrls?: readonly string[] }) {
-  const blocks = parseAssistantTextBlocks(content);
   return <div className="min-w-0 space-y-2.5 text-pretty">
-    {blocks.map((block, index) => {
-      if (block.type === "paragraph") return <MessageParagraph key={`paragraph-${index}`} content={block.content} allowedLinkUrls={allowedLinkUrls} />;
-      if (block.type === "heading") {
-        const headingTags = ["h3", "h4", "h5", "h6", "h6", "h6"] as const;
-        const Heading = headingTags[block.level - 1];
-        const className = cn("font-semibold text-on-surface", block.level <= 2 ? "text-base" : "text-sm");
-        return <Heading key={`heading-${index}`} className={className}>{formattedText(block.content, allowedLinkUrls)}</Heading>;
-      }
-      if (block.type === "divider") return <hr key={`divider-${index}`} className="border-outline-variant" />;
-      const List = block.ordered ? "ol" : "ul";
-      return <List key={`list-${index}`} className={cn("space-y-1.5", block.ordered ? "list-decimal pl-5" : "list-none pl-0")}>
-        {block.items.map((item, itemIndex) => <li key={itemIndex} className={cn(!block.ordered && "pl-4")} style={{ marginLeft: `${item.depth}rem` }}>
-          {formattedText(item.content, allowedLinkUrls)}
-        </li>)}
-      </List>;
-    })}
+    {parseAssistantTextBlocks(content).map((block, index) => <AssistantTextBlockView key={`${block.type}-${index}`} block={block} allowedLinkUrls={allowedLinkUrls} />)}
   </div>;
 }
 
 type AssistantMarkdownBlock =
   | { type: "text"; content: string }
   | { type: "table"; headers: string[]; alignments: Array<"left" | "center" | "right">; rows: string[][] };
+
+type AssistantRenderableBlock =
+  | { type: "text"; block: AssistantTextBlock }
+  | { type: "table"; block: Extract<AssistantMarkdownBlock, { type: "table" }> };
 
 function markdownTableCells(line: string) {
   let value = line.trim().replace(/\\\|/g, "\u0000");
@@ -260,6 +267,66 @@ function parseAssistantMarkdownBlocks(content: string): AssistantMarkdownBlock[]
   return blocks;
 }
 
+function illustrationSourceMatchesBlock(illustration: AssistantIllustration, block: AssistantTextBlock) {
+  if (block.type !== "paragraph" || !illustration.sourceUrl) return false;
+  const sourceCanonical = canonicalAssistantLinkUrl(illustration.sourceUrl);
+  if (!sourceCanonical) return false;
+  return Array.from(block.content.matchAll(/\[[^\]]*\]\((https?:\/\/[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)\)/g))
+    .some(match => canonicalAssistantLinkUrl(match[1]) === sourceCanonical);
+}
+
+function AssistantInlineIllustration({ illustration }: { illustration: AssistantIllustration }) {
+  const sourceUrl = illustration.sourceUrl ? safeAssistantHttpUrl(illustration.sourceUrl) : null;
+  return <figure className="max-w-2xl space-y-1.5">
+    <img src={illustration.url} alt={illustration.alt?.trim() || "Minh họa cho câu trả lời"} loading="lazy" referrerPolicy="no-referrer" className="max-h-96 max-w-full rounded-xl border border-outline-variant object-contain" />
+    <figcaption className="text-pretty text-xs text-on-surface-variant">{sourceUrl
+      ? <>Ảnh minh họa từ <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2", inlineLinkClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
+      : illustration.generatedByAi || illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
+  </figure>;
+}
+
+function AssistantAnswerBlocks({ content, allowedLinkUrls, illustrations = [] }: { content: string; allowedLinkUrls?: readonly string[]; illustrations?: AssistantIllustration[] }) {
+  const blocks: AssistantRenderableBlock[] = [];
+  for (const block of parseAssistantMarkdownBlocks(content)) {
+    if (block.type === "table") blocks.push({ type: "table", block });
+    else blocks.push(...parseAssistantTextBlocks(block.content).map(textBlock => ({ type: "text" as const, block: textBlock })));
+  }
+  const safeIllustrations = illustrations.slice(0, 4).flatMap(illustration => {
+    const url = safeAssistantIllustrationUrl(illustration.url);
+    return url ? [{ ...illustration, url }] : [];
+  });
+  const illustrationsByBlock = new Map<number, AssistantIllustration[]>();
+  const addIllustration = (index: number, illustration: AssistantIllustration) => {
+    illustrationsByBlock.set(index, [...(illustrationsByBlock.get(index) || []), illustration]);
+  };
+  const unplaced: AssistantIllustration[] = [];
+  for (const illustration of safeIllustrations) {
+    const matchingBlockIndex = blocks.findIndex(item => item.type === "text" && illustrationSourceMatchesBlock(illustration, item.block));
+    if (matchingBlockIndex >= 0) addIllustration(matchingBlockIndex, illustration);
+    else unplaced.push(illustration);
+  }
+  const paragraphIndexes = blocks.flatMap((item, index) => item.type === "text" && item.block.type === "paragraph" ? [index] : []);
+  const freeParagraphIndexes = paragraphIndexes.filter(index => !illustrationsByBlock.has(index));
+  const fallbackIndexes = freeParagraphIndexes.length ? freeParagraphIndexes : paragraphIndexes;
+  unplaced.forEach((illustration, index) => {
+    if (!fallbackIndexes.length) return;
+    const slot = Math.min(fallbackIndexes.length - 1, Math.floor((index + 1) * (fallbackIndexes.length + 1) / (unplaced.length + 1)) - 1);
+    addIllustration(fallbackIndexes[Math.max(0, slot)], illustration);
+  });
+  if (!paragraphIndexes.length && unplaced.length && blocks.length) {
+    unplaced.forEach(illustration => addIllustration(blocks.length - 1, illustration));
+  }
+
+  return <div className="min-w-0 space-y-3">
+    {blocks.map((item, index) => <Fragment key={`${item.type}-${index}`}>
+      {item.type === "table"
+        ? <AssistantMarkdownTable {...item.block} allowedLinkUrls={allowedLinkUrls} />
+        : <AssistantTextBlockView block={item.block} allowedLinkUrls={allowedLinkUrls} />}
+      {illustrationsByBlock.get(index)?.map((illustration, illustrationIndex) => <AssistantInlineIllustration key={`${illustration.url.slice(0, 80)}-${illustrationIndex}`} illustration={illustration} />)}
+    </Fragment>)}
+  </div>;
+}
+
 function AssistantMarkdownTable({ headers, alignments, rows, allowedLinkUrls }: Extract<AssistantMarkdownBlock, { type: "table" }> & { allowedLinkUrls?: readonly string[] }) {
   const alignmentClass = { left: "text-left", center: "text-center", right: "text-right" };
   return <div role="region" aria-label="Bảng dữ liệu. Có thể cuộn ngang để xem đủ các cột." tabIndex={0} className="max-w-full overflow-x-auto rounded-xl border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
@@ -277,19 +344,13 @@ function AssistantMarkdownTable({ headers, alignments, rows, allowedLinkUrls }: 
   </div>;
 }
 
-export function AssistantMessageContent({ content, visibleCharacters, allowedLinkUrls }: { content: string; visibleCharacters?: number; allowedLinkUrls?: readonly string[] }) {
+export function AssistantMessageContent({ content, visibleCharacters, allowedLinkUrls, illustrations }: { content: string; visibleCharacters?: number; allowedLinkUrls?: readonly string[]; illustrations?: AssistantIllustration[] }) {
   const visibleContent = visibleCharacters === undefined ? content : Array.from(content).slice(0, visibleCharacters).join("");
   const resultTable = parseAssistantResultTable(content);
   if (!resultTable) {
     const successCard = parseAssistantSuccessCard(visibleContent);
     if (!successCard) {
-      const blocks = parseAssistantMarkdownBlocks(visibleContent);
-      if (!blocks.some(block => block.type === "table")) return <AssistantTextContent content={visibleContent} allowedLinkUrls={allowedLinkUrls} />;
-      return <div className="min-w-0 space-y-3">
-        {blocks.map((block, index) => block.type === "table"
-          ? <AssistantMarkdownTable key={`table-${index}`} {...block} allowedLinkUrls={allowedLinkUrls} />
-          : <AssistantTextContent key={`text-${index}`} content={block.content} allowedLinkUrls={allowedLinkUrls} />)}
-      </div>;
+      return <AssistantAnswerBlocks content={visibleContent} allowedLinkUrls={allowedLinkUrls} illustrations={illustrations} />;
     }
     return (
       <section className="min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
@@ -337,7 +398,7 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
         role="region"
         aria-label="Bảng kết quả. Có thể cuộn ngang để xem đủ các cột."
         tabIndex={0}
-        className="max-w-full overflow-x-auto rounded-xl border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="h-fit self-start max-w-full overflow-x-auto rounded-xl border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <table
           aria-label="Kết quả"

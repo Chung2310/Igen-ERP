@@ -20,6 +20,7 @@ export interface AssistantSource {
 export interface AssistantIllustration {
   alt: string;
   url: string;
+  generatedByAi?: boolean;
   sourceTitle?: string;
   sourceUrl?: string;
   sourceCredit?: string;

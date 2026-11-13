@@ -1,4 +1,4 @@
-import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
+import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantQuotationAcceptanceLinesInput, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
 import type { AssistantSpeechVoice } from "../shared/assistant-speech-voices";
 import type { AssistantSpeechControls } from "../shared/assistant-speech";
 import type { AssistantChatMessage, AssistantGeneratedFile } from "../shared/assistant-document";
@@ -7,7 +7,7 @@ import type { AssistantSlideDeck, AssistantSlideDeckUpdate, AssistantSlideHistor
 import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../shared/assistant-mindmap";
 import type { AssistantPromptTemplate } from "../components/common/assistant-prompt-library-data";
 import type { AssistantProject } from "../components/common/assistant-project-data";
-export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }

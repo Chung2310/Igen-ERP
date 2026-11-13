@@ -107,6 +107,7 @@ export function contractBindings(contract: Contract): Record<string, string> {
 export function acceptanceBindings(contract: Contract, record: import("./types.js").AcceptanceRecord): Record<string, string> {
   const number = (value: number, currencyAmount = true) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: currencyAmount ? contract.currency === "VND" ? 0 : 2 : 6 }).format(value);
   const acceptedLines = new Map(record.lines.map((line) => [line.lineIndex, line.acceptedQuantity]));
+  const acceptedDetails = new Map(record.lines.map((line) => [line.lineIndex, line.acceptedDetails ?? ""]));
   const acceptedTotal = contract.lines.reduce((sum, line, index) => sum + Math.round((acceptedLines.get(index) ?? 0) * line.unitPrice * 100) / 100, 0);
   const balance = Math.max(0, record.settlementAmount - record.amountPaid);
   const values: Record<string, string> = {
@@ -129,6 +130,7 @@ export function acceptanceBindings(contract: Contract, record: import("./types.j
     const acceptedLineTotal = Math.round(acceptedQuantity * line.unitPrice * 100) / 100;
     values[`${prefix}contractQuantity`] = number(line.quantity, false);
     values[`${prefix}acceptedQuantity`] = number(acceptedQuantity, false);
+    values[`${prefix}acceptedDetails`] = acceptedDetails.get(index) ?? "";
     values[`${prefix}acceptedLineTotal`] = number(acceptedLineTotal);
     values[`${prefix}acceptedLineTotalFormatted`] = formattedMoney(acceptedLineTotal, contract.currency);
     values[`${prefix}unit`] = line.unit;
@@ -273,9 +275,10 @@ async function renderNonWordBusinessFile(template: QuoteTemplate, contract: Cont
 
 function contractFileProducts(contract: Contract, record?: import("./types.js").AcceptanceRecord) {
   return contract.lines.map((line, index) => {
-    const quantity = record ? record.lines.find((entry) => entry.lineIndex === index)?.acceptedQuantity ?? 0 : line.quantity;
+    const acceptedLine = record?.lines.find((entry) => entry.lineIndex === index);
+    const quantity = record ? acceptedLine?.acceptedQuantity ?? 0 : line.quantity;
     return { index: index + 1, sku: line.sku, name: line.name, description: line.description ?? "", quantity, unit: line.unit, unitPrice: line.unitPrice,
-      lineTotal: record ? Math.round(quantity * line.unitPrice * 100) / 100 : line.lineTotal, currency: line.currency, attributes: line.attributes, catalogAttributes: line.catalogAttributes ?? {} };
+      acceptedDetails: acceptedLine?.acceptedDetails ?? "", lineTotal: record ? Math.round(quantity * line.unitPrice * 100) / 100 : line.lineTotal, currency: line.currency, attributes: line.attributes, catalogAttributes: line.catalogAttributes ?? {} };
   });
 }
 
@@ -287,6 +290,7 @@ function wordProducts(contract: Contract, record?: import("./types.js").Acceptan
     const lineTotal = fields[`${prefix}${record ? "acceptedLineTotalFormatted" : "lineTotalFormatted"}`] ?? "";
     return {
       index: String(index + 1), sku: line.sku, name: line.name, description: line.description ?? "", details: fields[`${prefix}details`] ?? "",
+      acceptedDetails: fields[`${prefix}acceptedDetails`] ?? "",
       unit: line.unit, quantity, unitPrice: fields[`${prefix}unitPrice`] ?? "", lineTotal: fields[`${prefix}${record ? "acceptedLineTotal" : "lineTotal"}`] ?? "",
       unitPriceFormatted: fields[`${prefix}unitPriceFormatted`] ?? "", lineTotalFormatted: lineTotal,
       contractQuantity: fields[`${prefix}quantity`] ?? "", acceptedQuantity: fields[`${prefix}acceptedQuantity`] ?? "",
@@ -321,7 +325,7 @@ export async function createAcceptanceFillPlan(template: QuoteTemplate, contract
   if (planMode !== "docx" && planMode !== "docx-ai" && planMode !== "pdf-ai" && planMode !== "pdf-reference") throw new Error("Mẫu này không hỗ trợ ánh xạ dữ liệu nghiệm thu.");
   const plan = await requestTemplatePlan<TemplateFillPlan>([
     { type: "text", text: JSON.stringify({
-      instruction: "Read this acceptance and handover record template and map only existing data positions using [[binding]] tokens. Preserve all acceptance clauses, form labels, signature areas, logos, table structure and typography. Replace old example details only. For Word edits, use unique exact find/replace operations in Word XML and preserve XML structure. For PDF edits, use page points with bottom-left origin; erase only old example values, never form labels or legal clauses. Prioritize acceptanceNumber, acceptedDate, startTime/endTime, location, customerName, companyName, projectName, handoverDetails, qualityAssessment, result, accepted quantities, settlementAmountFormatted, amountPaidFormatted and acceptanceBalanceFormatted. For each contract line, use line_n_acceptedQuantity and line_n_acceptedLineTotalFormatted where the template has matching rows. Never substitute contracted quantities for accepted quantities. Do not invent information, change contract terms, or calculate amounts. If no matching position is clear, return empty edits and pdfEdits.",
+      instruction: "Read this acceptance and handover record template and map only existing data positions using [[binding]] tokens. Preserve all acceptance clauses, form labels, signature areas, logos, table structure and typography. Replace old example details only. For Word edits, use unique exact find/replace operations in Word XML and preserve XML structure. For PDF edits, use page points with bottom-left origin; erase only old example values, never form labels or legal clauses. Prioritize acceptanceNumber, acceptedDate, startTime/endTime, location, customerName, companyName, projectName, handoverDetails, qualityAssessment, result, accepted quantities and per-product acceptedDetails, settlementAmountFormatted, amountPaidFormatted and acceptanceBalanceFormatted. For each contract line, use line_n_acceptedQuantity, line_n_acceptedDetails and line_n_acceptedLineTotalFormatted where the template has matching rows. Never substitute contracted quantities for accepted quantities. Do not invent information, change contract terms, or calculate amounts. If no matching position is clear, return empty edits and pdfEdits.",
       availableBindings: Object.keys(values), exampleValues: values, lineCount: contract.lines.length, sourceMayContainCurrentValues: true,
       machineSuggestedEdits: knownPlan ?? undefined,
     }) },
@@ -338,9 +342,10 @@ export async function createAcceptanceFillPlan(template: QuoteTemplate, contract
 export function renderAcceptanceWithTemplate(template: QuoteTemplate, contract: Contract, record: import("./types.js").AcceptanceRecord): Buffer {
   if (contractTemplateMode(template) !== "docx") throw new Error("Mẫu nghiệm thu này chưa có các trường Word cần thiết.");
   const lines = contract.lines.map((line, index) => {
-    const acceptedQuantity = record.lines.find((entry) => entry.lineIndex === index)?.acceptedQuantity ?? 0;
+    const acceptedLine = record.lines.find((entry) => entry.lineIndex === index);
+    const acceptedQuantity = acceptedLine?.acceptedQuantity ?? 0;
     const acceptedLineTotal = Math.round(acceptedQuantity * line.unitPrice * 100) / 100;
-    return { ...line, index: index + 1, contractQuantity: line.quantity, acceptedQuantity, acceptedLineTotal,
+    return { ...line, index: index + 1, contractQuantity: line.quantity, acceptedQuantity, acceptedDetails: acceptedLine?.acceptedDetails ?? "", acceptedLineTotal,
       acceptedLineTotalFormatted: formattedMoney(acceptedLineTotal, contract.currency), unitPriceFormatted: formattedMoney(line.unitPrice, contract.currency) };
   });
   const data = { ...contract, ...record, ...acceptanceBindings(contract, record), lines };
