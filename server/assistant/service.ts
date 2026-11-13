@@ -1946,7 +1946,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       const optionLabel = field.options?.some(option => String(option) === String(value)) ? assistantOptionLabel(op, field, String(value)) : "";
       return safeAssistantPreviewFieldValue(field, value, resolvedLabel || optionLabel || assistantPreviewValue(op, field.key, value));
     };
-    const previewValues = workflow.fields.filter(f => collected.values[f.key] !== undefined).map(f => ({ label: f.label, value: summarizedValue(f, collected.values[f.key]), defaulted: collected.defaulted.includes(f.key) }));
+    const previewValues = workflow.fields.filter(f => collected.values[f.key] !== undefined
+      && !(op.id === "quotation.acceptance.create" && f.key === "lines"))
+      .map(f => ({ label: f.label, value: summarizedValue(f, collected.values[f.key]), defaulted: collected.defaulted.includes(f.key) }));
     if (op.path === "/inventory/catalog/products") {
       const suppliedVariant = collected.values.variant;
       let hasSku = false;
@@ -2104,7 +2106,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (question !== "Bạn muốn mình cập nhật những thông tin nào?") return { status: "collecting", reply: question, action: preview };
     }
     pending.resolved = references.values;
-    preview.values = workflow.fields.filter(f => references.values[f.key] !== undefined).map(f => {
+    preview.values = workflow.fields.filter(f => references.values[f.key] !== undefined
+      && !(op.id === "quotation.acceptance.create" && f.key === "lines")).map(f => {
       const rawValue = references.values[f.key];
       const displayValue = attachmentSummary?.fieldKey === f.key ? `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}` : references.labels[f.key] || (f.options?.includes(String(rawValue)) ? assistantOptionLabel(op, f, String(rawValue)) : assistantPreviewValue(op, f.key, rawValue));
       return { label: f.label, value: safeAssistantPreviewFieldValue(f, rawValue, displayValue), defaulted: collected.defaulted.includes(f.key) };
@@ -2125,7 +2128,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         ? "Thao tác này sẽ thay toàn bộ quyền của vai trò và áp dụng cho mọi tài khoản đang dùng vai trò đó. Bạn kiểm tra lại danh sách quyền trong bản xem trước rồi xác nhận giúp mình nhé."
         : op.id === "healthcare.patient.bulk-delete"
           ? "Thao tác này sẽ xóa các bệnh nhân đã chọn cùng toàn bộ lượt khám, lịch hẹn và công việc chăm sóc liên quan. Bạn kiểm tra từng hồ sơ và số dữ liệu sẽ xóa trong bản xem trước, rồi xác nhận để thực hiện nhé."
-        : "Mình đã chuẩn bị xong. Bạn xem lại thông tin trong bản xem trước; nếu mọi thứ chính xác, hãy xác nhận để mình thực hiện nhé.", action: preview };
+        : "Mình đã chuẩn bị xong. Bạn xem lại thông tin trong bản xem trước; nếu mọi thứ chính xác, hãy xác nhận để mình thực hiện nhé.", action: preview,
+      ...(op.id === "quotation.acceptance.create" && acceptanceForm?.lines.every(line => typeof line.acceptedQuantity === "number")
+        ? { quotationAcceptanceForm: acceptanceForm }
+        : {}),
+    };
     return execute(op, workflow, references.values);
   };
 

@@ -1853,7 +1853,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                     {showReplyDetails && lastReply?.quotationAcceptanceForm && <AssistantQuotationAcceptanceForm
                       key={lastReply.action?.id || lastReply.quotationAcceptanceForm.contractNumber}
                       value={lastReply.quotationAcceptanceForm}
-                      readOnly={isViewingHistory}
+                      readOnly={isViewingHistory || lastReply.status !== "collecting"}
                       submitting={isLoading || Boolean(retryRef.current)}
                       canSubmit={synced && !isLoading && !retryRef.current}
                       onSubmit={acceptanceLines => void submitAcceptanceLines(acceptanceLines)}
