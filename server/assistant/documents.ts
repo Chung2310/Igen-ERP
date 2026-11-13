@@ -12,6 +12,7 @@ import { documentFileName, documentMimeTypes, renderAssistantDocument, validateD
 import { DOCUMENT_RULES_VERSION, documentCreationRules } from "./document-rules";
 import { verifyAssistantExport } from "./document-preflight";
 import { isVietnamesePhoneNormalizationRequest, normalizeUploadedVietnamesePhones } from "./vietnamese-phone-normalization";
+import { createAssistantVisualIllustration, recommendAssistantVisualCreation } from "./assistant-visual-creation";
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
 const formatPattern = /\b(?:xlsx|xls|excel|csv|docx|word|pdf|txt|markdown|md|json)\b/;
@@ -110,6 +111,26 @@ export async function downloadAssistantFile(req: AuthenticatedRequest, conversat
   return { fileName: file.fileName, mimeType: file.mimeType, bytes: Buffer.isBuffer(file.bytes) ? file.bytes : Buffer.from(file.bytes.value()) };
 }
 
+async function addRecommendedIllustration(
+  input: AssistantGeneralAnswerInput,
+  reply: AssistantReply,
+): Promise<AssistantReply> {
+  if (reply.status !== "completed" || reply.action || reply.files?.length || !reply.reply.trim()) return reply;
+  const recommendation = await recommendAssistantVisualCreation({
+    question: input.question,
+    answer: reply.reply,
+    illustrations: reply.illustrations,
+  });
+  if (!recommendation?.shouldGenerate) return reply;
+  try {
+    const referenceImage = input.visualAttachments?.[0]?.dataUrl;
+    const illustration = await createAssistantVisualIllustration(recommendation, referenceImage);
+    return { ...reply, illustrations: [...(reply.illustrations || []).slice(0, 3), illustration] };
+  } catch {
+    return reply;
+  }
+}
+
 export async function answerAssistantConversation(req: AuthenticatedRequest, input: AssistantGeneralAnswerInput & { conversationId: string; requestId: string; pendingDocumentRequest?: string }): Promise<AssistantReply & { pendingDocumentRequest?: string | null }> {
   const scope = { ...scopeOf(req), conversationId: input.conversationId };
   const previous = await AssistantDocumentModel.find(scope).sort({ createdAt: -1, _id: -1 }).limit(50).lean();
@@ -138,11 +159,13 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
       ...(!input.documentContext && stored ? { documentContext: { title: stored.title, version: stored.version, content: stored.content } } : {}),
     };
     if (input.documentContext || input.visualAttachments?.length) {
-      return { status: "completed", reply: await answerAssistantGeneralQuestion(answerInput) };
+      const reply: AssistantReply = { status: "completed", reply: await answerAssistantGeneralQuestion(answerInput) };
+      return addRecommendedIllustration(answerInput, reply);
     }
     const currentGoldPrices = shouldAutoResearchGoldPrices(input.question, input.messages);
     const mode = currentGoldPrices ? "gold-prices" : "deep";
-    return { status: "completed", ...await answerAssistantResearchQuestion(answerInput, mode) };
+    const reply: AssistantReply = { status: "completed", ...await answerAssistantResearchQuestion(answerInput, mode) };
+    return addRecommendedIllustration(answerInput, reply);
   }
   const alreadyCreated = previous.find(row => row.requestId === input.requestId);
   if (alreadyCreated) return { status: "completed", reply: `Tệp của “${alreadyCreated.title}” đã sẵn sàng (phiên bản ${alreadyCreated.version}).`, files: publicFiles(alreadyCreated) };

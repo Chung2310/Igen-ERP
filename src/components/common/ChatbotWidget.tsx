@@ -15,7 +15,7 @@ import { AssistantActionProductTable, AssistantMessageContent } from "./Assistan
 import { formatActionPreviewValues } from "./assistant-message-format";
 import { AssistantGeneratedFiles } from "./AssistantGeneratedFiles";
 import type { AssistantChatMessage, AssistantIllustration, AssistantSource } from "../../shared/assistant-document";
-import { assistantSourceKind, isAssistantImageUrl, safeAssistantHttpUrl, safeAssistantIllustrationUrl } from "./assistant-link-utils";
+import { assistantSourceKind, safeAssistantHttpUrl } from "./assistant-link-utils";
 import { AssistantSidebarIcon, type AssistantSidebarIconName } from "./AssistantSidebarIcon";
 import { AssistantTools } from "./AssistantTools";
 import { AssistantAgents } from "./AssistantAgents";
@@ -99,7 +99,7 @@ const qaWelcomeMessage: Message = {
 };
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-function AssistantResearchSources({ sources }: { sources?: AssistantSource[]; illustrationUrls?: string[] }) {
+function AssistantResearchSources({ sources }: { sources?: AssistantSource[] }) {
   const seen = new Set<string>();
   const safeSources = (sources || []).slice(0, 16).flatMap(source => {
     const safeUrl = safeAssistantHttpUrl(source.url);
@@ -123,41 +123,6 @@ function AssistantResearchSources({ sources }: { sources?: AssistantSource[]; il
   </section>;
 }
 
-function AssistantAnswerIllustrations({ illustrations }: { illustrations?: AssistantIllustration[] }) {
-  const safeIllustrations = (illustrations || []).slice(0, 4).flatMap(illustration => {
-    const url = safeAssistantIllustrationUrl(illustration.url);
-    const sourceUrl = illustration.sourceUrl ? safeAssistantHttpUrl(illustration.sourceUrl) : null;
-    return url ? [{
-      alt: illustration.alt?.trim() || "Minh họa cho câu trả lời",
-      url,
-      ...(illustration.sourceTitle?.trim() ? { sourceTitle: illustration.sourceTitle.trim() } : {}),
-      ...(sourceUrl ? { sourceUrl } : {}),
-      ...(illustration.sourceCredit?.trim() ? { sourceCredit: illustration.sourceCredit.trim() } : {}),
-    }] : [];
-  });
-  if (!safeIllustrations.length) return null;
-  if (safeIllustrations.length === 1) {
-    const illustration = safeIllustrations[0];
-    return <section className="mt-3 space-y-3" aria-label="Hình minh họa">
-      <figure className="max-w-2xl space-y-1.5">
-        <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="max-h-96 max-w-full rounded-xl border border-outline-variant object-contain" />
-        <figcaption className="text-pretty text-xs text-on-surface-variant">{illustration.sourceUrl
-          ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
-          : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
-      </figure>
-    </section>;
-  }
-  return <section className="mt-3 space-y-2" aria-label="Hình minh họa từ nguồn tham khảo">
-    <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
-      {safeIllustrations.map((illustration, index) => <figure key={`${illustration.url.slice(0, 80)}-${index}`} className="flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-        <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="h-44 w-full bg-surface-container-low object-cover" />
-        <figcaption className="border-t border-outline-variant px-3 py-2 text-pretty text-xs text-on-surface-variant">{illustration.sourceUrl
-          ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("font-medium text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
-          : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
-      </figure>)}
-    </div>
-  </section>;
-}
 function commandAfterWakeWord(text: string): string | null {
   const match = /\b(?:hey|hei)[,\s]+(?:i\s*gen|ai\s*gen)\b[,:.!?]?\s*/i.exec(text);
   return match ? text.slice(match.index + match[0].length).trim() : null;
@@ -170,7 +135,7 @@ function voiceContextError(): string {
 }
 type LauncherPosition = { x: number; y: number };
 
-function RevealingAssistantMessage({ content, allowedLinkUrls, requestId, onComplete, onProgress }: { content: string; allowedLinkUrls?: readonly string[]; requestId: string; onComplete: (requestId: string) => void; onProgress: () => void }) {
+function RevealingAssistantMessage({ content, allowedLinkUrls, illustrations, requestId, onComplete, onProgress }: { content: string; allowedLinkUrls?: readonly string[]; illustrations?: AssistantIllustration[]; requestId: string; onComplete: (requestId: string) => void; onProgress: () => void }) {
   const reduceMotion = useReducedMotion();
   const [visibleCharacters, setVisibleCharacters] = useState(0);
 
@@ -201,7 +166,7 @@ function RevealingAssistantMessage({ content, allowedLinkUrls, requestId, onComp
 
   return <>
     <span className="sr-only">{content}</span>
-    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} allowedLinkUrls={allowedLinkUrls} /></div>
+    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} allowedLinkUrls={allowedLinkUrls} illustrations={visibleCharacters >= Array.from(content).length ? illustrations : undefined} /></div>
   </>;
 }
 function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
@@ -1794,15 +1759,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                                 ? <RevealingAssistantMessage
                                   key={revealingReply.requestId}
                                   content={message.content}
-                                  allowedLinkUrls={message.sources?.map(source => source.url) ?? []}
+                                  allowedLinkUrls={message.sources?.map(source => source.url) ?? []} illustrations={message.illustrations}
                                   requestId={revealingReply.requestId}
                                   onProgress={followReplyReveal}
                                   onComplete={finishReplyReveal}
                                 />
-                                : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url) ?? []} /></div>}
+                                : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url) ?? []} illustrations={message.illustrations} /></div>}
                             </div>
-                            <AssistantAnswerIllustrations illustrations={message.illustrations} />
-                            <AssistantResearchSources sources={message.sources} illustrationUrls={message.illustrations?.map(illustration => illustration.url)} />
+
+                            <AssistantResearchSources sources={message.sources} />
                             {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
                             <AssistantMessageActions content={message.content} />
                           </div>}
