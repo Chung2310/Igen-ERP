@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatbotWidget } from "./ChatbotWidget";
+import { AssistantQuickPromptSuggestions, ChatbotWidget } from "./ChatbotWidget";
 import { assistantService } from "../../services/assistantService";
 
 vi.mock("../../context/AuthContext", () => ({
@@ -110,6 +110,25 @@ describe("ChatbotWidget welcome", () => {
       if (originalShowPopover) Object.defineProperty(HTMLElement.prototype, "showPopover", originalShowPopover);
       else delete (HTMLElement.prototype as HTMLElement & { showPopover?: () => void }).showPopover;
     }
+  });
+
+  it("keeps suggested prompts left-aligned and wrapped in narrow chat layouts", () => {
+    const onSelect = vi.fn();
+    render(<div style={{ width: "22rem" }}><AssistantQuickPromptSuggestions mode="qa" disabled={false} onSelect={onSelect} /></div>);
+    const group = screen.getByRole("group", { name: "Gợi ý câu hỏi" });
+
+    expect(group.classList.contains("w-full")).toBe(true);
+    expect(group.classList.contains("min-w-0")).toBe(true);
+    expect(group.classList.contains("justify-start")).toBe(true);
+    for (const suggestion of Array.from(group.querySelectorAll("button"))) {
+      expect(suggestion.classList.contains("min-w-0")).toBe(true);
+      expect(suggestion.classList.contains("max-w-full")).toBe(true);
+      expect(suggestion.classList.contains("whitespace-normal")).toBe(true);
+      expect(suggestion.classList.contains("break-words")).toBe(true);
+      expect(suggestion.classList.contains("text-left")).toBe(true);
+      fireEvent.click(suggestion);
+    }
+    expect(onSelect).toHaveBeenCalledTimes(group.querySelectorAll("button").length);
   });
 
   it.each(["qa", "work"] as const)("shows greeting and composer in %s mode", mode => {

@@ -56,6 +56,12 @@ const assistantQuickPrompts: Record<AssistantMode, readonly string[]> = {
   work: ["Thêm nhân sự mới", "Tạo khách hàng mới", "Tạo một công việc mới"],
 };
 
+export function AssistantQuickPromptSuggestions({ mode, disabled, onSelect }: { mode: AssistantMode; disabled: boolean; onSelect: (prompt: string) => void }) {
+  return <div role="group" aria-label={mode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="flex w-full min-w-0 flex-wrap justify-start gap-2">
+    {assistantQuickPrompts[mode].map(prompt => <button key={prompt} type="button" onClick={() => onSelect(prompt)} disabled={disabled} className={cn("min-h-8 min-w-0 max-w-full whitespace-normal break-words rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-left text-xs text-on-surface hover:border-primary hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{prompt}</button>)}
+  </div>;
+}
+
 const chatFeatureActions = [
   { label: "Tạo hình ảnh", Icon: Image, from: "#3865d8", middle: "#398ce9", to: "#735be8", studioToolId: "create-image" },
   { label: "Tạo video", Icon: Video, from: "#df6043", middle: "#f28b4c", to: "#e6a454", comingSoon: true },
@@ -1738,9 +1744,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                   <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể trả lời câu hỏi kiến thức, giải thích, viết, tóm tắt hoặc lên ý tưởng." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
                   {isLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
                 </div>
-                {settings.showSuggestions && synced && <div role="group" aria-label={assistantMode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="flex flex-wrap gap-2">
-                  {assistantQuickPrompts[assistantMode].map(prompt => <button key={prompt} type="button" onClick={() => void handleSend(prompt)} disabled={isLoading || Boolean(retryRef.current)} className={cn("min-h-8 rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-left text-xs text-on-surface hover:border-primary hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{prompt}</button>)}
-                </div>}
+                {settings.showSuggestions && synced && <AssistantQuickPromptSuggestions mode={assistantMode} onSelect={prompt => void handleSend(prompt)} disabled={isLoading || Boolean(retryRef.current)} />}
                 {renderComposer("conversation")}
               </div> : <div ref={logRef} className="assistant-welcome assistant-reference-welcome relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
                 <section aria-labelledby="assistant-welcome-title" className={cn("assistant-reference-content mx-auto flex min-h-full w-full flex-col justify-center", mode === "standalone" && !isStandaloneChatHome ? "max-w-5xl gap-5" : "max-w-6xl gap-7 sm:gap-8")}>
