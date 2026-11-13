@@ -77,8 +77,8 @@ function makeLegacyDocumentWord(kind: "contract" | "acceptance", contract?: Cont
     body.push(paragraph(`Hồ sơ / sản phẩm bàn giao: ${record?.handoverDetails || blank("Danh mục, định dạng và số lượng hồ sơ bàn giao")}`));
     body.push(paragraph(`Đánh giá chất lượng: ${record?.qualityAssessment || blank("Đánh giá chất lượng")}`));
     body.push(table([
-      ["STT", "Hạng mục", "ĐVT", "Khối lượng HĐ", "Khối lượng NT", "Đơn giá", "Giá trị NT"],
-      ...(lines.length ? lines.map((line, index) => [index + 1, line.name, line.unit, line.quantity, record?.lines[index]?.acceptedQuantity ?? blank("Khối lượng NT"), money(line.unitPrice, contract?.currency), record ? money((record.lines[index]?.acceptedQuantity ?? 0) * line.unitPrice, contract?.currency) : blank("Giá trị NT")]) : [[1, blank("Hạng mục"), blank("ĐVT"), blank("Khối lượng HĐ"), blank("Khối lượng NT"), blank("Đơn giá"), blank("Giá trị NT")]]),
+      ["STT", "Hạng mục", "ĐVT", "Khối lượng HĐ", "Khối lượng NT", "Thông tin nghiệm thu", "Đơn giá", "Giá trị NT"],
+      ...(lines.length ? lines.map((line, index) => [index + 1, line.name, line.unit, line.quantity, record?.lines[index]?.acceptedQuantity ?? blank("Khối lượng NT"), record?.lines[index]?.acceptedDetails || blank("Thông tin nghiệm thu"), money(line.unitPrice, contract?.currency), record ? money((record.lines[index]?.acceptedQuantity ?? 0) * line.unitPrice, contract?.currency) : blank("Giá trị NT")]) : [[1, blank("Hạng mục"), blank("ĐVT"), blank("Khối lượng HĐ"), blank("Khối lượng NT"), blank("Thông tin nghiệm thu"), blank("Đơn giá"), blank("Giá trị NT")]]),
     ]));
     if (record && contract) body.push(paragraph(`Tổng giá trị hạng mục nghiệm thu trước thuế: ${money(contract.lines.reduce((sum, line, index) => sum + (record.lines[index]?.acceptedQuantity ?? 0) * line.unitPrice, 0), contract.currency)}`, true));
     body.push(paragraph("3. GIÁ TRỊ QUYẾT TOÁN", true));

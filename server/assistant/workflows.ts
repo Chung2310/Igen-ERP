@@ -44,10 +44,12 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
     const savedFields = config.fields.filter(field => op.fields.some(base => base.key === field.key));
     const fields = [...savedFields, ...op.fields.filter(base => !savedFields.some(field => field.key === base.key))].map(field => {
       const base = op.fields.find(candidate => candidate.key === field.key)!;
+      const savedDefaultValue = field.defaultValue;
       const defaultValue = base.reference ? undefined
-        : field.type === "json" && field.defaultValue !== undefined && typeof field.defaultValue !== "string"
-          ? JSON.stringify(field.defaultValue)
-          : field.defaultValue;
+        : savedDefaultValue === undefined ? base.defaultValue
+          : field.type === "json" && typeof savedDefaultValue !== "string"
+            ? JSON.stringify(savedDefaultValue)
+            : savedDefaultValue;
       // A formerly locked API requirement is not a personal choice once the API relaxes it.
       const savedRequired = field.systemRequired && !base.systemRequired ? base.required : field.required;
       return { ...base, required: Boolean(base.systemRequired || savedRequired), defaultValue };

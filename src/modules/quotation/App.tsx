@@ -8,7 +8,7 @@ import { quotationClientUser, hasQuotationCapability } from "./api";
 import { quotationRoute, quotationUrl, quotationSectionPaths } from "./routing";
 import QuotationSettings from "./QuotationSettings";
 import { userMessage } from "./user-message";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { ApiError, api, apiUploadWithProgress, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedFileRef } from "./api";
 
@@ -921,6 +921,8 @@ function QuoteWorkspace({
 
 function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuotaExceeded, onAiUsed }: { sourceQuote?: Quote; onClose: () => void; onCreated: (id: string, fileError?: string | null) => void; onQuotaExceeded?: () => void; onAiUsed?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const sourceRequirementsInput = useRef<HTMLTextAreaElement>(null);
+  const sourceRequirementsId = useId();
   const [templates, setTemplates] = useState<TemplateDetails[]>([]);
   const [templateId, setTemplateId] = useState("");
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -935,6 +937,7 @@ function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuot
   const [busy, setBusy] = useState(false);
   const [taskProgress, setTaskProgress] = useState<TaskProgressState | null>(null);
   const [error, setError] = useState("");
+  const [sourceRequirementsError, setSourceRequirementsError] = useState("");
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
@@ -979,12 +982,19 @@ function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuot
     event.preventDefault();
     const currentSource = sourceQuote ?? selectedSource;
     if (!currentSource || !templateId || busy) return;
+    const requirements = sourceRequirements.trim();
+    if (!requirements) {
+      setSourceRequirementsError("Hãy nhập yêu cầu cụ thể để AI tính dự toán.");
+      sourceRequirementsInput.current?.focus();
+      return;
+    }
+    setSourceRequirementsError("");
     setBusy(true);
     setError("");
     try {
       const { quote } = await api<{ quote: Quote }>("/api/quotes/from-customer", {
         method: "POST",
-        body: JSON.stringify({ sourceQuoteId: currentSource._id, templateId, sourceRequirements, idempotencyKey }),
+        body: JSON.stringify({ sourceQuoteId: currentSource._id, templateId, sourceRequirements: requirements, idempotencyKey }),
       });
       const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Đang đưa dữ liệu vào mẫu và lưu file kết quả lên Cloudinary…" }));
       onAiUsed?.();
@@ -1017,10 +1027,11 @@ function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuot
         {!sourcesLoading && totalPages > 1 && <div className="estimate-from-quote-pages"><button type="button" className="button button-soft button-compact" disabled={page <= 1 || busy} onClick={() => setPage((value) => value - 1)}>Trước</button><span>Trang {page}/{totalPages}</span><button type="button" className="button button-soft button-compact" disabled={page >= totalPages || busy} onClick={() => setPage((value) => value + 1)}>Sau</button></div>}
         {selectedSource && <p className="field-hint">Đã chọn: {selectedSource.quoteNumber} · {selectedSource.customerName}</p>}
       </>}
-      <label className="estimate-from-quote-field">Yêu cầu bổ sung cho dự toán
-        <textarea value={sourceRequirements} disabled={busy} rows={4} maxLength={10000} placeholder="Ví dụ: Cần làm rõ quy cách, số lượng, vật liệu, thời gian giao hàng hoặc các hạng mục cần điều chỉnh…" onChange={(event) => setSourceRequirements(event.target.value)} />
+      <label className="estimate-from-quote-field" htmlFor={sourceRequirementsId}>Yêu cầu cụ thể để tính dự toán *
+        <textarea id={sourceRequirementsId} ref={sourceRequirementsInput} value={sourceRequirements} disabled={busy} rows={4} required maxLength={10000} aria-invalid={Boolean(sourceRequirementsError)} aria-describedby={`${sourceRequirementsId}-help${sourceRequirementsError ? ` ${sourceRequirementsId}-error` : ""}`} onInvalid={() => setSourceRequirementsError("Hãy nhập yêu cầu cụ thể để AI tính dự toán.")} placeholder="Ví dụ: 10 bộ bàn họp 8 chỗ, mặt gỗ chống ẩm; giao và lắp đặt tại Hà Nội trước 30/11…" onChange={(event) => { const value = event.target.value; setSourceRequirements(value); if (value.trim()) setSourceRequirementsError(""); }} />
       </label>
-      <p className="field-hint">AI sẽ điều chỉnh dự toán theo nội dung này. Dòng mới hoặc đổi quy cách sẽ cần bổ sung đơn giá trước khi phê duyệt.</p>
+      <p id={`${sourceRequirementsId}-help`} className="field-hint">Nêu rõ số lượng, quy cách, vật liệu, phạm vi lắp đặt hoặc thời hạn cần đáp ứng. AI dùng nội dung này để điều chỉnh dự toán; hạng mục mới hoặc đổi quy cách có thể cần bổ sung đơn giá.</p>
+      {sourceRequirementsError && <p id={`${sourceRequirementsId}-error`} className="estimate-from-quote-error" role="alert">{sourceRequirementsError}</p>}
       <label className="estimate-from-quote-field">Mẫu dự toán
         <select value={templateId} disabled={busy || templatesLoading || templates.length === 0} onChange={(event) => setTemplateId(event.target.value)}>
           <option value="">{templatesLoading ? "Đang tải mẫu…" : "Chọn mẫu dự toán"}</option>
@@ -1029,7 +1040,7 @@ function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuot
       </label>
       {!templatesLoading && templates.length === 0 && <p className="field-hint">Chưa có mẫu dự toán đã lưu.</p>}
       {error && <p className="estimate-from-quote-error" role="alert">{error}</p>}
-      {busy && <TaskProgress {...(taskProgress ?? { label: "Đang tạo dự toán", detail: sourceRequirements.trim() ? "AI đang đọc yêu cầu và điều chỉnh các dòng sản phẩm…" : "Sao chép sản phẩm và đơn giá từ báo giá khách…" })} />}
+      {busy && <TaskProgress {...(taskProgress ?? { label: "Đang tạo dự toán", detail: "AI đang đối chiếu yêu cầu cụ thể với sản phẩm, quy cách và đơn giá trong báo giá…" })} />}
       <div className="estimate-from-quote-actions"><button type="button" className="button button-soft" disabled={busy} onClick={onClose}>Hủy</button><button type="submit" className="button button-primary" disabled={!(sourceQuote || selectedSource) || !templateId || busy}>{busy ? "Đang tạo…" : "Tạo dự toán"}</button></div>
     </form>
   </dialog>;

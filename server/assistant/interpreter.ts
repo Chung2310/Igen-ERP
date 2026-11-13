@@ -708,6 +708,25 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   const quotation = quotationIntent(text);
   const pendingActionId = (pending as { actionId?: string } | null)?.actionId || "";
   const normalizedQuotationReply = normalizeIntentText(text).trim();
+  // Field answers for an in-progress acceptance can contain "nghiệm thu" and
+  // otherwise look like a request to list acceptance records. Keep collecting
+  // against the create/update operation unless the user clearly asks to read
+  // records. This avoids sending those field values to acceptance.list.
+  if ((pendingActionId === "quotation.acceptance.create" || pendingActionId === "quotation.acceptance.update")
+    && quotation.actionId === "quotation.acceptance.list"
+    && !/\b(?:xem|tra cuu|danh sach|liet ke|tim|chi tiet)\b/.test(normalizedQuotationReply)) {
+    quotation.domain = true;
+    quotation.actionId = pendingActionId;
+  }
+  if (pendingActionId === "quotation.estimate.create") {
+    if (/\b(?:tu|theo) bao gia\b/.test(normalizedQuotationReply)) {
+      quotation.domain = true;
+      quotation.actionId = "quotation.estimate.from-customer";
+    } else if (/\b(?:tu|theo) yeu cau moi\b|\byeu cau moi\b/.test(normalizedQuotationReply)) {
+      quotation.domain = true;
+      quotation.actionId = "quotation.request.create";
+    }
+  }
   if (pendingActionId === "quotation.customer-quote.create") {
     if (quotation.actionId === "quotation.customer-quote.suggest"
       || (quotation.actionId === "quotation.catalog.list" && /\b(?:tu chon|chon truc tiep|chon san pham)\b/.test(normalizedQuotationReply))) {

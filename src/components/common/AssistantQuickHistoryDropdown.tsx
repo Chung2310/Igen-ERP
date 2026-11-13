@@ -26,6 +26,7 @@ export interface AssistantQuickHistoryDropdownProps {
   onOpenStudio: (item: AssistantStudioHistoryEntry) => void;
   onOpenHistory: () => void;
   projects: AssistantProject[];
+  projectsLocked?: boolean;
   assignedConversationIds: ReadonlySet<string>;
   onMoveConversation: (conversation: AssistantConversationSummary, projectId: string) => void;
   onOpenProjects: () => void;
@@ -37,6 +38,7 @@ export function AssistantQuickHistoryDropdown({
   onOpenStudio,
   onOpenHistory,
   projects,
+  projectsLocked,
   assignedConversationIds,
   onMoveConversation,
   onOpenProjects,
@@ -186,7 +188,7 @@ export function AssistantQuickHistoryDropdown({
                     >
                       {getTitle(item)}
                     </button>
-                    {item.type === "conversation" && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
+                    {item.type === "conversation" && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} projectsLocked={projectsLocked} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
                   </li>
                 );
               })}

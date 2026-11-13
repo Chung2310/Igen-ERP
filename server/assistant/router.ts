@@ -219,7 +219,14 @@ const trainingContent = Joi.object({
     ? helpers.error("any.invalid")
     : quiz)).required(),
 });
-const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
+const acceptanceLinesInput = Joi.object({
+  lines: Joi.array().min(1).max(100).items(Joi.object({
+    lineIndex: Joi.number().integer().min(0).max(99).required(),
+    acceptedQuantity: Joi.number().min(0).max(1_000_000).required(),
+    acceptedDetails: Joi.string().max(1000).allow(""),
+  }).unknown(false)).required(),
+}).unknown(false);
+const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
 assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(req => processTurn(req, req.body)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
   const controller = new AbortController();

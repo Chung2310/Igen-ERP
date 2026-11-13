@@ -76,6 +76,7 @@ async function attachRedisAdapter(server: SocketIOServer) {
     lazyConnect: true,
     connectTimeout: 2000,
     maxRetriesPerRequest: 0,
+    retryStrategy: () => null,
   });
 
   try {

@@ -1060,6 +1060,34 @@
   }
 }
 
+.quotation-module .workflow-acceptance-table-wrap table {
+  min-width: 1180px;
+}
+
+.quotation-module .workflow-acceptance-table-wrap th:nth-child(9),
+.quotation-module .workflow-acceptance-table-wrap td:nth-child(9) {
+  min-width: 220px;
+  text-align: left;
+  white-space: normal;
+}
+
+.quotation-module .workflow-acceptance-table-wrap td:nth-child(9) input[type="text"] {
+  width: 100%;
+  min-width: 200px;
+  text-align: left;
+  font-variant-numeric: normal;
+}
+
+.quotation-module .workflow-acceptance-line-details {
+  display: block;
+  min-width: 200px;
+  max-width: 320px;
+  color: var(--color-on-surface-variant);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media print {
   .quotation-module .sidebar,
   .quotation-module .workflow-header,

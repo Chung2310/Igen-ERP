@@ -12,6 +12,8 @@ type Row = Record<string, any>;
 type Lookup = (req: AuthenticatedRequest, id: string, search?: string, extra?: Values) => Promise<AssistantRecord[]>;
 type Matches = (row: AssistantRecord, search: string) => boolean;
 const idPattern = /^[a-f\d]{24}$/i;
+// Give five-minute exports extra time for the final status poll and file download.
+const QUOTATION_EXPORT_WAIT_MS = 5 * 60_000 + 30_000;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ").trim();
 const operation = (id: string) => QUOTATION_OPERATIONS.find(op => op.id === `quotation.${id}`)!;
 const version = (row: Row) => row.updatedAt || row.createdAt;
@@ -70,6 +72,45 @@ async function request(req: AuthenticatedRequest, values: Values, path: string, 
   catch {
     if (mutating) throw new QuotationUncertainExecutionError("Máy chủ đã nhận thao tác Báo giá nhưng chưa đọc được kết quả. Kiểm tra hồ sơ trước khi thử lại.");
     throw new AssistantError("Không đọc được phản hồi Báo giá.", 502);
+  }
+}
+
+async function createAssistantQuotationFile(req: AuthenticatedRequest, input: Values, operationId: string, record: Row) {
+  const sourceId = String(record?._id || record?.id || "");
+  if (!idPattern.test(sourceId)) return { __assistantExportStatus: "failed", __assistantExportError: "Không xác định được hồ sơ vừa tạo để xuất file." };
+  try {
+    let job: Row;
+    if (operationId === "quotation.customer-quote.create") {
+      let latest = await request(req, input, `/generated-export-files/latest?kind=customer_quote&sourceId=${sourceId}`);
+      if (latest.file?.id && latest.job?.status === "completed") {
+        const downloaded = await request(req, input, `/files/${latest.file.id}/download`);
+        if (downloaded.__assistantQuotationFile) return { __assistantExportStatus: "completed", __assistantQuotationFile: downloaded.__assistantQuotationFile };
+      }
+      job = latest.job;
+      if (!job || job.status === "failed") {
+        job = await request(req, input, `/quotes/${sourceId}/export/retry`, "POST", {}, {}, false);
+      }
+      if (job.id) job = { ...job, jobId: job.id };
+    } else {
+      job = await request(req, input, `/quotes/${sourceId}/export?draft=1&background=1`, "GET", undefined, {}, false);
+    }
+    const jobId = String(job?.jobId || job?.id || "");
+    if (!idPattern.test(jobId)) return { __assistantExportStatus: "running" };
+    let current = job;
+    const deadline = Date.now() + QUOTATION_EXPORT_WAIT_MS;
+    while (["queued", "running"].includes(String(current.status)) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      current = await request(req, input, `/export-jobs/${jobId}`);
+    }
+    if (current.status === "completed" && idPattern.test(String(current.fileId || ""))) {
+      const downloaded = await request(req, input, `/files/${current.fileId}/download`);
+      if (downloaded.__assistantQuotationFile) return { __assistantExportStatus: "completed", __assistantQuotationFile: downloaded.__assistantQuotationFile };
+      return { __assistantExportStatus: "failed", __assistantExportError: "File đã tạo nhưng không thể tải vào cuộc trò chuyện." };
+    }
+    if (current.status === "failed") return { __assistantExportStatus: "failed", __assistantExportError: String(current.error || "Không tạo được file theo mẫu.").slice(0, 500) };
+    return { __assistantExportStatus: "running" };
+  } catch (error) {
+    return { __assistantExportStatus: "failed", __assistantExportError: error instanceof Error ? error.message : "Không tạo được file theo mẫu." };
   }
 }
 
@@ -253,7 +294,11 @@ export async function callQuotationOperation(req: AuthenticatedRequest, op: Assi
   const response = await request(req, input, path, op.method, op.method === "GET" || op.method === "DELETE" ? undefined : body, headers, !op.readOnly);
   if (op.id === "quotation.quote.pdf" && response.__assistantQuotationFile && response.__assistantQuotationFile.format !== "pdf") throw new AssistantError("File đã lưu đang dùng mẫu Word/Excel. Hãy chọn mẫu PDF tại màn hình Báo giá để tải đúng định dạng.");
   // Expose created identity to the shared completion hook; public rendering uses approved fields only.
-  return quotationRecord(response);
+  const result = quotationRecord(response);
+  if (["quotation.customer-quote.create", "quotation.estimate.create", "quotation.estimate.from-customer"].includes(op.id)) {
+    return { ...result, ...await createAssistantQuotationFile(req, input, op.id, result) };
+  }
+  return result;
 }
 
 export async function resolveQuotationReferences(req: AuthenticatedRequest, op: AssistantOperation, input: Values, lookup: Lookup, matches: Matches) {
@@ -300,6 +345,9 @@ export async function resolveQuotationReferences(req: AuthenticatedRequest, op: 
       }
       values[field.key] = String(found.row.id); labels[field.key] = String(found.row.displayName);
       if (field.source === "path") { values.__assistantQuotationRecord = JSON.stringify(found.raw); values.__assistantQuotationSnapshot = snapshot(found.raw); }
+      if (op.id === "quotation.acceptance.create" && field.key === "contractId") {
+        values.__assistantQuotationAcceptanceContract = JSON.stringify(found.raw);
+      }
     }
     const catalogVersions: Record<string, string> = JSON.parse(String(values.__assistantQuotationCatalogVersions || "{}"));
     for (const field of op.fields.filter(f => f.type === "json" && f.structure?.type === "array" && f.structure.items?.keys?.catalogItemId?.reference)) {

@@ -42,19 +42,27 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistantActionProductTable, AssistantMessageContent } from "../../src/components/common/AssistantMessageContent";
 import { formatActionPreviewValues } from "../../src/components/common/assistant-message-format";
-const branchId = "507f1f77bcf86cd799439012", productId = "507f1f77bcf86cd799439021", templateId = "507f1f77bcf86cd799439022", quoteId = "507f1f77bcf86cd799439023";
+const branchId = "507f1f77bcf86cd799439012", productId = "507f1f77bcf86cd799439021", templateId = "507f1f77bcf86cd799439022", quoteId = "507f1f77bcf86cd799439023", contractId = "507f1f77bcf86cd799439024", acceptanceId = "507f1f77bcf86cd799439025";
 const req = { user: { id: "actor", companyCode: "TEST", branchId, role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
-let products: any[], quotes: any[];
+let products: any[], quotes: any[], contracts: any[], acceptances: any[];
 let fetcher: ReturnType<typeof vi.fn>;
 const turn = (input: any) => processTurn(req, { conversationId: "conversation", requestId: randomUUID(), ...input });
 const interpreted = (action: string, values: Record<string, unknown>) => state.interpret.mockResolvedValueOnce({ actionId: `quotation.${action}`, values, intentType: "workflow", newRequest: false });
 const confirm = (reply: any) => turn({ decision: { id: reply.action.id, confirmed: true } });
 beforeEach(() => {
-  state.session = null; state.turns = []; state.interpret.mockReset(); state.documents.mockReset(); products = []; quotes = [];
+  state.session = null; state.turns = []; state.interpret.mockReset(); state.documents.mockReset(); products = []; quotes = []; contracts = []; acceptances = [];
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const path = new URL(String(url)).pathname, body = init?.body ? JSON.parse(String(init.body)) : {};
     if (path.endsWith("/quote-templates")) return json({ templates: [{ id: templateId, name: "Mẫu chuẩn", category: "quote", createdAt: "2026-11-01T00:00:00.000Z" }] });
+    if (path.endsWith(`/contracts/${contractId}`)) return json({ contract: contracts[0] });
+    if (path.endsWith("/contracts")) return json({ contracts });
+    if (path.endsWith("/acceptance-records") && init?.method === "POST") {
+      const contract = contracts[0];
+      const record = { _id: acceptanceId, ...body, acceptanceNumber: "NT-2026-00001", contractNumber: contract.contractNumber, status: "draft", settlementAmount: contract.total, amountPaid: contract.depositAmount };
+      acceptances.push(record);
+      return json({ record });
+    }
     if (path.endsWith("/catalog") && init?.method === "POST") {
       const item = { _id: productId, ...body, description: body.description || "", attributes: body.attributes || {}, active: true, updatedAt: "2026-11-11T01:00:00.000Z" }; products.push(item); return json({ item });
     }
@@ -77,6 +85,76 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it("shows signed-contract products and amounts in acceptance chat, then creates one record with the submitted line quantities", async () => {
+  contracts.push({
+    _id: contractId,
+    contractNumber: "HD-2026-0001",
+    status: "signed",
+    signedDate: "2026-10-01",
+    total: 1500000,
+    depositAmount: 300000,
+    currency: "VND",
+    lines: [
+      { name: "Máy lọc nước", sku: "ML01", description: "Máy lọc gia đình", unit: "cái", quantity: 2 },
+      { name: "Vòi inox", sku: "VI02", unit: "cái", quantity: 3 },
+    ],
+  });
+  interpreted("acceptance.create", {
+    contractId: "HD-2026-0001",
+    acceptedDate: "2026-11-13",
+    location: "Hà Nội",
+    result: "Đạt",
+    notes: "Không có ghi chú thêm",
+    startTime: "08:00",
+    endTime: "10:00",
+    handoverDetails: "Không có hồ sơ bàn giao thêm",
+    qualityAssessment: "Đạt yêu cầu",
+    paymentDueDays: 30,
+  });
+
+  const formStep = await turn({ text: "Tạo biên bản nghiệm thu hợp đồng HD-2026-0001" });
+  expect(formStep.status, formStep.reply).toBe("collecting");
+  expect(formStep.reply).toContain("khối lượng nghiệm thu cho từng sản phẩm");
+  expect(formStep.quotationAcceptanceForm).toMatchObject({
+    contractNumber: "HD-2026-0001",
+    lines: [
+      { lineIndex: 0, name: "Máy lọc nước", sku: "ML01", contractQuantity: 2, unit: "cái" },
+      { lineIndex: 1, name: "Vòi inox", sku: "VI02", contractQuantity: 3, unit: "cái" },
+    ],
+  });
+  expect(formStep.action.values).toContainEqual({ label: "Giá trị quyết toán theo hợp đồng", value: "1.500.000 VND", defaulted: false });
+  expect(formStep.action.values).toContainEqual({ label: "Số tiền đã thanh toán theo hợp đồng", value: "300.000 VND", defaulted: false });
+  expect(JSON.stringify(formStep)).not.toContain(contractId);
+
+  const preview = await turn({ acceptanceLines: { lines: [
+    { lineIndex: 0, acceptedQuantity: 1.5, acceptedDetails: "Đã kiểm tra hoạt động" },
+    { lineIndex: 1, acceptedQuantity: 2, acceptedDetails: "Đủ số lượng" },
+  ] } });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  expect(preview.action.values).toContainEqual({ label: "Giá trị quyết toán theo hợp đồng", value: "1.500.000 VND", defaulted: false });
+
+  const created = await confirm(preview);
+  expect(created.status).toBe("completed");
+  expect(acceptances).toHaveLength(1);
+  expect(acceptances[0]).toMatchObject({
+    contractId,
+    lines: [
+      { lineIndex: 0, acceptedQuantity: 1.5, acceptedDetails: "Đã kiểm tra hoạt động" },
+      { lineIndex: 1, acceptedQuantity: 2, acceptedDetails: "Đủ số lượng" },
+    ],
+    settlementAmount: 1500000,
+    amountPaid: 300000,
+  });
+  const submittedBody = JSON.parse(String(fetcher.mock.calls.find(([url, init]) => String(url).endsWith("/acceptance-records") && init?.method === "POST")?.[1]?.body));
+  expect(submittedBody).not.toHaveProperty("settlementAmount");
+  expect(submittedBody).not.toHaveProperty("amountPaid");
+  expect(parseAssistantResultTable(created.reply)?.rows[0].values).toMatchObject({
+    "Giá trị quyết toán": "1.500.000",
+    "Đã thanh toán": "300.000",
+  });
+  expect(created.reply).not.toMatch(/507f|__assistant|workflow/);
+});
 
 it("creates a price-book item, asks about missing optional data, agrees and updates that same item after confirmation", async () => {
   interpreted("catalog.create", { sku: "ML01", name: "Máy lọc", unit: "cái", price: 250000 });

@@ -35,4 +35,4 @@
 .quotation-module .ai-progress-popup-close { display: block; margin: 20px 0 0 auto; }
 @keyframes ai-progress-popup-spin { to { transform: rotate(360deg); } }
 @media (max-width: 480px) { .quotation-module.ai-progress-dialog { padding: 20px 16px; } }
-@media (prefers-reduced-motion: reduce) { .quotation-module .ai-progress-popup-icon.is-running { animation: none; } .quotation-module .ai-progress-popup-track > span { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .quotation-module .ai-progress-popup-icon.is-running { animation: ai-progress-popup-spin 2.4s linear infinite !important; } .quotation-module .ai-progress-popup-track > span { transition: none; } }

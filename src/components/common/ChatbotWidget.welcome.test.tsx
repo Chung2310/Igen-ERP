@@ -51,51 +51,33 @@ afterEach(() => {
 });
 
 describe("ChatbotWidget welcome", () => {
-  it("opens the separate Trợ lý AI area above history", () => {
+  it("keeps the Trợ lý AI tab locked in desktop and mobile navigation", () => {
     const { container } = render(<ChatbotWidget storageScope="agents-navigation-test" mode="standalone" />);
     const sidebar = container.querySelector(".assistant-sidebar")!;
     const agentButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Trợ lý AI"]')!;
     const historyButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Lịch sử trò chuyện"]')!;
     expect(agentButton.compareDocumentPosition(historyButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(agentButton.disabled).toBe(true);
     fireEvent.click(agentButton);
-    expect(agentButton.getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("heading", { name: "Trợ lý AI" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Tạo Trợ lý AI" })).toBeTruthy();
+    const mobileAgent = Array.from(container.querySelectorAll<HTMLButtonElement>(".assistant-mobile-mode-nav button")).find(button => button.textContent?.includes("Trợ lý AI"))!;
+    expect(mobileAgent.disabled).toBe(true);
+    fireEvent.click(mobileAgent);
+    expect(screen.queryByRole("button", { name: "Tạo Trợ lý AI" })).toBeNull();
   });
 
-  it("opens the Projects area from desktop and mobile navigation", async () => {
+  it("keeps the Dự án tab locked in desktop and mobile navigation", () => {
     const { container } = render(<ChatbotWidget storageScope="projects-navigation-test" mode="standalone" />);
     const desktopProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
     const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>('.assistant-mobile-mode-nav button')).find(button => button.textContent?.includes("Dự án"))!;
 
-    expect(desktopProjects.disabled).toBe(false);
+    expect(desktopProjects.disabled).toBe(true);
     fireEvent.click(desktopProjects);
-    await waitFor(() => expect(container.querySelector("h1")?.textContent).toContain("Dự án"));
-    expect(desktopProjects.getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("heading", { name: "Dự án" })).toBeTruthy();
-    fireEvent.click(container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="AI Studio"]')!);
     expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
-
+    expect(desktopProjects.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector('.assistant-sidebar button[aria-label="Mở danh sách dự án"]')).toBeNull();
+    expect(mobileProjects.disabled).toBe(true);
     fireEvent.click(mobileProjects);
-    expect(mobileProjects.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("heading", { name: "Dự án" })).toBeTruthy();
-  });
-
-  it("creates a local project and shows it in the sidebar dropdown", async () => {
-    const { container } = render(<ChatbotWidget storageScope="projects-create-test" mode="standalone" />);
-    await new Promise(resolve => setTimeout(resolve, 0));
-    fireEvent.click(container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!);
-    fireEvent.click(screen.getByRole("button", { name: "Tạo dự án" }));
-    expect(screen.queryByRole("button", { name: "Báo cáo" })).toBeNull();
-    expect(container.querySelectorAll('button[aria-label^="Biểu tượng "]')).toHaveLength(28);
-    fireEvent.click(screen.getByRole("button", { name: "Biểu tượng Tên lửa" }));
-    fireEvent.change(screen.getByLabelText("Tên dự án"), { target: { value: "Chiến dịch Marketing" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
-    expect(screen.getByRole("heading", { name: "Chiến dịch Marketing" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Mở danh sách dự án" }));
-    expect(container.querySelector("#assistant-project-sidebar-list")?.textContent).toContain("Chiến dịch Marketing");
-    expect(localStorage.getItem("igen_erp_assistant_projects:projects-create-test:company")).toContain("Chiến dịch Marketing");
-    expect(localStorage.getItem("igen_erp_assistant_projects:projects-create-test:company")).toContain('"icon":"rocket"');
+    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
   });
 
   it("mounts AI Studio on demand and preserves it when switching views", () => {

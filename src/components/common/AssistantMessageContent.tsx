@@ -398,7 +398,7 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
         role="region"
         aria-label="Bảng kết quả. Có thể cuộn ngang để xem đủ các cột."
         tabIndex={0}
-        className="max-w-full overflow-x-auto rounded-xl border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="h-fit self-start max-w-full overflow-x-auto rounded-xl border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <table
           aria-label="Kết quả"
