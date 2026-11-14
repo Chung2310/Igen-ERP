@@ -73,6 +73,35 @@ it.each(["[Sticker]", "1. [Sticker]\n2. [Sticker]"])("acknowledges a sticker wit
   expect(generateText).not.toHaveBeenCalled();
 });
 
+it.each(["ok", "được em", "đồng ý", "chốt giúp anh"])("uses the pending booking context for %s without requiring a phrase", async message => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test");
+  vi.mocked(generateText).mockResolvedValueOnce({ text: "Dạ, em ghi nhận mình đồng ý với lịch dự kiến ạ." } as never);
+  const history = [{ sender: "model", text: "Gói Nam, dự kiến 8h ngày 20. Anh xác nhận chốt lịch giúp em nhé?" }];
+
+  const reply = await geminiChatService.chat(message, history, { companyName: "Phòng khám" });
+
+  expect(reply.text).toContain("lịch dự kiến");
+  const prompt = vi.mocked(generateText).mock.calls[0][2]?.systemInstruction;
+  expect(prompt).toContain("Never require the customer to type a particular phrase");
+  expect(prompt).toContain("only when the backend confirms that action");
+});
+
+it("clarifies a sticker sent in place of a booking confirmation", async () => {
+  const history = [{ sender: "model", text: "Gói Nam, dự kiến 8h ngày 20. Anh xác nhận chốt lịch giúp em nhé?" }];
+  const reply = await geminiChatService.chat("[Sticker]", history, { companyName: "Phòng khám" });
+
+  expect(reply.text).toBe("Dạ, em nhận được rồi ạ. Mình muốn tiếp tục với thông tin vừa trao đổi không ạ?");
+  expect(generateText).not.toHaveBeenCalled();
+});
+
+it("treats 'ok' after an informational booking message as a courtesy reply", async () => {
+  const history = [{ sender: "model", text: "Em đã xác nhận lịch cho mình rồi nhé." }];
+  const reply = await geminiChatService.chat("ok", history, { companyName: "Phòng khám" });
+
+  expect(reply.text).toBe("dạ vâng ạ");
+  expect(generateText).not.toHaveBeenCalled();
+});
+
 it.each([" ", "```json\n{}\n```"])("fails a Lead generation with no usable reply text", async raw => {
   vi.stubEnv("OPENROUTER_API_KEY", "test");
   vi.mocked(generateText).mockResolvedValueOnce({ text: raw } as never);
