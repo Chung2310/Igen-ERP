@@ -72,25 +72,24 @@ export default function FinanceRemindersPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="finance-page-title">Nhắc nợ quá hạn</h1>
-          <p className="text-sm text-on-surface-variant">
-            Lịch sử quét, delivery và retry theo từng kênh.
-          </p>
         </div>
-        {canAdjust && (
-          <button
-            type="button"
-            onClick={runNow}
-            disabled={busy}
-            className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
-          >
-            Chạy nhắc nợ
-          </button>
-        )}
       </div>
       {error && (
         <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>
       )}
       <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+        {canAdjust && (
+          <div className="flex justify-end border-b border-outline-variant p-3">
+            <button
+              type="button"
+              onClick={runNow}
+              disabled={busy}
+              className="min-h-9 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+            >
+              Chạy nhắc nợ
+            </button>
+          </div>
+        )}
         <div className="divide-y">
           {runs.map((run) => (
             <button

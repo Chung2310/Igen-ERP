@@ -37,9 +37,6 @@ export default function AgingReportPage({
     <section className="finance-page-content">
       <div>
         <h1 className="finance-page-title">Phân tích tuổi nợ</h1>
-        <p className="text-sm text-on-surface-variant">
-          Chọn một nhóm để xem các khoản công nợ tương ứng.
-        </p>
       </div>
       {error && (
         <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>

@@ -23,8 +23,12 @@ export function LearningRoadmapPage({ selectedCenter, canManage }: Props) {
   const load = React.useCallback(async () => { setLoading(true); try { setRoadmaps(await getRoadmaps()); } catch (error) { toast.error(error instanceof Error ? error.message : "Không thể tải lộ trình."); } finally { setLoading(false); } }, []);
   React.useEffect(() => { void load(); }, [load]);
   return <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:p-4">
-    <header className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between"><div className="ml-auto flex gap-2"><ErpRefreshButton onClick={() => void load()} />{canManage ? <ErpPrimaryButton onClick={() => setCreating(true)}>Tạo lộ trình</ErpPrimaryButton> : null}</div></header>
-    <div className="flex gap-1 overflow-x-auto border-b border-slate-200"><Nav active={view === "roadmaps"} icon={Route} onClick={() => setView("roadmaps")}>Lộ trình</Nav><Nav active={view === "progression"} icon={ClipboardCheck} onClick={() => setView("progression")}>Đánh giá lên lớp</Nav><Nav active={view === "waitlist"} icon={ListChecks} onClick={() => setView("waitlist")}>Danh sách chờ</Nav></div>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-1">
+      <div className="flex min-w-0 gap-1 overflow-x-auto">
+        <Nav active={view === "roadmaps"} icon={Route} onClick={() => setView("roadmaps")}>Lộ trình</Nav><Nav active={view === "progression"} icon={ClipboardCheck} onClick={() => setView("progression")}>Đánh giá lên lớp</Nav><Nav active={view === "waitlist"} icon={ListChecks} onClick={() => setView("waitlist")}>Danh sách chờ</Nav>
+      </div>
+      <div className="flex shrink-0 items-center gap-2"><ErpRefreshButton onClick={() => void load()} />{canManage ? <ErpPrimaryButton onClick={() => setCreating(true)}>Tạo lộ trình</ErpPrimaryButton> : null}</div>
+    </div>
     {view === "roadmaps" ? <Roadmaps roadmaps={roadmaps} courses={courses} loading={loading} canManage={canManage} onChanged={load} /> : null}
     {view === "progression" ? <ProgressionActive batches={batches} courses={courses} roadmaps={roadmaps} canManage={canManage} /> : null}
     {view === "waitlist" ? <Waitlist batches={batches} roadmaps={roadmaps} canManage={canManage} /> : null}
@@ -32,7 +36,7 @@ export function LearningRoadmapPage({ selectedCenter, canManage }: Props) {
   </div>;
 }
 
-function Nav({ active, icon: Icon, onClick, children }: { active: boolean; icon: typeof Route; onClick: () => void; children: React.ReactNode }) { return <button type="button" onClick={onClick} className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${active ? "border-[#00ADFC] text-[#008ecf]" : "border-transparent text-slate-500 hover:text-slate-700"}`}><Icon className="h-4 w-4" />{children}</button>; }
+function Nav({ active, icon: Icon, onClick, children }: { active: boolean; icon: typeof Route; onClick: () => void; children: React.ReactNode }) { return <button type="button" onClick={onClick} aria-pressed={active} className={`inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${active ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-primary"}`}><Icon className="size-4" aria-hidden="true" />{children}</button>; }
 function Empty({ children, illustration }: { children: React.ReactNode; illustration?: StudentEmptyIllustrationKind }) { return <div className="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-6 text-center text-sm text-on-surface-variant">{illustration ? <StudentEmptyIllustration kind={illustration} /> : null}<p className={illustration ? 'mt-1 text-pretty' : 'text-pretty'}>{children}</p></div>; }
 function Roadmaps({ roadmaps, courses, loading, canManage, onChanged }: { roadmaps: LearningRoadmap[]; courses: CourseOption[]; loading: boolean; canManage: boolean; onChanged: () => Promise<void> }) {
   const [preview, setPreview] = React.useState<LearningRoadmap | null>(null);

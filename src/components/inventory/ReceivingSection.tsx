@@ -176,38 +176,6 @@ export function ReceivingSection() {
 
   return (
     <section className="space-y-5" aria-label="Nhập hàng">
-      {/* ── Page Header ── */}
-      <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant">
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <ErpRefreshButton onClick={() => void load()} loading={loading} title="Làm mới danh sách" />
-          {viewingReceipt?.status === "draft" && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingReceipt(viewingReceipt);
-                setViewingReceipt(null);
-                setCreatorOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/20 transition-colors shadow-2xs"
-            >
-              <Pencil className="size-4 shrink-0" aria-hidden="true" />
-              Sửa phiếu đang xem
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingReceipt(null);
-              setCreatorOpen(true);
-            }}
-            className={`${primaryCreateButtonClass} min-h-9`}
-          >
-            <PackagePlus className="size-4 shrink-0" aria-hidden="true" />
-            Tạo phiếu nhập mới
-          </button>
-        </div>
-      </div>
-
       {/* ── Toolbar & Filters ── */}
       <TableFilterToolbar
         search={{
@@ -216,6 +184,36 @@ export function ReceivingSection() {
           placeholder: "Tìm mã phiếu, nhà cung cấp, mã đơn...",
           ariaLabel: "Tìm kiếm phiếu nhập hàng",
         }}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ErpRefreshButton onClick={() => void load()} loading={loading} title="Làm mới danh sách" />
+            {viewingReceipt?.status === "draft" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingReceipt(viewingReceipt);
+                  setViewingReceipt(null);
+                  setCreatorOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/20 transition-colors shadow-2xs"
+              >
+                <Pencil className="size-4 shrink-0" aria-hidden="true" />
+                Sửa phiếu đang xem
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingReceipt(null);
+                setCreatorOpen(true);
+              }}
+              className={`${primaryCreateButtonClass} min-h-9`}
+            >
+              <PackagePlus className="size-4 shrink-0" aria-hidden="true" />
+              Tạo phiếu nhập mới
+            </button>
+          </div>
+        }
         dateFilter={{
           label: "thời gian phiếu nhập",
           value: dateFilter,

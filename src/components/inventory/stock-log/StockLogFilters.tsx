@@ -86,10 +86,9 @@ export function StockLogFilters({
       className="space-y-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs"
       id="log_filters_bar"
     >
-      {/* ── Hàng 1: Tabs phân loại giao dịch (trái) & Nút thao tác (phải) ── */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        {/* Phân loại Loại giao dịch */}
-        {!outboundOnly ? (
+      {/* ── Hàng 1: Tabs phân loại giao dịch ── */}
+      {!outboundOnly && (
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
           <div className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 text-xs font-medium text-slate-600">
             <button
               type="button"
@@ -178,47 +177,8 @@ export function StockLogFilters({
               </span>
             </button>
           </div>
-        ) : (
-          <div className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Lịch sử xuất kho
-          </div>
-        )}
-
-        {/* Action buttons (Nhập Excel / Xuất Excel / Tạo phiếu) */}
-        <div className="flex shrink-0 items-center gap-2">
-          {!readOnly && !hideExcelActions && (
-            <button
-              type="button"
-              onClick={onImportExcel}
-              disabled={isImporting}
-              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-            >
-              <Upload className="h-3.5 w-3.5 text-slate-500" />
-              {isImporting ? "Đang nhập..." : "Nhập Excel"}
-            </button>
-          )}
-
-          {!hideExcelActions && onExportExcel && (
-            <button
-              type="button"
-              onClick={onExportExcel}
-              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 text-xs font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5 text-emerald-600" />
-              Xuất Excel
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onOpenCreateModal}
-            className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-700 px-3.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-teal-800 active:scale-98 cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {outboundOnly ? "Tạo phiếu xuất" : "Tạo phiếu"}
-          </button>
         </div>
-      </div>
+      )}
 
       {/* ── Hàng 2: Tìm kiếm + Lọc trạng thái + Lọc khoảng thời gian (Từ ngày -> Đến ngày) ── */}
       <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
@@ -264,6 +224,41 @@ export function StockLogFilters({
           value={datePeriodValue}
           onChange={handleDatePeriodChange}
         />
+
+        {/* Actions aligned with search and filters */}
+        <div className="flex flex-wrap items-center justify-end gap-2 xl:ml-auto">
+          {!readOnly && !hideExcelActions && (
+            <button
+              type="button"
+              onClick={onImportExcel}
+              disabled={isImporting}
+              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            >
+              <Upload className="h-3.5 w-3.5 text-slate-500" />
+              {isImporting ? "Đang nhập..." : "Nhập Excel"}
+            </button>
+          )}
+
+          {!hideExcelActions && onExportExcel && (
+            <button
+              type="button"
+              onClick={onExportExcel}
+              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 text-xs font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 text-emerald-600" />
+              Xuất Excel
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onOpenCreateModal}
+            className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl bg-teal-700 px-3.5 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-teal-800 active:scale-98 cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {outboundOnly ? "Tạo phiếu xuất" : "Tạo phiếu"}
+          </button>
+        </div>
       </div>
     </div>
   );

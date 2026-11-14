@@ -67,14 +67,12 @@ export function EnrollmentLifecyclePage() {
 
   return (
     <div className="space-y-4 p-3 text-left sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="ml-auto inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-          <Users className="h-4 w-4 text-sky-600" />
+      <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant pb-1">
+        <span className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface-variant">
+          <Users className="size-4 text-primary" aria-hidden="true" />
           {rows.length} học viên
         </span>
-      </div>
-
-      <div role="group" aria-label="Trạng thái học viên" className="flex w-fit max-w-full flex-wrap items-center gap-2 border-b border-outline-variant">
+        <div role="group" aria-label="Trạng thái học viên" className="flex max-w-full flex-wrap items-center gap-1">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = status === tab.value;
@@ -84,7 +82,7 @@ export function EnrollmentLifecyclePage() {
               type="button"
               onClick={() => setStatus(tab.value)}
               aria-pressed={isActive}
-              className={cn('relative flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary', isActive ? 'text-primary' : 'text-on-surface hover:text-primary')}
+              className={cn('relative flex h-9 items-center gap-1.5 px-3 text-sm font-medium transition-colors duration-150 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary', isActive ? 'text-primary' : 'text-on-surface hover:text-primary')}
             >
               <Icon className="size-4" aria-hidden="true" />
               {tab.label}
@@ -92,6 +90,7 @@ export function EnrollmentLifecyclePage() {
             </button>
           );
         })}
+        </div>
       </div>
 
       <ErpCard className="overflow-hidden">
