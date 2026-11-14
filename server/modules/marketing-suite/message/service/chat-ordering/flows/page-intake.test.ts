@@ -155,6 +155,9 @@ describe("Page intake flow", () => {
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({
       allowCreate: false, values: { package: "Nam", name: "Cường" },
     }));
+    expect(generateReplyCompletion).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "lead_intake_extraction", maxTokens: 4096,
+    }));
   });
   it("can save a phone supplied in earlier customer history without using the bot's hotline as source proof", async () => {
     const contactFields = [
