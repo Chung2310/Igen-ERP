@@ -36,10 +36,12 @@ export interface PhoneWarrantyLookupResult {
   };
   totalDevices: number;
   devices: WarrantyLookupResult[];
+  candidates?: Array<{ customerId: string; customerCode: string; name: string }>;
+  needsIdentification?: boolean;
 }
 
 export interface WarrantyLookupScope { companyCode: string; branchId: string }
-type WarrantyRequest = WarrantyLookupScope & { signal?: AbortSignal };
+type WarrantyRequest = Partial<WarrantyLookupScope> & { signal?: AbortSignal };
 
 export const retailWarrantyService = {
   async lookup(code: string, options?: WarrantyRequest) {
@@ -49,10 +51,10 @@ export const retailWarrantyService = {
     );
     return result.data;
   },
-  async lookupByPhone(phone: string, options?: WarrantyRequest) {
+  async lookupByPhone(phone: string, options?: WarrantyRequest & { customerId?: string }) {
     const result = await apiFetch<{ success: boolean; data: PhoneWarrantyLookupResult }>(
       `/retail/warranty/lookup-phone/${encodeURIComponent(phone)}`,
-      options ? { params: { companyCode: options.companyCode, branchId: options.branchId }, signal: options.signal } : {}
+      options ? { params: { companyCode: options.companyCode, branchId: options.branchId, customerId: options.customerId }, signal: options.signal } : {}
     );
     return result.data;
   },

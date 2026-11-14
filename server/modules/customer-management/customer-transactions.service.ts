@@ -25,10 +25,10 @@ const saleDate = { $ifNull: ['$completedAt', { $dateFromString: { dateString: '$
 const base = { eventId: { $literal: '' }, parentCode: { $literal: '' }, charged: { $literal: 0 }, received: { $literal: 0 }, refunded: { $literal: 0 }, buybackPaid: { $literal: 0 }, outstanding: { $literal: 0 }, paidAmount: { $literal: 0 }, dueAmount: { $literal: 0 } };
 const literal = (value: string) => ({ $literal: value });
 
-function pipelines(scope: Scope, customerId: string, customerCode: string, repairsVisible: boolean): PipelineStage[] {
+function pipelines(scope: Scope, customerId: string, customerCode: string, repairsVisible: boolean, retailVisible: boolean): PipelineStage[] {
   const orderMatch = { ...scope, customerId };
   const repairMatch = { ...scope, customerId: { $in: [customerId, customerCode] } };
-  const stages: PipelineStage[] = [
+  const stages: PipelineStage[] = retailVisible ? [
     { $match: orderMatch },
     { $project: { ...base, _id: 0, id: { $concat: ['sale:', textId] }, kind: literal('sale'), sourceId: textId, code: { $ifNull: ['$orderCode', 'Đơn chưa đánh số'] }, occurredAt: date('$completedAt', saleDate), status: 1, amount: num('$grandTotal'), paidAmount: num('$paidAmount'), dueAmount: { $cond: [{ $eq: ['$status', 'confirmed'] }, num('$dueAmount'), 0] }, description: { $ifNull: [{ $arrayElemAt: ['$items.productName', 0] }, 'Đơn mua hàng'] }, charged: { $cond: [{ $in: ['$status', ['confirmed', 'completed']] }, num('$grandTotal'), 0] }, received: { $cond: [{ $ne: ['$status', 'draft'] }, num('$paidAmount'), 0] }, outstanding: { $cond: [{ $eq: ['$status', 'confirmed'] }, num('$dueAmount'), 0] } } },
     { $unionWith: { coll: RetailOrderModel.collection.name, pipeline: [
@@ -39,7 +39,7 @@ function pipelines(scope: Scope, customerId: string, customerCode: string, repai
       { $match: { ...scope, customerId, type: 'buyback', status: 'completed' } },
       { $project: { ...base, _id: 0, id: { $concat: ['buyback:', textId] }, kind: literal('buyback'), sourceId: textId, code: '$code', parentCode: '$orderCode', occurredAt: date('$createdAt'), status: 1, amount: num('$totalAmount'), description: { $ifNull: ['$reason', 'Thu mua lại hàng'] }, buybackPaid: num('$totalAmount') } },
     ] } },
-  ];
+  ] : [{ $match: { _id: { $in: [] } } }];
   if (repairsVisible) stages.push(
     { $unionWith: { coll: RepairTicketModel.collection.name, pipeline: [
       { $match: repairMatch },
@@ -59,14 +59,14 @@ async function customerFor(scope: Scope, customerId: string) {
   if (!scope.companyCode || !scope.branchId) throw fail('Chọn doanh nghiệp và chi nhánh để xem giao dịch.');
   return CustomerService.detail({ companyCode: scope.companyCode }, customerId);
 }
-export async function getCustomerTransactions(scope: Scope, customerId: string, rawQuery: unknown, repairsVisible: boolean): Promise<CustomerTransactionsResult> {
+export async function getCustomerTransactions(scope: Scope, customerId: string, rawQuery: unknown, repairsVisible: boolean, retailVisible = true): Promise<CustomerTransactionsResult> {
   const { value: query, error } = querySchema.validate(rawQuery);
   if (error) throw fail('Bộ lọc hoặc phân trang giao dịch không hợp lệ.');
   if (query.from) validDay(query.from);
   if (query.to) validDay(query.to);
   if (query.from && query.to && query.from > query.to) throw fail('Ngày bắt đầu phải trước ngày kết thúc.');
   const customer = await customerFor(scope, customerId);
-  const pipeline = pipelines(scope, String(customer._id), customer.customerCode, repairsVisible);
+  const pipeline = pipelines(scope, String(customer._id), customer.customerCode, repairsVisible, retailVisible);
   if (query.type !== 'all') pipeline.push({ $match: { kind: query.type === 'refund' ? { $in: ['sale_refund', 'repair_refund'] } : query.type } });
   if (query.from || query.to) pipeline.push({ $match: { occurredAt: { ...(query.from ? { $gte: new Date(`${query.from}T00:00:00+07:00`) } : {}), ...(query.to ? { $lte: new Date(`${query.to}T23:59:59.999+07:00`) } : {}) } } });
   pipeline.push({ $facet: {
@@ -78,11 +78,13 @@ export async function getCustomerTransactions(scope: Scope, customerId: string, 
   return { items: (result?.items || []).map(publicRow), total: totals?.total || 0, page: query.page, limit: query.limit, repairsVisible, summary: { charged: totals?.charged || 0, received: totals?.received || 0, refunded: totals?.refunded || 0, buybackPaid: totals?.buybackPaid || 0, outstanding: totals?.outstanding || 0 } };
 }
 
-export async function getCustomerTransactionDetail(scope: Scope, customerId: string, kind: CustomerTransactionKind, sourceId: string, eventId: string, repairsVisible: boolean): Promise<CustomerTransactionDetail> {
+export async function getCustomerTransactionDetail(scope: Scope, customerId: string, kind: CustomerTransactionKind, sourceId: string, eventId: string, repairsVisible: boolean, retailVisible = true): Promise<CustomerTransactionDetail> {
   if (!['sale', 'repair', 'sale_refund', 'repair_refund', 'buyback'].includes(kind) || !Types.ObjectId.isValid(sourceId) || eventId.length > 120) throw fail('Mã giao dịch không hợp lệ.');
-  if ((kind === 'repair' || kind === 'repair_refund') && !repairsVisible) throw fail('Bạn chưa có quyền xem sửa chữa.', 403);
+  const isRepair = kind === 'repair' || kind === 'repair_refund';
+  if (isRepair && !repairsVisible) throw fail('Bạn chưa có quyền xem sửa chữa.', 403);
+  if (!isRepair && !retailVisible) throw fail('Bạn chưa có quyền xem bán lẻ.', 403);
   const customer = await customerFor(scope, customerId);
-  const [row] = await RetailOrderModel.aggregate([...pipelines(scope, String(customer._id), customer.customerCode, repairsVisible), { $match: { kind, sourceId, ...(kind.endsWith('_refund') ? { eventId } : {}) } }, { $limit: 1 }]).option({ maxTimeMS: 15000 });
+  const [row] = await RetailOrderModel.aggregate([...pipelines(scope, String(customer._id), customer.customerCode, repairsVisible, retailVisible), { $match: { kind, sourceId, ...(kind.endsWith('_refund') ? { eventId } : {}) } }, { $limit: 1 }]).option({ maxTimeMS: 15000 });
   if (!row) throw fail('Không tìm thấy giao dịch của khách hàng tại chi nhánh này.', 404);
   const detail: CustomerTransactionDetail = { item: publicRow(row), lines: [], payments: [], refunds: [] };
   if (kind === 'sale' || kind === 'sale_refund') {

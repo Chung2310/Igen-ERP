@@ -9,6 +9,7 @@ import { getImportJob, importHistory, importTemplate, listImportRows, queueImpor
 import { calendarDay, dateRangeFilter, dayBounds, healthcareScope, healthcareStaff, listFilter, prepareAppointment, prepareCare, prepareVisit } from "./operations";
 import { createGeneratedPatient, createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor, type StoredAppointment } from "./store";
 import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, patientCreateInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
+import { getCustomerBrief, getLinkedCustomerContact } from "../customer-management/contracts";
 
 export const healthcareRouter = Router();
 healthcareRouter.use(requirePermission("healthcare:read") as RequestHandler);
@@ -74,10 +75,16 @@ healthcareRouter.post("/patients/search", route(async (req, res, db, actor) => {
   res.json(await listRecords(records(db, "patients"), actor, filter, sort, query.page, query.pageSize));
 }));
 healthcareRouter.get("/patients/:id", route(async (req, res, db, actor) => {
-  res.json(visible(await findRecord(records(db, "patients"), actor, idOf(req))));
+  const patient = visible(await findRecord(records(db, "patients"), actor, idOf(req)));
+  const contact = await getLinkedCustomerContact({ companyCode: actor.companyCode }, "healthcare", patient._id, patient.customerId);
+  res.json(contact ? { ...patient, customerId: contact.customerId, name: contact.name, phone: contact.phone } : patient);
 }));
 healthcareRouter.post("/patients", permission(""), route(async (req, res, db, actor) => {
   const { code, ...value } = input(patientCreateInput, req.body);
+  if (value.customerId) value.customerId = value.customerId.toLowerCase();
+  if (value.customerId && !await getCustomerBrief({ companyCode: actor.companyCode }, value.customerId, { individualOnly: true })) {
+    throw new ValidationError("VALIDATION_FAILED", "Chọn hồ sơ khách hàng cá nhân đang hoạt động trong công ty.", { fields: ["customerId"] });
+  }
   const patient = code
     ? await createRecord(records(db, "patients"), actor, { ...value, code }, patientConflict)
     : await createGeneratedPatient(db, actor, value);

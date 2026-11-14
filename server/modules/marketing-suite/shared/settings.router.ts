@@ -107,6 +107,18 @@ marketingSettingsRouter.post("/lead-intake-profiles/draft", requirePermission("o
     const valid = fields && typeof req.body?.goal === "string" && req.body.goal.trim().length > 0 && req.body.goal.length <= 300
       && typeof req.body?.completionMessage === "string" && req.body.completionMessage.trim().length > 0 && req.body.completionMessage.length <= 500;
     if (!valid) return res.status(400).json({ status: "error", message: "Cấu hình thu thập Lead không hợp lệ. Kiểm tra câu hỏi, kiểu dữ liệu và lựa chọn của từng trường." });
+    const groups: unknown = req.body?.needGroups ?? [];
+    const keys = new Set(fields?.map(field => field.key));
+    const needGroups = Array.isArray(groups) && groups.length <= 20 ? groups.map(group => ({
+      key: typeof group?.key === "string" ? group.key.trim() : "",
+      label: typeof group?.label === "string" ? group.label.trim() : "",
+      fieldKeys: Array.isArray(group?.fieldKeys) ? [...new Set<unknown>(group.fieldKeys)] : [],
+    })) : undefined;
+    if (!needGroups || new Set(needGroups.map(group => group.key)).size !== needGroups.length
+      || needGroups.some(group => !/^[a-z][a-z0-9_]{0,39}$/.test(group.key) || group.key === "unclassified" || !group.label || group.label.length > 100
+        || group.fieldKeys.some(key => typeof key !== "string" || !keys.has(key)))) {
+      return res.status(400).json({ status: "error", message: "Kiểm tra tên, mã và cột của nhóm nhu cầu." });
+    }
     const latest = await LeadIntakeProfileModel.findOne({ companyCode: req.user!.companyCode }).sort({ version: -1 }).select("version").lean();
     const profile = await LeadIntakeProfileModel.create({
       companyCode: req.user!.companyCode,
@@ -116,6 +128,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/draft", requirePermission("o
       goal: req.body.goal.trim(),
       completionMessage: req.body.completionMessage.trim(),
       fields,
+      needGroups,
       sourceDocumentIds: Array.isArray(req.body.sourceDocumentIds) ? req.body.sourceDocumentIds.filter((id: unknown) => typeof id === "string").slice(0, 50) : [],
     });
     return res.status(201).json({ status: "success", data: profile });

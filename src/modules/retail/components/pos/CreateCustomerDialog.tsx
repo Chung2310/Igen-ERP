@@ -3,6 +3,7 @@ import { UserPlus, X } from "lucide-react";
 import { customerApi } from "../../../customer-management/customerApi";
 import type { RetailCustomer, RetailScope } from "../../types";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import { ApiClientError } from "../../../../services/apiClientError";
 import { Dropdown } from "../../../../components/common/Dropdown";
 import "./createCustomerDialog.css";
 
@@ -69,6 +70,7 @@ export default function CreateCustomerDialog({ scope, initialPhone = "", initial
   const submitting = React.useRef(false);
   const [createdCustomer, setCreatedCustomer] = React.useState<Awaited<ReturnType<typeof customerApi.create>> | null>(null);
   const [error, setError] = React.useState("");
+  const [sharedPhone, setSharedPhone] = React.useState("");
 
   React.useEffect(() => {
     const dialog = dialogRef.current;
@@ -117,7 +119,7 @@ export default function CreateCustomerDialog({ scope, initialPhone = "", initial
     setError("");
     let created = createdCustomer;
     try {
-      created = created || await customerApi.create({ ...input, source: "pos" }, scope.companyCode);
+      created = created || await customerApi.create({ ...input, source: "pos", ...(sharedPhone && sharedPhone === input.phone ? { allowSharedPhone: true } : {}) }, scope.companyCode);
       setCreatedCustomer(created);
       if (input.type === "vat") {
         const profileInput = {
@@ -140,6 +142,7 @@ export default function CreateCustomerDialog({ scope, initialPhone = "", initial
       }
       onCreated({ _id: created._id, customerCode: created.customerCode, companyCode: created.companyCode, type: created.type, name: created.name, phone: created.phone, email: created.email, address: created.address, notes: created.notes });
     } catch (cause) {
+      setSharedPhone(cause instanceof ApiClientError && cause.code === "CUSTOMER_PHONE_EXISTS" ? input.phone : "");
       const message = getApiErrorMessage(cause, "Không tạo được khách hàng.");
       setError(created && input.type === "vat" ? `Đã tạo khách hàng nhưng chưa lưu được hồ sơ VAT: ${message} Bạn có thể thử lưu lại.` : message);
     } finally {
@@ -207,7 +210,7 @@ export default function CreateCustomerDialog({ scope, initialPhone = "", initial
             Hủy
           </button>
           <button disabled={saving} className="min-h-11 rounded-xl bg-primary px-4 py-2.5 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
-            {saving ? "Đang lưu..." : createdCustomer ? "Lưu hồ sơ VAT" : "Lưu khách hàng"}
+            {saving ? "Đang lưu..." : createdCustomer ? "Lưu hồ sơ VAT" : sharedPhone && sharedPhone === form.phone.trim() ? "Xác nhận tạo khách riêng" : "Lưu khách hàng"}
           </button>
         </div>
       </form>

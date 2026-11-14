@@ -34,6 +34,7 @@ export async function healthcareDb() {
       db.collection(prefix + "patients").createIndex({ ...scope, updatedAt: -1, _id: -1 }),
       db.collection(prefix + "patients").createIndex({ ...scope, createdAt: -1, _id: -1 }),
       db.collection(prefix + "patients").createIndex({ ...scope, "source.batchId": 1, "source.row": 1 }),
+      db.collection(prefix + "patients").createIndex({ ...scope, customerId: 1 }),
       db.collection(prefix + "visits").createIndex({ ...scope, code: 1 }, { unique: true }),
       db.collection(prefix + "visits").createIndex({ ...scope, visitedOn: -1, _id: -1 }),
       db.collection(prefix + "visits").createIndex({ ...scope, patientId: 1, visitedOn: -1 }),

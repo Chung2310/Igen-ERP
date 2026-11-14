@@ -1,11 +1,11 @@
 // Profile and system fields already have an owner; they must not become free-form notes.
 const CUSTOMER_FIELDS = new Set([
   "name", "phone", "email", "avatarUrl", "dateOfBirth", "gender", "address", "notes",
-  "type", "customerKind", "contactName", "status", "source", "normalizedPhone",
+  "type", "customerKind", "contactName", "status", "source", "normalizedPhone", "phoneIdentityKey",
   "_id", "id", "__v", "companyCode", "companyId", "branchId", "customerId", "customerCode",
   "createdBy", "createdByName", "createdAt", "updatedAt", "updatedBy", "deletedAt", "version",
   "tier", "tierGrossProfit", "tierTotalSales", "tierUpdatedAt",
-  "pointsBalance", "totalPointsEarned", "totalPointsRedeemed",
+  "pointsBalance", "totalPointsEarned", "totalPointsRedeemed", "allowSharedPhone",
 ]);
 
 export function appendCustomerNotes(current: string | undefined, additions: readonly string[]): string {

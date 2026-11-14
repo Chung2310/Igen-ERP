@@ -18,6 +18,7 @@ const schema = new Schema({
   goal: { type: String, required: true, maxlength: 300 },
   fields: { type: [fieldSchema], required: true, validate: [(value: unknown[]) => value.length > 0 && value.length <= 30, "Cần 1–30 trường thông tin."] },
   completionMessage: { type: String, required: true, maxlength: 500 },
+  needGroups: { type: [{ _id: false, key: String, label: String, fieldKeys: [String] }], default: undefined },
   sourceDocumentIds: { type: [String], default: [] },
 }, { timestamps: true });
 

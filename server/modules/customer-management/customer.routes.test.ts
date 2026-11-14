@@ -14,12 +14,13 @@ test("customer routes expose reads before the parameterized detail route", () =>
   const entries = routeEntries();
   assert.deepEqual(entries.map(({ method, path }) => `${method} ${path}`), [
     "get /settings", "patch /settings",
-    "get /", "get /search", "post /", "post /quick", "get /:id/purchase-history", "get /:id", "patch /:id",
+    "get /", "get /search", "post /", "post /quick", "get /:id/purchase-history", "get /:id/lead-needs", "get /:id", "patch /:id",
     "post /:id/activate", "post /:id/deactivate",
     "get /:id/billing-profiles", "post /:id/billing-profiles",
   ]);
   assert.ok(entries.every((entry) => {
     if (entry.path === "/settings" && entry.method === "patch") return entry.handlers === 3;
+    if (["/:id/purchase-history", "/:id/lead-needs"].includes(entry.path)) return entry.handlers === 4;
     return entry.handlers === 2;
   }), "every route must include appropriate middleware stack");
   assert.ok(entries.findIndex((entry) => entry.path === "/search") < entries.findIndex((entry) => entry.path === "/:id"));

@@ -59,6 +59,28 @@ describe("Page intake flow", () => {
     expect(upsertLeadFromIntake).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ platform: "facebook", accountId: "PAGE", conversationId: "C", messageId: "M", allowCreate: true }));
     expect(savePageCustomer).not.toHaveBeenCalled();
   });
+  it("collects two needs on the same Lead using the configured groups", async () => {
+    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValueOnce({ sort: () => ({ lean: async () => ({
+      _id: "PROFILE", version: 1, fields, goal: "Tư vấn", needGroups: [
+        { key: "paint", label: "Sơn", fieldKeys: ["surface", "area"] },
+        { key: "materials", label: "Vật tư", fieldKeys: ["paint"] },
+      ],
+    }) }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({
+      __lead_intent: true,
+      __lead_needs: [
+        { groupKey: "paint", title: "Sơn tường", answers: { surface: "tường", paint: "dư thừa" } },
+        { groupKey: "materials", title: "Mua sơn", answers: { paint: "sơn lót" } },
+      ],
+    }) } as never);
+    await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường và mua sơn lót", imageUrls: [] });
+    expect(upsertLeadFromIntake).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ needs: [
+      { groupKey: "paint", groupLabel: "Sơn", title: "Sơn tường", answers: { surface: "tường" } },
+      { groupKey: "materials", groupLabel: "Vật tư", title: "Mua sơn", answers: { paint: "sơn lót" } },
+    ] }));
+  });
+
   it("saves a Lead for a non-Facebook channel without creating an ERP customer", async () => {
     vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ _id: "PROFILE", companyCode: "ACME", pageId: "OA", platform: "zalo", version: 4,
       goal: "Tư vấn", fields: [{ key: "name", label: "Họ tên", question: "Tên?", type: "text", required: true }], completionMessage: "Cảm ơn." }) } as never);

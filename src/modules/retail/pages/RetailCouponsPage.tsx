@@ -120,7 +120,8 @@ function StatusBadge({ status }: { status: CouponStatus }) {
 
 export default function RetailCouponsPage({ canManagePoints = false }: { canManagePoints?: boolean }) {
   const { scope } = useRetailScope();
-  const [activeSubTab, setActiveSubTab] = useState<"coupons" | "automations" | "points">("coupons");
+  const [activeSubTab, setActiveSubTab] = useState<"coupons" | "automations" | "points">(() =>
+    canManagePoints && new URLSearchParams(window.location.search).get("points") === "1" ? "points" : "coupons");
   const [tiers, setTiers] = useState<Array<{ code: string; name: string }>>([]);
   const [tierError, setTierError] = useState("");
   const [isTierDropdownOpen, setIsTierDropdownOpen] = useState(false);
@@ -402,7 +403,7 @@ export default function RetailCouponsPage({ canManagePoints = false }: { canMana
         </button>}
       </div>
 
-      {activeSubTab === "points" && canManagePoints && <RetailPointsPanel />}
+      {activeSubTab === "points" && canManagePoints && <RetailPointsPanel initialCustomerCode={new URLSearchParams(window.location.search).get("customerCode") || undefined} />}
 
       {activeSubTab === "coupons" && (
         <div className="space-y-3">

@@ -6,6 +6,10 @@ import { MarketingContentModel } from "../campaign/model/marketing-content.model
 import { CRMTicketModel } from "../message/model/crm-ticket.model";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { requirePermission } from "../../../middleware/auth";
+import { requireModule } from "../../../middleware/require-module";
+import { CustomerService } from "../../customer-management/customer.service";
+import { CustomerModel } from "../../customer-management/models/customer.model";
+import { CustomerError } from "../../customer-management/customer-errors";
 import { Schema } from "mongoose";
 import { AIReplyLogModel } from "../message/model/ai-reply-log.model";
 import { assertMarketingAccountOwnership } from "./account-ownership";
@@ -382,7 +386,7 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
   const scope = { _id: req.params.id, companyCode: req.user!.companyCode };
   const staffFields = Object.keys(updates).filter(key => ["customerName", "company", "phone", "email", "productOfChoice", "value"].includes(key));
   const existing = nextAnswers !== undefined
-    ? await CRMTicketModel.findOne(scope).select("answers intakeRevision intakeFields sourcePlatform sourceAccountId sourceConversationId collectionStatus").lean()
+    ? await CRMTicketModel.findOne(scope).select("answers needs intakeRevision intakeFields sourcePlatform sourceAccountId sourceConversationId collectionStatus").lean()
     : null;
   if (nextAnswers !== undefined && !existing) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
 
@@ -393,6 +397,7 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
       staffFields.push(`answers.${key}`);
       staffAnswerChanges[key] = nextAnswers[key];
     }
+    updates.intakeSearchText = [...Object.values(nextAnswers), ...(existing.needs || []).flatMap(need => [need.title, need.groupLabel, ...Object.values(need.answers || {})])].filter(Boolean).join(" ").slice(0, 100000);
     const fields = existing.intakeFields || [];
     if (fields.length > 0) {
       const standard = mapIntakeStandardFields(fields, nextAnswers);
@@ -448,6 +453,52 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
   }
 
   return res.json({ status: "success", data: publicRecord(item, false) });
+}));
+
+suiteDataRouter.post("/omni-inbox/leads/:id/customer", requireModule("customer"),
+  requirePermission("omni-inbox:manage"), requirePermission("customer:manage"), run(async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
+    const data = payload(req.body);
+    const requestedId = typeof data.customerId === "string" ? data.customerId.trim().toLowerCase() : "";
+    if (requestedId ? !mongoose.isValidObjectId(requestedId) || data.create === true : data.create !== true) {
+      return res.status(400).json({ status: "error", message: "Chọn khách hàng hoặc xác nhận tạo hồ sơ mới." });
+    }
+
+    const user = req.user!;
+    const scope = { companyCode: String(user.companyCode || "").trim().toUpperCase() };
+    if (!scope.companyCode) return res.status(400).json({ status: "error", message: "Không xác định được công ty." });
+    const leadKey = { ...scope, _id: req.params.id };
+    const session = await mongoose.startSession();
+    try {
+      const result = await session.withTransaction(async () => {
+        const lead = await CRMTicketModel.findOne(leadKey).session(session).lean();
+        if (!lead) throw new CustomerError("LEAD_NOT_FOUND", "Không tìm thấy Lead.", 404);
+        if (lead.customerId && requestedId && lead.customerId !== requestedId) {
+          throw new CustomerError("LEAD_ALREADY_LINKED", "Lead đã được lưu vào hồ sơ Khách hàng khác.", 409);
+        }
+        const existingId = lead.customerId || requestedId;
+        const customer = existingId
+          ? await CustomerModel.findOne({ ...scope, _id: existingId, ...(lead.customerId ? {} : { status: "active" }) }).session(session).lean()
+          : await CustomerService.create(scope, {
+              name: typeof data.name === "string" ? data.name.trim().slice(0, 200) : lead.customerName,
+              phone: typeof data.phone === "string" ? data.phone.trim().slice(0, 40) : lead.phone,
+              email: typeof data.email === "string" ? data.email.trim().slice(0, 254) : lead.email,
+              allowSharedPhone: data.allowSharedPhone === true,
+            }, { id: user.id, name: user.displayName || user.email || user.id }, session);
+        if (!customer) throw new CustomerError("CUSTOMER_NOT_FOUND", "Không tìm thấy hồ sơ Khách hàng trong công ty.", 404);
+        const customerId = String(customer._id);
+        if (!lead.customerId) {
+          await CRMTicketModel.updateOne(leadKey, { $set: { customerId } }, { session });
+        }
+        return { customerId, customerCode: customer.customerCode };
+      });
+      return res.json({ status: "success", data: result });
+    } catch (error) {
+      if (error instanceof CustomerError) return res.status(error.status).json({ status: "error", code: error.code, message: error.message });
+      throw error;
+    } finally {
+      await session.endSession();
+    }
 }));
 
 suiteDataRouter.post("/omni-inbox/leads/:id/module-sync", requirePermission("omni-inbox:manage"), run(async (req, res) => {

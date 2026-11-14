@@ -16,8 +16,12 @@ import { phoneLookupVariants } from "../../customer-management/customer-normaliz
 export async function lookupWarranty(scope: RetailScope, code: string, at = new Date()) {
   const normalized = normalizeSerialNumber(code);
   const internalBarcode = normalizeInternalBarcode(code);
-  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: internalBarcode }, { normalizedBarcodeAliases: internalBarcode }, { normalizedImeis: normalized }] }).lean();
+  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, ...(scope.branchId ? { $and: [{ $or: [{ branchId: scope.branchId }, { soldBranchId: scope.branchId }] }] } : {}), $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: internalBarcode }, { normalizedBarcodeAliases: internalBarcode }, { normalizedImeis: normalized }] }).lean();
   if (!unit) return { found: false as const };
+  return warrantyForUnit(scope, unit, at);
+}
+
+async function warrantyForUnit(scope: RetailScope, unit: any, at: Date) {
   const variant: any = unit.variantId ? await ProductVariantModel.findOne({ _id: unit.variantId, companyCode: scope.companyCode }).select("productId warrantyMonths").lean() : null;
   const product: any = await ProductCatalogModel.findOne({ _id: unit.productId || variant?.productId, companyCode: scope.companyCode }).select("warrantyMonths").lean();
   const promisedMonths = resolveCustomerWarrantyMonths(product?.warrantyMonths, variant?.warrantyMonths);
@@ -25,7 +29,10 @@ export async function lookupWarranty(scope: RetailScope, code: string, at = new 
   const coverage = evaluateCoverage({ ...unit, customerWarranty }, at);
   const promisedEnd = promisedMonths ? computeWarrantyEnd(unit.soldAt || at, promisedMonths) : undefined;
   const gapMonths = promisedEnd && unit.supplierWarranty?.endAt && unit.supplierWarranty.endAt < promisedEnd ? Math.max(0, Math.ceil((promisedEnd.getTime() - new Date(unit.supplierWarranty.endAt).getTime()) / (30 * 86_400_000))) : 0;
-  const customer = unit.customerId ? await getCustomerContact({ companyCode: scope.companyCode }, String(unit.customerId), { includeInactive: true }) : null;
+  const reference = String(unit.customerId || "");
+  const customer = /^[a-f\d]{24}$/i.test(reference)
+    ? await getCustomerContact({ companyCode: scope.companyCode }, reference, { includeInactive: true })
+    : null;
   const isHex = (id?: unknown) => typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id.trim());
   const friendlyCustId = customer?.customerCode || (unit.customerId && !isHex(unit.customerId) ? String(unit.customerId) : undefined);
   return {
@@ -52,82 +59,60 @@ export interface PhoneWarrantyLookupResult {
   };
   totalDevices: number;
   devices: Array<Awaited<ReturnType<typeof lookupWarranty>>>;
+  candidates?: Array<{ customerId: string; customerCode: string; name: string }>;
+  needsIdentification?: true;
 }
 
-export async function lookupWarrantyByPhone(scope: RetailScope, rawPhone: string, at = new Date()): Promise<PhoneWarrantyLookupResult> {
+export async function lookupWarrantyByPhone(scope: RetailScope, rawPhone: string, at = new Date(), selectedCustomerId?: string): Promise<PhoneWarrantyLookupResult> {
   const digits = String(rawPhone || "").trim().replace(/\D/g, "");
   if (!digits || digits.length < 4) {
     return { found: false, totalDevices: 0, devices: [] };
   }
   const variants = phoneLookupVariants(rawPhone);
-  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const phonePattern = escapeRegex(digits.startsWith("0") ? digits.slice(1) : digits);
-  const phoneRegex = new RegExp(phonePattern, "i");
-
-  // 1. Tìm thông tin khách hàng từ CustomerModel
-  const customers = await CustomerModel.find({
+  const customers = (await CustomerModel.find({
     companyCode: scope.companyCode,
-    $or: [
-      { normalizedPhone: { $in: variants } },
-      { phone: { $in: variants } },
-      { phone: phoneRegex },
-    ],
-  }).select("_id name phone customerCode").lean();
+    $or: [{ normalizedPhone: { $in: variants } }, { phone: { $in: variants } }],
+  }).select("_id name phone customerCode").sort({ customerCode: 1 }).lean())
+    .map(customer => ({ customerId: String(customer._id), customerCode: customer.customerCode, name: customer.name, phone: customer.phone }));
 
-  const customerIds = customers.map((c: any) => String(c._id));
-  let mainCustomer: { customerId?: string; customerCode?: string; name?: string; phone?: string } | undefined = customers[0]
-    ? {
-        customerId: String(customers[0]._id),
-        customerCode: customers[0].customerCode,
-        name: customers[0].name,
-        phone: customers[0].phone,
-      }
-    : undefined;
+  const empty = { found: false, totalDevices: 0, devices: [] };
+  const selected = selectedCustomerId
+    ? customers.find(customer => customer.customerId === selectedCustomerId)
+    : customers.length === 1 ? customers[0] : undefined;
+  if (selectedCustomerId && !selected) return empty;
+  if (!selected && customers.length > 1) {
+    return { ...empty, candidates: customers.map(({ customerId, customerCode, name }) => ({ customerId, customerCode, name })) };
+  }
 
-  // 2. Tìm đơn hàng bán lẻ đã hoàn thành/xác nhận
-  const orders: any[] = await RetailOrderModel.find({
+  const customerRefs = selected ? [selected.customerId, selected.customerCode] : [];
+  const orders = await RetailOrderModel.find({
     companyCode: scope.companyCode,
+    ...(scope.branchId ? { branchId: scope.branchId } : {}),
     status: { $in: ["confirmed", "completed"] },
-    $or: [
-      { customerPhone: { $in: variants } },
-      { customerPhone: phoneRegex },
-      { "customerSnapshot.phone": { $in: variants } },
-      { "customerSnapshot.phone": phoneRegex },
-      ...(customerIds.length ? [{ customerId: { $in: customerIds } }] : []),
-    ],
-  }).select("_id orderCode customerName customerPhone customerSnapshot items confirmedAt completedAt branchId").sort({ confirmedAt: -1, completedAt: -1, _id: -1 }).lean();
+    $or: selected
+      ? [{ customerId: { $in: customerRefs } }, { customerId: { $in: [null, ""] }, "customerSnapshot.customerId": { $in: customerRefs } }]
+      : [{ customerPhone: { $in: variants } }, { "customerSnapshot.phone": { $in: variants } }],
+  }).select("_id orderCode customerId customerName customerPhone customerSnapshot items confirmedAt completedAt branchId")
+    .sort({ confirmedAt: -1, completedAt: -1, _id: -1 }).lean();
+  if (!selected && orders.length > 1) return { ...empty, needsIdentification: true };
 
-  if (!mainCustomer && orders.length > 0) {
-    const firstWithCust = orders.find((o) => o.customerSnapshot?.name || o.customerName);
-    if (firstWithCust) {
-      mainCustomer = {
-        name: firstWithCust.customerSnapshot?.name || firstWithCust.customerName,
-        phone: firstWithCust.customerSnapshot?.phone || firstWithCust.customerPhone,
-        customerCode: firstWithCust.customerSnapshot?.customerCode,
-      };
-    }
-  }
+  const legacyOrder = orders[0];
+  const mainCustomer = selected || (legacyOrder ? {
+    name: legacyOrder.customerSnapshot?.name || legacyOrder.customerName,
+    phone: legacyOrder.customerSnapshot?.phone || legacyOrder.customerPhone,
+    customerCode: legacyOrder.customerSnapshot?.customerCode,
+  } : undefined);
 
-  const orderIds = orders.map((o) => String(o._id));
-  const orderSerials = [
-    ...new Set(
-      orders.flatMap((o) =>
-        (o.items || []).flatMap((i: any) => i.serialNumbers || []),
-      ).filter(Boolean),
-    ),
+  const serialQuery = [
+    ...(customerRefs.length ? [{ customerId: { $in: customerRefs } }] : []),
+    ...(orders.length ? [{ soldOrderId: { $in: orders.map(order => String(order._id)) }, ...(selected ? { customerId: { $in: [...customerRefs, null, ""] } } : {}) }] : []),
   ];
-
-  // 3. Tìm các SerialUnitModel tương ứng
-  const serialQuery: any[] = [];
-  if (customerIds.length > 0) serialQuery.push({ customerId: { $in: customerIds } });
-  if (orderIds.length > 0) serialQuery.push({ soldOrderId: { $in: orderIds } });
-  if (orderSerials.length > 0) {
-    serialQuery.push({ serialNumber: { $in: orderSerials } });
-    serialQuery.push({ normalizedSerialNumber: { $in: orderSerials.map(normalizeSerialNumber) } });
-  }
-
-  const units: any[] = serialQuery.length > 0
-    ? await SerialUnitModel.find({ companyCode: scope.companyCode, $or: serialQuery }).lean()
+  const units = serialQuery.length
+    ? await SerialUnitModel.find({
+        companyCode: scope.companyCode,
+        ...(scope.branchId ? { soldBranchId: scope.branchId } : {}),
+        $or: serialQuery,
+      }).lean()
     : [];
 
   const foundSerials = new Set<string>();
@@ -136,7 +121,7 @@ export async function lookupWarrantyByPhone(scope: RetailScope, rawPhone: string
   for (const unit of units) {
     if (foundSerials.has(unit.serialNumber)) continue;
     foundSerials.add(unit.serialNumber);
-    const lookupResult = await lookupWarranty(scope, unit.serialNumber, at);
+    const lookupResult = await warrantyForUnit(scope, unit, at);
     if (lookupResult.found) {
       devices.push(lookupResult);
     }

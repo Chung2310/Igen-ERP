@@ -101,6 +101,21 @@ describe("Lead intake writes", () => {
     );
   });
 
+  it("updates the referenced need and keeps a second need in the same group", async () => {
+    database.findOne.mockReturnValue(read({ _id: "LEAD", intakeRevision: 4, answers: turn.values, needs: [
+      { id: "N1", title: "Lớp tiếng Anh", groupKey: "education", groupLabel: "Đào tạo", answers: { schedule: "Tối" } },
+    ] }));
+    await upsertLeadFromIntake({ ...turn, needs: [
+      { id: "N1", title: "Lớp tiếng Anh", groupKey: "education", groupLabel: "Đào tạo", answers: { schedule: "Cuối tuần" } },
+      { title: "Lớp IELTS", groupKey: "education", groupLabel: "Đào tạo", answers: {} },
+    ] });
+    const [, update] = database.findOneAndUpdate.mock.calls[0];
+    expect(update.$set.needs).toMatchObject([
+      { id: "N1", answers: { schedule: "Cuối tuần" } },
+      { id: expect.any(String), title: "Lớp IELTS" },
+    ]);
+  });
+
   it("retries a concurrent update against the latest Lead and preserves a staff deletion", async () => {
     database.findOne.mockReturnValueOnce(read({ _id: "LEAD", intakeRevision: 1, answers: { phone: "0900000000" } }))
       .mockReturnValueOnce(read({ _id: "LEAD", intakeRevision: 2, answers: {}, intakeStaffFields: ["answers.phone", "phone"] }));

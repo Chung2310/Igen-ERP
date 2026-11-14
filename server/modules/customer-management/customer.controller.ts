@@ -4,9 +4,9 @@ import { searchActiveCustomers, quickCreateCustomer } from "./contracts";
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
 import { BillingProfileService } from "./billing-profile.service";
 import { CustomerPurchaseHistoryService } from "./customer-purchase-history.service";
-import { requireRetailBranch, retailScopeFromRequest, RetailScopeError, type RetailBranchScope } from "../retail/contracts";
+import { requireRetailBranch, retailScopeFromRequest, resolveRetailScopeFromRequest, RetailScopeError, type RetailBranchScope } from "../retail/contracts";
 
-function scopeFromRequest(req: Request): CustomerScope {
+export function scopeFromRequest(req: Request): CustomerScope {
   const user = (req as any).user || {};
   const rawCompanyCode = user.role === "superadmin" ? req.query.companyCode : user.companyCode;
   const companyCode = String(rawCompanyCode || "").trim().toUpperCase();
@@ -63,7 +63,8 @@ export const customerController = {
   quickCreate: handle(async (req, res) => res.status(201).json({ success: true, data: await quickCreateCustomer(scopeFromRequest(req), req.body || {}, actorFromRequest(req)) })),
   detail: handle(async (req, res) => res.json({ success: true, data: await CustomerService.detail(scopeFromRequest(req), req.params.id) })),
   purchaseHistory: handle(async (req, res) => {
-    const { customerScope, branchId } = purchaseHistoryServiceInput(req);
+    const { companyCode, branchId } = requireRetailBranch(await resolveRetailScopeFromRequest((req as any).user || {}, req.query));
+    const customerScope = { companyCode };
     return res.json({ success: true, data: await CustomerPurchaseHistoryService.get(customerScope, req.params.id, branchId) });
   }),
   update: handle(async (req, res) => res.json({ success: true, data: await CustomerService.update(scopeFromRequest(req), req.params.id, req.body || {}, versionFromRequest(req)) })),

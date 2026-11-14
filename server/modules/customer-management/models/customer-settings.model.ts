@@ -39,6 +39,7 @@ const PointsPolicySchema = new Schema({
 }, { _id: false });
 
 const CustomerSettingsSchema = new Schema<ICustomerSettings>({
+  hiddenSourceTransfers: { type: [String], enum: ["students", "healthcare"], default: undefined },
   companyCode: { type: String, required: true, index: true, unique: true },
   tierEvaluationMetric: { type: String, enum: ["gross_profit"], default: "gross_profit" },
   evaluationWindow: { type: String, enum: ["rolling12Months", "allTime"], default: "rolling12Months" },

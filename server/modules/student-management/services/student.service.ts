@@ -233,6 +233,7 @@ export class StudentService {
     data: StudentCreateData,
     context?: CustomFieldWriteContext,
     creator?: { uid: string; name?: string },
+    customerId?: string,
   ): Promise<IStudent> {
     logger.info(`[Student] Creating student for ownerId=${ownerId}, phone=${data.phone}`);
 
@@ -255,6 +256,7 @@ export class StudentService {
 
     const student = new Student({
       ...normalizedPayload,
+      customerId,
       ownerId,
       // Gán sau payload để client không giả mạo được người thêm qua body
       createdBy: creator?.uid || "",

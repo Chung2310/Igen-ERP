@@ -2,6 +2,7 @@ import type { CustomerStatus, CustomerType, ICustomerTierState } from "./interfa
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
 import { CustomerModel } from "./models/customer.model";
 import { Types, type ClientSession } from "mongoose";
+import { CustomerModuleLinkModel, type CustomerSourceModule } from "./models/customer-module-link.model";
 import { CustomerSettingsService } from "./services/customer-settings.service";
 export { getBillingProfile } from "./billing-profile.service";
 
@@ -46,10 +47,11 @@ export function createCustomerContracts(service: CustomerContractService) {
       return result.items.map(brief);
     },
 
-    async getCustomerBrief(scope: CustomerScope, customerId: string, options: { includeInactive?: boolean } = {}): Promise<CustomerBrief | null> {
+    async getCustomerBrief(scope: CustomerScope, customerId: string, options: { includeInactive?: boolean; individualOnly?: boolean } = {}): Promise<CustomerBrief | null> {
       try {
         const customer = await service.detail(scope, customerId);
         if (customer.status !== "active" && !options.includeInactive) return null;
+        if (options.individualOnly && customer.customerKind === "business") return null;
         return brief(customer);
       } catch (error) {
         if ((error as { code?: string })?.code === "CUSTOMER_NOT_FOUND") return null;
@@ -75,6 +77,11 @@ export function createCustomerContracts(service: CustomerContractService) {
 }
 
 export const { searchActiveCustomers, getCustomerBrief, getCustomerContact, quickCreateCustomer } = createCustomerContracts(CustomerService);
+
+export async function getLinkedCustomerContact(scope: CustomerScope, module: CustomerSourceModule, sourceId: string, customerId?: string) {
+  const reference = customerId || (await CustomerModuleLinkModel.findOne({ ...scope, module, sourceId }).select("customerId").lean())?.customerId;
+  return reference ? getCustomerContact(scope, reference, { includeInactive: true }) : null;
+}
 
 export { CustomerPointService } from "./services/customer-point.service";
 

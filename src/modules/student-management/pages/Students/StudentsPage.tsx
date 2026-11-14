@@ -22,6 +22,8 @@ import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePic
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBranch } from '../../../../context/BranchContext';
 import { useAuth } from '../../../../context/AuthContext';
+import { isModuleEnabled } from '../../../../config/modules';
+import { CustomerSourceTransferAction } from '../../../customer-management/components/CustomerSourceTransferAction';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
 import { primaryCreateButtonClass } from '../../../../components/common/primaryCreateButton';
 import { StudentSuspensionModal } from '../../components/Student/StudentSuspensionModal';
@@ -72,7 +74,7 @@ const TAB_UNASSIGNED = 'Chưa xếp lớp';
 
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, canManage = true }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
-  const { userProfile } = useAuth();
+  const { userProfile, hasPermission } = useAuth();
   // Phạm vi danh sách luôn theo chi nhánh đang chọn — lối vào "Chưa gán chi nhánh" đã được gỡ khỏi thanh công cụ.
   const [listScope] = useState<'branch' | 'unassigned'>('branch');
   const [isRegisterQROpen, setIsRegisterQROpen] = useState(false);
@@ -585,6 +587,11 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           >
             <QrCode className="w-3.5 h-3.5" /> QR đăng ký
           </button>}
+          {canManage && entityLabel.preset === 'student' && userProfile?.companyCode && activeBranchId
+            && isModuleEnabled(userProfile.enabledModules, 'customer') && hasPermission?.('customer:manage') &&
+            <CustomerSourceTransferAction module="students" companyCode={userProfile.companyCode} branchId={activeBranchId}
+              initialRecords={students.filter(student => selectedStudentIds.includes(student.id)).map(student => ({ id: student.id, name: student.fullName, phone: student.phone, dateOfBirth: student.birthday }))}
+              canConfigure={userProfile.role === 'admin' || userProfile.role === 'superadmin'} />}
           {canManage && <button
             onClick={onAddStudent}
             className={primaryCreateButtonClass}

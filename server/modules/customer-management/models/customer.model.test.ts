@@ -5,7 +5,7 @@ import { CustomerModel } from "./customer.model";
 test("customer schema enforces company-wide permanent identities", () => {
   const indexes = CustomerModel.schema.indexes();
   assert.ok(indexes.some(([fields, options]) => fields.companyCode === 1 && fields.customerCode === 1 && options.unique === true));
-  assert.ok(indexes.some(([fields, options]) => fields.companyCode === 1 && fields.normalizedPhone === 1 && options.unique === true));
+  assert.ok(indexes.some(([fields, options]) => fields.companyCode === 1 && fields.normalizedPhone === 1 && options.unique !== true));
 });
 
 test("customer schema supports active listing and optimistic concurrency", () => {

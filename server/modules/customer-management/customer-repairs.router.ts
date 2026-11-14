@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requirePermission, type AuthenticatedRequest } from '../../middleware/auth';
-import { requireRetailBranch, retailScopeFromRequest } from '../retail/contracts';
+import { requireModule } from '../../middleware/require-module';
+import { requireRetailBranch, resolveRetailScopeFromRequest } from '../retail/contracts';
 import { CustomerService } from './customer.service';
 import { RepairTicketModel } from '../repair/repair-ticket.model';
 
@@ -15,9 +16,9 @@ export async function getCustomerRepairHistory(scope: { companyCode: string; bra
   ]);
   return { items, total, page, limit };
 }
-customerRepairsRouter.get('/:id/repairs', requirePermission('customer:read'), requirePermission(['repair:read', 'repair:manage']), async (req: AuthenticatedRequest, res, next) => {
+customerRepairsRouter.get('/:id/repairs', requirePermission('customer:read'), requireModule('repair'), requirePermission(['repair:read', 'repair:manage']), async (req: AuthenticatedRequest, res, next) => {
   try {
-    const scope = requireRetailBranch(retailScopeFromRequest(req.user || {}, req.query));
+    const scope = requireRetailBranch(await resolveRetailScopeFromRequest(req.user || {}, req.query));
     const page = Math.max(1, Math.min(100000, Math.floor(Number(req.query.page) || 1)));
     res.json({ success: true, data: await getCustomerRepairHistory(scope, String(req.params.id), page) });
   } catch (cause) { next(cause); }

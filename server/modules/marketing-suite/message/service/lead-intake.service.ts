@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import type { ILeadIntakeFieldSnapshot } from "../interface/crm-ticket.interface";
-import type { LeadCollectionStatus, LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadCollectionStatus, LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-suite/lead-intake";
 import { parseIntakeNumber } from "./intake-number";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
@@ -63,7 +64,7 @@ function intakeIdentity(input: LeadIntakeIdentity) {
 
 export function findLeadForIntake(input: LeadIntakeIdentity) {
   return CRMTicketModel.findOne(intakeIdentity(input))
-    .select("customerName phone email company avatar productOfChoice value answers intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus")
+    .select("customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus")
     .lean();
 }
 
@@ -73,6 +74,7 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
   fields: LeadIntakeField[];
   values: Record<string, string>;
   previousValues: Record<string, string>;
+  needs?: Array<Omit<LeadNeed, "id"> & { id?: string }>;
   allowCreate: boolean;
   messageId: string;
   messageAt?: Date;
@@ -111,7 +113,28 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       changedAnswers[field.key] = value;
       answers[field.key] = value;
     }
-    if (!Object.keys(changedAnswers).length) return current;
+    const needs = [...(current?.needs || [])];
+    let needsChanged = false;
+    for (const entry of input.needs || []) {
+      const index = entry.id ? needs.findIndex(need => need.id === entry.id) : -1;
+      if (entry.id && index === -1) continue;
+      const previous = needs[index];
+      if (fillMissingOnly && !previous) continue;
+      const previousAnswers = previous?.answers || {};
+      const nextAnswers = fillMissingOnly ? { ...entry.answers, ...previousAnswers } : { ...previousAnswers, ...entry.answers };
+      const next: LeadNeed = fillMissingOnly && previous
+        ? { ...previous, answers: nextAnswers }
+        : { id: previous?.id || randomUUID(), groupKey: entry.groupKey, groupLabel: entry.groupLabel, title: entry.title, answers: nextAnswers };
+      if (previous && JSON.stringify(previous) === JSON.stringify(next)) continue;
+      if (index >= 0) needs[index] = next;
+      else if (needs.length < 50 && !needs.some(need => need.groupKey === next.groupKey
+        && normalized(need.title) === normalized(next.title) && Object.keys(need.answers || {}).length === Object.keys(next.answers).length
+        && Object.entries(next.answers).every(([key, answer]) => need.answers?.[key] === answer))) {
+        needs.push(next);
+      } else continue;
+      needsChanged = true;
+    }
+    if (!Object.keys(changedAnswers).length && !needsChanged) return current;
 
     const standard = mapIntakeStandardFields(input.fields, changedAnswers);
     const complete = input.fields.every(field => field.required === false || Boolean(answers[field.key]?.trim()));
@@ -119,7 +142,8 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
     const changedAnswerPaths = Object.fromEntries(Object.entries(changedAnswers).map(([key, value]) => [`answers.${key}`, value]));
     const update: Record<string, unknown> = {
       ...(current ? changedAnswerPaths : { answers }),
-      intakeSearchText: Object.values(answers).join(" ").slice(0, 100000),
+      ...(needsChanged ? { needs } : {}),
+      intakeSearchText: [...Object.values(answers), ...needs.flatMap(need => [need.title, need.groupLabel, ...Object.values(need.answers || {})])].join(" ").slice(0, 100000),
       intakeFields: fieldSnapshot,
       intakeProfileId: input.profileId,
       intakeProfileVersion: input.profileVersion,

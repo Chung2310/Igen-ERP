@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
+import CustomerReferencePicker, { type CustomerOption } from "../customer-management/components/CustomerReferencePicker";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { ErpModal } from "../../components/common/ErpModal";
 import type { Appointment, CareTask, CatalogItem, CatalogKind, HealthcareList, HealthcareStaff, Patient, PatientReference, Visit } from "../../../shared/healthcare";
@@ -77,10 +78,12 @@ function PatientPicker({ api, selected, error }: { api: HealthcareApi; selected?
   </div>;
 }
 
-export default function RecordEditor({ editor, api, catalog, staff, directory, onClose, onSaved }: {
+export default function RecordEditor({ editor, api, catalog, staff, directory, customerCompanyCode, onClose, onSaved }: {
   editor: Editor; api: HealthcareApi; catalog: CatalogItem[]; staff: HealthcareStaff[]; onClose: () => void; onSaved: () => void;
   directory?: { loading: boolean; error?: string; refresh: () => void };
+  customerCompanyCode?: string;
 }) {
+  const [customer, setCustomer] = useState<CustomerOption | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<FormError>();
   const [pending, setPending] = useState<Record<string, unknown>>();
@@ -110,6 +113,7 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
     if (busy) return;
     const data = new FormData(event.currentTarget);
     const body: Record<string, unknown> = Object.fromEntries(data);
+    if (kind === "patients" && !record && customer) body.customerId = customer.customerId;
     if ((kind === "visits" || kind === "appointments" || kind === "care") && !body.patientId) {
       setError({ message: "Chọn bệnh nhân theo tên hoặc số điện thoại.", fields: ["patientId"] });
       return;
@@ -169,10 +173,12 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
     </> : <form onSubmit={submit} aria-busy={busy} className="space-y-4">
       <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
         {kind === "patients" && <>
+          {!record && customerCompanyCode && <CustomerReferencePicker
+            companyCode={customerCompanyCode} value={customer} onChange={setCustomer} />}
           {editor.record ? <Field name="code" label="Mã bệnh nhân" value={editor.record.code} readOnly required maxLength={50} />
             : <Field name="code" label="Mã bệnh nhân" disabled placeholder="Tự tạo khi lưu hồ sơ" />}
-          <Field name="name" label="Họ và tên" value={editor.record?.name} error={error} required maxLength={180} placeholder="Nhập họ và tên bệnh nhân" />
-          <Field name="phone" label="Số điện thoại" type="tel" value={editor.record?.phone} error={error} maxLength={40} placeholder="Ví dụ: 0901234567" />
+          <Field key={`name-${customer?.customerId || "new"}`} name="name" label="Họ và tên" value={editor.record?.name || customer?.name} error={error} required maxLength={180} placeholder="Nhập họ và tên bệnh nhân" />
+          <Field key={`phone-${customer?.customerId || "new"}`} name="phone" label="Số điện thoại" type="tel" value={editor.record?.phone || customer?.phone} error={error} maxLength={40} placeholder="Ví dụ: 0901234567" />
           <Field name="dateOfBirth" label="Ngày sinh" type="date" value={editor.record?.dateOfBirth} error={error} />
           <Field name="address" label="Địa chỉ" value={editor.record?.address} error={error} maxLength={350} placeholder="Nhập địa chỉ bệnh nhân" />
           <Field name="note" label="Ghi chú hành chính" value={editor.record?.note} error={error} maxLength={1000} placeholder="Nhập ghi chú (nếu có)" />

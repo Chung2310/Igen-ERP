@@ -71,6 +71,7 @@ export interface IStudentFaceEnrollment {
 }
 
 export interface IStudent extends Document {
+  customerId?: string;
   customFields?: CustomFieldValues;
   fullName: string;
   slug?: string;

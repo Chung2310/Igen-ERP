@@ -8,6 +8,7 @@ import { TableFilterToolbar } from "../../components/common/TableFilterToolbar";
 import { TablePagination } from "../../components/common/TablePagination";
 import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
+import { CustomerSourceTransferAction } from "../customer-management/components/CustomerSourceTransferAction";
 import type { HealthcareTab as Tab } from "../../router/subTabRoutes";
 import { emptyDatePeriodFilter, getDatePeriodRange } from "../../utils/datePeriodFilter";
 import type { Appointment, CareTask, CatalogItem, HealthcareList, HealthcarePatientList, HealthcareStaff, ImportKind, Patient, Visit } from "../../../shared/healthcare";
@@ -83,11 +84,13 @@ export default function HealthcarePage() {
     <Feedback error={branch.error || "Chọn chi nhánh đang hoạt động để sử dụng Quản lý y tế."} onRetry={branch.error ? branch.retry : undefined} />
   </div>;
   return <HealthcareWorkspace key={`${userProfile?.uid}:${userProfile?.companyCode}:${branch.activeBranchId}`}
-    branchId={branch.activeBranchId} hasPermission={hasPermission} />;
+    branchId={branch.activeBranchId} hasPermission={hasPermission}
+    canConfigureCustomerTransfer={userProfile?.role === "admin" || userProfile?.role === "superadmin"}
+    customerCompanyCode={userProfile?.enabledModules?.includes("customer") ? userProfile.companyCode : undefined} />;
 }
 
-export function HealthcareWorkspace({ branchId, hasPermission }: {
-  branchId: string; hasPermission: (permission: string) => boolean;
+export function HealthcareWorkspace({ branchId, hasPermission, customerCompanyCode, canConfigureCustomerTransfer }: {
+  branchId: string; hasPermission: (permission: string) => boolean; customerCompanyCode?: string; canConfigureCustomerTransfer?: boolean;
 }) {
   const api = useMemo(() => healthcareApi(branchId), [branchId]);
   const [location, setLocation] = useState(() =>
@@ -322,7 +325,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
     <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
       {notice && <p role="status" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm">{notice}</p>}
       {editor && <RecordEditor key={`${editor.kind}:${editor.record?._id || "new"}`} editor={editor} api={api}
-        catalog={catalog.data || []} staff={staff.data || []} directory={editorDirectory}
+        catalog={catalog.data || []} staff={staff.data || []} directory={editorDirectory} customerCompanyCode={customerCompanyCode}
         onClose={closeEditor} onSaved={saved} />}
       {patientPreviewId && <PatientDetailsModal patientId={patientPreviewId} api={api} canManage={canFeature(hasPermission, "patients", "manage")}
         onClose={() => { setPatientPreviewId(undefined); restoreFocus(); }}
@@ -377,7 +380,11 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
       <section className="min-w-0 space-y-3" aria-label={pageTitle}>
         <div className="flex flex-wrap items-center justify-between gap-3" ref={heading} tabIndex={-1}>
           <h3 id="healthcare-section-title" data-typography="section-title" className="text-balance text-lg font-semibold">{pageTitle}</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {tab === "patients" && !patientId && canManage && customerCompanyCode && hasPermission("customer:manage") &&
+              <CustomerSourceTransferAction module="healthcare" companyCode={customerCompanyCode} branchId={branchId}
+                initialRecords={patientRows.filter(patient => selectedPatientIds.includes(patient._id)).map(patient => ({ id: patient._id, name: patient.name, code: patient.code, phone: patient.phone, dateOfBirth: patient.dateOfBirth }))}
+                canConfigure={canConfigureCustomerTransfer} />}
             {tab === "patients" && !patientId && canManage && selectedPatientIds.length > 0 && <>
               <span className="rounded-lg bg-surface-container px-2.5 py-1.5 text-xs font-medium text-on-surface-variant">Đã chọn {selectedPatientIds.length}</span>
               <IconActionButton label={`Xóa hàng loạt (${selectedPatientIds.length})`} icon={Trash2} tone="danger" ariaHaspopup

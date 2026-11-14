@@ -1712,6 +1712,8 @@ export default function CRMTab() {
               branchId={branchContext?.activeBranchId || userProfile?.branchId || ""}
               enabledModules={userProfile?.enabledModules}
               accounts={leadSheetAccounts}
+              canViewCustomers={hasPermission("customer:read") || hasPermission("customer:manage")}
+              canSaveCustomer={hasPermission("customer:manage") && hasPermission("omni-inbox:manage")}
               onSelectAccountScope={handleSelectLeadAccountScope}
               onActiveFieldsChange={setActiveLeadSheetFields}
               refreshToken={leadSheetRefreshToken}

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { getCustomerBrief, getLinkedCustomerContact } from "../../customer-management/contracts";
 import { StudentService } from "../services/student.service";
 import { StudentLearningHistoryService } from "../services/student-learning-history.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
@@ -98,7 +99,12 @@ export class StudentController {
         centerOwnerIds = await getCenterOwnerIds(req.user!);
       }
 
-      const student = await StudentService.createStudent(ownerId, centerOwnerIds, { ...req.body, branchId: req.user!.branchId }, {
+      const companyCode = String(req.user!.role === "superadmin" ? req.body.companyCode || req.body.centerId : req.user!.companyCode || "").trim().toUpperCase();
+      const { customerId, ...input } = req.body;
+      if (customerId && (!companyCode || !await getCustomerBrief({ companyCode }, customerId, { individualOnly: true }))) {
+        return res.status(400).json({ success: false, error: "Chọn hồ sơ khách hàng cá nhân đang hoạt động trong công ty." });
+      }
+      const student = await StudentService.createStudent(ownerId, centerOwnerIds, { ...input, branchId: req.user!.branchId }, {
         tenantId: req.user!.role === "superadmin" ? await resolveCustomFieldTenantForOwner(ownerId) : (req.user!.companyCode || req.user!.centerId),
         moduleKey: "students",
         actorRole: req.user!.role,
@@ -106,7 +112,7 @@ export class StudentController {
       }, {
         uid: req.user!.uid,
         name: await resolveActorName(req.user!.uid, req.user!.email),
-      });
+      }, typeof customerId === "string" ? customerId.toLowerCase() : undefined);
       res.status(201).json({ success: true, data: student });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Loi khong xac dinh.";
@@ -159,7 +165,10 @@ export class StudentController {
       if (!student) {
         return res.status(404).json({ success: false, error: "Khong tim thay hoc vien." });
       }
-      res.json({ success: true, data: student });
+      const companyCode = req.user!.companyCode?.trim().toUpperCase();
+      const contact = companyCode ? await getLinkedCustomerContact({ companyCode }, "students", String(student._id), student.customerId) : null;
+      const data = contact ? { ...student.toObject(), customerId: contact.customerId, fullName: contact.name, phone: contact.phone, email: contact.email || student.email } : student;
+      res.json({ success: true, data });
     } catch (error: unknown) {
       next(error);
     }

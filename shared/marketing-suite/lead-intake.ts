@@ -22,5 +22,8 @@ export interface LeadIntakeField {
   options?: string[];
 }
 
+export type LeadNeedGroup = { key: string; label: string; fieldKeys: string[] };
+export type LeadNeed = { id: string; groupKey: string; groupLabel: string; title: string; answers: Record<string, string> };
+
 export type LeadCollectionStatus = "collecting" | "complete" | "needs_human";
 export type LeadTargetModule = "students" | "healthcare" | "workers";

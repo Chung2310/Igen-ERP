@@ -33,11 +33,11 @@ export default function RepairHistoryPanel() {
   const [result, setResult] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
-  const search = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!keyword.trim()) return;
+  const search = async (value: string, customerId?: string) => {
+    const query = value.trim();
+    if (!query) return;
     setBusy(true); setResult(null);
-    try { setResult(mode === "imei" ? await repairExtras.historyByImei(keyword.trim()) : await repairExtras.historyByPhone(keyword.trim())); }
+    try { setResult(mode === "imei" ? await repairExtras.historyByImei(query) : await repairExtras.historyByPhone(query, customerId)); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Không tra cứu được lịch sử."); }
     finally { setBusy(false); }
   };
@@ -49,9 +49,9 @@ export default function RepairHistoryPanel() {
       <p className="text-sm text-slate-500">Tra theo IMEI/serial của máy hoặc theo số điện thoại khách hàng.</p>
     </div>
 
-    <form onSubmit={search} className="flex flex-wrap items-center gap-2">
-      <StyledSelect appearance="erp" ariaLabel="Cách tra cứu lịch sử" value={mode} onChange={(value) => { setMode(value as "imei" | "phone"); setResult(null); }} options={[{ value: "imei", label: "Theo IMEI / Serial" }, { value: "phone", label: "Theo số điện thoại" }]} />
-      <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={mode === "imei" ? "Nhập hoặc quét IMEI/serial" : "Nhập số điện thoại khách"} className="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm" />
+    <form onSubmit={event => { event.preventDefault(); void search(keyword); }} className="flex flex-wrap items-center gap-2">
+      <StyledSelect disabled={busy} appearance="erp" ariaLabel="Cách tra cứu lịch sử" value={mode} onChange={(value) => { setMode(value as "imei" | "phone"); setResult(null); }} options={[{ value: "imei", label: "Theo IMEI / Serial" }, { value: "phone", label: "Theo số điện thoại" }]} />
+      <input disabled={busy} aria-label={mode === "imei" ? "IMEI hoặc số sê-ri" : "Số điện thoại khách"} value={keyword} onChange={(e) => { setKeyword(e.target.value); setResult(null); }} placeholder={mode === "imei" ? "Nhập hoặc quét IMEI/serial" : "Nhập số điện thoại khách"} className="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm" />
       <button disabled={busy} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Đang tra..." : "Tra cứu"}</button>
     </form>
 
@@ -70,7 +70,24 @@ export default function RepairHistoryPanel() {
       <div className="rounded-xl border p-4"><b className="text-sm">Đã vào xưởng {result.ticketCount} lần</b><div className="mt-2"><TicketTable tickets={result.tickets} /></div></div>
     </div>}
 
-    {result?.kind === "customer" && <div className="space-y-3">
+    {result?.kind === "customer" && result.candidates?.length > 0 && (
+      <section aria-label="Chọn khách hàng" className="space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
+        <p role="status" className="text-sm text-on-surface">Có nhiều khách dùng số này. Chọn khách để xem lịch sử sửa chữa.</p>
+        <ul className="flex flex-wrap gap-2">
+          {result.candidates.map((customer: { customerId: string; customerCode: string; name: string }) => (
+            <li key={customer.customerId}>
+              <button type="button" className="min-h-10 rounded-md border border-outline-variant px-3 text-sm text-on-surface hover:bg-surface-container focus-visible:outline-primary" onClick={() => void search(result.phone, customer.customerId)}>
+                {customer.name} · {customer.customerCode}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+    {result?.kind === "customer" && result.needsIdentification && (
+      <p role="status" className="text-sm text-on-surface">Số này khớp nhiều hồ sơ cũ. Hãy tra theo IMEI hoặc số sê-ri.</p>
+    )}
+    {result?.kind === "customer" && !result.candidates?.length && !result.needsIdentification && <div className="space-y-3">
       <div className="rounded-xl border p-4 text-sm"><b>{result.customerName || "Khách hàng"} · {result.phone}</b><p className="text-slate-500">{result.devices.length} thiết bị · {result.ticketCount} phiếu</p></div>
       {result.devices.map((device: any, index: number) => <div key={`${device.imei || device.deviceName}-${index}`} className="rounded-xl border p-4">
         <b className="text-sm">{device.deviceName} · {device.imei || "Không có IMEI"}</b>
