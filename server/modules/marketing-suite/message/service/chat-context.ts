@@ -28,6 +28,18 @@ export function isStickerOnlyMessage(message: string): boolean {
   return message.trim().split(/\n+/).every(part => /^(?:\d+\.\s*)?\[Sticker\]$/.test(part.trim()));
 }
 
+export function isTransactionConfirmationRequest(history: ChatContextMessage[]): boolean {
+  const latestTurn = [...history].reverse().find(turn => turn.text.trim());
+  if (!latestTurn || latestTurn.sender === "user") return false;
+  const lastSentence = latestTurn.text.trim().replace(/[.!?]+$/, "").split(/[.!?\n]+/).at(-1) || "";
+  const question = normalize(lastSentence);
+  if (/\b(?:da|vua) (?:xac nhan (?:chot )?|chot |dat |giu )(?:lich|don)\b/.test(question)) return false;
+  return /\b(?:xac nhan (?:chot )?|chot |dat |giu )(?:lich|don)\b/.test(question)
+    && (latestTurn.text.trimEnd().endsWith("?")
+      || /\b(?:nhe|nha|giup em)\b/.test(question)
+      || /\b(?:xin|nho)\b.*\bxac nhan\b/.test(question));
+}
+
 export function combineChatScenarios(knowledgeScenario: string | undefined, configuredScenario: string): string {
   const knowledge = (knowledgeScenario || "").trim();
   const configured = configuredScenario.trim();
@@ -50,6 +62,7 @@ export function isSimpleAcknowledgement(message: string): boolean {
 /** An acknowledgement to a concrete offer is a request to carry out that offer. */
 export function isAcknowledgementToAssistantOffer(message: string, history: ChatContextMessage[] = []): boolean {
   if (!isSimpleAcknowledgement(message)) return false;
+  if (isTransactionConfirmationRequest(history)) return true;
   const latestTurn = [...history].reverse().find((turn) => turn.text.trim());
   if (!latestTurn || latestTurn.sender === "user") return false;
 
