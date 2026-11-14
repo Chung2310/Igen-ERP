@@ -28,6 +28,7 @@ import { enqueueLeadIntakeRetry } from "./messenger-background-jobs";
 import { facebookMessageOrder, loadMessengerReplyMessages, olderThanMessage } from "./messenger-reply-messages";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { splitHistoryAndPendingInboundMessages, type ChatImageObservation } from "./chat-image-context";
+import { isStickerOnlyMessage } from "./chat-context";
 import { prepareChatReplyContext, commitChatVisualContext, buildChatConversationInstructions,
   describeChatVisualContext, type ChatSourceMessage } from "./chat-reply-context.service.ts";
 import { visualToImageObservation } from "./chat-visual-context";
@@ -1133,7 +1134,9 @@ export const aiAutoReplyService = {
             const aiTrace = channel === "facebook" || aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
               const intakePlatform = channel === "facebook" || channel === "zalo" || channel === "tiktok" ? channel : undefined;
-              const orderFlow = intakePlatform ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId, intakePlatform) : undefined;
+              const stickerOnly = channel === "zalo" && !pendingImageUrls.length && isStickerOnlyMessage(groupedCustomerMessage);
+              const orderFlow = intakePlatform && !stickerOnly
+                ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId, intakePlatform) : undefined;
               const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId, intakePlatform, companyCode)
                 ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId, platform: intakePlatform }, latestDbMessage.messageId) : undefined;
               // Generic intake uses the conversation history. Inbound messages are

@@ -78,6 +78,18 @@ it("acknowledges only after persisting and deduplicates a Zalo webhook without a
   expect(await ZaloMessageModel.countDocuments()).toBe(0);
 });
 
+it("stores the sticker URL from the webhook attachment and dispatches the sticker turn", async () => {
+  const url = "https://api.zalo.me/api/emoticon/oasticker?eid=123&size=130";
+  await zaloMessengerService.handleWebhookEvent({
+    event_name: "user_send_sticker", recipient: { id: "oa" }, sender: { id: "customer" }, timestamp: Date.now(),
+    message: { msg_id: "sticker-1", attachments: [{ type: "sticker", payload: { url, id: "123" } }] },
+  });
+
+  const message = await ZaloMessageModel.findOne({ messageId: "sticker-1" }).lean();
+  expect(message).toMatchObject({ text: "[Sticker]", attachments: [{ type: "sticker", url }] });
+  expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith("zalo", "oa", String(message?.conversationId), "[Sticker]", "sticker-1", { propagateError: true });
+});
+
 it("recovers Zalo jobs across an expired lease and a failed message write without double-counting unread", async () => {
   const eventTimestamp = Math.floor(Date.now() / 1000);
   const { submit } = webhook(eventTimestamp);

@@ -24,6 +24,10 @@ function normalize(text: string): string {
 
 export const ACKNOWLEDGEMENT_REPLY = "dạ vâng ạ";
 
+export function isStickerOnlyMessage(message: string): boolean {
+  return message.trim().split(/\n+/).every(part => /^(?:\d+\.\s*)?\[Sticker\]$/.test(part.trim()));
+}
+
 export function combineChatScenarios(knowledgeScenario: string | undefined, configuredScenario: string): string {
   const knowledge = (knowledgeScenario || "").trim();
   const configured = configuredScenario.trim();
