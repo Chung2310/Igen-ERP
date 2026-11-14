@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
+import { calculateEstimatedEndDate } from '../../lib/batchSchedule';
 import { toast } from '../../../../pages/Toast';
 import { useBatches } from '../../hooks/useBatches';
 import { StudentLoadState } from '../../components/StudentLoadState';
@@ -59,19 +60,6 @@ const DAY_OPTIONS: { value: number; label: string }[] = [
   { value: 6, label: 'T7' },
   { value: 0, label: 'CN' },
 ];
-
-function calculateEstimatedEndDate(startDate: string, daysOfWeek: number[], sessionCount: number): string {
-  if (!startDate || !daysOfWeek.length || !Number.isInteger(sessionCount) || sessionCount < 1) return '';
-  const date = new Date(`${startDate}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return '';
-
-  let remaining = sessionCount;
-  for (let index = 0; index < 3700; index += 1) {
-    if (daysOfWeek.includes(date.getUTCDay()) && --remaining === 0) return date.toISOString().slice(0, 10);
-    date.setUTCDate(date.getUTCDate() + 1);
-  }
-  return '';
-}
 
 const formatDays = (days: number[]) =>
   DAY_OPTIONS.filter(d => (days || []).includes(d.value)).map(d => d.label).join(', ');
