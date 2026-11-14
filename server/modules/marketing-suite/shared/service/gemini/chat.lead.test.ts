@@ -39,6 +39,7 @@ it("uses the previous offer and Lead details when the customer's answer is just 
   ]));
   expect(firstPrompt[2]?.systemInstruction).toContain(JSON.stringify(leadIntake));
   expect(firstPrompt[2]?.systemInstruction).not.toContain("chỉ trả lời chính xác: dạ vâng ạ");
+  expect(firstPrompt[2]?.maxTokens).toBe(4096);
 });
 
 it("provides the next configured booking question to generation and review after a short name", async () => {
