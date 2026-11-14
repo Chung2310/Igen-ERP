@@ -43,7 +43,10 @@ describe("Page intake flow", () => {
     expect(reply?.text).toBe("");
     expect(reply?.leadIntake).toMatchObject({
       collected: { surface: "tường", area: "20 m²" }, status: "collecting",
-      missingRequiredFields: [{ label: "Loại sơn", type: "text" }, { label: "Số điện thoại", type: "text" }],
+      missingRequiredFields: [
+        { label: "Loại sơn", type: "text", question: fields[2].question },
+        { label: "Số điện thoại", type: "text", question: fields[3].question },
+      ],
     });
     expect(PageChatFlowStateModel.updateOne).toHaveBeenCalledWith(
       { companyCode: "ACME", pageId: "PAGE", conversationId: "C" },
@@ -120,8 +123,38 @@ describe("Page intake flow", () => {
       message: grouped.combinedText, history, imageUrls: [] });
     expect(reply?.text).toBe("");
     expect(reply?.leadIntake).toEqual({ goal: "Tư vấn Ruby Queen", collected: { name: "Thủy" },
-      status: "collecting", missingRequiredFields: [{ label: "Số điện thoại", type: "text" }] });
+      status: "collecting", missingRequiredFields: [{ label: "Số điện thoại", type: "text", question: contactFields[1].question }] });
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "Thủy" } }));
+  });
+  it("continues a Zalo booking after a short name without asking for the selected package again", async () => {
+    const fields = [
+      { key: "package", label: "Gói khám", type: "single_select", options: ["Nam", "Nữ"], question: "Mình chọn gói nào ạ?" },
+      { key: "name", label: "Họ tên", type: "text", question: "Cho em xin họ tên người đi khám nhé?" },
+      { key: "phone", label: "Số điện thoại", type: "phone", question: "Cho em xin số liên hệ để lễ tân xác nhận lịch nhé?" },
+      { key: "visit_date", label: "Ngày muốn khám", type: "date", question: "Mình muốn đến khám ngày nào ạ?" },
+    ];
+    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => ({
+      _id: "PROFILE", version: 1, goal: "Đăng ký gói khám", fields,
+    }) }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({
+      version: 1, profileId: "PROFILE", leadId: "LEAD", hasLeadIntent: true, values: { package: "Nam" },
+    }) } as never);
+    vi.mocked(findLeadForIntake).mockResolvedValue({ _id: "LEAD", answers: { package: "Nam" } } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Cường" }) } as never);
+
+    const reply = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "OA", platform: "zalo", conversationId: "C",
+      messageId: "NAME", message: "Cường", history: [{ sender: "model", text: fields[1].question }], imageUrls: [] });
+
+    expect(reply?.leadIntake).toMatchObject({
+      status: "collecting", collected: { package: "Nam", name: "Cường" },
+      missingRequiredFields: [
+        { label: "Số điện thoại", type: "phone", question: fields[2].question },
+        { label: "Ngày muốn khám", type: "date", question: fields[3].question },
+      ],
+    });
+    expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({
+      allowCreate: false, values: { package: "Nam", name: "Cường" },
+    }));
   });
   it("can save a phone supplied in earlier customer history without using the bot's hotline as source proof", async () => {
     const contactFields = [

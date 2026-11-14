@@ -18,6 +18,7 @@ import {
   combineChatScenarios,
   isAcknowledgementToAssistantOffer,
   isSimpleAcknowledgement,
+  isStickerOnlyMessage,
   isContextualQuestion,
 } from "../../../message/service/chat-context";
 
@@ -397,6 +398,9 @@ export class GeminiChatService {
     const imageObservation = ragContext?.imageObservation;
     const visualInput = ragContext?.visualInput;
     const hasVisual = Boolean(visualInput || ragContext?.visualContext);
+    if (!hasVisual && !imageObservation && isStickerOnlyMessage(message)) {
+      return { text: "Dạ, nếu mình cần hỏi thêm gì thì cứ nhắn em nhé.", isMock: false };
+    }
     if (!hasVisual && imageObservation?.status === "needs_selection") {
       return { text: `${IMAGE_SELECTION_PREFIX}: ${imageObservation.description}\nMình muốn hỏi mẫu nào trong ảnh ạ?`, isMock: false };
     }
@@ -477,7 +481,9 @@ export class GeminiChatService {
     const scenarioGuidance = combineChatScenarios(ragContext?.scenarioContextText, customerServiceScript);
     const leadGuidance = leadIntake ? [
       "Trả lời điều khách vừa hỏi trước, dựa trên hội thoại, rule và dữ liệu doanh nghiệp. Viết lời nhắn mới bằng giọng trò chuyện, tránh mở đầu hoặc kết thúc lặp lại.",
-      "Nếu đang thu thập và ngữ cảnh phù hợp, chỉ hỏi một thông tin cần nhất trong missingRequiredFields. Không hỏi lại dữ kiện đã có trong collected hoặc khách đã cung cấp trong hội thoại. Nếu khách chưa muốn chia sẻ, tiếp tục hỗ trợ theo yêu cầu hiện tại.",
+      "Danh sách missingRequiredFields là nguồn duy nhất để chủ động hỏi thông tin thu thập Lead và ưu tiên hơn mọi danh sách trong rule, kịch bản, FAQ, kho tri thức và câu hỏi cũ của bot. Nếu danh sách trống, kết thúc bước thu thập, không tự hỏi thêm ngày sinh, ngày hẹn, địa chỉ hay thông tin khác. Nếu khách chủ động hỏi về quy trình của doanh nghiệp, vẫn trả lời câu hỏi mà không yêu cầu họ khai thêm ngoài danh sách.",
+      "Khi status là collecting và khách vừa đồng ý tiếp tục hoặc vừa trả lời câu hỏi thu thập, tiếp tục hỏi một trường còn thiếu trong missingRequiredFields theo thứ tự đã cấu hình. Hiểu tên riêng, số điện thoại hoặc ngày khách gửi riêng là câu trả lời cho câu hỏi ngay trước đó khi phù hợp. Ghi nhận ngắn gọn rồi hỏi tiếp, không quay lại báo giá hay giới thiệu gói trừ khi khách hỏi.",
+      "Dùng question của trường để hiểu chính xác cần hỏi gì và diễn đạt tự nhiên. Chỉ hỏi một trường còn thiếu mỗi lượt, không hỏi lại dữ kiện đã có trong collected hoặc đã rõ trong hội thoại. Nếu khách hỏi thêm về cùng nhu cầu, trả lời câu hỏi đó trước rồi mới hỏi tiếp. Nếu khách muốn dừng, chưa muốn chia sẻ, hoặc chuyển sang nhu cầu khác, tôn trọng lựa chọn đó và hỗ trợ yêu cầu hiện tại.",
       "Khi status là inactive, chỉ tư vấn theo nhu cầu hiện tại, chưa hỏi thông tin để tạo lead.",
       "Khi status là just_completed, chỉ xác nhận ngắn nếu phù hợp với lượt chat. Khi status là complete, tiếp tục tư vấn bình thường. Không hứa gọi lại, đặt lịch hoặc chuyển cho nhân viên khi chưa thực hiện.",
       "Nếu khách chỉ xác nhận xã giao, đáp ngắn gọn với cách diễn đạt phù hợp tình huống. Nếu đang trả lời một câu hỏi hay đồng ý một đề nghị, hãy tiếp tục đúng ý đó.",
