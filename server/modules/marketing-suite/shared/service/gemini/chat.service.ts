@@ -760,7 +760,7 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
           responseSchema: useVisualSchema ? CHAT_VISUAL_SCHEMA : undefined,
           maxRetries: hasVisual ? 1 : undefined,
           deadlineAt: ragContext?.replyDeadlineAt,
-          maxTokens: hasVisual ? 4096 : undefined,
+          maxTokens: 4096,
           operation: "reply_generation",
         }
       );
