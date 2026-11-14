@@ -16,7 +16,7 @@ import { useStudents } from '../../hooks/useStudents';
 import { useResources } from '../../hooks/useResources';
 import { Batch, BatchStatus, BatchProgressLevel, BatchAgeLabel } from '../../types';
 import {
-  ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
+  ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpModal, ErpField, ErpInput, ErpSelect,
   ErpEmptyState, ErpLoadingState, ErpCard, ErpConfirmModal, ErpTableHead,
   erpInputClass
@@ -706,30 +706,22 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   return (
     <div className="space-y-4 p-3 text-left sm:p-4">
       {(batchLoadError || courseLoadError || resourceLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadResources()]); }} />}
-      <ErpPageHeader
-        title={copy.pageTitle}
-        action={canManage ? (
-          <ErpPrimaryButton onClick={openCreateModal}>
-            {copy.createButton}
-          </ErpPrimaryButton>
-        ) : undefined}
-      />
-
       {/* Controls */}
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-center gap-2">
           <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
+          {canManage && <ErpPrimaryButton onClick={openCreateModal}>{copy.createButton}</ErpPrimaryButton>}
           {canManage && (
-            <button type="button" onClick={() => setShowProgressColors(true)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-600 hover:bg-slate-50">
-              <Settings className="h-3.5 w-3.5" /> Màu tiến độ
+            <button type="button" onClick={() => setShowProgressColors(true)} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-normal text-on-surface-variant transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+              <Settings className="size-3.5" aria-hidden="true" /> Màu tiến độ
             </button>
           )}
-          <div className="ml-auto flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-            <button type="button" onClick={() => changeViewMode('table')} title="Dạng bảng" aria-label="Dạng bảng" aria-pressed={viewMode === 'table'} className={cn("rounded-lg p-1.5 transition-colors", viewMode === 'table' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-white hover:text-slate-700")}>
-              <Rows3 className="h-4 w-4" />
+          <div className="ml-auto flex items-center gap-1 rounded-md border border-outline-variant bg-surface p-1">
+            <button type="button" onClick={() => changeViewMode('table')} title="Dạng bảng" aria-label="Dạng bảng" aria-pressed={viewMode === 'table'} className={cn("flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:outline-primary", viewMode === 'table' ? "bg-primary/10 text-primary" : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-primary")}>
+              <Rows3 className="size-4" aria-hidden="true" />
             </button>
-            <button type="button" onClick={() => changeViewMode('card')} title="Dạng thẻ" aria-label="Dạng thẻ" aria-pressed={viewMode === 'card'} className={cn("rounded-lg p-1.5 transition-colors", viewMode === 'card' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-white hover:text-slate-700")}>
-              <LayoutGrid className="h-4 w-4" />
+            <button type="button" onClick={() => changeViewMode('card')} title="Dạng thẻ" aria-label="Dạng thẻ" aria-pressed={viewMode === 'card'} className={cn("flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:outline-primary", viewMode === 'card' ? "bg-primary/10 text-primary" : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-primary")}>
+              <LayoutGrid className="size-4" aria-hidden="true" />
             </button>
           </div>
         </div>

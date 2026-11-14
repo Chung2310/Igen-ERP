@@ -76,9 +76,6 @@ export default function ReceivablesPage({
     <section className="finance-page-content">
       <div>
         <h2 className="text-balance text-sm font-semibold text-on-surface">Công nợ phải thu</h2>
-        <p className="text-sm text-on-surface-variant">
-          Theo dõi số dư, hạn trả và lịch sử từng khoản.
-        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
         <label className="relative">

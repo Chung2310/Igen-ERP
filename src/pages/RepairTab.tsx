@@ -29,7 +29,7 @@ export default function RepairTab() {
   }, [setView]);
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-full flex-col gap-4">
       {/* Top Tab Bar Switcher */}
       <ModuleNavigation label="Mục Sửa chữa & Bảo hành" activeValue={view}>
         {TABS.map((tab) => {
@@ -48,7 +48,7 @@ export default function RepairTab() {
       </ModuleNavigation>
 
       {/* Tab View Content */}
-      <div className="min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs">
         {view === "repair" && (
           <RepairBoardPage
             createPrefill={prefill}

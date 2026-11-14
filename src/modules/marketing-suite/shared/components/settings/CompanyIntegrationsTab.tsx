@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Building2, Plus, Save, Terminal, Key, Eye, EyeOff, Lock,
+  Plus, Save, Terminal, Key, Eye, EyeOff, Lock,
   Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw, X, Search, Music2
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
@@ -773,28 +773,19 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   return (
     <div className="space-y-3">
       <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
-        <div className="mb-3 flex flex-col items-start justify-between gap-3 border-b border-outline-variant pb-3 md:flex-row md:items-center">
-          <div className="text-left">
-            <h3 className="flex items-center gap-2 text-balance text-lg font-semibold text-on-surface">
-              <Building2 className="h-5 w-5 text-indigo-650" />
-              Mạng xã hội Doanh nghiệp
-            </h3>
-            <p className="mt-1 text-pretty text-xs text-on-surface-variant">
-              Kết nối tài khoản mạng xã hội của công ty để quản lý hội thoại và bật trả lời tự động.
-            </p>
-            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
-              Đây là khu vực dùng chung theo doanh nghiệp. Nếu sửa hoặc xóa tại đây, mọi tài khoản cùng company sẽ bị ảnh hưởng.
-            </p>
-          </div>
-          {editingIntegrationId && (
+        {editingIntegrationId && (
+          <div className="mb-3 flex justify-end border-b border-outline-variant pb-3">
             <button
               onClick={resetCompForm}
               className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-gray-200"
             >
               <Plus className="h-3.5 w-3.5" /> Hủy sửa & Thêm mới
             </button>
-          )}
-        </div>
+          </div>
+        )}
+        <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+          Đây là khu vực dùng chung theo doanh nghiệp. Nếu sửa hoặc xóa tại đây, mọi tài khoản cùng company sẽ bị ảnh hưởng.
+        </p>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
           {/* Left: Form to Add/Edit Integration */}

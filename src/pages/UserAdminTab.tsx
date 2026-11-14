@@ -779,10 +779,7 @@ export default function UserAdminTab() {
           </div>
         </>      ) : (
         <div className="flex-1 space-y-3 overflow-y-auto p-3" id="roles_permissions_tab_content">
-          <div className="flex flex-col justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-balance text-lg font-semibold text-on-surface">Vai trò và phân quyền</h2>
-            </div>
+          <div className="flex flex-wrap items-center gap-3">
             <button
               disabled={!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))}
               onClick={() => {

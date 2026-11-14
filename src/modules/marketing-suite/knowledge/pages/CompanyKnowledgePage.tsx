@@ -1,5 +1,4 @@
 import "../../shared/marketing-workspace.css";
-import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
 import {
   AlertCircle,
   AlertTriangle,
@@ -475,69 +474,12 @@ export default function CompanyKnowledgePage() {
     }
   }
 
-  async function handleClearAll() {
-    const confirmed = window.confirm(
-      "CẢNH BÁO NGUY HIỂM:\n\nBạn có chắc chắn muốn XÓA TOÀN BỘ KHO TRI THỨC của doanh nghiệp này?\n\nToàn bộ tài liệu, bảng giá, chính sách và dữ liệu AI tự học sẽ bị xóa vĩnh viễn và không thể khôi phục."
-    );
-    if (!confirmed) return;
-
-    setBusy(true);
-    try {
-      const res = await companyKnowledgeService.clearAll();
-      toast.success(res.message || "Đã xóa toàn bộ kho tri thức thành công.");
-      await loadData();
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Không thể xóa kho tri thức."
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="marketing-workspace h-full overflow-y-auto pb-8 pr-2">
-      <div className="mx-auto w-full max-w-5xl">
-        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
-          <div className="flex gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-650">
-              <BookOpenCheck className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">
-                Kho tri thức
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                Nhập tài liệu một lần để trả lời tự động, Marketing
-                cùng sử dụng.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-              <strong className="text-slate-900">
-                {health?.documentsCount || 0}
-              </strong>{" "}
-              tài liệu
-            </span>
-            {canManage && (health?.documentsCount || 0) > 0 && (
-              <button
-                type="button"
-                onClick={() => void handleClearAll()}
-                disabled={busy || loading}
-                className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-300 disabled:opacity-50 cursor-pointer transition-colors"
-                title="Xóa toàn bộ kho tri thức của doanh nghiệp"
-              >
-                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-                <span>Xóa toàn bộ tri thức</span>
-              </button>
-            )}
-            <ErpRefreshButton onClick={() => void loadData()} loading={loading} />
-          </div>
-        </header>
+      <div className="mx-auto w-full max-w-5xl rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-5">
 
         {/* Sub-Navigation Tabs */}
-        <div className="mt-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+        <div className="flex flex-wrap gap-2 border-b border-outline-variant pb-3">
           <button
             type="button"
             onClick={() => setActiveSection("documents")}

@@ -266,21 +266,6 @@ export default function FixedAssetsPage({
 
   return (
     <section className="finance-page-content">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-on-surface-variant">Danh mục, nguyên giá và giá trị còn lại theo chi nhánh.</p>
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary"
-          >
-            Thêm tài sản
-          </button>
-        )}
-      </div>
-
       {creating && canManage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/50 p-4">
           <div
@@ -365,7 +350,7 @@ export default function FixedAssetsPage({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="w-full sm:w-48">
           <StyledSelect ariaLabel="Lọc trạng thái" className="h-9 rounded-md" menuClassName="finance-select-menu" value={status} onChange={setStatus} options={[{ value: "", label: "Tất cả trạng thái" }, ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))]} />
         </div>
@@ -377,6 +362,15 @@ export default function FixedAssetsPage({
           placeholder="Mã, mã vạch hoặc tên"
           className="flex-1 rounded-md border border-outline-variant px-3 py-2 text-sm"
         />
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="ml-auto min-h-9 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            Thêm tài sản
+          </button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
