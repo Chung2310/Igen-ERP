@@ -7,7 +7,6 @@ import type { RetailAfterSale, RetailAfterSaleType } from "../types";
 import { cn } from "../../student-management/lib/utils";
 import { Dropdown } from "../../../components/common/Dropdown";
 import { RetailEmptyState } from "../components/RetailEmptyState";
-import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 
 const PAGE_SIZE = 20;
 const money = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
@@ -81,10 +80,6 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
 
   return (
     <main className="flex flex-1 flex-col gap-5 text-on-surface">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="ml-auto"><ErpRefreshButton onClick={() => void load()} loading={loading} /></div>
-      </header>
-
       <section aria-label="Tổng quan chứng từ hiện trên trang" className="grid gap-3 sm:grid-cols-3">
         <SummaryCard icon={FileText} tone="blue" label="Tổng số phiếu" value={total.toLocaleString("vi-VN")} detail="Theo bộ lọc đang chọn" />
         <SummaryCard icon={RotateCcw} tone="orange" label="Khách trả hàng" value={String(returnItems.length)} detail={`${money(returnTotal)} trên trang này`} />

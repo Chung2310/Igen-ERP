@@ -29,7 +29,6 @@ import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { socketService } from "../../../services/socketService";
 import { cn } from "../../student-management/lib/utils";
-import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { Pagination } from "../../../components/common/Pagination";
 import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../../utils/datePeriodFilter";
@@ -318,19 +317,6 @@ export default function RetailInvoicesPageContent() {
 
   return (
     <section className="space-y-3.5">
-      {/* Header card */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
-              {total.toLocaleString("vi-VN")} chứng từ
-            </span>
-          </div>
-        </div>
-
-        <div className="ml-auto"><ErpRefreshButton onClick={() => void loadInvoices()} loading={loading} /></div>
-      </header>
-
       {/* Quick Summary KPIs */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <div className="retail-stat-card retail-stat-card--blue rounded-md px-3.5 py-2.5">

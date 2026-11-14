@@ -12,6 +12,7 @@ import {
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { DatePeriodFilter } from "../common/DatePeriodFilter";
 import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import {
@@ -335,24 +336,6 @@ export function OutboundSection({
 
   return (
     <div className="space-y-6">
-
-      {/* 1. Header Section */}
-      <div className="flex flex-col gap-3 border-b border-outline-variant pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="ml-auto flex items-center gap-2">
-          <ErpRefreshButton onClick={() => void loadWarehouses()} />
-          <button
-            type="button"
-            onClick={() => {
-              setEditingTicket(null);
-              setCreateModalOpen(true);
-            }}
-            className={`${primaryCreateButtonClass} min-h-9`}
-          >
-            + Tạo phiếu xuất mới
-          </button>
-        </div>
-      </div>
-
       {/* 2. KPI Metrics Strip */}
       <div className="inventory-outbound-metrics grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
@@ -412,16 +395,21 @@ export function OutboundSection({
           placeholder: "Tìm mã phiếu, khách hàng, SKU, IMEI...",
           ariaLabel: "Tìm phiếu xuất kho",
         }}
-        dateFilter={{
-          label: "thời gian phiếu xuất kho",
-          value: dateFilter,
-          onChange: (next) => {
-            setDateFilter(next);
-            setPage(1);
-          },
-        }}
-        totalCount={filteredLogs.length}
-        countLabel="phiếu xuất"
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ErpRefreshButton onClick={() => void loadWarehouses()} />
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTicket(null);
+                setCreateModalOpen(true);
+              }}
+              className={`${primaryCreateButtonClass} min-h-9`}
+            >
+              + Tạo phiếu xuất mới
+            </button>
+          </div>
+        }
         hasActiveFilters={Boolean(
           searchQuery ||
             selectedWarehouseFilter !== "all" ||
@@ -438,6 +426,37 @@ export function OutboundSection({
           setPage(1);
         }}
         resetLabel="Đặt lại bộ lọc"
+        secondaryFilters={
+          <>
+            <div className="w-full shrink-0 sm:w-44">
+              <Dropdown
+                value={selectedStatusFilter}
+                onChange={(val) => {
+                  setSelectedStatusFilter(val);
+                  setPage(1);
+                }}
+                options={statusFilterOptions}
+                variant="filter"
+                size="sm"
+                aria-label="Trạng thái xuất"
+              />
+            </div>
+            <span className="inline-flex shrink-0 items-center rounded-lg bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+              Tổng <strong className="ml-1 text-on-surface tabular-nums">{filteredLogs.length.toLocaleString("vi-VN")}</strong>&nbsp;phiếu xuất
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 text-xs font-medium text-on-surface-variant">Thời gian:</span>
+              <DatePeriodFilter
+                label="thời gian phiếu xuất kho"
+                value={dateFilter}
+                onChange={(next) => {
+                  setDateFilter(next);
+                  setPage(1);
+                }}
+              />
+            </div>
+          </>
+        }
       >
         <div className="w-full sm:w-48 shrink-0">
           <Dropdown
@@ -463,19 +482,6 @@ export function OutboundSection({
             variant="filter"
             size="sm"
             aria-label="Mục đích xuất"
-          />
-        </div>
-        <div className="w-full sm:w-44 shrink-0">
-          <Dropdown
-            value={selectedStatusFilter}
-            onChange={(val) => {
-              setSelectedStatusFilter(val);
-              setPage(1);
-            }}
-            options={statusFilterOptions}
-            variant="filter"
-            size="sm"
-            aria-label="Trạng thái xuất"
           />
         </div>
       </TableFilterToolbar>

@@ -302,22 +302,6 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
 
   return (
     <section className="space-y-4" aria-label="Quản lý IMEI và Serial">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3.5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
-              {stats.total} máy
-            </span>
-          </div>
-        </div>
-
-        {/* Right Action Bar */}
-        <div className="ml-auto flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-          <ErpRefreshButton onClick={() => void load()} title="Tải lại danh sách" />
-        </div>
-      </div>
-
       {/* 2. Compact Sleek Metric Bar (4 segments) */}
       <MetricBar
         id="inventory_serial_metrics"
@@ -463,6 +447,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
                 </button>
               </div>
             )}
+            <ErpRefreshButton onClick={() => void load()} title="Tải lại danh sách" />
           </div>
         }
       >

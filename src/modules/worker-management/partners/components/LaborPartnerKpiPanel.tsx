@@ -64,9 +64,9 @@ export function LaborPartnerKpiPanel({ scope, canManage, onOpenSettlements }: { 
   };
 
   return <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h2 className="flex items-center gap-2 font-black text-slate-800"><Target className="h-5 w-5 text-cyan-600" /> KPI giới thiệu</h2><p className="mt-1 text-xs leading-5 text-slate-500">Đặt chỉ tiêu số lao động cần giới thiệu theo từng tháng và theo dõi kết quả thực tế.</p><p className="mt-1 text-xs font-medium text-amber-700">Lưu ở đây chỉ là chỉ tiêu KPI, không phải giờ làm hoặc số tháng tính hoa hồng.</p></div>
-      <div className="flex items-end gap-2"><div className="grid gap-1"><span className="text-[13px] font-medium text-[#4e647d]">Tháng theo dõi</span><MonthPicker value={month} onChange={setMonth} ariaLabel="Chọn tháng theo dõi KPI" /></div><ErpRefreshButton onClick={() => void load()} />{onOpenSettlements && <button type="button" onClick={onOpenSettlements} className="inline-flex h-9 items-center gap-1 rounded-lg border border-violet-200 px-3 text-xs font-bold text-violet-700 hover:bg-violet-50">Nhập giờ/tháng <ArrowRight className="h-3.5 w-3.5" /></button>}</div>
+    <div className="flex flex-wrap items-center justify-end gap-3">
+
+      <div className="flex flex-wrap items-center gap-2"><div className="flex flex-wrap items-center gap-2"><span className="whitespace-nowrap text-sm font-medium text-on-surface-variant">Tháng theo dõi</span><MonthPicker value={month} onChange={setMonth} ariaLabel="Chọn tháng theo dõi KPI" /></div><ErpRefreshButton onClick={() => void load()} />{onOpenSettlements && <button type="button" onClick={onOpenSettlements} className="inline-flex h-9 items-center gap-1 rounded-lg border border-violet-200 px-3 text-xs font-bold text-violet-700 hover:bg-violet-50">Nhập giờ/tháng <ArrowRight className="h-3.5 w-3.5" /></button>}</div>
     </div>
     <div className="mt-3"><LaborPartnerStats items={[
       { label: "Tổng chỉ tiêu", value: `${summary.target} người`, Icon: Target, tone: "total" },

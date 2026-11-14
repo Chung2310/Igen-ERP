@@ -544,48 +544,109 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     <div className="space-y-4 p-3 sm:p-4">
       {loadError && <StudentLoadState error={loadError} onRetry={() => { void refetch(); }} />}
       {(batchLoadError || courseLoadError || categoryLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadCategories()]); }} />}
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div>
-          <p className="mt-0.5 text-xs font-normal text-on-surface-variant">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
+      {/* Status tabs */}
+      <div className="flex min-w-0 items-center gap-2 border-b border-outline-variant pb-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs text-on-surface-variant">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</span>
+          <div className="status-tabs no-scrollbar flex min-w-0 items-center gap-2 overflow-x-auto">
+            {statusTabs.map((tab) => {
+              const isSelected = selectedStatus === tab.label;
+              return (
+                <button
+                  key={tab.label}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedStatus(tab.label)}
+                  className={cn(
+                    "relative flex min-h-9 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-sm font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
+                    isSelected
+                      ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary"
+                      : ""
+                  )}
+                >
+                  {getOperationalStatusLabel(entityLabel.preset, tab.label)}
+                  {tab.count !== undefined && (
+                    <span className={cn(
+                      "rounded-full px-1.5 py-0.5 text-[9px]",
+                      isSelected ? "bg-primary/10 text-primary" : "bg-surface-container-low text-on-surface-variant"
+                    )}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+      </div>
+
+      {/* Search and actions */}
+      <div className="flex flex-col gap-2 border-b border-outline-variant pb-2 xl:flex-row xl:items-center xl:justify-between">
+        <div className="relative w-full min-w-0 xl:max-w-sm">
+          <label htmlFor="student-list-search" className="sr-only">Tìm kiếm học viên</label>
+          <input
+            id="student-list-search"
+            type="text"
+            placeholder="Tên / SĐT / CCCD..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-8 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary"
+          />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label="Xóa nội dung tìm kiếm"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <X className="size-3" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
           {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
+              type="button"
               onClick={handleBulkDelete}
               disabled={isBulkDeleting}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md bg-rose-600 px-2.5 text-xs font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" /> Xóa hàng loạt ({selectedStudentIds.length})
             </button>
           )}
           <button
+            type="button"
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Download className="w-3.5 h-3.5" /> {isExporting ? 'Đang xuất...' : 'Xuất'}
           </button>
           <button
+            type="button"
             onClick={handlePrint}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
           {canManage && usesEducationBilling && <button
+            type="button"
             onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
           </button>}
           {canManage && userProfile?.uid && <button
+            type="button"
             onClick={() => setIsRegisterQROpen(true)}
             title="QR để học viên tự đăng ký"
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <QrCode className="w-3.5 h-3.5" /> QR đăng ký
           </button>}
           {canManage && <button
+            type="button"
             onClick={onAddStudent}
             className={primaryCreateButtonClass}
           >
@@ -594,52 +655,19 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         </div>
       </div>
 
-      {/* Primary Tabs removed — replaced by Category Dropdown in Filters Bar */}
-
-      {/* Sub-Tabs (Status Workflow) */}
-      <div className="status-tabs no-scrollbar flex items-center gap-2 overflow-x-auto border-b border-outline-variant">
-        {statusTabs.map((tab) => {
-          const isSelected = selectedStatus === tab.label;
-          return (
-            <button
-              key={tab.label}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => setSelectedStatus(tab.label)}
-              className={cn(
-                "relative flex min-h-10 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-sm font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
-                isSelected
-                  ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary"
-                  : ""
-              )}
-            >
-              {getOperationalStatusLabel(entityLabel.preset, tab.label)}
-              {tab.count !== undefined && (
-                <span className={cn(
-                  "px-1.5 py-0.5 rounded-full text-[9px]",
-                  isSelected ? "bg-primary/10 text-primary" : "bg-surface-container-low text-on-surface-variant"
-                )}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Filters Bar */}
-      <div className="filters-bar grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+      <div className="filters-bar grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Khóa học</label>
           <RoadmapPicker value={category} placeholder="Chọn khóa học" options={[{ value: TAB_ALL, label: 'Tất cả khóa học' }, ...Array.from(new Map(categories.map((cat) => [cat.name, cat])).values()).map((cat: CourseCategoryItem) => ({ value: cat.name, label: cat.name })), { value: TAB_UNASSIGNED, label: operationalCopy.unassignedGroupLabel }]} onChange={(value) => setCategory(value || TAB_ALL)} />
         </div>
-        <div className="space-y-0.5">
-          <label className="text-xs font-normal text-slate-600">Từ ngày</label>
-          <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} onChange={setStartDate} selectionOnly variant="filter" />
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-normal text-on-surface-variant">Từ</span>
+          <div className="min-w-0 flex-1"><VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} onChange={setStartDate} selectionOnly variant="filter" /></div>
         </div>
-        <div className="space-y-0.5">
-          <label className="text-xs font-normal text-slate-600">Đến ngày</label>
-          <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} onChange={setEndDate} selectionOnly variant="filter" />
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-normal text-on-surface-variant">Đến</span>
+          <div className="min-w-0 flex-1"><VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} onChange={setEndDate} selectionOnly variant="filter" /></div>
         </div>
 
         <div className="space-y-0.5">
@@ -651,28 +679,6 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <label className="text-xs font-normal text-slate-600">Học phí</label>
           <RoadmapPicker value={feeStatusFilter} placeholder="Tất cả học phí" options={[{ value: 'Tất cả học phí', label: 'Tất cả học phí' }, { value: 'Miễn phí', label: 'Miễn phí' }, { value: 'Đã đóng đủ', label: 'Đã đóng đủ' }, { value: 'Chưa đóng', label: 'Chưa đóng' }, { value: 'Còn thiếu', label: 'Còn thiếu' }]} onChange={(value) => setFeeStatusFilter(value || 'Tất cả học phí')} />
         </div>}
-        <div className="space-y-0.5 col-span-2 lg:col-span-1">
-          <label htmlFor="student-list-search" className="text-xs font-normal text-slate-600">Tìm kiếm</label>
-          <div className="relative">
-            <input
-              id="student-list-search"
-              type="text"
-              placeholder="Tên / SĐT / CCCD..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-8 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/10"
-            />
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
-              >
-                <X className="w-3 h-3 text-slate-400" />
-              </button>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Main Table Card */}

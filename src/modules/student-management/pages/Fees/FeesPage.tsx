@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import {
   Download, Search,
   CreditCard, Clock, Users as UsersIcon,
-  Banknote, History, CalendarDays
+  Banknote, History
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
@@ -211,18 +211,6 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
   return (
     <div className="space-y-4 p-3 sm:p-4">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary md:flex-none"
-          >
-            <Download className="w-3.5 h-3.5" /> Xuất báo cáo
-          </button>
-        </div>
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <FeeStatCard
@@ -257,64 +245,62 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       </div>
 
       {/* Filters */}
-      <div className="space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
-            <CalendarDays className="h-4 w-4" />
-            Dữ liệu thu học phí theo thời gian
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              ['Hôm nay', 0], ['1 tuần', 7], ['1 tháng', 30], ['3 tháng', 90],
-            ].map(([label, days]) => (
-              <button key={String(days)} type="button" onClick={() => applyQuickRange(Number(days))} disabled={paymentsLoading} className="h-8 rounded-lg border border-sky-200 bg-white px-2.5 text-xs font-normal text-brand-primary hover:bg-sky-50 disabled:opacity-50">
-                {label}
-              </button>
-            ))}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest p-2 xl:flex-nowrap">
+        <div className="flex shrink-0 items-center gap-1">
+          {[
+            ['Hôm nay', 0], ['1 tuần', 7], ['1 tháng', 30], ['3 tháng', 90],
+          ].map(([label, days]) => (
+            <button key={String(days)} type="button" onClick={() => applyQuickRange(Number(days))} disabled={paymentsLoading} className="h-9 shrink-0 rounded-md border border-outline-variant bg-surface-container-lowest px-1.5 text-xs font-normal text-primary transition-colors hover:bg-primary/10 disabled:opacity-50">
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-1 text-sm font-normal text-on-surface-variant">
+          <span className="shrink-0">Từ</span>
+          <div className="w-32 shrink-0">
+            <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} max={endDate || undefined} onChange={setStartDate} selectionOnly variant="filter" />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="flex w-full min-w-0 items-center gap-2 text-sm font-normal text-slate-600 sm:w-auto">
-            <span className="shrink-0">Từ ngày</span>
-            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
-              <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} max={endDate || undefined} onChange={setStartDate} selectionOnly variant="filter" />
-            </div>
+        <div className="flex shrink-0 items-center gap-1 text-sm font-normal text-on-surface-variant">
+          <span className="shrink-0">Đến</span>
+          <div className="w-32 shrink-0">
+            <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} min={startDate || undefined} max={toDateInput(new Date())} onChange={setEndDate} selectionOnly variant="filter" />
           </div>
-          <div className="flex w-full min-w-0 items-center gap-2 text-sm font-normal text-slate-600 sm:w-auto">
-            <span className="shrink-0">Đến ngày</span>
-            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
-              <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} min={startDate || undefined} max={toDateInput(new Date())} onChange={setEndDate} selectionOnly variant="filter" />
-            </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="text-xs text-on-surface-variant">Nợ</span>
+          <div className="w-32 shrink-0">
+            <RoadmapPicker ariaLabel="Trạng thái nợ" value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }, { value: 'Miễn phí', label: 'Miễn phí' }]} onChange={setDebtFilter} className="rounded-md" />
           </div>
+        </div>
+        <div className="relative min-w-0 flex-1 basis-32">
+          <label htmlFor="fee-student-search" className="sr-only">Tìm học viên</label>
+          <input
+            id="fee-student-search"
+            type="text"
+            placeholder="Tên / SĐT..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary"
+          />
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={() => { setAppliedStartDate(startDate); setAppliedEndDate(endDate); }}
             disabled={paymentsLoading || (Boolean(startDate) !== Boolean(endDate))}
-            className="h-9 w-full rounded-lg bg-brand-primary px-5 text-sm font-medium text-white transition-colors hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="h-9 rounded-md bg-primary px-3 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {paymentsLoading ? 'Đang lọc...' : 'Lọc'}
           </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-3">
-        <div className="space-y-0.5">
-          <label className="text-xs font-normal text-slate-600">Trạng thái nợ</label>
-          <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }, { value: 'Miễn phí', label: 'Miễn phí' }]} onChange={setDebtFilter} />
-        </div>
-
-        <div className="space-y-0.5 sm:col-span-2">
-          <label htmlFor="fee-student-search" className="text-xs font-normal text-on-surface-variant">Tìm học viên</label>
-          <div className="relative">
-            <input
-              id="fee-student-search"
-              type="text"
-              placeholder="Tên / SĐT..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/10"
-            />
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <Download className="size-3.5" aria-hidden="true" /> Xuất báo cáo
+          </button>
         </div>
       </div>
 

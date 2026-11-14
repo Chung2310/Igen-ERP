@@ -126,21 +126,6 @@ export default function AssetInventoryPage({
 
   return (
     <section className="finance-page-content">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-on-surface-variant">Quét mã vạch theo phiên, đối chiếu và chốt bảng lệch.</p>
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setOpening((value) => !value)}
-            className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary"
-          >
-            Mở phiên kiểm kê
-          </button>
-        )}
-      </div>
-
       {error && <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>}
 
       {opening && canManage && (
@@ -174,6 +159,17 @@ export default function AssetInventoryPage({
       )}
 
       <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+        {canManage && (
+          <div className="flex justify-end border-b border-outline-variant p-3">
+            <button
+              type="button"
+              onClick={() => setOpening((value) => !value)}
+              className="min-h-9 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              Mở phiên kiểm kê
+            </button>
+          </div>
+        )}
         <div className="divide-y">
           {sessions.map((session) => (
             <button

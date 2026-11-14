@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertCircle, ArrowUpRight, Building2, Layers3,
+  AlertCircle, ArrowUpRight, Layers3,
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
 import { getCurrentAiSubscription, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
@@ -8,7 +8,6 @@ import AiPlanCatalog from "./AiPlanCatalog";
 import AiSubscriptionHistory from "./AiSubscriptionHistory";
 import { socketService } from "../../../../services/socketService";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
-import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
 import { AI_SUBSCRIPTION_SUB_TAB_ROUTES } from "../../../../router/subTabRoutes";
 import { cn } from "../../../student-management/lib/utils";
@@ -26,8 +25,6 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const [subscription, setSubscription] = useState<AiSubscriptionSummary | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
-  const [revision, setRevision] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(Date.now);
   const [view, setView] = useSubTabRouter(AI_SUBSCRIPTION_SUB_TAB_ROUTES, "usage");
@@ -49,7 +46,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
         if (active) setError(cause instanceof Error ? cause.message : "Không thể tải hạn mức AI.");
       } finally {
         pending = false;
-        if (active) { setLoaded(true); setRefreshing(false); }
+        if (active) setLoaded(true);
         if (active && refreshAgain) { refreshAgain = false; void load(); }
       }
     };
@@ -70,7 +67,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
       document.removeEventListener("visibilitychange", refresh);
       unsubscribe(); unsubscribeStatus();
     };
-  }, [revision, companyCode]);
+  }, [companyCode]);
 
   useEffect(() => {
     if (!subscription || subscription.status !== "active") return;
@@ -88,24 +85,20 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const remainingPercent = subscription ? Math.min(100, Math.max(0, available / Math.max(1, subscription.aiLimit) * 100)) : 0;
   const remainingTenths = subscription ? Math.min(1000, Math.max(0, Math.floor(available * 1000 / Math.max(1, subscription.aiLimit)))) : 0;
   const remainingPercentLabel = available > 0 && remainingTenths === 0 ? "< 0,1%" : `${number(remainingTenths / 10)}%`;
-  const refresh = () => { setRefreshing(true); setRevision((value) => value + 1); };
   const openPlans = () => { setView("plans"); plansButton.current?.focus(); };
 
   const quotaKnown = loaded && (!error || Boolean(subscription));
-  const historyKey = revision + ':' + (subscription?._id || 'none') + ':' + (currentSubscription?.status || 'none');
+  const historyKey = (updatedAt?.getTime() || 0) + ':' + (subscription?._id || 'none') + ':' + (currentSubscription?.status || 'none');
 
   return (
-    <div className="ai-subscription-page flex h-full min-h-0 flex-col bg-surface font-sans" id="company_ai_subscription_page" aria-busy={!loaded || refreshing}>
+    <div className="ai-subscription-page flex h-full min-h-0 flex-col bg-surface font-sans" id="company_ai_subscription_page" aria-busy={!loaded}>
       <ModuleNavigation label="Hạn mức và nâng cấp gói AI" activeValue={view}>
         <ModuleNavigationButton active={view === 'usage'} icon={<Layers3 />} aria-pressed={view === 'usage'} aria-controls="ai_subscription_usage" onClick={() => setView('usage')}>Hạn mức</ModuleNavigationButton>
         <ModuleNavigationButton ref={plansButton} active={view === 'plans'} icon={<ArrowUpRight />} aria-pressed={view === 'plans'} aria-controls="ai_subscription_plans" onClick={openPlans}>Gói nâng cấp</ModuleNavigationButton>
       </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto p-1 sm:p-1.5 lg:p-0">
         <div className="ai-subscription-panel ai-subscription-content min-h-full w-full space-y-5 p-4">
-          <header className="flex items-start justify-between gap-3">
-            <div className="ml-auto flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<ErpRefreshButton disabled={!loaded} loading={refreshing} onClick={refresh}>{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</ErpRefreshButton></div>
-          </header>
-          {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><div className="min-w-0"><p className="text-sm font-semibold">Chưa cập nhật được hạn mức AI</p><p className="mt-1 text-pretty text-sm leading-6">{error} {subscription ? 'Số liệu hiển thị là lần tải thành công gần nhất.' : 'Bấm Làm mới để thử lại.'}</p></div></div>}
+          {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><div className="min-w-0"><p className="text-sm font-semibold">Chưa cập nhật được hạn mức AI</p><p className="mt-1 text-pretty text-sm leading-6">{error} {subscription ? 'Số liệu hiển thị là lần tải thành công gần nhất.' : 'Hệ thống sẽ tự động thử cập nhật lại.'}</p></div></div>}
           <div id="ai_subscription_usage" hidden={view !== 'usage'} className="space-y-5">
             <section className="ai-subscription-panel p-5" aria-labelledby="ai_subscription_remaining_title">
               {!loaded ? <div role="status" className="flex flex-wrap items-center gap-5"><h2 id="ai_subscription_remaining_title" className="sr-only">Hạn mức còn lại</h2><span className="sr-only">Đang tải hạn mức AI…</span><div aria-hidden="true" className="ai-subscription-skeleton h-16 w-48 rounded-xl" /><div aria-hidden="true" className="ai-subscription-skeleton h-3 min-w-48 flex-1 rounded-full" /></div> : <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-4">
@@ -119,7 +112,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
             </section>
             <AiSubscriptionHistory enabled={loaded && view === 'usage'} refreshKey={historyKey} />
           </div>
-          <div id="ai_subscription_plans" hidden={view !== 'plans'}><AiPlanCatalog subscription={currentSubscription} revision={revision} companyName={companyName} companyCode={companyCode} subscriptionReady={quotaKnown} mobileDock={mobileDock} /></div>
+          <div id="ai_subscription_plans" hidden={view !== 'plans'}><AiPlanCatalog subscription={currentSubscription} companyName={companyName} companyCode={companyCode} subscriptionReady={quotaKnown} mobileDock={mobileDock} /></div>
           {updatedAt && <p className="text-right text-xs leading-5 text-on-surface-variant">Cập nhật lúc {updatedAt.toLocaleTimeString('vi-VN')}</p>}
         </div>
       </div>
