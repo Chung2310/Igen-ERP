@@ -28,6 +28,17 @@ function ownerQuery(ownerId: OwnerScope): Record<string, unknown> {
 function branchQuery(branchId?: string): Record<string, unknown> { return branchId ? { branchId } : {}; }
 function idOf(value: unknown): string { return String(value); }
 
+function resolveProgressionSteps(batch: { courseId: string; roadmapStepId?: string }, steps: ILearningRoadmapStep[]) {
+  const matchingSteps = steps.filter((step) => batch.roadmapStepId ? step.id === batch.roadmapStepId : step.courseId === batch.courseId);
+  const sourceStep = matchingSteps.length === 1 ? matchingSteps[0] : undefined;
+  if (!sourceStep || sourceStep.courseId !== batch.courseId) {
+    throw new ValidationError("VALIDATION_FAILED", "Không xác định được chặng hiện tại của lớp. Hãy kiểm tra cấu hình lộ trình của lớp nguồn.");
+  }
+  const targetStep = steps.reduce<ILearningRoadmapStep | null>((next, step) =>
+    step.order > sourceStep.order && (!next || step.order < next.order) ? step : next, null);
+  return { sourceStep, targetStep };
+}
+
 function evaluatePolicy(policy: IProgressionPolicy, input: { attendanceRate: number | null; assignmentRate: number | null; miniTestRate: number | null; examRate: number | null; }) {
   const checks: Array<{ label: string; passed: boolean }> = [];
   if (typeof policy.minAttendanceRate === "number") checks.push({ label: `Chuyên cần dưới ${policy.minAttendanceRate}%`, passed: input.attendanceRate !== null && input.attendanceRate >= policy.minAttendanceRate });
@@ -115,18 +126,20 @@ export class LearningRoadmapService {
     const batch = await Batch.findOne({ _id: batchId, ...ownerQuery(ownerId), ...branchQuery(branchId) }).lean();
     if (!batch) throw new Error("Không tìm thấy lớp học.");
     const linkedRoadmapId = batch.roadmapId || "";
-    if (linkedRoadmapId && roadmapId && roadmapId !== linkedRoadmapId) throw new Error("Lớp học đã được gắn với một lộ trình khác.");
+    if (linkedRoadmapId && roadmapId && roadmapId !== linkedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Lớp học đã được gắn với một lộ trình khác.");
     const roadmaps = await LearningRoadmap.find({
       ...ownerQuery(ownerId),
       ...branchQuery(branchId),
       ...(linkedRoadmapId ? { _id: linkedRoadmapId } : { "steps.courseId": batch.courseId, status: "active" }),
     }).lean();
     const roadmap = linkedRoadmapId ? roadmaps[0] : (roadmapId ? roadmaps.find((item) => idOf(item._id) === roadmapId) : (roadmaps.length === 1 ? roadmaps[0] : undefined));
-    if (!roadmap) return { batch: { id: idOf(batch._id), code: batch.code, courseId: batch.courseId }, roadmaps: roadmaps.map(this.roadmapSummary), selectedRoadmapId: "", rows: [] };
-    const sourceStep = batch.roadmapStepId ? roadmap.steps.find((step) => step.id === batch.roadmapStepId) : roadmap.steps.find((step) => step.courseId === batch.courseId);
-    if (!sourceStep || sourceStep.courseId !== batch.courseId) throw new Error("Lộ trình không có chặng tương ứng với lớp này.");
-    const targetStep = roadmap.steps.find((step) => step.order === sourceStep.order + 1);
+    const source = { id: idOf(batch._id), code: batch.code, courseId: batch.courseId, roadmapId: linkedRoadmapId };
+    if (!roadmap && linkedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lộ trình đã gắn với lớp này.");
+    if (!roadmap) return { batch: source, roadmaps: roadmaps.map(this.roadmapSummary), selectedRoadmapId: "", sourceStep: undefined, targetStep: null, rows: [] };
+    const { sourceStep, targetStep } = resolveProgressionSteps(batch, roadmap.steps);
+    const progression = { batch: source, roadmaps: roadmaps.map(this.roadmapSummary), selectedRoadmapId: idOf(roadmap._id), sourceStep, targetStep };
     const studentIds = batch.learnerIds || [];
+    if (!studentIds.length) return { ...progression, rows: [] };
     const [students, enrollments, qualityRecords, assignments, miniTests, decisions, exams] = await Promise.all([
       Student.find({ _id: { $in: studentIds }, ...ownerQuery(ownerId), ...branchQuery(branchId) }).select("fullName phone").lean(),
       BatchEnrollment.find({ batchId, studentId: { $in: studentIds }, ...ownerQuery(ownerId), ...branchQuery(branchId) }).lean(),
@@ -163,7 +176,7 @@ export class LearningRoadmapService {
         teacherNote: previous?.teacherNote || "", overrideEligible: previous?.overrideEligible ?? null, overrideReason: previous?.overrideReason || "",
       };
     });
-    return { batch: { id: idOf(batch._id), code: batch.code, courseId: batch.courseId }, roadmaps: roadmaps.map(this.roadmapSummary), selectedRoadmapId: idOf(roadmap._id), sourceStep, targetStep: targetStep || null, rows };
+    return { ...progression, rows };
   }
 
   static async saveDecision(ownerId: OwnerScope, actor: Actor, input: { batchId: string; roadmapId: string; studentId: string; intent: ProgressionIntent; teacherNote?: string; overrideEligible?: boolean | null; overrideReason?: string; learningFormat?: string; preferredTimeSlot?: string; }) {
@@ -210,17 +223,14 @@ export class LearningRoadmapService {
         const sourceBatch = await Batch.findOne({ _id: input.sourceBatchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
         if (!sourceBatch) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lớp nguồn.");
         if (sourceBatch.status !== "Đã kết thúc") throw new ValidationError("VALIDATION_FAILED", "Chỉ có thể lên level trực tiếp sau khi lớp đã kết thúc.");
-        const selectedRoadmapId = String(input.roadmapId || sourceBatch.roadmapId || "");
+        const selectedRoadmapId = String(sourceBatch.roadmapId || input.roadmapId || "");
         if (!selectedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Hãy chọn lộ trình có level tiếp theo cho lớp này.");
-        if (sourceBatch.roadmapId && sourceBatch.roadmapId !== selectedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Lớp học đã được gắn với một lộ trình khác.");
+        if (input.roadmapId && input.roadmapId !== selectedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Lớp học đã được gắn với một lộ trình khác.");
         if (studentIds.some((studentId) => !(sourceBatch.learnerIds || []).includes(studentId))) throw new ValidationError("VALIDATION_FAILED", "Có học viên không thuộc lớp nguồn.");
 
         const roadmap = await LearningRoadmap.findOne({ _id: selectedRoadmapId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId), status: "active" }).session(session);
-        const sourceStep = sourceBatch.roadmapStepId
-          ? roadmap?.steps.find((step) => step.id === sourceBatch.roadmapStepId)
-          : roadmap?.steps.find((step) => step.courseId === sourceBatch.courseId);
-        const targetStep = sourceStep && roadmap?.steps.find((step) => step.order === sourceStep.order + 1);
-        if (!roadmap || !sourceStep || sourceStep.courseId !== sourceBatch.courseId) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy chặng lộ trình của lớp nguồn.");
+        if (!roadmap) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lộ trình đang hoạt động của lớp nguồn.");
+        const { sourceStep, targetStep } = resolveProgressionSteps(sourceBatch, roadmap.steps);
         if (!targetStep) throw new ValidationError("VALIDATION_FAILED", "Lớp đang ở level cuối, không có level kế tiếp.");
         if (!sourceBatch.roadmapId || !sourceBatch.roadmapStepId) {
           sourceBatch.roadmapId = idOf(roadmap._id);
@@ -342,7 +352,7 @@ export class LearningRoadmapService {
     } finally { await session.endSession(); }
   }
 
-  private static roadmapSummary(roadmap: ILearningRoadmap) { return { id: idOf(roadmap._id), code: roadmap.code, name: roadmap.name, steps: roadmap.steps }; }
+  private static roadmapSummary(roadmap: ILearningRoadmap) { return { id: idOf(roadmap._id), code: roadmap.code, name: roadmap.name, status: roadmap.status, steps: roadmap.steps }; }
 
   private static assertSteps(steps: ILearningRoadmapStep[]) {
     if (!steps.length) throw new Error("Lộ trình cần có ít nhất một mốc.");
