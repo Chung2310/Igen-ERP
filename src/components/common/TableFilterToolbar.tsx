@@ -92,7 +92,7 @@ export function TableFilterToolbar({
         </div>
 
         {/* Số đếm & Hành động xóa lọc / Nút thao tác */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 text-xs text-on-surface-variant">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant sm:justify-end">
           {actions}
 
           {totalCount !== undefined && (
