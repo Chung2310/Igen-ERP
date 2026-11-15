@@ -4,6 +4,7 @@ import { cn } from "../../modules/student-management/lib/utils";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
 import { AssistantAgentIcon } from "./AssistantAgentIcon";
 import { primaryCreateButtonClass } from "./primaryCreateButton";
+import { assistantPageCreateButtonClass } from "./assistantPageCreateButton";
 
 type AgentTab = "all" | "mine" | "shared";
 type EditorTab = "general" | "knowledge" | "templates";
@@ -150,8 +151,9 @@ export function AssistantAgents({ storageScope }: { storageScope: string }) {
   </section>;
 
   return <section aria-label="Trợ lý AI" className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-6 text-on-surface sm:px-6 lg:px-8">
-    <div className="mx-auto max-w-5xl"><div className="flex justify-end"><button type="button" onClick={() => start()} className={primaryCreateButtonClass}><Plus className="size-4" aria-hidden="true" />Tạo Trợ lý AI</button></div>
-      <header className="mx-auto max-w-2xl text-center"><h3 data-typography="page-title" className="text-balance text-lg font-semibold">Trợ lý AI</h3><p className="mt-1 text-pretty text-sm text-on-surface-variant">Tạo và quản lý trợ lý iGenAI theo nhu cầu của bạn.</p></header>
+    <div className="flex justify-end"><button type="button" onClick={() => start()} className={cn(assistantPageCreateButtonClass, focusClass)}><Plus className="size-4" aria-hidden="true" />Tạo Trợ lý AI</button></div>
+    <div className="mx-auto max-w-5xl">
+      <header className="mx-auto max-w-2xl text-center"><h3 data-typography="page-title" className="assistant-large-page-title text-balance text-on-surface">Trợ lý AI</h3><p className="mt-1 text-pretty text-sm text-on-surface-variant">Tạo và quản lý trợ lý iGenAI theo nhu cầu của bạn.</p></header>
       <label className="relative mx-auto mt-6 block max-w-xl"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" /><span className="sr-only">Tìm Trợ lý AI</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm trợ lý…" className={cn(inputClass, "pl-10")} /></label>
       <nav aria-label="Lọc Trợ lý AI" className="mx-auto mt-5 flex max-w-xl gap-1 border-b border-outline-variant">{(["all", "mine", "shared"] as const).map(value => <button key={value} type="button" aria-current={tab === value ? "page" : undefined} onClick={() => setTab(value)} className={cn("min-h-10 border-b-2 border-transparent px-3 text-sm text-on-surface-variant hover:text-on-surface", tab === value && "border-primary font-medium text-primary", focusClass)}>{value === "all" ? "Tất cả" : value === "mine" ? "Trợ lý của tôi" : "Được chia sẻ với tôi"}</button>)}</nav>
       <div className="mt-6 space-y-8">

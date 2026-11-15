@@ -12,15 +12,14 @@ const project: AssistantProject = {
 };
 
 describe("AssistantProjectWorkspace", () => {
-  it("starts a real conversation from the project prompt", () => {
+  it("renders the shared chat composer instead of a project-specific prompt", () => {
     const onProjectsChange = vi.fn();
-    const onStartConversation = vi.fn();
-    render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} onStartConversation={onStartConversation} />);
+    const composer = <form><label htmlFor="shared-chat-input">Tin nhắn cho trợ lý ảo</label><textarea id="shared-chat-input" /></form>;
+    render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} composer={composer} />);
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Hỏi trong dự án" }), { target: { value: "Kế hoạch tuần này?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Thêm cuộc hội thoại vào dự án" }));
-
-    expect(onStartConversation).toHaveBeenCalledWith(project.id, "Kế hoạch tuần này?");
+    expect(screen.getByRole("textbox", { name: "Tin nhắn cho trợ lý ảo" })).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Hỏi trong dự án" })).toBeNull();
+    expect(screen.queryByText("Hội thoại sẽ mở trong giao diện Trò chuyện chung.")).toBeNull();
     expect(onProjectsChange).not.toHaveBeenCalled();
   });
 

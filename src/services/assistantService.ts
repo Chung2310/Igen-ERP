@@ -6,7 +6,7 @@ import type { AssistantChartHistoryItem, AssistantChartResult, AssistantChartTyp
 import type { AssistantSlideDeck, AssistantSlideDeckUpdate, AssistantSlideHistoryItem, AssistantSlideStyle } from "../shared/assistant-slide";
 import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../shared/assistant-mindmap";
 import type { AssistantPromptTemplate } from "../components/common/assistant-prompt-library-data";
-import type { AssistantProject } from "../components/common/assistant-project-data";
+import type { AssistantProject, AssistantProjectFile } from "../components/common/assistant-project-data";
 export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
@@ -28,6 +28,22 @@ async function request<T>(path: string, init: RequestInit = {}, branchId?: strin
 export const assistantService = {
   projects: (branchId?: string) => request<AssistantProject[]>("/projects", {}, branchId),
   saveProjects: (projects: AssistantProject[], branchId?: string) => request<AssistantProject[]>("/projects", { method: "PUT", body: JSON.stringify({ projects }) }, branchId),
+  uploadProjectFile: (projectId: string, file: File, branchId?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<AssistantProjectFile>(`/projects/${encodeURIComponent(projectId)}/files`, { method: "POST", body: form }, branchId);
+  },
+  downloadProjectFile: async (projectId: string, fileId: string, branchId?: string) => {
+    const token = localStorage.getItem("accessToken");
+    const response = await fetch(`/api/v1/chatbot/assistant/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(fileId)}`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branchId ? { "x-branch-id": branchId } : {}) },
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new AssistantServiceError(result.message || "Không thể tải tệp dự án.", response.status);
+    }
+    return response.blob();
+  },
   promptTemplates: (signal?: AbortSignal) => request<{ templates: AssistantPromptTemplate[]; favoriteIds: string[] }>("/prompt-templates", { signal }),
   createPromptTemplate: (data: Omit<AssistantPromptTemplate, "id" | "owner">) => request<AssistantPromptTemplate>("/prompt-templates", { method: "POST", body: JSON.stringify(data) }),
   setPromptTemplateFavorite: (id: string, favorite: boolean) => request<{ favorite: boolean }>(`/prompt-templates/${encodeURIComponent(id)}/favorite`, { method: "PATCH", body: JSON.stringify({ favorite }) }),

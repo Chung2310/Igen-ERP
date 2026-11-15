@@ -43,7 +43,7 @@ export function AssistantQuickHistoryDropdown({
   onMoveConversation,
   onOpenProjects,
 }: AssistantQuickHistoryDropdownProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UnifiedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -94,12 +94,11 @@ export function AssistantQuickHistoryDropdown({
   }, [branchId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (open) void load();
+  }, [load, open]);
 
   function toggle() {
-    if (!open) { setOpen(true); void load(); }
-    else setOpen(false);
+    setOpen(value => !value);
   }
 
   useEffect(() => {
@@ -135,7 +134,6 @@ export function AssistantQuickHistoryDropdown({
   }
 
   const visibleItems = items
-    .filter(item => item.type !== "conversation" || !assignedConversationIds.has(item.data.conversationId))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, MAX_ITEMS);
 
@@ -199,7 +197,7 @@ export function AssistantQuickHistoryDropdown({
                       >
                         {getTitle(item)}
                       </button>
-                      {item.type === "conversation" && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} projectsLocked={projectsLocked} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
+                      {item.type === "conversation" && item.data.mode === "qa" && !projectsLocked && !assignedConversationIds.has(item.data.conversationId) && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
                     </li>
                   );
                 })}
