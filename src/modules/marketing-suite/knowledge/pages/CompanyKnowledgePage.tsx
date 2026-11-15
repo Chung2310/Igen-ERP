@@ -752,7 +752,7 @@ export default function CompanyKnowledgePage() {
         {activeSection === "documents" && (
           <>
             <section className="mt-5" aria-label="Các mục kho tri thức">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-x-2.5 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
                 {KNOWLEDGE_SECTIONS.map((section) => (
                   <button
                     key={section.id}
