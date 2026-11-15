@@ -11,12 +11,10 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
     <path d="M8.5 9h7m-7 3.5h5" />
   </>,
   studio: <>
-    <rect x="4.4" y="6.5" width="12" height="14" rx="1.8" transform="rotate(-9 10.4 13.5)" />
-    <circle cx="8.7" cy="10.8" r=".9" />
-    <path d="m6 17.4 3.3-3.3 2.1 1.9 1.7-1.5 2.1 2" />
-    <path d="m18.2 2.7.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8Z" />
-    <path d="m19.3 11.4.4 1 .9.4-.9.4-.4 1-.4-1-.9-.4.9-.4Z" />
-    <circle cx="16.5" cy="11.1" r=".35" />
+    <rect x="3.8" y="7.5" width="10.5" height="12.1" rx="1.2" transform="rotate(-8 9.05 13.55)" />
+    <circle cx="7.7" cy="11.2" r=".6" />
+    <path d="m5.55 17.1 2.8-2.8 1.85 1.65 1.4-1.25 1.2 1.05" />
+    <path d="m20.5 2.5.55 1.7 1.7.55-1.7.55-.55 1.7-.55-1.7-1.7-.55 1.7-.55Z" />
   </>,
   notebook: <>
     <rect x="5" y="3.75" width="15.25" height="16.5" rx="2.25" />
@@ -55,14 +53,14 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
   if (name === "agents") return <AssistantAgentIcon />;
   if (name === "studio") return <AssistantStudioSidebarIcon />;
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
   </svg>;
 }
 
 function AssistantStudioSidebarIcon() {
   const gradientId = useId().replace(/:/g, "");
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="0 0 24 24" className="assistant-studio-icon" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
         <stop stopColor="var(--color-primary)" />

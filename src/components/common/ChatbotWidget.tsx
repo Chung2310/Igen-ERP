@@ -181,11 +181,11 @@ function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
 }
 
 function AssistantSidebarToggleIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true" focusable="false">
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true" focusable="false">
     <rect x="3.5" y="4.25" width="17" height="15.5" rx="1.5" />
     <path d="M10 4.6v14.8" />
-    <circle cx="13.5" cy="12" r="0.75" fill="currentColor" stroke="none" />
-    <circle cx="16.5" cy="12" r="0.75" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="10" r="0.75" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="14" r="0.75" fill="currentColor" stroke="none" />
   </svg>;
 }
 
