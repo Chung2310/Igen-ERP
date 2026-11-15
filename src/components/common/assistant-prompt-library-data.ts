@@ -354,6 +354,86 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Nhân sự",
     "prompt": "Bạn là chuyên gia HR. Dựa trên [tệp dữ liệu nhân sự], hãy lập báo cáo cho kỳ [thời gian], trình bày bằng bảng tóm tắt và nhận định xu hướng dựa trên số liệu.\n\nBáo cáo gồm:\n1. Headcount cuối kỳ.\n2. Cơ cấu theo phòng ban, cấp bậc, giới tính và nhóm tuổi.\n3. Biến động: số nhân viên vào/ra trong kỳ và lý do chính nếu có dữ liệu.\n4. Turnover rate: nêu công thức, so sánh kỳ trước hoặc mục tiêu công ty.\n5. Attendance rate: nêu cách tính và phân tích nghỉ có phép/không phép nếu dữ liệu cho phép.\n6. OT: tổng giờ, phân bổ theo phòng ban và vị trí.\n7. Chi phí nhân công: lương cơ bản, OT, thưởng và phúc lợi.\n\nĐưa ra kiến nghị cụ thể để cải thiện quản trị nhân sự. Nêu kỳ báo cáo, công thức, mẫu số, giới hạn dữ liệu và không tự quy kết nguyên nhân. Chỉ báo cáo số liệu tổng hợp; không đưa tên hoặc thông tin nhận dạng nhân viên vào kết quả.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-gov-regulation-draft",
+    "title": "Soạn dự thảo văn bản quy phạm pháp luật",
+    "description": "Lập dự thảo theo chủ đề, căn cứ pháp lý và đánh giá tác động sơ bộ.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là chuyên viên pháp chế. Hãy lập dự thảo văn bản quy phạm pháp luật về [chủ đề/nội dung/vấn đề] trong phạm vi thẩm quyền của [cơ quan/cấp ban hành].\n\nDự thảo cần đúng thể thức áp dụng, nêu căn cứ pháp lý, đối tượng/phạm vi điều chỉnh, nội dung quy định và điều khoản tổ chức thi hành; kèm đánh giá tác động sơ bộ theo yêu cầu hiện hành, gồm nhóm chịu tác động, chi phí/nguồn lực, lợi ích và phương án thực hiện.\n\nKiểm tra hiệu lực, thẩm quyền và nội dung căn cứ tại thời điểm soạn; ghi nguồn và ngày kiểm tra. Không tự tạo số hiệu, điều khoản hoặc thẩm quyền. Đánh dấu phần thiếu bằng placeholder và ghi rõ đây là bản nháp cần thẩm định pháp lý trước khi trình ban hành.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-official-notice",
+    "title": "Soạn thông báo hành chính",
+    "description": "Viết thông báo chính thức với đối tượng, thời hạn và đầu mối liên hệ.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là cán bộ văn phòng. Hãy soạn thông báo chính thức gửi [cơ quan/đơn vị/cá nhân liên quan] về [nội dung cụ thể].\n\nThông báo cần nêu:\n- Đối tượng áp dụng.\n- Nội dung và phạm vi thực hiện.\n- Thời hạn hoặc thời gian áp dụng.\n- Đầu mối liên hệ: [tên người/tổ chức, điện thoại, email, địa điểm].\n- Các hướng dẫn cần thiết để người nhận thực hiện đúng.\n\nTrình bày ngắn gọn, logic, đúng thể thức văn bản hành chính và phù hợp ngữ cảnh. Dùng placeholder cho số hiệu, ngày tháng, người ký hoặc thông tin liên hệ chưa được cung cấp; không tự tạo dữ liệu.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-official-dispatch",
+    "title": "Soạn công văn hành chính",
+    "description": "Tạo công văn có căn cứ, nội dung đề nghị và trách nhiệm thực hiện.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là cán bộ văn phòng. Hãy soạn công văn về [nội dung/vấn đề] theo thể thức văn bản hành chính nhà nước, gồm:\n- Quốc hiệu, tiêu ngữ.\n- Số và ký hiệu văn bản; địa danh, ngày tháng.\n- Cơ quan nhận và trích yếu.\n- Căn cứ pháp lý hoặc căn cứ nghiệp vụ.\n- Nội dung yêu cầu/đề nghị/rà soát và phạm vi áp dụng.\n- Thời hạn thực hiện.\n- Đơn vị/cá nhân chịu trách nhiệm và nơi nhận.\n- Chức vụ, người ký và dấu theo quy trình của cơ quan.\n\nDùng ngôn ngữ chuẩn mực, rõ ràng, dễ thực hiện. Để placeholder ở thông tin chưa cung cấp; không tự đặt số văn bản, người ký hoặc căn cứ pháp lý chưa xác minh.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-official-reply",
+    "title": "Soạn văn bản trả lời công văn",
+    "description": "Phản hồi công văn theo hồ sơ, căn cứ và phương án xử lý cụ thể.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là cán bộ được giao xử lý công văn. Hãy soạn văn bản trả lời công văn số [số hiệu, ngày, cơ quan gửi] về [nội dung/vấn đề].\n\nTrình bày:\n- Thông tin tiếp nhận và nội dung đề nghị của cơ quan gửi.\n- Căn cứ pháp lý hoặc kết quả tra cứu hồ sơ.\n- Kết quả xem xét và ý kiến cụ thể: đồng ý, không đồng ý hoặc đề nghị bổ sung, kèm lý do.\n- Thời hạn hoặc bước tiếp theo.\n- Đầu mối liên hệ và nơi nhận.\n\nBảo đảm đúng thể thức, ngắn gọn và khả thi. Chỉ nêu kết quả được hồ sơ/căn cứ hỗ trợ; dùng placeholder cho thông tin chưa có, không tự khẳng định đã tra cứu hoặc phê duyệt.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-procedure-guide",
+    "title": "Hướng dẫn thủ tục hành chính",
+    "description": "Tổng hợp hồ sơ, biểu mẫu, thời hạn và phí của thủ tục.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là chuyên viên bộ phận một cửa. Hãy soạn hướng dẫn cho thủ tục [tên thủ tục], gồm:\n- Thành phần hồ sơ cần chuẩn bị.\n- Biểu mẫu liên quan, tên và số hiệu nếu có.\n- Nơi, cách thức nộp và cách nhận kết quả.\n- Thời hạn giải quyết theo quy định.\n- Phí/lệ phí nếu có.\n- Căn cứ pháp lý và đầu mối hỗ trợ nếu được cung cấp.\n\nTrình bày theo thứ tự người dân/tổ chức cần thực hiện, rõ ràng và dễ hiểu. Kiểm tra quy định hiện hành, ghi nguồn và ngày cập nhật; không tự tạo thành phần hồ sơ, biểu mẫu, thời hạn hoặc mức phí. Đánh dấu thông tin cần cơ quan có thẩm quyền xác nhận.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-application-review",
+    "title": "Rà soát hồ sơ thủ tục hành chính",
+    "description": "Chỉ ra hồ sơ thiếu và hướng dẫn bổ sung theo căn cứ hiện hành.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là cán bộ chuyên môn. Hãy rà soát hồ sơ thủ tục [tên thủ tục] do [tổ chức/cá nhân] nộp, đối chiếu với yêu cầu pháp lý và danh mục hồ sơ được cung cấp.\n\nTrình bày:\n- Thành phần đã có và kết quả kiểm tra từng mục.\n- Thiếu sót về thành phần, nội dung hoặc cách thức nộp, nếu có.\n- Căn cứ cụ thể cho từng yêu cầu bổ sung.\n- Hướng dẫn chi tiết cách hoàn thiện và thời hạn bổ sung theo quy định.\n- Đầu mối hoặc bước xử lý tiếp theo.\n\nKhông yêu cầu tài liệu ngoài quy định đã xác minh và không tự suy đoán hồ sơ giả/không hợp lệ. Nếu chưa có căn cứ hoặc hồ sơ tham chiếu, nêu rõ cần bổ sung thông tin trước khi kết luận.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-decision-draft",
+    "title": "Soạn dự thảo quyết định hành chính",
+    "description": "Soạn quyết định với căn cứ, thẩm quyền, hiệu lực và trách nhiệm thi hành.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là chuyên viên pháp lý. Hãy soạn dự thảo quyết định về [nội dung cụ thể], gồm:\n- Căn cứ pháp lý chính xác và còn hiệu lực.\n- Cơ quan/người có thẩm quyền ký ban hành.\n- Nội dung quyết định, đối tượng và phạm vi áp dụng.\n- Ngày có hiệu lực, thời hạn thực hiện nếu có.\n- Trách nhiệm tổ chức thi hành của cơ quan, đơn vị hoặc cá nhân liên quan.\n- Nơi nhận và phần ký theo thể thức áp dụng.\n\nBảo đảm logic, chặt chẽ và có tính thực tiễn. Kiểm tra căn cứ, thẩm quyền và thể thức theo quy định hiện hành; ghi nguồn và ngày kiểm tra. Không tự tạo số hiệu, người ký hoặc hiệu lực. Đánh dấu nội dung cần xác nhận và coi đây là bản nháp cần thẩm định trước khi ban hành.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-public-budget-estimate",
+    "title": "Lập dự toán ngân sách công",
+    "description": "Dự toán các khoản chi, căn cứ và biện pháp sử dụng ngân sách hiệu quả.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là kế toán hành chính. Hãy lập dự toán chi tiết cho [đơn vị/chương trình], gồm:\n1. Cơ cấu khoản chi theo danh mục như tiền lương, vật tư, dịch vụ công và đầu tư tài sản; nêu số lượng, đơn giá, thành tiền và mức ưu tiên nếu có dữ liệu.\n2. Căn cứ pháp lý/tài chính cho từng khoản chi, gồm văn bản áp dụng và điều khoản liên quan.\n3. Thuyết minh biện pháp tiết kiệm, nâng cao hiệu quả sử dụng ngân sách và bảo đảm đúng mục tiêu.\n\nTrình bày theo cấu trúc phù hợp quản lý tài chính công, nêu công thức, giả định và nguồn số liệu. Chỉ viện dẫn quy định đã kiểm chứng còn hiệu lực; không tự tạo định mức, đơn giá hoặc căn cứ. Đánh dấu phần cần cơ quan tài chính/pháp chế xác nhận.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-tender-documents",
+    "title": "Lập dự thảo hồ sơ mời thầu",
+    "description": "Chuẩn bị tiêu chí, tiến độ và điều kiện hợp đồng minh bạch, cạnh tranh.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là bên mời thầu. Hãy lập dự thảo hồ sơ mời thầu cho gói [tên gói], dựa trên phạm vi, dự toán và yêu cầu đã được phê duyệt.\n\nDự thảo gồm:\n1. Yêu cầu kỹ thuật đối với nhà thầu và hàng hóa/dịch vụ.\n2. Tiêu chuẩn, phương pháp đánh giá hồ sơ dự thầu về kỹ thuật, tài chính, năng lực và kinh nghiệm.\n3. Tiến độ từ phát hành hồ sơ, đóng/mở thầu, đánh giá, phê duyệt kết quả đến ký hợp đồng và triển khai.\n4. Điều kiện hợp đồng: thanh toán, bảo hành, xử lý vi phạm và nghĩa vụ các bên.\n\nTuân thủ quy định đấu thầu hiện hành, bảo đảm công khai, minh bạch, cạnh tranh và không cài tiêu chí hướng tới một nhà cung cấp. Ghi nguồn/ngày kiểm tra; dùng placeholder cho dữ liệu thiếu; đánh dấu dự thảo cần bộ phận đấu thầu/pháp chế thẩm định trước phát hành.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-gov-feedback-workflow",
+    "title": "Xây dựng quy trình xử lý phản ánh",
+    "description": "Thiết kế luồng tiếp nhận, thời hạn và kênh chính thức cho người dân.",
+    "category": "Hành chính công",
+    "prompt": "Bạn là bộ phận tiếp nhận phản ánh. Hãy xây dựng quy trình tiếp nhận và xử lý phản hồi về [chủ đề cụ thể], từ lúc nhận thông tin đến khi giải quyết và thông báo kết quả.\n\nVới mỗi giai đoạn, nêu: người/bộ phận phụ trách, thao tác, dữ liệu cần ghi nhận, thời hạn xử lý và cách cập nhật cho người gửi. Bao gồm bước phân loại/chuyển đơn vị, xác minh, giải quyết, phản hồi, lưu hồ sơ và xử lý trường hợp quá hạn hoặc không thuộc thẩm quyền.\n\nLiệt kê các kênh liên hệ chính thức đã được cung cấp như tổng đài, email, website, ứng dụng hoặc bộ phận một cửa. Phân biệt thời hạn theo luật với SLA nội bộ đề xuất; không tự công bố kênh liên hệ hay thời hạn pháp lý chưa được xác minh.",
+    "owner": "igen"
   }
 ];
 
