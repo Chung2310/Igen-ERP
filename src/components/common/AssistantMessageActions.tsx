@@ -48,13 +48,13 @@ export function AssistantMessageActions({ content }: { content: string }) {
     }
   }
 
-  return <div className="assistant-ai-message-actions mt-1 flex w-full items-center justify-start gap-0.5 transition-opacity motion-reduce:transition-none">
+  return <div className="assistant-ai-message-actions mt-1 flex w-full items-center justify-start gap-1 transition-opacity motion-reduce:transition-none">
     <button type="button" aria-label="Sao chép câu trả lời" title="Sao chép" onClick={() => void copyReply()}
-      className={cn("grid size-7 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-primary", focusClass)}>
+      className={cn("grid size-8 place-items-center rounded-md bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low hover:text-on-surface", focusClass)}>
       <Copy className="size-4" aria-hidden="true" />
     </button>
     <button type="button" aria-label="Chia sẻ câu trả lời" title="Chia sẻ" onClick={() => void shareReply()}
-      className={cn("grid size-7 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-primary", focusClass)}>
+      className={cn("grid size-8 place-items-center rounded-md bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low hover:text-on-surface", focusClass)}>
       <Share2 className="size-4" aria-hidden="true" />
     </button>
     {feedback && <span role={feedbackIsError ? "alert" : "status"} className="max-w-48 text-pretty text-xs text-on-surface-variant">{feedback}</span>}
@@ -98,20 +98,18 @@ export function AssistantUserMessageActions({ content, onEdit, editDisabled = fa
   }
 
   return <div className="assistant-user-message-actions mt-1 flex w-full items-center justify-end gap-1 transition-opacity motion-reduce:transition-none">
-    <div className="flex items-center gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest p-0.5 shadow-sm">
-      <button type="button" aria-label="Sao chép yêu cầu" title="Sao chép" onClick={() => void copyRequest()}
-        className={cn("grid size-8 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-primary", focusClass)}>
-        <Copy className="size-4" aria-hidden="true" />
-      </button>
-      <button type="button" aria-label="Sửa yêu cầu" title={editDisabled ? "Không thể sửa yêu cầu khi đang xem phiên cũ hoặc trợ lý đang xử lý" : "Sửa yêu cầu"} disabled={editDisabled} onClick={() => { setFeedback(""); onEdit(); }}
-        className={cn("grid size-8 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-primary disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-        <Pencil className="size-4" aria-hidden="true" />
-      </button>
-      <button type="button" aria-label="Chia sẻ yêu cầu" title="Chia sẻ" onClick={() => void shareRequest()}
-        className={cn("grid size-8 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-primary", focusClass)}>
-        <Share2 className="size-4" aria-hidden="true" />
-      </button>
-    </div>
+    <button type="button" aria-label="Sao chép yêu cầu" title="Sao chép" onClick={() => void copyRequest()}
+      className={cn("grid size-8 place-items-center rounded-md bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low hover:text-on-surface", focusClass)}>
+      <Copy className="size-4" aria-hidden="true" />
+    </button>
+    <button type="button" aria-label="Sửa yêu cầu" title={editDisabled ? "Không thể sửa yêu cầu khi đang xem phiên cũ hoặc trợ lý đang xử lý" : "Sửa yêu cầu"} disabled={editDisabled} onClick={() => { setFeedback(""); onEdit(); }}
+      className={cn("grid size-8 place-items-center rounded-md bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+      <Pencil className="size-4" aria-hidden="true" />
+    </button>
+    <button type="button" aria-label="Chia sẻ yêu cầu" title="Chia sẻ" onClick={() => void shareRequest()}
+      className={cn("grid size-8 place-items-center rounded-md bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low hover:text-on-surface", focusClass)}>
+      <Share2 className="size-4" aria-hidden="true" />
+    </button>
     {feedback && <span role="status" className="max-w-40 text-right text-xs text-on-surface-variant">{feedback}</span>}
   </div>;
 }
