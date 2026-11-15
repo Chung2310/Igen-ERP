@@ -1,5 +1,4 @@
 import { useId, type ReactNode } from "react";
-import { AssistantAgentIcon } from "./AssistantAgentIcon";
 import { AiAssistantIcon } from "./HeaderShortcutIcons";
 
 export type AssistantSidebarIconName =
@@ -46,11 +45,24 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents" | "assistant">,
 };
 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
-  if (name === "agents") return <AssistantAgentIcon />;
+  if (name === "agents") return <AssistantSupportIcon />;
   if (name === "assistant") return <AiAssistantIcon />;
   if (name === "studio") return <AssistantStudioSidebarIcon />;
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
+  </svg>;
+}
+
+function AssistantSupportIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M5.4 16.7V9.8a6.6 6.6 0 0 1 13.2 0v6.9" />
+    <rect x="2.4" y="10.4" width="3" height="6.6" rx="1.5" />
+    <rect x="18.6" y="10.4" width="3" height="6.6" rx="1.5" />
+    <path d="M5.4 16.7a3.4 3.4 0 0 0 3.4 3.4h1.7" />
+    <rect x="10.5" y="18.9" width="4.5" height="2.4" rx="1.2" />
+    <circle cx="9" cy="13.5" r=".65" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="13.5" r=".65" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="13.5" r=".65" fill="currentColor" stroke="none" />
   </svg>;
 }
 
