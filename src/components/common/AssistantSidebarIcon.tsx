@@ -55,14 +55,14 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
   if (name === "agents") return <AssistantAgentIcon />;
   if (name === "studio") return <AssistantStudioSidebarIcon />;
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
   </svg>;
 }
 
 function AssistantStudioSidebarIcon() {
   const gradientId = useId().replace(/:/g, "");
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
         <stop stopColor="var(--color-primary)" />
