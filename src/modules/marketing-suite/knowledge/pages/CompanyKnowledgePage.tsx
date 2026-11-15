@@ -550,7 +550,8 @@ export default function CompanyKnowledgePage() {
                       <KnowledgeDocumentTypeSelect
                         value={documentType}
                         disabled={busy}
-                        className="w-52"
+                        className="w-44"
+                        compact
                         onChange={(type) => {
                           setDocumentType(type);
                           setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
@@ -562,19 +563,19 @@ export default function CompanyKnowledgePage() {
                       />
                     </div>
 
-                    <div className="grid w-56 shrink-0 grid-cols-2 gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-1.5">
+                    <div className="grid w-52 shrink-0 grid-cols-2 gap-1 rounded-xl border border-slate-100 bg-slate-50/80 p-1">
                       <button
                         type="button"
                         onClick={() => setImportMethod("file")}
                         aria-pressed={importMethod === "file"}
                         className={cn(
-                          "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition select-none",
+                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-xs font-semibold leading-4 transition select-none",
                           importMethod === "file"
                             ? "bg-blue-600 text-white shadow-xs"
                             : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
                         )}
                       >
-                        <Upload className={cn("size-4", importMethod === "file" ? "text-white" : "text-slate-500")} aria-hidden="true" />
+                        <Upload className={cn("size-3.5", importMethod === "file" ? "text-white" : "text-slate-500")} aria-hidden="true" />
                         Tải file
                       </button>
                       <button
@@ -582,13 +583,13 @@ export default function CompanyKnowledgePage() {
                         onClick={() => setImportMethod("drive")}
                         aria-pressed={importMethod === "drive"}
                         className={cn(
-                          "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition select-none",
+                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-xs font-semibold leading-4 transition select-none",
                           importMethod === "drive"
                             ? "bg-blue-600 text-white shadow-xs"
                             : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
                         )}
                       >
-                        <Link2 className={cn("size-4", importMethod === "drive" ? "text-white" : "text-slate-500")} aria-hidden="true" />
+                        <Link2 className={cn("size-3.5", importMethod === "drive" ? "text-white" : "text-slate-500")} aria-hidden="true" />
                         Google Drive
                       </button>
                     </div>

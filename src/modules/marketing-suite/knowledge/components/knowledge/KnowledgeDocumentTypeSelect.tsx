@@ -1,5 +1,6 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { cn } from "../../../../student-management/lib/utils";
 import type { KnowledgeDocumentType } from "../../services/companyKnowledgeService";
 
 interface Option {
@@ -13,9 +14,10 @@ interface Props {
   groups: Array<{ label?: string; options: Option[] }>;
   disabled?: boolean;
   className?: string;
+  compact?: boolean;
 }
 
-export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled = false, className = "" }: Props) {
+export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled = false, className = "", compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -66,10 +68,14 @@ export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled 
         aria-haspopup="listbox"
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className={`flex w-full items-center justify-between gap-3 rounded-xl border bg-white px-3.5 py-2.5 text-left text-sm text-slate-800 transition-colors hover:border-[#00ADFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50 ${open ? "border-[#00ADFC]" : "border-slate-200"}`}
+        className={cn(
+          "flex w-full items-center justify-between border bg-white text-left text-slate-800 transition-colors hover:border-[#00ADFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50",
+          compact ? "gap-2 rounded-lg px-3 py-2 text-xs" : "gap-3 rounded-xl px-3.5 py-2.5 text-sm",
+          open ? "border-[#00ADFC]" : "border-slate-200",
+        )}
       >
         <span className="truncate">{selectedLabel}</span>
-        <ChevronDown size={17} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={compact ? 14 : 17} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
