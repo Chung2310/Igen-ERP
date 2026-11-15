@@ -5,6 +5,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { getAccessToken } from "../../../shared/services/authService";
 import { useAuth } from "../../../shared/context/AuthContext";
+import { StyledSelect } from "../../../../../components/common/StyledSelect";
 
 type SavedRecords = { customer?: { id: string; name: string; phone: string }; order?: { id: string; orderCode: string; status: string; paymentStatus: string; total: number } };
 type Turn = { role: "customer" | "bot"; text: string; stage?: string; nextStep?: string; sources?: string[]; mode?: "ai" | "rule_demo"; persisted?: SavedRecords };
@@ -93,15 +94,20 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
     <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
       {toolbarContainer && createPortal(
         <>
-          <label htmlFor="page-sim-mode" className="text-sm font-medium">Chế độ chat</label>
-          <select id="page-sim-mode" value={active?.mode || "simulation"} disabled={Boolean(active?.turns.length)}
-            onChange={event => save(conversations.map(item => item.id === activeId
-              ? { ...item, mode: event.target.value as "simulation" | "erp" } : item))}
-            aria-describedby={showModeHint ? "page-sim-mode-hint" : undefined}
-            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">
-            <option value="simulation">Mô phỏng · không lưu</option>
-            <option value="erp">Chạy thật · lưu khách và đơn vào ERP</option>
-          </select>
+          <span className="text-sm font-medium">Chế độ chat</span>
+          <StyledSelect
+            value={active?.mode || "simulation"}
+            disabled={Boolean(active?.turns.length)}
+            onChange={value => save(conversations.map(item => item.id === activeId
+              ? { ...item, mode: value as "simulation" | "erp" } : item))}
+            ariaLabel="Chế độ chat"
+            describedBy={showModeHint ? "page-sim-mode-hint" : undefined}
+            className="w-[23rem] max-w-full"
+            options={[
+              { value: "simulation", label: "Mô phỏng · không lưu" },
+              { value: "erp", label: "Chạy thật · lưu khách và đơn vào ERP" },
+            ]}
+          />
           {showModeHint && (
             <p id="page-sim-mode-hint" className="max-w-3xl text-pretty text-xs text-on-surface-variant">
               {active?.turns.length
