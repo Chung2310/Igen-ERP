@@ -90,6 +90,46 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Marketing",
     "prompt": "Bạn là chuyên gia quảng cáo kỹ thuật số. Hãy viết ba mẫu Facebook Ads quảng bá [sản phẩm/dịch vụ] đến [đối tượng mục tiêu].\n\nMỗi mẫu gồm:\n- Primary Text: thông điệp hấp dẫn, thuyết phục và nêu lợi ích phù hợp.\n- Headline: ngắn gọn, tạo chú ý và khuyến khích tìm hiểu.\n- Description: thông tin bổ sung hỗ trợ nội dung chính và tiêu đề.\n\nTạo ba mẫu khác nhau về góc tiếp cận nhưng cùng hướng đến [mục tiêu chuyển đổi]. Dùng thông tin nhân khẩu học, tâm lý và hành vi đã được cung cấp; không tự bịa tính năng, giá, ưu đãi hoặc kết quả.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-marketing-7day-social-calendar",
+    "title": "Lập kế hoạch nội dung 7 ngày",
+    "description": "Xây lịch đăng bài theo ngày, giờ, định dạng và mục tiêu.",
+    "category": "Marketing",
+    "prompt": "Bạn là chuyên gia quản lý mạng xã hội. Hãy lập kế hoạch nội dung chi tiết cho [kênh social] với [sản phẩm/dịch vụ] trong bảy ngày tới.\n\nTrình bày dưới dạng bảng với các cột:\n- Ngày.\n- Giờ đăng.\n- Chủ đề.\n- Loại nội dung: hình ảnh, video, bài viết hoặc infographic.\n- Mục tiêu cụ thể: tăng tương tác, quảng bá sản phẩm, giáo dục khách hàng hoặc mục tiêu phù hợp khác.\n\nĐảm bảo nội dung phù hợp với đối tượng mục tiêu, định hướng thương hiệu của kênh và mang lại giá trị rõ rệt cho người theo dõi. Phân bổ chủ đề và định dạng đa dạng trong tuần. Dùng múi giờ được cung cấp; nếu chưa có, ghi rõ giả định. Không tự thêm thông tin sản phẩm hoặc ưu đãi chưa được xác nhận.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-marketing-creative-brief",
+    "title": "Soạn creative brief",
+    "description": "Chuẩn bị brief sáng tạo rõ mục tiêu, insight, thông điệp và yêu cầu.",
+    "category": "Marketing",
+    "prompt": "Bạn là Account Manager. Hãy soạn creative brief đầy đủ và chuyên nghiệp cho [sản phẩm/dịch vụ].\n\nBrief cần gồm:\n1. Bối cảnh dự án: lý do tổ chức chiến dịch, tình hình thị trường, xu hướng liên quan và vấn đề cần giải quyết.\n2. Mục tiêu chiến dịch: mục tiêu cụ thể, đo lường được như tăng nhận diện, thúc đẩy doanh số hoặc thay đổi nhận thức.\n3. Đối tượng mục tiêu và insight: nhân khẩu học, hành vi, nhu cầu và insight liên quan đến sản phẩm/dịch vụ.\n4. Thông điệp cốt lõi: ngắn gọn, ấn tượng, truyền cảm hứng và phản ánh đúng giá trị sản phẩm cũng như insight.\n5. Yêu cầu bắt buộc (Mandatories): logo, slogan, thông tin pháp lý, giới hạn nội dung, kênh triển khai và quy định từ thương hiệu/khách hàng.\n\nTrình bày logic, rõ ràng và có thể triển khai trên các nền tảng truyền thông. Phân biệt dữ liệu với giả định; đánh dấu thông tin còn thiếu thay vì tự tạo quy định, ngân sách hoặc mục tiêu số.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-marketing-aida-landing-page",
+    "title": "Viết nội dung landing page theo AIDA",
+    "description": "Soạn landing page tập trung lợi ích và chuyển đổi đăng ký hoặc mua hàng.",
+    "category": "Marketing",
+    "prompt": "Bạn là copywriter chuyên nghiệp. Hãy viết toàn bộ nội dung landing page giới thiệu [sản phẩm/dịch vụ], áp dụng cấu trúc AIDA (Attention, Interest, Desire, Action) với mục tiêu thuyết phục người đọc [đăng ký/mua hàng].\n\nTổ chức nội dung theo bốn phần:\n- Attention: tiêu đề và phần mở đầu thu hút đúng đối tượng.\n- Interest: thông tin giúp người đọc hiểu sản phẩm/dịch vụ và cách giải quyết nhu cầu của họ.\n- Desire: lợi ích thiết thực, điểm khác biệt đã xác nhận và bằng chứng đáng tin cậy nếu được cung cấp.\n- Action: lời kêu gọi hành động rõ ràng, mạnh mẽ, nêu cụ thể bước tiếp theo.\n\nViết mạch lạc, tập trung vào lợi ích khách hàng và giữ đúng giọng thương hiệu [tone of voice]. Không tự bịa tính năng, kết quả, lời chứng thực, giá hoặc chính sách; đánh dấu phần cần bổ sung khi thiếu dữ liệu.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-marketing-ecommerce-product-copy",
+    "title": "Viết mô tả sản phẩm TMĐT",
+    "description": "Tạo mô tả dễ đọc, chuẩn SEO, nêu lợi ích và thúc đẩy mua hàng.",
+    "category": "Marketing",
+    "prompt": "Bạn là chuyên gia copywriting thương mại điện tử. Hãy viết mô tả chi tiết cho [tên sản phẩm] để đăng bán trên [sàn thương mại điện tử].\n\nNội dung cần có:\n- 3–5 điểm nổi bật trình bày bằng bullet points.\n- Lợi ích chính khách hàng nhận được khi sử dụng sản phẩm.\n- Tối ưu SEO bằng [từ khóa chính] và các từ khóa liên quan, lặp lại tự nhiên, dễ đọc.\n- CTA rõ ràng, hấp dẫn, khuyến khích mua hàng.\n- 3–5 hashtag phù hợp với sản phẩm và đối tượng mục tiêu.\n\nTrình bày mạch lạc, dễ quét và tập trung vào nhu cầu người mua. Chỉ sử dụng thông số, chất liệu, công dụng, bảo hành và chính sách đã được cung cấp; không tự tạo tuyên bố về sản phẩm.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-marketing-press-release",
+    "title": "Soạn thông cáo báo chí",
+    "description": "Viết thông cáo khoảng 400 từ cho sự kiện, sản phẩm hoặc thành tựu.",
+    "category": "Marketing",
+    "prompt": "Bạn là chuyên gia quan hệ công chúng (PR). Hãy soạn thông cáo báo chí chuyên nghiệp, dài khoảng 400 từ, công bố [sự kiện/chủ đề].\n\nThông cáo cần có:\n- Tên công ty và vị trí đặt logo nếu có.\n- Ngày, địa điểm phát hành.\n- Tiêu đề ngắn gọn, nổi bật và thể hiện trọng tâm.\n- Tổng quan sản phẩm/thành tựu: tên, tính năng nổi bật và lợi ích cho khách hàng hoặc thị trường.\n- Bối cảnh ra đời: lý do phát triển và mục tiêu chiến lược của công ty.\n- Chi tiết sự kiện ra mắt: thời gian, địa điểm, hình thức tổ chức và diễn giả/nhân vật tham dự.\n- Trích dẫn của lãnh đạo cấp cao hoặc người phát ngôn về tầm quan trọng của sản phẩm/thành tựu.\n- Thông tin liên hệ dành cho phóng viên và đối tác truyền thông.\n- Kết luận ngắn về định hướng tương lai hoặc cam kết với khách hàng và thị trường.\n\nDùng văn phong trang trọng, khách quan, mạch lạc và súc tích; làm nổi bật thông tin có giá trị với báo chí. Đánh dấu dữ liệu còn thiếu bằng ngoặc vuông. Không tự tạo thông tin liên hệ, ngày giờ, người tham dự hoặc phát ngôn; nếu soạn lời trích dẫn đề xuất, ghi rõ cần người phát ngôn duyệt.",
+    "owner": "igen"
   }
 ];
 
