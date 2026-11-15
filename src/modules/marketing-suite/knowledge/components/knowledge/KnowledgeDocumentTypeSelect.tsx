@@ -70,7 +70,7 @@ export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled 
         onClick={() => setOpen((current) => !current)}
         className={cn(
           "flex w-full items-center justify-between border bg-white text-left text-slate-800 transition-colors hover:border-[#00ADFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50",
-          compact ? "gap-2 rounded-lg px-3 py-2 text-base" : "gap-3 rounded-xl px-3.5 py-2.5 text-sm",
+          compact ? "gap-2 rounded-lg px-3 py-2 text-sm" : "gap-3 rounded-xl px-3.5 py-2.5 text-sm",
           open ? "border-[#00ADFC]" : "border-slate-200",
         )}
       >
@@ -82,7 +82,7 @@ export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled 
         <div id={menuId} role="listbox" aria-label="Loại tài liệu" className="absolute left-0 top-full z-50 mt-2 max-h-80 w-full min-w-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/70">
           {groups.map((group, groupIndex) => (
             <div key={group.label ?? groupIndex}>
-              {group.label && <div className={cn("px-3 pb-1 pt-2 font-medium text-slate-500", compact ? "text-sm" : "text-xs")}>{group.label}</div>}
+              {group.label && <div className={cn("px-3 pb-1 pt-2 font-normal text-slate-500", compact ? "text-sm" : "text-xs")}>{group.label}</div>}
               {group.options.map((option) => (
                 <button
                   key={option.id}
@@ -91,7 +91,7 @@ export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled 
                   role="option"
                   aria-selected={value === option.id}
                   onClick={() => { onChange(option.id); setOpen(false); triggerRef.current?.focus(); }}
-                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${compact ? "text-base" : "text-sm"} transition-colors ${value === option.id ? "bg-sky-50 text-[#0089C8]" : "text-slate-700 hover:bg-slate-50 hover:text-[#0089C8]"}`}
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors ${value === option.id ? "bg-sky-50 text-[#0089C8]" : "text-slate-700 hover:bg-slate-50 hover:text-[#0089C8]"}`}
                 >
                   <span>{option.label}</span>
                   {value === option.id && <Check size={16} className="shrink-0" />}
