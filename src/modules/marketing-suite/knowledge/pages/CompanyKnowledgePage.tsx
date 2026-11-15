@@ -3,7 +3,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Building2,
-  BookOpenCheck,
   Bot,
   ChevronDown,
   ExternalLink,
@@ -493,7 +492,6 @@ export default function CompanyKnowledgePage() {
                     : "text-on-surface-variant hover:text-on-surface",
                 )}
               >
-                <BookOpenCheck className="size-4 shrink-0" aria-hidden="true" />
                 <span className="whitespace-nowrap">
                   <span className="sm:hidden">Kho tài liệu</span>
                   <span className="hidden sm:inline">Tài liệu &amp; Tệp Kho Tri Thức</span>
@@ -521,7 +519,6 @@ export default function CompanyKnowledgePage() {
                     : "text-on-surface-variant hover:text-on-surface",
                 )}
               >
-                <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
                 <span className="whitespace-nowrap">Mô phỏng chat Page</span>
               </button>
             </div>
