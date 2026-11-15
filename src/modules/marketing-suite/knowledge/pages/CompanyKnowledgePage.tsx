@@ -475,49 +475,127 @@ export default function CompanyKnowledgePage() {
 
         {/* Sub-Navigation Tabs */}
         <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
-          <div className="grid w-full max-w-xl grid-cols-2" role="group" aria-label="Điều hướng kho tri thức">
-            <button
-              type="button"
-              onClick={() => setActiveSection("documents")}
-              aria-current={activeSection === "documents" ? "page" : undefined}
-              className={cn(
-                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                activeSection === "documents"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface",
-              )}
-            >
-              <BookOpenCheck className="size-4 shrink-0" aria-hidden="true" />
-              <span className="whitespace-nowrap">
-                <span className="sm:hidden">Kho tài liệu</span>
-                <span className="hidden sm:inline">Tài liệu &amp; Tệp Kho Tri Thức</span>
-              </span>
-              <span
+          <div className="flex flex-col items-stretch border-b border-outline-variant xl:flex-row xl:items-center xl:gap-3">
+            <div className="grid w-full max-w-xl grid-cols-2 xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
+              <button
+                type="button"
+                onClick={() => setActiveSection("documents")}
+                aria-current={activeSection === "documents" ? "page" : undefined}
                 className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
                   activeSection === "documents"
-                    ? "bg-primary/10 text-primary"
-                    : "bg-surface-container text-on-surface-variant",
+                    ? "border-primary text-primary"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface",
                 )}
               >
-                {health?.documentsCount || 0}
-              </span>
-            </button>
+                <BookOpenCheck className="size-4 shrink-0" aria-hidden="true" />
+                <span className="whitespace-nowrap">
+                  <span className="sm:hidden">Kho tài liệu</span>
+                  <span className="hidden sm:inline">Tài liệu &amp; Tệp Kho Tri Thức</span>
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    activeSection === "documents"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-surface-container text-on-surface-variant",
+                  )}
+                >
+                  {health?.documentsCount || 0}
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveSection("page_chat")}
-              aria-current={activeSection === "page_chat" ? "page" : undefined}
-              className={cn(
-                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                activeSection === "page_chat"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface",
-              )}
-            >
-              <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
-              <span className="whitespace-nowrap">Mô phỏng chat Page</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveSection("page_chat")}
+                aria-current={activeSection === "page_chat" ? "page" : undefined}
+                className={cn(
+                  "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                  activeSection === "page_chat"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface",
+                )}
+              >
+                <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
+                <span className="whitespace-nowrap">Mô phỏng chat Page</span>
+              </button>
+            </div>
+
+            {activeSection === "documents" && (
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-2 xl:flex-1">
+                <div className="flex shrink-0 gap-2">
+                  {([['all', 'Tất cả tài liệu'], ['other', 'Tài liệu khác']] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={selectedKnowledgeSection === id}
+                      onClick={() => setSelectedKnowledgeSection(id)}
+                      className={cn(
+                        "rounded-lg px-3 py-2 text-xs font-semibold",
+                        selectedKnowledgeSection === id
+                          ? "bg-slate-800 text-white"
+                          : "bg-slate-100 text-slate-600",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {canManage && (
+                  <>
+                    <div className="flex min-w-0 items-center gap-2 xl:flex-none">
+                      <span className="shrink-0 text-xs font-medium text-on-surface-variant">Mục lưu tài liệu</span>
+                      <KnowledgeDocumentTypeSelect
+                        value={documentType}
+                        disabled={busy}
+                        className="w-52"
+                        onChange={(type) => {
+                          setDocumentType(type);
+                          setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
+                        }}
+                        groups={[
+                          { options: KNOWLEDGE_SECTIONS.map((section) => ({ id: section.id, label: section.label })) },
+                          { label: "Các loại tài liệu khác", options: DOCUMENT_TYPES.filter((type) => !KNOWLEDGE_SECTIONS.some((section) => section.id === type.id)) },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="grid w-56 shrink-0 grid-cols-2 gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setImportMethod("file")}
+                        aria-pressed={importMethod === "file"}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition select-none",
+                          importMethod === "file"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
+                        )}
+                      >
+                        <Upload className={cn("size-4", importMethod === "file" ? "text-white" : "text-slate-500")} aria-hidden="true" />
+                        Tải file
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImportMethod("drive")}
+                        aria-pressed={importMethod === "drive"}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition select-none",
+                          importMethod === "drive"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
+                        )}
+                      >
+                        <Link2 className={cn("size-4", importMethod === "drive" ? "text-white" : "text-slate-500")} aria-hidden="true" />
+                        Google Drive
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -686,15 +764,6 @@ export default function CompanyKnowledgePage() {
                   </button>
                 ))}
               </div>
-              <div className="mt-3 flex gap-2">
-                {([['all', 'Tất cả tài liệu'], ['other', 'Tài liệu khác']] as const).map(([id, label]) => (
-                  <button key={id} type="button" disabled={busy} aria-pressed={selectedKnowledgeSection === id}
-                    onClick={() => setSelectedKnowledgeSection(id)}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold ${selectedKnowledgeSection === id ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
             </section>
             {!canManage && (
               <div className="mt-5 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
@@ -706,49 +775,7 @@ export default function CompanyKnowledgePage() {
 
             {canManage && (
               <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div className="text-xs font-medium text-slate-700">
-                  <span>Mục lưu tài liệu</span>
-                  <KnowledgeDocumentTypeSelect
-                    value={documentType}
-                    disabled={busy}
-                    className="mt-2 max-w-sm"
-                    onChange={(type) => {
-                      setDocumentType(type);
-                      setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
-                    }}
-                    groups={[
-                      { options: KNOWLEDGE_SECTIONS.map((section) => ({ id: section.id, label: section.label })) },
-                      { label: "Các loại tài liệu khác", options: DOCUMENT_TYPES.filter((type) => !KNOWLEDGE_SECTIONS.some((section) => section.id === type.id)) },
-                    ]}
-                  />
-                </div>
-
-                <div className="mt-4">
-                  <div className="grid max-w-md grid-cols-2 gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setImportMethod("file")}
-                      className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition select-none ${importMethod === "file"
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
-                        }`}
-                    >
-                      <Upload className={`h-4 w-4 ${importMethod === "file" ? "text-white" : "text-slate-500"}`} />
-                      Tải file
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportMethod("drive")}
-                      className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition select-none ${importMethod === "drive"
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
-                        }`}
-                    >
-                      <Link2 className={`h-4 w-4 ${importMethod === "drive" ? "text-white" : "text-slate-500"}`} />
-                      Google Drive
-                    </button>
-                  </div>
-
+                <div>
                   {importMethod === "file" ? (
                     <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 px-4 py-4 hover:border-blue-400 hover:bg-blue-50">
                       {busy ? (
