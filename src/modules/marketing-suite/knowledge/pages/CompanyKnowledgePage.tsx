@@ -27,7 +27,6 @@ import { KnowledgeDocumentTypeSelect } from "../components/knowledge/KnowledgeDo
 import {
   CompanyKnowledgeDocument,
   CompanyKnowledgeHealth,
-  FaqCandidatesResponse,
   KnowledgeChannelScope,
   KnowledgeDocumentType,
   KnowledgePageScope,
@@ -45,8 +44,6 @@ type KnowledgeSection = "documents" | "faq_learning" | "test_search" | "page_cha
 
 const KNOWLEDGE_SECTION_ROUTES = [
   { slug: "documents", value: "documents" },
-  { slug: "faq-learning", value: "faq_learning" },
-  { slug: "test-search", value: "test_search" },
   { slug: "page-chat", value: "page_chat" },
 ] as const satisfies ReadonlyArray<{ slug: string; value: KnowledgeSection }>;
 
@@ -261,7 +258,6 @@ export default function CompanyKnowledgePage() {
   const [editDocumentType, setEditDocumentType] = useState<KnowledgeDocumentType>("general");
 
   const [activeSection, setActiveSection] = useSubTabRouter<KnowledgeSection>(KNOWLEDGE_SECTION_ROUTES, "documents");
-  const [pendingFaqCount, setPendingFaqCount] = useState(0);
 
   // State cho RAG Search Simulator
   const [testQuery, setTestQuery] = useState("");
@@ -291,16 +287,14 @@ export default function CompanyKnowledgePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextHealth, nextDocuments, integrations, faqRes] = await Promise.all([
+      const [nextHealth, nextDocuments, integrations] = await Promise.all([
         companyKnowledgeService.health(),
         companyKnowledgeService.listDocuments(),
         socialIntegrationService.getAccounts("company-knowledge", "Facebook").catch(() => []),
-        companyKnowledgeService.listFaqCandidates("pending").catch(() => ({ stats: { pending: 0 } })),
       ]);
       setHealth(nextHealth);
       setDocuments(nextDocuments);
       setFacebookPages(integrations.filter((item) => item.isConnected && item.username));
-      setPendingFaqCount((faqRes as FaqCandidatesResponse)?.stats?.pending || 0);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -475,8 +469,8 @@ export default function CompanyKnowledgePage() {
   }
 
   return (
-    <div className="marketing-workspace h-full overflow-y-auto pb-8 pr-2">
-      <div className="mx-auto w-full max-w-5xl rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-5">
+    <div className="marketing-workspace h-full min-w-0 overflow-y-auto bg-surface-container-lowest pb-8">
+      <div className="min-h-full w-full bg-surface-container-lowest p-4 sm:p-5">
 
         {/* Sub-Navigation Tabs */}
         <div className="flex flex-wrap gap-2 border-b border-outline-variant pb-3">
@@ -501,50 +495,6 @@ export default function CompanyKnowledgePage() {
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSection("faq_learning")}
-            aria-current={activeSection === "faq_learning" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "faq_learning"
-                ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-          >
-            <Sparkles
-              className={`h-4 w-4 ${activeSection === "faq_learning"
-                  ? "text-amber-300"
-                  : "text-amber-500"
-                }`}
-            />
-            <span>Đề xuất FAQ từ Hội thoại</span>
-            {pendingFaqCount > 0 ? (
-              <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold text-slate-900 animate-pulse">
-                {pendingFaqCount} mới
-              </span>
-            ) : (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${activeSection === "faq_learning"
-                    ? "bg-white/20 text-white"
-                    : "bg-amber-100 text-amber-800"
-                  }`}
-              >
-                AI Learning
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSection("test_search")}
-            aria-current={activeSection === "test_search" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "test_search"
-                ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-          >
-            <Search className="h-4 w-4" />
-            <span>Thử nghiệm Tìm kiếm (RAG)</span>
-          </button>
           <button type="button" onClick={() => setActiveSection("page_chat")}
             aria-current={activeSection === "page_chat" ? "page" : undefined}
             className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary ${activeSection === "page_chat" ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface"}`}>
