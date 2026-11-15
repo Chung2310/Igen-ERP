@@ -266,6 +266,94 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Tài chính",
     "prompt": "Bạn là kế toán quản trị. Hãy tính điểm hòa vốn cho [sản phẩm/dự án] trong [thời gian cụ thể], gồm:\n- Xác định chi phí cố định và chi phí biến đổi trên một đơn vị.\n- Tính sản lượng hòa vốn và doanh thu hòa vốn, nêu công thức và đơn vị.\n- Tính biên an toàn (margin of safety) theo sản lượng và doanh thu.\n- Phân tích thay đổi khi giá bán đơn vị, chi phí biến đổi đơn vị hoặc chi phí cố định biến động; cập nhật sản lượng và doanh thu hòa vốn tương ứng.\n- Đề xuất hành động quản trị về giá, kiểm soát chi phí và tối ưu sản lượng để cải thiện biên an toàn.\n\nNêu rõ kỳ tính, giả định về cơ cấu sản phẩm và dữ liệu đầu vào. Nếu biên lợi nhuận đóng góp bằng hoặc nhỏ hơn 0, giải thích rằng không thể đạt hòa vốn với cấu trúc giá/chi phí hiện tại. Không tự điền số liệu còn thiếu.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-hr-labor-market-analysis",
+    "title": "Phân tích thị trường lao động",
+    "description": "Đánh giá nguồn ứng viên, lương, cạnh tranh và kênh tuyển dụng.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên viên nhân sự. Hãy phân tích thị trường lao động cho [ngành/khu vực/vị trí], tập trung vào:\n1. Nguồn cung ứng viên: trình độ, kinh nghiệm và phân bố địa lý.\n2. Mức lương tham chiếu theo cấp bậc và khu vực.\n3. Mức độ cạnh tranh tuyển dụng: doanh nghiệp/ngành cùng thu hút nhóm ứng viên.\n4. Kênh tuyển dụng hiệu quả: trực tuyến, mạng xã hội, headhunter và các kênh phù hợp khác.\n5. Xu hướng kỹ năng gần đây: kỹ năng mềm, chuyên môn và công nghệ.\n\nĐưa ra ba khuyến nghị chiến lược để tối ưu quy trình tuyển dụng và thu hút ứng viên chất lượng. Với số liệu lương và xu hướng hiện tại, ghi nguồn, thời điểm và phạm vi khảo sát; nêu giới hạn dữ liệu, không trình bày ước tính như dữ kiện chắc chắn.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-candidate-review",
+    "title": "Đánh giá hồ sơ ứng viên",
+    "description": "Đối chiếu CV với yêu cầu vị trí và đề xuất bước tuyển dụng tiếp theo.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên viên tuyển dụng. Hãy đánh giá [CV/thông tin ứng viên] cho vị trí [tên vị trí] theo cấu trúc:\n1. Tóm tắt kinh nghiệm liên quan.\n2. Kỹ năng nổi bật phù hợp với yêu cầu công việc.\n3. Thành tựu đáng chú ý, trích dẫn bằng chứng trong hồ sơ.\n4. Rủi ro hoặc khoảng trống liên quan trực tiếp đến hiệu suất công việc.\n5. Mức độ phù hợp từ 1–5: 1 Không phù hợp; 2 Hạn chế phù hợp; 3 Phù hợp cơ bản; 4 Khá phù hợp; 5 Rất phù hợp.\n6. Đề xuất bước tiếp theo: Phỏng vấn tiếp, Từ chối hoặc Cần thêm thông tin, kèm lý do ngắn gọn.\n\nĐánh giá nhất quán theo tiêu chí công việc được cung cấp. Không suy đoán khả năng dựa trên đặc điểm được bảo vệ hoặc thông tin cá nhân không liên quan; phân biệt bằng chứng trong CV với điều cần xác minh.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-job-description",
+    "title": "Soạn mô tả công việc",
+    "description": "Xây dựng JD gồm mục tiêu, nhiệm vụ, năng lực, KPI và điều kiện làm việc.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên gia HR. Hãy viết mô tả công việc chi tiết cho vị trí [tên vị trí], gồm:\n- Mục tiêu vị trí: vai trò và mục đích chính trong tổ chức.\n- Nhiệm vụ chính: 5–7 trách nhiệm cụ thể, có tính hành động.\n- Năng lực cứng: kỹ năng chuyên môn, bằng cấp, chứng chỉ hoặc kiến thức cần thiết.\n- Năng lực mềm: giao tiếp, làm việc nhóm, giải quyết vấn đề và thái độ phù hợp.\n- KPI cơ bản: 3–5 chỉ số đánh giá hiệu quả.\n- Điều kiện làm việc: môi trường, địa điểm/di chuyển/làm từ xa, thời gian và yếu tố đặc thù.\n- Đãi ngộ tham chiếu nếu có: lương, thưởng, phúc lợi và hỗ trợ.\n\nDùng ngôn ngữ chuyên nghiệp, rõ ràng và phù hợp chuẩn mực HR hiện đại. Phân biệt yêu cầu bắt buộc với ưu tiên; không tự đặt lương, chế độ hoặc điều kiện chưa được cung cấp.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-job-posting",
+    "title": "Viết tin tuyển dụng",
+    "description": "Tạo tin tuyển dụng ngắn gọn, rõ yêu cầu, quyền lợi và cách ứng tuyển.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên viên tuyển dụng. Hãy viết tin tuyển dụng ngắn gọn, thu hút cho vị trí [tên vị trí], gồm:\n- Giới thiệu công ty trong 1–2 câu về tầm nhìn, sứ mệnh hoặc điểm nổi bật.\n- 4–6 nhiệm vụ chính dưới dạng gạch đầu dòng.\n- Yêu cầu cốt lõi về trình độ, kinh nghiệm, kỹ năng và phẩm chất.\n- Quyền lợi nổi bật công ty thực sự cung cấp.\n- Địa điểm/hình thức làm việc.\n- Khoảng lương nếu đã được cung cấp.\n- Hạn nộp hồ sơ và hướng dẫn ứng tuyển cụ thể.\n\nGiữ ngôn từ chuyên nghiệp, súc tích, dễ hiểu và phù hợp phong cách tuyển dụng hiện đại. Dùng placeholder cho dữ liệu còn thiếu; không tự tạo thông tin về lương, quyền lợi hoặc công ty.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-interview-questions",
+    "title": "Soạn bộ câu hỏi phỏng vấn",
+    "description": "Tạo câu hỏi theo nhóm năng lực cùng tiêu chí chấm điểm.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên viên tuyển dụng. Hãy tạo bộ 8–12 câu hỏi phỏng vấn cho vị trí [tên vị trí], chia đều cho bốn nhóm:\n1. Chuyên môn/kỹ thuật.\n2. Tình huống hành vi.\n3. Phù hợp với giá trị và cách làm việc của công ty.\n4. Tư duy phản biện và khả năng học hỏi.\n\nMỗi câu hỏi cần sát với yêu cầu vị trí, có tính ứng dụng thực tế và kèm tiêu chí chấm điểm ngắn gọn, rõ ràng. Dùng thang điểm nhất quán 1–5 với mô tả ngắn về bằng chứng cho điểm thấp, trung bình và cao. Tránh câu hỏi xâm phạm đời tư hoặc không liên quan đến công việc.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-candidate-email",
+    "title": "Soạn email trao đổi với ứng viên",
+    "description": "Viết email mời, nhắc lịch, cảm ơn hoặc từ chối ứng viên.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên gia HR. Hãy soạn email [mời phỏng vấn/nhắc lịch/cảm ơn/từ chối] ứng viên cho vị trí [vị trí công việc].\n\nEmail cần có:\n- Mục đích và lời chào phù hợp.\n- Thời gian phỏng vấn [ngày, giờ, múi giờ] nếu liên quan.\n- Hình thức phỏng vấn [trực tiếp/trực tuyến và nền tảng].\n- Thông tin người liên hệ [họ tên, chức vụ, điện thoại, email].\n- Tài liệu hoặc nội dung ứng viên cần chuẩn bị nếu có.\n- CTA yêu cầu xác nhận hoặc phản hồi trước [thời hạn].\n\nGiữ email ngắn gọn, rõ ràng, lịch sự và tôn trọng ứng viên. Không tự tạo lịch, thông tin liên hệ hoặc yêu cầu chuẩn bị; dùng placeholder cho dữ liệu còn thiếu.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-employment-contract",
+    "title": "Soạn dự thảo hợp đồng lao động",
+    "description": "Tạo bản nháp theo thông tin thỏa thuận và yêu cầu pháp lý Việt Nam.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên gia HR C&B. Hãy soạn dự thảo hợp đồng lao động cho ứng viên dựa trên:\n- Vị trí: [tên vị trí].\n- Loại/thời hạn hợp đồng: [thử việc/chính thức/thời vụ và thời hạn].\n- Mức lương: [số tiền và kỳ trả lương].\n- Phụ cấp: [mô tả].\n- Thời giờ làm việc, lịch làm việc và chế độ nghỉ.\n- Điều khoản bảo mật.\n- Quy định chấm dứt hợp đồng.\n\nBổ sung các nội dung bắt buộc phù hợp với hợp đồng lao động tại Việt Nam, dùng ngôn ngữ rõ ràng, logic và đánh dấu [cần bổ sung] khi thiếu thông tin. Nêu căn cứ pháp lý và ngày kiểm tra nếu có thể xác minh; không trích dẫn điều khoản chưa kiểm chứng. Ghi rõ đây là bản dự thảo cần bộ phận pháp chế/người có thẩm quyền rà soát trước khi ký, không cam kết hiệu lực pháp lý.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-onboarding-30-60-90",
+    "title": "Thiết kế onboarding 30–60–90 ngày",
+    "description": "Lập lộ trình hòa nhập, đào tạo, quyền truy cập và đánh giá.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên gia HR Ops. Hãy thiết kế chương trình onboarding 30–60–90 ngày cho [bộ phận/vị trí], gồm:\n- Mục tiêu và kết quả kỳ vọng tại mốc 30, 60 và 90 ngày.\n- Lịch đào tạo theo từng tuần, nội dung, hình thức và người phụ trách.\n- Mentor: người kèm cặp, vai trò và trách nhiệm hỗ trợ.\n- Checklist công cụ, phần mềm, tài khoản và quyền truy cập cần thiết.\n- Tiêu chí đánh giá hoàn thành tại từng mốc.\n- Hoạt động gắn kết nhóm và giúp nhân viên hòa nhập văn hóa.\n\nTrình bày rõ ràng, có thể triển khai trong thực tiễn doanh nghiệp. Phân biệt nội dung chung với nội dung cần tùy chỉnh theo vị trí; dùng placeholder nếu chưa có tên người phụ trách hoặc công cụ cụ thể.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-employee-survey",
+    "title": "Thiết kế khảo sát nhân sự",
+    "description": "Tạo khảo sát trung lập với thang Likert và hướng dẫn tính điểm.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên viên nhân sự. Hãy thiết kế khảo sát để đo lường [mục đích khảo sát] cho nhân viên.\n\nYêu cầu:\n- 10–15 câu hỏi theo thang Likert 5 mức từ “Hoàn toàn không đồng ý” đến “Hoàn toàn đồng ý”.\n- Hai câu hỏi mở để nhân viên góp ý.\n- Chia câu hỏi thành các nhóm chủ đề rõ ràng, phù hợp mục đích, ví dụ môi trường làm việc, cơ hội phát triển hoặc văn hóa doanh nghiệp.\n- Hướng dẫn tính điểm trung bình cho từng nhóm và toàn khảo sát, nêu cách xử lý câu bỏ trống.\n\nCâu hỏi phải trung lập, dễ hiểu và không dẫn dắt câu trả lời. Tránh thu thập dữ liệu cá nhân không cần thiết; nêu rõ cách bảo vệ tính riêng tư nếu khảo sát được thiết kế ẩn danh.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-recruitment-report",
+    "title": "Lập báo cáo tuyển dụng",
+    "description": "Tổng hợp phễu tuyển dụng, chi phí, thời gian và điểm nghẽn.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên gia HR. Dựa trên [dữ liệu tuyển dụng] của [bộ phận/công ty], hãy lập báo cáo tuyển dụng gồm:\n- Số vị trí mở và tỷ lệ vị trí đã tuyển đủ.\n- Tổng CV nhận được và số ứng viên qua từng vòng.\n- Số offer gửi đi và số ứng viên nhận việc.\n- Thời gian tuyển dụng trung bình (TAT), nêu cách tính và kỳ đo.\n- Chi phí theo từng kênh: website, headhunter, mạng xã hội và kênh khác.\n\nSau phần tổng hợp, phân tích ba điểm nghẽn của kỳ này và đề xuất ba hành động cụ thể, khả thi cho kỳ tới. Trình bày rõ định nghĩa và mẫu số của các tỷ lệ; chỉ dùng số liệu được cung cấp, nêu dữ liệu thiếu và không tự suy đoán nguyên nhân.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-hr-workforce-report",
+    "title": "Lập báo cáo nhân sự tổng quan",
+    "description": "Phân tích headcount, cơ cấu, biến động, hiện diện, OT và chi phí.",
+    "category": "Nhân sự",
+    "prompt": "Bạn là chuyên gia HR. Dựa trên [tệp dữ liệu nhân sự], hãy lập báo cáo cho kỳ [thời gian], trình bày bằng bảng tóm tắt và nhận định xu hướng dựa trên số liệu.\n\nBáo cáo gồm:\n1. Headcount cuối kỳ.\n2. Cơ cấu theo phòng ban, cấp bậc, giới tính và nhóm tuổi.\n3. Biến động: số nhân viên vào/ra trong kỳ và lý do chính nếu có dữ liệu.\n4. Turnover rate: nêu công thức, so sánh kỳ trước hoặc mục tiêu công ty.\n5. Attendance rate: nêu cách tính và phân tích nghỉ có phép/không phép nếu dữ liệu cho phép.\n6. OT: tổng giờ, phân bổ theo phòng ban và vị trí.\n7. Chi phí nhân công: lương cơ bản, OT, thưởng và phúc lợi.\n\nĐưa ra kiến nghị cụ thể để cải thiện quản trị nhân sự. Nêu kỳ báo cáo, công thức, mẫu số, giới hạn dữ liệu và không tự quy kết nguyên nhân. Chỉ báo cáo số liệu tổng hợp; không đưa tên hoặc thông tin nhận dạng nhân viên vào kết quả.",
+    "owner": "igen"
   }
 ];
 
