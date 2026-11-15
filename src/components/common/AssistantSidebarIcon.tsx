@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { AssistantAgentIcon } from "./AssistantAgentIcon";
 
 export type AssistantSidebarIconName =
@@ -10,14 +10,14 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
     <path d="M6.25 4.75h11.5a2.75 2.75 0 0 1 2.75 2.75v7.75A2.75 2.75 0 0 1 17.75 18H9l-4.75 3v-13.5a2.75 2.75 0 0 1 2-2.65Z" />
     <path d="M8.5 9h7m-7 3.5h5" />
   </>,
-  studio: <g stroke="#d94689">
+  studio: <>
     <rect x="4.4" y="6.5" width="12" height="14" rx="1.8" transform="rotate(-9 10.4 13.5)" />
     <circle cx="8.7" cy="10.8" r=".9" />
     <path d="m6 17.4 3.3-3.3 2.1 1.9 1.7-1.5 2.1 2" />
     <path d="m18.2 2.7.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8Z" />
     <path d="m19.3 11.4.4 1 .9.4-.9.4-.4 1-.4-1-.9-.4.9-.4Z" />
     <circle cx="16.5" cy="11.1" r=".35" />
-  </g>,
+  </>,
   notebook: <>
     <rect x="5" y="3.75" width="15.25" height="16.5" rx="2.25" />
     <path d="M8.5 4v16m-3.25-11h2.9m-2.9 4h2.9m4.25-4h6m-6 4h6" />
@@ -54,7 +54,21 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
   if (name === "agents") return <AssistantAgentIcon />;
+  if (name === "studio") return <AssistantStudioSidebarIcon />;
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
+  </svg>;
+}
+
+function AssistantStudioSidebarIcon() {
+  const gradientId = useId().replace(/:/g, "");
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
+        <stop stopColor="var(--color-primary)" />
+        <stop offset="100%" stopColor="var(--color-purple-400)" />
+      </linearGradient>
+    </defs>
+    <g stroke={`url(#${gradientId})`}>{artwork.studio}</g>
   </svg>;
 }
