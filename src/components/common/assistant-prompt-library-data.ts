@@ -514,6 +514,118 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Công nghệ thông tin",
     "prompt": "Bạn là security engineer. Hãy đánh giá bảo mật [ứng dụng/API] trong phạm vi được ủy quyền, tập trung vào các rủi ro thuộc OWASP Top 10.\n\nVới mỗi phát hiện, trình bày: loại rủi ro, thành phần bị ảnh hưởng, bằng chứng an toàn có thể kiểm chứng, điều kiện khai thác, tác động, mức độ nghiêm trọng theo CVSS hoặc mô hình tương tự, và biện pháp khắc phục cụ thể. Nêu rõ phạm vi, phương pháp, giả định và giới hạn đánh giá.\n\nChỉ thực hiện hoặc đề xuất kiểm thử trên hệ thống/tài sản được phép, theo cách không gây gián đoạn hay phá hủy dữ liệu. Không thực hiện khai thác trái phép, truy cập dữ liệu thật hoặc hành động vượt phạm vi. Phân biệt phát hiện xác nhận được với rủi ro cần kiểm tra thêm.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-education-lesson-plan",
+    "title": "Soạn giáo án chi tiết",
+    "description": "Lập mục tiêu, hoạt động, câu hỏi và đánh giá theo từng giai đoạn.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên. Hãy soạn giáo án chi tiết cho bài [tên bài/môn học] dành cho [lớp/độ tuổi], thời lượng [thời lượng].\n\nGiáo án cần có:\n1. Mục tiêu: kiến thức, kỹ năng và thái độ học sinh cần đạt.\n2. Nội dung chính: kiến thức trọng tâm, khái niệm mới và thông tin bổ sung.\n3. Hoạt động dạy và học theo các giai đoạn: khởi động, hình thành kiến thức, luyện tập và vận dụng; nêu thời lượng, việc của giáo viên, việc của học sinh và học liệu.\n4. Câu hỏi tương tác gợi mở, kích thích tư duy và khuyến khích tham gia.\n5. Phương pháp đánh giá sự tiếp thu: bài tập, kiểm tra nhanh, thảo luận hoặc hình thức phù hợp khác.\n\nBảo đảm logic, phù hợp trình độ và có thể áp dụng trực tiếp. Đối chiếu chương trình/chuẩn đầu ra được cung cấp; nêu giả định và không tự nhận nội dung là yêu cầu chính thức nếu chưa kiểm chứng.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-assessment-design",
+    "title": "Thiết kế đề kiểm tra và ma trận",
+    "description": "Tạo đề trắc nghiệm, tự luận, ma trận và hướng dẫn chấm.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên. Hãy thiết kế đề kiểm tra môn [tên môn] lớp [lớp], gồm câu hỏi trắc nghiệm và tự luận, kèm ma trận đề.\n\nYêu cầu:\n- Bám sát chuẩn kiến thức/yêu cầu cần đạt được cung cấp.\n- Phân bổ nội dung và điểm theo các mức nhận biết, thông hiểu, vận dụng, vận dụng cao.\n- Nêu ma trận theo chủ đề, dạng câu hỏi, mức độ nhận thức, số câu và số điểm.\n- Ghi tỷ lệ phần trăm từng dạng câu hỏi/mức độ, bảo đảm tổng tỷ lệ bằng 100%.\n- Cung cấp đề, đáp án và hướng dẫn chấm rõ ràng cho từng câu.\n\nĐảm bảo câu hỏi chính xác, không mơ hồ và phù hợp độ tuổi. Nêu giả định về thời lượng, thang điểm hoặc chuẩn đầu ra nếu chưa được cung cấp; không gán đề xuất thành chuẩn chính thức.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-student-work-review",
+    "title": "Chấm và nhận xét bài làm học sinh",
+    "description": "Đưa điểm, nhận xét và hướng cải thiện dựa trên tiêu chí rõ ràng.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên. Hãy chấm và nhận xét bài làm của học sinh [mô tả hoặc đính kèm bài], dựa trên mục tiêu môn học [môn học/lớp] và các tiêu chí:\n- Nội dung.\n- Cấu trúc.\n- Ngôn ngữ.\n- Tính sáng tạo.\n\nNêu thang điểm/rubric đang dùng; nếu chưa được cung cấp, đề xuất rubric rõ ràng và ghi đó là giả định. Chỉ ra điểm mạnh, điểm cần cải thiện bằng ví dụ cụ thể trong bài, đưa ra các bước sửa bài thiết thực và dễ áp dụng.\n\nGiữ nhận xét rõ ràng, logic, khích lệ và phù hợp độ tuổi. Không suy đoán năng lực hay tính cách của học sinh ngoài bằng chứng trong bài.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-career-guidance",
+    "title": "Lập kế hoạch hướng nghiệp",
+    "description": "Kết hợp khảo sát sở thích, gợi ý nghề và lộ trình phát triển.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là chuyên viên tư vấn hướng nghiệp. Hãy xây dựng kế hoạch hướng nghiệp cho [học sinh/lớp] về [chủ đề], gồm:\n1. Câu hỏi khảo sát phù hợp để tìm hiểu sở thích, năng lực, giá trị và cách học của học sinh.\n2. Gợi ý nhóm ngành/nghề phù hợp theo kết quả; giải thích căn cứ và nêu nhiều lựa chọn, không đóng khung học sinh vào một nghề.\n3. Lộ trình học tập với môn trọng tâm, kỹ năng cần phát triển và hoạt động ngoại khóa.\n4. Mốc theo dõi, nguồn thông tin và bước trao đổi tiếp theo với học sinh/gia đình.\n\nĐiều chỉnh theo độ tuổi và môi trường giáo dục. Khi đề cập xu hướng thị trường lao động hiện nay, ghi nguồn và thời điểm; phân biệt dữ liệu với giả định. Không xem khảo sát như chẩn đoán hay quyết định thay cho học sinh.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-homeroom-session",
+    "title": "Lập kế hoạch sinh hoạt lớp",
+    "description": "Tổ chức buổi sinh hoạt theo chủ đề, hoạt động, vai trò và kết quả.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên chủ nhiệm. Hãy lập kế hoạch sinh hoạt cho lớp [lớp] với chủ đề [chủ đề sinh hoạt].\n\nKế hoạch gồm:\n- Mục tiêu và ý nghĩa của chủ đề.\n- Các hoạt động theo trình tự thời gian; nêu phương pháp, thời lượng và công cụ cần thiết.\n- Vai trò, nhiệm vụ của giáo viên chủ nhiệm, học sinh, cán bộ lớp và lực lượng liên quan.\n- Kết quả cụ thể mong đợi sau buổi sinh hoạt.\n- Cách kiểm tra mức độ tham gia và tổng kết.\n\nĐiều chỉnh theo độ tuổi, đặc điểm lớp và điều kiện thực tế. Dùng placeholder cho thông tin chưa có; tránh hoạt động gây xấu hổ, phân biệt hoặc tạo áp lực không cần thiết cho học sinh.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-elearning-lesson",
+    "title": "Thiết kế bài giảng e-learning",
+    "description": "Xây dựng slide, kịch bản video, câu hỏi tương tác và tài liệu.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên. Hãy thiết kế bài giảng e-learning môn [môn học] cho [lớp/trình độ], chủ đề [tên bài], thời lượng [thời lượng].\n\nCung cấp:\n- Dàn ý từng slide: tiêu đề, nội dung chính, gợi ý hình minh họa và ghi chú trình bày.\n- Kịch bản video giảng dạy theo từng đoạn, gồm lời dẫn, hình ảnh/hoạt động và thời lượng.\n- Câu hỏi tương tác: trắc nghiệm, điền chỗ trống và thảo luận, kèm đáp án/phản hồi khi phù hợp.\n- Tài liệu tham khảo và nguồn học liệu.\n- Gợi ý đánh giá và cách hỗ trợ người học cần thêm hướng dẫn.\n\nBảo đảm nội dung logic, dễ hiểu, thu hút, phù hợp độ tuổi và chương trình hiện hành. Nêu nguồn tham khảo có thể kiểm chứng; không bịa tài liệu hoặc chuẩn chương trình.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-workshop-plan",
+    "title": "Lập kế hoạch hội thảo chuyên đề",
+    "description": "Xây dựng mục tiêu, phiên thảo luận, diễn giả và truyền thông.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là cán bộ đào tạo. Hãy lập kế hoạch tổ chức hội thảo chuyên đề [tên chuyên đề] cho [đối tượng], gồm:\n1. Mục tiêu tổng thể và mục tiêu cụ thể, có thể đánh giá.\n2. Nhóm diễn giả phù hợp, lý do lựa chọn và vai trò; nếu chưa có danh tính, đề xuất hồ sơ/vai trò thay vì bịa tên.\n3. Các phiên thảo luận: chủ đề, mục tiêu, thời lượng, định dạng và người điều phối.\n4. Kế hoạch truyền thông trước, trong và sau sự kiện: kênh, nội dung, quảng bá và tương tác với người tham dự.\n5. Nguồn lực, hậu cần, mốc chuẩn bị và phương án dự phòng.\n\nTrình bày rõ ràng, khả thi và phù hợp mục tiêu chuyên môn. Đánh dấu dữ liệu cần xác nhận như địa điểm, ngân sách và diễn giả.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-parent-meeting",
+    "title": "Soạn nội dung họp phụ huynh",
+    "description": "Chuẩn bị chương trình họp, trao đổi kết quả và phối hợp hỗ trợ học sinh.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên chủ nhiệm lớp [lớp]. Hãy soạn nội dung và chương trình họp phụ huynh, gồm:\n1. Đánh giá kết quả học tập: tiến bộ chung, khó khăn và nội dung cần lưu ý.\n2. Nhận xét về rèn luyện, thái độ học tập và kỷ luật dựa trên thông tin được cung cấp.\n3. Kế hoạch phối hợp giữa giáo viên và phụ huynh để hỗ trợ học sinh trong thời gian tới.\n4. Thời gian hỏi đáp và cách tiếp nhận các vấn đề cần trao đổi riêng.\n5. Lịch trình, thời lượng và tài liệu cần chuẩn bị.\n\nDùng ngôn ngữ rõ ràng, dễ hiểu, phù hợp giáo dục phổ thông. Khi họp nhóm, chỉ trình bày dữ liệu tổng hợp; trao đổi thành tích/khó khăn cá nhân riêng tư với đúng phụ huynh, không tiết lộ thông tin của học sinh khác.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-student-competition",
+    "title": "Phát động phong trào thi đua",
+    "description": "Lập mục tiêu, hoạt động, tiêu chí và cách theo dõi phong trào.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là cán bộ Đoàn/Đội. Hãy lập kế hoạch phát động phong trào thi đua cho [khối/lớp], gồm:\n1. Mục tiêu và ý nghĩa.\n2. Hoạt động theo từng giai đoạn, người phụ trách và thời hạn.\n3. Tiêu chí đánh giá rõ ràng, đo lường được và cách ghi nhận kết quả.\n4. Cơ cấu khen thưởng vật chất/tinh thần, phù hợp quy định và nguồn lực.\n5. Phương pháp theo dõi, giám sát và báo cáo tiến độ; đề xuất bảng theo dõi/công cụ/họp định kỳ.\n\nKế hoạch cần khả thi, minh bạch, khuyến khích tiến bộ và có cơ hội tham gia công bằng cho mọi học sinh. Nêu giả định về thời gian, nguồn lực hoặc quy định khen thưởng chưa được cung cấp.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-supportive-response",
+    "title": "Soạn phản hồi tư vấn học sinh",
+    "description": "Giải thích, động viên và đưa ra bước tiếp theo phù hợp.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên hoặc cán bộ tư vấn. Hãy viết phản hồi cho [thắc mắc/chủ đề], hướng tới [học sinh/phụ huynh].\n\nPhản hồi cần:\n1. Giải thích vấn đề chi tiết, dễ hiểu và trung thành với ngữ cảnh.\n2. Thể hiện sự động viên, chia sẻ phù hợp với tâm lý và hoàn cảnh.\n3. Đề xuất các bước tiếp theo cụ thể nếu cần.\n4. Giữ giọng thân thiện, chuyên nghiệp và dễ tiếp nhận.\n\nCó thể dùng ví dụ giả định để làm rõ nhưng phải ghi rõ đó là ví dụ, không trình bày như sự thật về người hỏi. Không tự chẩn đoán hoặc đưa ra lời hứa ngoài khả năng hỗ trợ.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-extracurricular-program",
+    "title": "Thiết kế chương trình ngoại khóa",
+    "description": "Lập mục tiêu, lịch trình, phân công và phương án an toàn.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên phụ trách. Hãy thiết kế chương trình ngoại khóa về [chủ đề] cho học sinh [độ tuổi/lớp], gồm:\n- Mục tiêu rõ ràng, đo lường được và phù hợp năng lực.\n- Lịch trình theo từng giai đoạn/buổi: thời gian, địa điểm, hoạt động và người phụ trách.\n- Phân công vai trò cho giáo viên, nhân viên hỗ trợ và học sinh.\n- Lưu ý an toàn sức khỏe, môi trường, di chuyển, quản lý học sinh và phương án khẩn cấp.\n- Vật dụng, kinh phí và thông tin cần xác nhận trước khi tổ chức.\n\nBảo đảm chương trình khả thi với điều kiện nhà trường và có giá trị giáo dục tích cực. Nêu yêu cầu xin phép/đồng thuận và liên hệ khẩn cấp khi phù hợp; không tự giả định địa điểm hoặc phương tiện đã được phê duyệt.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-teaching-evaluation",
+    "title": "Thiết kế phiếu đánh giá giảng dạy",
+    "description": "Đặt tiêu chí, thang điểm và cách tổng hợp phản hồi đa nguồn.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là cán bộ quản lý. Hãy xây dựng phiếu đánh giá chất lượng giảng dạy cho giáo viên [môn học/lớp], gồm tiêu chí đo lường được về:\n- Nội dung bài giảng.\n- Phương pháp giảng dạy.\n- Tương tác với học sinh.\n- Đánh giá kết quả học tập.\n- Thái độ và tác phong chuyên môn.\n\nNêu thang điểm, mô tả mức điểm cho từng tiêu chí, quy trình lấy ý kiến từ học sinh/đồng nghiệp/phụ huynh khi phù hợp, cách tổng hợp và phân tích kết quả, cùng cách chuyển kết quả thành hỗ trợ/cải tiến giảng dạy.\n\nĐảm bảo tiêu chí liên quan công việc, công bằng và dễ hiểu. Bảo vệ quyền riêng tư; không dùng một nguồn phản hồi đơn lẻ làm kết luận tuyệt đối và nêu rõ giới hạn của dữ liệu.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-personalized-study-plan",
+    "title": "Lập kế hoạch tư vấn học tập cá nhân",
+    "description": "Xác định điểm cần cải thiện, mục tiêu và cách theo dõi tiến bộ.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là giáo viên [bộ môn/lớp]. Hãy lập kế hoạch tư vấn học tập cá nhân cho học sinh dựa trên [bài làm/kết quả/quan sát đã cung cấp].\n\nKế hoạch gồm:\n- Điểm mạnh và lĩnh vực cần cải thiện, kèm bằng chứng cụ thể.\n- Nguyên nhân có thể có, phân biệt dữ kiện với giả thuyết.\n- Phương pháp khắc phục phù hợp cho từng lĩnh vực.\n- Mục tiêu cải thiện đo lường được, thời hạn và nguồn lực hỗ trợ.\n- Cách theo dõi tiến bộ, tần suất trao đổi và điều chỉnh kế hoạch.\n\nGiữ cấu trúc rõ ràng, khích lệ và thực tế; không gán nhãn học sinh hoặc suy đoán nguyên nhân khi chưa có căn cứ.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-education-school-event",
+    "title": "Soạn thông báo và kế hoạch sự kiện trường",
+    "description": "Kết hợp thông báo chính thức, lịch trình, phân công và truyền thông.",
+    "category": "Giáo dục",
+    "prompt": "Bạn là ban giám hiệu. Hãy soạn thông báo và kế hoạch tổ chức sự kiện/sinh hoạt trường về [chủ đề].\n\n1. Thông báo chính thức: mục đích, thời gian, địa điểm, đối tượng tham gia và hình thức tổ chức.\n2. Kế hoạch cụ thể:\n- Lịch trình từ chuẩn bị đến kết thúc, có thời gian cho từng giai đoạn.\n- Phân công nhiệm vụ cho tổ chức, hậu cần, truyền thông, điều phối và các nhóm liên quan, kèm hạn hoàn thành.\n3. Truyền thông: kênh phù hợp như email nội bộ, bảng tin, nhóm trực tuyến và thông báo đầu tuần để tiếp cận giáo viên, học sinh, nhân viên.\n4. Nguồn lực, lưu ý an toàn và phương án dự phòng.\n\nDùng văn phong chính thức, rõ ràng và logic. Để placeholder cho ngày giờ, địa điểm, người phụ trách và thông tin chưa được xác nhận; kiểm tra tính phù hợp với quy định của trường.",
+    "owner": "igen"
   }
 ];
 
