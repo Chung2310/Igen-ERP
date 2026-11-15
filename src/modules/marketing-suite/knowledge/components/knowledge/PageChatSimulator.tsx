@@ -180,16 +180,6 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
         </aside>
 
         <main aria-label="Cuộc trò chuyện đang chọn" className="flex min-h-[30rem] min-w-0 flex-col md:min-h-0">
-          <div className="flex items-center gap-3 border-b border-outline-variant px-4 py-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant" aria-hidden="true">
-              <Bot className="size-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{active?.pageName || "Page mô phỏng"}</p>
-              {active?.mode === "erp" && <p className="text-xs text-on-surface-variant">Chạy flow Page và lưu đơn vào ERP</p>}
-            </div>
-          </div>
-
           <ol ref={messagesRef} aria-live="polite" aria-label="Tin nhắn cuộc hội thoại" className="flex min-h-[16rem] flex-1 flex-col gap-4 overflow-y-auto px-4 py-5">
             {active?.turns.length ? active.turns.map((turn, index) => (
               <li key={index} className={cn("flex items-end gap-2", turn.role === "customer" ? "justify-end" : "justify-start")}>
