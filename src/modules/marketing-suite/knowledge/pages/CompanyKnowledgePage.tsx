@@ -480,17 +480,17 @@ export default function CompanyKnowledgePage() {
 
         {/* Sub-Navigation Tabs */}
         <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
-          <div className="flex flex-col items-stretch border-b border-outline-variant xl:flex-row xl:items-center xl:gap-3">
+          <div className="flex flex-col items-stretch xl:flex-row xl:items-center xl:gap-3">
             <div className="grid w-full max-w-xl grid-cols-2 xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
               <button
                 type="button"
                 onClick={() => setActiveSection("documents")}
                 aria-current={activeSection === "documents" ? "page" : undefined}
                 className={cn(
-                  "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                  "flex min-w-0 items-center justify-center gap-2 border-b-2 border-transparent px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
                   activeSection === "documents"
                     ? "border-primary text-primary"
-                    : "border-transparent text-on-surface-variant hover:text-on-surface",
+                    : "text-on-surface-variant hover:text-on-surface",
                 )}
               >
                 <BookOpenCheck className="size-4 shrink-0" aria-hidden="true" />
@@ -515,10 +515,10 @@ export default function CompanyKnowledgePage() {
                 onClick={() => setActiveSection("page_chat")}
                 aria-current={activeSection === "page_chat" ? "page" : undefined}
                 className={cn(
-                  "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                  "flex min-w-0 items-center justify-center gap-2 border-b-2 border-transparent px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
                   activeSection === "page_chat"
                     ? "border-primary text-primary"
-                    : "border-transparent text-on-surface-variant hover:text-on-surface",
+                    : "text-on-surface-variant hover:text-on-surface",
                 )}
               >
                 <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
