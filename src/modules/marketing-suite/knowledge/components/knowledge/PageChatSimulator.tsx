@@ -88,12 +88,6 @@ export function PageChatSimulator() {
   const button = "inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
   return (
     <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
-      <header className="flex justify-end border-b border-outline-variant px-4 py-3">
-        <button type="button" onClick={createConversation} className={button}>
-          <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
-        </button>
-      </header>
-
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-outline-variant bg-surface px-4 py-2.5">
         <label htmlFor="page-sim-mode" className="text-sm font-medium">Chế độ chat</label>
         <select id="page-sim-mode" value={active?.mode || "simulation"} disabled={Boolean(active?.turns.length)}
@@ -109,6 +103,9 @@ export function PageChatSimulator() {
             ? "Dùng Page và flow đang lưu. Đơn chỉ được tạo sau khi khách xác nhận; đơn ở trạng thái nháp, chưa thanh toán. Không gửi tin hoặc QR ra Facebook."
             : "Chỉ dùng tài liệu/quy tắc đang nhập để thử. Không ghi hồ sơ khách hay đơn vào ERP."}
         </p>
+        <button type="button" onClick={createConversation} className={cn(button, "ml-auto shrink-0")}>
+          <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:h-[min(68vh,48rem)] md:min-h-[32rem] md:grid-cols-[16rem_minmax(0,1fr)]">
