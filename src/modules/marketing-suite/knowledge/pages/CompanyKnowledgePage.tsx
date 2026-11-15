@@ -665,9 +665,6 @@ export default function CompanyKnowledgePage() {
         {activeSection === "documents" && (
           <>
             <section className="mt-5" aria-label="Các mục kho tri thức">
-              <p className="mb-3 text-sm text-slate-600">
-                Chọn mục để xem và tải tài liệu. AI ưu tiên nội dung liên quan trong các mục này khi tư vấn khách hàng.
-              </p>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {KNOWLEDGE_SECTIONS.map((section) => (
                   <button
@@ -706,16 +703,7 @@ export default function CompanyKnowledgePage() {
 
             {canManage && (
               <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Nhập tài liệu
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Chọn mục lưu tài liệu và một trong hai cách nhập dưới đây. Mặc định tài liệu dùng cho toàn hệ thống.
-                  </p>
-                </div>
-
-                <div className="mt-4 text-xs font-medium text-slate-700">
+                <div className="text-xs font-medium text-slate-700">
                   <span>Mục lưu tài liệu</span>
                   <KnowledgeDocumentTypeSelect
                     value={documentType}

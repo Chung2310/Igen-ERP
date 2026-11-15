@@ -88,18 +88,7 @@ export function PageChatSimulator() {
   const button = "inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
   return (
     <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary" aria-hidden="true">
-            <MessageSquare className="size-5" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-balance text-base font-semibold">Chat qua Page</h2>
-            <p className="text-pretty text-xs text-on-surface-variant">{active?.mode === "erp"
-              ? "Chạy thật: lưu hồ sơ khách và đơn nháp vào ERP sau khi khách xác nhận · Không gửi tin hay QR ra Page"
-              : "Mô phỏng: lịch sử lưu trên thiết bị này · Không ghi dữ liệu vào ERP hoặc gửi tin tới khách thật"}</p>
-          </div>
-        </div>
+      <header className="flex justify-end border-b border-outline-variant px-4 py-3">
         <button type="button" onClick={createConversation} className={button}>
           <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
         </button>
