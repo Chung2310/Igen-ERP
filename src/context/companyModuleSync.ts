@@ -1,4 +1,4 @@
-import { MODULE_KEYS, type ModuleKey } from "../config/modules";
+import { normalizeModuleKeys, type ModuleKey } from "../config/modules";
 
 export type CompanyModulesUpdatedEvent = {
   companyCode: string;
@@ -11,7 +11,7 @@ export function normalizeCompanyModulesEvent(value: unknown): CompanyModulesUpda
   if (typeof input.companyCode !== "string" || !input.companyCode.trim() || !Array.isArray(input.enabledModules)) return null;
 
   const modules = input.enabledModules;
-  const enabledModules = MODULE_KEYS.filter((key) => modules.includes(key));
+  const enabledModules = normalizeModuleKeys(modules);
   if (modules.length > 0 && enabledModules.length === 0) return null;
 
   return { companyCode: input.companyCode.trim().toUpperCase(), enabledModules };

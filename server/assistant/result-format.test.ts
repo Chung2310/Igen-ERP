@@ -32,3 +32,52 @@ describe("student bulk result formatting", () => {
     expect(parseAssistantResultTable(reply)?.rows[0]?.values["Học viên"]).toBe("Nguyễn Văn An");
   });
 });
+
+describe("nested API result fields", () => {
+  it("shows only explicitly approved fields from nested result objects", () => {
+    const source = operationById("customer.list")!;
+    const operation = {
+      ...source,
+      title: "Lịch sử giao dịch khách hàng",
+      resultFields: ["name", "items"],
+      resultChildFields: { items: ["orderCode", "amount"] },
+    };
+    const reply = formatFriendlyAssistantResult(operation, [{
+      name: "La Văn Sến",
+      items: [{ orderCode: "DH-001", amount: 250000, customerPhone: "0987000000", internalId: "private-id" }],
+    }]);
+
+    expect(reply).toContain("La Văn Sến");
+    expect(reply).toContain("DH-001");
+    expect(reply).toContain("250.000");
+    expect(reply).not.toContain("0987000000");
+    expect(reply).not.toContain("private-id");
+    const table = parseAssistantResultTable(reply);
+    expect(table?.rows[0]?.values["Tên khách hàng"]).toBe("La Văn Sến");
+    expect(Object.values(table?.rows[0]?.values || {}).join(" ")).toContain("DH-001");
+    expect(Object.values(table?.rows[0]?.values || {}).join(" ")).toContain("250.000");
+  });
+});
+
+describe("shared tables for module lookups", () => {
+  it("renders generic lookup lists as a table while keeping internal fields hidden", () => {
+    const operation = operationById("customer.list")!;
+    const reply = formatFriendlyAssistantResult(operation, [{
+      customerCode: "KH-001",
+      name: "La Văn Sến",
+      phone: "0987217127",
+      status: "active",
+      internalId: "db-private-id",
+    }]);
+
+    const table = parseAssistantResultTable(reply);
+    expect(table?.rows).toHaveLength(1);
+    expect(table?.rows[0]?.values).toMatchObject({
+      "Mã khách hàng": "KH-001",
+      "Tên khách hàng": "La Văn Sến",
+      "Số điện thoại": "0987217127",
+      "Trạng thái": "Đang hoạt động",
+    });
+    expect(reply).not.toContain("db-private-id");
+  });
+});

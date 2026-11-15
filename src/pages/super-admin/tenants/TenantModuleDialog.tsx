@@ -1,6 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
-import { DEFAULT_MODULE_KEYS, MODULE_KEYS, MODULE_OPTIONS, type ModuleKey } from "../../../config/modules";
+import { DEFAULT_MODULE_KEYS, MODULE_OPTIONS, normalizeModuleKeys, type ModuleKey } from "../../../config/modules";
 import { superAdminTenantService, type Tenant, type TenantSummary } from "../../../services/superAdminTenantService";
 
 type Props = {
@@ -37,7 +37,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
         setTenant(result.tenant);
         setSummary(result.summary);
         const modules = Array.isArray(result.tenant.enabledModules)
-          ? result.tenant.enabledModules.filter((key): key is ModuleKey => MODULE_KEYS.includes(key as ModuleKey))
+          ? normalizeModuleKeys(result.tenant.enabledModules)
           : [...DEFAULT_MODULE_KEYS];
         setSelected(modules);
       })
@@ -139,7 +139,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {MODULE_OPTIONS.map((option) => (
                   <label key={option.key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-outline-variant bg-surface-container px-3 py-3 text-sm hover:border-primary/40">
-                    <input type="checkbox" checked={option.moduleKeys.some((key) => selected.includes(key))} onChange={() => toggleModule(option.moduleKeys)} disabled={saving} />
+                    <input type="checkbox" checked={option.moduleKeys.every((key) => selected.includes(key))} onChange={() => toggleModule(option.moduleKeys)} disabled={saving} />
                     {option.label}
                   </label>
                 ))}

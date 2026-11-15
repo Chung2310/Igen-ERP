@@ -1,0 +1,143 @@
+.super-admin-shell {
+  color-scheme: light;
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+}
+
+/* Recolor the legacy dark utilities used by superadmin panels without affecting ERP pages. */
+.super-admin-shell :is(
+  [class*="bg-slate-950"],
+  [class*="bg-slate-900"]
+) {
+  background-color: var(--color-surface-container-lowest) !important;
+}
+
+.super-admin-shell :is(
+  [class*="bg-slate-850"],
+  [class*="bg-slate-800"]
+) {
+  background-color: var(--color-surface-container-low) !important;
+}
+
+.super-admin-shell [class*="bg-slate-700"] {
+  background-color: var(--color-surface-container) !important;
+}
+
+.super-admin-shell :is(
+  [class~="bg-white/5"],
+  [class~="bg-white/10"],
+  [class~="bg-black/40"]
+) {
+  background-color: var(--color-surface-container-low) !important;
+}
+
+.super-admin-shell :is(
+  [class*="hover:bg-slate-700"],
+  [class*="focus-visible:bg-slate-700"]
+):is(:hover, :focus-visible),
+.super-admin-shell :is(
+  [class*="hover:bg-slate-800"],
+  [class*="focus-visible:bg-slate-800"]
+):is(:hover, :focus-visible) {
+  background-color: var(--color-surface-container) !important;
+}
+
+.super-admin-shell :is(
+  [class~="text-white"],
+  [class~="text-slate-50"],
+  [class~="text-slate-100"],
+  [class~="text-slate-200"],
+  [class~="text-slate-300"],
+  [class~="text-slate-900"],
+  [class~="text-slate-950"]
+) {
+  color: var(--color-on-surface) !important;
+}
+
+.super-admin-shell :is(
+  [class~="text-slate-400"],
+  [class~="text-slate-500"]
+) {
+  color: var(--color-on-surface-variant) !important;
+}
+
+.super-admin-shell :is(
+  [class~="text-red-200"],
+  [class~="text-red-300"],
+  [class~="text-red-400"]
+) {
+  color: var(--color-error) !important;
+}
+
+.super-admin-shell :is(
+  [class~="text-amber-200"],
+  [class~="text-amber-300"],
+  [class~="text-amber-400"],
+  [class~="text-yellow-400"]
+) {
+  color: var(--color-amber-800, #92400e) !important;
+}
+
+.super-admin-shell :is(
+  [class~="text-cyan-300"],
+  [class~="text-cyan-400"]
+) {
+  color: var(--color-blue-700) !important;
+}
+
+.super-admin-shell :is(
+  [class~="text-emerald-200"],
+  [class~="text-emerald-300"],
+  [class~="text-emerald-400"]
+) {
+  color: var(--color-change-up) !important;
+}
+
+.super-admin-shell :is(
+  [class~="placeholder:text-slate-500"],
+  [class~="placeholder:text-slate-400"]
+)::placeholder {
+  color: var(--color-on-surface-variant) !important;
+  opacity: 1;
+}
+
+.super-admin-shell :is(
+  [class~="border-white/5"],
+  [class~="border-white/10"],
+  [class~="border-white/15"],
+  [class~="border-white/20"]
+) {
+  border-color: var(--color-outline-variant) !important;
+}
+
+.super-admin-shell :is(
+  [class*="focus:border-cyan-"],
+  [class*="focus-visible:border-cyan-"]
+):is(:focus, :focus-visible) {
+  border-color: var(--color-blue-700) !important;
+}
+
+.super-admin-shell [class*="focus:ring-cyan-"]:focus {
+  --tw-ring-color: var(--color-blue-700) !important;
+}
+
+.super-admin-shell [class*="focus-visible:outline-cyan-"]:focus-visible {
+  outline-color: var(--color-blue-700) !important;
+}
+
+.super-admin-shell .sa-ai {
+  --sa-ai-text: var(--color-on-surface);
+  --sa-ai-strong: var(--color-on-surface);
+  --sa-ai-label: var(--color-on-surface);
+  --sa-ai-secondary-text: var(--color-on-surface-variant);
+  --sa-ai-muted: var(--color-on-surface-variant);
+  --sa-ai-surface: var(--color-surface-container-lowest);
+  --sa-ai-raised: var(--color-surface-container-low);
+  --sa-ai-inset: var(--color-surface-container-lowest);
+  --sa-ai-border: var(--color-outline-variant);
+  --sa-ai-border-strong: var(--color-outline);
+  --sa-ai-accent: var(--color-blue-700);
+  --sa-ai-danger: var(--color-error);
+  --sa-ai-warning: var(--color-amber-800, #92400e);
+  color-scheme: light;
+}

@@ -85,6 +85,8 @@ export interface OpenRouterChatParams {
   temperature?: number;
   /** Return JSON object (response_format: json_object) */
   jsonMode?: boolean;
+  /** Bound the requested output size for calls with predictable response lengths. */
+  maxTokens?: number;
   /** Optional JSON schema — injected into system prompt as instruction */
   responseSchema?: object;
   /** Let the model perform bounded, multi-step web searches and return source citations. */
@@ -108,6 +110,8 @@ export interface OpenRouterCitation {
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const { model, temperature = 0.7, jsonMode, responseSchema, maxRetries = 4 } = params;
+  const envMaxTokens = Number(process.env.OPENROUTER_MAX_TOKENS);
+  const maxTokens = params.maxTokens ?? (Number.isFinite(envMaxTokens) && envMaxTokens > 0 ? envMaxTokens : undefined);
   const apiKey = getApiKey();
   const freeLlm = getFreeLlmConfig();
 
@@ -142,7 +146,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   // Tầng 1 + 2: OpenRouter (model chính → model fallback)
   if (apiKey) {
     try {
-      return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode);
+      return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode, maxTokens);
     } catch (error: any) {
       lastError = error;
       const fallbackModel = params.fallbackModel ? mapModelName(params.fallbackModel) : getFallbackModel();
@@ -152,7 +156,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
           `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
         );
         try {
-          return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, fallbackModel, messages, temperature, jsonRequested, 2, params.webSearch, params.webSearchMode);
+          return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, fallbackModel, messages, temperature, jsonRequested, 2, params.webSearch, params.webSearchMode, maxTokens);
         } catch (fallbackError: any) {
           lastError = fallbackError;
         }
@@ -166,7 +170,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
       `[OpenRouter] Fallback tầng 3 → FreeLLM server ${freeLlm.baseUrl} | model=${freeLlm.model}. Lỗi trước đó: ${lastError?.message || lastError || "OpenRouter chưa cấu hình"}`
     );
     if (params.webSearch) throw new Error("Fallback AI hiện không hỗ trợ tìm kiếm web.");
-    return await chatWithRetries(freeLlm.baseUrl, freeLlm.apiKey, freeLlm.model, messages, temperature, jsonRequested, 2);
+    return await chatWithRetries(freeLlm.baseUrl, freeLlm.apiKey, freeLlm.model, messages, temperature, jsonRequested, 2, false, undefined, maxTokens);
   }
 
   throw lastError ?? new Error("[OpenRouter] Chat completions failed with no error details.");
@@ -182,12 +186,14 @@ async function chatWithRetries(
   maxRetries: number,
   webSearch = false,
   webSearchMode: OpenRouterChatParams["webSearchMode"] = "deep",
+  maxTokens?: number,
 ): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const body: Record<string, any> = {
     model,
     messages,
     temperature,
   };
+  if (Number.isFinite(maxTokens) && (maxTokens as number) > 0) body.max_tokens = Math.floor(maxTokens as number);
 
   if (jsonMode) {
     body.response_format = { type: "json_object" };

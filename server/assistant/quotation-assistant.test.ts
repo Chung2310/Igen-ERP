@@ -38,7 +38,7 @@ describe("quotation assistant routing and contracts", () => {
   ])("routes the business request without repair/POS confusion: %s", async (text, action) => {
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {} }) });
     expect(await interpretRequest(text, workflows, null, [])).toMatchObject({ actionId: `quotation.${action}`, intentType: "workflow" });
-    expect(provider).toHaveBeenCalledTimes(1);
+    expect(provider).toHaveBeenCalledTimes(action === "quote.detail" ? 0 : 1);
   });
   it("does not intercept repair quotations or expand an unauthorized approval request", async () => {
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "api.post.1ee164077121787a", values: { path_id: "SC01" } }) });

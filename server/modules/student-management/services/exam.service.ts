@@ -23,6 +23,10 @@ function normalizeRank(value?: string | null) {
   return String(value || '').trim().toUpperCase();
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function getDrivingExamBucket(rank?: string | null): 'motorbike' | 'car' | null {
   const normalized = normalizeRank(rank);
   if (!normalized) return null;
@@ -155,6 +159,7 @@ interface ExamFilters {
   limit?: number | string;
   status?: string;
   rank?: string;
+  search?: string;
   /** superadmin only: scope data to a specific center (admin uid) */
   ownerFilter?: string;
 }
@@ -283,6 +288,7 @@ export class ExamService {
     if (branchId) query.branchId = branchId;
     if (filters.status) query.status = filters.status;
     if (filters.rank) query.rank = filters.rank;
+    if (filters.search?.trim()) query.name = { $regex: escapeRegex(filters.search.trim().slice(0, 120)), $options: "i" };
 
     const total = await Exam.countDocuments(query);
     const exams = await Exam.find(query)

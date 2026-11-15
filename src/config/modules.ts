@@ -1,9 +1,19 @@
 import type { TabType, UserProfile } from "../types";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "quotation", "healthcare"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "student-partner", "labor-partner", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "quotation", "healthcare"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "quotation" && key !== "healthcare");
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "partner" && key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "quotation" && key !== "healthcare");
+
+/** Expand the legacy shared partner flag into independently configurable modules. */
+export function normalizeModuleKeys(input: readonly string[]): ModuleKey[] {
+  const selected = new Set(input.filter((key): key is ModuleKey => MODULE_KEYS.includes(key as ModuleKey)));
+  if (selected.delete("partner")) {
+    selected.add("student-partner");
+    selected.add("labor-partner");
+  }
+  return MODULE_KEYS.filter((key) => key !== "partner" && selected.has(key));
+}
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   quotation: "Báo giá",
@@ -14,8 +24,10 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   chat: "Trò chuyện",
   student: "Quản lý học viên",
   worker: "Quản lý lao động",
+  "student-partner": "Đối tác học viên",
+  "labor-partner": "Đối tác lao động",
   customer: "Khách hàng",
-  partner: "Quản lý đối tác",
+  partner: "Đối tác (tương thích dữ liệu cũ)",
   retail: "Bán lẻ & POS",
   "retail-partner": "Đối tác bán lẻ",
   repair: "Sửa chữa & bảo hành",
@@ -26,7 +38,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   "company-knowledge": "Kho tri thức",
 };
 
-export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
+export const MODULE_TAB_MAP: Partial<Record<ModuleKey, TabType>> = {
   quotation: "BÁO GIÁ",
   healthcare: "QUẢN LÝ Y TẾ",
   hr: "NHÂN SỰ",
@@ -35,8 +47,9 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   chat: "TRÒ CHUYỆN",
   student: "QUẢN LÝ HỌC VIÊN",
   worker: "QUẢN LÝ LAO ĐỘNG",
+  "student-partner": "ĐỐI TÁC",
+  "labor-partner": "ĐỐI TÁC LAO ĐỘNG",
   customer: "QUẢN LÝ KHÁCH HÀNG",
-  partner: "ĐỐI TÁC",
   retail: "BÁN LẺ",
   "retail-partner": "ĐỐI TÁC BÁN LẺ",
   repair: "SỬA CHỮA & BẢO HÀNH",
@@ -59,8 +72,8 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "QUẢN LÝ HỌC VIÊN": "student",
   "QUẢN LÝ LAO ĐỘNG": "worker",
   "QUẢN LÝ KHÁCH HÀNG": "customer",
-  "ĐỐI TÁC": "partner",
-  "ĐỐI TÁC LAO ĐỘNG": "partner",
+  "ĐỐI TÁC": "student-partner",
+  "ĐỐI TÁC LAO ĐỘNG": "labor-partner",
   "BÁN LẺ": "retail",
   "ĐỐI TÁC BÁN LẺ": "retail-partner",
   "TÀI CHÍNH": "finance",
@@ -79,8 +92,9 @@ export const MODULE_OPTIONS = [
   { key: "chat", label: MODULE_LABELS.chat, moduleKeys: ["chat"] },
   { key: "student", label: MODULE_LABELS.student, moduleKeys: ["student"] },
   { key: "worker", label: MODULE_LABELS.worker, moduleKeys: ["worker"] },
+  { key: "student-partner", label: MODULE_LABELS["student-partner"], moduleKeys: ["student-partner"] },
+  { key: "labor-partner", label: MODULE_LABELS["labor-partner"], moduleKeys: ["labor-partner"] },
   { key: "customer", label: MODULE_LABELS.customer, moduleKeys: ["customer"] },
-  { key: "partner", label: MODULE_LABELS.partner, moduleKeys: ["partner"] },
   { key: "retail", label: MODULE_LABELS.retail, moduleKeys: ["retail"] },
   { key: "retail-partner", label: MODULE_LABELS["retail-partner"], moduleKeys: ["retail-partner"] },
   { key: "repair", label: MODULE_LABELS.repair, moduleKeys: ["repair"] },
@@ -162,6 +176,7 @@ export const HIDE_AI_AUTO_REPLY = true;
  */
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
   if (key === "retail-partner") return Boolean(enabledModules?.includes("retail") && enabledModules.includes(key));
+  if ((key === "student-partner" || key === "labor-partner") && enabledModules?.includes("partner")) return true;
   if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge" || key === "quotation" || key === "healthcare") return Boolean(enabledModules?.includes(key));
   if (!enabledModules) return true;
   if (enabledModules.length === 0) return false;

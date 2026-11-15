@@ -59,9 +59,31 @@ export function validateWorkflow(op: AssistantOperation, input: AssistantWorkflo
   return { ...defaultWorkflow(op), ...(input.sourceText === undefined ? {} : { sourceText: input.sourceText.trim() }), fields, enabled: input.enabled, instructions: input.instructions.trim(), requireConfirmation: input.requireConfirmation, version: input.version + 1 };
 }
 export function collectValues(workflow: AssistantWorkflow, provided: Record<string, unknown>) {
+  const aliasErrors: string[] = [];
+  if (workflow.actionId.startsWith("student.")) {
+    provided = { ...provided };
+    for (const key of Object.keys(provided)) {
+      if (workflow.fields.some(field => field.key === key)) continue;
+      let target: AssistantField | undefined;
+      if (key === "studentName") {
+        target = workflow.fields.find(field => field.source === "query" && /(?:search|keyword|term)/i.test(`${field.key} ${field.apiKey || ""}`))
+          || workflow.fields.find(field => (field.source === "path" || field.source === "body")
+            && field.reference === "student.list" && field.structure?.type !== "array")
+          || workflow.fields.find(field => field.apiKey === "fullName");
+      } else {
+        const candidates = workflow.fields.filter(field => field.apiKey === key || `${field.source}_${field.apiKey}` === key);
+        if (candidates.length === 1) target = candidates[0];
+      }
+      if (!target) continue;
+      if (provided[target.key] !== undefined && JSON.stringify(provided[target.key]) !== JSON.stringify(provided[key])) {
+        aliasErrors.push(`${target.label}: c\u00F3 hai gi\u00E1 tr\u1ECB kh\u00E1c nhau.`);
+      } else if (provided[target.key] === undefined) provided[target.key] = provided[key];
+      delete provided[key];
+    }
+  }
   const values: Record<string, AssistantValue> = {};
   const missing: string[] = [];
-  const errors: string[] = [];
+  const errors: string[] = aliasErrors;
   const defaulted: string[] = [];
   const relationshipFields = new Set(workflow.fields.filter(field => field.reference || containsRelationship(field.structure)).map(field => field.key));
   const conditionValues = Object.fromEntries(workflow.fields.map(field => [field.key, isBlank(provided[field.key]) ? (relationshipFields.has(field.key) ? undefined : field.defaultValue) : provided[field.key]]));

@@ -1,6 +1,7 @@
 ﻿import type { ClientSession } from "mongoose";
 import { CompanyModel } from "../model/company.model";
 import { ServicePlanModel } from "../model/service-plan.model";
+import { sanitizeModuleKeys } from "../config/module-keys";
 
 const conflict = (message: string) => Object.assign(new Error(message), { statusCode: 409, code: "SERVICE_PLAN_CONFLICT" });
 export const servicePlanService = {
@@ -19,10 +20,10 @@ export const servicePlanService = {
     if (!plan || plan.updatedAt.getTime() !== new Date(planUpdatedAt).getTime()) throw conflict("Danh mục gói đã thay đổi. Hãy tải lại.");
     const startsAt = new Date();
     const subscription = { planId: plan._id, planName: plan.name, priceVnd: plan.priceVnd,
-      modules: [...plan.modules], startsAt, expiresAt: new Date(startsAt.getTime() + plan.durationDays * 86_400_000),
+      modules: sanitizeModuleKeys(plan.modules), startsAt, expiresAt: new Date(startsAt.getTime() + plan.durationDays * 86_400_000),
       status: "active" as const, assignedBy: actorId };
     company.serviceSubscription = subscription;
-    company.enabledModules = [...plan.modules];
+    company.enabledModules = sanitizeModuleKeys(plan.modules);
     await company.save({ session });
     return subscription;
   },

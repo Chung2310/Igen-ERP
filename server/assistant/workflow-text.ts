@@ -24,7 +24,7 @@ export async function interpretWorkflowText(req: AuthenticatedRequest, actionId:
     const response = await Promise.race([
       openrouterChat({
         model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
-        temperature: 0, jsonMode: true, maxRetries: 1,
+        temperature: 0, jsonMode: true, maxRetries: 3,
         messages: [{ role: "system", content: `Bạn biên dịch mô tả workflow tiếng Việt thành cấu hình. Không thực hiện thao tác.
 Chỉ hỗ trợ đúng thao tác và các trường trong danh mục. Các quy tắc thực thi được hỗ trợ: bật/tắt workflow, thứ tự kiểm tra/hỏi, trường bắt buộc hoặc tùy chọn, giá trị mặc định cố định khi thiếu, yêu cầu xác nhận. instructions chỉ chứa cách diễn giải từ ngữ; không chứa quy tắc thực thi.
 Mô tả là một bản quy tắc hoàn chỉnh. Trường không nhắc đến dùng cấu hình mẫu được cung cấp, không tự thêm yêu cầu. Giữ đủ mọi trường đúng một lần. Trả tất cả fields theo thứ tự hỏi. Mặc định phải đúng kiểu dữ liệu. Không tạo email, tên, ID hoặc giá trị mặc định mà người dùng không nêu hoặc mẫu không có. Không dùng null cho defaultValue; bỏ khóa này nếu không có mặc định.

@@ -131,7 +131,7 @@ export async function createStudioMindmap(input: {
       billAiCall("text", models.model, () => openrouterChat({
         ...models,
         temperature: 0.2,
-        maxRetries: 1,
+        maxRetries: 3,
         jsonMode: true,
         responseSchema: mindmapResponseSchema,
         messages: [
