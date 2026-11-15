@@ -263,10 +263,12 @@
 
 .assistant-sidebar-tool:not(:disabled):is(:hover, :focus-visible) svg {
   stroke: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .assistant-side-item:not(:disabled):is(.is-active, :hover, :focus-visible) .assistant-side-icon svg {
   stroke: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .assistant-side-item:not(:disabled):is(.is-active, :hover, :focus-visible) > span:not(.assistant-side-icon):not(.assistant-studio-nav-label) {
