@@ -120,12 +120,6 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
               </summary>
               <div className="absolute right-0 top-full mt-2 grid w-[calc(100vw-2rem)] max-w-2xl gap-4 rounded-xl border border-outline-variant bg-surface p-4 shadow-md sm:grid-cols-2">
                 <label className="block space-y-1 text-sm">
-                  <span>Tên Page hiển thị</span>
-                  <input value={active?.pageName || ""}
-                    onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, pageName: event.target.value } : item))}
-                    className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
-                </label>
-                <label className="block space-y-1 text-sm">
                   <span>Mã Facebook Page</span>
                   <input value={active?.pageId || ""} disabled={Boolean(active?.turns.length)}
                     onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, pageId: event.target.value } : item))}
