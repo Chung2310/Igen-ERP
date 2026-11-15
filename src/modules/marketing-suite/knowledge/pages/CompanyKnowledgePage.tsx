@@ -263,6 +263,7 @@ export default function CompanyKnowledgePage() {
   const [editDocumentType, setEditDocumentType] = useState<KnowledgeDocumentType>("general");
 
   const [activeSection, setActiveSection] = useSubTabRouter<KnowledgeSection>(KNOWLEDGE_SECTION_ROUTES, "documents");
+  const [pageChatToolbarContainer, setPageChatToolbarContainer] = useState<HTMLDivElement | null>(null);
 
   // State cho RAG Search Simulator
   const [testQuery, setTestQuery] = useState("");
@@ -479,7 +480,7 @@ export default function CompanyKnowledgePage() {
 
         {/* Sub-Navigation Tabs */}
         <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
-          <div className="flex flex-col items-stretch xl:flex-row xl:items-center xl:gap-3">
+          <div className="flex flex-col items-stretch xl:flex-row xl:items-stretch xl:gap-3">
             <div className="grid w-full max-w-xl grid-cols-2 xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
               <button
                 type="button"
@@ -522,6 +523,10 @@ export default function CompanyKnowledgePage() {
                 <span className="whitespace-nowrap">Mô phỏng chat Page</span>
               </button>
             </div>
+
+            {activeSection === "page_chat" && (
+              <div ref={setPageChatToolbarContainer} className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-2 py-1 xl:flex-1" />
+            )}
 
             {activeSection === "documents" && (
               <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-2 xl:flex-1">
@@ -602,7 +607,7 @@ export default function CompanyKnowledgePage() {
           </div>
         </div>
 
-        {activeSection === "page_chat" && <PageChatSimulator />}
+        {activeSection === "page_chat" && <PageChatSimulator toolbarContainer={pageChatToolbarContainer} />}
         {activeSection === "faq_learning" && (
           <div className="mt-5">
             <FaqLearningSuggestionsPanel onKnowledgeUpdated={() => void loadData()} />

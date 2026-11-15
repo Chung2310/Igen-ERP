@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, ChevronDown, Send, Settings2, UserRound } from "lucide-react";
+import { createPortal } from "react-dom";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { getAccessToken } from "../../../shared/services/authService";
@@ -26,7 +27,7 @@ async function replyToCustomer(message: string, history: Turn[], documentText: s
   if (!response.ok) throw new Error(result.message || "Không thể mô phỏng câu trả lời.");
   return result.data;
 }
-export function PageChatSimulator() {
+export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTMLDivElement | null }) {
   const { userProfile } = useAuth();
   const storageKey = `marketing-page-chat-sim:${userProfile?.companyCode || "unknown"}`;
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -90,66 +91,68 @@ export function PageChatSimulator() {
   const pageIdMissing = active?.mode === "erp" && !active.pageId?.trim();
   return (
     <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-outline-variant bg-surface px-4 py-2.5">
-        <label htmlFor="page-sim-mode" className="text-sm font-medium">Chế độ chat</label>
-        <select id="page-sim-mode" value={active?.mode || "simulation"} disabled={Boolean(active?.turns.length)}
-          onChange={event => save(conversations.map(item => item.id === activeId
-            ? { ...item, mode: event.target.value as "simulation" | "erp" } : item))}
-          aria-describedby={showModeHint ? "page-sim-mode-hint" : undefined}
-          className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">
-          <option value="simulation">Mô phỏng · không lưu</option>
-          <option value="erp">Chạy thật · lưu khách và đơn vào ERP</option>
-        </select>
-        {showModeHint && (
-          <p id="page-sim-mode-hint" className="max-w-3xl text-pretty text-xs text-on-surface-variant">
-            {active?.turns.length
-              ? "Chế độ đã khóa cho cuộc trò chuyện này. Tạo cuộc trò chuyện mới để đổi chế độ."
-              : "Dùng Page và flow đang lưu. Đơn chỉ được tạo sau khi khách xác nhận; đơn ở trạng thái nháp, chưa thanh toán. Không gửi tin hoặc QR ra Facebook."}
-          </p>
-        )}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <button type="button" onClick={createConversation} className={cn(button, "shrink-0")}>
-            <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
-          </button>
-          <details className="group relative z-20 shrink-0">
-            <summary aria-label="Cài đặt chat" title="Cài đặt chat" className="flex size-10 cursor-pointer list-none items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
-              <Settings2 className="size-4" aria-hidden="true" />
-              <ChevronDown className="size-4" aria-hidden="true" />
-            </summary>
-            <div className="absolute right-0 top-full mt-2 grid w-[calc(100vw-2rem)] max-w-2xl gap-4 rounded-xl border border-outline-variant bg-surface p-4 shadow-md sm:grid-cols-2">
-              <label className="block space-y-1 text-sm">
-                <span>Tên Page hiển thị</span>
-                <input value={active?.pageName || ""}
-                  onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, pageName: event.target.value } : item))}
-                  className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span>Mã Facebook Page</span>
-                <input value={active?.pageId || ""} disabled={Boolean(active?.turns.length)}
-                  onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, pageId: event.target.value } : item))}
-                  placeholder="PAGE_BAKERY_DEMO" aria-describedby="page-sim-page-id-hint"
-                  className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60" />
-                <span id="page-sim-page-id-hint" className="text-xs text-on-surface-variant">Dùng mã Page để lấy đúng flow và tài liệu đã lưu. Tạo cuộc trò chuyện mới để đổi Page.</span>
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span>Tài liệu bổ sung (.md hoặc .txt)</span>
-                <input type="file" accept=".md,.txt,text/markdown,text/plain" disabled={active?.mode === "erp"} onChange={event => void loadFile(event.target.files?.[0])}
-                  className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-2 text-xs text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60" />
-                <span className="block text-xs text-on-surface-variant">{active?.mode === "erp" ? "Chạy thật chỉ dùng tài liệu đã lưu trong Kho tri thức." : documentName ? "Đang dùng: " + documentName : "Để trống để dùng tài liệu trong Kho tri thức."}</span>
-              </label>
-              <label className="block space-y-1 text-sm sm:col-span-2">
-                <span>Quy tắc của Page</span>
-                <textarea value={active?.rule || ""} maxLength={5000} rows={3} disabled={active?.mode === "erp"}
-                  onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, rule: event.target.value } : item))}
-                  placeholder="Ví dụ: Hỏi loại bánh, kích cỡ, ngày nhận; xin đặt cọc nếu khách mới."
-                  className="block w-full resize-y rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60" />
-                <span className="text-xs text-on-surface-variant">{active?.mode === "erp" ? "Chạy thật dùng flow Page đã lưu." : "AI dùng quy tắc này khi mô phỏng phản hồi."}</span>
-              </label>
-            </div>
-          </details>
-        </div>
-      </div>
-
+      {toolbarContainer && createPortal(
+        <>
+          <label htmlFor="page-sim-mode" className="text-sm font-medium">Chế độ chat</label>
+          <select id="page-sim-mode" value={active?.mode || "simulation"} disabled={Boolean(active?.turns.length)}
+            onChange={event => save(conversations.map(item => item.id === activeId
+              ? { ...item, mode: event.target.value as "simulation" | "erp" } : item))}
+            aria-describedby={showModeHint ? "page-sim-mode-hint" : undefined}
+            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">
+            <option value="simulation">Mô phỏng · không lưu</option>
+            <option value="erp">Chạy thật · lưu khách và đơn vào ERP</option>
+          </select>
+          {showModeHint && (
+            <p id="page-sim-mode-hint" className="max-w-3xl text-pretty text-xs text-on-surface-variant">
+              {active?.turns.length
+                ? "Chế độ đã khóa cho cuộc trò chuyện này. Tạo cuộc trò chuyện mới để đổi chế độ."
+                : "Dùng Page và flow đang lưu. Đơn chỉ được tạo sau khi khách xác nhận; đơn ở trạng thái nháp, chưa thanh toán. Không gửi tin hoặc QR ra Facebook."}
+            </p>
+          )}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button type="button" onClick={createConversation} className={cn(button, "shrink-0")}>
+              <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
+            </button>
+            <details className="group relative z-20 shrink-0">
+              <summary aria-label="Cài đặt chat" title="Cài đặt chat" className="flex size-10 cursor-pointer list-none items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+                <Settings2 className="size-4" aria-hidden="true" />
+                <ChevronDown className="size-4" aria-hidden="true" />
+              </summary>
+              <div className="absolute right-0 top-full mt-2 grid w-[calc(100vw-2rem)] max-w-2xl gap-4 rounded-xl border border-outline-variant bg-surface p-4 shadow-md sm:grid-cols-2">
+                <label className="block space-y-1 text-sm">
+                  <span>Tên Page hiển thị</span>
+                  <input value={active?.pageName || ""}
+                    onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, pageName: event.target.value } : item))}
+                    className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
+                </label>
+                <label className="block space-y-1 text-sm">
+                  <span>Mã Facebook Page</span>
+                  <input value={active?.pageId || ""} disabled={Boolean(active?.turns.length)}
+                    onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, pageId: event.target.value } : item))}
+                    placeholder="PAGE_BAKERY_DEMO" aria-describedby="page-sim-page-id-hint"
+                    className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60" />
+                  <span id="page-sim-page-id-hint" className="text-xs text-on-surface-variant">Dùng mã Page để lấy đúng flow và tài liệu đã lưu. Tạo cuộc trò chuyện mới để đổi Page.</span>
+                </label>
+                <label className="block space-y-1 text-sm">
+                  <span>Tài liệu bổ sung (.md hoặc .txt)</span>
+                  <input type="file" accept=".md,.txt,text/markdown,text/plain" disabled={active?.mode === "erp"} onChange={event => void loadFile(event.target.files?.[0])}
+                    className="block w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-2 text-xs text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60" />
+                  <span className="block text-xs text-on-surface-variant">{active?.mode === "erp" ? "Chạy thật chỉ dùng tài liệu đã lưu trong Kho tri thức." : documentName ? "Đang dùng: " + documentName : "Để trống để dùng tài liệu trong Kho tri thức."}</span>
+                </label>
+                <label className="block space-y-1 text-sm sm:col-span-2">
+                  <span>Quy tắc của Page</span>
+                  <textarea value={active?.rule || ""} maxLength={5000} rows={3} disabled={active?.mode === "erp"}
+                    onChange={event => save(conversations.map(item => item.id === activeId ? { ...item, rule: event.target.value } : item))}
+                    placeholder="Ví dụ: Hỏi loại bánh, kích cỡ, ngày nhận; xin đặt cọc nếu khách mới."
+                    className="block w-full resize-y rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60" />
+                  <span className="text-xs text-on-surface-variant">{active?.mode === "erp" ? "Chạy thật dùng flow Page đã lưu." : "AI dùng quy tắc này khi mô phỏng phản hồi."}</span>
+                </label>
+              </div>
+            </details>
+          </div>
+        </>,
+        toolbarContainer,
+      )}
       <div className="grid grid-cols-1 md:h-[min(68vh,48rem)] md:min-h-[32rem] md:grid-cols-[16rem_minmax(0,1fr)]">
         <aside aria-label="Lịch sử chat Page" className="min-w-0 border-b border-outline-variant bg-surface p-3 md:flex md:min-h-0 md:flex-col md:border-b-0 md:border-r">
           <div className="mb-2 flex items-center justify-between gap-2 px-1">
