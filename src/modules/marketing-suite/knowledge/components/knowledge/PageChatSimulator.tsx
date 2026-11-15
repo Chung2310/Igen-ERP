@@ -42,13 +42,20 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || "[]") as Conversation[];
-      if (Array.isArray(saved) && saved.length) {
-        setConversations(saved); setActiveId(saved[0].id); return;
+      if (Array.isArray(saved)) {
+        const withMessages = saved.filter(item => Array.isArray(item.turns) && item.turns.length > 0);
+        if (withMessages.length !== saved.length) localStorage.setItem(storageKey, JSON.stringify(withMessages));
+        if (withMessages.length) {
+          setConversations(withMessages);
+          setActiveId(withMessages[0].id);
+          return;
+        }
       }
     } catch { /* Invalid old browser data starts a fresh simulation. */ }
     const first = makeConversation(); setConversations([first]); setActiveId(first.id);
   }, [storageKey]);
   const active = conversations.find(item => item.id === activeId);
+  const recentConversations = conversations.filter(item => item.turns.length > 0);
 
   useEffect(() => {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
@@ -56,12 +63,13 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
   function save(next: Conversation[]) {
     const ordered = [...next].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     setConversations(ordered);
-    localStorage.setItem(storageKey, JSON.stringify(ordered));
+    localStorage.setItem(storageKey, JSON.stringify(ordered.filter(item => item.turns.length > 0)));
   }
   function createConversation() {
     const next = makeConversation(active?.pageName, active?.pageId);
     next.rule = active?.rule;
-    save([next, ...conversations]); setActiveId(next.id); setDraft(""); setError("");
+    save([next, ...conversations.filter(item => item.turns.length > 0)]);
+    setActiveId(next.id); setDraft(""); setError("");
   }
   async function loadFile(file?: File) {
     if (!file) return;
@@ -82,7 +90,7 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
       const reply = await replyToCustomer(message, history, documentText, active.rule || "", active.pageId, mode, id, turnId);
       setConversations(current => {
         const next = current.map(item => item.id === id ? { ...item, turns: [...item.turns, { role: "bot" as const, ...reply }], updatedAt: Date.now() } : item).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        localStorage.setItem(storageKey, JSON.stringify(next)); return next;
+        localStorage.setItem(storageKey, JSON.stringify(next.filter(item => item.turns.length > 0))); return next;
       });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể mô phỏng câu trả lời."); }
     finally { setBusy(false); }
@@ -154,28 +162,26 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
         toolbarContainer,
       )}
       <div className="grid grid-cols-1 md:h-[min(68vh,48rem)] md:min-h-[32rem] md:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside aria-label="Lịch sử chat Page" className="min-w-0 border-b border-outline-variant bg-surface p-3 md:flex md:min-h-0 md:flex-col md:border-b-0 md:border-r">
+        <aside aria-label="Lịch sử chat Page" className="min-w-0 border-b border-outline-variant bg-surface-container-lowest p-3 md:flex md:min-h-0 md:flex-col md:border-b-0 md:border-r">
           <div className="mb-2 flex items-center justify-between gap-2 px-1">
             <h3 className="text-sm font-semibold">Lịch sử chat</h3>
-            <span className="tabular-nums text-xs text-on-surface-variant">{conversations.length} phiên</span>
+            <span className="tabular-nums text-xs text-on-surface-variant">{recentConversations.length} phiên</span>
           </div>
-          <ul className="flex min-w-0 gap-2 overflow-x-auto pb-1 md:min-h-0 md:flex-1 md:flex-col md:overflow-x-hidden md:overflow-y-auto">
-            {conversations.map(item => {
+          <ul className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 md:min-h-0 md:flex-1 md:flex-col md:overflow-x-hidden md:overflow-y-auto">
+            {recentConversations.map(item => {
               const lastTurn = item.turns[item.turns.length - 1];
               return (
                 <li key={item.id} className="min-w-48 md:min-w-0">
                   <button type="button" aria-current={item.id === activeId ? "true" : undefined}
-                    onClick={() => { setActiveId(item.id); setError(""); setDraft(""); }}
-                    className={cn("w-full rounded-xl border p-3 text-left focus-visible:outline-2 focus-visible:outline-primary",
-                      item.id === activeId ? "border-primary bg-surface-container-lowest text-primary" : "border-transparent text-on-surface hover:border-outline-variant hover:bg-surface-container-lowest")}>
-                    <span className="block truncate text-sm font-medium">{item.title || "Cuộc trò chuyện"}</span>
-                    <span className="mt-1 block truncate text-xs text-on-surface-variant">{lastTurn?.text && lastTurn.text !== item.title ? lastTurn.text : "Chưa có tin nhắn"}</span>
-                    <span className="mt-2 block text-xs text-on-surface-variant">{item.turns.length} tin nhắn</span>
+                    onClick={() => { setConversations(current => current.filter(conversation => conversation.turns.length > 0)); setActiveId(item.id); setError(""); setDraft(""); }}
+                    className={cn("w-full rounded-lg px-3 py-2 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary",
+                      item.id === activeId ? "bg-surface-container-low text-on-surface" : "text-on-surface hover:bg-surface-container-low")}>
+                    <span className="block truncate">{lastTurn?.text || ""}</span>
                   </button>
                 </li>
               );
             })}
-            {!conversations.length && <li className="p-3 text-sm text-on-surface-variant">Chưa có lịch sử. Tạo cuộc trò chuyện mới để bắt đầu.</li>}
+            {!recentConversations.length && <li className="px-2 py-2 text-sm text-on-surface-variant">Chưa có lịch sử chat.</li>}
           </ul>
         </aside>
 
