@@ -471,11 +471,11 @@ export default function CompanyKnowledgePage() {
 
   return (
     <div className="marketing-workspace h-full min-w-0 overflow-y-auto bg-surface-container-lowest pb-8">
-      <div className="min-h-full w-full bg-surface-container-lowest p-4 sm:p-5">
+      <div className="min-h-full w-full bg-surface-container-lowest px-4 pb-4 sm:px-5 sm:pb-5">
 
         {/* Sub-Navigation Tabs */}
-        <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest pt-1">
-          <div className="grid w-full max-w-md grid-cols-2" role="group" aria-label="Điều hướng kho tri thức">
+        <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
+          <div className="grid w-full max-w-xl grid-cols-2" role="group" aria-label="Điều hướng kho tri thức">
             <button
               type="button"
               onClick={() => setActiveSection("documents")}
@@ -488,7 +488,10 @@ export default function CompanyKnowledgePage() {
               )}
             >
               <BookOpenCheck className="size-4 shrink-0" aria-hidden="true" />
-              <span className="min-w-0">Tài liệu & Tệp Kho Tri Thức</span>
+              <span className="whitespace-nowrap">
+                <span className="sm:hidden">Kho tài liệu</span>
+                <span className="hidden sm:inline">Tài liệu &amp; Tệp Kho Tri Thức</span>
+              </span>
               <span
                 className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -513,7 +516,7 @@ export default function CompanyKnowledgePage() {
               )}
             >
               <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
-              <span className="min-w-0">Mô phỏng chat Page</span>
+              <span className="whitespace-nowrap">Mô phỏng chat Page</span>
             </button>
           </div>
         </div>
