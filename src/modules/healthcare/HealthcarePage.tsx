@@ -374,9 +374,8 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className="min-w-0 space-y-3" aria-label={pageTitle}>
+      <section className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
         <div className="flex flex-wrap items-center justify-between gap-3" ref={heading} tabIndex={-1}>
-          <h3 id="healthcare-section-title" data-typography="section-title" className="text-balance text-lg font-semibold">{pageTitle}</h3>
           <div className="flex items-center gap-2">
             {tab === "patients" && !patientId && canManage && selectedPatientIds.length > 0 && <>
               <span className="rounded-lg bg-surface-container px-2.5 py-1.5 text-xs font-medium text-on-surface-variant">Đã chọn {selectedPatientIds.length}</span>
@@ -395,6 +394,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           </div>
         </div>
         {hasTable && <TableFilterToolbar
+          appearance="plain"
           search={{ value: search, onChange: value => { setSearch(value.slice(0, 100)); setPage(1); },
             placeholder: searchHints[tab], ariaLabel: searchHints[tab], className: "min-w-0" }}
           dateFilter={tab !== "settings" ? { label: dateLabels[tab], value: datePeriod, onChange: value => { setDatePeriod(value); setPage(1); }, compact: true } : undefined}
