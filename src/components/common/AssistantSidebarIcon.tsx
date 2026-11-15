@@ -1,20 +1,22 @@
 import { useId, type ReactNode } from "react";
 import { AssistantAgentIcon } from "./AssistantAgentIcon";
+import { AiAssistantIcon } from "./HeaderShortcutIcons";
 
 export type AssistantSidebarIconName =
   | "chat" | "studio" | "notebook" | "meeting" | "assistant"
   | "project" | "tools" | "agents" | "history" | "settings";
 
-const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = {
+const artwork: Record<Exclude<AssistantSidebarIconName, "agents" | "assistant">, ReactNode> = {
   chat: <>
     <path d="M6.25 4.75h11.5a2.75 2.75 0 0 1 2.75 2.75v7.75A2.75 2.75 0 0 1 17.75 18H9l-4.75 3v-13.5a2.75 2.75 0 0 1 2-2.65Z" />
     <path d="M8.5 9h7m-7 3.5h5" />
   </>,
   studio: <>
-    <rect x="3.8" y="7.5" width="10.5" height="12.1" rx="1.2" transform="rotate(-8 9.05 13.55)" />
-    <circle cx="7.7" cy="11.2" r=".6" />
-    <path d="m5.55 17.1 2.8-2.8 1.85 1.65 1.4-1.25 1.2 1.05" />
-    <path d="m20.5 2.5.55 1.7 1.7.55-1.7.55-.55 1.7-.55-1.7-1.7-.55 1.7-.55Z" />
+    <path d="M6.4 8.6V7.6a2.2 2.2 0 0 1 2.2-2.2h7.5a2.2 2.2 0 0 1 2.2 2.2v8.7a2.2 2.2 0 0 1-2.2 2.2H14" />
+    <rect x="3.4" y="9.1" width="10.8" height="11.4" rx="2.2" />
+    <circle cx="7.3" cy="12.5" r=".7" />
+    <path d="m5.2 18.1 2.7-2.7 1.9 1.7 1.5-1.3 1.6 1.4" />
+    <path d="m20.8 1.7.45 1.2 1.2.45-1.2.45-.45 1.2-.45-1.2-1.2-.45 1.2-.45Z" />
   </>,
   notebook: <>
     <rect x="5" y="3.75" width="15.25" height="16.5" rx="2.25" />
@@ -23,13 +25,6 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
   meeting: <>
     <rect x="8.5" y="3" width="7" height="12" rx="3.5" />
     <path d="M5.25 11.25a6.75 6.75 0 0 0 13.5 0M12 18v3m-3.25 0h6.5" />
-  </>,
-  assistant: <>
-    <path d="M12 6V4" />
-    <circle cx="12" cy="3" r="1" />
-    <rect x="5" y="7" width="14" height="13" rx="4" />
-    <circle cx="9.5" cy="13" r=".75" />
-    <circle cx="14.5" cy="13" r=".75" />
   </>,
   project: <>
     <path d="M3.75 8a2.5 2.5 0 0 1 2.5-2.5h3.5l2 2h6A2.5 2.5 0 0 1 20.25 10v6.75a2.5 2.5 0 0 1-2.5 2.5H6.25a2.5 2.5 0 0 1-2.5-2.5Z" />
@@ -52,6 +47,7 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents">, ReactNode> = 
 
 export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
   if (name === "agents") return <AssistantAgentIcon />;
+  if (name === "assistant") return <AiAssistantIcon />;
   if (name === "studio") return <AssistantStudioSidebarIcon />;
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
