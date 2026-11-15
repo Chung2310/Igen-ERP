@@ -19,11 +19,11 @@ vi.mock("../../services/assistantService", () => ({ assistantService: {
   promptTemplates: () => Promise.resolve({
     templates: [
       {
-        id: "igen-marketing-plan",
-        title: "Lập kế hoạch nội dung mạng xã hội",
-        description: "Tạo lịch nội dung theo mục tiêu, nhóm khách hàng và kênh truyền thông.",
+        id: "igen-marketing-competitor-analysis",
+        title: "Phân tích 3 đối thủ cạnh tranh",
+        description: "So sánh sản phẩm, điểm mạnh, giá và hoạt động marketing gần đây.",
         category: "Marketing",
-        prompt: "Bạn là chuyên gia marketing. Hãy lập kế hoạch nội dung mạng xã hội trong [thời gian] cho [sản phẩm/dịch vụ], hướng đến [nhóm khách hàng]. Mục tiêu là [mục tiêu]. Trình bày thành bảng gồm ngày đăng, chủ đề, thông điệp, định dạng và lời kêu gọi hành động. Giữ giọng điệu [phong cách] và không tự thêm thông tin chưa được cung cấp.",
+        prompt: "Bạn là chuyên gia phân tích thị trường. Hãy lập báo cáo so sánh ba đối thủ cạnh tranh chính của [sản phẩm/công ty].",
         owner: "igen",
       },
     ],
@@ -331,10 +331,10 @@ describe("ChatbotWidget welcome", () => {
     const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Mở thư viện câu lệnh mẫu" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Dùng mẫu: Lập kế hoạch nội dung mạng xã hội" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Dùng mẫu: Phân tích 3 đối thủ cạnh tranh" }));
 
     const input = container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!;
-    expect(input.value).toContain("Bạn là chuyên gia marketing.");
+    expect(input.value).toContain("Bạn là chuyên gia phân tích thị trường.");
 
     // Verify placeholder chips are displayed
     const placeholderRegion = container.querySelector('[aria-label="Các vị trí cần điền"]');
