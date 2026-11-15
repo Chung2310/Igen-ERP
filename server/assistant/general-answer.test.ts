@@ -37,6 +37,17 @@ import {
 } from "./image-search";
 
 describe("deep research image and link accuracy", () => {
+  it("answers who iGen AI is with Igen Technology branding and its website", async () => {
+    const priorChatCalls = state.openrouterChat.mock.calls.length;
+    const answer = await answerAssistantResearchQuestion({ question: "Bạn là ai?", messages: [] });
+
+    expect(answer.reply).toContain("do Igen Technology (Công ty Cổ phần Công nghệ IGEN) phát triển");
+    expect(answer.reply).toContain("Digital Marketing");
+    expect(answer.reply).toContain("[igentechnology.net](https://igentechnology.net/)");
+    expect(answer.sources).toContainEqual({ title: "Igen Technology", url: "https://igentechnology.net/" });
+    expect(state.openrouterChat).toHaveBeenCalledTimes(priorChatCalls);
+  });
+
   it("sends images attached to a chat question as vision input", async () => {
     state.openrouterChat.mockResolvedValueOnce({ text: "Trong ảnh có một chiếc xe đạp." });
     await answerAssistantGeneralQuestion({

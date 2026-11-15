@@ -43,4 +43,22 @@ retailFinanceRoutes.get("/commission/balances", partnerManage, handle(async (req
 }));
 retailFinanceRoutes.post("/commission/partners/:id/payouts", payoutManage, handle((req) => payPartnerCommission(scope(req), req.params.id, req.body || {}, String(req.user.id))));
 retailFinanceRoutes.get("/commission/me", selfRead, handle(async (req) => { const branch = scope(req); const partner = await RetailPartnerModel.findOne({ companyCode: branch.companyCode, userId: String(req.user.id), roles: "collaborator", status: "active" }).lean(); if (!partner) throw bad("Tài khoản chưa liên kết với cộng tác viên bán lẻ.", 404); const { from, to } = dates(req); return { partner: { code: partner.code, name: partner.name }, ...await partnerStatement(branch.companyCode, String(partner._id), from, to) }; }));
-retailFinanceRoutes.get("/commission/kpi", partnerManage, handle(async (req) => { const branch = scope(req), { from, to } = dates(req); assertCashRange(from, to); const items = await RetailCommissionLedgerModel.aggregate([{ $match: { companyCode: branch.companyCode, branchId: branch.branchId, businessDate: { $gte: from, $lte: to } } }, { $group: { _id: "$partnerId", commission: { $sum: "$amount" }, sources: { $sum: 1 } } }, { $sort: { commission: -1 } }]); return items; }));
+retailFinanceRoutes.get("/commission/kpi", partnerManage, handle(async (req) => {
+  const branch = scope(req), { from, to } = dates(req);
+  assertCashRange(from, to);
+  const items = await RetailCommissionLedgerModel.aggregate([
+    { $match: { companyCode: branch.companyCode, branchId: branch.branchId, businessDate: { $gte: from, $lte: to } } },
+    { $group: { _id: "$partnerId", commission: { $sum: "$amount" }, sources: { $sum: 1 } } },
+    { $sort: { commission: -1 } },
+  ]);
+  const partners = await RetailPartnerModel.find({ companyCode: branch.companyCode, _id: { $in: items.map((item) => item._id) } })
+    .select("_id code name")
+    .lean();
+  const partnerById = new Map(partners.map((partner) => [String(partner._id), partner]));
+  return items.map((item) => ({
+    partnerName: partnerById.get(String(item._id))?.name || "Đối tác đã ngừng hoạt động",
+    partnerCode: partnerById.get(String(item._id))?.code || "",
+    commission: Number(item.commission || 0),
+    sources: Number(item.sources || 0),
+  }));
+}));

@@ -2,6 +2,7 @@ import XLSX from "xlsx";
 import PizZip from "pizzip";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import type { AssistantDocumentContent } from "./document-export";
+import { assistantDocumentCellAlignment, type AssistantDocumentAlignment } from "./document-formatting";
 
 export function workbookSheetNames(document: AssistantDocumentContent) {
   const used = new Set<string>();
@@ -21,7 +22,7 @@ export function workbookSheetNames(document: AssistantDocumentContent) {
 }
 
 /** Apply presentation to our own generated OOXML; no external workbook is edited here. */
-function styleWorkbook(bytes: Buffer): Buffer {
+function styleWorkbook(bytes: Buffer, document: AssistantDocumentContent): Buffer {
   const zip = new PizZip(bytes);
   const namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
   const parse = (text: string) => new DOMParser({ onError: (_level, message) => { throw new Error(message); } }).parseFromString(text, "application/xml");
@@ -37,24 +38,86 @@ function styleWorkbook(bytes: Buffer): Buffer {
   fonts.setAttribute("count", String(fontId + 1));
   const formats = styles.getElementsByTagName("cellXfs")[0];
   const records = Array.from(formats.getElementsByTagName("xf"));
-  for (const record of records) {
+  const applyAlignment = (record: typeof records[number], horizontal?: string, vertical = "top") => {
+    for (const existing of Array.from(record.getElementsByTagName("alignment"))) existing.parentNode!.removeChild(existing);
     const alignment = styles.createElementNS(namespace, "alignment");
     alignment.setAttribute("wrapText", "1");
-    alignment.setAttribute("vertical", "top");
+    alignment.setAttribute("vertical", vertical);
+    if (horizontal) alignment.setAttribute("horizontal", horizontal);
     record.appendChild(alignment);
     record.setAttribute("applyAlignment", "1");
+  };
+  for (const record of records) {
+    applyAlignment(record);
   }
-  const header = records[0].cloneNode(true) as typeof records[number];
-  header.setAttribute("fontId", String(fontId));
-  header.setAttribute("applyFont", "1");
-  const headerStyle = records.length;
-  formats.appendChild(header);
-  formats.setAttribute("count", String(records.length + 1));
+  const appendStyle = (record: typeof records[number]) => {
+    const index = formats.getElementsByTagName("xf").length;
+    formats.appendChild(record);
+    return index;
+  };
+  const alignments: AssistantDocumentAlignment[] = ["left", "center", "right"];
+  const bodyStyles = new Map<AssistantDocumentAlignment, number>();
+  for (const alignment of alignments) {
+    const record = records[0].cloneNode(true) as typeof records[number];
+    applyAlignment(record, alignment);
+    bodyStyles.set(alignment, appendStyle(record));
+  }
+  const headerBase = records[0].cloneNode(true) as typeof records[number];
+  applyAlignment(headerBase, undefined, "center");
+  headerBase.setAttribute("fontId", String(fontId));
+  headerBase.setAttribute("applyFont", "1");
+  const headerBaseStyle = appendStyle(headerBase);
+  const headerStyles = new Map<AssistantDocumentAlignment, number>();
+  for (const alignment of alignments) {
+    const record = headerBase.cloneNode(true) as typeof records[number];
+    applyAlignment(record, alignment, "center");
+    headerStyles.set(alignment, appendStyle(record));
+  }
+  formats.setAttribute("count", String(formats.getElementsByTagName("xf").length));
   zip.file("xl/styles.xml", serialize(styles));
+  const names = workbookSheetNames(document);
+  const namesBySheetIndex = [...(names.notes ? [names.notes] : []), ...names.tables];
+  const noteAlignmentByRow = new Map<number, AssistantDocumentAlignment | null>();
+  document.sections.forEach((section, index) => {
+    if (section.alignment !== undefined) {
+      noteAlignmentByRow.set(2 + index * 2, section.alignment);
+      noteAlignmentByRow.set(3 + index * 2, section.alignment);
+    }
+  });
+  const tablesBySheet = new Map(names.tables.map((name, index) => [name, document.sheets[index]]));
   for (const entry of zip.file(/^xl\/worksheets\/sheet\d+\.xml$/)) {
     const sheet = parse(entry.asText());
-    const firstRow = Array.from(sheet.getElementsByTagName("row")).find(row => row.getAttribute("r") === "1");
-    for (const cell of Array.from(firstRow?.getElementsByTagName("c") || [])) cell.setAttribute("s", String(headerStyle));
+    const sheetIndex = Number(entry.name.match(/sheet(\d+)\.xml$/)?.[1]) - 1;
+    const sheetName = namesBySheetIndex[sheetIndex];
+    const table = tablesBySheet.get(sheetName);
+    for (const row of Array.from(sheet.getElementsByTagName("row"))) {
+      const rowNumber = Number(row.getAttribute("r"));
+      const cells = Array.from(row.getElementsByTagName("c"));
+      if (names.notes === sheetName) {
+        for (const cell of cells) {
+          const address = cell.getAttribute("r");
+          if (address === "A1") {
+            cell.setAttribute("s", String(document.titleAlignment ? headerStyles.get(document.titleAlignment) : headerBaseStyle));
+          } else if (address && noteAlignmentByRow.has(rowNumber)) {
+            const alignment = noteAlignmentByRow.get(rowNumber);
+            if (alignment) cell.setAttribute("s", String(bodyStyles.get(alignment)));
+          }
+        }
+      } else if (table) {
+        for (const cell of cells) {
+          const address = cell.getAttribute("r");
+          if (!address) continue;
+          const column = XLSX.utils.decode_cell(address).c;
+          if (rowNumber === 1) {
+            const alignment = table.headerAlignments?.[column];
+            cell.setAttribute("s", String(alignment ? headerStyles.get(alignment) : headerBaseStyle));
+          } else {
+            const alignment = assistantDocumentCellAlignment(table.columnAlignments, table.cellAlignments, rowNumber - 2, column);
+            if (alignment) cell.setAttribute("s", String(bodyStyles.get(alignment)));
+          }
+        }
+      }
+    }
     let views = sheet.getElementsByTagName("sheetViews")[0];
     if (!views) {
       views = sheet.createElementNS(namespace, "sheetViews");
@@ -87,5 +150,5 @@ export function renderDocumentWorkbook(document: AssistantDocumentContent): Buff
     worksheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: sheet.rows.length, c: sheet.columns.length - 1 } }) };
     XLSX.utils.book_append_sheet(workbook, worksheet, names.tables[index]);
   });
-  return styleWorkbook(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+  return styleWorkbook(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }), document);
 }

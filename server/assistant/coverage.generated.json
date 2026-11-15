@@ -1,18 +1,66 @@
 {
-  "total": 1282,
-  "connectedContracts": 797,
-  "connectedManualRoutes": 109,
-  "connectedRoutes": 906,
-  "reviewPending": 13,
-  "intentionallyUnsupported": 363,
+  "total": 1310,
+  "connectedContracts": 800,
+  "connectedManualRoutes": 110,
+  "connectedRoutes": 910,
+  "reviewPending": 0,
+  "intentionallyUnsupported": 400,
   "unresolved": [],
   "entries": [
+    {
+      "method": "GET",
+      "path": "/omni-inbox/leads",
+      "status": "manual",
+      "file": "server/modules/marketing-suite/shared/data.router.ts",
+      "line": 236,
+      "id": "omni-inbox.leads.list"
+    },
+    {
+      "method": "POST",
+      "path": "/omni-inbox/leads/export-google-sheets",
+      "status": "contract",
+      "id": "omni-inbox.leads.export-google-sheets",
+      "file": "server/modules/marketing-suite/shared/data.router.ts",
+      "line": 272
+    },
+    {
+      "method": "POST",
+      "path": "/omni-inbox/leads",
+      "status": "manual",
+      "file": "server/modules/marketing-suite/shared/data.router.ts",
+      "line": 291,
+      "id": "omni-inbox.leads.create"
+    },
+    {
+      "method": "PATCH",
+      "path": "/omni-inbox/leads/:id",
+      "status": "manual",
+      "file": "server/modules/marketing-suite/shared/data.router.ts",
+      "line": 357,
+      "id": "omni-inbox.leads.update"
+    },
+    {
+      "method": "POST",
+      "path": "/omni-inbox/leads/:id/module-sync",
+      "status": "manual",
+      "file": "server/modules/marketing-suite/shared/data.router.ts",
+      "line": 453,
+      "id": "omni-inbox.leads.link-student"
+    },
+    {
+      "method": "DELETE",
+      "path": "/omni-inbox/leads/:id",
+      "status": "unsupported",
+      "reason": "API xóa khách tiềm năng là xóa cứng; chưa có khôi phục hoặc kiểm tra liên kết nên trợ lý chưa được phép gọi.",
+      "file": "server/modules/marketing-suite/shared/data.router.ts",
+      "line": 476
+    },
     {
       "method": "GET",
       "path": "/omni-inbox/accounts",
       "status": "manual",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 39,
+      "line": 486,
       "id": "omni-inbox.account.list"
     },
     {
@@ -20,7 +68,7 @@
       "path": "/marketing-campaigns/accounts",
       "status": "manual",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 39,
+      "line": 486,
       "id": "marketing.account.list"
     },
     {
@@ -28,7 +76,7 @@
       "path": "/company-knowledge/accounts",
       "status": "manual",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 39,
+      "line": 486,
       "id": "company-knowledge.account.list"
     },
     {
@@ -37,7 +85,7 @@
       "status": "unsupported",
       "reason": "API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 45
+      "line": 492
     },
     {
       "method": "GET",
@@ -45,7 +93,7 @@
       "status": "unsupported",
       "reason": "API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 45
+      "line": 492
     },
     {
       "method": "GET",
@@ -53,7 +101,7 @@
       "status": "unsupported",
       "reason": "API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 45
+      "line": 492
     },
     {
       "method": "PATCH",
@@ -61,7 +109,7 @@
       "status": "contract",
       "id": "omni-inbox.account.ai-config.update",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 51
+      "line": 498
     },
     {
       "method": "PATCH",
@@ -69,7 +117,7 @@
       "status": "unsupported",
       "reason": "Trùng cập nhật feedback với PATCH /gemini/ai-reply-logs/:id/feedback đã có quyền quản lý, nhãn kết quả an toàn và hỗ trợ ghi chú; giữ một workflow.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 64
+      "line": 511
     },
     {
       "method": "POST",
@@ -77,23 +125,15 @@
       "status": "unsupported",
       "reason": "API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 73
+      "line": 520
     },
     {
       "method": "GET",
       "path": "/marketing-contents",
       "status": "manual",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 87,
+      "line": 534,
       "id": "marketing.content.list"
-    },
-    {
-      "method": "GET",
-      "path": "/omni-inbox/leads",
-      "status": "manual",
-      "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 87,
-      "id": "omni-inbox.leads.list"
     },
     {
       "method": "GET",
@@ -101,7 +141,7 @@
       "status": "unsupported",
       "reason": "Danh sách tích hợp trả hồ sơ rộng; chỉ có thao tác tra cứu tài khoản đã duyệt với trường đầu ra giới hạn.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 87
+      "line": 534
     },
     {
       "method": "GET",
@@ -109,15 +149,7 @@
       "status": "contract",
       "id": "marketing.content.detail",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 102
-    },
-    {
-      "method": "GET",
-      "path": "/omni-inbox/leads/:id",
-      "status": "contract",
-      "id": "omni-inbox.leads.detail",
-      "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 102
+      "line": 549
     },
     {
       "method": "GET",
@@ -125,7 +157,7 @@
       "status": "unsupported",
       "reason": "Chi tiết tích hợp có thể chứa thông tin xác thực và cấu hình rộng; chat chỉ dùng danh sách tài khoản đã lọc trường và có quyền đọc tường minh.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 102
+      "line": 549
     },
     {
       "method": "POST",
@@ -133,15 +165,7 @@
       "status": "unsupported",
       "reason": "API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 107
-    },
-    {
-      "method": "POST",
-      "path": "/omni-inbox/leads",
-      "status": "manual",
-      "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 107,
-      "id": "omni-inbox.leads.create"
+      "line": 554
     },
     {
       "method": "POST",
@@ -149,7 +173,7 @@
       "status": "unsupported",
       "reason": "API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 107
+      "line": 554
     },
     {
       "method": "PATCH",
@@ -157,15 +181,7 @@
       "status": "unsupported",
       "reason": "API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 116
-    },
-    {
-      "method": "PATCH",
-      "path": "/omni-inbox/leads/:id",
-      "status": "manual",
-      "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 116,
-      "id": "omni-inbox.leads.update"
+      "line": 563
     },
     {
       "method": "PATCH",
@@ -173,7 +189,7 @@
       "status": "unsupported",
       "reason": "API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 116
+      "line": 563
     },
     {
       "method": "DELETE",
@@ -181,15 +197,7 @@
       "status": "unsupported",
       "reason": "API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 150
-    },
-    {
-      "method": "DELETE",
-      "path": "/omni-inbox/leads/:id",
-      "status": "unsupported",
-      "reason": "API xóa khách tiềm năng là xóa cứng; chưa có khôi phục hoặc kiểm tra liên kết nên trợ lý chưa được phép gọi.",
-      "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 150
+      "line": 597
     },
     {
       "method": "DELETE",
@@ -197,7 +205,7 @@
       "status": "unsupported",
       "reason": "API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng.",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 150
+      "line": 597
     },
     {
       "method": "POST",
@@ -205,7 +213,7 @@
       "status": "contract",
       "id": "marketing.content.draft.create",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 162
+      "line": 609
     },
     {
       "method": "PATCH",
@@ -213,7 +221,7 @@
       "status": "contract",
       "id": "marketing.content.draft.update",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 166
+      "line": 613
     },
     {
       "method": "DELETE",
@@ -221,7 +229,7 @@
       "status": "contract",
       "id": "marketing.content.draft.delete",
       "file": "server/modules/marketing-suite/shared/data.router.ts",
-      "line": 170
+      "line": 617
     },
     {
       "method": "POST",
@@ -242,16 +250,16 @@
     {
       "method": "POST",
       "path": "/zalo/oauth-session",
-      "status": "pending",
-      "reason": "Cần tệp, xác thực hoặc luồng tích hợp riêng",
+      "status": "unsupported",
+      "reason": "Kết nối Zalo cần chuyển người dùng sang trang Zalo, giữ state chống giả mạo và xử lý callback OAuth dùng một lần trong trình duyệt; chat không thể hoàn tất hoặc xác minh an toàn luồng đó.",
       "file": "server/modules/marketing-suite/shared/zalo-oauth.router.ts",
       "line": 43
     },
     {
       "method": "GET",
       "path": "/zalo/oauth-callback",
-      "status": "pending",
-      "reason": "Cần tệp, xác thực hoặc luồng tích hợp riêng",
+      "status": "unsupported",
+      "reason": "Callback OAuth /zalo/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này.",
       "file": "server/modules/marketing-suite/shared/zalo-oauth.router.ts",
       "line": 86
     },
@@ -261,7 +269,7 @@
       "status": "contract",
       "id": "marketing.author.integration-status",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 12
+      "line": 13
     },
     {
       "method": "PATCH",
@@ -269,7 +277,7 @@
       "status": "contract",
       "id": "marketing.auto-reply.config.update",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 24
+      "line": 25
     },
     {
       "method": "GET",
@@ -277,7 +285,7 @@
       "status": "contract",
       "id": "marketing.account.telegram-link.status",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 35
+      "line": 36
     },
     {
       "method": "POST",
@@ -285,7 +293,7 @@
       "status": "contract",
       "id": "marketing.account.telegram-link.create",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 36
+      "line": 37
     },
     {
       "method": "DELETE",
@@ -293,7 +301,47 @@
       "status": "contract",
       "id": "marketing.account.telegram-link.unlink",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 37
+      "line": 38
+    },
+    {
+      "method": "GET",
+      "path": "/marketing-settings/lead-intake-profiles",
+      "status": "contract",
+      "id": "marketing.lead-intake-profile.list",
+      "file": "server/modules/marketing-suite/shared/settings.router.ts",
+      "line": 78
+    },
+    {
+      "method": "POST",
+      "path": "/marketing-settings/lead-intake-profiles/draft",
+      "status": "contract",
+      "id": "marketing.lead-intake-profile.draft.create",
+      "file": "server/modules/marketing-suite/shared/settings.router.ts",
+      "line": 98
+    },
+    {
+      "method": "POST",
+      "path": "/marketing-settings/lead-intake-profiles/:version/activate",
+      "status": "contract",
+      "id": "marketing.lead-intake-profile.activate",
+      "file": "server/modules/marketing-suite/shared/settings.router.ts",
+      "line": 125
+    },
+    {
+      "method": "POST",
+      "path": "/marketing-settings/lead-intake-profiles/archive-active",
+      "status": "contract",
+      "id": "marketing.lead-intake-profile.archive",
+      "file": "server/modules/marketing-suite/shared/settings.router.ts",
+      "line": 147
+    },
+    {
+      "method": "POST",
+      "path": "/marketing-settings/lead-intake-profiles/suggest",
+      "status": "contract",
+      "id": "marketing.lead-intake-profile.suggest",
+      "file": "server/modules/marketing-suite/shared/settings.router.ts",
+      "line": 163
     },
     {
       "method": "GET",
@@ -301,7 +349,7 @@
       "status": "contract",
       "id": "marketing.chat-flow.list",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 40
+      "line": 189
     },
     {
       "method": "POST",
@@ -309,7 +357,7 @@
       "status": "contract",
       "id": "marketing.chat-flow.draft.create",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 51
+      "line": 200
     },
     {
       "method": "POST",
@@ -317,7 +365,7 @@
       "status": "contract",
       "id": "marketing.chat-flow.activate",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 74
+      "line": 219
     },
     {
       "method": "POST",
@@ -325,7 +373,7 @@
       "status": "contract",
       "id": "marketing.chat-flow.suggest",
       "file": "server/modules/marketing-suite/shared/settings.router.ts",
-      "line": 90
+      "line": 238
     },
     {
       "method": "GET",
@@ -1290,8 +1338,8 @@
     {
       "method": "GET",
       "path": "/marketing-campaigns/:id/asset-orders/bulk-import",
-      "status": "contract",
-      "id": "api.get.0c7607380605fe65",
+      "status": "unsupported",
+      "reason": "API này tải xuống tệp mẫu/dữ liệu nhập thay vì trả kết quả có thể đọc trong chat. Hãy tải tệp từ màn hình chiến dịch rồi yêu cầu trợ lý kiểm tra dữ liệu trước khi nhập.",
       "file": "server/modules/marketing-suite/campaign/router/marketing-campaign.router.ts",
       "line": 348
     },
@@ -1602,24 +1650,24 @@
     {
       "method": "GET",
       "path": "/marketing-campaigns/:id/slots/:slotId/share-link",
-      "status": "contract",
-      "id": "api.get.242fe664135ab127",
+      "status": "unsupported",
+      "reason": "Đường dẫn này tạo hoặc trả liên kết chia sẻ có thể mở nội dung chiến dịch cho người ngoài công ty. Chat chưa có bước xác nhận người nhận và thời hạn chia sẻ; hãy tạo liên kết trên màn hình chiến dịch.",
       "file": "server/modules/marketing-suite/campaign/router/marketing-campaign.router.ts",
       "line": 488
     },
     {
       "method": "GET",
       "path": "/marketing-campaigns/:id/dates/:date/share-link",
-      "status": "contract",
-      "id": "api.get.ab829bab8234aba4",
+      "status": "unsupported",
+      "reason": "Đường dẫn này tạo hoặc trả liên kết chia sẻ có thể mở lịch nội dung cho người ngoài công ty. Chat chưa có bước xác nhận người nhận và thời hạn chia sẻ; hãy tạo liên kết trên màn hình chiến dịch.",
       "file": "server/modules/marketing-suite/campaign/router/marketing-campaign.router.ts",
       "line": 489
     },
     {
       "method": "GET",
       "path": "/marketing-campaigns/:id/monthly/:startDate/:endDate/share-link",
-      "status": "contract",
-      "id": "api.get.80c58746871003c4",
+      "status": "unsupported",
+      "reason": "Đường dẫn này tạo hoặc trả liên kết chia sẻ có thể mở lịch nội dung cho người ngoài công ty. Chat chưa có bước xác nhận người nhận và thời hạn chia sẻ; hãy tạo liên kết trên màn hình chiến dịch.",
       "file": "server/modules/marketing-suite/campaign/router/marketing-campaign.router.ts",
       "line": 490
     },
@@ -2011,7 +2059,7 @@
       "method": "POST",
       "path": "/video-caption-projects/resolve-drive-folder",
       "status": "contract",
-      "id": "api.post.70540212609750b1",
+      "id": "marketing.video-caption.drive-videos.list",
       "file": "server/modules/marketing-suite/shared/router/video-caption.router.ts",
       "line": 239
     },
@@ -2203,15 +2251,15 @@
       "method": "POST",
       "path": "/order-sheets/integrations/:integrationId/leads/test",
       "status": "contract",
-      "id": "api.post.a65b7929820f9bba",
+      "id": "omni-inbox.lead-sheet.test",
       "file": "server/modules/marketing-suite/message/router/lead-sheet.router.ts",
       "line": 61
     },
     {
       "method": "POST",
       "path": "/order-sheets/integrations/:integrationId/leads/retry",
-      "status": "pending",
-      "reason": "Cần hợp đồng dữ liệu ghi trước khi kết nối",
+      "status": "contract",
+      "id": "omni-inbox.lead-sheet.retry",
       "file": "server/modules/marketing-suite/message/router/lead-sheet.router.ts",
       "line": 67
     },
@@ -2332,7 +2380,7 @@
       "path": "/quotation/usage",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 554,
+      "line": 557,
       "id": "quotation.usage"
     },
     {
@@ -2340,7 +2388,7 @@
       "path": "/quotation/quote-templates",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 560,
+      "line": 563,
       "id": "quotation.template.list"
     },
     {
@@ -2349,7 +2397,7 @@
       "status": "unsupported",
       "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
-      "line": 576
+      "line": 579
     },
     {
       "method": "POST",
@@ -2357,14 +2405,14 @@
       "status": "unsupported",
       "reason": "Chat Thao tác nhận bảng Excel/CSV đã trích xuất tối đa 100 dòng qua catalog/import; tải mẫu Word/PDF/Excel, tệp gốc hoặc tệp yêu cầu nhị phân tại màn hình Báo giá.",
       "file": "server/modules/quotation/router.ts",
-      "line": 582
+      "line": 585
     },
     {
       "method": "PATCH",
       "path": "/quotation/quote-template/:id/category",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 614,
+      "line": 615,
       "id": "quotation.template.update"
     },
     {
@@ -2580,7 +2628,7 @@
       "path": "/quotation/budget-plans/suggest",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1497,
+      "line": 1502,
       "id": "quotation.budget.create"
     },
     {
@@ -2588,7 +2636,7 @@
       "path": "/quotation/customer-quotes",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1525,
+      "line": 1530,
       "id": "quotation.customer-quote.create"
     },
     {
@@ -2596,7 +2644,7 @@
       "path": "/quotation/quotes/from-customer",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1594,
+      "line": 1599,
       "id": "quotation.estimate.from-customer"
     },
     {
@@ -2604,7 +2652,7 @@
       "path": "/quotation/quotes",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1639,
+      "line": 1645,
       "id": "quotation.estimate.create"
     },
     {
@@ -2612,7 +2660,7 @@
       "path": "/quotation/quotes/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1756,
+      "line": 1762,
       "id": "quotation.quote.detail"
     },
     {
@@ -2620,7 +2668,7 @@
       "path": "/quotation/quotes/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1815,
+      "line": 1821,
       "id": "quotation.quote.delete"
     },
     {
@@ -2629,14 +2677,14 @@
       "status": "unsupported",
       "reason": "API xem trước tệp gốc hoặc HTML dành cho giao diện Báo giá; trợ lý dùng dữ liệu nghiệp vụ đã lọc và tải tệp qua workflow riêng.",
       "file": "server/modules/quotation/router.ts",
-      "line": 1832
+      "line": 1838
     },
     {
       "method": "POST",
       "path": "/quotation/quotes/:id/recalculate",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1856,
+      "line": 1862,
       "id": "quotation.quote.recalculate"
     },
     {
@@ -2644,7 +2692,7 @@
       "path": "/quotation/quotes/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 1891,
+      "line": 1897,
       "id": "quotation.quote.update"
     },
     {
@@ -2652,7 +2700,7 @@
       "path": "/quotation/quotes/:id/submit-review",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2033,
+      "line": 2081,
       "id": "quotation.quote.submit-review"
     },
     {
@@ -2660,7 +2708,7 @@
       "path": "/quotation/quotes/:id/approve",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2048,
+      "line": 2096,
       "id": "quotation.quote.approve"
     },
     {
@@ -2668,7 +2716,7 @@
       "path": "/quotation/quotes/:id/reject",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2076,
+      "line": 2125,
       "id": "quotation.quote.reject"
     },
     {
@@ -2677,7 +2725,7 @@
       "status": "unsupported",
       "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
-      "line": 2133
+      "line": 2182
     },
     {
       "method": "GET",
@@ -2685,7 +2733,7 @@
       "status": "unsupported",
       "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
-      "line": 2154
+      "line": 2203
     },
     {
       "method": "GET",
@@ -2693,7 +2741,7 @@
       "status": "unsupported",
       "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
-      "line": 2160
+      "line": 2209
     },
     {
       "method": "GET",
@@ -2701,14 +2749,14 @@
       "status": "unsupported",
       "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
-      "line": 2166
+      "line": 2215
     },
     {
       "method": "GET",
       "path": "/quotation/contracts",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2174,
+      "line": 2223,
       "id": "quotation.contract.list"
     },
     {
@@ -2717,14 +2765,14 @@
       "status": "unsupported",
       "reason": "API phụ của giao diện được thay bằng workflow đã duyệt: tổng quan, danh sách mẫu theo loại, hồ sơ bên bán và tải tệp; không gọi API này trực tiếp từ chat.",
       "file": "server/modules/quotation/router.ts",
-      "line": 2182
+      "line": 2231
     },
     {
       "method": "POST",
       "path": "/quotation/contracts",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2194,
+      "line": 2243,
       "id": "quotation.contract.create"
     },
     {
@@ -2732,7 +2780,7 @@
       "path": "/quotation/contracts/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2283,
+      "line": 2337,
       "id": "quotation.contract.detail"
     },
     {
@@ -2740,7 +2788,7 @@
       "path": "/quotation/contracts/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2342,
+      "line": 2391,
       "id": "quotation.contract.update"
     },
     {
@@ -2748,7 +2796,7 @@
       "path": "/quotation/contracts/:id/sign",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2372,
+      "line": 2422,
       "id": "quotation.contract.sign"
     },
     {
@@ -2756,7 +2804,7 @@
       "path": "/quotation/acceptance-records",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2397,
+      "line": 2447,
       "id": "quotation.acceptance.list"
     },
     {
@@ -2764,7 +2812,7 @@
       "path": "/quotation/acceptance-records",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2405,
+      "line": 2455,
       "id": "quotation.acceptance.create"
     },
     {
@@ -2772,23 +2820,15 @@
       "path": "/quotation/acceptance-records/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2479,
+      "line": 2541,
       "id": "quotation.acceptance.detail"
-    },
-    {
-      "method": "GET",
-      "path": "/quotation/acceptance-records/:id/settlement.xlsx",
-      "status": "manual",
-      "file": "server/modules/quotation/router.ts",
-      "line": 2574,
-      "id": "quotation.acceptance.settlement"
     },
     {
       "method": "PATCH",
       "path": "/quotation/acceptance-records/:id",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2641,
+      "line": 2710,
       "id": "quotation.acceptance.update"
     },
     {
@@ -2796,7 +2836,7 @@
       "path": "/quotation/acceptance-records/:id/complete",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2680,
+      "line": 2749,
       "id": "quotation.acceptance.complete"
     },
     {
@@ -2804,7 +2844,7 @@
       "path": "/quotation/quotes/:id/export/retry",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2705,
+      "line": 2774,
       "id": "quotation.quote.export-retry"
     },
     {
@@ -2812,7 +2852,7 @@
       "path": "/quotation/quotes/:id/export",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2725,
+      "line": 2794,
       "id": "quotation.quote.export"
     },
     {
@@ -2820,7 +2860,7 @@
       "path": "/quotation/quotes/:id/pdf",
       "status": "manual",
       "file": "server/modules/quotation/router.ts",
-      "line": 2861,
+      "line": 2927,
       "id": "quotation.quote.pdf"
     },
     {
@@ -2836,7 +2876,7 @@
       "path": "/healthcare/patients/search",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 68,
+      "line": 70,
       "id": "healthcare.patient.list"
     },
     {
@@ -2844,7 +2884,7 @@
       "path": "/healthcare/patients/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 74,
+      "line": 76,
       "id": "healthcare.patient.detail"
     },
     {
@@ -2852,7 +2892,7 @@
       "path": "/healthcare/patients",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 77,
+      "line": 79,
       "id": "healthcare.patient.create"
     },
     {
@@ -2860,7 +2900,7 @@
       "path": "/healthcare/patients/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 84,
+      "line": 86,
       "id": "healthcare.patient.update"
     },
     {
@@ -2869,14 +2909,14 @@
       "status": "unsupported",
       "reason": "Trợ lý dùng POST /healthcare/visits/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.",
       "file": "server/modules/healthcare/router.ts",
-      "line": 104
+      "line": 106
     },
     {
       "method": "POST",
       "path": "/healthcare/visits/search",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 105,
+      "line": 107,
       "id": "healthcare.visit.list"
     },
     {
@@ -2884,7 +2924,7 @@
       "path": "/healthcare/visits/:id/report",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 106,
+      "line": 108,
       "id": "healthcare.visit.report"
     },
     {
@@ -2892,7 +2932,7 @@
       "path": "/healthcare/visits",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 111,
+      "line": 113,
       "id": "healthcare.visit.create"
     },
     {
@@ -2900,7 +2940,7 @@
       "path": "/healthcare/visits/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 115,
+      "line": 117,
       "id": "healthcare.visit.update"
     },
     {
@@ -2909,14 +2949,14 @@
       "status": "unsupported",
       "reason": "Trợ lý dùng POST /healthcare/appointments/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.",
       "file": "server/modules/healthcare/router.ts",
-      "line": 134
+      "line": 136
     },
     {
       "method": "POST",
       "path": "/healthcare/appointments/search",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 135,
+      "line": 137,
       "id": "healthcare.appointment.list"
     },
     {
@@ -2924,7 +2964,7 @@
       "path": "/healthcare/appointments",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 136,
+      "line": 138,
       "id": "healthcare.appointment.create"
     },
     {
@@ -2932,7 +2972,7 @@
       "path": "/healthcare/appointments/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 140,
+      "line": 142,
       "id": "healthcare.appointment.update"
     },
     {
@@ -2941,14 +2981,14 @@
       "status": "unsupported",
       "reason": "Trợ lý dùng POST /healthcare/care/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.",
       "file": "server/modules/healthcare/router.ts",
-      "line": 154
+      "line": 156
     },
     {
       "method": "POST",
       "path": "/healthcare/care/search",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 155,
+      "line": 157,
       "id": "healthcare.care.list"
     },
     {
@@ -2956,7 +2996,7 @@
       "path": "/healthcare/care",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 156,
+      "line": 158,
       "id": "healthcare.care.create"
     },
     {
@@ -2964,7 +3004,7 @@
       "path": "/healthcare/care/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 160,
+      "line": 162,
       "id": "healthcare.care.update"
     },
     {
@@ -2972,7 +3012,7 @@
       "path": "/healthcare/catalog",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 168,
+      "line": 170,
       "id": "healthcare.catalog.list"
     },
     {
@@ -2980,7 +3020,7 @@
       "path": "/healthcare/catalog",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 171,
+      "line": 173,
       "id": "healthcare.catalog.create"
     },
     {
@@ -2988,7 +3028,7 @@
       "path": "/healthcare/catalog/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 174,
+      "line": 176,
       "id": "healthcare.catalog.update"
     },
     {
@@ -2996,7 +3036,7 @@
       "path": "/healthcare/staff",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 182,
+      "line": 184,
       "id": "healthcare.staff.list"
     },
     {
@@ -3004,7 +3044,7 @@
       "path": "/healthcare/patients/bulk-delete-preview",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 231,
+      "line": 233,
       "id": "healthcare.patient.bulk-delete-preview"
     },
     {
@@ -3012,7 +3052,7 @@
       "path": "/healthcare/patients/bulk-delete",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 235,
+      "line": 237,
       "id": "healthcare.patient.bulk-delete"
     },
     {
@@ -3020,7 +3060,7 @@
       "path": "/healthcare/imports",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 248,
+      "line": 250,
       "id": "healthcare.import.list"
     },
     {
@@ -3028,7 +3068,7 @@
       "path": "/healthcare/imports/template/:kind",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 251,
+      "line": 253,
       "id": "healthcare.import.template"
     },
     {
@@ -3036,7 +3076,7 @@
       "path": "/healthcare/imports/preview/:kind",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 257,
+      "line": 259,
       "id": "healthcare.import.preview"
     },
     {
@@ -3044,7 +3084,7 @@
       "path": "/healthcare/imports/:id",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 264,
+      "line": 266,
       "id": "healthcare.import.detail"
     },
     {
@@ -3052,7 +3092,7 @@
       "path": "/healthcare/imports/:id/rows/search",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 267,
+      "line": 269,
       "id": "healthcare.import.rows"
     },
     {
@@ -3060,7 +3100,7 @@
       "path": "/healthcare/imports/:id/commit",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 270,
+      "line": 272,
       "id": "healthcare.import.commit"
     },
     {
@@ -3068,7 +3108,7 @@
       "path": "/healthcare/imports/:id/retry",
       "status": "manual",
       "file": "server/modules/healthcare/router.ts",
-      "line": 274,
+      "line": 276,
       "id": "healthcare.import.retry"
     },
     {
@@ -4176,12 +4216,20 @@
       "line": 211
     },
     {
+      "method": "DELETE",
+      "path": "/timekeeping/work-calendar/:id",
+      "status": "contract",
+      "id": "api.delete.5725128cf1fe0911",
+      "file": "server/router/timekeeping.router.ts",
+      "line": 212
+    },
+    {
       "method": "GET",
       "path": "/timekeeping/work-calendar/:id/audit",
       "status": "contract",
       "id": "timekeeping.work-calendar.audit",
       "file": "server/router/timekeeping.router.ts",
-      "line": 212
+      "line": 213
     },
     {
       "method": "GET",
@@ -5658,10 +5706,10 @@
     {
       "method": "GET",
       "path": "/chatbot/assistant/conversations/:id/files/:fileId",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 29
+      "line": 36
     },
     {
       "method": "GET",
@@ -5669,47 +5717,175 @@
       "status": "contract",
       "id": "account.assistant-settings.read",
       "file": "server/assistant/router.ts",
-      "line": 43
+      "line": 50
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/projects",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 62
+    },
+    {
+      "method": "PUT",
+      "path": "/chatbot/assistant/projects",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 63
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/prompt-templates",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 64
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/prompt-templates",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 68
+    },
+    {
+      "method": "PATCH",
+      "path": "/chatbot/assistant/prompt-templates/:templateId/favorite",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 72
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/studio/slides",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 84
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/studio/slides/:deckId",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 88
+    },
+    {
+      "method": "PATCH",
+      "path": "/chatbot/assistant/studio/slides/:deckId",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 92
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/slides",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 96
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/mindmaps",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 100
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/speech/document",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 104
     },
     {
       "method": "POST",
       "path": "/chatbot/assistant/studio/transcriptions",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 45
+      "line": 108
     },
     {
       "method": "GET",
       "path": "/chatbot/assistant/studio/transcriptions",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 50
+      "line": 113
     },
     {
       "method": "POST",
       "path": "/chatbot/assistant/studio/images/optimize-prompt",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 54
+      "line": 117
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/studio/charts",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 118
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/charts",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 122
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/studio/charts/:chartId",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 127
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/charts/:chartId/edit",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 131
+    },
+    {
+      "method": "DELETE",
+      "path": "/chatbot/assistant/studio/charts/:chartId",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
+      "file": "server/assistant/router.ts",
+      "line": 135
     },
     {
       "method": "POST",
       "path": "/chatbot/assistant/studio/images/edit",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 55
+      "line": 139
     },
     {
       "method": "POST",
       "path": "/chatbot/assistant/studio/images",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 64
+      "line": 148
     },
     {
       "method": "PATCH",
@@ -5717,7 +5893,7 @@
       "status": "contract",
       "id": "account.assistant-settings.update",
       "file": "server/assistant/router.ts",
-      "line": 70
+      "line": 154
     },
     {
       "method": "GET",
@@ -5725,7 +5901,7 @@
       "status": "unsupported",
       "reason": "Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện.",
       "file": "server/assistant/router.ts",
-      "line": 71
+      "line": 155
     },
     {
       "method": "POST",
@@ -5733,7 +5909,7 @@
       "status": "unsupported",
       "reason": "Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat.",
       "file": "server/assistant/router.ts",
-      "line": 72
+      "line": 156
     },
     {
       "method": "PATCH",
@@ -5741,7 +5917,7 @@
       "status": "unsupported",
       "reason": "Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 73
+      "line": 157
     },
     {
       "method": "DELETE",
@@ -5749,7 +5925,7 @@
       "status": "unsupported",
       "reason": "Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 74
+      "line": 158
     },
     {
       "method": "GET",
@@ -5757,7 +5933,7 @@
       "status": "unsupported",
       "reason": "API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty.",
       "file": "server/assistant/router.ts",
-      "line": 75
+      "line": 159
     },
     {
       "method": "POST",
@@ -5765,7 +5941,7 @@
       "status": "unsupported",
       "reason": "API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 76
+      "line": 160
     },
     {
       "method": "PATCH",
@@ -5773,7 +5949,7 @@
       "status": "unsupported",
       "reason": "API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat.",
       "file": "server/assistant/router.ts",
-      "line": 77
+      "line": 161
     },
     {
       "method": "POST",
@@ -5781,7 +5957,7 @@
       "status": "unsupported",
       "reason": "API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 78
+      "line": 162
     },
     {
       "method": "GET",
@@ -5789,39 +5965,39 @@
       "status": "unsupported",
       "reason": "API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 79
+      "line": 163
     },
     {
       "method": "GET",
       "path": "/chatbot/assistant/conversations/:conversationId/memory",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 80
+      "line": 164
     },
     {
       "method": "PATCH",
       "path": "/chatbot/assistant/conversations/:conversationId/memory",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 81
+      "line": 165
     },
     {
       "method": "DELETE",
       "path": "/chatbot/assistant/conversations/:conversationId/memory",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 82
+      "line": 166
     },
     {
       "method": "DELETE",
       "path": "/chatbot/assistant/conversations/:conversationId",
-      "status": "pending",
-      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "status": "unsupported",
+      "reason": "Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp.",
       "file": "server/assistant/router.ts",
-      "line": 83
+      "line": 167
     },
     {
       "method": "GET",
@@ -5829,7 +6005,7 @@
       "status": "unsupported",
       "reason": "API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 84
+      "line": 168
     },
     {
       "method": "POST",
@@ -5837,7 +6013,7 @@
       "status": "unsupported",
       "reason": "API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 107
+      "line": 230
     },
     {
       "method": "POST",
@@ -5845,7 +6021,7 @@
       "status": "unsupported",
       "reason": "Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện.",
       "file": "server/assistant/router.ts",
-      "line": 108
+      "line": 231
     },
     {
       "method": "POST",
@@ -5955,7 +6131,7 @@
       "method": "POST",
       "path": "/students",
       "status": "contract",
-      "id": "api.post.50451f59351fda12",
+      "id": "student.create",
       "file": "server/modules/student-management/routes/student.routes.ts",
       "line": 27
     },
@@ -6019,7 +6195,7 @@
       "method": "PATCH",
       "path": "/students/:id",
       "status": "contract",
-      "id": "api.patch.92a8172c1d237183",
+      "id": "student.update",
       "file": "server/modules/student-management/routes/student.routes.ts",
       "line": 35
     },
@@ -6171,7 +6347,7 @@
       "method": "POST",
       "path": "/payments",
       "status": "contract",
-      "id": "api.post.94c64d06d306bd9e",
+      "id": "student.payment.create",
       "file": "server/modules/student-management/routes/payment.routes.ts",
       "line": 15
     },
@@ -6179,23 +6355,31 @@
       "method": "GET",
       "path": "/payments",
       "status": "contract",
-      "id": "api.get.6e0cb15f5293f5f2",
+      "id": "student.payment.list",
       "file": "server/modules/student-management/routes/payment.routes.ts",
       "line": 16
+    },
+    {
+      "method": "PATCH",
+      "path": "/payments/:id",
+      "status": "contract",
+      "id": "student.payment.update",
+      "file": "server/modules/student-management/routes/payment.routes.ts",
+      "line": 17
     },
     {
       "method": "DELETE",
       "path": "/payments/:id",
       "status": "contract",
-      "id": "api.delete.3e759e84ccb3f8b2",
+      "id": "student.payment.delete",
       "file": "server/modules/student-management/routes/payment.routes.ts",
-      "line": 17
+      "line": 18
     },
     {
       "method": "POST",
       "path": "/student-notifications",
       "status": "contract",
-      "id": "api.post.6316c2a554a4fefb",
+      "id": "student.notification.create",
       "file": "server/modules/student-management/routes/notification.routes.ts",
       "line": 15
     },
@@ -6203,17 +6387,25 @@
       "method": "GET",
       "path": "/student-notifications",
       "status": "contract",
-      "id": "api.get.808750c8fc1ae41b",
+      "id": "student.notification.list",
       "file": "server/modules/student-management/routes/notification.routes.ts",
       "line": 16
+    },
+    {
+      "method": "PATCH",
+      "path": "/student-notifications/:id",
+      "status": "contract",
+      "id": "student.notification.update",
+      "file": "server/modules/student-management/routes/notification.routes.ts",
+      "line": 17
     },
     {
       "method": "DELETE",
       "path": "/student-notifications/:id",
       "status": "contract",
-      "id": "api.delete.02beacb1c2938156",
+      "id": "student.notification.delete",
       "file": "server/modules/student-management/routes/notification.routes.ts",
-      "line": 17
+      "line": 18
     },
     {
       "method": "POST",
@@ -6235,7 +6427,7 @@
       "method": "GET",
       "path": "/courses/categories",
       "status": "contract",
-      "id": "api.get.0a27b08f9b9078a8",
+      "id": "course.category.list",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 17
     },
@@ -6243,7 +6435,7 @@
       "method": "POST",
       "path": "/courses/categories",
       "status": "contract",
-      "id": "api.post.9989ed77b3c4e00b",
+      "id": "course.category.create",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 18
     },
@@ -6251,7 +6443,7 @@
       "method": "DELETE",
       "path": "/courses/categories/:id",
       "status": "contract",
-      "id": "api.delete.ab649a247e302a90",
+      "id": "course.category.delete",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 19
     },
@@ -6259,7 +6451,7 @@
       "method": "POST",
       "path": "/courses",
       "status": "contract",
-      "id": "api.post.487b2c367fa1a8d3",
+      "id": "course.create",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 21
     },
@@ -6267,7 +6459,7 @@
       "method": "GET",
       "path": "/courses",
       "status": "contract",
-      "id": "api.get.a6295f88d7b9446c",
+      "id": "course.list",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 22
     },
@@ -6275,7 +6467,7 @@
       "method": "GET",
       "path": "/courses/:id",
       "status": "contract",
-      "id": "api.get.adec949a8b194e2f",
+      "id": "course.detail",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 23
     },
@@ -6283,7 +6475,7 @@
       "method": "PATCH",
       "path": "/courses/:id",
       "status": "contract",
-      "id": "api.patch.329a055ceaa35682",
+      "id": "course.update",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 24
     },
@@ -6291,7 +6483,7 @@
       "method": "DELETE",
       "path": "/courses/:id",
       "status": "contract",
-      "id": "api.delete.48c71107ef2bf0d6",
+      "id": "course.delete",
       "file": "server/modules/student-management/routes/course.routes.ts",
       "line": 25
     },
@@ -6299,7 +6491,7 @@
       "method": "GET",
       "path": "/student-resources/categories",
       "status": "contract",
-      "id": "api.get.445a9072e33b79c1",
+      "id": "student.resource.category.list",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 17
     },
@@ -6307,7 +6499,7 @@
       "method": "POST",
       "path": "/student-resources/categories",
       "status": "contract",
-      "id": "api.post.5ce7ecf9e8bf36c5",
+      "id": "student.resource.category.create",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 18
     },
@@ -6315,7 +6507,7 @@
       "method": "DELETE",
       "path": "/student-resources/categories/:id",
       "status": "contract",
-      "id": "api.delete.97bb25a3b9f7632c",
+      "id": "student.resource.category.delete",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 19
     },
@@ -6323,7 +6515,7 @@
       "method": "POST",
       "path": "/student-resources",
       "status": "contract",
-      "id": "api.post.1b3f868f80507ac9",
+      "id": "student.resource.create",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 21
     },
@@ -6331,7 +6523,7 @@
       "method": "GET",
       "path": "/student-resources",
       "status": "contract",
-      "id": "api.get.eba0974d04f57a80",
+      "id": "student.resource.list",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 22
     },
@@ -6339,7 +6531,7 @@
       "method": "GET",
       "path": "/student-resources/:id",
       "status": "contract",
-      "id": "api.get.eae404df7fbfd476",
+      "id": "student.resource.detail",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 23
     },
@@ -6347,7 +6539,7 @@
       "method": "PATCH",
       "path": "/student-resources/:id",
       "status": "contract",
-      "id": "api.patch.e418bf539e8a0e84",
+      "id": "student.resource.update",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 24
     },
@@ -6355,7 +6547,7 @@
       "method": "DELETE",
       "path": "/student-resources/:id",
       "status": "contract",
-      "id": "api.delete.f2bae8c4e59b5ce8",
+      "id": "student.resource.delete",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 25
     },
@@ -6363,7 +6555,7 @@
       "method": "POST",
       "path": "/student-resources/:id/bookings",
       "status": "contract",
-      "id": "api.post.019464ab76a64065",
+      "id": "student.resource.booking.create",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 26
     },
@@ -6371,7 +6563,7 @@
       "method": "DELETE",
       "path": "/student-resources/:id/bookings/:bookingId",
       "status": "contract",
-      "id": "api.delete.d58d43ea06ee5d3f",
+      "id": "student.resource.booking.delete",
       "file": "server/modules/student-management/routes/resource.routes.ts",
       "line": 27
     },
@@ -6379,7 +6571,7 @@
       "method": "GET",
       "path": "/batches/settings/progress-colors",
       "status": "contract",
-      "id": "api.get.3cd76d9c8c7cfbc1",
+      "id": "student.batch.progress-colors.list",
       "file": "server/modules/student-management/routes/batch.routes.ts",
       "line": 16
     },
@@ -6387,7 +6579,7 @@
       "method": "PATCH",
       "path": "/batches/settings/progress-colors",
       "status": "contract",
-      "id": "api.patch.dc05e7e42dbe5261",
+      "id": "student.batch.progress-colors.update",
       "file": "server/modules/student-management/routes/batch.routes.ts",
       "line": 17
     },
@@ -6427,7 +6619,7 @@
       "method": "DELETE",
       "path": "/batches/:id",
       "status": "contract",
-      "id": "api.delete.9927718c0ded81ae",
+      "id": "student.batch.delete",
       "file": "server/modules/student-management/routes/batch.routes.ts",
       "line": 22
     },
@@ -6435,7 +6627,7 @@
       "method": "GET",
       "path": "/batches/:id/enrollments",
       "status": "contract",
-      "id": "api.get.bb3ea14d1ec411a5",
+      "id": "student.batch.enrollments.list",
       "file": "server/modules/student-management/routes/batch.routes.ts",
       "line": 23
     },
@@ -6499,7 +6691,7 @@
       "method": "GET",
       "path": "/schedule",
       "status": "contract",
-      "id": "api.get.741f4a5413869657",
+      "id": "student.schedule.list",
       "file": "server/modules/student-management/routes/schedule.routes.ts",
       "line": 9
     },
@@ -6715,7 +6907,7 @@
       "method": "POST",
       "path": "/assignments",
       "status": "contract",
-      "id": "api.post.4ab22096e956ebdb",
+      "id": "student.assignment.create",
       "file": "server/modules/student-management/routes/assignment.routes.ts",
       "line": 34
     },
@@ -6723,7 +6915,7 @@
       "method": "GET",
       "path": "/assignments",
       "status": "contract",
-      "id": "api.get.31cf733683846409",
+      "id": "student.assignment.list",
       "file": "server/modules/student-management/routes/assignment.routes.ts",
       "line": 35
     },
@@ -6731,7 +6923,7 @@
       "method": "GET",
       "path": "/assignments/:id/submissions",
       "status": "contract",
-      "id": "api.get.bd7ee81f63f25603",
+      "id": "student.assignment.submissions.list",
       "file": "server/modules/student-management/routes/assignment.routes.ts",
       "line": 36
     },
@@ -6747,7 +6939,7 @@
       "method": "POST",
       "path": "/assignments/:id/students/:studentId/grade",
       "status": "contract",
-      "id": "api.post.4eb1572184b43054",
+      "id": "student.assignment.grade",
       "file": "server/modules/student-management/routes/assignment.routes.ts",
       "line": 38
     },
@@ -6755,7 +6947,7 @@
       "method": "GET",
       "path": "/student-quality/settings/thresholds",
       "status": "contract",
-      "id": "api.get.236b2f211e9e4d23",
+      "id": "student.quality.thresholds.list",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 24
     },
@@ -6763,7 +6955,7 @@
       "method": "PATCH",
       "path": "/student-quality/settings/thresholds",
       "status": "contract",
-      "id": "api.patch.2b642e460095077c",
+      "id": "student.quality.thresholds.update",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 25
     },
@@ -6771,7 +6963,7 @@
       "method": "GET",
       "path": "/student-quality",
       "status": "contract",
-      "id": "api.get.511c92ed95ee79b7",
+      "id": "student.quality.list",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 26
     },
@@ -6787,7 +6979,7 @@
       "method": "PATCH",
       "path": "/student-quality/batches/:batchId/students/:studentId",
       "status": "contract",
-      "id": "api.patch.131d2ef9f52f7c0d",
+      "id": "student.quality.assessment.update",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 28
     },
@@ -6795,7 +6987,7 @@
       "method": "POST",
       "path": "/student-quality/batches/:batchId/students/:studentId/mini-tests",
       "status": "contract",
-      "id": "api.post.ce6987e3a2fa94f7",
+      "id": "student.quality.mini-test.create",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 29
     },
@@ -6803,7 +6995,7 @@
       "method": "PATCH",
       "path": "/student-quality/batches/:batchId/students/:studentId/mini-tests/:miniTestId",
       "status": "contract",
-      "id": "api.patch.98588274633ba8ca",
+      "id": "student.quality.mini-test.update",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 30
     },
@@ -6811,7 +7003,7 @@
       "method": "DELETE",
       "path": "/student-quality/batches/:batchId/students/:studentId/mini-tests/:miniTestId",
       "status": "contract",
-      "id": "api.delete.1303a754ec3d514b",
+      "id": "student.quality.mini-test.delete",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 31
     },
@@ -6819,7 +7011,7 @@
       "method": "PATCH",
       "path": "/student-quality/batches/:batchId/students/:studentId/assignments/:assignmentId",
       "status": "contract",
-      "id": "api.patch.8c1832454a62556e",
+      "id": "student.quality.assignment.grade",
       "file": "server/modules/student-management/routes/student-quality.routes.ts",
       "line": 32
     },
@@ -6829,7 +7021,7 @@
       "status": "contract",
       "id": "student.learning-roadmap.list",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 12
+      "line": 13
     },
     {
       "method": "GET",
@@ -6837,7 +7029,7 @@
       "status": "contract",
       "id": "student.learning-roadmap.steps.list",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 13
+      "line": 14
     },
     {
       "method": "POST",
@@ -6845,7 +7037,7 @@
       "status": "contract",
       "id": "student.learning-roadmap.create",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 14
+      "line": 15
     },
     {
       "method": "PATCH",
@@ -6853,47 +7045,55 @@
       "status": "contract",
       "id": "student.learning-roadmap.update",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 15
+      "line": 16
+    },
+    {
+      "method": "DELETE",
+      "path": "/learning-roadmaps/:id",
+      "status": "contract",
+      "id": "student.learning-roadmap.delete",
+      "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
+      "line": 17
     },
     {
       "method": "GET",
       "path": "/learning-roadmaps/batches/:batchId/progression",
       "status": "contract",
-      "id": "api.get.1ada5c9e59e1f455",
+      "id": "student.learning-roadmap.progression.list",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 16
+      "line": 18
     },
     {
       "method": "PATCH",
       "path": "/learning-roadmaps/batches/:batchId/students/:studentId/progression",
       "status": "contract",
-      "id": "api.patch.f973b33bed4b1c10",
-      "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 17
-    },
-    {
-      "method": "POST",
-      "path": "/learning-roadmaps/batches/:batchId/promote",
-      "status": "contract",
-      "id": "api.post.a484725b60ee53a4",
-      "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 18
-    },
-    {
-      "method": "GET",
-      "path": "/learning-roadmaps/waitlist",
-      "status": "contract",
-      "id": "api.get.4cdab0fff8c4d760",
+      "id": "student.learning-roadmap.progression.update",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
       "line": 19
     },
     {
       "method": "POST",
-      "path": "/learning-roadmaps/waitlist/place",
+      "path": "/learning-roadmaps/batches/:batchId/promote",
       "status": "contract",
-      "id": "api.post.c0e39dc15690ae19",
+      "id": "student.learning-roadmap.promote",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
       "line": 20
+    },
+    {
+      "method": "GET",
+      "path": "/learning-roadmaps/waitlist",
+      "status": "contract",
+      "id": "student.learning-roadmap.waitlist.list",
+      "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
+      "line": 21
+    },
+    {
+      "method": "POST",
+      "path": "/learning-roadmaps/waitlist/place",
+      "status": "contract",
+      "id": "student.learning-roadmap.waitlist.place",
+      "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
+      "line": 22
     },
     {
       "method": "POST",
@@ -6993,11 +7193,27 @@
     },
     {
       "method": "GET",
+      "path": "/inventory/catalog/workspace",
+      "status": "contract",
+      "id": "inventory.catalog.workspace.get",
+      "file": "server/modules/inventory/product-catalog/router.ts",
+      "line": 6
+    },
+    {
+      "method": "PATCH",
+      "path": "/inventory/catalog/workspace",
+      "status": "contract",
+      "id": "inventory.catalog.workspace.update",
+      "file": "server/modules/inventory/product-catalog/router.ts",
+      "line": 7
+    },
+    {
+      "method": "GET",
       "path": "/inventory/catalog/prices",
       "status": "contract",
       "id": "api.get.58114a3c960a2c32",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 6
+      "line": 8
     },
     {
       "method": "PUT",
@@ -7005,7 +7221,7 @@
       "status": "contract",
       "id": "api.put.f369bafc104121fe",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 7
+      "line": 9
     },
     {
       "method": "POST",
@@ -7013,7 +7229,7 @@
       "status": "contract",
       "id": "inventory.catalog.defaults.seed",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 9
+      "line": 11
     },
     {
       "method": "GET",
@@ -7021,7 +7237,7 @@
       "status": "contract",
       "id": "api.get.beff81d0ca1f557b",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 10
+      "line": 12
     },
     {
       "method": "POST",
@@ -7029,7 +7245,7 @@
       "status": "contract",
       "id": "api.post.c29d50d7a2ebd989",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 11
+      "line": 13
     },
     {
       "method": "PATCH",
@@ -7037,7 +7253,7 @@
       "status": "contract",
       "id": "api.patch.ad1b26d154f5621c",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 12
+      "line": 14
     },
     {
       "method": "DELETE",
@@ -7045,7 +7261,7 @@
       "status": "contract",
       "id": "api.delete.9301905784a3a33e",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 13
+      "line": 15
     },
     {
       "method": "GET",
@@ -7053,7 +7269,7 @@
       "status": "contract",
       "id": "api.get.c00731a6610ea272",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 14
+      "line": 16
     },
     {
       "method": "POST",
@@ -7061,7 +7277,7 @@
       "status": "contract",
       "id": "api.post.705bdfe1a603a06f",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 15
+      "line": 17
     },
     {
       "method": "PATCH",
@@ -7069,7 +7285,7 @@
       "status": "contract",
       "id": "api.patch.401f92bc17a703e3",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 16
+      "line": 18
     },
     {
       "method": "GET",
@@ -7077,7 +7293,7 @@
       "status": "contract",
       "id": "api.get.73c2a66d537e0fad",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 18
+      "line": 20
     },
     {
       "method": "POST",
@@ -7085,7 +7301,7 @@
       "status": "unsupported",
       "reason": "Luồng trợ lý tạo sản phẩm cần tạo SKU đầu tiên kèm giá bán theo chi nhánh để có thể bán ngay; dùng route tạo sản phẩm và SKU có giá bán.",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 19
+      "line": 21
     },
     {
       "method": "POST",
@@ -7093,7 +7309,7 @@
       "status": "contract",
       "id": "inventory.product.create.sellable",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 20
+      "line": 22
     },
     {
       "method": "POST",
@@ -7101,7 +7317,7 @@
       "status": "contract",
       "id": "api.post.5905a76c5b33f482",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 21
+      "line": 23
     },
     {
       "method": "GET",
@@ -7109,7 +7325,7 @@
       "status": "contract",
       "id": "api.get.7df3c08a8aea7a6d",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 22
+      "line": 24
     },
     {
       "method": "PATCH",
@@ -7117,7 +7333,7 @@
       "status": "contract",
       "id": "api.patch.ec4179bd45d62cbf",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 23
+      "line": 25
     },
     {
       "method": "DELETE",
@@ -7125,7 +7341,7 @@
       "status": "contract",
       "id": "api.delete.cc58d03a74329723",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 24
+      "line": 26
     },
     {
       "method": "POST",
@@ -7133,7 +7349,7 @@
       "status": "contract",
       "id": "api.post.435334a57fb9c949",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 25
+      "line": 27
     },
     {
       "method": "POST",
@@ -7141,7 +7357,7 @@
       "status": "contract",
       "id": "inventory.variant.create.sellable",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 26
+      "line": 28
     },
     {
       "method": "POST",
@@ -7149,7 +7365,7 @@
       "status": "unsupported",
       "reason": "Luồng trợ lý cần tạo SKU kèm tên hiển thị và giá bán theo chi nhánh; dùng route tạo SKU có giá bán để không tạo SKU chưa thể bán.",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 27
+      "line": 29
     },
     {
       "method": "PATCH",
@@ -7157,7 +7373,7 @@
       "status": "contract",
       "id": "api.patch.49a564e9d96cc548",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 28
+      "line": 30
     },
     {
       "method": "DELETE",
@@ -7165,7 +7381,7 @@
       "status": "contract",
       "id": "api.delete.5bce70e422eef763",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 29
+      "line": 31
     },
     {
       "method": "PATCH",
@@ -7173,7 +7389,7 @@
       "status": "contract",
       "id": "api.patch.78eb0c3b82d1f735",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 30
+      "line": 32
     },
     {
       "method": "GET",
@@ -7203,7 +7419,7 @@
       "method": "DELETE",
       "path": "/inventory/receiving/suppliers/:id",
       "status": "contract",
-      "id": "api.delete.365cdcb13bdb0416",
+      "id": "inventory.supplier.delete",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 9
     },
@@ -7706,8 +7922,8 @@
     {
       "method": "GET",
       "path": "/repair/tickets/board",
-      "status": "contract",
-      "id": "api.get.8502b66106a7ab96",
+      "status": "unsupported",
+      "reason": "API trả bảng theo khóa trạng thái nội bộ thay vì danh sách phiếu; trợ lý dùng “tra cứu phiếu sửa chữa” và lọc theo trạng thái để trả danh sách dễ đọc, không đoán sai tên cột trong bảng.",
       "file": "server/modules/repair/router.ts",
       "line": 66
     },
@@ -8082,8 +8298,8 @@
     {
       "method": "GET",
       "path": "/retail/coupons/selectable",
-      "status": "contract",
-      "id": "api.get.b1b5120839b0f1b2",
+      "status": "unsupported",
+      "reason": "API này có vẻ chỉ đọc nhưng tự động phát hành ưu đãi cho khách hàng trong lúc tải danh sách. Trợ lý dùng GET /retail/coupons/assistant-options để tra cứu an toàn, không phát hành mã ngoài ý muốn.",
       "file": "server/modules/retail/routes/retail-coupon.routes.ts",
       "line": 16
     },
@@ -8098,8 +8314,8 @@
     {
       "method": "GET",
       "path": "/retail/coupons/available",
-      "status": "contract",
-      "id": "api.get.d0486caab1d10a7b",
+      "status": "unsupported",
+      "reason": "API này có vẻ chỉ đọc nhưng tự động phát hành ưu đãi cho khách hàng trong lúc tải danh sách. Trợ lý dùng GET /retail/coupons/assistant-options để tra cứu an toàn, không phát hành mã ngoài ý muốn.",
       "file": "server/modules/retail/routes/retail-coupon.routes.ts",
       "line": 33
     },
@@ -8378,8 +8594,8 @@
     {
       "method": "GET",
       "path": "/retail/orders/:id/payment-qr",
-      "status": "contract",
-      "id": "api.get.31df88c6f757c429",
+      "status": "unsupported",
+      "reason": "Mã QR thanh toán chứa thông tin tạo yêu cầu chuyển tiền. Chat chưa có xác nhận người nhận, số tiền và kênh thanh toán trước khi phát mã; hãy mở đơn trên màn hình thu ngân.",
       "file": "server/modules/retail/routes/retail-order.routes.ts",
       "line": 24
     },
@@ -8875,7 +9091,7 @@
       "method": "GET",
       "path": "/retail/points/customers/search",
       "status": "contract",
-      "id": "api.get.55c292fd82288d41",
+      "id": "retail.points.customer.search",
       "file": "server/modules/retail/routes/retail-points.routes.ts",
       "line": 22
     },
@@ -9218,8 +9434,8 @@
     {
       "method": "GET",
       "path": "/finance/reporting/documents/:source/:id",
-      "status": "contract",
-      "id": "api.get.c2c07e04cc07b9b8",
+      "status": "unsupported",
+      "reason": "API này yêu cầu mã bản ghi cơ sở dữ liệu và loại nguồn kỹ thuật, không phải số chứng từ người dùng biết. Hãy tra cứu bằng mã đơn, mã phiếu hoặc tên khách trong danh sách nghiệp vụ tương ứng.",
       "file": "server/modules/finance/routes/financial-reporting.routes.ts",
       "line": 33
     },
@@ -10262,6 +10478,14 @@
       "id": "quotation.acceptance.export",
       "file": "server/modules/quotation/router.ts",
       "line": 2535
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records/:id/settlement.xlsx",
+      "status": "manual",
+      "id": "quotation.acceptance.settlement",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2611
     }
   ]
 }

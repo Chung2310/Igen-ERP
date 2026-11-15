@@ -147,7 +147,7 @@ export async function createStudioSlideDeck(input: {
       billAiCall("text", modelName, () => openrouterChat({
         model: modelName,
         temperature: 0.4,
-        maxRetries: 1,
+        maxRetries: 3,
         jsonMode: true,
         responseSchema: {
           type: "object",

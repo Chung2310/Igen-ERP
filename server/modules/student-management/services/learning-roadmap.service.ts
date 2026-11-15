@@ -50,8 +50,14 @@ function evaluatePolicy(policy: IProgressionPolicy, input: { attendanceRate: num
 }
 
 export class LearningRoadmapService {
-  static async listRoadmaps(ownerId: OwnerScope, branchId?: string) {
-    return LearningRoadmap.find({ ...ownerQuery(ownerId), ...branchQuery(branchId) }).sort({ status: 1, name: 1 }).lean();
+  static async listRoadmaps(ownerId: OwnerScope, branchId?: string, search?: string) {
+    const query: Record<string, unknown> = { ...ownerQuery(ownerId), ...branchQuery(branchId) };
+    const normalizedSearch = search?.trim().slice(0, 120);
+    if (normalizedSearch) {
+      const escapedSearch = normalizedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.$or = ["name", "code", "description"].map(field => ({ [field]: { $regex: escapedSearch, $options: "i" } }));
+    }
+    return LearningRoadmap.find(query).sort({ status: 1, name: 1 }).lean();
   }
 
   static async listRoadmapSteps(ownerId: OwnerScope, roadmapId: string, branchId?: string, courseId?: string) {
@@ -122,6 +128,22 @@ export class LearningRoadmapService {
     return roadmap;
   }
 
+  static async deleteRoadmap(ownerId: OwnerScope, roadmapId: string, branchId?: string) {
+    const scope = { _id: roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) };
+    const roadmap = await LearningRoadmap.findOne(scope);
+    if (!roadmap) return null;
+    const [hasBatch, hasEnrollment, hasDecision, hasWaitlistEntry] = await Promise.all([
+      Batch.exists({ roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) }),
+      BatchEnrollment.exists({ roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) }),
+      StudentProgressionDecision.exists({ roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) }),
+      ClassWaitlistEntry.exists({ roadmapId, ...ownerQuery(ownerId), ...branchQuery(branchId) }),
+    ]);
+    if (hasBatch || hasEnrollment || hasDecision || hasWaitlistEntry) {
+      throw new Error("Không thể xóa lộ trình đã được dùng cho lớp, ghi danh hoặc danh sách chờ. Hãy chuyển lộ trình sang ngừng hoạt động nếu không còn sử dụng.");
+    }
+    return LearningRoadmap.findOneAndDelete(scope);
+  }
+
   static async getBatchProgression(ownerId: OwnerScope, batchId: string, roadmapId: string | undefined, branchId?: string) {
     const batch = await Batch.findOne({ _id: batchId, ...ownerQuery(ownerId), ...branchQuery(branchId) }).lean();
     if (!batch) throw new Error("Không tìm thấy lớp học.");
@@ -170,9 +192,11 @@ export class LearningRoadmapService {
       const effectiveEligible = previous?.overrideEligible ?? evaluated.eligible;
       return {
         studentId, studentName: studentMap.get(studentId)?.fullName || "Học viên không còn tồn tại", studentPhone: studentMap.get(studentId)?.phone || "",
+        sourceStepName: `Chặng ${sourceStep.order}`,
+        targetStepName: targetStep ? `Chặng ${targetStep.order}` : "Chặng cuối",
         enrollmentId: enrollment ? idOf(enrollment._id) : "", enrollmentStatus: enrollment?.status || "", attendanceRate, assignmentRate, miniTestRate, examRate,
         teacherAssessment: qualityMap.get(studentId)?.teacherAssessment || "",
-        eligible: effectiveEligible, eligibilityReasons: evaluated.reasons, intent: previous?.intent || "pending",
+        eligible: effectiveEligible, eligibilityReasons: evaluated.reasons, eligibilityReasonSummary: evaluated.reasons.join("; "), intent: previous?.intent || "pending",
         teacherNote: previous?.teacherNote || "", overrideEligible: previous?.overrideEligible ?? null, overrideReason: previous?.overrideReason || "",
       };
     });
@@ -218,7 +242,7 @@ export class LearningRoadmapService {
 
     const session = await mongoose.startSession();
     try {
-      let result: { sourceBatchId: string; targetBatchId: string; studentIds: string[] } | undefined;
+      let result: { sourceBatchCode: string; targetBatchCode: string; promotedCount: number } | undefined;
       await session.withTransaction(async () => {
         const sourceBatch = await Batch.findOne({ _id: input.sourceBatchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
         if (!sourceBatch) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lớp nguồn.");
@@ -290,7 +314,7 @@ export class LearningRoadmapService {
             { session },
           );
         }
-        result = { sourceBatchId: input.sourceBatchId, targetBatchId: input.targetBatchId, studentIds };
+        result = { sourceBatchCode: sourceBatch.code, targetBatchCode: targetBatch.code, promotedCount: studentIds.length };
       });
       return result!;
     } finally { await session.endSession(); }
@@ -316,7 +340,7 @@ export class LearningRoadmapService {
     if (!entryIds.length) throw new ValidationError("VALIDATION_FAILED", "Hãy chọn ít nhất một học viên.");
     const session = await mongoose.startSession();
     try {
-      let result: { batchId: string; studentIds: string[] } | undefined;
+      let result: { batchCode: string; placedCount: number } | undefined;
       await session.withTransaction(async () => {
         const batch = await Batch.findOne({ _id: batchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
         if (!batch) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lớp đích.");
@@ -346,7 +370,7 @@ export class LearningRoadmapService {
         await ClassWaitlistEntry.updateMany({ _id: { $in: entries.map((entry) => entry._id) } }, { $set: { status: "assigned", assignedAt: now, assignedBatchId: batchId }, $setOnInsert: {} }, { session });
         for (let index = 0; index < entries.length; index += 1) await ClassWaitlistEntry.updateOne({ _id: entries[index]._id }, { $set: { assignedEnrollmentId: idOf(enrollments[index]._id) } }, { session });
         await BatchEnrollment.updateMany({ _id: { $in: entries.map((entry) => entry.sourceEnrollmentId).filter(Boolean) } }, { $set: { status: "Hoàn thành khóa" }, $push: { history: { at: now, action: "promoted_to_next_batch", actorId: actor.uid, note: batch.code } } }, { session });
-        result = { batchId, studentIds };
+        result = { batchCode: batch.code, placedCount: studentIds.length };
       });
       return result!;
     } finally { await session.endSession(); }

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LoaderCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronDown, LoaderCircle, Search } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService, type AssistantConversationSummary } from "../../services/assistantService";
 import {
@@ -14,7 +14,11 @@ import { AssistantMoveToProjectMenu } from "./AssistantMoveToProjectMenu";
 const focusClass =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 30;
+
+function normalizeHistorySearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi").trim();
+}
 
 type UnifiedItem =
   | { type: "conversation"; data: AssistantConversationSummary; date: string }
@@ -24,7 +28,9 @@ export interface AssistantQuickHistoryDropdownProps {
   branchId?: string;
   onOpenConversation: (conversation: AssistantConversationSummary) => void;
   onOpenStudio: (item: AssistantStudioHistoryEntry) => void;
-  onOpenHistory: () => void;
+  onOpenHistory: (search?: string) => void;
+  compactHistory?: boolean;
+  onHistoryScrollDown?: () => void;
   projects: AssistantProject[];
   projectsLocked?: boolean;
   assignedConversationIds: ReadonlySet<string>;
@@ -37,21 +43,27 @@ export function AssistantQuickHistoryDropdown({
   onOpenConversation,
   onOpenStudio,
   onOpenHistory,
+  compactHistory = false,
+  onHistoryScrollDown,
   projects,
   projectsLocked,
   assignedConversationIds,
   onMoveConversation,
   onOpenProjects,
 }: AssistantQuickHistoryDropdownProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [items, setItems] = useState<UnifiedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<UnifiedItem[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const loadedRef = useRef(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (loadedRef.current) return;
     loadedRef.current = true;
     setLoading(true);
@@ -91,7 +103,41 @@ export function AssistantQuickHistoryDropdown({
     } finally {
       setLoading(false);
     }
-  }
+  }, [branchId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const searchTerm = searchQuery.trim();
+  useEffect(() => {
+    setSearchResults(null);
+    setSearchError("");
+    if (searchTerm.length < 2) {
+      setSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setSearching(true);
+    const timeout = window.setTimeout(() => {
+      void assistantService.conversations(undefined, controller.signal, branchId, searchTerm)
+        .then(page => {
+          if (!controller.signal.aborted) setSearchResults(page.items.map(data => ({ type: "conversation" as const, data, date: data.updatedAt })));
+        })
+        .catch(cause => {
+          if (!controller.signal.aborted) setSearchError((cause as Error).message || "Không tìm được lịch sử.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearching(false);
+        });
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [branchId, searchTerm]);
 
   function toggle() {
     if (!open) { setOpen(true); void load(); }
@@ -130,6 +176,17 @@ export function AssistantQuickHistoryDropdown({
     return item.data.title || item.data.label;
   }
 
+  const normalizedSearch = normalizeHistorySearch(searchTerm);
+  const studioMatches = items.filter(item => item.type === "studio" && normalizeHistorySearch(`${getTitle(item)} ${item.data.label}`).includes(normalizedSearch));
+  const matchingItems = searchTerm.length >= 2
+    ? [...(searchResults || []), ...studioMatches]
+    : items.filter(item => !normalizedSearch || normalizeHistorySearch(`${getTitle(item)} ${item.type === "conversation" ? item.data.preview : item.data.label}`).includes(normalizedSearch));
+  const visibleItems = matchingItems
+    .filter(item => item.type !== "conversation" || !assignedConversationIds.has(item.data.conversationId))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, MAX_ITEMS);
+  const searchingAll = searchTerm.length >= 2;
+
   return (
     <>
       <button
@@ -138,7 +195,7 @@ export function AssistantQuickHistoryDropdown({
         aria-label="Xem nhanh lịch sử"
         title="Xem nhanh lịch sử"
         aria-expanded={open}
-        aria-controls={open ? "assistant-quick-history-list" : undefined}
+          aria-controls={open ? "assistant-quick-history-list" : undefined}
         onClick={toggle}
         className={cn(
           "flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface",
@@ -155,45 +212,73 @@ export function AssistantQuickHistoryDropdown({
         <div
           ref={containerRef}
           id="assistant-quick-history-list"
-          role="group"
+          role="region"
           aria-label="Lịch sử gần nhất"
-          className="absolute left-0 z-50 w-full overflow-y-auto bg-surface-container-lowest py-1"
-          style={{ top: "calc(100% + 6px)", maxHeight: "16rem" }}
+          aria-busy={loading || searching}
+          className="absolute left-0 z-50 w-full overflow-hidden bg-surface-container-lowest py-1"
+          style={{ top: "calc(100% + 6px)" }}
         >
-          {loading && (
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-on-surface-variant">
-              <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              Đang tải…
-            </div>
-          )}
-          {error && !loading && (
-            <p className="px-3 py-2 text-xs text-error">{error}</p>
-          )}
-          {!loading && !error && items.filter(item => item.type !== "conversation" || !assignedConversationIds.has(item.data.conversationId)).length === 0 && (
-            <p className="px-3 py-2 text-xs text-on-surface-variant">Chưa có lịch sử nào.</p>
-          )}
-          {!loading && items.length > 0 && (
-            <ul>
-              {items.filter(item => item.type !== "conversation" || !assignedConversationIds.has(item.data.conversationId)).map((item, index) => {
-                const key = item.type === "conversation" ? item.data.conversationId : item.data.id;
-                return (
-                  <li key={`${item.type}-${key}-${index}`} className="flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(item)}
-                      className={cn(
-                        "min-w-0 flex-1 truncate px-3 py-1.5 text-left text-sm text-on-surface hover:bg-surface-container-low hover:text-primary",
-                        focusClass
-                      )}
-                    >
-                      {getTitle(item)}
-                    </button>
-                    {item.type === "conversation" && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} projectsLocked={projectsLocked} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <label className="flex shrink-0 items-center gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2">
+            <Search className="size-3.5 shrink-0 text-on-surface-variant" aria-hidden="true" />
+            <span className="sr-only">Tìm trong lịch sử trò chuyện</span>
+            <input
+              type="search"
+              value={searchQuery}
+              maxLength={120}
+              onChange={event => setSearchQuery(event.currentTarget.value)}
+              placeholder="Tìm lịch sử"
+              className={cn("min-w-0 flex-1 rounded-sm bg-transparent text-sm text-on-surface outline-none placeholder:text-on-surface-variant", focusClass)}
+            />
+          </label>
+          <div
+            onWheel={event => { if (event.deltaY > 0) onHistoryScrollDown?.(); }}
+            className={cn("max-h-40 overflow-y-auto overscroll-contain", compactHistory && "max-h-56")}
+          >
+            {loading && !searchingAll && (
+              <div className="flex items-center gap-2 px-3 py-2 text-xs text-on-surface-variant">
+                <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                Đang tải…
+              </div>
+            )}
+            {error && !loading && (
+              <p className="px-3 py-2 text-xs text-error">{error}</p>
+            )}
+            {searching && <p role="status" className="px-3 py-2 text-xs text-on-surface-variant">Đang tìm lịch sử…</p>}
+            {searchError && !searching && <p role="alert" className="px-3 py-2 text-xs text-error">{searchError}</p>}
+            {searchTerm.length === 1 && <p role="status" className="px-3 py-2 text-xs text-on-surface-variant">Nhập thêm ký tự để tìm toàn bộ lịch sử.</p>}
+            {!loading && !searching && !error && !searchError && searchTerm.length !== 1 && visibleItems.length === 0 && (
+              <p className="px-3 py-2 text-xs text-on-surface-variant">{searchTerm ? "Không tìm thấy lịch sử phù hợp." : "Chưa có lịch sử nào."}</p>
+            )}
+            {!loading && !searching && visibleItems.length > 0 && (
+              <ul>
+                {visibleItems.map((item, index) => {
+                  const key = item.type === "conversation" ? item.data.conversationId : item.data.id;
+                  return (
+                    <li key={`${item.type}-${key}-${index}`} className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => handleSelect(item)}
+                        className={cn(
+                          "min-w-0 flex-1 truncate px-3 py-1.5 text-left text-sm text-on-surface hover:bg-surface-container-low hover:text-primary",
+                          focusClass
+                        )}
+                      >
+                        {getTitle(item)}
+                      </button>
+                      {item.type === "conversation" && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} projectsLocked={projectsLocked} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onOpenHistory(searchTerm); }}
+            className={cn("mt-1 w-full shrink-0 border-t border-outline-variant px-3 py-2 text-left text-xs font-medium text-primary hover:bg-surface-container-low", focusClass)}
+          >
+            Mở toàn bộ lịch sử
+          </button>
         </div>
       )}
     </>

@@ -33,3 +33,12 @@ export const createNotificationSchema = Joi.object({
   }).optional(),
 });
 
+export const updateNotificationSchema = Joi.object({
+  title: Joi.string().optional(),
+  content: Joi.string().optional(),
+  recipients: Joi.string().optional(),
+  recipientCount: Joi.number().min(0).optional(),
+  channels: Joi.array().items(Joi.string()).min(1).max(3).optional(),
+  status: Joi.string().valid("Đã gửi", "Đang gửi", "Thất bại").optional(),
+}).or("title", "content", "recipients", "recipientCount", "channels", "status");
+

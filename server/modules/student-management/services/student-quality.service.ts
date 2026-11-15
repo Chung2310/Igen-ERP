@@ -183,6 +183,18 @@ export class StudentQualityService {
         examResults, examCount: examResults.length,
         warningLevel: getQualityWarningLevel({ attendanceRate, assignmentRate, latestMiniTestRate: miniTestRate, latestExamFailed: isExamFailed(latestExam) }, thresholds),
         updatedAt: quality?.updatedAt || quality?.createdAt || null,
+        attendanceAttended: attendedSessions,
+        attendanceTotal: confirmedSessions.length,
+        attendanceRate,
+        missingAttendanceSessions,
+        assignmentCompleted: completedAssignments,
+        assignmentTotal: assignmentItems.length,
+        assignmentRate,
+        latestMiniTestTitle: latestMiniTest?.title || "",
+        latestMiniTestScore: latestMiniTest?.score ?? null,
+        latestMiniTestMaxScore: latestMiniTest?.maxScore ?? null,
+        latestExamName: latestExam?.name || "",
+        latestExamResult: (latestExam?.result as { overall?: unknown } | undefined)?.overall || latestExam?.status || "",
       };
     });
     return { rows, resolvedOwnerId };

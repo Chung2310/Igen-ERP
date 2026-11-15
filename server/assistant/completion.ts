@@ -54,7 +54,8 @@ export async function completeAssistantOperation(
   const { operation: op, workflow, values, result } = completion;
   if (op.method !== "POST" || op.readOnly || !result || typeof result !== "object" || Array.isArray(result)) return reply;
   const response = result as Record<string, unknown>;
-  const record = response.data ?? response.user ?? response;
+  const record = response.data ?? response.user ?? response.worker ?? response.student
+    ?? response.project ?? response.contract ?? response.notification ?? response;
   if (!record || typeof record !== "object" || Array.isArray(record)) return reply;
   const created = record as Record<string, unknown>;
   if (!["_id", "id", "code", "name", "title", "displayName", "fullName"].some(key => created[key] != null && String(created[key]).trim())) return reply;
