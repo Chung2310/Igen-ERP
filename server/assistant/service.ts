@@ -12,7 +12,7 @@ import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { presentAssistantReply } from "./reply-presentation";
 import { applyAssistantResponseRules } from "./reply-rules";
-import { assistantRequestGuidance } from "./request-guidance";
+import { assistantRequestGuidance, assistantUnsupportedGuidance } from "./request-guidance";
 import { autoSaveAssistantMemories } from "./auto-memory";
 import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
 import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
@@ -1751,8 +1751,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   let completion: AssistantCompletion | undefined;
   let reply: AssistantReply;
   let needsIntentClarification = false;
+  let availableWorkflows: AssistantWorkflow[] = [];
+  let manualGuidanceContext: { text: string; module?: string } | null = null;
   let responseRules = "";
   let autoMemoryEnabled = false;
+  const unsupportedReply = (text: string, module?: string): AssistantReply => {
+    needsIntentClarification = true;
+    const guide = assistantUnsupportedGuidance(text, availableWorkflows, module);
+    return { status: "unsupported", reply: `${guide}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
+  };
   const sessionMemory = typeof session.sessionMemory === "string" ? session.sessionMemory : "";
   const trainingContentSummary = input.trainingContent
     ? `Đã gửi biểu mẫu với ${input.trainingContent.lessons.length} bài giảng và ${input.trainingContent.quizzes.length} câu hỏi trắc nghiệm.`
@@ -2409,7 +2416,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         : followUp ? await prepare(followUp.actionId, followUp.values, false, "Bổ sung thông tin vừa tạo")
         : { status: "collecting", reply: "Được nhé. Bạn gửi giúp mình mục muốn bổ sung và nội dung cụ thể; mình sẽ chuẩn bị bản cập nhật để bạn kiểm tra trước khi lưu." };
     } else {
-      const workflows = (await listWorkflows(req)).filter(w => w.enabled);
+      availableWorkflows = await listWorkflows(req);
+      const workflows = availableWorkflows.filter(w => w.enabled);
       const missingInfoQuestion = isMissingProfileInfoIntent(input.text || "");
       const laborPartnerUpdateRequest = isLaborPartnerProfileUpdateIntent(input.text || "");
       const previousAction = missingInfoQuestion || laborPartnerUpdateRequest ? await latestCompletedAction(req, input.conversationId) : null;
@@ -2426,7 +2434,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         ? `Thêm danh sách từ tệp excel ${input.attachment.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")}`
         : "";
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
-      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory);
+      const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
+      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory, knownModules);
       if (input.attachment && !interpreted.actionId && !interpreted.cancel) {
         const combinedText = `${input.text || ""} ${attachmentIntentHint}`.trim();
         const fallbackActionId = directStudentRecordActionId(combinedText, workflows)
@@ -2440,10 +2449,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           interpreted.newRequest = false;
         }
       }
+      if (interpreted.actionId) {
+        manualGuidanceContext = {
+          text: input.text || effectiveInputText,
+          module: operationById(interpreted.actionId)?.module,
+        };
+      }
       if (interpreted.cancel === true) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
       else if (laborPartnerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.partner.list")) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ đối tác lao động vì chức năng tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operationById("worker.partner.list")?.module);
         } else {
           reply = await laborPartnerMissingInfoReply(req, input.text || "", previousAction);
         }
@@ -2452,7 +2467,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const operation = ASSISTANT_OPERATIONS.find(item => item.method === "PATCH" && item.path === "/worker-management/partners/:partnerId");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!operation || !workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hồ sơ đối tác lao động vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operation?.module);
         } else {
           const pathField = operation.fields.find(field => field.source === "path" && field.apiKey === "partnerId");
           const contextualReference = hasLaborPartnerContext ? laborPartnerReferenceFromAction(previousAction) : "";
@@ -2472,7 +2487,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
       else if (workerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.list")) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ lao động này vì chức năng tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operationById("worker.list")?.module);
         } else {
           reply = await workerMissingInfoReply(req, input.conversationId, input.text || "");
         }
@@ -2481,7 +2496,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const operation = ASSISTANT_OPERATIONS.find(op => op.method === "GET" && op.path === "/partners/:id");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem thông tin đối tác qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operation?.module);
         } else {
           const continuing = pending?.actionId === workflow.actionId && !interpreted.newRequest;
           const provided = { ...(continuing ? pending!.provided : {}), ...interpreted.values };
@@ -2494,7 +2509,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const actionId = "employee.detail";
         const workflow = workflows.find(candidate => candidate.actionId === actionId);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ nhân sự qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operationById(actionId)?.module);
         } else {
           const continuing = pending?.actionId === actionId && !interpreted.newRequest;
           const values = interpreted.actionId === actionId
@@ -2510,7 +2525,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const actionId = "partner.bank-details.update";
         const workflow = workflows.find(candidate => candidate.actionId === actionId);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật thông tin chuyển khoản qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operationById(actionId)?.module);
         } else {
           const continuing = pending?.actionId === actionId && !interpreted.newRequest;
           const contextualReference = contextualPendingPartnerReference(input.text || "", pending);
@@ -2531,14 +2546,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           const provided = { ...(continuing ? pending!.provided : {}), ...interpreted.values };
           reply = await prepare(workflow.actionId, provided, false, continuing ? pending!.intent : input.text || "");
         } else {
-          reply = { status: "unsupported", reply: "Mình chưa thể tạo cấu hình hoa hồng qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operation?.module);
         }
       }
       else if (isPartnerCommissionUpdateIntent(input.text || "", Boolean(pendingPartnerReference(pending)))) {
         const operation = ASSISTANT_OPERATIONS.find(op => op.id === "partner.commission.update");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hoa hồng đối tác qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = unsupportedReply(input.text || "", operation?.module);
         } else {
           const continuing = pending?.actionId === workflow.actionId && !interpreted.newRequest;
           const contextualReference = contextualPendingPartnerReference(input.text || "", pending);
@@ -2552,7 +2567,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }
       }
       else if (!interpreted.actionId) {
-        if (!pending && !input.attachment && interpreted.intentType === "general_question") {
+        if (interpreted.intentType === "unsupported") {
+          reply = unsupportedReply(input.text || "", interpreted.unsupportedModule);
+        } else if (!pending && !input.attachment && interpreted.intentType === "general_question") {
           reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé; tab Thao tác dành cho tra cứu và cập nhật dữ liệu." };
         } else {
           needsIntentClarification = true;
@@ -2570,6 +2587,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const continuing = pending?.actionId === interpreted.actionId && (!interpreted.newRequest || referenceCorrection);
         const previousOperation = pending ? operationById(pending.actionId) : undefined;
         const requestedOperation = operationById(interpreted.actionId);
+        manualGuidanceContext = { text: input.text || "", module: requestedOperation?.module };
         let selectedProductVariant = pending?.selectedProductVariant;
         if (!selectedProductVariant && pending && previousOperation?.path === "/inventory/catalog/variants/:id"
           && requestedOperation?.path === "/inventory/catalog/prices/:variantId") {
@@ -2606,7 +2624,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
   } catch (error) {
     const uncertain = error instanceof UncertainExecutionError || (hasDispatched && !(error instanceof AssistantError));
-    reply = uncertain ? { ...uncertainReply(), link: pending ? operationById(pending.actionId)?.link : undefined } : { status: "failed", reply: friendlyFailure(error) };
+    if (!uncertain && !hasDispatched && error instanceof AssistantError && error.status === 403 && manualGuidanceContext) {
+      reply = unsupportedReply(manualGuidanceContext.text, manualGuidanceContext.module);
+    } else {
+      reply = uncertain ? { ...uncertainReply(), link: pending ? operationById(pending.actionId)?.link : undefined } : { status: "failed", reply: friendlyFailure(error) };
+    }
     // Keep pending work when a turn fails before dispatch so a transient
     // interpretation or validation error does not discard the user's draft.
     if (uncertain || (reply.status === "failed" && hasDispatched)) pending = null;
