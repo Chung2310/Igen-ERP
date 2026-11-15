@@ -130,6 +130,86 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Marketing",
     "prompt": "Bạn là chuyên gia quan hệ công chúng (PR). Hãy soạn thông cáo báo chí chuyên nghiệp, dài khoảng 400 từ, công bố [sự kiện/chủ đề].\n\nThông cáo cần có:\n- Tên công ty và vị trí đặt logo nếu có.\n- Ngày, địa điểm phát hành.\n- Tiêu đề ngắn gọn, nổi bật và thể hiện trọng tâm.\n- Tổng quan sản phẩm/thành tựu: tên, tính năng nổi bật và lợi ích cho khách hàng hoặc thị trường.\n- Bối cảnh ra đời: lý do phát triển và mục tiêu chiến lược của công ty.\n- Chi tiết sự kiện ra mắt: thời gian, địa điểm, hình thức tổ chức và diễn giả/nhân vật tham dự.\n- Trích dẫn của lãnh đạo cấp cao hoặc người phát ngôn về tầm quan trọng của sản phẩm/thành tựu.\n- Thông tin liên hệ dành cho phóng viên và đối tác truyền thông.\n- Kết luận ngắn về định hướng tương lai hoặc cam kết với khách hàng và thị trường.\n\nDùng văn phong trang trọng, khách quan, mạch lạc và súc tích; làm nổi bật thông tin có giá trị với báo chí. Đánh dấu dữ liệu còn thiếu bằng ngoặc vuông. Không tự tạo thông tin liên hệ, ngày giờ, người tham dự hoặc phát ngôn; nếu soạn lời trích dẫn đề xuất, ghi rõ cần người phát ngôn duyệt.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-sales-outreach-plan-30d",
+    "title": "Lập kế hoạch tiếp cận 30 ngày",
+    "description": "Xây dựng mục tiêu, kênh, chuỗi tiếp cận và phương án dự phòng.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là trưởng nhóm Sales. Hãy lập kế hoạch tiếp cận khách hàng chi tiết cho [sản phẩm/dịch vụ], phù hợp với hành vi và nhu cầu của ICP [mô tả ICP].\n\nKế hoạch cần có:\n- Mục tiêu rõ ràng, đo lường được trong 30 ngày.\n- KPI chính để đánh giá hiệu quả.\n- Thông điệp giá trị cốt lõi và điểm khác biệt so với đối thủ.\n- Ba kênh tiếp cận ưu tiên, ví dụ cold call, email hoặc social media, kèm lý do chọn.\n- Tần suất tương tác trên từng kênh để duy trì kết nối mà không gây phiền.\n- Chuỗi tiếp cận năm bước kết hợp các kênh, nêu rõ nội dung và mục đích từng bước.\n- Tài nguyên cần chuẩn bị: nhân sự, công cụ, nội dung và dữ liệu.\n- Rủi ro tiềm ẩn cùng phương án dự phòng.\n\nLập kế hoạch thực tế, dễ triển khai. Nếu thiếu dữ liệu về ICP, ngân sách hoặc năng lực đội ngũ, hãy nêu giả định và đánh dấu phần cần xác nhận.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-competitor-analysis",
+    "title": "Phân tích đối thủ phục vụ bán hàng",
+    "description": "So sánh đối thủ và chuẩn bị thông điệp xử lý lập luận của khách hàng.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là chuyên gia phân tích cạnh tranh. Hãy phân tích ba đối thủ chính trên thị trường của [sản phẩm/dịch vụ], gồm:\n- Tính năng nổi bật của từng đối thủ so với sản phẩm của chúng ta.\n- Giá bán và mô hình thu phí: miễn phí, trả phí, freemium hoặc mô hình khác.\n- Giá trị cốt lõi mỗi đối thủ mang lại cho khách hàng.\n- Điểm mạnh và điểm yếu.\n- Case study tiêu biểu về thành công hoặc thất bại, nếu có dữ liệu kiểm chứng.\n- Chiến thuật bán hàng hiện tại mà từng đối thủ đang áp dụng.\n\nKết luận bằng lợi thế cạnh tranh khác biệt của sản phẩm chúng ta và đề xuất ba thông điệp bán hàng để trả lời lập luận của khách hàng dựa trên điểm yếu đã xác minh của đối thủ.\n\nVới thông tin giá, chiến thuật hiện tại và case study, ghi nguồn và thời điểm kiểm tra. Phân biệt dữ kiện với nhận định; không bịa thông tin hoặc hạ thấp đối thủ bằng tuyên bố thiếu căn cứ.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-telesales-script",
+    "title": "Viết kịch bản telesales",
+    "description": "Soạn cuộc gọi giới thiệu, khám phá nhu cầu và chốt lịch hẹn.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là trưởng phòng kinh doanh có kỹ năng telesales chuyên nghiệp. Hãy viết kịch bản gọi điện giới thiệu [sản phẩm/dịch vụ] cho [khách hàng/ICP] theo cấu trúc:\n- Mở đầu (5 giây): cá nhân hóa bằng [tên], [công ty] hoặc bối cảnh liên quan.\n- Giới thiệu giá trị (10 giây): nói ngắn gọn lợi ích khách hàng có thể nhận được.\n- Khám phá nhu cầu: đặt ba câu hỏi mở để tìm hiểu điểm đau và nhu cầu thực tế.\n- Xử lý phản đối: dự kiến ba phản đối phổ biến và trả lời phù hợp.\n- Bước tiếp theo: đề xuất hai khung giờ cụ thể cho cuộc hẹn hoặc hành động kế tiếp.\n- Chốt lịch: kết thúc bằng câu hỏi hoặc đề nghị rõ ràng.\n\nViết thành các đoạn thoại ngắn, chuyên nghiệp nhưng thân thiện. Dùng khung giờ được cung cấp; nếu chưa có lịch, để [khung giờ 1] và [khung giờ 2], không tự nhận lịch trống.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-intro-email",
+    "title": "Soạn email chào hàng",
+    "description": "Viết email giới thiệu giải pháp với lợi ích, bằng chứng và CTA cụ thể.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là trưởng phòng kinh doanh. Hãy viết một email chào hàng hoàn chỉnh giới thiệu [sản phẩm/dịch vụ] tới [khách hàng/ngành hàng].\n\nEmail cần có phần mở đầu cá nhân hóa, ba lợi ích gắn với ngành của khách hàng, một bằng chứng xã hội đã được cung cấp, đề xuất cuộc gọi 15 phút với hai khung giờ, CTA rõ ràng và chữ ký chuyên nghiệp.\n\nDùng ngôn ngữ ngắn gọn, trang trọng nhưng thân thiện, dễ hiểu và thuyết phục. Nếu chưa có bằng chứng xã hội hoặc thời gian rảnh, hãy dùng placeholder để bổ sung; không tự tạo tên khách hàng, kết quả hay lịch hẹn.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-customer-followup",
+    "title": "Soạn email chăm sóc khách hàng",
+    "description": "Theo sát khách hàng sau demo, triển khai hoặc gửi báo giá.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là Customer Success Manager (CSM). Hãy viết email chăm sóc khách hàng sau [demo/triển khai/gửi báo giá] về [sản phẩm/dịch vụ].\n\nEmail cần:\n- Tóm tắt ba điểm khách hàng quan tâm chính dựa trên bối cảnh được cung cấp.\n- Đề cập tài liệu hữu ích liên quan đến nhu cầu của khách hàng; dùng [tên tài liệu/đường dẫn] nếu chưa có tệp đính kèm thực tế.\n- Đề xuất next step cụ thể khách hàng nên thực hiện.\n- Đặt một câu hỏi để xác nhận nhu cầu hoặc mức độ quan tâm.\n- Nhắc deadline phản hồi [ngày].\n- Nêu người phụ trách hỗ trợ [tên, chức vụ, cách liên hệ].\n\nGiữ giọng điệu thân thiện, chuyên nghiệp và chủ động hỗ trợ. Không giả vờ đã đính kèm tài liệu hoặc tự đặt deadline, tên và thông tin liên hệ.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-csat-survey",
+    "title": "Thiết kế khảo sát hài lòng khách hàng",
+    "description": "Tạo khảo sát ngắn sau khi khách hàng sử dụng sản phẩm/dịch vụ.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là chuyên viên chăm sóc khách hàng (CSKH). Hãy thiết kế khảo sát mức độ hài lòng sau khi khách hàng sử dụng [sản phẩm/dịch vụ].\n\nBao gồm:\n1. Lời chào thân thiện và mục đích khảo sát.\n2. Sáu câu hỏi chấm theo thang 1–5, lần lượt về: trải nghiệm tổng thể, giá trị so với chi phí, độ dễ sử dụng, chất lượng hỗ trợ, hiệu quả sử dụng và khả năng giới thiệu cho người khác.\n3. Một câu hỏi mở để khách hàng góp ý.\n4. Hướng dẫn gửi phiếu qua [email/website/hotline].\n5. Lời cảm ơn chân thành và thông tin ưu đãi nhỏ [ưu đãi đã được duyệt] dành cho người tham gia.\n\nDùng ngôn ngữ rõ ràng, dễ hiểu, phù hợp với đối tượng khách hàng; trình bày logic và chuyên nghiệp. Nếu chưa có ưu đãi, để placeholder hoặc đề xuất phương án chờ phê duyệt, không tự hứa quyền lợi.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-complaint-response",
+    "title": "Soạn phản hồi khiếu nại khách hàng",
+    "description": "Phản hồi đồng cảm với kế hoạch xử lý, thời hạn và người phụ trách.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là đại diện hỗ trợ khách hàng chuyên nghiệp. Hãy viết phản hồi khiếu nại đồng cảm và rõ ràng cho [vấn đề cụ thể].\n\nPhản hồi cần có:\n1. Lời xin lỗi chân thành.\n2. Xác nhận ngắn gọn rằng bạn đã hiểu vấn đề của khách hàng.\n3. Giải thích nguyên nhân bằng ngôn ngữ dễ hiểu, chỉ khi nguyên nhân đã được xác minh; nếu chưa rõ, nói rằng đang kiểm tra.\n4. Ba bước xử lý cụ thể, kèm thời gian dự kiến hoàn tất từng bước.\n5. Tên hoặc vị trí người phụ trách.\n6. Đề xuất bồi thường/ưu đãi nếu có chính sách được duyệt.\n7. Kênh liên hệ nhanh để nhận hỗ trợ thêm.\n\nGiữ giọng điệu đồng cảm, chuyên nghiệp, rõ ràng và trấn an. Không tự nhận lỗi về nguyên nhân chưa xác minh, hứa thời hạn, bồi thường hoặc ưu đãi chưa được phê duyệt; dùng placeholder khi thiếu thông tin.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-pitch-deck-outline",
+    "title": "Lập dàn ý Pitch Deck 10 slide",
+    "description": "Xây dựng câu chuyện bán hàng từ vấn đề đến bước tiếp theo.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là chuyên gia bán hàng. Hãy lập dàn ý Pitch Deck gồm đúng 10 slide để trình bày [sản phẩm/dịch vụ] cho [khách hàng mục tiêu].\n\nVới mỗi slide, đề xuất tiêu đề và nội dung thuyết phục, dễ trình bày:\n1. Tiêu đề: tên giải pháp, slogan nếu có và thông điệp thu hút.\n2. Vấn đề: thách thức của khách hàng mục tiêu.\n3. Cơ hội/thị trường: quy mô, xu hướng và lý do đây là thời điểm phù hợp.\n4. Giải pháp: cách sản phẩm giải quyết vấn đề và điểm khác biệt.\n5. Tính năng nổi bật: tính năng, công nghệ hoặc phương pháp chính.\n6. Lợi ích định lượng: kết quả khách hàng có thể kỳ vọng.\n7. Case study/bằng chứng thành công, nếu có.\n8. So sánh với các đối thủ chính.\n9. Gói giá và ROI: lựa chọn giá cùng giá trị khách hàng nhận được.\n10. Kêu gọi hành động và bước tiếp theo.\n\nChỉ dùng số liệu, case study, giá và kết quả đã được cung cấp hoặc kiểm chứng. Đánh dấu thông tin còn thiếu; không tự tạo quy mô thị trường, cam kết ROI hoặc tuyên bố vượt trội.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-daily-activity-report",
+    "title": "Tổng hợp báo cáo hoạt động bán hàng",
+    "description": "Tóm tắt log gọi, email, cuộc hẹn và kế hoạch ngày mai.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là trưởng nhóm Sales. Dựa trên log/cuộc gọi/email trong [file số liệu], hãy viết báo cáo hoạt động bán hàng ngắn gọn gồm 3–5 gạch đầu dòng.\n\nBáo cáo cần nêu: tổng số cuộc gọi, số cuộc hẹn đạt được, cơ hội bán hàng mới, các phản đối nổi bật, bài học kinh nghiệm và kế hoạch cụ thể cho ngày mai. Có thể gộp các ý liên quan để giữ báo cáo trong 3–5 gạch đầu dòng.\n\nChỉ tổng hợp dữ liệu trong file. Nếu thiếu một chỉ số, ghi rõ chưa có dữ liệu; không tự suy đoán số liệu hoặc hoạt động.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-sales-pipeline-health",
+    "title": "Đánh giá sức khỏe pipeline",
+    "description": "Phân tích giá trị, chuyển đổi, rủi ro và dự báo pipeline.",
+    "category": "Kinh doanh",
+    "prompt": "Bạn là quản lý kinh doanh. Dựa trên [dữ liệu pipeline], hãy tóm tắt sức khỏe pipeline để hỗ trợ ra quyết định.\n\nTrình bày ngắn gọn, logic, gồm:\n- Tổng giá trị cơ hội theo từng giai đoạn bán hàng.\n- Tỷ lệ chuyển đổi giữa các giai đoạn.\n- Ba rủi ro lớn nhất và mức độ tác động.\n- Ba deal cần hỗ trợ khẩn cấp nhất trong tuần tới, lý do và loại hỗ trợ cần thiết.\n- Dự báo doanh thu kỳ tới và mức độ tin cậy (thấp/trung bình/cao), kèm căn cứ.\n- Ba khuyến nghị hành động cụ thể, khả thi cho tuần tới.\n\nChỉ tính toán từ dữ liệu được cung cấp. Nêu rõ cách tính và giả định; nếu thiếu kỳ dự báo, tỷ lệ thắng hoặc dữ liệu giai đoạn, hãy chỉ ra giới hạn thay vì bịa số.",
+    "owner": "igen"
   }
 ];
 
