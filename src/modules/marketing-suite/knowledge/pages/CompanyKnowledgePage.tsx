@@ -2,6 +2,7 @@ import "../../shared/marketing-workspace.css";
 import {
   AlertCircle,
   AlertTriangle,
+  Building2,
   BookOpenCheck,
   Bot,
   ChevronDown,
@@ -10,6 +11,8 @@ import {
   Link2,
   LoaderCircle,
   MessageSquare,
+  MessageSquareText,
+  Package,
   Search,
   Send,
   Settings2,
@@ -17,6 +20,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "../../../student-management/lib/utils";
@@ -87,11 +91,12 @@ const KNOWLEDGE_SECTIONS: Array<{
   label: string;
   description: string;
   types: KnowledgeDocumentType[];
+  icon: LucideIcon;
 }> = [
-  { id: "company_profile", label: "Giới thiệu", description: "Doanh nghiệp, địa chỉ, giờ mở cửa, liên hệ", types: ["company_profile"] },
-  { id: "policy", label: "Chính sách", description: "Giao hàng, thanh toán, đặt trước, đổi trả", types: ["policy"] },
-  { id: "scenario", label: "Kịch bản", description: "Cách tư vấn và xử lý tình huống với khách", types: ["scenario"] },
-  { id: "product", label: "Sản phẩm/Bảng giá", description: "Sản phẩm, thành phần, kích thước và giá bán", types: ["product", "pricing"] },
+  { id: "company_profile", label: "Giới thiệu", description: "Doanh nghiệp, địa chỉ, giờ mở cửa, liên hệ", types: ["company_profile"], icon: Building2 },
+  { id: "policy", label: "Chính sách", description: "Giao hàng, thanh toán, đặt trước, đổi trả", types: ["policy"], icon: ShieldCheck },
+  { id: "scenario", label: "Kịch bản", description: "Cách tư vấn và xử lý tình huống với khách", types: ["scenario"], icon: MessageSquareText },
+  { id: "product", label: "Sản phẩm/Bảng giá", description: "Sản phẩm, thành phần, kích thước và giá bán", types: ["product", "pricing"], icon: Package },
 ];
 
 function toggleScope<T extends string>(current: T[], value: T) {
@@ -755,11 +760,21 @@ export default function CompanyKnowledgePage() {
                     disabled={busy}
                     aria-pressed={selectedKnowledgeSection === section.id}
                     onClick={() => { setSelectedKnowledgeSection(section.id); setDocumentType(section.id); }}
-                    className={`rounded-2xl border p-4 text-left transition disabled:opacity-50 ${selectedKnowledgeSection === section.id ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-300"}`}
+                    className={cn(
+                      "rounded-md border p-4 text-left transition disabled:opacity-50",
+                      selectedKnowledgeSection === section.id
+                        ? "border-primary bg-primary-container/30"
+                        : "border-outline-variant bg-surface-container-lowest hover:border-primary/60",
+                    )}
                   >
-                    <span className="block text-sm font-bold text-slate-900">{section.label}</span>
-                    <span className="mt-1 block text-xs text-slate-500">{section.description}</span>
-                    <span className="mt-3 block text-xs font-semibold text-blue-650">
+                    <span className="flex items-center gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-container text-on-primary-container">
+                        <section.icon className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-sm font-semibold text-on-surface">{section.label}</span>
+                    </span>
+                    <span className="mt-2 block text-xs text-on-surface-variant">{section.description}</span>
+                    <span className="mt-3 block text-xs font-semibold text-primary">
                       {documents.filter((document) => section.types.includes(document.documentType)).length} tài liệu
                     </span>
                   </button>
