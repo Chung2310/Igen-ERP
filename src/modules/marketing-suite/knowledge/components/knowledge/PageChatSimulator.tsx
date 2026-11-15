@@ -86,6 +86,7 @@ export function PageChatSimulator() {
     finally { setBusy(false); }
   }
   const button = "inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
+  const showModeHint = Boolean(active?.turns.length || active?.mode === "erp");
   return (
     <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-outline-variant bg-surface px-4 py-2.5">
@@ -93,16 +94,18 @@ export function PageChatSimulator() {
         <select id="page-sim-mode" value={active?.mode || "simulation"} disabled={Boolean(active?.turns.length)}
           onChange={event => save(conversations.map(item => item.id === activeId
             ? { ...item, mode: event.target.value as "simulation" | "erp" } : item))}
-          aria-describedby="page-sim-mode-hint"
+          aria-describedby={showModeHint ? "page-sim-mode-hint" : undefined}
           className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">
           <option value="simulation">Mô phỏng · không lưu</option>
           <option value="erp">Chạy thật · lưu khách và đơn vào ERP</option>
         </select>
-        <p id="page-sim-mode-hint" className="max-w-3xl text-pretty text-xs text-on-surface-variant">
-          {active?.turns.length ? "Chế độ đã khóa cho cuộc trò chuyện này. Tạo cuộc trò chuyện mới để đổi chế độ." : active?.mode === "erp"
-            ? "Dùng Page và flow đang lưu. Đơn chỉ được tạo sau khi khách xác nhận; đơn ở trạng thái nháp, chưa thanh toán. Không gửi tin hoặc QR ra Facebook."
-            : "Chỉ dùng tài liệu/quy tắc đang nhập để thử. Không ghi hồ sơ khách hay đơn vào ERP."}
-        </p>
+        {showModeHint && (
+          <p id="page-sim-mode-hint" className="max-w-3xl text-pretty text-xs text-on-surface-variant">
+            {active?.turns.length
+              ? "Chế độ đã khóa cho cuộc trò chuyện này. Tạo cuộc trò chuyện mới để đổi chế độ."
+              : "Dùng Page và flow đang lưu. Đơn chỉ được tạo sau khi khách xác nhận; đơn ở trạng thái nháp, chưa thanh toán. Không gửi tin hoặc QR ra Facebook."}
+          </p>
+        )}
         <button type="button" onClick={createConversation} className={cn(button, "ml-auto shrink-0")}>
           <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
         </button>
