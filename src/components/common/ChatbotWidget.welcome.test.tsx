@@ -203,6 +203,84 @@ describe("ChatbotWidget welcome", () => {
     await waitFor(() => expect(screen.queryByText("1 dòng · sẵn sàng gửi")).toBeNull());
   });
 
+  it("filters a long course list by Vietnamese text and submits the selected course", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:course-selector-test:company", "work");
+    const options = Array.from({ length: 12 }, (_, index) => {
+      const label = index === 11 ? "Khóa học nâng cao — KH12" : `Khóa học cơ bản ${String(index + 1).padStart(2, "0")}`;
+      return { label, value: label };
+    });
+    vi.mocked(assistantService.state).mockResolvedValue({
+      messages: [
+        { role: "user", content: "Tạo lớp học", createdAt: new Date().toISOString() },
+        { role: "assistant", content: "Mình tìm thấy danh sách khóa học. Bạn chọn một khóa nhé.", createdAt: new Date().toISOString() },
+      ],
+      lastReply: {
+        reply: "Mình tìm thấy danh sách khóa học. Bạn chọn một khóa nhé.",
+        status: "collecting",
+        referenceSelections: [{ key: "courseId", label: "Tên hoặc mã khóa học", required: true, multiple: false, options }],
+      },
+      busy: false,
+      mode: "work",
+    });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "completed", reply: "Đã chọn khóa học." });
+
+    render(<ChatbotWidget storageScope="course-selector-test" mode="standalone" />);
+
+    const search = await screen.findByRole("searchbox", { name: "Tìm trong danh sách tên hoặc mã khóa học" });
+    expect(screen.getAllByRole("radio")).toHaveLength(12);
+    fireEvent.change(search, { target: { value: "khong-co" } });
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.getByText(/gửi tên hoặc mã trong tin nhắn/)).toBeTruthy();
+    fireEvent.change(search, { target: { value: "nang cao" } });
+    expect(screen.getAllByRole("radio")).toHaveLength(1);
+    expect(screen.getByText("Có 1 lựa chọn phù hợp.")).toBeTruthy();
+    const selectedCourse = screen.getByRole("radio", { name: "Khóa học nâng cao — KH12" });
+    fireEvent.click(selectedCourse);
+    expect(screen.getByText("Đang chọn: Khóa học nâng cao — KH12")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dùng lựa chọn" }));
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
+      referenceSelections: { courseId: ["Khóa học nâng cao — KH12"] },
+    });
+  });
+
+  it("lets the user choose multiple student records and submits all selected values", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:student-multi-selector-test:company", "work");
+    const options = [
+      { label: "Nguyễn An — 0900000000", value: "student-a" },
+      { label: "Trần Bình — 0910000000", value: "student-b" },
+      { label: "Lê Chi — 0920000000", value: "student-c" },
+    ];
+    vi.mocked(assistantService.state).mockResolvedValue({
+      messages: [
+        { role: "user", content: "Gán học viên vào kỳ thi", createdAt: new Date().toISOString() },
+        { role: "assistant", content: "Chọn một hoặc nhiều học viên đủ điều kiện.", createdAt: new Date().toISOString() },
+      ],
+      lastReply: {
+        reply: "Chọn một hoặc nhiều học viên đủ điều kiện.",
+        status: "collecting",
+        referenceSelections: [{ key: "studentIds", label: "Học viên đủ điều kiện", required: true, multiple: true, options }],
+      },
+      busy: false,
+      mode: "work",
+    });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "confirmation", reply: "Đã tạo bản xem trước." });
+
+    render(<ChatbotWidget storageScope="student-multi-selector-test" mode="standalone" />);
+
+    expect(await screen.findAllByRole("checkbox")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Nguyễn An — 0900000000" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Trần Bình — 0910000000" }));
+    expect(screen.getByText("Đang chọn: Nguyễn An — 0900000000, Trần Bình — 0910000000")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dùng lựa chọn" }));
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
+      referenceSelections: { studentIds: ["student-a", "student-b"] },
+    });
+  });
+
   it("sends a PDF file with its question and clears the composer preview", async () => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "qa");
     vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "qa" });

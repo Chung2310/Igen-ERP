@@ -30,7 +30,12 @@ export interface AssistantOperation {
   confirmation?: boolean;
   // Only these fields from existing APIs may be used for reference resolution or shown to AI.
   resultFields: string[];
+  // Field allow-lists for nested objects shown in a result field. Nested API documents
+  // must be projected before display so unrelated personal or internal fields stay hidden.
+  resultChildFields?: Record<string, AssistantResultFieldTree>;
 }
+export interface AssistantResultFieldChildren { [key: string]: AssistantResultFieldTree }
+export type AssistantResultFieldTree = string[] | AssistantResultFieldChildren;
 const text = (key: string, label: string, required = false): AssistantField => ({ key, label, type: "text", systemRequired: required, required });
 const date = (key: string, label: string, required = false): AssistantField => ({ ...text(key, label, required), type: "date" });
 const number = (key: string, label: string, defaultValue?: number): AssistantField => ({ key, label, type: "number", min: 0, ...(defaultValue === undefined ? {} : { defaultValue }) });
@@ -52,15 +57,24 @@ function entity(config: { id: string; title: string; module: ModuleKey; permissi
   if (config.update) operations.push({ ...base, id: `${config.id}.update`, title: `Cập nhật ${config.title}`, description: `Sửa ${config.title} đã xác định; phải xác nhận trước khi ghi.`, method: "PATCH", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`), ...config.fields.map(f => ({ ...f, systemRequired: false, required: false, defaultValue: undefined }))] });
   if (config.remove) operations.push({ ...base, id: `${config.id}.delete`, title: `Xóa ${config.title}`, description: `Xóa ${config.title} đã xác định; luôn cần xác nhận.`, method: "DELETE", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`)] });
 }
-entity({ id: "employee", title: "nhân sự", module: "hr", permissions: ["access:manage"], readPermissions: ["access:read", "hr:read"], path: "/auth/users", createPath: "/auth/register-user", link: "/nhan-su", update: true,
+entity({ id: "employee", title: "nhân sự", module: "hr", permissions: ["access:manage"], readPermissions: ["access:read", "hr:read"], path: "/auth/users", createPath: "/auth/register-user", link: "/nhan-su", update: true, remove: true,
   fields: [text("displayName", "Họ và tên", true), { ...date("birthDate", "Ngày sinh"), required: true }, { ...email, systemRequired: true, required: true }, phone, { ...ref("department", "Phòng ban", "department.list", false), referenceValueKey: "name" }, text("division", "Bộ phận"), number("monthlySalary", "Lương tháng", 0), text("qualification", "Trình độ chuyên môn")],
   resultFields: ["displayName", "email", "birthDate", "phone", "department", "division", "monthlySalary", "qualification"],
 });
 const employeeList = operations.find(op => op.id === "employee.list");
-if (employeeList) employeeList.fields = [
-  queryField({ ...text("search", "Tên, email hoặc số điện thoại nhân sự"), max: 100 }),
-  queryField(ref("targetBranch", "Chi nhánh nhân sự", "branch.list", false), "branchId"),
-];
+if (employeeList) {
+  employeeList.resultFields = ["displayName", "email", "birthDate", "phone", "department", "division", "qualification"];
+  employeeList.fields = [
+    queryField({ ...text("search", "Tên, email hoặc số điện thoại nhân sự"), max: 100 }),
+    queryField(ref("targetBranch", "Chi nhánh nhân sự", "branch.list", false), "branchId"),
+  ];
+}
+const employeeDelete = operations.find(op => op.id === "employee.delete");
+if (employeeDelete) {
+  employeeDelete.title = "Xóa tài khoản nhân sự";
+  employeeDelete.description = "Xóa tài khoản nhân sự đã chọn khỏi doanh nghiệp. Tài khoản quản trị viên không thể bị xóa; cấp dưới trực thuộc sẽ được chuyển lên cấp quản lý kế tiếp. Cần chọn đúng người và xác nhận trước khi xóa.";
+  employeeDelete.resultFields = ["deleted"];
+}
 operations.push({
   id: "employee.detail",
   title: "Xem thông tin chi tiết nhân sự",
@@ -127,6 +141,8 @@ entity({ id: "customer", title: "khách hàng", module: "customer", permissions:
   fields: [text("name", "Tên khách hàng", true), { ...phone, systemRequired: true, required: true }, email, choice("type", "Phân loại hồ sơ", ["regular", "vat"], "regular"), choice("customerKind", "Loại khách hàng", ["individual", "business"]), text("contactName", "Người liên hệ"), date("dateOfBirth", "Ngày sinh"), choice("gender", "Giới tính", ["male", "female", "other"]), choice("status", "Trạng thái", ["active", "inactive"], "active"), text("address", "Địa chỉ"), text("notes", "Ghi chú")], resultFields: ["customerCode", "name", "phone", "status"] });
 const customerList = operations.find(op => op.id === "customer.list");
 if (customerList) {
+  customerList.title = "Danh sách khách hàng";
+  customerList.description = "Xem và lọc danh sách khách hàng trong phạm vi được cấp quyền theo tên, mã, số điện thoại hoặc trạng thái.";
   customerList.fields = [
     { ...text("query_q", "Tên, mã hoặc số điện thoại khách hàng"), source: "query", apiKey: "q" },
     { ...choice("query_status", "Trạng thái", ["active", "inactive", "all"], "all"), systemRequired: true, required: true, source: "query", apiKey: "status" },
@@ -328,7 +344,8 @@ operations.push(
       queryField({ ...number("page", "Trang", 1), min: 1, integer: true }),
       queryField({ ...number("limit", "Số kết quả", 50), min: 1, max: 100, integer: true }),
     ],
-    resultFields: leadResultFields,
+    resultFields: [...leadResultFields, "moduleSync"],
+    resultChildFields: { moduleSync: ["targetModule", "syncedAt"] },
   },
   {
     id: "omni-inbox.leads.create",
@@ -359,13 +376,43 @@ operations.push(
     resultFields: leadResultFields,
   },
 );
+const leadLinkTargets: Array<{ suffix: string; title: string; targetModule: string; targetName: string; reference: string; modules: ModuleKey[]; readPermission: string }> = [
+  { suffix: "student", title: "Liên kết khách tiềm năng với học viên", targetModule: "students", targetName: "Học viên cần liên kết", reference: "student.list", modules: ["omni-inbox", "student"], readPermission: "people:read" },
+  { suffix: "patient", title: "Liên kết khách tiềm năng với bệnh nhân", targetModule: "healthcare", targetName: "Bệnh nhân cần liên kết", reference: "healthcare.patient.list", modules: ["omni-inbox", "healthcare"], readPermission: "healthcare:read" },
+  { suffix: "worker", title: "Liên kết khách tiềm năng với người lao động", targetModule: "workers", targetName: "Người lao động cần liên kết", reference: "worker.list", modules: ["omni-inbox", "worker"], readPermission: "people:read" },
+];
+for (const target of leadLinkTargets) {
+  const permissionGroups = [["omni-inbox:manage", target.readPermission]];
+  operations.push({
+    id: `omni-inbox.leads.link-${target.suffix}`,
+    title: target.title,
+    description: `Gắn khách tiềm năng đã chọn với một hồ sơ ${target.targetName.toLocaleLowerCase()} đã có. Không tạo hồ sơ mới; cần xác nhận trước khi liên kết.`,
+    module: "omni-inbox",
+    modules: target.modules,
+    permissions: permissionGroups[0],
+    permissionGroups,
+    method: "POST",
+    path: "/omni-inbox/leads/:id/module-sync",
+    link: "/omni-inbox",
+    confirmation: true,
+    adapter: "contract",
+    fixedBodyValues: { targetModule: target.targetModule },
+    fields: [
+      { ...ref("path_id", "Khách tiềm năng cần liên kết", "omni-inbox.leads.list"), source: "path", apiKey: "id", referenceValueKey: "id" },
+      { ...ref("targetRecordId", target.targetName, target.reference), source: "body", apiKey: "targetRecordId", referenceValueKey: "id" },
+    ],
+    resultFields: ["targetModule", "targetRecordName", "syncedAt"],
+  });
+}
 const existingRoutes = new Set(operations.map(op => op.method + " " + op.path));
 const expandedOperations = (expandedCatalog as AssistantOperation[]).filter(op =>
   !existingRoutes.has(op.method + " " + op.path)
   // Supplier declarations are managed through the supplier role in Retail Partners.
   && !(op.method === "POST" && op.path === "/inventory/receiving/suppliers"),
 );
-const readablePaths = new Set([...operations, ...expandedOperations].filter(op => op.method === "GET").map(op => op.path));
+const readableOperationsByPath = new Map([...operations, ...expandedOperations]
+  .filter(op => op.method === "GET")
+  .map(op => [op.path, op.id] as const));
 const partnerResultFields = ["name", "phone", "email", "bankName", "bankAccountName", "bankAccountNo", "commissionType", "commissionValue", "isActive"];
 const partnerFieldLabels: Record<string, string> = {
   name: "Tên đối tác", phone: "Số điện thoại", email: "Email", commissionType: "Hình thức hoa hồng",
@@ -433,6 +480,19 @@ operations.push(...expandedOperations.map(op => {
   const workerAttendanceMark = op.method === "POST" && op.path === "/worker-management/attendance/mark";
   const workerAttendanceList = op.method === "GET" && op.path === "/worker-management/attendance";
   const workerAttendanceAdjust = op.method === "PATCH" && op.path === "/worker-management/attendance/:id";
+  const workerProfileDelete = op.method === "DELETE" && op.path === "/worker-management/workers/:id";
+  const workerProjectDetail = op.method === "GET" && op.path === "/worker-management/projects/:id";
+  const workerProjectUpdate = op.method === "PATCH" && op.path === "/worker-management/projects/:id";
+  const workerProjectDelete = op.method === "DELETE" && op.path === "/worker-management/projects/:id";
+  const workerLaborContractCreate = op.method === "POST" && op.path === "/worker-management/labor-contracts";
+  const workerLaborContractDetail = op.method === "GET" && op.path === "/worker-management/labor-contracts/:id";
+  const workerLaborContractHistory = op.method === "GET" && op.path === "/worker-management/labor-contracts/:id/history";
+  const workerLaborContractUpdate = op.method === "PATCH" && op.path === "/worker-management/labor-contracts/:id";
+  const workerLaborContractRenew = op.method === "POST" && op.path === "/worker-management/labor-contracts/:id/renew";
+  const workerLaborContractDelete = op.method === "DELETE" && op.path === "/worker-management/labor-contracts/:id";
+  const workerNotificationList = op.method === "GET" && op.path === "/worker-management/notifications";
+  const workerNotificationCreate = op.method === "POST" && op.path === "/worker-management/notifications";
+  const workerDashboard = op.method === "GET" && op.path === "/worker-management/dashboard";
   const workerPartnerReferralCreate = op.method === "POST" && op.path === "/worker-management/partners/:partnerId/referrals";
   const workerPartnerReferralEnd = op.method === "POST" && op.path === "/worker-management/partners/:partnerId/referrals/:referralId/end";
   const chatRoomsList = op.method === "GET" && op.path === "/chat/rooms";
@@ -440,6 +500,13 @@ operations.push(...expandedOperations.map(op => {
   const chatRoomMemberRemove = op.method === "DELETE" && op.path === "/chat/rooms/:roomId/members/:userId";
   const chatRoomMemberRoleUpdate = op.method === "POST" && op.path === "/chat/rooms/:roomId/members/:userId/role";
   const chatMessagesList = op.method === "GET" && op.path === "/chat/rooms/:roomId/messages";
+  const chatRoomCreate = op.method === "POST" && op.path === "/chat/rooms";
+  const chatRoomUpdate = op.method === "PATCH" && op.path === "/chat/rooms/:roomId";
+  const chatRoomDelete = op.method === "DELETE" && op.path === "/chat/rooms/:roomId";
+  const chatRoomLeave = op.method === "DELETE" && op.path === "/chat/rooms/:roomId/leave";
+  const chatMessageSearch = op.method === "GET" && op.path === "/chat/rooms/:roomId/search";
+  const chatMessageUpdate = op.method === "PATCH" && op.path === "/chat/rooms/:roomId/messages/:messageId";
+  const chatMessageDelete = op.method === "DELETE" && op.path === "/chat/rooms/:roomId/messages/:messageId";
   const workerLaborContractList = op.method === "GET" && op.path === "/worker-management/labor-contracts";
   const workerLaborContractPath = op.path.startsWith("/worker-management/labor-contracts/:id");
   const workerPartnerPath = op.path.startsWith("/worker-management/partners/") && !op.path.startsWith("/worker-management/partners/policies");
@@ -567,18 +634,31 @@ operations.push(...expandedOperations.map(op => {
       : batchList
         ? [queryField({ ...text("search", "Tên hoặc mã lớp"), max: 100 }, "search"), queryField(text("status", "Trạng thái"), "status"), queryField({ ...number("page", "Trang", 1), min: 1, max: 10000 }, "page"), queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100 }, "limit")]
       : courseList
-        ? [queryField(text("search", "Tên hoặc mã khóa học"), "search"), queryField(number("page", "Trang", 1), "page"), queryField(number("limit", "Số kết quả", 100), "limit")]
+        ? [queryField(text("search", "Tên hoặc mã khóa học"), "search"), queryField(ref("query_category", "Danh mục khóa học", "course.category.list", false), "category"), queryField(choice("query_status", "Trạng thái khóa học", ["Hoạt động", "Tạm dừng"]), "status"), queryField(number("page", "Trang", 1), "page"), queryField(number("limit", "Số kết quả", 100), "limit")]
       : financeAssetList
         ? [queryField(text("search", "Mã, mã vạch hoặc tên tài sản"), "search"), queryField(choice("status", "Trạng thái", ["in_use", "idle", "repairing", "lost", "damaged"])), queryField(text("group", "Nhóm tài sản"))]
       : financeAssetDepreciationList
         ? [queryField(text("period", "Kỳ khấu hao (YYYY-MM)", true), "period")]
     : op.fields.map(field => {
       if (batchDetail && field.source === "path" && field.apiKey === "id") return { ...field, label: "T\u00EAn ho\u1EB7c m\u00E3 l\u1EDBp", reference: "batch.list", referenceValueKey: "id" };
+      if (workerProfileDelete && field.key === "path_id") return { ...field, label: "Người lao động cần xóa", reference: "worker.list", referenceValueKey: "id" };
+      if (workerProjectDetail && field.key === "path_id") return { ...field, label: "Tên hoặc mã dự án", reference: "worker.project.list", referenceValueKey: "id" };
+      if (workerProjectUpdate && field.key === "path_id") return { ...field, label: "Dự án cần sửa", reference: "worker.project.list", referenceValueKey: "id" };
+      if (workerProjectDelete && field.key === "path_id") return { ...field, label: "Dự án cần xóa", reference: "worker.project.list", referenceValueKey: "id" };
+      if (workerAttendanceAdjust && field.key === "path_id") return { ...field, label: "Bản ghi chấm công cần sửa", reference: "worker.attendance.list", referenceParentKey: "projectId", referenceValueKey: "id" };
+      if (workerLaborContractList && field.apiKey === "search") return { ...field, label: "Mã hợp đồng, đơn vị hoặc người lao động" };
+      if (workerLaborContractList && field.apiKey === "alert") return { ...field, label: "Cảnh báo hạn hợp đồng" };
+      if (workerLaborContractCreate && field.apiKey === "workerId") return { ...field, label: "Người lao động cần ký hợp đồng", reference: "worker.list", referenceValueKey: "id" };
+      if ((workerLaborContractUpdate || workerLaborContractRenew) && field.apiKey === "clientName") return { ...field, label: "Khách hàng hoặc đơn vị sử dụng lao động" };
+      if (workerAttendanceMark && field.apiKey === "deviceInfo") return { ...field, label: "Thông tin thiết bị" };
+      if (field.apiKey === "idCard" && op.module === "worker") return { ...field, label: "CCCD/CMND" };
+      if (field.apiKey === "checkInAt") return { ...field, label: "Giờ vào" };
+      if (field.apiKey === "checkOutAt") return { ...field, label: "Giờ ra" };
       if (courseCategoryCreate && field.source === "body" && field.apiKey === "name") return { ...field, label: "Tên phân loại khóa học" };
       if (field.source === "query" && field.apiKey === "branchId" && (financeTaxFromInvoice || inventoryStockLogReverse || financeDebtList || financeManagementDebtList || financeManagementPayableCreate || financeManagementFollowup || (op.method !== "GET" && !op.id.startsWith("recruitment.")))) { const label = financeTaxFromInvoice || financeDebtList || financeManagementDebtList || financeManagementPayableCreate || financeManagementFollowup || op.path.startsWith("/finance/") ? "Chi nhánh tài chính" : inventoryStockLogReverse ? "Chi nhánh kho" : "Chi nhánh áp dụng"; return { ...field, key: "targetBranch", type: "reference" as const, label, reference: "branch.list" }; }
       if (op.path.startsWith("/payroll/periods/") && field.source === "path" && field.apiKey === "periodKey") return { ...field, label: "K\u1EF3 l\u01B0\u01A1ng (YYYY-MM)", pattern: "^\\d{4}-(0[1-9]|1[0-2])$" };
       if (op.id === "payroll.period.input.update" && field.source === "path" && field.apiKey === "employeeId") return { ...field, label: "T\u00EAn nh\u00E2n vi\u00EAn", reference: "employee.list" };
-      if (inventoryCount && field.key === "path_id") return { ...field, label: "Mã hoặc tên phiếu kiểm kê" };
+      if (inventoryCount && field.key === "path_id") return { ...field, label: "Mã hoặc tên phiếu kiểm kê", reference: "inventory.count.list", referenceValueKey: "id" };
       if (op.method === "PATCH" && op.path === "/resources/:id/move" && field.source === "path" && field.apiKey === "id") return { ...field, label: "Tên hoặc mã tệp/thư mục cần di chuyển", reference: "resource.list", referenceValueKey: "id" };
       if (op.method === "PATCH" && op.path === "/resources/:id/move" && field.source === "body" && field.apiKey === "parentId") return { ...field, type: "reference" as const, label: "Thư mục đích", reference: "resource.list", referenceValueKey: "id" };
       if (op.path.startsWith("/chat/rooms/") && field.source === "path" && field.apiKey === "roomId") return { ...field, label: "Phòng trò chuyện", reference: "chat.rooms.list", referenceValueKey: "id" };
@@ -664,8 +744,16 @@ operations.push(...expandedOperations.map(op => {
       if (inventorySerialPath && field.key === "path_id") return { ...field, label: "IMEI, serial hoặc mã vạch", reference: "inventory.serial.list" };
       if (workerPartnerPath && field.source === "path" && field.apiKey === "partnerId") return { ...field, label: "Tên hoặc mã đối tác lao động", reference: "worker.partner.list" };
       if (workerPartnerPolicyPath && field.source === "path" && field.apiKey === "policyId") return { ...field, label: "Tên hoặc mã chính sách hoa hồng", reference: "worker.partner.policy.list" };
-      if (workerLaborContractPath && field.key === "path_id") return { ...field, label: "Mã hợp đồng hoặc tên người lao động", reference: "worker.labor.contract.list" };
+      if (workerLaborContractPath && field.key === "path_id") {
+        const label = workerLaborContractDelete ? "Hợp đồng cần xóa"
+          : workerLaborContractRenew ? "Hợp đồng cần gia hạn"
+            : workerLaborContractUpdate ? "Hợp đồng cần sửa"
+              : workerLaborContractHistory ? "Hợp đồng cần xem lịch sử gia hạn"
+                : "Hợp đồng cần xem";
+        return { ...field, label, reference: "worker.labor.contract.list", referenceValueKey: "id" };
+      }
       if ((op.id === "payroll.employee.reconciliation.action" || op.id === "payroll.employee.me.payslip.review.request") && field.key === "path_id") return field;
+      if (op.path.startsWith("/marketing-campaigns/:id/") && field.source === "path" && field.apiKey === "id") return { ...field, label: "Tên chiến dịch", reference: "marketing.campaign.list", referenceValueKey: "id" };
       if (op.id === "student.detail" && field.key === "path_id") return { ...field, label: "Tên, số điện thoại hoặc email học viên", reference: "student.list" };
       if (op.id === "student.learning-history" && field.key === "path_id") return { ...field, label: "Tên hoặc số điện thoại học viên", reference: "student.list" };
       if (field.source !== "path" || !/^(?:id|uid|[A-Za-z]+(?:Id|Uid|Key))$/.test(field.apiKey || "")) return field;
@@ -673,9 +761,15 @@ operations.push(...expandedOperations.map(op => {
       const parameterAt = op.path.indexOf(parameter);
       if (parameterAt < 0) return field;
       const collectionPath = op.path.slice(0, parameterAt).replace(/\/$/, "");
-      if (!readablePaths.has(collectionPath)) return field;
-      if (/^(?:Tên (?:hoặc|,)|Mã (?:hoặc|,))/.test(field.label)) return field;
-      return { ...field, label: field.label.startsWith("Mã ") ? field.label.replace(/^Mã /, "Tên hoặc mã ") : `Tên hoặc mã ${field.label}` };
+      const referenceOperationId = readableOperationsByPath.get(collectionPath);
+      if (!referenceOperationId) return field;
+      let label = field.label;
+      if (/^Tên hoặc mã Tên,\s*/.test(label)) label = label.replace(/^Tên hoặc mã Tên,\s*/, "Tên, ");
+      else if (/^Tên hoặc mã Tên\s+/.test(label)) label = label.replace(/^Tên hoặc mã Tên\s+/, "Tên hoặc mã ");
+      else if (/^Tên\s+/.test(label) && !/^Tên,/.test(label)) label = label.replace(/^Tên\s+/, "Tên hoặc mã ");
+      else if (/^Mã\s+/.test(label) && !/^Mã (?:hoặc|,)/.test(label)) label = label.replace(/^Mã\s+/, "Tên hoặc mã ");
+      else if (!/^(?:Tên hoặc mã|Tên,|Mã (?:hoặc|,))/.test(label)) label = `Tên hoặc mã ${label}`;
+      return { ...field, label, reference: field.reference || referenceOperationId };
     });
   return {
     ...op,
@@ -800,14 +894,41 @@ operations.push(...expandedOperations.map(op => {
     ...(workerPartnerList ? { id: "worker.partner.list", title: "Tra cứu đối tác cung ứng lao động" } : {}),
     ...(workerPartnerCreate ? { title: "Tạo cộng tác viên lao động", description: "Tạo đối tác cung ứng lao động; cần mã, tên và số điện thoại. Cần xác nhận trước khi lưu." } : {}),
     ...(workerList ? { id: "worker.list", title: "Tra cứu người lao động" } : {}),
+    ...(workerProfileDelete ? { id: "worker.delete", title: "Xóa hồ sơ lao động", description: "Xóa hồ sơ của người lao động đã chọn theo tên. Thao tác này không xóa các bản ghi chấm công hoặc hợp đồng liên quan. Cần xác nhận trước khi xóa." } : {}),
+    ...(workerProjectDetail ? { id: "worker.project.detail", title: "Xem thông tin dự án lao động", resultFields: ["code", "name", "quota", "daysOfWeek", "startTime", "endTime", "location", "startDate", "endDate", "status"] } : {}),
+    ...(workerProjectDelete ? { id: "worker.project.delete", title: "Xóa dự án lao động", description: "Xóa dự án đã chọn theo tên hoặc mã. Cần xác nhận trước khi xóa." } : {}),
     ...(chatRoomsList ? { id: "chat.rooms.list", title: "Tra cứu phòng trò chuyện", resultFields: ["name", "isGroup", "updatedAt"] } : {}),
     ...(chatRoomMembersList ? { id: "chat.room.members.list", title: "Tra cứu thành viên trong phòng chat", resultFields: ["displayName", "roleLabel"] } : {}),
     ...(chatRoomMemberRemove ? { id: "chat.room.member.remove", title: "Xóa thành viên khỏi phòng chat", description: "Xóa thành viên đã chọn khỏi phòng nhóm. Phòng và người cần xóa được chọn theo tên; chỉ Trưởng nhóm mới nhận được danh sách thành viên. Cần xác nhận trước khi xóa.", resultFields: ["roomName", "removed"] } : {}),
     ...(chatMessagesList ? { id: "chat.room.messages.list", title: "Tra cứu tin nhắn trong phòng", resultFields: ["senderName", "content", "createdAt", "editedAt", "isDeleted"] } : {}),
-    ...(workerLaborContractList ? { id: "worker.labor.contract.list", title: "Tra cứu hợp đồng lao động", adapter: undefined } : {}),
+    ...(workerLaborContractList ? { id: "worker.labor.contract.list", title: "Tra cứu hợp đồng lao động", description: "Tìm hợp đồng theo mã, người lao động hoặc đơn vị; có thể lọc theo trạng thái và hạn hợp đồng trong phạm vi được cấp quyền.", adapter: undefined, resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "alertLevel", "note"] } : {}),
+    ...(workerLaborContractDetail ? { id: "worker.labor.contract.detail", title: "Xem chi tiết hợp đồng lao động", resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "note"] } : {}),
+    ...(workerLaborContractHistory ? { id: "worker.labor.contract.history", title: "Xem lịch sử gia hạn hợp đồng lao động", resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "previousEndDate", "renewedAt"] } : {}),
+    ...(workerLaborContractCreate ? { id: "worker.labor.contract.create", title: "Tạo hợp đồng lao động", description: "Lập hợp đồng cho người lao động đã chọn. Cần mã hợp đồng, đơn vị sử dụng lao động, ngày bắt đầu và ngày kết thúc; cần xác nhận trước khi lưu.", resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "note"] } : {}),
+    ...(workerLaborContractUpdate ? { id: "worker.labor.contract.update", title: "Cập nhật hợp đồng lao động", description: "Cập nhật các thông tin được nêu trên hợp đồng đã chọn. Hợp đồng đã khóa sau khi gia hạn không thể sửa điều khoản.", resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "note"] } : {}),
+    ...(workerLaborContractRenew ? { id: "worker.labor.contract.renew", title: "Gia hạn hợp đồng lao động", description: "Tạo kỳ hợp đồng mới nối tiếp hợp đồng đã chọn và giữ kỳ cũ trong lịch sử. Cần xác nhận trước khi gia hạn.", resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "note"] } : {}),
+    ...(workerLaborContractDelete ? { id: "worker.labor.contract.delete", title: "Xóa hợp đồng lao động", description: "Xóa hợp đồng đã chọn. Cần xác nhận trước khi xóa." } : {}),
+    ...(workerAttendanceMark ? { id: "worker.attendance.mark", title: "Ghi nhận chấm công lao động", description: "Ghi nhận giờ vào hoặc giờ ra của người lao động đã chọn tại dự án. Cần xác nhận trước khi ghi.", resultFields: ["workerName", "projectName", "date", "status", "workedMinutes"] } : {}),
+    ...(workerAttendanceList ? { id: "worker.attendance.list", title: "Tra cứu bảng chấm công dự án", description: "Xem bảng chấm công của dự án theo một ngày hoặc khoảng ngày.", resultFields: ["workerName", "projectName", "date", "checkInAt", "checkOutAt", "status", "workedMinutes", "note"] } : {}),
+    ...(workerAttendanceAdjust ? { id: "worker.attendance.update", title: "Điều chỉnh giờ chấm công", description: "Sửa giờ vào, giờ ra hoặc ghi chú của bản ghi chấm công đã chọn. Cần xác nhận trước khi lưu.", resultFields: ["workerName", "projectName", "date", "checkInAt", "checkOutAt", "status", "workedMinutes", "note"] } : {}),
+    ...(workerDashboard ? { id: "worker.dashboard", title: "Xem tổng quan lao động" } : {}),
+    ...(workerNotificationList ? { id: "worker.notification.list", title: "Tra cứu thông báo lao động", resultFields: ["title", "content", "recipients", "recipientCount", "channels", "status", "createdAt"] } : {}),
+    ...(workerNotificationCreate ? { id: "worker.notification.create", title: "Gửi thông báo lao động", description: "Gửi thông báo trong ứng dụng cho lao động trong phạm vi doanh nghiệp/chi nhánh. Cần tiêu đề và nội dung; cần xác nhận trước khi gửi.", resultFields: ["title", "content", "recipients", "recipientCount", "channels", "status", "createdAt"] } : {}),
     ...(workerPartnerPolicyList ? { id: "worker.partner.policy.list", title: "Tra cứu chính sách hoa hồng đối tác lao động" } : {}),
     ...(learningRoadmapWaitlist ? { id: "student.learning-roadmap.waitlist.list", title: "Tra cứu học viên trong danh sách chờ lộ trình", resultFields: ["studentName", "roadmapName", "sourceBatchCode", "learningFormat", "preferredTimeSlot", "waitingDays"] } : {}),
     ...(op.method === "GET" && op.path === "/worker-management/partners/policies/:policyId" ? { id: "worker.partner.policy.detail" } : {}),
+    ...(chatRoomCreate ? { title: "Tạo phòng trò chuyện", description: "Tạo phòng chat mới để trao đổi với đồng nghiệp. Người dùng chọn tên phòng và những người cần mời; hệ thống sẽ hiển thị nội dung để xác nhận trước khi tạo." } : {}),
+    ...(chatRoomUpdate ? { title: "Cập nhật thông tin phòng trò chuyện", description: "Đổi tên hoặc cập nhật thông tin của phòng chat đã chọn. Cần chọn đúng phòng theo tên trước khi lưu." } : {}),
+    ...(chatRoomDelete ? { title: "Xóa phòng trò chuyện", description: "Xóa phòng chat đã chọn. Nếu chỉ muốn rời khỏi nhóm, hãy dùng chức năng rời phòng. Hệ thống yêu cầu xác nhận trước khi xóa." } : {}),
+    ...(chatRoomLeave ? { title: "Rời phòng trò chuyện", description: "Rời khỏi phòng chat đã chọn nhưng không xóa phòng hoặc tin nhắn của những thành viên còn lại." } : {}),
+    ...(chatMessageSearch ? { title: "Tìm tin nhắn theo từ khóa trong phòng chat", description: "Tìm các tin nhắn có chứa từ hoặc cụm từ người dùng cung cấp trong phòng chat đã chọn." } : {}),
+    ...(chatMessagesList ? { title: "Xem danh sách tin nhắn trong phòng chat", description: "Hiển thị các tin nhắn của phòng chat đã chọn. Dùng chức năng này khi muốn xem danh sách; nếu cần tìm một từ hoặc cụm từ cụ thể, hãy dùng chức năng tìm tin nhắn." } : {}),
+    ...(chatRoomMemberRoleUpdate ? { title: "Cập nhật vai trò thành viên trong phòng chat", description: "Thay đổi vai trò của thành viên đã chọn trong phòng chat. Cần chọn đúng người và vai trò mới; hệ thống sẽ yêu cầu xác nhận trước khi lưu." } : {}),
+    ...(chatMessageUpdate ? { title: "Sửa nội dung tin nhắn trong phòng chat", description: "Thay đổi nội dung của tin nhắn đã chọn trong phòng chat. Cần xác định đúng tin nhắn và nội dung mới; hệ thống sẽ yêu cầu xác nhận trước khi lưu." } : {}),
+    ...(chatMessageDelete ? { title: "Xóa tin nhắn trong phòng chat", description: "Xóa tin nhắn đã chọn khỏi phòng chat. Cần chọn đúng phòng và tin nhắn; hệ thống sẽ yêu cầu xác nhận trước khi xóa." } : {}),
+    ...(op.method === "GET" && op.path === "/payroll/periods/:periodKey/audit" ? { title: "Xem nhật ký xử lý của kỳ lương", description: "Xem các bước xử lý của một kỳ lương theo tháng, gồm đồng bộ, tính, duyệt và chốt. Hãy chọn kỳ lương theo tháng, ví dụ 2026-11." } : {}),
+    ...(op.method === "GET" && op.path === "/payroll/runs/:id/audit" ? { title: "Xem nhật ký thao tác của một lượt lương", description: "Xem ai đã thao tác, thao tác gì và thời điểm nào trong một lượt lương cụ thể đã chọn." } : {}),
+    ...(op.method === "POST" && op.path === "/recruitment/interviews/:id/delete" ? { title: "Xóa lịch phỏng vấn", description: "Đưa lịch phỏng vấn đã chọn ra khỏi danh sách đang hoạt động. Lịch có thể được khôi phục sau đó; cần xác nhận trước khi xóa." } : {}),
     fields: (() => {
       const mapped = fields.filter(field => !(field.apiKey === "centerId" && (op.path === "/partners" || op.path.startsWith("/partners/commission-levels"))));
       if (workerList) return [queryField(text("query_search", "Tên, mã hoặc số điện thoại lao động"), "search"), ...mapped.filter(field => field.apiKey !== "search")];
@@ -822,7 +943,13 @@ operations.push(...expandedOperations.map(op => {
       : batchDetail ? ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"]
       : inventoryVariantBulkUpdate ? ["sku", "displayName", "status", "trackingMode", "unitCode"]
       : inventoryVariantBulkDelete ? []
+      : workerProjectDetail ? ["code", "name", "quota", "daysOfWeek", "startTime", "endTime", "location", "startDate", "endDate", "status"]
+      : workerLaborContractDetail || workerLaborContractCreate || workerLaborContractUpdate || workerLaborContractRenew ? ["code", "clientName", "workerName", "startDate", "endDate", "status", "note"]
+      : workerLaborContractHistory ? ["code", "clientName", "workerName", "startDate", "endDate", "status", "previousEndDate", "renewedAt"]
+      : workerAttendanceMark ? ["workerName", "projectName", "date", "status", "workedMinutes"]
+      : workerAttendanceList || workerAttendanceAdjust ? ["workerName", "projectName", "date", "checkInAt", "checkOutAt", "status", "workedMinutes", "note"]
       : workerLaborContractList ? ["code", "clientName", "workerName", "startDate", "endDate", "status", "alertLevel", "note"]
+      : workerNotificationList || workerNotificationCreate ? ["title", "content", "recipients", "recipientCount", "channels", "status", "createdAt"]
       : inventoryProductList ? ["name", "productCode", "categoryCode", "productType", "status"]
       : inventoryProductDetail ? ["name", "productCode", "categoryCode", "productType", "status", "sku", "displayName", "unitCode", "trackingMode", "productId", "productName"]
       : inventoryTemplateList ? ["code", "name", "productType", "status"]
@@ -838,7 +965,7 @@ operations.push(...expandedOperations.map(op => {
       : chatMessagesList ? ["senderName", "content", "createdAt", "editedAt", "isDeleted"]
       : learningRoadmapWaitlist ? ["studentName", "roadmapName", "sourceBatchCode", "learningFormat", "preferredTimeSlot", "waitingDays"]
       : assignmentList ? ["title", "description", "dueDate", "maxScore", "createdAt"]
-      : courseList ? ["title", "code", "category", "duration", "fee", "status"]
+      : courseList ? ["title", "code", "category", "duration", "fee", "maxLearners", "activeBatches", "status"]
       : partnerList ? ["name", "code", "phone", "email", "isActive"]
       : retailInvoiceList ? ["invoiceNo", "orderCode", "customerName", "status"]
       : retailPartnerList ? ["code", "name", "role", "phone", "email", "address", "status"]
@@ -1196,6 +1323,15 @@ if (retailOrderDetailOperation) Object.assign(retailOrderDetailOperation, {
   description: "Xem sản phẩm, số lượng, giá, thanh toán và công nợ của đơn đã chọn; không hiển thị số điện thoại hay phiên bản kỹ thuật.",
   rawResponse: true,
   resultFields: ["orderCode", "customerName", "status", "paymentStatus", "grandTotal", "paidAmount", "refundedAmount", "dueAmount", "businessDate", "createdAt", "items", "payments"],
+});
+const studentResourceDetailOperation = operations.find(op => op.method === "GET" && op.path === "/student-resources/:id");
+if (studentResourceDetailOperation) operations.push({
+  ...studentResourceDetailOperation,
+  id: "student.resource.bookings.list",
+  title: "Tra cứu lịch đặt phòng học hoặc tài nguyên",
+  description: "Liệt kê các lịch đặt của tài nguyên đã chọn theo mục đích, người đăng ký, ngày và giờ để xem hoặc chọn đúng lịch cần hủy.",
+  resultFields: ["purpose", "by", "date", "startTime", "endTime"],
+  rawResponse: false,
 });
 operations.push({
   id: "retail.invoice.summary",

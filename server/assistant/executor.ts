@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantField, AssistantValue } from "../../src/shared/assistant-workflow";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override.interface";
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { actorScope, assertOperation } from "./workflows";
@@ -1098,6 +1099,46 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
   const result = await response.json().catch(() => null) as any;
+  if (response.ok && result?.success !== false && op.id === "student.resource.bookings.list") {
+    const resource = result?.data && typeof result.data === "object" ? result.data : {};
+    const bookings = Array.isArray(resource.bookings) ? resource.bookings : [];
+    return { status: "success", data: bookings.flatMap((booking: any) => {
+      const id = String(booking?._id || booking?.id || "");
+      if (!/^[a-f\d]{24}$/i.test(id)) return [];
+      return [{ id, purpose: booking.purpose, by: booking.by, date: booking.date, startTime: booking.startTime, endTime: booking.endTime }];
+    }) };
+  }
+  if (response.ok && result?.success !== false && op.id === "student.learning-roadmap.progression.list") {
+    const progression = result?.data && typeof result.data === "object" ? result.data : {};
+    const rows = Array.isArray(progression.rows) ? progression.rows : [];
+    return { status: "success", data: rows.flatMap((row: any) => {
+      const id = String(row?.studentId || "");
+      if (!/^[a-f\d]{24}$/i.test(id) || typeof row?.studentName !== "string") return [];
+      return [{
+        id,
+        studentName: row.studentName,
+        studentPhone: typeof row.studentPhone === "string" ? row.studentPhone : "",
+        sourceStepName: typeof row.sourceStepName === "string" ? row.sourceStepName : "",
+        targetStepName: typeof row.targetStepName === "string" ? row.targetStepName : "",
+        attendanceRate: typeof row.attendanceRate === "number" ? row.attendanceRate : null,
+        assignmentRate: typeof row.assignmentRate === "number" ? row.assignmentRate : null,
+        miniTestRate: typeof row.miniTestRate === "number" ? row.miniTestRate : null,
+        examRate: typeof row.examRate === "number" ? row.examRate : null,
+        teacherAssessment: typeof row.teacherAssessment === "string" ? row.teacherAssessment : "",
+        eligible: row.eligible === true,
+        eligibilityReasonSummary: typeof row.eligibilityReasonSummary === "string" ? row.eligibilityReasonSummary : "",
+        intent: typeof row.intent === "string" ? row.intent : "pending",
+        teacherNote: typeof row.teacherNote === "string" ? row.teacherNote : "",
+        overrideEligible: typeof row.overrideEligible === "boolean" ? row.overrideEligible : null,
+        overrideReason: typeof row.overrideReason === "string" ? row.overrideReason : "",
+      }];
+    }) };
+  }
+  if (response.ok && result?.success !== false && op.id === "student.learning-roadmap.progression.update") {
+    const data = result?.data && typeof result.data === "object" ? result.data : {};
+    const decision = data.decision && typeof data.decision === "object" ? data.decision : {};
+    return { status: "success", data: { queued: data.queued === true, intent: typeof decision.intent === "string" ? decision.intent : "" } };
+  }
   if (["company-email.smtp.verify", "company-email.smtp.test"].includes(op.id)
     && (!response.ok || !result || result.success === false || result.status === "error")) {
     if (response.status >= 500 || !result) {
@@ -2964,7 +3005,40 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest): AssistantRecord[] {
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
-  const responseData = response?.data ?? response?.user ?? response;
+  const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
+  if (["student.batch.progress-colors.list", "student.batch.progress-colors.update"].includes(op.id)) {
+    const colors: AssistantRecord = {};
+    for (const key of ["green", "yellow", "red", "black"]) if (typeof responseData?.[key] === "string") colors[key] = responseData[key];
+    return Object.keys(colors).length ? [colors] : [];
+  }
+  if (op.id === "student.learning-roadmap.progression.update") {
+    return [{ queued: responseData?.queued === true, intent: typeof responseData?.intent === "string" ? responseData.intent : "" }];
+  }
+  if (op.id === "marketing.lead-intake-profile.list") {
+    const versions = new Map<number, AssistantRecord>();
+    for (const key of ["profiles", "fallbackProfiles", "activeProfiles"]) {
+      const profiles = Array.isArray(responseData?.[key]) ? responseData[key] : [];
+      for (const profile of profiles) {
+        if (!profile || typeof profile !== "object" || !Number.isSafeInteger(profile.version)) continue;
+        const row: AssistantRecord = { version: profile.version };
+        for (const field of ["platform", "status", "goal", "updatedAt"] as const) {
+          if (typeof profile[field] === "string") row[field] = profile[field];
+        }
+        if (Array.isArray(profile.fields)) {
+          row.fields = profile.fields.flatMap((field: any) => field && typeof field.label === "string" && typeof field.question === "string"
+            ? [{ label: field.label, question: field.question, ...(typeof field.type === "string" ? { type: field.type } : {}), ...(typeof field.required === "boolean" ? { required: field.required } : {}) }]
+            : []);
+        }
+        versions.set(profile.version, row);
+      }
+    }
+    return [...versions.values()];
+  }
+  if (["student.learning-roadmap.promote", "student.learning-roadmap.waitlist.place"].includes(op.id)) {
+    const safe: AssistantRecord = {};
+    for (const key of op.resultFields) if (["string", "number", "boolean"].includes(typeof responseData?.[key])) safe[key] = responseData[key];
+    return [safe];
+  }
   if (op.id === "hr.workflow.list") {
     const stepKeys = ["id", "title", "description", "assigneeUid", "assignee", "assigneeUids", "relatedUids", "domain", "priority", "deadlineType", "deadlineDays", "deadlineTime", "subTasks", "type", "estDays", "deliverable", "note", "docLinks", "attachments", "position"];
     return rawRecords(responseData).flatMap((item: any) => {
@@ -3115,7 +3189,35 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     if (op.id === "retail.payment-review.pending" && typeof item.paymentCode === "string" && item.paymentCode) safe.code = item.paymentCode;
     else if (op.id === "retail.payment-review.pending" && typeof item.orderCode === "string" && item.orderCode) safe.code = item.orderCode;
     else if (op.id === "retail.payment-review.pending" && typeof item.referenceCode === "string" && item.referenceCode) safe.code = item.referenceCode;
-    for (const field of op.resultFields) if (["string", "boolean", "number"].includes(typeof item[field])) safe[field] = item[field];
+    if (op.id === "student.list" && Array.isArray(item.status)) {
+      const statuses = item.status.filter((value: unknown): value is string => typeof value === "string" && Boolean(value.trim()));
+      if (statuses.length) safe.status = statuses.join(", ");
+    }
+    for (const field of op.resultFields) {
+      const value = item[field];
+      if (["string", "boolean", "number"].includes(typeof value)) safe[field] = value;
+      else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[field] = value.toISOString();
+    }
+    if (op.id === "student.assignment.submissions.list" && typeof item.studentId === "string") {
+      Object.defineProperty(safe, "studentId", { value: item.studentId, enumerable: false });
+    }
+    if (op.id === "student.batch.enrollments.list" && typeof item.studentId === "string") {
+      Object.defineProperty(safe, "studentId", { value: item.studentId, enumerable: false });
+    }
+    if (op.id.startsWith("student.notification.") && Array.isArray(item.channels)) {
+      const channels = item.channels.filter((value: unknown): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 3);
+      if (channels.length) safe.channelSummary = channels.join(", ");
+    }
+    if (op.id === "student.resource.booking.create" && Array.isArray(item.bookings)) {
+      const booking = item.bookings.at(-1);
+      if (booking && typeof booking === "object") {
+        if (typeof booking.purpose === "string") safe.bookingPurpose = booking.purpose;
+        if (typeof booking.by === "string") safe.bookingBy = booking.by;
+        if (typeof booking.date === "string") safe.bookingDate = booking.date;
+        if (typeof booking.startTime === "string") safe.bookingStartTime = booking.startTime;
+        if (typeof booking.endTime === "string") safe.bookingEndTime = booking.endTime;
+      }
+    }
     if (op.id === "student.learning-roadmap.steps.list") {
       Object.defineProperties(safe, {
         stepId: { value: typeof item.stepId === "string" ? item.stepId : undefined, enumerable: false },
@@ -3192,14 +3294,22 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     // response redaction and list rendering remove this internal field.
     if (!companyWideCategoryOperation && typeof item.branchId === "string") safe.branchId = item.branchId;
     if (op.id === "inventory.serial.list" && typeof item.transferToBranchId === "string") safe.transferToBranchId = item.transferToBranchId;
+    if (Number.isSafeInteger(item.__v) && item.__v >= 0) {
+      Object.defineProperty(safe, "__assistantRefVersion", { value: item.__v, enumerable: false });
+    }
     return safe;
   });
 }
-const referenceLabelKeys = ["displayName", "fullName", "variantName", "sessionCode", "countCode", "name", "label", "legalName", "taxId", "title", "question", "templateName", "assetName", "assetCode", "barcode", "internalBarcode", "serialNumber", "courseTitle", "location", "instructorName", "customerName", "recipientName", "recipientEmail", "senderName", "productName", "warehouseName", "branchName", "partnerName", "workerName", "employeeName", "cashierName", "partyName", "invoiceNo", "description", "bankKey", "reference", "referenceCode", "paymentCode", "code", "receivableCode", "sourceCode", "customerCode", "sku", "email", "phone", "ticketCode", "shiftCode", "orderCode", "sourceId", "periodKey", "baseRevision", "key", "channel", "date", "businessDate", "createdAt", "paymentDate", "lastMessageAt", "campaignTitle", "scheduledAt", "platform", "topicBrief"];
+const referenceLabelKeys = ["displayName", "fullName", "studentName", "variantName", "sessionCode", "countCode", "name", "label", "legalName", "taxId", "title", "question", "purpose", "by", "startTime", "endTime", "roadmapName", "sourceBatchCode", "templateName", "assetName", "assetCode", "barcode", "internalBarcode", "serialNumber", "courseTitle", "location", "instructorName", "customerName", "recipientName", "recipientEmail", "senderName", "productName", "warehouseName", "branchName", "partnerName", "workerName", "employeeName", "cashierName", "partyName", "invoiceNo", "description", "bankKey", "reference", "referenceCode", "paymentCode", "code", "receivableCode", "sourceCode", "customerCode", "sku", "email", "phone", "ticketCode", "shiftCode", "orderCode", "sourceId", "periodKey", "baseRevision", "key", "channel", "date", "businessDate", "createdAt", "paymentDate", "lastMessageAt", "campaignTitle", "scheduledAt", "platform", "topicBrief"];
 function referenceValues(record: Record<string, any>) {
   return [record.id, record._id, record.uid, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
 }
 function referenceLabel(record: Record<string, any>) {
+  if (typeof record.studentName === "string" && Number.isFinite(Number(record.amount)) && typeof record.date === "string") {
+    const amount = `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(record.amount))} ₫`;
+    const date = formatAssistantTemporalValue(record.date) || record.date;
+    return [record.studentName, amount, record.method, `ngày ${date}`].filter(value => typeof value === "string" && value.trim()).join(" — ");
+  }
   if (typeof record.sku === "string" && record.sku.trim() && record.productId) {
     const variantName = [record.displayName, record.variantName, record.productName].find(value => typeof value === "string" && value.trim());
     return [variantName || "SKU", `mã ${record.sku.trim()}`].join(" — ");
@@ -3505,7 +3615,7 @@ function rawRecords(response: any): Record<string, any>[] {
   if (!data || typeof data !== "object") return [];
   if (Array.isArray(data.variants)) return data.variants.filter((item: any) => item && typeof item === "object").map((item: any) => ({ ...item, productId: item.productId || data._id || data.id, productName: data.name }));
   if (data.shift && typeof data.shift === "object" && !Array.isArray(data.shift)) return [data.shift];
-  for (const key of ["items", "records", "results", "rows", "products", "courses", "batches", "exams", "warehouses", "balances", "accounts", "vouchers", "bankLines", "users", "customers", "students", "partners", "workers", "branches", "campaigns", "stages", "data"]) {
+  for (const key of ["items", "records", "results", "rows", "events", "products", "courses", "batches", "enrollments", "exams", "payments", "notifications", "resources", "warehouses", "balances", "accounts", "vouchers", "bankLines", "users", "customers", "students", "partners", "workers", "branches", "campaigns", "stages", "data"]) {
     if (Array.isArray(data[key])) return data[key].filter((item: any) => item && typeof item === "object").map((item: any) => item.payment && typeof item.payment === "object" ? { ...item, paymentMethod: item.payment.method, paymentAmount: item.payment.amount } : item);
   }
   return data._id || data.id || data.uid ? [data] : [];
@@ -3682,6 +3792,30 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       if (workerName) record.workerName = workerName;
     }
   }
+  if (operationId === "worker.attendance.list" && records.length) {
+    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
+    const [workers, projects] = await Promise.all([
+      lookupRecords(req, "worker.list"),
+      lookupRecords(req, "worker.project.list"),
+    ]);
+    const workerNames = new Map(workers.map(worker => [String(worker.id || ""), String(worker.fullName || "")]));
+    const projectNames = new Map(projects.map(project => [String(project.id || ""), String(project.name || project.code || "")]));
+    for (const record of records) {
+      const source = sourceById.get(String(record.id || ""));
+      const workerId = String(source?.workerId?._id || source?.workerId || "");
+      const projectId = String(source?.projectId?._id || source?.projectId || "");
+      const workerName = workerNames.get(workerId);
+      const projectName = projectNames.get(projectId);
+      if (workerName) record.workerName = workerName;
+      if (projectName) record.projectName = projectName;
+      const checkInAt = source?.checkIn?.time;
+      const checkOutAt = source?.checkOut?.time;
+      if (checkInAt instanceof Date) record.checkInAt = checkInAt.toISOString();
+      else if (typeof checkInAt === "string") record.checkInAt = checkInAt;
+      if (checkOutAt instanceof Date) record.checkOutAt = checkOutAt.toISOString();
+      else if (typeof checkOutAt === "string") record.checkOutAt = checkOutAt;
+    }
+  }
   const branchIds = [...new Set(records.map(row => row.branchId).filter((value): value is string => typeof value === "string" && value.length > 0))];
   if (branchIds.length && operationId !== "branch.list" && !operationId.startsWith("recruitment.")) {
     try {
@@ -3797,6 +3931,10 @@ function filterRelationshipCandidates(op: AssistantOperation, field: AssistantFi
   const selectingWriteRelationship = ["POST", "PATCH", "PUT"].includes(op.method) && field.source !== "path";
   if (op.id === "company-knowledge.faq-candidate.reject" && field.reference === "company-knowledge.faq-candidates.list") {
     candidates = candidates.filter(candidate => candidate.status === "pending");
+  }
+  if ((op.id === "marketing.chat-flow.activate" && field.apiKey === "version")
+    || (op.id === "marketing.lead-intake-profile.activate" && field.apiKey === "version")) {
+    candidates = candidates.filter(candidate => candidate.status === "draft");
   }
   if (field.reference === "marketing.campaign.sheet.revisions.list" && /revisionId$/i.test(String(field.apiKey || field.key))) {
     candidates = candidates.filter(candidate => candidate.__assistantRevertible === true);
@@ -3937,6 +4075,9 @@ export async function suggestReferenceOptions(
       && (item.key === candidate.key || Boolean(candidate.apiKey) && item.apiKey === candidate.apiKey));
     if (parent && values[parent.key] !== undefined) context[candidate.key] = values[parent.key];
   }
+  if (field.reference === "omni-inbox.account.list" && field.referenceParentKey && values[field.referenceParentKey] !== undefined) {
+    context.query_platform = String(values[field.referenceParentKey]);
+  }
   Object.assign(context, field.referenceContext || {});
   if (field.reference === "student.quality.mini-tests.list") {
     const batchSearch = String(values.path_batchId || "").trim();
@@ -4028,8 +4169,9 @@ export async function suggestReferenceOptions(
     candidates = candidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
   }
   if (field.reference === "omni-inbox.account.list") {
-    const platform = String(field.referenceContext?.platform || field.referenceContext?.query_platform || "");
-    if (platform) candidates = candidates.filter(candidate => candidate.platform === platform && candidate.isConnected === true && typeof candidate.pageId === "string");
+    const platform = String(field.referenceContext?.platform || field.referenceContext?.query_platform || context.query_platform || "");
+    if (platform) candidates = candidates.filter(candidate => String(candidate.platform || "").toLocaleLowerCase() === platform.toLocaleLowerCase()
+      && candidate.isConnected === true && typeof candidate.pageId === "string");
   }
   if (op.id === "resource.google-drive.move" && field.apiKey === "fileId") candidates = candidates.filter(candidate => candidate.mimeType !== "application/vnd.google-apps.folder");
   if (op.id === "resource.google-drive.move" && field.apiKey === "newParentId") candidates = candidates.filter(candidate => candidate.mimeType === "application/vnd.google-apps.folder");
@@ -4038,7 +4180,7 @@ export async function suggestReferenceOptions(
     candidates = candidates.filter(candidate => eligibleStatuses.includes(String(candidate.status))
       && (op.id !== "marketing.bulk-create.jobs.retry" || Number(candidate.failedItems) > 0));
   }
-  const maximum = ["access.permission-catalog.list", "course.category.list"].includes(field.reference) ? 100 : 8;
+  const maximum = op.module === "student" || ["access.permission-catalog.list", "course.category.list"].includes(field.reference) ? 100 : 8;
   return [...new Set(candidates.map(candidate => referenceOptionLabel(candidate, candidates)).filter(label => label && label !== "Bản ghi"))].slice(0, maximum);
 }
 
@@ -4109,6 +4251,11 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       : parentValue === undefined ? allCandidates : allCandidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
     if (["student.batch.create", "student.batch.update"].includes(op.id) && field.apiKey === "roadmapId") {
       candidates = candidates.filter(candidate => candidate.status === "active");
+    }
+    if (field.reference === "omni-inbox.account.list" && field.apiKey === "pageId"
+      && op.id.startsWith("marketing.lead-intake-profile.") && resolved.platform !== undefined) {
+      const expectedPlatform = String(resolved.platform).toLocaleLowerCase();
+      candidates = candidates.filter(candidate => String(candidate.platform || "").toLocaleLowerCase() === expectedPlatform);
     }
     candidates = filterRelationshipCandidates(op, field, candidates, resolved);
     if (op.method === "POST" && op.path === "/worker-management/attendance/mark" && field.apiKey === "workerId") {
@@ -4188,6 +4335,22 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       ? String(record.campaignTitle || "Chiến dịch")
       : referenceLabel(record);
     resolvedReferences[field.key] = record;
+    if (field.reference === "omni-inbox.account.list" && field.apiKey === "pageId"
+      && op.id.startsWith("marketing.lead-intake-profile.") && typeof record.platform === "string") {
+      const platformField = op.fields.find(candidate => candidate.apiKey === "platform");
+      if (platformField) {
+        const normalizedPlatform = record.platform.toLocaleLowerCase();
+        const requestedPlatform = values[platformField.key];
+        if (requestedPlatform !== undefined && String(requestedPlatform).toLocaleLowerCase() !== normalizedPlatform) {
+          addUnresolvedReferenceError(field.key, `${field.label}: kênh đã chọn không khớp tài khoản mạng xã hội. Hãy chọn tài khoản thuộc đúng kênh.`);
+          delete resolved[field.key];
+          delete resolvedReferences[field.key];
+          continue;
+        }
+        resolved[platformField.key] = normalizedPlatform;
+        labels[platformField.key] = record.platform;
+      }
+    }
     const configuredConfirmationDetails = op.confirmationDetails?.[field.key] || [];
     if (configuredConfirmationDetails.length) {
       confirmationDetails[field.key] = configuredConfirmationDetails.flatMap(detail => {
@@ -4663,7 +4826,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       } else resolved.__assistantExistingRecord = JSON.stringify(existing);
     }
     if (needsExpectedVersion && resolved.expectedVersion === undefined) {
-      const version = Number(record.version ?? record.__assistantRef?.version ?? record.__v);
+      const version = Number(record.version ?? record.__assistantRef?.version ?? record.__assistantRefVersion ?? record.__v);
       if (Number.isSafeInteger(version) && version >= 0) {
         resolved.expectedVersion = version;
         labels.expectedVersion = "Phiên bản hiện tại (được lấy tự động)";

@@ -192,7 +192,7 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
       const result = await Promise.race([
         openrouterChat({
           model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
-          temperature: 0.2, jsonMode: true, maxRetries: 1,
+          temperature: 0.2, jsonMode: true, maxRetries: 3,
           messages: [
             { role: "system", content: `Bạn soạn tài liệu theo yêu cầu trong cuộc trò chuyện tiếng Việt. Chỉ trả JSON có đúng các khóa: reply (lời nhắn ngắn), sourceDocumentId (null khi tạo mới; UUID trong danh sách khi chỉnh sửa/đổi định dạng), formats (mảng định dạng xlsx,csv,docx,pdf,txt,md,json), document.
 document có title, sections [{"heading":"Tiêu đề hoặc chuỗi rỗng","text":"Nội dung đầy đủ"}] và sheets [{"name":"Tên bảng","columns":["Cột"],"rows":[["Giá trị"]]}]. Có thể thêm titleAlignment, section.alignment, headerAlignments, columnAlignments và cellAlignments. Giá trị căn lề hợp lệ là "left", "center", "right" hoặc null. Mảng headerAlignments/columnAlignments phải khớp số cột; cellAlignments phải khớp cả số dòng lẫn số cột. Dùng cellAlignments cho ô riêng, columnAlignments cho toàn cột, headerAlignments cho tiêu đề cột, và section.alignment/titleAlignment cho đoạn/tiêu đề. Chỉ xuất metadata căn lề khi yêu cầu người dùng hoặc mẫu đã chỉ rõ; không đoán từ nhãn trường. Nếu người dùng yêu cầu căn giữa các trường hợp đặc biệt, chỉ căn giữa đúng các ô hoặc đoạn tương ứng.

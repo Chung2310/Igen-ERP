@@ -26,12 +26,12 @@ export class AssignmentController {
 
   static async getList(req: AuthRequest, res: Response) {
     try {
-      const { batchId } = req.query;
+      const { batchId, search } = req.query;
       if (!batchId) {
         return res.status(400).json({ success: false, error: "Thiếu mã lớp học batchId." });
       }
       const ownerScope = await getAllowedOwnerIds(req.user!);
-      const assignments = await AssignmentService.getAssignments(ownerScope, String(batchId));
+      const assignments = await AssignmentService.getAssignments(ownerScope, String(batchId), typeof search === "string" ? search : undefined);
       res.json({ success: true, data: assignments });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi lấy danh sách bài tập.";

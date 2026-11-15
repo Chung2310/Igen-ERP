@@ -3,6 +3,7 @@ import { aiKnowledgeService } from "../knowledge/service/ai-knowledge.service";
 import { generateReplyCompletion } from "../message/service/ai-reply-provider";
 import { PageChatFlowModel } from "../message/model/page-chat-flow.model";
 import { LeadIntakeProfileModel } from "../message/model/lead-intake-profile.model";
+import { normalizeIntakeFields } from "../message/service/normalize-intake-fields";
 import { SocialIntegrationModel } from "./model/social-integration.model";
 import { UserModel, AiAutoReplyConfigSchema } from "../../../model/user.model";
 import { authController } from "./controller/auth.controller";
@@ -51,30 +52,6 @@ function profileScope(companyCode: string, pageId: string, platform: IntakePlatf
 async function hasIntakeAccount(companyCode: string, pageId: string, platform: IntakePlatform) {
   return SocialIntegrationModel.exists({ companyCode, platform: platformNames[platform], username: pageId, isConnected: true });
 }
-function normalizeIntakeFields(fields: unknown) {
-  const allowedTypes = new Set(["text", "long_text", "number", "currency", "date", "phone", "email", "single_select", "multi_select", "checkbox"]);
-  if (!Array.isArray(fields) || fields.length === 0 || fields.length > 30) return undefined;
-  const normalized = fields.map((rawField: unknown) => {
-    const field = rawField && typeof rawField === "object" ? (rawField as Record<string, unknown>) : null;
-    return {
-      key: typeof field?.key === "string" ? field.key.trim() : "",
-      label: typeof field?.label === "string" ? field.label.trim() : "",
-      question: typeof field?.question === "string" ? field.question.trim() : "",
-      type: typeof field?.type === "string" ? field.type : "text",
-      required: field?.required !== false,
-      options: Array.isArray(field?.options) ? field.options.map((option: unknown) => typeof option === "string" ? option.trim() : "") : [],
-    };
-  });
-  const valid = normalized.every(field => /^[a-z][a-z0-9_]{0,39}$/.test(field.key)
-    && field.label.length > 0 && field.label.length <= 100
-    && field.question.length > 0 && field.question.length <= 300
-    && allowedTypes.has(field.type)
-    && field.options.length <= 30 && field.options.every(option => option.length > 0 && option.length <= 100)
-    && (field.type !== "single_select" && field.type !== "multi_select" || field.options.length >= 2)
-    && new Set(field.options.map(option => option.toLocaleLowerCase())).size === field.options.length);
-  return valid && new Set(normalized.map(field => field.key)).size === normalized.length ? normalized : undefined;
-}
-
 marketingSettingsRouter.get("/lead-intake-profiles", requirePermission(["omni-inbox:read", "omni-inbox:manage"]) as RequestHandler, async (request, res, next) => {
   try {
     const req = request as AuthenticatedRequest;

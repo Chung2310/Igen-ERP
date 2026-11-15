@@ -12,6 +12,7 @@ interface PaymentFilters {
   ownerFilter?: string;
   startDate?: string;
   endDate?: string;
+  search?: string;
 }
 
 interface PaymentCreateData {
@@ -21,6 +22,13 @@ interface PaymentCreateData {
   note?: string;
   method?: "Tiền mặt" | "Chuyển khoản";
   [key: string]: unknown;
+}
+
+interface PaymentUpdateData {
+  expectedVersion?: number;
+  method?: "Tiền mặt" | "Chuyển khoản";
+  date?: string;
+  note?: string;
 }
 
 interface PaymentHistoryEntry {
@@ -34,6 +42,10 @@ interface PaymentHistoryEntry {
 
 function buildBranchScopeQuery(branchId?: string) {
   return branchId ? { branchId } : {};
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export class PaymentService {
@@ -158,6 +170,10 @@ export class PaymentService {
       query.ownerId = Array.isArray(resolvedOwnerId) ? { $in: resolvedOwnerId } : resolvedOwnerId;
     }
     if (filters.studentId) query.studentId = filters.studentId;
+    if (filters.search?.trim()) {
+      const expression = new RegExp(escapeRegex(filters.search.trim().slice(0, 120)), "i");
+      query.$or = [{ studentName: expression }, { note: expression }];
+    }
 
     const startDate = parsePaymentDate(filters.startDate);
     const endDate = parsePaymentDate(filters.endDate);
@@ -187,6 +203,49 @@ export class PaymentService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  static async updatePayment(ownerId: string | string[], id: string, data: PaymentUpdateData, branchId?: string): Promise<IPayment> {
+    const paymentQuery: Record<string, unknown> = { _id: id, ...buildBranchScopeQuery(branchId) };
+    if (ownerId !== "ALL") paymentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
+    const payment = await Payment.findOne(paymentQuery);
+    if (!payment) throw new Error("Không tìm thấy giao dịch thanh toán.");
+    if (data.expectedVersion !== undefined && data.expectedVersion !== (payment.__v ?? 0)) {
+      throw new Error("Giao dịch đã được cập nhật ở nơi khác. Hãy tra cứu lại rồi thử lại.");
+    }
+
+    const studentQuery: Record<string, unknown> = { _id: payment.studentId, ...buildBranchScopeQuery(branchId) };
+    if (ownerId !== "ALL") studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
+    const student = await Student.findOne(studentQuery);
+    if (!student) throw new Error("Không tìm thấy học viên liên kết với giao dịch.");
+    const history = (student.paymentHistory || []) as PaymentHistoryEntry[];
+    const entry = history.find((item) => item.id === payment._id.toString());
+    if (!entry) throw new Error("Lịch sử học phí của học viên không khớp giao dịch; chưa thể sửa an toàn.");
+
+    const update: Record<string, unknown> = {};
+    if (data.method !== undefined) update.method = data.method;
+    if (data.date !== undefined) {
+      const paidOn = parsePaymentDate(data.date);
+      if (!paidOn) throw new Error("Ngày thanh toán không hợp lệ.");
+      update.date = data.date;
+      update.paidOn = paidOn;
+      entry.date = data.date;
+    }
+    if (data.method !== undefined) entry.method = data.method;
+    if (data.note !== undefined) {
+      update.note = data.note;
+      entry.note = data.note;
+    }
+
+    const version = payment.__v ?? 0;
+    const updatedPayment = await Payment.findOneAndUpdate(
+      { ...paymentQuery, ...(data.expectedVersion === undefined ? {} : { __v: version }) },
+      { $set: update, $inc: { __v: 1 } },
+      { returnDocument: "after", runValidators: true },
+    );
+    if (!updatedPayment) throw new Error("Giao dịch đã được cập nhật ở nơi khác. Hãy tra cứu lại rồi thử lại.");
+    await Student.updateOne(studentQuery, { $set: { paymentHistory: history } }, { runValidators: true });
+    return updatedPayment;
   }
 
   static async deletePayment(ownerId: string | string[], id: string, branchId?: string): Promise<IPayment | null> {

@@ -58,7 +58,7 @@ export async function recommendAssistantVisualCreation(input: {
         model: process.env.IGENAI_PROMPT_MODEL?.trim() || "google/gemma-4-31b-it:free",
         fallbackModel: process.env.IGENAI_PROMPT_FALLBACK_MODEL?.trim() || "qwen/qwen3.5-flash-02-23",
         temperature: 0,
-        maxRetries: 1,
+      maxRetries: 3,
         jsonMode: true,
         responseSchema: recommendationResponseSchema,
         messages: [

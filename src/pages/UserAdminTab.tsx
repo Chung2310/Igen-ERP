@@ -26,7 +26,7 @@ import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { HrEmptyIllustration } from "../components/hr/HrEmptyIllustration";
 import { primaryCreateButtonClass } from "../components/common/primaryCreateButton";
-import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/modules";
+import { DEFAULT_MODULE_KEYS, normalizeModuleKeys } from "../config/modules";
 import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 import { UserActivityTimeline } from "./super-admin/users/UserActivityTimeline";
 
@@ -498,7 +498,7 @@ export default function UserAdminTab() {
       name: targetCompany.name,
       code: targetCompany.code,
       ownerEmail: targetCompany.ownerEmail,
-      enabledModules: targetCompany.enabledModules?.length ? targetCompany.enabledModules : [...DEFAULT_MODULE_KEYS],
+      enabledModules: targetCompany.enabledModules?.length ? normalizeModuleKeys(targetCompany.enabledModules) : [...DEFAULT_MODULE_KEYS],
     });
     setIsEditCompanyModalOpen(true);
   };

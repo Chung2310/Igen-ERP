@@ -1,10 +1,10 @@
 import React from "react";
 import { superAdminTenantService, type Tenant, type TenantSummary, type TenantUser } from "../../../services/superAdminTenantService";
 import { TenantLifecycleDialog } from "./TenantLifecycleDialog";
-import { MODULE_KEYS, MODULE_OPTIONS, type ModuleKey } from "../../../config/modules";
+import { MODULE_OPTIONS, normalizeModuleKeys, type ModuleKey } from "../../../config/modules";
 
 function ModulesEditor({ code, current, onSaved }: { code: string; current: string[]; onSaved: () => void }) {
-  const normalizeModules = React.useCallback((modules: string[]) => modules.filter((key): key is ModuleKey => MODULE_KEYS.includes(key as ModuleKey)), []);
+  const normalizeModules = React.useCallback((modules: string[]) => normalizeModuleKeys(modules), []);
   const [selected, setSelected] = React.useState<ModuleKey[]>(() => normalizeModules(current));
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState("");
@@ -36,7 +36,7 @@ function ModulesEditor({ code, current, onSaved }: { code: string; current: stri
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {MODULE_OPTIONS.map((option) => (
           <label key={option.key} className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-xs">
-            <input type="checkbox" checked={option.moduleKeys.some((key) => selected.includes(key))} onChange={() => toggle(option.moduleKeys)} />
+            <input type="checkbox" checked={option.moduleKeys.every((key) => selected.includes(key))} onChange={() => toggle(option.moduleKeys)} />
             {option.label}
           </label>
         ))}

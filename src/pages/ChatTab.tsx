@@ -47,6 +47,7 @@ import {
 } from "../services/internalChatService";
 import { UserProfile } from "../types";
 import { LinkPreviewCard } from "../components/chat/LinkPreviewCard";
+import { ErpModal } from "../components/common/ErpModal";
 import { ChatBrandMark, ChatCloudArtwork, ChatEmptyIllustration, ChatWelcomeArtwork } from "../components/chat/ChatIllustrations";
 import "./chat-tab.css";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS } from "../components/chat/chatData";
@@ -145,6 +146,7 @@ export default function ChatTab() {
   const [sharingMessage, setSharingMessage] = useState<ChatMessage | null>(null);
   const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [sharingRoomId, setSharingRoomId] = useState<string | null>(null);
   const [soundMuted, setSoundMuted] = useState<boolean>(() => localStorage.getItem(CHAT_SOUND_MUTED_KEY) === "1");
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
   const draftsRef = useRef<Record<string, string>>({});
@@ -1158,6 +1160,30 @@ export default function ChatTab() {
     setMessageInput(activeRoom ? draftsRef.current[activeRoom._id] || "" : "");
   };
 
+  const copyMessageContent = async (content: string) => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API không khả dụng.");
+      await navigator.clipboard.writeText(content);
+      toast.success("Đã sao chép tin nhắn.");
+    } catch {
+      toast.error("Không thể sao chép tin nhắn. Hãy kiểm tra quyền truy cập clipboard.");
+    }
+  };
+
+  const shareMessageToRoom = async (room: ChatRoom) => {
+    if (!sharingMessage || sharingRoomId) return;
+    setSharingRoomId(room._id);
+    try {
+      await internalChatService.sendMessage(room._id, sharingMessage.content, sharingMessage.attachments);
+      toast.success(`Đã chia sẻ tin nhắn đến ${getRoomName(room)}`);
+      setSharingMessage(null);
+    } catch (error: any) {
+      toast.error(`Chia sẻ thất bại: ${error.message || "Vui lòng thử lại."}`);
+    } finally {
+      setSharingRoomId(null);
+    }
+  };
+
   // Handle Typing indicator event emission
   // Chèn emoji vào khung nhập tại vị trí con trỏ (không gửi luôn)
   const handleSelectEmoji = (emoji: string) => {
@@ -1554,6 +1580,7 @@ export default function ChatTab() {
         setMessages((prev) =>
           prev.map((m) => (m._id === target._id ? { ...m, content: updated.content, editedAt: updated.editedAt } : m))
         );
+        toast.success("Đã cập nhật tin nhắn.");
       } catch (error: any) {
         toast.error(error.message || "Sửa tin nhắn thất bại.");
         // Hoàn tác
@@ -2265,6 +2292,8 @@ export default function ChatTab() {
 
                        const showSenderName = !isMe && activeRoom.isGroup && !isPrevSameSender;
                        const showAvatar = !isMe && activeRoom.isGroup && !isNextSameSender;
+
+
  
  
                        return (
@@ -2295,20 +2324,17 @@ export default function ChatTab() {
                                )
                              )}
 
-                            {/* Message actions toolbar (appears on hover) */}
-                            <div className={`opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 shrink-0 self-center bg-white border border-gray-100 shadow-xs rounded-xl p-0.5 ${isMe ? "order-first" : "order-last"}`}>
+                        <div className={`flex shrink-0 items-center gap-1 self-center rounded-xl border border-outline-variant bg-surface-container-lowest p-0.5 shadow-sm transition-opacity lg:opacity-0 lg:group-hover/msg:opacity-100 lg:group-focus-within/msg:opacity-100 ${isMe ? "order-first" : "order-last"}`}>
                               {/* Copy Button */}
                               {msg.content && !msg.isDeleted && (
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(msg.content);
-                                    toast.success("Đã sao chép tin nhắn.");
-                                  }}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition"
+                                  onClick={() => void copyMessageContent(msg.content)}
+                                  aria-label="Sao chép tin nhắn"
+                                  className="flex size-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-surface-container hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                   title="Sao chép"
                                 >
-                                  <Copy className="h-3.5 w-3.5" />
+                                  <Copy className="size-3.5" aria-hidden="true" />
                                 </button>
                               )}
 
@@ -2317,23 +2343,26 @@ export default function ChatTab() {
                                 <button
                                   type="button"
                                   onClick={() => setReplyingMessage(msg)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition"
+                                  aria-label="Trả lời tin nhắn"
+                                  className="hidden size-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-surface-container hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:flex"
                                   title="Trả lời"
                                 >
-                                  <CornerUpLeft className="h-3.5 w-3.5" />
+                                  <CornerUpLeft className="size-3.5" aria-hidden="true" />
                                 </button>
                               )}
 
                               {/* React Button + quick reactions popover */}
                               {!msg.isDeleted && (
-                                <div className="relative">
+                                <div className="relative hidden md:block">
                                   <button
                                     type="button"
                                     onClick={() => setReactionPickerFor(reactionPickerFor === msg._id ? null : msg._id)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition"
+                                    aria-label="Thả cảm xúc"
+                                    aria-expanded={reactionPickerFor === msg._id}
+                                    className="flex size-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-surface-container hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                     title="Thả cảm xúc"
                                   >
-                                    <Smile className="h-3.5 w-3.5" />
+                                    <Smile className="size-3.5" aria-hidden="true" />
                                   </button>
                                   {reactionPickerFor === msg._id && (
                                     <div className={`absolute bottom-9 z-30 flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-lg ${isMe ? "right-0" : "left-0"}`}>
@@ -2342,6 +2371,7 @@ export default function ChatTab() {
                                           key={emoji}
                                           type="button"
                                           onClick={() => handleReact(msg._id, emoji)}
+                                          aria-label={`Thả cảm xúc ${emoji}`}
                                           className="text-xl leading-none hover:scale-125 transition-transform p-0.5"
                                         >
                                           {emoji}
@@ -2357,10 +2387,11 @@ export default function ChatTab() {
                                 <button
                                   type="button"
                                   onClick={() => setSharingMessage(msg)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition"
+                                  aria-label="Chia sẻ tin nhắn"
+                                  className="flex size-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-surface-container hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                   title="Chia sẻ / Chuyển tiếp"
                                 >
-                                  <Share2 className="h-3.5 w-3.5" />
+                                  <Share2 className="size-3.5" aria-hidden="true" />
                                 </button>
                               )}
 
@@ -2369,10 +2400,11 @@ export default function ChatTab() {
                                 <button
                                   type="button"
                                   onClick={() => isPinned ? handleUnpinMessage(msg._id) : handlePinMessage(msg._id)}
-                                  className={`flex h-7 w-7 items-center justify-center rounded-lg transition hover:bg-slate-50 ${isPinned ? "text-amber-500 hover:text-amber-600" : "text-slate-400 hover:text-indigo-600"}`}
+                                  aria-label={isPinned ? "Bỏ ghim tin nhắn" : "Ghim tin nhắn"}
+                                  className={`hidden size-8 items-center justify-center rounded-lg transition hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:flex ${isPinned ? "text-primary" : "text-on-surface-variant hover:text-primary"}`}
                                   title={isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
                                 >
-                                  <Pin className={`h-3.5 w-3.5 ${isPinned ? "fill-amber-500" : ""}`} />
+                                  <Pin className={`size-3.5 ${isPinned ? "fill-current" : ""}`} aria-hidden="true" />
                                 </button>
                               )}
 
@@ -2381,10 +2413,11 @@ export default function ChatTab() {
                                 <button
                                   type="button"
                                   onClick={() => startEditMessage(msg)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition"
+                                  aria-label="Sửa tin nhắn"
+                                  className="flex size-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-surface-container hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                   title="Sửa tin nhắn"
                                 >
-                                  <Edit3 className="h-3.5 w-3.5" />
+                                  <Edit3 className="size-3.5" aria-hidden="true" />
                                 </button>
                               )}
 
@@ -2393,17 +2426,17 @@ export default function ChatTab() {
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteMessage(msg._id)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                  aria-label="Thu hồi tin nhắn"
+                                  className="hidden size-8 items-center justify-center rounded-lg text-on-surface-variant transition hover:bg-error-container hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:flex"
                                   title="Thu hồi tin nhắn"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="size-3.5" aria-hidden="true" />
                                 </button>
                               )}
-                            </div>
-
+                        </div>
 
                             {/* Message content block */}
-                            <div className="min-w-0 max-w-[85%] sm:max-w-[70%]">
+                            <div className="min-w-0 max-w-[68%] sm:max-w-[70%]">
                               {/* Sender Name in group */}
                               {/* Sender Name in group */}
                               {showSenderName && (
@@ -2606,6 +2639,7 @@ export default function ChatTab() {
                                   )}
                                 </div>
                               )}
+
                             </div>
 
                           </div>
@@ -3150,6 +3184,7 @@ export default function ChatTab() {
                       <button
                         type="button"
                         onClick={cancelEdit}
+                        aria-label="Hủy sửa tin nhắn"
                         className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/40"
                         title="Hủy sửa (Esc)"
                       >
@@ -3677,86 +3712,71 @@ export default function ChatTab() {
       )}
       {/* SHARE / FORWARD MESSAGE MODAL */}
       {sharingMessage && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Share2 className="h-4.5 w-4.5 text-indigo-600" />
-                <span>Chia sẻ tin nhắn</span>
-              </h3>
-              <button
-                onClick={() => setSharingMessage(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Message Preview */}
-            <div className="bg-slate-50 rounded-2xl p-3 mb-4 border border-slate-100/50 text-xs">
-              <p className="font-semibold text-slate-600 mb-1">Nội dung chia sẻ:</p>
-              <p className="text-slate-700 italic truncate">
-                {sharingMessage.content || (sharingMessage.attachments && sharingMessage.attachments.length > 0 ? "📎 Tệp đính kèm" : "")}
+        <ErpModal
+          title="Chia sẻ tin nhắn"
+          onClose={() => setSharingMessage(null)}
+          maxWidth="max-w-md"
+          native
+          className="flex max-h-[85dvh] flex-col overflow-hidden"
+        >
+          <div className="rounded-xl border border-outline-variant bg-surface p-3 text-sm">
+            <p className="mb-1 text-xs font-medium text-on-surface-variant">Nội dung chia sẻ</p>
+            <p className="line-clamp-3 break-words text-on-surface">
+              {sharingMessage.content || (sharingMessage.attachments?.length ? "Tệp đính kèm" : "Tin nhắn")}
+            </p>
+            {!!sharingMessage.attachments?.length && (
+              <p className="mt-2 text-xs text-on-surface-variant">
+                {sharingMessage.attachments.length} tệp đính kèm
               </p>
-            </div>
-
-            <p className="text-xs font-semibold text-slate-500 mb-2">Chọn cuộc trò chuyện để chia sẻ:</p>
-
-            {/* Rooms List */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[250px]">
-              {rooms.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-center">
-                  <ChatEmptyIllustration kind="message" className="h-24 w-40 max-w-full" />
-                  <p className="text-pretty text-xs text-on-surface-variant">Chưa có cuộc trò chuyện nào để chia sẻ.</p>
-                </div>
-              ) : (
-                rooms.map((room) => {
-                  const roomName = getRoomName(room);
-                  const roomAvatar = getRoomAvatar(room);
-
-                  return (
-                    <div
-                      key={room._id}
-                      className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl transition border border-transparent hover:border-slate-100"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="h-9 w-9 rounded-xl bg-slate-150 overflow-hidden border border-slate-200 shrink-0">
-                          {roomAvatar ? (
-                            <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center font-bold text-xs text-slate-500">
-                              {room.isGroup ? <Users className="h-4 w-4" /> : roomName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-xs font-medium text-slate-700 truncate">{roomName}</span>
-                      </div>
-
-                      <button
-                        onClick={async () => {
-                          try {
-                            await internalChatService.sendMessage(
-                              room._id,
-                              sharingMessage.content,
-                              sharingMessage.attachments
-                            );
-                            toast.success(`Đã chia sẻ tin nhắn đến ${roomName}`);
-                            setSharingMessage(null);
-                          } catch (err: any) {
-                            toast.error(`Chia sẻ thất bại: ${err.message}`);
-                          }
-                        }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl transition active:scale-95 cursor-pointer shrink-0"
-                      >
-                        Gửi
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+            )}
           </div>
-        </div>
+
+          <p className="text-xs font-medium text-on-surface-variant">Chọn cuộc trò chuyện để chia sẻ:</p>
+
+          <div className="min-h-48 flex-1 space-y-2 overflow-y-auto pr-1">
+            {rooms.length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <ChatEmptyIllustration kind="message" className="h-24 w-40 max-w-full" />
+                <p className="text-pretty text-xs text-on-surface-variant">Chưa có cuộc trò chuyện nào để chia sẻ.</p>
+              </div>
+            ) : (
+              rooms.map((room) => {
+                const roomName = getRoomName(room);
+                const roomAvatar = getRoomAvatar(room);
+
+                return (
+                  <div
+                    key={room._id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-transparent p-2 transition hover:border-outline-variant hover:bg-surface"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline-variant bg-surface text-on-surface-variant">
+                        {roomAvatar ? (
+                          <img src={roomAvatar} alt="" className="size-full object-cover" />
+                        ) : room.isGroup ? (
+                          <Users className="size-4" aria-hidden="true" />
+                        ) : (
+                          <span className="text-xs font-medium">{roomName.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <span className="truncate text-sm text-on-surface">{roomName}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void shareMessageToRoom(room)}
+                      disabled={sharingRoomId !== null}
+                      aria-label={`Chia sẻ tin nhắn đến ${roomName}`}
+                      className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-on-primary transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {sharingRoomId === room._id ? "Đang gửi…" : "Gửi"}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ErpModal>
       )}
       {/* CUSTOM CONFIRM MODAL */}
       {confirmModal.isOpen && (

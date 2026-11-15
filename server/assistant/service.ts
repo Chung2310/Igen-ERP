@@ -30,8 +30,28 @@ export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
 export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
+const legacyWorkerAssistantActionIds: Record<string, string> = {
+  "api.get.b070dbb8162243a4": "worker.labor.contract.list",
+  "api.get.b4d5322ba79783f1": "worker.labor.contract.detail",
+  "api.get.bc9ba16fba0ca4e9": "worker.labor.contract.history",
+  "api.post.fbe4eca349fe93fc": "worker.labor.contract.create",
+  "api.patch.bebea1c307e88fa1": "worker.labor.contract.update",
+  "api.post.f3bb997532b2f035": "worker.labor.contract.renew",
+  "api.delete.dd78410c3575d814": "worker.labor.contract.delete",
+  "api.delete.cd33f1ce09975a67": "worker.delete",
+  "api.get.d4f5a3e88ed24bfe": "worker.project.detail",
+  "api.delete.69ae03528f746353": "worker.project.delete",
+  "api.post.facbd0e9d2d59f60": "worker.attendance.mark",
+  "api.get.6b7e623a8e53193a": "worker.attendance.list",
+  "api.patch.8420504a6713279e": "worker.attendance.update",
+  "api.get.f741231162e2386f": "worker.dashboard",
+  "api.get.2e254d29d24ae6e2": "worker.notification.list",
+  "api.post.b796152f071570ec": "worker.notification.create",
+};
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
   if (!pending || operationById(pending.actionId)) return pending;
+  const legacyActionId = legacyWorkerAssistantActionIds[pending.actionId];
+  if (legacyActionId && operationById(legacyActionId)) return { ...pending, actionId: legacyActionId };
   const previousTitle = String(pending.preview?.title || "").trim();
   if (!previousTitle) return pending;
   const matches = ASSISTANT_OPERATIONS.filter(operation => operation.title.trim() === previousTitle);
@@ -54,6 +74,30 @@ function safeAssistantPreviewFieldValue(field: AssistantField, rawValue: Assista
   return (typeof visibleValue === "string" && ["date", "datetime"].includes(field.type)
     ? formatAssistantTemporalValue(visibleValue) : undefined) ?? visibleValue;
 }
+async function workerProjectDisplayNames(req: AuthenticatedRequest, workerId?: unknown, projectId?: unknown) {
+  const idOf = (value: unknown) => value && typeof value === "object"
+    ? String((value as Record<string, unknown>)._id || (value as Record<string, unknown>).id || "")
+    : String(value || "");
+  const workerKey = idOf(workerId);
+  const projectKey = idOf(projectId);
+  const [workers, projects] = await Promise.all([
+    workerKey ? lookupRecords(req, "worker.list") : Promise.resolve([]),
+    projectKey ? lookupRecords(req, "worker.project.list") : Promise.resolve([]),
+  ]);
+  return {
+    ...(workerKey ? { workerName: workers.find(item => String(item.id || "") === workerKey)?.fullName as string | undefined } : {}),
+    ...(projectKey ? { projectName: projects.find(item => String(item.id || "") === projectKey)?.name as string | undefined } : {}),
+  };
+}
+async function addWorkerNamesToContractResult(req: AuthenticatedRequest, value: unknown) {
+  const decorate = async (record: unknown) => {
+    if (!record || typeof record !== "object" || Array.isArray(record)) return record;
+    const source = record as Record<string, unknown>;
+    const { workerName } = await workerProjectDisplayNames(req, source.workerId);
+    return workerName ? { ...source, workerName } : source;
+  };
+  return Array.isArray(value) ? Promise.all(value.map(decorate)) : decorate(value);
+}
 function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>, operation?: AssistantOperation) {
   return { ...preview, values: preview.values.filter(item => !item.defaulted).map(item => {
     const field = operation?.fields.find(candidate => candidate.label === item.label);
@@ -64,6 +108,26 @@ function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operatio
   if (!reply) return null;
   const sanitized = { ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) };
   return mode === "qa" ? sanitized : presentAssistantReply(sanitized);
+}
+async function previewStudentDeletion(req: AuthenticatedRequest, values: Record<string, AssistantValue>) {
+  const previewOperation = operationById("student.bulk.delete.preview");
+  if (!previewOperation) throw new AssistantError("Chưa bật bước xem trước ảnh hưởng khi xóa học viên; chưa có hồ sơ nào bị xóa.");
+  let ids: unknown = values.ids;
+  try { if (typeof ids === "string") ids = JSON.parse(ids); } catch { ids = null; }
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 20) throw new AssistantError("Chọn từ 1 đến 20 học viên trước khi xem ảnh hưởng xóa.");
+  await assertOperation(req, previewOperation.id);
+  let result: any;
+  try { result = await callOperation(req, previewOperation, values); }
+  catch { throw new AssistantError("Chưa đọc được ảnh hưởng khi xóa học viên; chưa có hồ sơ nào bị xóa. Hãy thử lại để xem trước."); }
+  const data = result?.data && typeof result.data === "object" ? result.data : result;
+  const deletableCount = Number(data?.deletableCount);
+  const blockedCount = Number(data?.blockedCount);
+  const impactSummary = typeof data?.impactSummary === "string" ? data.impactSummary.trim().slice(0, 1800) : "";
+  if (!Number.isSafeInteger(deletableCount) || !Number.isSafeInteger(blockedCount)
+    || deletableCount !== ids.length || blockedCount !== 0 || !impactSummary) {
+    throw new AssistantError(`Chưa xóa học viên vì kết quả xem trước không khớp hoặc có hồ sơ bị chặn. ${impactSummary}`.trim());
+  }
+  return [{ label: "Ảnh hưởng khi xóa", value: `${deletableCount} hồ sơ đủ điều kiện. ${impactSummary}` }];
 }
 const isAssistantRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 function parseStructuredAssistantValue(value: unknown) {
@@ -722,7 +786,7 @@ async function laborPartnerMissingInfoReply(req: AuthenticatedRequest, text: str
 }
 const relationMentioned = (intent: string, field: AssistantField) => {
   const text = normalizeAssistantText(intent);
-  const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "mot", "cac", "ban", "ghi", "lien", "quan", "tai"]);
+  const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "hoc", "mot", "cac", "ban", "ghi", "lien", "quan", "tai"]);
   const intentTokens = new Set(text.split(/\s+/).filter(Boolean));
   const tokens = [field.key, field.apiKey || "", field.label]
     .flatMap(value => normalizeAssistantText(value).split(/[^a-z0-9]+/))
@@ -1077,7 +1141,9 @@ export async function missingReferencePrompts(
         ? " Nếu muốn tạo mục gốc, bạn có thể nói “bỏ qua thư mục cha”."
         : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${field.label.toLocaleLowerCase("vi")}”.`;
     const prompt = options.length
-      ? `Bạn chọn giúp mình ${field.label}: ${options.join("; ")}.${skipHint}`
+      ? op.module === "student"
+        ? `Bạn chọn giúp mình ${field.label} trong danh sách bên dưới.${skipHint}`
+        : `Bạn chọn giúp mình ${field.label}: ${options.join("; ")}.${skipHint}`
       : unavailableReferencePrompt(op, field, field.label, skipHint, lookupFailed);
     prompts.push(prompt);
     if (options.length) referenceSelections.push({ key: field.key, label: field.label, required: mustResolve, multiple: false, options: assistantChoiceOptions(op, field, options) });
@@ -1216,11 +1282,30 @@ export async function missingReferencePrompts(
         if (!mustResolve) { awaitingOptional.push(key); awaitingLabels[key] = label; }
         const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${shape.label || "trường liên kết"}”.`;
         const prompt = options.length
-          ? `Bạn chọn giúp mình ${label}: ${options.join("; ")}.${skipHint}`
+          ? op.module === "student"
+            ? `Bạn chọn giúp mình ${label} trong danh sách bên dưới.${skipHint}`
+            : `Bạn chọn giúp mình ${label}: ${options.join("; ")}.${skipHint}`
           : unavailableReferencePrompt(op, referenceField, label, skipHint, lookupFailed);
         prompts.push(prompt);
         if (options.length) referenceSelections.push({ key, label, required: mustResolve, multiple: false, options: assistantChoiceOptions(op, referenceField, options) });
         else textPrompts.push(prompt);
+        return;
+      }
+      if (shape.type === "array" && shape.items?.options?.length && (!Array.isArray(node) || node.length === 0)) {
+        const key = nestedReferenceKey(field.key, path);
+        if (skipped.has(key)) return;
+        const label = [field.label, ...displayPath, shape.label || field.label].filter(Boolean).join(" · ");
+        const optionField: AssistantField = { key, label, type: "text", options: shape.items.options.map(String) };
+        const required = Boolean(shape.required || shapeConditionApplies);
+        const relationRequested = relationMentioned(intent, optionField);
+        const mustResolve = required || relationChangeRequested(intent, optionField);
+        const shouldPrompt = required || isCreate || (["PATCH", "PUT"].includes(op.method) && relationRequested);
+        if (!shouldPrompt) return;
+        if (!mustResolve) { awaitingOptional.push(key); awaitingLabels[key] = label; }
+        const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${label.toLocaleLowerCase("vi")}”.`;
+        referenceSelections.push({ key, label, required: mustResolve, multiple: true, options: assistantChoiceOptions(op, optionField, optionField.options || []) });
+        optionSelectionKeys.add(key);
+        prompts.push(`${label}: chọn một hoặc nhiều mục trong danh sách bên dưới.${skipHint}`);
         return;
       }
       if (shape.options?.length) {
@@ -1284,7 +1369,9 @@ export async function missingReferencePrompts(
           if (!mustResolve) { awaitingOptional.push(key); awaitingLabels[key] = label; }
           const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${itemShape.label || field.label}”.`;
           const prompt = options.length
-            ? `Bạn chọn giúp mình ${itemShape.label}: ${options.join("; ")}${context}. Có thể chọn một hoặc nhiều tên.${skipHint}`
+            ? op.module === "student"
+              ? `Bạn chọn giúp mình ${label} trong danh sách bên dưới.${skipHint}`
+              : `Bạn chọn giúp mình ${itemShape.label}: ${options.join("; ")}${context}. Có thể chọn một hoặc nhiều tên.${skipHint}`
             : unavailableReferencePrompt(op, referenceField, label, skipHint, lookupFailed);
           prompts.push(prompt);
           if (options.length) referenceSelections.push({ key, label, required: mustResolve, multiple: true, options: assistantChoiceOptions(op, referenceField, options) });
@@ -1368,7 +1455,7 @@ function applyReferenceSelection(provided: Record<string, unknown>, operation: A
   if (!field) throw new AssistantError("Một lựa chọn không còn thuộc thao tác đang chờ. Bạn tải lại lựa chọn giúp mình nhé.");
   if (selection.key === field.key) {
     if (operation.id === "quotation.customer-quote.create" && field.key === "items") provided[field.key] = JSON.stringify(values.map(catalogItemId => ({ catalogItemId })));
-    else if (field.structure?.type === "array" && field.structure.items?.reference) provided[field.key] = JSON.stringify(values);
+    else if (field.structure?.type === "array" && (field.structure.items?.reference || field.structure.items?.options)) provided[field.key] = JSON.stringify(values);
     else if (field.structure?.reference) provided[field.key] = values[0];
     else if (!field.structure) provided[field.key] = values[0];
     else throw new AssistantError(`Mình chưa thể áp dụng lựa chọn cho ${selection.label}.`);
@@ -1578,9 +1665,14 @@ const conversationText = (value: unknown, maxLength: number) => {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 };
 
-export async function listConversations(req: AuthenticatedRequest, options: { limit: number; before?: Date; beforeId?: string }) {
+export async function listConversations(req: AuthenticatedRequest, options: { limit: number; before?: Date; beforeId?: string; search?: string }) {
   await ensureAssistantIndexes();
   const filter: any = { ...conversationReadScope(req) };
+  const search = options.search?.trim();
+  if (search) {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.messages = { $elemMatch: { content: { $regex: escapedSearch, $options: "i" } } };
+  }
   if (options.before && options.beforeId) {
     filter.$or = [
       { updatedAt: { $lt: options.before } },
@@ -1716,6 +1808,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
     const checked = await resolveReferences(req, op, input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
+    if (input.decision?.confirmed && op.id === "student.bulk.delete") {
+      const expectedImpact = pending?.confirmationDetails?.studentDeleteImpact || [];
+      const currentImpact = await previewStudentDeletion(req, checked.values);
+      if (!expectedImpact.length || JSON.stringify(expectedImpact) !== JSON.stringify(currentImpact)) {
+        throw new AssistantError("Dữ liệu liên quan đã thay đổi kể từ lúc xem trước. Chưa xóa học viên; hãy gửi lại yêu cầu để xem trước thông tin mới.", 409);
+      }
+    }
     if (input.decision?.confirmed && op.id === "hr.workflow.update") {
       let previewSnapshot: string;
       let currentSnapshot: string;
@@ -1797,6 +1896,38 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     if (op.method === "GET" && (op.adapter === "contract" || op.rawResponse)) {
       const result = await dispatch(checked.values);
+      if (op.id === "worker.attendance.list") {
+        const sourceRows = Array.isArray(result?.data) ? result.data : [];
+        const [workers, projects] = await Promise.all([
+          lookupRecords(req, "worker.list"),
+          lookupRecords(req, "worker.project.list"),
+        ]);
+        const workerNames = new Map(workers.map(worker => [String(worker.id || ""), String(worker.fullName || "")]));
+        const projectNames = new Map(projects.map(project => [String(project.id || ""), String(project.name || project.code || "")]));
+        const rows = sourceRows.map((record: any) => {
+          const workerId = String(record?.workerId?._id || record?.workerId || "");
+          const projectId = String(record?.projectId?._id || record?.projectId || "");
+          const checkInAt = record?.checkIn?.time;
+          const checkOutAt = record?.checkOut?.time;
+          return {
+            workerName: workerNames.get(workerId) || "",
+            projectName: projectNames.get(projectId) || "",
+            date: record?.date,
+            ...(checkInAt ? { checkInAt: checkInAt instanceof Date ? checkInAt.toISOString() : String(checkInAt) } : {}),
+            ...(checkOutAt ? { checkOutAt: checkOutAt instanceof Date ? checkOutAt.toISOString() : String(checkOutAt) } : {}),
+            status: record?.status,
+            workedMinutes: record?.workedMinutes,
+            note: record?.note,
+          };
+        });
+        pending = null;
+        return { status: "completed", reply: friendlyResult(op, rows), link: op.link };
+      }
+      if (op.id === "worker.labor.contract.detail" || op.id === "worker.labor.contract.history") {
+        const decorated = await addWorkerNamesToContractResult(req, result?.data ?? result);
+        pending = null;
+        return { status: "completed", reply: friendlyResult(op, decorated), link: op.link };
+      }
       pending = null;
       return { status: "completed", reply: friendlyResult(op, result?.data ?? result), link: op.link };
     }
@@ -1813,14 +1944,48 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         pending = null;
         return { status: "completed", reply: friendlyResult(op, { ...result.data, ...(partnerName ? { partnerName } : {}) }), link: op.link };
       }
-      pending = null;
       const created = result?.data ?? result;
+      if (op.id.startsWith("omni-inbox.leads.link-") && created && typeof created === "object" && !Array.isArray(created)) {
+        const targetField = op.fields.find(field => field.key === "targetRecordId");
+        const targetLabel = targetField && pending?.preview.values.find(item => item.label === targetField.label)?.value;
+        const targetRecordName = typeof targetLabel === "string" ? targetLabel.split(" — ", 1)[0].trim() : "";
+        pending = null;
+        return { status: "completed", reply: friendlyResult(op, { ...created, ...(targetRecordName ? { targetRecordName } : {}) }), link: op.link };
+      }
+      pending = null;
+      if (["worker.labor.contract.create", "worker.labor.contract.update", "worker.labor.contract.renew"].includes(op.id)) {
+        const decorated = await addWorkerNamesToContractResult(req, created);
+        return { status: "completed", reply: friendlyResult(op, decorated), link: op.link };
+      }
+      if (op.id === "worker.attendance.update") {
+        const names = await workerProjectDisplayNames(req, created?.workerId, created?.projectId);
+        const checkInAt = created?.checkIn?.time;
+        const checkOutAt = created?.checkOut?.time;
+        return { status: "completed", reply: friendlyResult(op, {
+          ...created,
+          ...names,
+          ...(checkInAt ? { checkInAt: checkInAt instanceof Date ? checkInAt.toISOString() : String(checkInAt) } : {}),
+          ...(checkOutAt ? { checkOutAt: checkOutAt instanceof Date ? checkOutAt.toISOString() : String(checkOutAt) } : {}),
+        }), link: op.link };
+      }
+      if (op.id === "worker.attendance.mark") {
+        const names = await workerProjectDisplayNames(req, checked.values.workerId, checked.values.projectId);
+        return { status: "completed", reply: friendlyResult(op, {
+          ...created,
+          ...names,
+        }), link: op.link };
+      }
       return { status: "completed", reply: friendlyResult(op, created), link: op.link };
     }
     const records = projectRecords(op, result, req);
+    const deletedEmployeeName = op.id === "employee.delete"
+      ? pending?.preview?.values?.find((item: { label?: string }) => item.label === op.fields.find(field => field.key === "id")?.label)?.value
+      : undefined;
     pending = null;
     return { status: "completed", reply: friendlyResult(op, records[0] || {})
-      + (op.id === "employee.create" ? "\n\nHồ sơ cũng đã có tài khoản đăng nhập với vai trò nhân viên." : ""), link: op.link };
+      + (op.id === "employee.create" ? "\n\nHồ sơ cũng đã có tài khoản đăng nhập với vai trò nhân viên." : "")
+      + (op.id === "employee.delete" && typeof deletedEmployeeName === "string" && deletedEmployeeName.trim()
+        ? `\n\nĐã xóa tài khoản của ${deletedEmployeeName.trim()}.` : ""), link: op.link };
   };
 
   const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
@@ -1838,9 +2003,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         actionId = bulkOp?.id || "partner.bulk.create";
       } else if (targetOp?.id === "quotation.catalog.create") {
         actionId = "quotation.catalog.import";
-      } else if (targetOp?.id === "healthcare.patient.create") {
+      } else if (["healthcare.patient.create", "healthcare.visit.create"].includes(targetOp?.id || "")) {
         actionId = "healthcare.import.preview";
-        if (provided.table === undefined) provided.table = "patients";
+        provided.path_kind = targetOp?.id === "healthcare.visit.create" ? "visits" : "patients";
       } else if (targetOp?.id === "payroll.period.input.update") {
         actionId = "payroll.period.inputs.bulk";
       }
@@ -2026,6 +2191,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (!relationshipPrompts.optionSelectionKeys.has(selection.key)) return false;
       return error.startsWith(`${selection.label}:`) || error.startsWith(`${selection.label} ·`);
     }));
+    if (op.id === "student.bulk.delete" && !collected.missing.length && !visibleCollectedErrors.length
+      && !visibleReferenceErrors.length && !relationshipPrompts.prompts.length) {
+      confirmationDetails.studentDeleteImpact = await previewStudentDeletion(req, references.values);
+    }
     const receiptQuestion = inventoryReceiptFollowUpQuestion(op, collected.missing, relationshipPrompts.referenceSelections, relationshipPrompts.textPrompts);
     const trainingContentQuestion = trainingContentFollowUpQuestion(op, collected.missing);
     const customWorkHoursQuestion = customWorkHoursFollowUpQuestion(op, missingWorkHours);
@@ -2083,7 +2252,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         ...(acceptanceLinesNeedForm ? ["Bạn nhập khối lượng nghiệm thu cho từng sản phẩm trong bảng bên dưới nhé."] : []),
         ...(visibleCollectedErrors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...visibleCollectedErrors, ...visibleReferenceErrors].join("\n")}`] : []),
         ...(relationshipPrompts.textPrompts.length ? [relationshipPrompts.textPrompts.join("\n")] : []),
-        ...(relationshipPrompts.referenceSelections.length && !customerQuoteQuestion ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
+        ...(relationshipPrompts.referenceSelections.length && !customerQuoteQuestion
+          ? [op.module === "student" ? "Bạn chọn thông tin trong danh sách bên dưới nhé." : "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."]
+          : []),
       ];
       return { status: "collecting", reply: lines.join("\n"), action: preview,
         ...(relationshipPrompts.referenceSelections.length ? { referenceSelections: relationshipPrompts.referenceSelections } : {}),
@@ -2199,16 +2370,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
             ? { status: "confirmation", reply: "Bạn nhập lại mật khẩu khởi tạo trong ô bảo mật giúp mình nhé. Mật khẩu sẽ không được giữ lại nếu tải lại trang.", action: pending.preview }
           : await execute(operation, workflow, pending.resolved, input.decision.password);
       }
-    } else if (input.referenceSelections) {
+    } else if (input.referenceSelections || input.skipReferenceKeys?.length) {
       if (!pending || !pending.referenceSelections?.length) throw new AssistantError("Danh sách lựa chọn đã hết hiệu lực. Bạn gửi lại yêu cầu để mình tìm lựa chọn mới nhé.");
       const operation = await assertOperation(req, pending.actionId);
       const workflow = await currentWorkflow(req, pending.actionId);
       if (workflow.version !== pending.workflowVersion) {
         reply = await prepare(pending.actionId, pending.provided, false, pending.intent);
       } else {
-        const applied = applyReferenceSelections(pending, operation, input.referenceSelections, input.skipReferenceKeys || []);
+        const selections = input.referenceSelections || {};
+        const applied = applyReferenceSelections(pending, operation, selections, input.skipReferenceKeys || []);
         for (const key of applied.skipped) if (operation.fields.some(field => field.key === key)) delete applied.provided[key];
-        reply = await prepare(pending.actionId, applied.provided, false, pending.intent, Object.keys(input.referenceSelections));
+        reply = await prepare(pending.actionId, applied.provided, false, pending.intent, Object.keys(selections));
       }
     } else if (input.acceptanceLines) {
       if (!pending || pending.actionId !== "quotation.acceptance.create") throw new AssistantError("Biểu mẫu khối lượng nghiệm thu đã hết hiệu lực. Gửi lại yêu cầu lập biên bản nghiệm thu giúp mình nhé.", 409);

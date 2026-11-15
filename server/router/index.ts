@@ -159,6 +159,6 @@ apiRouter.use("/marketing", requireAuth as any, requireModule("marketing"), mark
 // Lao động quét mã QR từ điện thoại cá nhân — không có session đăng nhập.
 apiRouter.use("/worker-management/qr-attendance", workerQrAttendancePublicRoutes);
 
-apiRouter.use("/worker-management/partners", requireAuth as any, requireModule("partner"), laborPartnerRoutes);
+apiRouter.use("/worker-management/partners", requireAuth as any, requireModule("labor-partner"), laborPartnerRoutes);
 apiRouter.use("/worker-management", requireAuth as any, requireModule("worker"));
 apiRouter.use("/", workerManagementRouter);

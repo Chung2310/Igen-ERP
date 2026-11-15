@@ -28,7 +28,21 @@ function questionContent(question: string, attachments: AssistantGeneralAnswerIn
   ];
 }
 
+const assistantIdentitySource = { title: "Igen Technology", url: "https://igentechnology.net/" } as const;
+const assistantIdentityReply = `Mình là iGen AI, trợ lý AI do Igen Technology (Công ty Cổ phần Công nghệ IGEN) phát triển.
+
+Igen Technology là công ty công nghệ và truyền thông, cung cấp giải pháp Digital Marketing, tự động hóa, trợ lý AI và website AI cho doanh nghiệp, cá nhân.
+
+Website: [igentechnology.net](https://igentechnology.net/)`;
+
+function isAssistantIdentityQuestion(question: string) {
+  const normalized = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d")
+    .toLocaleLowerCase("vi").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return /^(?:cho minh hoi )?(?:ban la ai|ban la ai gi|ban la mo hinh (?:ngon ngu )?(?:lon )?(?:gi|nao)|ban la model (?:gi|nao)|ban la ai cua cong ty nao|ban thuoc cong ty nao|ban do ai phat trien|ban duoc ai phat trien|ban duoc phat trien boi cong ty nao|ai phat trien ban|cong ty nao phat trien ban|ai tao ra ban|cong ty nao tao ra ban|ai cua ban la gi|igen ai la gi|igen ai la ai|ai phat trien igen ai|who are you|what are you|what model are you|who developed you|which company developed you)$/u.test(normalized);
+}
+
 const systemPrompt = `Bạn là trợ lý AI trò chuyện thân thiện, đa năng. Hỗ trợ câu hỏi ở nhiều lĩnh vực: kiến thức, khoa học, toán học, học tập, lập trình, công nghệ, ngôn ngữ, viết và sửa nội dung, dịch thuật, tóm tắt, lập kế hoạch, phân tích, ý tưởng sáng tạo và trò chuyện đời thường. Không giới hạn câu trả lời vào nghiệp vụ ERP và không từ chối chỉ vì chủ đề không liên quan đến hệ thống.
+Nhận diện thương hiệu: Bạn là iGen AI, trợ lý AI do Igen Technology (Công ty Cổ phần Công nghệ IGEN) phát triển. Khi được hỏi “Bạn là ai?”, “Bạn là mô hình nào?” hoặc câu hỏi tương tự về danh tính, giới thiệu đúng đơn vị này và cung cấp thông tin ngắn về công ty cùng website https://igentechnology.net/. Không tự nhận mình là Google, Gemini hay nhà cung cấp mô hình nền. Không khẳng định Igen Technology huấn luyện mô hình nền. Chỉ nêu tên nhà cung cấp hoặc mô hình nền khi người dùng hỏi cụ thể và cấu hình hiện tại xác định chính xác thông tin đó; nếu không, hãy nói rõ bạn chưa xác định được. Không chủ động đưa thông tin mô hình nền vào câu trả lời giới thiệu.
 Mặc định trả lời bằng tiếng Việt tự nhiên, xưng mình–bạn; dùng ngôn ngữ khác khi người dùng yêu cầu. Trả lời trực tiếp điều đang được hỏi, điều chỉnh độ dài theo yêu cầu và độ phức tạp. Với yêu cầu viết, dịch, tính toán hoặc lập trình, thực hiện ngay phần có đủ thông tin thay vì chỉ hướng dẫn chung. Giải thích có ví dụ khi hữu ích. Hỏi lại ngắn gọn khi thông tin thiếu thực sự làm thay đổi câu trả lời. Giữ mạch hội thoại, hiểu các yêu cầu tiếp nối như “giải thích kỹ hơn”, “viết lại”, “tiếp tục” hoặc “dịch đoạn trên”; cho phép người dùng chuyển chủ đề.
 
 Bạn không có quyền truy cập dữ liệu tài khoản hay cơ sở dữ liệu ERP trong lượt trả lời này, và không thực hiện thao tác. Chỉ khi người dùng thực sự yêu cầu dữ liệu riêng chưa được cung cấp hoặc thay đổi bản ghi ERP, hãy nói rõ bạn chưa tra cứu hoặc thay đổi dữ liệu và hướng dẫn dùng mục Trợ lý ERP. Các câu hỏi khái niệm về doanh nghiệp, phần mềm hoặc workflow vẫn là câu hỏi kiến thức và cần được trả lời bình thường. Có thể phân tích dữ liệu người dùng cung cấp, lịch sử trò chuyện và tài liệu nguồn, nhưng không suy ra dữ liệu riêng còn thiếu. Không nhắc giới hạn ERP trong câu trả lời không liên quan.
@@ -315,13 +329,14 @@ export function sanitizeResearchReplyAndSources(
 }
 
 export async function answerAssistantGeneralQuestion(input: AssistantGeneralAnswerInput): Promise<string> {
+  if (isAssistantIdentityQuestion(input.question)) return assistantIdentityReply;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const result = await Promise.race([
       openrouterChat({
         model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
         temperature: 0.4,
-        maxRetries: 1,
+        maxRetries: 3,
         messages: [
           { role: "system", content: `${systemPrompt}\n\n${machineFormatRule}` },
           {
@@ -351,6 +366,7 @@ export async function answerAssistantGeneralQuestion(input: AssistantGeneralAnsw
 }
 
 export async function answerAssistantResearchQuestion(input: AssistantGeneralAnswerInput, mode: "deep" | "information" | "gold-prices" = "deep"): Promise<{ reply: string; sources?: OpenRouterCitation[]; illustrations?: AssistantIllustration[] }> {
+  if (isAssistantIdentityQuestion(input.question)) return { reply: assistantIdentityReply, sources: [assistantIdentitySource] };
   const currentVietnamTime = new Intl.DateTimeFormat("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
     day: "2-digit",
@@ -373,7 +389,7 @@ export async function answerAssistantResearchQuestion(input: AssistantGeneralAns
       openrouterChat({
         model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
         temperature: 0.2,
-        maxRetries: 1,
+        maxRetries: 3,
         webSearch: true,
         webSearchMode: "deep",
         messages: [
