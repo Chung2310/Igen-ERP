@@ -210,6 +210,62 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Kinh doanh",
     "prompt": "Bạn là quản lý kinh doanh. Dựa trên [dữ liệu pipeline], hãy tóm tắt sức khỏe pipeline để hỗ trợ ra quyết định.\n\nTrình bày ngắn gọn, logic, gồm:\n- Tổng giá trị cơ hội theo từng giai đoạn bán hàng.\n- Tỷ lệ chuyển đổi giữa các giai đoạn.\n- Ba rủi ro lớn nhất và mức độ tác động.\n- Ba deal cần hỗ trợ khẩn cấp nhất trong tuần tới, lý do và loại hỗ trợ cần thiết.\n- Dự báo doanh thu kỳ tới và mức độ tin cậy (thấp/trung bình/cao), kèm căn cứ.\n- Ba khuyến nghị hành động cụ thể, khả thi cho tuần tới.\n\nChỉ tính toán từ dữ liệu được cung cấp. Nêu rõ cách tính và giả định; nếu thiếu kỳ dự báo, tỷ lệ thắng hoặc dữ liệu giai đoạn, hãy chỉ ra giới hạn thay vì bịa số.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-finance-statement-analysis",
+    "title": "Phân tích báo cáo tài chính",
+    "description": "Đánh giá doanh thu, lợi nhuận, chi phí, dòng tiền và rủi ro.",
+    "category": "Tài chính",
+    "prompt": "Bạn là chuyên viên tài chính. Hãy phân tích [file báo cáo tài chính đính kèm], tập trung vào:\n- Doanh thu: mức tăng/giảm so với kỳ trước hoặc cùng kỳ năm trước và nguyên nhân được số liệu hỗ trợ.\n- Lợi nhuận: biến động lợi nhuận gộp, lợi nhuận sau thuế, các tỷ suất lợi nhuận và yếu tố tác động.\n- Chi phí: cơ cấu, khoản mục lớn, xu hướng và ảnh hưởng đến lợi nhuận.\n- Dòng tiền: hoạt động kinh doanh, đầu tư, tài chính và khả năng quản lý dòng tiền.\n- Rủi ro: nợ vay, thanh khoản, tỷ suất sinh lời hoặc rủi ro nổi bật khác; đề xuất hướng xử lý nếu có căn cứ.\n\nĐối chiếu số liệu giữa các kỳ và giải thích xu hướng một cách logic. Nêu đơn vị, kỳ báo cáo, công thức/chỉ số sử dụng; phân biệt dữ kiện với nhận định. Nếu thiếu trang hoặc số liệu, nói rõ giới hạn và không tự suy đoán nguyên nhân.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-finance-product-assessment",
+    "title": "Đánh giá sản phẩm tài chính",
+    "description": "So sánh cấu trúc, lợi suất, rủi ro, phí và mức độ phù hợp.",
+    "category": "Tài chính",
+    "prompt": "Bạn là nhà phân tích tài chính. Hãy nghiên cứu [tên sản phẩm/kênh đầu tư] theo các tiêu chí:\n- Cấu trúc sản phẩm và cách tạo lợi nhuận.\n- Lợi suất kỳ vọng, phân biệt rõ với lợi suất lịch sử và không xem là mức được bảo đảm.\n- Mức độ và nguồn rủi ro.\n- Chi phí, phí giao dịch và các khoản phí liên quan.\n- Tính thanh khoản, điều kiện rút/chuyển nhượng và hạn chế.\n- Mức độ phù hợp với nhà đầu tư có hồ sơ rủi ro, mục tiêu và khả năng tài chính khác nhau.\n\nĐưa ra đánh giá sử dụng tổng quát cho ba nhóm khách hàng mục tiêu, nêu điều kiện phù hợp và trường hợp nên thận trọng. Dùng thông tin cập nhật, ghi nguồn và ngày kiểm tra; phân biệt dữ kiện, giả định và nhận định. Không hứa hẹn lợi suất hoặc thay thế tư vấn đầu tư cá nhân; nêu rõ các yếu tố cần nhà đầu tư tự xác minh.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-finance-market-outlook-6m",
+    "title": "Dự báo thị trường tài chính 6 tháng",
+    "description": "Xây dựng hai kịch bản dự báo dựa trên vĩ mô, dòng tiền và kỹ thuật.",
+    "category": "Tài chính",
+    "prompt": "Bạn là chuyên gia phân tích thị trường. Hãy dự báo xu hướng trong sáu tháng tới của [sản phẩm tài chính cần dự báo].\n\nKết hợp các nhóm yếu tố:\n1. Vĩ mô: lạm phát, lãi suất và tăng trưởng GDP toàn cầu.\n2. Định giá hiện tại so với các mốc lịch sử và giá trị nội tại phù hợp với sản phẩm; nếu phân tích vàng, dùng các thước đo định giá vàng có căn cứ.\n3. Dòng tiền toàn cầu: đầu tư, dự trữ ngoại hối và biến động tiền tệ.\n4. Kỹ thuật: diễn biến giá, mô hình giá, RSI và MACD; nêu khung thời gian và giới hạn của chỉ báo.\n\nĐưa ra hai kịch bản có cơ sở nhất, mô tả điều kiện kích hoạt, xu hướng kỳ vọng và xác suất ước tính; xác suất của hai kịch bản cần cộng lại thành 100%. Ghi ngày dữ liệu, nguồn và giả định. Làm rõ bất định, không trình bày dự báo như cam kết hay khuyến nghị mua/bán cá nhân.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-finance-capital-allocation",
+    "title": "Lập kế hoạch sử dụng vốn",
+    "description": "Lập lịch CAPEX/OPEX, vốn lưu động, dự trữ tiền và giải ngân.",
+    "category": "Tài chính",
+    "prompt": "Bạn là kế toán trưởng. Hãy lập kế hoạch sử dụng vốn cho [dự án] trong [thời gian cụ thể], cân đối hiệu quả đầu tư với khả năng thanh toán.\n\nKế hoạch cần gồm:\n- Danh mục CAPEX và OPEX, số tiền/ước tính, mức ưu tiên và căn cứ.\n- Tính vòng quay vốn lưu động dự kiến, nêu công thức, kỳ tính và giả định.\n- Thiết lập ngưỡng tiền mặt tối thiểu để duy trì thanh khoản, giải thích cơ sở.\n- Lịch giải ngân theo giai đoạn, mốc thời gian, điều kiện và số vốn cần giải ngân.\n\nLiên hệ kế hoạch với mục tiêu tài chính doanh nghiệp và nguyên tắc kế toán/quản trị tài chính áp dụng. Tách số liệu đã có khỏi giả định; đánh dấu dữ liệu còn thiếu. Không tự khẳng định tuân thủ một quy định cụ thể nếu chưa có thông tin về ngành và khu vực pháp lý.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-finance-project-investment-appraisal",
+    "title": "Thẩm định hiệu quả tài chính dự án",
+    "description": "Tính NPV, IRR, thời gian hoàn vốn và độ nhạy của dự án.",
+    "category": "Tài chính",
+    "prompt": "Bạn là nhà phân tích đầu tư chuyên thẩm định dự án và mô hình hóa dòng tiền. Hãy đánh giá [mô tả dự án], gồm:\n- NPV: nêu suất chiết khấu/WACC, dòng tiền theo kỳ, thời điểm và giả định.\n- IRR: tính toán và so sánh với chi phí vốn/WACC.\n- Thời gian hoàn vốn thông thường và hoàn vốn chiết khấu.\n- Phân tích độ nhạy với ba biến chính, chọn trong doanh thu/giá bán, OPEX, CAPEX và suất chiết khấu; nêu biên độ thay đổi và ảnh hưởng đến NPV/IRR.\n- Khuyến nghị go/no-go, điều kiện tiên quyết và rủi ro chính cần giám sát.\n\nTrình bày công thức, đơn vị, giả định và cách xử lý dòng tiền rõ ràng; kiểm tra tính nhất quán của kết quả. Phù hợp với mục tiêu lợi nhuận và khẩu vị rủi ro doanh nghiệp. Nếu thiếu dữ liệu, nêu phần chưa thể tính thay vì tự tạo số liệu.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-finance-risk-matrix",
+    "title": "Lập ma trận rủi ro tài chính",
+    "description": "Đánh giá rủi ro tỷ giá, lãi suất, tín dụng, thanh khoản và kiểm soát.",
+    "category": "Tài chính",
+    "prompt": "Bạn là chuyên viên quản trị rủi ro tài chính doanh nghiệp. Hãy lập ma trận rủi ro cho [doanh nghiệp] trong [thời gian cụ thể], gồm:\n- Rủi ro tỷ giá, lãi suất, tín dụng và thanh khoản: nguồn phát sinh, chỉ báo/tiêu chí đo lường và dữ liệu cần theo dõi.\n- Xác suất và tác động tài chính; xếp hạng theo ma trận Impact–Likelihood.\n- Giới hạn rủi ro đề xuất cho từng loại, ví dụ net open position, duration gap, tỷ lệ nợ xấu, LCR/NSFR khi phù hợp.\n- Công cụ phòng ngừa phù hợp: forward/swap/option cho tỷ giá; IRS/cap/floor cho lãi suất; bảo lãnh hoặc bảo hiểm tín dụng cho tín dụng; hạn mức dự phòng hoặc repo cho thanh khoản.\n- Quy trình giám sát và cảnh báo: tần suất đo lường, báo cáo vượt hạn mức, stress test và hành động ứng phó.\n\nChỉ đề xuất công cụ và ngưỡng phù hợp với hoạt động, năng lực và quy định áp dụng của doanh nghiệp. Nêu giả định, giới hạn của dữ liệu và yêu cầu xác minh pháp lý; không coi các ví dụ về hạn mức là chuẩn bắt buộc cho mọi doanh nghiệp.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-finance-break-even-analysis",
+    "title": "Tính điểm hòa vốn",
+    "description": "Tính sản lượng, doanh thu hòa vốn, biên an toàn và độ nhạy.",
+    "category": "Tài chính",
+    "prompt": "Bạn là kế toán quản trị. Hãy tính điểm hòa vốn cho [sản phẩm/dự án] trong [thời gian cụ thể], gồm:\n- Xác định chi phí cố định và chi phí biến đổi trên một đơn vị.\n- Tính sản lượng hòa vốn và doanh thu hòa vốn, nêu công thức và đơn vị.\n- Tính biên an toàn (margin of safety) theo sản lượng và doanh thu.\n- Phân tích thay đổi khi giá bán đơn vị, chi phí biến đổi đơn vị hoặc chi phí cố định biến động; cập nhật sản lượng và doanh thu hòa vốn tương ứng.\n- Đề xuất hành động quản trị về giá, kiểm soát chi phí và tối ưu sản lượng để cải thiện biên an toàn.\n\nNêu rõ kỳ tính, giả định về cơ cấu sản phẩm và dữ liệu đầu vào. Nếu biên lợi nhuận đóng góp bằng hoặc nhỏ hơn 0, giải thích rằng không thể đạt hòa vốn với cấu trúc giá/chi phí hiện tại. Không tự điền số liệu còn thiếu.",
+    "owner": "igen"
   }
 ];
 
