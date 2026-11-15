@@ -19,6 +19,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "../../../student-management/lib/utils";
 import { useAuth } from "../../shared/context/AuthContext";
 import { PageChatSimulator } from "../components/knowledge/PageChatSimulator";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
@@ -473,33 +474,48 @@ export default function CompanyKnowledgePage() {
       <div className="min-h-full w-full bg-surface-container-lowest p-4 sm:p-5">
 
         {/* Sub-Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-outline-variant pb-3">
-          <button
-            type="button"
-            onClick={() => setActiveSection("documents")}
-            aria-current={activeSection === "documents" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "documents"
-                ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-          >
-            <BookOpenCheck className="h-4 w-4" />
-            <span>Tài liệu & Tệp Kho Tri Thức</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${activeSection === "documents"
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 text-slate-600"
-                }`}
+        <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest pt-1">
+          <div className="grid w-full max-w-md grid-cols-2" role="group" aria-label="Điều hướng kho tri thức">
+            <button
+              type="button"
+              onClick={() => setActiveSection("documents")}
+              aria-current={activeSection === "documents" ? "page" : undefined}
+              className={cn(
+                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                activeSection === "documents"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-on-surface-variant hover:text-on-surface",
+              )}
             >
-              {health?.documentsCount || 0}
-            </span>
-          </button>
+              <BookOpenCheck className="size-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0">Tài liệu & Tệp Kho Tri Thức</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  activeSection === "documents"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-surface-container text-on-surface-variant",
+                )}
+              >
+                {health?.documentsCount || 0}
+              </span>
+            </button>
 
-          <button type="button" onClick={() => setActiveSection("page_chat")}
-            aria-current={activeSection === "page_chat" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary ${activeSection === "page_chat" ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface"}`}>
-            <MessageSquare className="size-4" aria-hidden="true" /> Mô phỏng chat Page
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection("page_chat")}
+              aria-current={activeSection === "page_chat" ? "page" : undefined}
+              className={cn(
+                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                activeSection === "page_chat"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-on-surface-variant hover:text-on-surface",
+              )}
+            >
+              <MessageSquare className="size-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0">Mô phỏng chat Page</span>
+            </button>
+          </div>
         </div>
 
         {activeSection === "page_chat" && <PageChatSimulator />}
