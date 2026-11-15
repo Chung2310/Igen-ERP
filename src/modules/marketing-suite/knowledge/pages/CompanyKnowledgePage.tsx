@@ -778,7 +778,7 @@ export default function CompanyKnowledgePage() {
               <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
                 <div>
                   {importMethod === "file" ? (
-                    <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 px-4 py-4 hover:border-blue-400 hover:bg-blue-50">
+                    <label className="mt-3 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 px-4 py-4 text-center hover:border-blue-400 hover:bg-blue-50">
                       {busy ? (
                         <LoaderCircle className="h-5 w-5 animate-spin text-blue-650" />
                       ) : (
