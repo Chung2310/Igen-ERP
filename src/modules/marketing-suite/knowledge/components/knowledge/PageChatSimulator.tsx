@@ -227,7 +227,6 @@ export function PageChatSimulator() {
               <button type="submit" disabled={busy || !draft.trim() || (active?.mode === "erp" && !active.pageId?.trim())} aria-label={active?.mode === "erp" ? "Gửi tin vào flow ERP" : "Gửi thử"}
                 className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">
                 <Send className="size-4" aria-hidden="true" />
-                <span className="ml-2">{active?.mode === "erp" ? "Gửi" : "Gửi thử"}</span>
               </button>
             </div>
             <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-on-surface-variant">
