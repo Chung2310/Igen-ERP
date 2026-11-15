@@ -480,8 +480,8 @@ export default function CompanyKnowledgePage() {
 
         {/* Sub-Navigation Tabs */}
         <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
-          <div className="flex flex-col items-stretch xl:flex-row xl:items-stretch xl:gap-3">
-            <div className="grid w-full max-w-xl grid-cols-2 xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
+          <div className="flex min-h-14 flex-col items-stretch xl:flex-row xl:items-center xl:gap-3">
+            <div className="grid w-full max-w-xl grid-cols-2 xl:self-stretch xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
               <button
                 type="button"
                 onClick={() => setActiveSection("documents")}
