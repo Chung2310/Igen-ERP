@@ -70,7 +70,7 @@ export function KnowledgeDocumentTypeSelect({ value, onChange, groups, disabled 
         onClick={() => setOpen((current) => !current)}
         className={cn(
           "flex w-full items-center justify-between border bg-white text-left text-slate-800 transition-colors hover:border-[#00ADFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50",
-          compact ? "gap-2 rounded-lg px-3 py-2 text-xs" : "gap-3 rounded-xl px-3.5 py-2.5 text-sm",
+          compact ? "gap-2 rounded-lg px-3 py-2 text-sm" : "gap-3 rounded-xl px-3.5 py-2.5 text-sm",
           open ? "border-[#00ADFC]" : "border-slate-200",
         )}
       >

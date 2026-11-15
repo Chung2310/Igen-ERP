@@ -539,7 +539,7 @@ export default function CompanyKnowledgePage() {
                       aria-pressed={selectedKnowledgeSection === id}
                       onClick={() => setSelectedKnowledgeSection(id)}
                       className={cn(
-                        "rounded-lg px-3 py-2 text-xs font-semibold",
+                        "rounded-lg px-3 py-2 text-sm font-semibold",
                         selectedKnowledgeSection === id
                           ? "bg-slate-800 text-white"
                           : "bg-slate-100 text-slate-600",
@@ -553,7 +553,7 @@ export default function CompanyKnowledgePage() {
                 {canManage && (
                   <>
                     <div className="flex min-w-0 items-center gap-2 xl:flex-none">
-                      <span className="shrink-0 text-xs font-medium text-on-surface-variant">Mục lưu tài liệu</span>
+                      <span className="shrink-0 text-sm font-medium text-on-surface-variant">Mục lưu tài liệu</span>
                       <KnowledgeDocumentTypeSelect
                         value={documentType}
                         disabled={busy}
@@ -576,7 +576,7 @@ export default function CompanyKnowledgePage() {
                         onClick={() => setImportMethod("file")}
                         aria-pressed={importMethod === "file"}
                         className={cn(
-                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-xs font-semibold leading-4 transition select-none",
+                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-sm font-semibold leading-4 transition select-none",
                           importMethod === "file"
                             ? "bg-blue-600 text-white shadow-xs"
                             : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
@@ -590,7 +590,7 @@ export default function CompanyKnowledgePage() {
                         onClick={() => setImportMethod("drive")}
                         aria-pressed={importMethod === "drive"}
                         className={cn(
-                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-xs font-semibold leading-4 transition select-none",
+                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-sm font-semibold leading-4 transition select-none",
                           importMethod === "drive"
                             ? "bg-blue-600 text-white shadow-xs"
                             : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
