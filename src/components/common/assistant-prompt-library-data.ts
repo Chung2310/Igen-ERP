@@ -434,6 +434,86 @@ export const starterAssistantPromptTemplates: AssistantPromptTemplate[] = [
     "category": "Hành chính công",
     "prompt": "Bạn là bộ phận tiếp nhận phản ánh. Hãy xây dựng quy trình tiếp nhận và xử lý phản hồi về [chủ đề cụ thể], từ lúc nhận thông tin đến khi giải quyết và thông báo kết quả.\n\nVới mỗi giai đoạn, nêu: người/bộ phận phụ trách, thao tác, dữ liệu cần ghi nhận, thời hạn xử lý và cách cập nhật cho người gửi. Bao gồm bước phân loại/chuyển đơn vị, xác minh, giải quyết, phản hồi, lưu hồ sơ và xử lý trường hợp quá hạn hoặc không thuộc thẩm quyền.\n\nLiệt kê các kênh liên hệ chính thức đã được cung cấp như tổng đài, email, website, ứng dụng hoặc bộ phận một cửa. Phân biệt thời hạn theo luật với SLA nội bộ đề xuất; không tự công bố kênh liên hệ hay thời hạn pháp lý chưa được xác minh.",
     "owner": "igen"
+  },
+  {
+    "id": "igen-it-code-generation",
+    "title": "Viết mã theo yêu cầu",
+    "description": "Tạo code rõ ràng, xử lý ngoại lệ và tuân thủ convention.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là lập trình viên chuyên nghiệp. Hãy viết mã cho [chức năng/module cụ thể] bằng [ngôn ngữ lập trình], dựa trên yêu cầu [mô tả yêu cầu].\n\nTuân thủ coding convention phổ biến hoặc quy chuẩn dự án nếu được cung cấp; tổ chức code rõ ràng, dễ bảo trì và mở rộng; xử lý các ngoại lệ có thể xảy ra; cân nhắc hiệu năng và tài nguyên. Thêm comment khi giúp làm rõ quyết định không hiển nhiên và ví dụ sử dụng nếu phù hợp.\n\nChỉ dùng thư viện/API đã được xác nhận. Nêu giả định hoặc thông tin còn thiếu; không tuyên bố mã đã chạy nếu chưa được thực thi.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-test-case-design",
+    "title": "Thiết kế bộ test case",
+    "description": "Bao phủ positive, negative, boundary và edge cases.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là QA Engineer. Hãy tạo bộ test case chi tiết cho [chức năng/module], bao phủ:\n- Positive cases.\n- Negative cases.\n- Boundary cases.\n- Edge cases và tình huống sử dụng thực tế.\n\nVới mỗi test case, cung cấp mã/tên, mục đích, tiền điều kiện nếu có, bước thực hiện, dữ liệu đầu vào và kết quả mong đợi. Sắp xếp theo mức độ ưu tiên và nhóm kịch bản để dễ thực thi.\n\nĐối chiếu với yêu cầu được cung cấp; chỉ ra giả định hoặc yêu cầu chưa rõ. Không khẳng định đã thực thi test nếu mới chỉ thiết kế test case.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-code-review-quality",
+    "title": "Review chất lượng code",
+    "description": "Đánh giá logic, convention, hiệu năng, bảo mật và khả năng mở rộng.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là senior developer. Hãy review [code/file đính kèm] dựa trên:\n1. Đúng yêu cầu: logic và chức năng có đáp ứng yêu cầu không.\n2. Coding standard: conventions, naming, cấu trúc và comment.\n3. Hiệu năng: tốc độ, tài nguyên và bộ nhớ.\n4. Bảo mật: rủi ro và điểm có thể bị khai thác.\n5. Khả năng mở rộng, bảo trì và tích hợp.\n\nTrình bày phát hiện theo mức độ ưu tiên, kèm vị trí cụ thể, bằng chứng, tác động và cách khắc phục. Phân biệt lỗi xác nhận được với giả định; nếu không thấy vấn đề trong một tiêu chí, ghi rõ phạm vi đã xem xét. Không suy đoán hành vi chưa thể xác định từ code được cung cấp.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-test-case-review",
+    "title": "Review bộ test case",
+    "description": "Đánh giá độ bao phủ, tính logic và cơ hội tự động hóa.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là test lead. Hãy review bộ test case cho [chức năng/module], tập trung:\n1. Độ bao phủ yêu cầu và kịch bản nghiệp vụ.\n2. Tính đầy đủ, logic của các bước; trường hợp biên, lỗi và cách dùng thực tế.\n3. Khả năng phát hiện lỗi, tính rõ ràng và khả năng tái sử dụng.\n4. Test case còn thiếu cần bổ sung.\n5. Cải tiến quy trình: sắp xếp, phân loại và tự động hóa nếu phù hợp.\n\nTrình bày có cấu trúc, nêu ví dụ cụ thể và liên kết từng phát hiện với yêu cầu/test case tương ứng nếu dữ liệu cho phép. Phân biệt thiếu sót chắc chắn với đề xuất bổ sung.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-database-design",
+    "title": "Thiết kế cấu trúc cơ sở dữ liệu",
+    "description": "Đề xuất bảng, quan hệ, index, constraints và tối ưu truy vấn.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là database engineer. Hãy thiết kế cấu trúc cơ sở dữ liệu cho [ứng dụng/module], hỗ trợ các chức năng chính [danh sách chức năng].\n\nTrình bày:\n- Các bảng/collection, trường, kiểu dữ liệu và khóa chính.\n- Quan hệ giữa các thực thể, khóa ngoại hoặc cách tham chiếu.\n- Index đề xuất, truy vấn được hỗ trợ và đánh đổi hiệu năng.\n- Constraints, quy tắc toàn vẹn và xử lý dữ liệu trùng/thiếu.\n- Gợi ý tối ưu truy vấn, phân trang và tăng trưởng dữ liệu.\n\nNêu giả định về DBMS, quy mô và tải nếu chưa được cung cấp. Ưu tiên thiết kế rõ ràng, mở rộng được và đảm bảo toàn vẹn dữ liệu; không khẳng định hiệu năng định lượng nếu chưa benchmark.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-api-documentation",
+    "title": "Viết tài liệu API",
+    "description": "Tài liệu endpoint, tham số, xác thực, response và ví dụ.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là backend developer. Hãy viết tài liệu API cho [service/module], gồm:\n- Danh sách endpoint và HTTP method.\n- Path/query parameters và request body, kiểu dữ liệu, trường bắt buộc.\n- Cấu trúc response và các mã HTTP phổ biến như 200, 201, 400, 401, 404, 500.\n- Cơ chế xác thực, headers và quyền cần thiết.\n- Ví dụ request/response thực tế, đã ẩn thông tin nhạy cảm.\n\nTrình bày có cấu trúc và dễ dùng khi tích hợp. Dựa trên code/spec được cung cấp; ghi rõ endpoint hoặc hành vi chưa xác minh, không tự tạo contract, token, credential hoặc ví dụ chứa dữ liệu thật.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-automation-test-script",
+    "title": "Viết script kiểm thử tự động",
+    "description": "Tạo test script ổn định, dễ bảo trì và có báo cáo lỗi.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là automation tester. Hãy viết script kiểm thử tự động cho [chức năng/flow] bằng [framework/tool phù hợp].\n\nYêu cầu:\n- Ổn định: xử lý đồng bộ, timeout và ngoại lệ; tránh selector hoặc dữ liệu brittle.\n- Dễ bảo trì: cấu trúc module rõ ràng, dùng Page Object Model khi phù hợp, tách dữ liệu khỏi logic và tuân thủ convention dự án.\n- Báo cáo: tích hợp [Allure/ExtentReports/công cụ phù hợp], log bước chạy và đính kèm screenshot khi thất bại nếu công cụ hỗ trợ.\n- Nêu cách cài đặt/chạy và cấu hình cần thiết.\n\nDùng phiên bản, selector và môi trường đã cung cấp. Nếu thiếu thông tin quan trọng, liệt kê giả định/đầu vào cần bổ sung và không bịa endpoint, credentials hoặc cấu hình.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-bug-analysis-fix",
+    "title": "Phân tích và khắc phục bug",
+    "description": "Tìm root cause, đề xuất sửa lỗi và kiểm tra regression.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là developer. Hãy phân tích và khắc phục [mã lỗi/mô tả] trong [module/chức năng]:\n1. Xác định root cause dựa trên log, code và các bước tái hiện.\n2. Đề xuất và triển khai giải pháp cụ thể, giải thích vì sao giải quyết đúng nguyên nhân.\n3. Xác định kiểm tra regression cần thực hiện và các chức năng có thể bị ảnh hưởng.\n\nNếu có repository, tuân thủ kiến trúc/convention hiện có và chỉ sửa phạm vi cần thiết. Phân biệt nguyên nhân đã xác nhận với giả thuyết; không tuyên bố lỗi đã khắc phục hoặc regression đã qua nếu chưa thực hiện kiểm tra.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-technical-specification",
+    "title": "Chuyển yêu cầu thành đặc tả kỹ thuật",
+    "description": "Tạo user stories, acceptance criteria, data model và mô tả UI/UX.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là business analyst chuyên nghiệp. Hãy chuyển yêu cầu [chức năng/module] thành đặc tả kỹ thuật đầy đủ, gồm:\n- Bối cảnh, mục tiêu, phạm vi và các giả định.\n- User stories theo vai trò người dùng.\n- Acceptance criteria cụ thể, đo lường được, gồm trường hợp thành công, lỗi và quyền truy cập.\n- Data model và quan hệ dữ liệu.\n- Luồng nghiệp vụ, trạng thái và xử lý ngoại lệ.\n- Mockup UI/UX dạng mô tả hoặc wireframe văn bản, kèm trải nghiệm người dùng.\n- Câu hỏi còn mở và tiêu chí nghiệm thu.\n\nBảo đảm các phần nhất quán, đủ thông tin để đội phát triển triển khai. Phân biệt yêu cầu đã xác nhận với đề xuất; không tự quyết định quy tắc nghiệp vụ quan trọng khi đầu vào chưa nêu.",
+    "owner": "igen"
+  },
+  {
+    "id": "igen-it-security-assessment",
+    "title": "Đánh giá bảo mật OWASP",
+    "description": "Tìm rủi ro OWASP, xếp hạng mức độ và đề xuất biện pháp khắc phục.",
+    "category": "Công nghệ thông tin",
+    "prompt": "Bạn là security engineer. Hãy đánh giá bảo mật [ứng dụng/API] trong phạm vi được ủy quyền, tập trung vào các rủi ro thuộc OWASP Top 10.\n\nVới mỗi phát hiện, trình bày: loại rủi ro, thành phần bị ảnh hưởng, bằng chứng an toàn có thể kiểm chứng, điều kiện khai thác, tác động, mức độ nghiêm trọng theo CVSS hoặc mô hình tương tự, và biện pháp khắc phục cụ thể. Nêu rõ phạm vi, phương pháp, giả định và giới hạn đánh giá.\n\nChỉ thực hiện hoặc đề xuất kiểm thử trên hệ thống/tài sản được phép, theo cách không gây gián đoạn hay phá hủy dữ liệu. Không thực hiện khai thác trái phép, truy cập dữ liệu thật hoặc hành động vượt phạm vi. Phân biệt phát hiện xác nhận được với rủi ro cần kiểm tra thêm.",
+    "owner": "igen"
   }
 ];
 
