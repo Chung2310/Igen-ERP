@@ -775,7 +775,7 @@ export default function CompanyKnowledgePage() {
             )}
 
             {canManage && (
-              <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+              <section className="mt-5">
                 <div>
                   {importMethod === "file" ? (
                     <label className="mt-3 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 px-4 py-4 text-center hover:border-blue-400 hover:bg-blue-50">
@@ -805,7 +805,7 @@ export default function CompanyKnowledgePage() {
                       />
                     </label>
                   ) : (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mt-3">
                       <label className="block text-xs font-semibold text-slate-700">
                         Link Google Drive, Google Doc hoặc Google Sheet
                         <div className="mt-2 flex gap-2">
@@ -850,7 +850,7 @@ export default function CompanyKnowledgePage() {
                     <ChevronDown className="h-4 w-4" />
                     Tùy chọn phạm vi sử dụng
                   </summary>
-                  <div className="mt-4 grid gap-4 rounded-xl bg-slate-50 p-4 md:grid-cols-2">
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <ScopePicker
                       label="Nghiệp vụ"
                       options={PURPOSES}
@@ -985,7 +985,7 @@ export default function CompanyKnowledgePage() {
               </div>
             )}
 
-            <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <section className="mt-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
