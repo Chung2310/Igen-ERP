@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, MessageSquare, Send, UserRound } from "lucide-react";
+import { Bot, ChevronDown, Send, Settings2, UserRound } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { getAccessToken } from "../../../shared/services/authService";
@@ -87,6 +87,7 @@ export function PageChatSimulator() {
   }
   const button = "inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
   const showModeHint = Boolean(active?.turns.length || active?.mode === "erp");
+  const pageIdMissing = active?.mode === "erp" && !active.pageId?.trim();
   return (
     <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-outline-variant bg-surface px-4 py-2.5">
@@ -144,14 +145,14 @@ export function PageChatSimulator() {
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{active?.pageName || "Page mô phỏng"}</p>
-              <p className="text-xs text-on-surface-variant">{active?.mode === "erp" ? "Chạy flow Page và lưu đơn vào ERP" : "Chế độ mô phỏng không lưu ERP"}</p>
+              {active?.mode === "erp" && <p className="text-xs text-on-surface-variant">Chạy flow Page và lưu đơn vào ERP</p>}
             </div>
           </div>
 
           <details className="group border-b border-outline-variant">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary">
-              <span>Cài đặt chat</span>
-              <span aria-hidden="true">⌄</span>
+            <summary aria-label="Mở cài đặt chat" className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary">
+              <Settings2 className="size-4" aria-hidden="true" />
+              <ChevronDown className="size-4" aria-hidden="true" />
             </summary>
             <div className="grid gap-4 border-t border-outline-variant bg-surface p-4 sm:grid-cols-2">
               <label className="block space-y-1 text-sm">
@@ -207,32 +208,28 @@ export function PageChatSimulator() {
                 </div>
                 {turn.role === "customer" && <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary" aria-hidden="true"><UserRound className="size-4" /></span>}
               </li>
-            )) : (
-              <li className="my-auto flex flex-col items-center px-6 py-10 text-center">
-                <span className="mb-3 flex size-12 items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant" aria-hidden="true"><MessageSquare className="size-5" /></span>
-                <p className="text-balance text-sm font-semibold">Bắt đầu một cuộc trò chuyện</p>
-                <p className="mt-1 max-w-xs text-pretty text-sm text-on-surface-variant">Nhập tin đầu tiên của khách để bắt đầu chat.</p>
-              </li>
-            )}
+            )) : null}
             {busy && <li role="status" className="ml-10 text-sm text-on-surface-variant">Trợ lý Page đang soạn câu trả lời…</li>}
           </ol>
 
           <form onSubmit={event => { event.preventDefault(); void send(); }} className="border-t border-outline-variant bg-surface-container-lowest px-3 py-3 sm:px-4">
             <div className="flex items-end gap-2">
-              <label className="sr-only" htmlFor="page-sim-message">Tin nhắn khách</label>
+              <label className="sr-only" htmlFor="page-sim-message">Nội dung tin nhắn</label>
               <textarea id="page-sim-message" value={draft} rows={2} onChange={event => setDraft(event.target.value)}
                 onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }}
-                placeholder="Nhập tin nhắn của khách…" aria-describedby="page-sim-compose-hint"
+                placeholder="Nhập tin nhắn của khách…" aria-describedby={pageIdMissing ? "page-sim-compose-hint" : undefined}
                 className="min-h-11 min-w-0 flex-1 resize-y rounded-xl border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
               <button type="submit" disabled={busy || !draft.trim() || (active?.mode === "erp" && !active.pageId?.trim())} aria-label={active?.mode === "erp" ? "Gửi tin vào flow ERP" : "Gửi thử"}
                 className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">
                 <Send className="size-4" aria-hidden="true" />
               </button>
             </div>
-            <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-on-surface-variant">
-              <p id="page-sim-compose-hint">Enter để gửi · Shift + Enter để xuống dòng{active?.mode === "erp" && !active.pageId?.trim() ? " · Nhập mã Page trong cài đặt để bật gửi" : ""}</p>
-              <p>{active?.mode === "erp" ? "Lưu trong hội thoại thử · Không gửi tới khách thật" : "Tin nhắn chỉ dùng cho mô phỏng"}</p>
-            </div>
+            {(active?.mode === "erp" || pageIdMissing) && (
+              <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-on-surface-variant">
+                {pageIdMissing && <p id="page-sim-compose-hint">Nhập mã Page trong cài đặt để bật gửi</p>}
+                {active?.mode === "erp" && <p className="ml-auto">Lưu trong hội thoại thử · Không gửi tới khách thật</p>}
+              </div>
+            )}
             {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
           </form>
         </main>
