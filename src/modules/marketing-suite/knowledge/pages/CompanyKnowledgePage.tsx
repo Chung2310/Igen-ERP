@@ -481,7 +481,7 @@ export default function CompanyKnowledgePage() {
               onClick={() => setActiveSection("documents")}
               aria-current={activeSection === "documents" ? "page" : undefined}
               className={cn(
-                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
                 activeSection === "documents"
                   ? "border-primary text-primary"
                   : "border-transparent text-on-surface-variant hover:text-on-surface",
@@ -509,7 +509,7 @@ export default function CompanyKnowledgePage() {
               onClick={() => setActiveSection("page_chat")}
               aria-current={activeSection === "page_chat" ? "page" : undefined}
               className={cn(
-                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                "flex min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
                 activeSection === "page_chat"
                   ? "border-primary text-primary"
                   : "border-transparent text-on-surface-variant hover:text-on-surface",
