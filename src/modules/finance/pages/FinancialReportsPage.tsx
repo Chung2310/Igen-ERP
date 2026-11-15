@@ -439,26 +439,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
         <div className="flex items-center gap-3">
           <div>
             <h1 className="finance-page-title">Báo cáo tài chính</h1>
-            <p className="text-xs text-on-surface-variant">
-              {branch?.activeBranch?.name || "Chi nhánh hiện tại"} · Đơn vị VND · Múi giờ Việt Nam
-            </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={buttonClass}
-            onClick={() => setRevision((r) => r + 1)}
-            disabled={loading}
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            Tải lại
-          </button>
-          <button type="button" className={buttonClass} disabled={!visible} onClick={download}>
-            <Download size={14} />
-            Xuất CSV
-          </button>
         </div>
       </div>
 
@@ -626,50 +607,65 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
           </>
         )}
 
-        {canManage && (
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-            onClick={() =>
-              view === "debts"
-                ? newDebt()
-                : view === "vat"
-                  ? newInvoice()
-                  : view === "profit"
-                    ? newExpense()
-                    : open(
-                      "Dự toán hòa vốn tháng " + month,
-                      [
-                        numeric("rent", "Mặt bằng / tháng (₫)"),
-                        numeric("payroll", "Lương / tháng (₫)"),
-                        numeric("otherFixed", "Định phí khác / tháng (₫)"),
-                        numeric("expectedUnitPrice", "Giá bán bình quân / máy, chưa VAT (₫)"),
-                        numeric("expectedUnitCost", "Giá vốn bình quân / máy (₫)"),
-                        numeric("variableCostPerUnit", "Biến phí khác / máy, chưa gồm hoa hồng (₫)"),
-                        numeric("expectedCommissionPerUnit", "Hoa hồng dự kiến / máy (₫)"),
-                      ],
-                      visible?.plan || {
-                        month,
-                        rent: 0,
-                        payroll: 0,
-                        otherFixed: 0,
-                        expectedUnitPrice: 0,
-                        expectedUnitCost: 0,
-                        variableCostPerUnit: 0,
-                        expectedCommissionPerUnit: 0,
-                        version: 0,
-                      },
-                      "/plan",
-                      "PUT",
-                      "Dự toán chỉ dùng tính mục tiêu hòa vốn, không tự ghi thành chi phí thực tế. Dùng giá bình quân chưa VAT. Mốc thực tế dùng lãi gộp trừ hoa hồng và biến phí khác.",
-                    )
-            }
-            disabled={view === "breakeven" && !visible}
+            className={buttonClass}
+            onClick={() => setRevision((r) => r + 1)}
+            disabled={loading}
           >
-            <Plus size={14} />
-            {view === "debts" ? "Ghi nhận nợ" : view === "vat" ? "Thêm hóa đơn" : view === "profit" ? "Thêm chi phí" : "Cấu hình hòa vốn"}
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            Tải lại
           </button>
-        )}
+          <button type="button" className={buttonClass} disabled={!visible} onClick={download}>
+            <Download size={14} />
+            Xuất CSV
+          </button>
+          {canManage && (
+            <button
+              type="button"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+              onClick={() =>
+                view === "debts"
+                  ? newDebt()
+                  : view === "vat"
+                    ? newInvoice()
+                    : view === "profit"
+                      ? newExpense()
+                      : open(
+                        "Dự toán hòa vốn tháng " + month,
+                        [
+                          numeric("rent", "Mặt bằng / tháng (₫)"),
+                          numeric("payroll", "Lương / tháng (₫)"),
+                          numeric("otherFixed", "Định phí khác / tháng (₫)"),
+                          numeric("expectedUnitPrice", "Giá bán bình quân / máy, chưa VAT (₫)"),
+                          numeric("expectedUnitCost", "Giá vốn bình quân / máy (₫)"),
+                          numeric("variableCostPerUnit", "Biến phí khác / máy, chưa gồm hoa hồng (₫)"),
+                          numeric("expectedCommissionPerUnit", "Hoa hồng dự kiến / máy (₫)"),
+                        ],
+                        visible?.plan || {
+                          month,
+                          rent: 0,
+                          payroll: 0,
+                          otherFixed: 0,
+                          expectedUnitPrice: 0,
+                          expectedUnitCost: 0,
+                          variableCostPerUnit: 0,
+                          expectedCommissionPerUnit: 0,
+                          version: 0,
+                        },
+                        "/plan",
+                        "PUT",
+                        "Dự toán chỉ dùng tính mục tiêu hòa vốn, không tự ghi thành chi phí thực tế. Dùng giá bình quân chưa VAT. Mốc thực tế dùng lãi gộp trừ hoa hồng và biến phí khác.",
+                      )
+              }
+              disabled={view === "breakeven" && !visible}
+            >
+              <Plus size={14} />
+              {view === "debts" ? "Ghi nhận nợ" : view === "vat" ? "Thêm hóa đơn" : view === "profit" ? "Thêm chi phí" : "Cấu hình hòa vốn"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

@@ -944,9 +944,13 @@ export const zaloMessengerService = {
       });
       if (!text) text = "[Hình ảnh]";
     } else if (eventName === "user_send_sticker") {
+      const sticker = Array.isArray(body.message?.attachments)
+        ? body.message.attachments.find((attachment: any) => attachment?.type === "sticker"
+          && typeof attachment.payload?.url === "string" && attachment.payload.url.trim())
+        : undefined;
       attachments.push({
         type: "sticker",
-        url: body.message?.url || "",
+        url: sticker?.payload.url.trim() || (typeof body.message?.url === "string" ? body.message.url.trim() : ""),
       });
       if (!text) text = "[Sticker]";
     } else if (eventName === "user_send_link") {

@@ -154,7 +154,7 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ 
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     const remainingMs = deadlineAt === undefined ? undefined : deadlineAt - Date.now();
     if (remainingMs !== undefined && remainingMs <= 0) throw new Error("[OpenRouter] Reply deadline exceeded");
-    const finishAttempt = beginChatAiAttempt(mappedModel, hasImagePayload);
+    const finishAttempt = beginChatAiAttempt(mappedModel, hasImagePayload, params.operation);
     let succeeded = false;
     try {
       const startTime = Date.now();

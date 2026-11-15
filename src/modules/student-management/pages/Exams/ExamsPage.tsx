@@ -274,30 +274,6 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
   return (
     <div className="space-y-4 p-3 sm:p-4">
       {(examLoadError || batchLoadError || resourceLoadError) && <StudentLoadState error={examLoadError || batchLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadExams(), reloadBatches(), reloadResources()]); }} />}
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-sky-100 rounded-xl text-xs font-medium text-slate-700 hover:bg-sky-50 transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" /> Xuất
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-sky-100 rounded-xl text-xs font-medium text-slate-700 hover:bg-sky-50 transition-colors cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" /> In
-          </button>
-          {canManage && <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-brand-primary text-white rounded-xl text-xs font-medium hover:bg-brand-primary/90 transition-colors cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" /> Tạo đợt thi
-          </button>}
-        </div>
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 no-print">
         <StatCard label="Tổng đợt thi" value={stats.totalExams} icon={ClipboardList} color="text-cyan-600" bgColor="bg-sky-50" />
@@ -308,7 +284,8 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
       </div>
 
       {/* Tabs and filters */}
-      <div className="flex flex-col gap-2 border-b border-outline-variant pb-2 xl:flex-row xl:items-end xl:justify-between no-print">
+      <div className="flex flex-col gap-2 border-b border-outline-variant pb-2 no-print">
+        <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex shrink-0 items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
           <button
             type="button"
@@ -336,15 +313,40 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
           </button>
         </div>
 
-        <div className="flex min-h-12 min-w-0 items-end overflow-x-auto no-scrollbar xl:justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <Download className="size-3.5" aria-hidden="true" /> Xuất
+          </button>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <Printer className="size-3.5" aria-hidden="true" /> In
+          </button>
+          {canManage && <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-on-primary transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <Plus className="size-3.5" aria-hidden="true" /> Tạo đợt thi
+          </button>}
+        </div>
+        </div>
+
+        <div className="flex min-h-12 min-w-0 items-end overflow-x-auto no-scrollbar">
           {activeTab === 'exams' && <div className="flex min-w-max flex-nowrap items-end gap-2">
             <div className="shrink-0">
-              <FilterItem label="Từ ngày">
+              <FilterItem label="Từ">
                 <VietnameseDatePicker ariaLabel="Từ ngày" value={fromDate} max={toDate || undefined} onChange={setFromDate} selectionOnly variant="filter" />
               </FilterItem>
             </div>
             <div className="shrink-0">
-              <FilterItem label="Đến ngày">
+              <FilterItem label="Đến">
                 <VietnameseDatePicker ariaLabel="Đến ngày" value={toDate} min={fromDate || undefined} onChange={setToDate} selectionOnly variant="filter" />
               </FilterItem>
             </div>
@@ -692,7 +694,7 @@ function FilterItem({ label, children }: FilterItemProps) {
   return (
     <div className="flex items-center gap-2">
       <span className="shrink-0 whitespace-nowrap text-xs font-normal text-on-surface-variant">{label}</span>
-      <div className="relative w-40 shrink-0">
+      <div className="relative w-36 shrink-0">
         {children}
       </div>
     </div>

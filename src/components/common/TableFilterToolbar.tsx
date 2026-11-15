@@ -20,6 +20,7 @@ export type TableFilterToolbarProps = {
     compact?: boolean;
   };
   children?: React.ReactNode;
+  secondaryFilters?: React.ReactNode;
   actions?: React.ReactNode;
   totalCount?: number;
   countLabel?: string;
@@ -33,6 +34,7 @@ export function TableFilterToolbar({
   search,
   dateFilter,
   children,
+  secondaryFilters,
   actions,
   totalCount,
   countLabel = "kết quả",
@@ -108,6 +110,12 @@ export function TableFilterToolbar({
           )}
         </div>
       </div>
+
+      {secondaryFilters && (
+        <div className="flex flex-wrap items-center gap-2.5 border-t border-outline-variant/60 pt-3">
+          {secondaryFilters}
+        </div>
+      )}
 
       {/* ── Hàng 2: Bộ lọc thời gian (nếu có) ── */}
       {dateFilter && (

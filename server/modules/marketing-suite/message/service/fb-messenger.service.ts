@@ -5,7 +5,7 @@ import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai
 import { UserModel } from "../../../../model/user.model.ts";
 import { emitToMessengerAccount } from "../../shared/socket";
 import { aiAutoReplyService } from "./ai-auto-reply.service.ts";
-import { FACEBOOK_INBOUND_DISPATCH_LEASE_MS } from "./facebook-auto-reply-queue";
+import { FACEBOOK_INBOUND_DISPATCH_LEASE_MS, MESSENGER_REPLY_RETRY_BASE_MS } from "./facebook-auto-reply-queue";
 import { facebookCommentService } from "./facebook-comment.service.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { messengerOrderService } from "./messenger-order.service.ts";
@@ -23,6 +23,7 @@ import {
 const syncTimestamps = new Map<string, number>();
 const CONVERSATION_SYNC_TTL_MS = 15000;
 const MESSAGE_SYNC_TTL_MS = 5000;
+const FACEBOOK_SENDER_ACTION_TIMEOUT_MS = 1500;
 const pageWebhookSubscriptions = new Map<string, number>();
 
 export type FacebookTokenContext = {
@@ -702,6 +703,7 @@ export const fbMessengerService = {
     }
 
     // Claim atomically because Meta may deliver the same webhook concurrently.
+    const dispatchAfter = new Date(Date.now() + FACEBOOK_INBOUND_DISPATCH_LEASE_MS);
     let insertResult;
     try {
       insertResult = await FBMessageModel.updateOne(
@@ -719,7 +721,7 @@ export const fbMessengerService = {
             timestamp,
             status: "delivered",
             autoReplyDispatchPending: true,
-            autoReplyDispatchAfter: new Date(Date.now() + FACEBOOK_INBOUND_DISPATCH_LEASE_MS),
+            autoReplyDispatchAfter: dispatchAfter,
           },
         },
         { upsert: true },
@@ -857,13 +859,23 @@ export const fbMessengerService = {
       );
       await aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversationId, text, messageId, { propagateError: true });
     };
+    const dispatchLease = { messageId, conversationId, autoReplyDispatchPending: true, autoReplyDispatchAfter: dispatchAfter };
     void handleOrderMessage().then(async () => {
       // Clear only after a custom response or a durable AI dispatch succeeds.
-      await FBMessageModel.updateOne({ messageId, conversationId, autoReplyDispatchPending: true }, {
+      await FBMessageModel.updateOne(dispatchLease, {
         $unset: { autoReplyDispatchPending: 1, autoReplyDispatchAfter: 1 },
       });
-    }).catch((error) => {
+    }).catch(async (error) => {
       console.error(`[FB Service processIncomingMessage] Chờ worker khôi phục phản hồi messageId=${messageId}:`, error);
+      // The dispatch has ended, so recovery need not wait for the crash lease to expire.
+      const retryAt = new Date(Date.now() + MESSENGER_REPLY_RETRY_BASE_MS);
+      await FBMessageModel.updateOne(dispatchLease, {
+        $set: { autoReplyDispatchAfter: retryAt },
+      }).then(result => {
+        if (result.matchedCount) {
+          console.info("[FB Service][DISPATCH_RETRY]", JSON.stringify({ conversationId, messageId, retryAt }));
+        }
+      }).catch(() => console.error(`[FB Service] Không thể lên lịch thử lại cho messageId=${messageId}`));
     });
   },
 
@@ -1005,6 +1017,7 @@ export const fbMessengerService = {
 
     // The follow-up guard runs after token/window synchronization, directly before delivery.
     if (beforeSend) await beforeSend();
+    const graphStartedAt = Date.now();
     try {
       const response = await facebookSendRequest(url, {
         method: "POST",
@@ -1040,7 +1053,7 @@ export const fbMessengerService = {
       const data = await response.json();
       console.log(
         `[FB Service sendReply] Send API thành công: conversationId=${conversationId}, ` +
-        `facebookMessageId=${data.message_id || "n/a"}, recipientId=${recipientPsid}`
+        `facebookMessageId=${data.message_id || "n/a"}, recipientId=${recipientPsid}, graphMs=${Date.now() - graphStartedAt}`
       );
 
       conversation.lastMessageText = text;
@@ -1179,14 +1192,16 @@ export const fbMessengerService = {
     conversationId: string,
     action: "typing_on" | "typing_off" | "mark_seen",
     tokenContext?: FacebookTokenContext,
+    signal?: AbortSignal,
   ) {
+    if (signal?.aborted) return;
     const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
-    if (!conversation) return;
+    if (!conversation || signal?.aborted) return;
 
     const recipientPsid = conversation.recipientId;
     const resolvedPageId = conversation.pageId || pageId || "";
     const token = await this.getPageAccessTokenByPageId(resolvedPageId, tokenContext);
-    if (!token) return;
+    if (!token || signal?.aborted) return;
 
     const url = `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`;
     const body = {
@@ -1195,13 +1210,20 @@ export const fbMessengerService = {
     };
 
     try {
-      await (globalThis as any).fetch(url, {
+      const timeout = AbortSignal.timeout(FACEBOOK_SENDER_ACTION_TIMEOUT_MS);
+      const response = await fetch(url, {
         method: "POST",
+        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      await response.body?.cancel();
     } catch (error) {
-      console.error(`[FB Service sendSenderAction] Thất bại khi gửi sender_action ${action}:`, error);
+      if (!signal?.aborted) {
+        console.warn("[FB Service sendSenderAction] Không gửi được trạng thái", {
+          conversationId, action, error: error instanceof Error ? error.name : "UnknownError",
+        });
+      }
     }
   },
 

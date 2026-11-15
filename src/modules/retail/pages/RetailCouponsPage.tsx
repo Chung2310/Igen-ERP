@@ -304,9 +304,52 @@ export default function RetailCouponsPage({ canManagePoints = false }: { canMana
 
   return (
     <div className="space-y-3">
-      {/* Top Banner / Header */}
-      <div className="flex flex-col justify-between gap-4 border-b border-outline-variant pb-3 sm:flex-row sm:items-center">
-        <div className="ml-auto flex items-center gap-2">
+      {/* Offer sections */}
+      <div className="flex flex-col gap-2 border-b border-outline-variant lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 gap-2 overflow-x-auto">
+          <button
+            type="button"
+            aria-pressed={activeSubTab === "coupons"}
+            onClick={() => setActiveSubTab("coupons")}
+            className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "coupons" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
+          >
+            <Ticket className="h-4 w-4" />
+            <span>Mã ưu đãi</span>
+            <span
+              className={cn("rounded-full px-2 py-0.5 text-xs font-medium", activeSubTab === "coupons" ? "bg-primary/10 text-primary" : "bg-surface text-on-surface-variant")}
+            >
+              {total || items.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            aria-pressed={activeSubTab === "automations"}
+            onClick={() => setActiveSubTab("automations")}
+            className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "automations" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
+          >
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            <span>Tự động tặng mã</span>
+            {automations.length > 0 && (
+              <span
+                className={cn("rounded-full px-2 py-0.5 text-xs font-medium", activeSubTab === "automations" ? "bg-primary/10 text-primary" : "bg-surface text-on-surface-variant")}
+              >
+                {automations.length}
+              </span>
+            )}
+          </button>
+          {canManagePoints && <button
+            type="button"
+            aria-pressed={activeSubTab === "points"}
+            onClick={() => setActiveSubTab("points")}
+            className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "points" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
+          >
+            <Gift className="h-4 w-4" aria-hidden="true" />
+            Điểm thưởng
+          </button>}
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end gap-2 pb-2 lg:pb-0">
           {activeSubTab === "coupons" ? (
             <>
               <button
@@ -356,50 +399,6 @@ export default function RetailCouponsPage({ canManagePoints = false }: { canMana
             </>
           ) : null}
         </div>
-      </div>
-
-      {/* Offer sections */}
-      <div className="flex gap-2 overflow-x-auto border-b border-outline-variant">
-        <button
-          type="button"
-          aria-pressed={activeSubTab === "coupons"}
-          onClick={() => setActiveSubTab("coupons")}
-          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "coupons" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
-        >
-          <Ticket className="h-4 w-4" />
-          <span>Mã ưu đãi</span>
-          <span
-            className={cn("rounded-full px-2 py-0.5 text-xs font-medium", activeSubTab === "coupons" ? "bg-primary/10 text-primary" : "bg-surface text-on-surface-variant")}
-          >
-            {total || items.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          aria-pressed={activeSubTab === "automations"}
-          onClick={() => setActiveSubTab("automations")}
-          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "automations" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
-        >
-          <Sparkles className="h-4 w-4 text-amber-500" />
-          <span>Tự động tặng mã</span>
-          {automations.length > 0 && (
-            <span
-              className={cn("rounded-full px-2 py-0.5 text-xs font-medium", activeSubTab === "automations" ? "bg-primary/10 text-primary" : "bg-surface text-on-surface-variant")}
-            >
-              {automations.length}
-            </span>
-          )}
-        </button>
-        {canManagePoints && <button
-          type="button"
-          aria-pressed={activeSubTab === "points"}
-          onClick={() => setActiveSubTab("points")}
-          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "points" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
-        >
-          <Gift className="h-4 w-4" aria-hidden="true" />
-          Điểm thưởng
-        </button>}
       </div>
 
       {activeSubTab === "points" && canManagePoints && <RetailPointsPanel />}

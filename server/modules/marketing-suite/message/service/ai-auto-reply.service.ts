@@ -28,6 +28,7 @@ import { enqueueLeadIntakeRetry } from "./messenger-background-jobs";
 import { facebookMessageOrder, loadMessengerReplyMessages, olderThanMessage } from "./messenger-reply-messages";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { splitHistoryAndPendingInboundMessages, type ChatImageObservation } from "./chat-image-context";
+import { isStickerOnlyMessage } from "./chat-context";
 import { prepareChatReplyContext, commitChatVisualContext, buildChatConversationInstructions,
   describeChatVisualContext, type ChatSourceMessage } from "./chat-reply-context.service.ts";
 import { visualToImageObservation } from "./chat-visual-context";
@@ -842,7 +843,7 @@ export const aiAutoReplyService = {
 
       console.log(
         `[AI AutoReply] Schedule reply: channel=${channel}, conversationId=${conversationId}, ` +
-        `groupingDelayMs=${groupingDelayMs}, userDelayMs=${userDelayMs}, totalDelayMs=${delayMs}, ` +
+        `groupingDelayMs=${groupingDelayMs}, userDelayMs=${userDelayMs}, totalDelayMs=${delayMs}, scheduledDelayMs=${scheduledDelayMs}, ` +
         `model=${AI_REPLY_PRIMARY_MODEL}, user=${user?.email || targetCompanyCode || "company_integration"}`
       );
       console.log(`[AI AutoReply] 🕒 LÊN LỊCH: Đang gom tin ${groupingDelayMs / 1000}s rồi chờ thêm ${aiConfig.replyDelay}s cấu hình trước khi phản hồi hội thoại: ${conversationId} (User: ${user?.email || targetCompanyCode || "company_integration"})`);
@@ -855,6 +856,15 @@ export const aiAutoReplyService = {
       let executionCancelled = false;
       let ownsConversation = false;
       const timeoutId = setTimeout(async () => {
+        const turnStartedAt = Date.now();
+        const facebookTiming: {
+          queueWaitMs?: number;
+          contextMs?: number;
+          intakeMs?: number;
+          composeMs?: number;
+          firstReplyMs?: number;
+        } | undefined = channel === "facebook" ? {} : undefined;
+        let typingAction: AbortController | undefined;
         try {
           if (pendingReplies.get(conversationId)?.timeout === timeoutId) {
             pendingReplies.delete(conversationId);
@@ -885,6 +895,9 @@ export const aiAutoReplyService = {
             if (!claim) return;
             queueLeaseToken = claim.leaseToken;
             claimedAttempts = claim.job.attempts;
+            if (facebookTiming) {
+              facebookTiming.queueWaitMs = Math.max(0, turnStartedAt - claim.job.messageCreatedAt.getTime());
+            }
             if (queueChannel === "zalo" && claim.job.companyCode !== targetCompanyCode) {
               executionCancelled = true;
               return;
@@ -1106,17 +1119,24 @@ export const aiAutoReplyService = {
           console.log(`[AI AutoReply] 🤖 KHỞI CHẠY: Bắt đầu gọi Gemini sinh câu trả lời cho hội thoại: ${conversationId} (${channel.toUpperCase()})`);
           console.log(`[AI AutoReply] Gemini start: conversationId=${conversationId}, channel=${channel}, historyCount=${history.length}, groupedMessageCount=${groupedMessageCount}, groupedTextLength=${groupedCustomerMessage.length}`);
 
-          if (channel === "facebook") {
-            await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on", facebookTokenContext).catch(() => {});
-          }
+          const showFacebookTyping = () => {
+            typingAction?.abort();
+            typingAction = new AbortController();
+            void fbMessengerService.sendSenderAction(
+              resolvedPlatformId, conversationId, "typing_on", facebookTokenContext, typingAction.signal,
+            ).catch(() => {});
+          };
+          if (channel === "facebook") showFacebookTyping();
 
           {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
-            const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
+            const aiTrace = channel === "facebook" || aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
               const intakePlatform = channel === "facebook" || channel === "zalo" || channel === "tiktok" ? channel : undefined;
-              const orderFlow = intakePlatform ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId, intakePlatform) : undefined;
+              const stickerOnly = channel === "zalo" && !pendingImageUrls.length && isStickerOnlyMessage(groupedCustomerMessage);
+              const orderFlow = intakePlatform && !stickerOnly
+                ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId, intakePlatform) : undefined;
               const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId, intakePlatform, companyCode)
                 ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId, platform: intakePlatform }, latestDbMessage.messageId) : undefined;
               // Generic intake uses the conversation history. Inbound messages are
@@ -1202,6 +1222,8 @@ export const aiAutoReplyService = {
                 businessContext: [aiConfig.advancedInstructions, aiConfig.customerServiceScript,
                   effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
               };
+              const intakeStartedAt = Date.now();
+              if (facebookTiming) facebookTiming.contextMs = intakeStartedAt - startedAt;
               const checkoutReply = await orderFlow?.process(flowInput).catch(async error => {
                 if (orderFlow.key !== "page-intake" || channel === "tiktok") throw error;
                 console.warn("[AI AutoReply] Lead intake failed", { channel, conversationId, error: error?.name });
@@ -1209,7 +1231,10 @@ export const aiAutoReplyService = {
                   console.error("[AI AutoReply] Lead intake retry could not be saved", { channel, conversationId, error: queueError?.name });
                 });
                 return undefined;
+              }).finally(() => {
+                if (facebookTiming) facebookTiming.intakeMs = Date.now() - intakeStartedAt;
               });
+              const composeStartedAt = Date.now();
               const leadIntake = checkoutReply?.leadIntake ?? (orderFlow?.key === "page-intake"
                 ? { status: "inactive" as const, goal: "", collected: {}, missingRequiredFields: [] }
                 : undefined);
@@ -1232,6 +1257,7 @@ export const aiAutoReplyService = {
                   { ...aiConfig, advancedInstructions: conversationalInstructions }, checkoutReply.text,
                   { ...effectiveRagContext, visualInput: undefined, visualContext });
               }
+              if (facebookTiming) facebookTiming.composeMs = Date.now() - composeStartedAt;
               if (channel === "facebook") requireFacebookReplyText(aiResponse?.text);
               if (channel === "zalo" && !aiResponse?.text?.trim()) throw new Error("AI returned an empty Zalo reply.");
               if (checkoutReply?.wordingSource && orderFlow?.preservesReplyFacts
@@ -1245,7 +1271,10 @@ export const aiAutoReplyService = {
               }
               return { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse };
             })).finally(() => {
-              if (aiTrace) console.log("[AI AutoReply][AI_TRACE]", JSON.stringify({ conversationId, ...describeChatAiTrace(aiTrace) }));
+              if (aiTrace) console.log("[AI AutoReply][AI_TRACE]", JSON.stringify({
+                channel, conversationId, messageId: incomingMessageId, attempts: claimedAttempts,
+                ...describeChatAiTrace(aiTrace),
+              }));
             });
 
             if (!aiResponse || !aiResponse.text) {
@@ -1301,6 +1330,7 @@ export const aiAutoReplyService = {
               const fallbackReply = aiResponse.text.trim();
               const messagesToSend = replyBubbles.length > 0 ? replyBubbles : [fallbackReply];
               const beforeFacebookDelivery = async () => {
+                typingAction?.abort();
                 const owner = await resolveAutoReplyOwner("facebook", resolvedPlatformId);
                 const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId: resolvedPlatformId }).lean();
                 const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" })
@@ -1338,6 +1368,7 @@ export const aiAutoReplyService = {
                 if (!recentCustomerImage && !sentSample) {
                   await fbMessengerService.sendImage(resolvedPlatformId, conversationId,
                     sampleImageUrl, facebookTokenContext, "[Ảnh mẫu bánh đã chọn]", beforeFacebookDelivery);
+                  if (facebookTiming) facebookTiming.firstReplyMs ??= Date.now() - turnStartedAt;
                 }
               }
 
@@ -1371,11 +1402,12 @@ export const aiAutoReplyService = {
                 } else {
                   const sentReply = await fbMessengerService.sendReply(resolvedPlatformId, conversationId, bubbleText, "ai", facebookTokenContext, customerSession?.sessionId, beforeFacebookDelivery);
                   lastFacebookReplyMessageId = sentReply.messageId;
+                  if (facebookTiming) facebookTiming.firstReplyMs ??= Date.now() - turnStartedAt;
                 }
 
                 if (index < messagesToSend.length - 1) {
                   if (channel === "facebook") {
-                    await fbMessengerService.sendSenderAction(resolvedPlatformId, conversationId, "typing_on", facebookTokenContext).catch(() => {});
+                    showFacebookTyping();
                   }
                   await new Promise((resolve) => setTimeout(resolve, getBubbleDelayMs()));
                 }
@@ -1490,6 +1522,14 @@ export const aiAutoReplyService = {
             console.error(`[AI AutoReply] Không thể lưu log lỗi:`, logErr);
           }
         } finally {
+          typingAction?.abort();
+          if (facebookTiming && ownsConversation) {
+            console.info("[AI AutoReply][FACEBOOK_TIMING]", JSON.stringify({
+              conversationId, messageId: incomingMessageId, attempts: claimedAttempts,
+              scheduledDelayMs, ...facebookTiming, processingMs: Date.now() - turnStartedAt,
+              failed: executionError !== undefined, cancelled: executionCancelled,
+            }));
+          }
           if (heartbeat) clearInterval(heartbeat);
           if (queueChannel && queueLeaseToken && incomingMessageId) {
             const outcome = messengerReplyOutcome(claimedAttempts, outgoingSendStarted, executionError);

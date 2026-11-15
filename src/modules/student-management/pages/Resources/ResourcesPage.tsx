@@ -9,7 +9,7 @@ import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllus
 import { useResourceCategories } from '../../hooks/useResourceCategories';
 import { ResourceItem } from '../../types';
 import {
-  ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
+  ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpLoadingState, ErpCard
 } from '../../components/Erp/ErpUI';
 import { Pagination } from '../../components/ui/Pagination';
@@ -122,29 +122,8 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
   return (
     <div className="space-y-4 p-3 text-left sm:p-4">
       {(resourceLoadError || categoryLoadError) && <StudentLoadState error={resourceLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadResources(), reloadCategories()]); }} />}
-      <ErpPageHeader
-        title={forceType === 'Phòng học' ? "Quản lý phòng học" : "Quản lý thiết bị & tài nguyên"}
-        subtitle={forceType === 'Phòng học' ? "Quản lý danh sách các phòng học của trung tâm." : undefined}
-        action={canManage ? (
-          <div className="flex gap-2">
-            {!forceType && (
-              <button
-                onClick={() => setShowCategoryModal(true)}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-medium normal-case text-slate-700 transition-colors hover:border-sky-200 hover:bg-sky-50"
-              >
-                <Tags className="h-4 w-4 text-brand-primary" />
-                Quản lý phân loại
-              </button>
-            )}
-            <ErpPrimaryButton onClick={() => { setEditingResource(null); setShowAddModal(true); }}>
-              {forceType === 'Phòng học' ? 'Khai báo phòng học mới' : 'Khai báo tài nguyên mới'}
-            </ErpPrimaryButton>
-          </div>
-        ) : undefined}
-      />
-
       {/* Controls */}
-      <div className="flex flex-col items-stretch justify-between gap-3 md:flex-row md:items-center">
+      <div className="flex flex-col items-stretch justify-between gap-3 xl:flex-row xl:items-center">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Tìm tài nguyên bằng tên hoặc số nhận diện..." />
         <div className="flex flex-wrap items-center justify-between gap-3 md:justify-end">
           {!forceType && (
@@ -160,28 +139,45 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
             </ErpFilterRail>
           )}
 
-          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-sky-100 bg-white p-1">
+          <div className="flex shrink-0 items-center gap-1 rounded-md border border-outline-variant bg-surface p-1">
             <button
               type="button"
               onClick={() => { setViewMode('list'); localStorage.setItem('erp_view_mode_resources', 'list'); }}
               aria-label="Hiển thị dạng danh sách"
               aria-pressed={viewMode === 'list'}
-              className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors", viewMode === 'list' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-sky-50 hover:text-brand-primary")}
+              className={cn("inline-flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:outline-primary", viewMode === 'list' ? "bg-primary/10 text-primary" : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-primary")}
               title="Hiển thị dạng danh sách"
             >
-              <List className="h-4 w-4" />
+              <List className="size-4" aria-hidden="true" />
             </button>
             <button
               type="button"
               onClick={() => { setViewMode('grid'); localStorage.setItem('erp_view_mode_resources', 'grid'); }}
               aria-label="Hiển thị dạng lưới"
               aria-pressed={viewMode === 'grid'}
-              className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors", viewMode === 'grid' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-sky-50 hover:text-brand-primary")}
+              className={cn("inline-flex size-8 items-center justify-center rounded transition-colors focus-visible:outline-2 focus-visible:outline-primary", viewMode === 'grid' ? "bg-primary/10 text-primary" : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-primary")}
               title="Hiển thị dạng lưới"
             >
-              <LayoutGrid className="h-4 w-4" />
+              <LayoutGrid className="size-4" aria-hidden="true" />
             </button>
           </div>
+          {canManage && (
+            <div className="flex flex-wrap items-center gap-2">
+              {!forceType && (
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(true)}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <Tags className="size-4" aria-hidden="true" />
+                  Quản lý phân loại
+                </button>
+              )}
+              <ErpPrimaryButton onClick={() => { setEditingResource(null); setShowAddModal(true); }}>
+                {forceType === 'Phòng học' ? 'Khai báo phòng học mới' : 'Khai báo tài nguyên mới'}
+              </ErpPrimaryButton>
+            </div>
+          )}
         </div>
       </div>
 

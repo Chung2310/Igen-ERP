@@ -35,7 +35,6 @@ import { toast } from "../../../pages/Toast";
 import { ApiClientError } from "../../../services/apiClientError";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { cn } from "../../student-management/lib/utils";
-import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 
@@ -49,7 +48,6 @@ export default function RetailOrdersPageV2() {
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [orders, setOrders] = React.useState<RetailOrder[]>([]);
-  const [loading, setLoading] = React.useState(false);
   const [selected, setSelected] = React.useState<RetailOrder | null>(null);
   const [collecting, setCollecting] = React.useState(false);
   const [cancelling, setCancelling] = React.useState(false);
@@ -57,7 +55,6 @@ export default function RetailOrdersPageV2() {
 
   const refresh = React.useCallback(async () => {
     if (!scope) return;
-    setLoading(true);
     try {
       const data = await retailOrdersApi.list(scope, { q, status: status || undefined });
       setOrders(data.items);
@@ -66,8 +63,6 @@ export default function RetailOrdersPageV2() {
       const msg = getApiErrorMessage(cause, "Không tải được đơn hàng.");
       setError(msg);
       toast.error(msg);
-    } finally {
-      setLoading(false);
     }
   }, [scope?.companyCode, scope?.branchId, q, status]);
 
@@ -135,21 +130,6 @@ export default function RetailOrdersPageV2() {
 
   return (
     <section className="space-y-3.5">
-      {/* Header Card */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
-              {orders.length} đơn
-            </span>
-          </div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <ErpRefreshButton onClick={() => void refresh()} loading={loading} />
-        </div>
-      </header>
-
       {/* Overview KPI Cards */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <div className="retail-stat-card retail-stat-card--blue rounded-md px-3.5 py-2.5">

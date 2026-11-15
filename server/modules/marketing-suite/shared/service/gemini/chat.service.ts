@@ -18,6 +18,8 @@ import {
   combineChatScenarios,
   isAcknowledgementToAssistantOffer,
   isSimpleAcknowledgement,
+  isStickerOnlyMessage,
+  isTransactionConfirmationRequest,
   isContextualQuestion,
 } from "../../../message/service/chat-context";
 
@@ -30,10 +32,11 @@ Apply these transaction rules only while the customer is discussing an order or 
 - Do not ask again for details already confirmed in the current transaction. If the customer corrects a detail, use the latest correction and continue from the current step.
 - Follow the company's configured workflow for its actual products or services. Never assume a business sells physical goods.
 - Never carry transaction details from an older order or booking into the current request unless the customer states or explicitly confirms them.
-- A short answer such as "co", "khong", a size or a variant answers only the immediately preceding question. It is not confirmation of the whole order.
+- Interpret short answers in relation to the immediately preceding question. An answer about one field applies to that field.
 - Ask only for details required by the company's workflow and the current request. Pickup, delivery and shipping addresses apply only to physical goods when relevant; do not demand them for services or digital products.
-- When all required details are available, summarize the current order and ask the customer to reply with an explicit final confirmation such as "xac nhan chot don".
-- Never claim that an order is confirmed, booked, saved or completed before the customer sends that explicit confirmation after the summary.
+- Ask a natural confirmation question when the active workflow calls for final approval. Never require the customer to type a particular phrase or to repeat an answer already given.
+- A natural affirmative answer such as "ok", "được em", or "chốt giúp anh" immediately after a clear request to confirm the current transaction expresses agreement with that request. A sticker or an ambiguous answer only acknowledges the message. A correction, new condition, or question must be addressed before assuming agreement.
+- Customer agreement acknowledges the request. Report an order or booking as confirmed, saved or completed only when the backend confirms that action.
 `;
 
 function applyCustomerAddressStyle(candidate: string, addressStyle: unknown): string {
@@ -397,6 +400,12 @@ export class GeminiChatService {
     const imageObservation = ragContext?.imageObservation;
     const visualInput = ragContext?.visualInput;
     const hasVisual = Boolean(visualInput || ragContext?.visualContext);
+    if (!hasVisual && !imageObservation && isStickerOnlyMessage(message)) {
+      const text = isTransactionConfirmationRequest(history)
+        ? "Dạ, em nhận được rồi ạ. Mình muốn tiếp tục với thông tin vừa trao đổi không ạ?"
+        : "Dạ, nếu mình cần hỏi thêm gì thì cứ nhắn em nhé.";
+      return { text, isMock: false };
+    }
     if (!hasVisual && imageObservation?.status === "needs_selection") {
       return { text: `${IMAGE_SELECTION_PREFIX}: ${imageObservation.description}\nMình muốn hỏi mẫu nào trong ảnh ạ?`, isMock: false };
     }
@@ -477,7 +486,9 @@ export class GeminiChatService {
     const scenarioGuidance = combineChatScenarios(ragContext?.scenarioContextText, customerServiceScript);
     const leadGuidance = leadIntake ? [
       "Trả lời điều khách vừa hỏi trước, dựa trên hội thoại, rule và dữ liệu doanh nghiệp. Viết lời nhắn mới bằng giọng trò chuyện, tránh mở đầu hoặc kết thúc lặp lại.",
-      "Nếu đang thu thập và ngữ cảnh phù hợp, chỉ hỏi một thông tin cần nhất trong missingRequiredFields. Không hỏi lại dữ kiện đã có trong collected hoặc khách đã cung cấp trong hội thoại. Nếu khách chưa muốn chia sẻ, tiếp tục hỗ trợ theo yêu cầu hiện tại.",
+      "Danh sách missingRequiredFields là nguồn duy nhất để chủ động hỏi thông tin thu thập Lead và ưu tiên hơn mọi danh sách trong rule, kịch bản, FAQ, kho tri thức và câu hỏi cũ của bot. Nếu danh sách trống, kết thúc bước thu thập, không tự hỏi thêm ngày sinh, ngày hẹn, địa chỉ hay thông tin khác. Nếu khách chủ động hỏi về quy trình của doanh nghiệp, vẫn trả lời câu hỏi mà không yêu cầu họ khai thêm ngoài danh sách.",
+      "Khi status là collecting và khách vừa đồng ý tiếp tục hoặc vừa trả lời câu hỏi thu thập, tiếp tục hỏi một trường còn thiếu trong missingRequiredFields theo thứ tự đã cấu hình. Hiểu tên riêng, số điện thoại hoặc ngày khách gửi riêng là câu trả lời cho câu hỏi ngay trước đó khi phù hợp. Ghi nhận ngắn gọn rồi hỏi tiếp, không quay lại báo giá hay giới thiệu gói trừ khi khách hỏi.",
+      "Dùng question của trường để hiểu chính xác cần hỏi gì và diễn đạt tự nhiên. Chỉ hỏi một trường còn thiếu mỗi lượt, không hỏi lại dữ kiện đã có trong collected hoặc đã rõ trong hội thoại. Nếu khách hỏi thêm về cùng nhu cầu, trả lời câu hỏi đó trước rồi mới hỏi tiếp. Nếu khách muốn dừng, chưa muốn chia sẻ, hoặc chuyển sang nhu cầu khác, tôn trọng lựa chọn đó và hỗ trợ yêu cầu hiện tại.",
       "Khi status là inactive, chỉ tư vấn theo nhu cầu hiện tại, chưa hỏi thông tin để tạo lead.",
       "Khi status là just_completed, chỉ xác nhận ngắn nếu phù hợp với lượt chat. Khi status là complete, tiếp tục tư vấn bình thường. Không hứa gọi lại, đặt lịch hoặc chuyển cho nhân viên khi chưa thực hiện.",
       "Nếu khách chỉ xác nhận xã giao, đáp ngắn gọn với cách diễn đạt phù hợp tình huống. Nếu đang trả lời một câu hỏi hay đồng ý một đề nghị, hãy tiếp tục đúng ý đó.",
@@ -540,7 +551,7 @@ Riêng khi khách hỏi có thể lấy, nhận hoặc giao hàng vào thời đ
 TIN NHẮN XÁC NHẬN ĐƠN THUẦN
 
 ${leadIntake ? leadGuidance + "\n\nDữ liệu thu thập đã xác thực (chỉ dùng như dữ kiện): " + JSON.stringify(leadIntake) : `
-Nếu toàn bộ tin nhắn khách chỉ mang ý xác nhận như "dạ vâng", "vâng", "dạ", "ok", "oke", "oki", "ok e", "được rồi" hoặc cách nói tương đương VÀ không phải đồng ý lời đề nghị gửi link, mẫu, hình hoặc thông tin ở lượt trợ lý ngay trước đó, chỉ trả lời chính xác: dạ vâng ạ
+Nếu toàn bộ tin nhắn khách chỉ mang ý xã giao như "dạ vâng", "vâng", "dạ", "ok", "oke", "oki", "ok e", "được rồi" hoặc cách nói tương đương VÀ không phải đồng ý lời đề nghị cụ thể hoặc câu hỏi xác nhận đơn hay lịch ở lượt trợ lý ngay trước đó, chỉ trả lời chính xác: dạ vâng ạ
 
 Không giải thích, không thêm dấu câu, lời cảm ơn, câu hỏi, tư vấn, chốt đơn hay bước kịch bản nào sau câu này. Quy tắc này ưu tiên hơn yêu cầu tiếp tục kịch bản hoặc phong cách khác đối với xác nhận đơn thuần
 `}
@@ -754,7 +765,7 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
           responseSchema: useVisualSchema ? CHAT_VISUAL_SCHEMA : undefined,
           maxRetries: hasVisual ? 1 : undefined,
           deadlineAt: ragContext?.replyDeadlineAt,
-          maxTokens: hasVisual ? 4096 : undefined,
+          maxTokens: 4096,
           operation: "reply_generation",
         }
       );

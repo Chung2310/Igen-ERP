@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { StyledSelect } from "../../components/common/StyledSelect";
+import { DateInput24 } from "../../components/common/TimeInput24";
 import { repairExtras, type RepairRevenueRow, type RepairTechnicianRow } from "../../services/repairService";
 import { toast } from "../../pages/Toast";
 
@@ -38,15 +39,21 @@ export default function RepairReportsPanel() {
   const showCost = Boolean(revenue?.items?.some((row) => row.grossProfit !== undefined));
 
   return <div className="space-y-4">
-    <div>
-      <p className="mt-1 text-pretty text-sm text-on-surface-variant">Doanh thu và hiệu suất xử lý sản phẩm, thiết bị và hạng mục dịch vụ trong kỳ.</p>
-    </div>
 
-    <form onSubmit={(event) => { event.preventDefault(); void load(); }} className="grid items-end gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:grid-cols-2 lg:grid-cols-4">
-      <label className="flex min-w-0 flex-col gap-2 text-xs">Từ ngày<input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} className="min-h-11 w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary" /></label>
-      <label className="flex min-w-0 flex-col gap-2 text-xs">Đến ngày<input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} className="min-h-11 w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary" /></label>
-      <label className="flex min-w-0 flex-col gap-2 text-xs">Nhóm theo<StyledSelect appearance="erp" ariaLabel="Nhóm theo" value={groupBy} onChange={(value) => setGroupBy(value as typeof groupBy)} options={Object.entries(GROUP_LABEL).map(([value, label]) => ({ value, label }))} className="min-h-11" /></label>
-      <button type="submit" disabled={busy} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">{busy ? "Đang tải..." : "Xem báo cáo"}</button>
+    <form onSubmit={(event) => { event.preventDefault(); void load(); }} className="flex flex-wrap items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
+      <div className="flex w-full min-w-0 items-center gap-2 sm:w-48">
+        <span className="shrink-0 text-xs text-on-surface-variant">Từ</span>
+        <DateInput24 ariaLabel="Từ ngày" value={range.from} onChange={(from) => setRange({ ...range, from })} className="min-w-0 flex-1" />
+      </div>
+      <div className="flex w-full min-w-0 items-center gap-2 sm:w-48">
+        <span className="shrink-0 text-xs text-on-surface-variant">Đến</span>
+        <DateInput24 ariaLabel="Đến ngày" value={range.to} onChange={(to) => setRange({ ...range, to })} className="min-w-0 flex-1" />
+      </div>
+      <div className="flex w-full min-w-0 items-center gap-2 sm:w-56">
+        <span className="shrink-0 text-xs text-on-surface-variant">Nhóm</span>
+        <StyledSelect appearance="erp" ariaLabel="Nhóm theo" value={groupBy} onChange={(value) => setGroupBy(value as typeof groupBy)} options={Object.entries(GROUP_LABEL).map(([value, label]) => ({ value, label }))} className="h-10 min-w-0 flex-1 rounded-md" />
+      </div>
+      <button type="submit" disabled={busy} className="h-10 shrink-0 rounded-md bg-primary px-3 text-sm font-medium text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">{busy ? "Đang tải..." : "Xem báo cáo"}</button>
     </form>
     {busy && <p role="status" className="text-pretty text-sm text-on-surface-variant">Đang tải báo cáo sửa chữa và bảo hành…</p>}
     {error && <p role="alert" className="rounded-xl border border-error bg-error-container p-3 text-pretty text-sm text-on-error-container">{error} Bấm Xem báo cáo để thử lại.</p>}
