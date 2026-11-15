@@ -442,10 +442,10 @@ export function WorkerProjectsPage({
 
   return (
     <div className="space-y-3 text-left">
-      {/* Search + count */}
-      <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center">
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center 2xl:w-auto">
-          <div className="relative w-full sm:w-auto sm:min-w-0 sm:flex-1 2xl:w-96 2xl:flex-none">
+      {/* Search + status filters */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:flex-1">
+          <div className="relative w-full min-w-0 flex-1">
             <label htmlFor="worker-project-search" className="sr-only">
               Tìm kiếm dự án
             </label>
@@ -458,13 +458,10 @@ export function WorkerProjectsPage({
             />
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
           </div>
-          <span className="inline-flex w-fit shrink-0 items-center whitespace-nowrap rounded-full bg-primary/10 px-3 py-1.5 text-base font-medium tabular-nums text-on-surface">
-            {loading ? "..." : total} dự án
-          </span>
         </div>
 
         {/* Filters + view toggle + add button */}
-        <div className="flex flex-wrap items-center gap-2 2xl:ml-auto">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 xl:ml-auto xl:flex-nowrap">
           <div className="flex max-w-full items-center gap-1 overflow-x-auto">
             <FilterButton active={status === "all"} onClick={() => setStatus("all")}>
               Tất cả
