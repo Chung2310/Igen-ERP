@@ -48,7 +48,7 @@ export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName 
   if (name === "agents") return <AssistantSupportIcon />;
   if (name === "assistant") return <AiAssistantIcon />;
   if (name === "studio") return <AssistantStudioSidebarIcon />;
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="2 2 20 20" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {artwork[name]}
   </svg>;
 }
@@ -68,7 +68,7 @@ function AssistantSupportIcon() {
 
 function AssistantStudioSidebarIcon() {
   const gradientId = useId().replace(/:/g, "");
-  return <svg viewBox="0 0 24 24" className="assistant-studio-icon" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+  return <svg viewBox="2 1 21 21" className="assistant-studio-icon" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
         <stop stopColor="var(--color-primary)" />
