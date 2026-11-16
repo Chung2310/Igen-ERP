@@ -7,7 +7,7 @@
  * (OPENROUTER_FALLBACK_MODEL / OPENROUTER_FALLBACK_IMAGE_MODEL).
  */
 
-import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, META_MUSE_IMAGE_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -320,7 +320,7 @@ export interface OpenRouterImageParams {
 }
 
 /**
- * Recraft tạo ảnh mới qua Images API; các model hỗ trợ ảnh tham chiếu dùng chat completions.
+ * Image API models generate/edit through Images API; other image models use chat completions.
  * Model chính lỗi thì có thể dùng model dự phòng nếu luồng cho phép.
  */
 export async function openrouterGenerateImage(params: OpenRouterImageParams): Promise<{ url: string }> {
@@ -338,7 +338,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   const model = params.background === "transparent"
     ? configuredModel
     : params.referenceImages?.length
-    ? IMAGE_EDIT_MODEL
+    ? configuredModel === META_MUSE_IMAGE_MODEL ? configuredModel : IMAGE_EDIT_MODEL
     : (configuredModel === RECRAFT_IMAGE_MODEL && !RECRAFT_ASPECT_RATIOS.has(ratioKey))
       ? IMAGE_EDIT_MODEL
       : configuredModel;
@@ -372,12 +372,17 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
         },
       );
     }
+    if (model === META_MUSE_IMAGE_MODEL) {
+      return await generateImageViaImagesApi(apiKey, model, finalPrompt, undefined, undefined, {
+        inputReferences: params.referenceImages,
+      });
+    }
     if (!params.referenceImages?.length && model === DEFAULT_IMAGE_MODEL) return await generateImageViaImagesApi(apiKey, model, params.prompt, ratioKey, "low");
     if (!params.referenceImages?.length && model === RECRAFT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
     return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
-    if ((!params.referenceImages?.length && (model === DEFAULT_IMAGE_MODEL || model === RECRAFT_IMAGE_MODEL)) || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
+    if (model === META_MUSE_IMAGE_MODEL || (!params.referenceImages?.length && (model === DEFAULT_IMAGE_MODEL || model === RECRAFT_IMAGE_MODEL)) || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
 
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`

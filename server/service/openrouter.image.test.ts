@@ -25,6 +25,45 @@ it("uses default image model at low quality through OpenRouter Images API by def
   expect(JSON.parse(String(options.body))).toEqual({ model: "google/gemini-3.1-flash-lite-image", prompt: "Một khu vườn", aspect_ratio: "16:9", quality: "low" });
 });
 
+it("routes Meta Muse Image through the Images API", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: [{ b64_json: "YQ==", media_type: "image/png" }] }));
+  vi.stubGlobal("fetch", fetchMock);
+  const result = await openrouterGenerateImage({ prompt: "Một khu vườn", model: "meta/muse-image", aspectRatio: "16:9" });
+  expect(result.url).toBe("data:image/png;base64,YQ==");
+  const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("https://openrouter.ai/api/v1/images");
+  expect(JSON.parse(String(options.body))).toEqual({ model: "meta/muse-image", prompt: "Một khu vườn\n\nGenerate the image with a 16:9 aspect ratio." });
+});
+
+it("sends Meta Muse reference images through the Images API", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: [{ b64_json: "Yg==", media_type: "image/png" }] }));
+  vi.stubGlobal("fetch", fetchMock);
+  await openrouterGenerateImage({
+    prompt: "Đổi màu nền",
+    model: "meta/muse-image",
+    aspectRatio: "4:3",
+    referenceImages: ["data:image/png;base64,YQ=="],
+  });
+  const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+  expect(url).toBe("https://openrouter.ai/api/v1/images");
+  expect(JSON.parse(String(options.body))).toEqual({
+    model: "meta/muse-image",
+    prompt: "Đổi màu nền\n\nGenerate the image with a 4:3 aspect ratio.",
+    input_references: [{ type: "image_url", image_url: { url: "data:image/png;base64,YQ==" } }],
+  });
+});
+
+it("never falls back from Meta Muse Image to Recraft", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  vi.stubEnv("OPENROUTER_FALLBACK_IMAGE_MODEL", "recraft/recraft-v4.1-flash");
+  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response("unavailable", { status: 503 })));
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(openrouterGenerateImage({ prompt: "Một khu vườn", model: "meta/muse-image" })).rejects.toThrow("Images API lỗi 503");
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
 it("does not switch to a different model when default image model fails", async () => {
   vi.stubEnv("OPENROUTER_API_KEY", "test-key");
   const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response("unavailable", { status: 503 })));

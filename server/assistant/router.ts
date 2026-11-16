@@ -13,6 +13,7 @@ import { interpretWorkflowText } from "./workflow-text";
 import { getSettings, saveSettings } from "./settings";
 import { synthesizeVietnameseSpeech } from "./speech";
 import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices";
+import { maxAssistantImageCount } from "../../src/shared/assistant-image-generation";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, updateAssistantMemory } from "./memory";
 import { enhanceStudioImagePrompt, generateStudioImages, studioImageRatios } from "./studio-images";
@@ -148,7 +149,7 @@ assistantRouter.post("/studio/images/edit", expensiveApiRateLimiter, validateReq
 assistantRouter.post("/studio/images", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
   prompt: Joi.string().trim().min(3).max(2000).required(),
   aspectRatio: Joi.string().valid(...studioImageRatios).required(),
-  count: Joi.number().integer().min(1).max(4).required(),
+  count: Joi.number().integer().min(1).max(maxAssistantImageCount).required(),
   referenceImage: Joi.string().max(5_600_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/),
 }) }), wrap(req => generateStudioImages(req.body)));
 assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), speechVoice: Joi.string().valid(...assistantSpeechVoices), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));
