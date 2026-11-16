@@ -59,6 +59,23 @@ promptTemplateSchema.index({ companyCode: 1, templateId: 1 }, { unique: true });
 promptTemplateSchema.index({ companyCode: 1, owner: 1, userId: 1, updatedAt: -1 });
 export const AssistantPromptTemplateModel = model("AssistantPromptTemplate", promptTemplateSchema);
 
+const userAgentSchema = new Schema({
+  ...scope,
+  agentId: { type: String, required: true },
+  name: { type: String, required: true, maxlength: 50 },
+  description: { type: String, default: "", maxlength: 150 },
+  instructions: { type: String, required: true, maxlength: 10000 },
+  avoid: { type: String, default: "", maxlength: 2000 },
+  tone: { type: String, required: true, maxlength: 60 },
+  avatar: { type: Number, default: 0, min: 0, max: 5 },
+  favorite: { type: Boolean, default: false },
+  openingQuestions: { type: [String], default: [] },
+  knowledge: { type: [Schema.Types.Mixed], default: [] },
+}, { timestamps: true });
+userAgentSchema.index({ companyCode: 1, userId: 1, agentId: 1 }, { unique: true });
+userAgentSchema.index({ companyCode: 1, userId: 1, updatedAt: -1 });
+export const UserAssistantAgentModel = model("UserAssistantAgent", userAgentSchema);
+
 const documentFileSchema = new Schema({
   id: { type: String, required: true }, fileName: { type: String, required: true },
   format: { type: String, required: true }, mimeType: { type: String, required: true },
@@ -80,5 +97,5 @@ export const AssistantDocumentModel = model("AssistantDocument", documentSchema)
 let indexReadiness: Promise<unknown> | undefined;
 /** Do not accept deduplicated writes until their unique indexes exist. */
 export function ensureAssistantIndexes() {
-  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantProjectFileModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
+  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantProjectFileModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, UserAssistantAgentModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
 }

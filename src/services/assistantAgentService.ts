@@ -1,5 +1,18 @@
 export type AgentChatMessage = { role: "user" | "assistant"; content: string; attachmentName?: string; attachmentText?: string };
 export type AgentKnowledge = { title: string; kind: "text" | "link" | "file"; content: string };
+export type UserAssistantAgent = {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  avoid: string;
+  tone: string;
+  avatar: number;
+  favorite: boolean;
+  openingQuestions: string[];
+  knowledge: Array<AgentKnowledge & { id: string; createdAt: string }>;
+};
+export type UserAssistantAgentInput = Omit<UserAssistantAgent, "id">;
 
 async function agentRequest<T>(path: string, init: RequestInit): Promise<T> {
   const token = localStorage.getItem("accessToken");
@@ -13,6 +26,11 @@ async function agentRequest<T>(path: string, init: RequestInit): Promise<T> {
 }
 
 export const assistantAgentService = {
+  listAgents: async () => (await agentRequest<{ agents: UserAssistantAgent[] }>("", { method: "GET" })).agents,
+  createAgent: async (agent: UserAssistantAgent) => agentRequest<UserAssistantAgent>("", { method: "POST", body: JSON.stringify(agent) }),
+  updateAgent: (id: string, agent: UserAssistantAgentInput) => agentRequest<UserAssistantAgent>(`/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(agent) }),
+  setAgentFavorite: (id: string, favorite: boolean) => agentRequest<UserAssistantAgent>(`/${encodeURIComponent(id)}/favorite`, { method: "PATCH", body: JSON.stringify({ favorite }) }),
+  deleteAgent: (id: string) => agentRequest<{ id: string }>(`/${encodeURIComponent(id)}`, { method: "DELETE" }),
   extractFile: (file: File) => {
     const form = new FormData();
     form.append("file", file);

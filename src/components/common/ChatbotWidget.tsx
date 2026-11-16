@@ -1928,7 +1928,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         <span className="flex items-start justify-between gap-3">
           <span className="flex min-w-0 items-center gap-2">
             <span className="line-clamp-2 min-w-0 text-sm font-semibold">{displayConversation.title}</span>
-            {isFavorite && <Star className="size-3.5 shrink-0 fill-tertiary text-tertiary" aria-hidden="true" />}
+            {isFavorite && <Star className="size-3.5 shrink-0 fill-current text-favorite" aria-hidden="true" />}
           </span>
           <time className="shrink-0 text-xs tabular-nums text-on-surface/70" dateTime={conversation.updatedAt}>{formatConversationTime(conversation.updatedAt)}</time>
         </span>

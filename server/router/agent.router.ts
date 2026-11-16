@@ -1,4 +1,4 @@
-import { Router, type RequestHandler } from "express";
+import { Router, type RequestHandler, type Response } from "express";
 import Joi from "joi";
 import multer from "multer";
 import * as XLSX from "xlsx";
@@ -9,11 +9,35 @@ import { chatbotModel } from "../service/chatbot.service";
 import { extractSpeechDocument } from "../assistant/studio-speech-document";
 import { extractWebpageText } from "../assistant/studio-webpage";
 import { AssistantError } from "../assistant/policy";
+import { createAssistantAgentSchema, deleteUserAssistantAgent, listUserAssistantAgents, createUserAssistantAgent, setUserAssistantAgentFavorite, updateAssistantAgentFavoriteSchema, updateUserAssistantAgent, assistantAgentFieldsSchema } from "../assistant/agents";
 
 export const agentRouter = Router();
 agentRouter.use(requireAuth as RequestHandler, requirePermission("chat:read") as RequestHandler);
 
 const documentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|txt|csv|xls|xlsx)$/i.test(file.originalname)) });
+
+const agentRecordId = Joi.string().guid({ version: ["uuidv4"] }).required();
+const agentApi = (handler: (req: AuthenticatedRequest) => Promise<unknown>): RequestHandler => async (request, response: Response) => {
+  try {
+    const data = await handler(request as AuthenticatedRequest);
+    return response.json({ success: true, data });
+  } catch (error) {
+    if (!(error instanceof AssistantError)) console.error("[assistant agents]", error);
+    return response.status(error instanceof AssistantError ? error.status : 500).json({
+      success: false,
+      message: error instanceof AssistantError ? error.message : "Không thể lưu trợ lý AI lúc này.",
+    });
+  }
+};
+
+agentRouter.get("/", agentApi(req => listUserAssistantAgents(req)));
+agentRouter.post("/", validateRequest({ body: createAssistantAgentSchema }), agentApi(req => {
+  const { id, ...fields } = req.body;
+  return createUserAssistantAgent(req, id, fields);
+}));
+agentRouter.put("/:agentId", validateRequest({ params: Joi.object({ agentId: agentRecordId }), body: assistantAgentFieldsSchema }), agentApi(req => updateUserAssistantAgent(req, req.params.agentId, req.body)));
+agentRouter.patch("/:agentId/favorite", validateRequest({ params: Joi.object({ agentId: agentRecordId }), body: updateAssistantAgentFavoriteSchema }), agentApi(req => setUserAssistantAgentFavorite(req, req.params.agentId, req.body.favorite)));
+agentRouter.delete("/:agentId", validateRequest({ params: Joi.object({ agentId: agentRecordId }) }), agentApi(req => deleteUserAssistantAgent(req, req.params.agentId)));
 
 agentRouter.post("/extract", (req, res, next) => documentUpload.single("file")(req, res, error => error ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: "Chỉ hỗ trợ PDF, DOCX, TXT, CSV, XLS, XLSX tối đa 10 MB." }) : next()), async (req: AuthenticatedRequest, res) => {
   try {

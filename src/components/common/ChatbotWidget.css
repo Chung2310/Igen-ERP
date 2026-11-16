@@ -776,6 +776,27 @@
   animation: landing-rainbow-spin 2.2s linear infinite;
 }
 
+.assistant-workspace[data-chat-home="true"] .assistant-action-chip:is([data-feature="notebook"], [data-feature="meeting"]):not(:disabled) {
+  border-color: transparent;
+  background:
+    linear-gradient(112deg,
+      color-mix(in srgb, #00adfc 7%, var(--color-surface-container-lowest)) 0%,
+      var(--color-surface-container-lowest) 48%,
+      color-mix(in srgb, #7757d8 6%, var(--color-surface-container-lowest)) 100%) padding-box,
+    linear-gradient(110deg, #00adfc 0%, #5ba3e4 52%, #7757d8 100%) border-box;
+}
+
+.assistant-workspace[data-chat-home="true"] .assistant-action-chip:is([data-feature="notebook"], [data-feature="meeting"]):not(:disabled):is(:hover, :focus-visible) {
+  background:
+    linear-gradient(112deg,
+      color-mix(in srgb, #00adfc 11%, var(--color-surface-container-lowest)) 0%,
+      var(--color-surface-container-lowest) 48%,
+      color-mix(in srgb, #7757d8 10%, var(--color-surface-container-lowest)) 100%) padding-box,
+    linear-gradient(110deg, #00adfc 0%, #5ba3e4 52%, #7757d8 100%) border-box;
+  box-shadow: 0 3px 10px color-mix(in srgb, #00adfc 14%, transparent);
+  animation: none;
+}
+
 /* slide + mindmap + chart composer - pastel gradient border like chat-home */
 .assistant-workspace[data-chat-home="true"] .assistant-landing-composer,
 .assistant-slide-composer {
