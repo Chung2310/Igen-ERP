@@ -709,6 +709,11 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const onlyWelcome = messages.length === 1 && messages[0].role === "assistant" && messages[0].content === welcomeMessage.content;
     if (isOpen && !onlyWelcome && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages, isLoading, isOpen]);
+  useEffect(() => {
+    if (!twoWayVoiceEnabled || !logRef.current) return;
+    const log = logRef.current;
+    if (log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
+  }, [twoWayVoiceEnabled, voiceTranscript, spokenWordCount]);
   const followReplyReveal = useCallback(() => {
     requestAnimationFrame(() => {
       const log = logRef.current;
@@ -1955,24 +1960,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2 text-center", focusClass)}>
                 <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
               </div>}
-              {twoWayVoiceEnabled ? <section aria-label="Trò chuyện giọng nói" className="flex min-h-0 flex-1 flex-col bg-surface-container-lowest px-4 py-5 sm:px-8">
-                <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6 overflow-y-auto py-6 text-center">
-                  {voiceTranscript && <div className="w-full max-w-2xl rounded-2xl bg-primary/10 px-4 py-3 text-left"><p className="text-xs font-medium text-on-surface-variant">Bạn</p><p className="mt-1 whitespace-pre-wrap text-pretty text-base text-on-surface">{voiceTranscript}</p></div>}
-                  {spokenReplyText && <div className="w-full max-w-2xl text-left"><p className="text-xs font-medium text-on-surface-variant">iGen AI</p><p className="mt-1 min-h-12 whitespace-pre-wrap text-pretty text-lg leading-relaxed text-on-surface">{spokenReplyText.trim().split(/\s+/).slice(0, spokenWordCount).join(" ")}</p></div>}
-                  <div aria-hidden="true" data-phase={voiceMuted || voiceInputFocused ? "muted" : isSpeaking ? "speaking" : isLoading || pendingVoiceCommand ? "thinking" : "listening"} className="assistant-voice-orb"><span className="assistant-voice-orb-core" /></div>
-                  <p role="status" className="sr-only">{voiceMuted ? "Micro đã tắt." : isSpeaking ? "AI đang trả lời." : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu." : "Đang nghe."}</p>
-                  {voiceError && <p role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
-                  {speechError && <p role="alert" className="text-pretty text-sm text-error">{speechError}</p>}
-                  {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
-                </div>
-                <form onSubmit={event => { event.preventDefault(); const text = input.trim(); if (!text || isLoading) return; closeSpeech(); stopReplySpeech(); setVoiceInputFocused(false); void handleSend(text); }} className="mx-auto flex min-h-14 w-full max-w-4xl items-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 shadow-sm focus-within:border-primary">
-                  <label htmlFor="assistant-voice-text-input" className="sr-only">Nhắn tin cho iGen AI</label>
-                  <textarea ref={inputRef} id="assistant-voice-text-input" rows={1} value={input} onChange={event => setInput(event.target.value)} onFocus={() => setVoiceInputFocused(true)} onBlur={() => setVoiceInputFocused(false)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Nhắn tin…" className="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-                  {input.trim() && <button type="submit" aria-label="Gửi tin nhắn" disabled={isLoading} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50", focusClass)}><SendHorizontal className="size-4" aria-hidden="true" /></button>}
-                  <button type="button" aria-label={voiceMuted ? "Bật micro" : "Tắt micro"} aria-pressed={voiceMuted} onClick={() => setVoiceMuted(value => !value)} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high", focusClass)}>{voiceMuted ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}</button>
-                  <button ref={voiceExitButtonRef} type="button" aria-label="Kết thúc trò chuyện giọng nói" onClick={toggleTwoWayVoice} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90", focusClass)}><X className="size-4" aria-hidden="true" /></button>
-                </form>
-              </section> : isWelcomeScreen ? headerPanel ? <div ref={logRef} className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-surface-container-lowest", fullscreen ? "justify-center px-4 py-8 sm:px-8" : "justify-end gap-4 p-4")}>
+              {isWelcomeScreen && !twoWayVoiceEnabled ? headerPanel ? <div ref={logRef} className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-surface-container-lowest", fullscreen ? "justify-center px-4 py-8 sm:px-8" : "justify-end gap-4 p-4")}>
                 <div className={cn("mx-auto flex w-full flex-col gap-4", fullscreen && "max-w-4xl")}>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
@@ -2046,7 +2034,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                             </div>
                             <div className="mt-1.5 min-w-0 text-sm leading-relaxed text-on-surface">
                               <span className="sr-only">iGen AI: </span>
-                              {revealingReply && !isViewingHistory && message === messages[messages.length - 1] && message.content === revealingReply.content
+                              {twoWayVoiceEnabled && isSpeaking && spokenReplyText && message === messages[messages.length - 1] && message.content === spokenReplyText
+                                ? <p className="whitespace-pre-wrap break-words text-pretty">{spokenReplyText.trim().split(/\s+/).slice(0, spokenWordCount).join(" ")}</p>
+                                : revealingReply && !isViewingHistory && message === messages[messages.length - 1] && message.content === revealingReply.content
                                 ? <RevealingAssistantMessage
                                   key={revealingReply.requestId}
                                   content={message.content}
@@ -2066,6 +2056,13 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                         </div>
                       </React.Fragment>;
                     })}
+                    {twoWayVoiceEnabled && (isListening || pendingVoiceCommand) && voiceTranscript && !displayMessages.some(message => message.role === "user" && message.content.trim() === voiceTranscript.trim()) && <div className="flex w-full justify-end">
+                      <div className="assistant-user-message flex w-fit min-w-0 max-w-full flex-col items-end gap-1">
+                        <div className="min-w-0 max-w-full overflow-hidden rounded-2xl bg-primary/10 px-3.5 py-2.5 text-sm leading-relaxed text-on-surface sm:max-w-3xl">
+                          <span className="sr-only">Bạn: </span><p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>{voiceTranscript}</p>
+                        </div>
+                      </div>
+                    </div>}
                     {showReplyDetails && lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
                       <header>
                         <h3 id="assistant-reference-selection-title" className="text-balance font-semibold">Chọn thông tin liên quan</h3>
@@ -2165,7 +2162,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                     </div>}
                   </div>
                 </div>
-                <footer className={cn("shrink-0 bg-surface-container-lowest px-3 py-2", (!headerPanel || fullscreen) && "sm:px-6")}>
+                <footer className={cn("relative shrink-0 bg-surface-container-lowest px-3 py-2", (!headerPanel || fullscreen) && "sm:px-6")}>
+                  {twoWayVoiceEnabled && <div aria-hidden="true" data-phase={voiceMuted || voiceInputFocused ? "muted" : isSpeaking ? "speaking" : isLoading || pendingVoiceCommand ? "thinking" : "listening"} className="assistant-voice-orb absolute bottom-full left-1/2 mb-4 -translate-x-1/2 pointer-events-none"><span className="assistant-voice-orb-core" /></div>}
+                  {twoWayVoiceEnabled && <p role="status" className="sr-only">{voiceMuted ? "Micro đã tắt." : isSpeaking ? "AI đang trả lời." : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu." : "Đang nghe."}</p>}
                   {isViewingHistory ? <div className="space-y-2 text-center">
                     {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
                     <p className="text-pretty text-xs text-on-surface/70">Bạn có thể xem lại nội dung trước, hoặc tiếp tục làm việc trong chính phiên này.</p>
@@ -2173,7 +2172,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                       <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={continuePreviousConversation} className={cn("min-h-9 rounded-lg bg-primary px-3 py-1.5 text-sm text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Tiếp tục phiên này</button>
                       <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={startNew} className={cn("min-h-9 rounded-lg border border-outline-variant px-3 py-1.5 text-sm hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Bắt đầu cuộc trò chuyện mới</button>
                     </div>
-                  </div> : view === "chat" ? renderComposer("conversation") : null}
+                  </div> : view === "chat" && twoWayVoiceEnabled ? <form onSubmit={event => { event.preventDefault(); const text = input.trim(); if (!text || isLoading) return; closeSpeech(); stopReplySpeech(); setVoiceInputFocused(false); void handleSend(text); }} className="mx-auto flex min-h-14 w-full max-w-4xl items-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 shadow-sm focus-within:border-primary">
+                    <label htmlFor="assistant-voice-text-input" className="sr-only">Nhắn tin cho iGen AI</label>
+                    <textarea ref={inputRef} id="assistant-voice-text-input" rows={1} value={input} onChange={event => setInput(event.target.value)} onFocus={() => setVoiceInputFocused(true)} onBlur={() => setVoiceInputFocused(false)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Nhắn tin…" className="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+                    {input.trim() && <button type="submit" aria-label="Gửi tin nhắn" disabled={isLoading} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50", focusClass)}><SendHorizontal className="size-4" aria-hidden="true" /></button>}
+                    <button type="button" aria-label={voiceMuted ? "Bật micro" : "Tắt micro"} aria-pressed={voiceMuted} onClick={() => setVoiceMuted(value => !value)} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high", focusClass)}>{voiceMuted ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}</button>
+                    <button ref={voiceExitButtonRef} type="button" aria-label="Kết thúc trò chuyện giọng nói" onClick={toggleTwoWayVoice} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90", focusClass)}><X className="size-4" aria-hidden="true" /></button>
+                  </form> : view === "chat" ? renderComposer("conversation") : null}
+                  {twoWayVoiceEnabled && <div className="mx-auto w-full max-w-4xl">{voiceError && <p role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}{speechError && <p role="alert" className="text-pretty text-sm text-error">{speechError}</p>}{error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}</div>}
                 </footer>
               </>}
             </div>
