@@ -35,7 +35,7 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   intakeFields: { type: [LeadIntakeFieldSnapshotSchema], default: [] },
   sourcePlatform: { type: String, enum: ["facebook", "zalo", "tiktok"], index: true },
   sourceAccountId: { type: String, default: "", index: true },
-  sourceConversationId: { type: String, default: "", index: true },
+  sourceConversationId: { type: String, index: true },
   intakeProfileId: { type: String, default: "" },
   intakeProfileVersion: { type: Number },
   intakeRevision: { type: Number },

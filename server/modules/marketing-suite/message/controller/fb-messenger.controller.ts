@@ -160,9 +160,15 @@ export const fbMessengerController = {
     try {
       const body = req.body;
       const entryCount = Array.isArray(body?.entry) ? body.entry.length : 0;
-      console.log(`[Facebook Webhook Event] Nhan webhook object=${body?.object || "unknown"}, entries=${entryCount}`);
+      const messageEvents = Array.isArray(body?.entry) ? body.entry.reduce((count: number, entry: any) =>
+        count + (Array.isArray(entry?.messaging) ? entry.messaging.length : 0), 0) : 0;
+      console.log(`[Facebook Webhook Event] Nhan webhook object=${body?.object || "unknown"}, entries=${entryCount}, messageEvents=${messageEvents}`);
 
       if (!(await verifyFacebookWebhookSignature(req))) {
+        console.warn("[Facebook Webhook Event] Rejected delivery", {
+          reason: "invalid_signature",
+          pageIds: Array.isArray(body?.entry) ? body.entry.map((entry: any) => String(entry?.id || "")).slice(0, 20) : [],
+        });
         return res.status(401).send("INVALID_SIGNATURE");
       }
 

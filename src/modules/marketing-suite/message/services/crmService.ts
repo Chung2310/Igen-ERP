@@ -29,6 +29,7 @@ export interface ExtendedLeadCard extends LeadCard {
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: string; syncedBy: string };
 }
 
+export type CreateLeadInput = Omit<ExtendedLeadCard, "id" | "value"> & { value?: number };
 
 export interface LeadPageResult {
   data: ExtendedLeadCard[];
@@ -380,12 +381,12 @@ export const crmService = {
     };
   },
 
-  async createLead(lead: Omit<ExtendedLeadCard, "id">): Promise<string> {
+  async createLead(lead: CreateLeadInput): Promise<string> {
     const startedAt = Date.now();
     const tempId = `temp-${Date.now()}`;
 
     // 1. Instantly update UI with a temporary ID (0ms lag!)
-    const createdLead: ExtendedLeadCard = { ...lead, id: tempId };
+    const createdLead: ExtendedLeadCard = { ...lead, value: lead.value ?? 0, id: tempId };
     const oldLeads = [...cachedLeads];
     cachedLeads = [...cachedLeads, createdLead];
     triggerListeners(cachedLeads);
