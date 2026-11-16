@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AudioLines, History, Mic, Pause, Play, Square, Upload, X } from "lucide-react";
+import { AudioLines, Download, History, Mic, Pause, Play, Square, Upload, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService } from "../../services/assistantService";
 import { assistantAgentService } from "../../services/assistantAgentService";
@@ -22,6 +22,25 @@ const formattedNotes = (value: string) => value.split(/(\*\*[^*]+\*\*|\*[^*]+\*|
   if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
   return part;
 });
+
+function downloadTranscript(entry: Meeting) {
+  const createdAt = new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.createdAt));
+  const contents = [`BẢN CHÉP LỜI CUỘC HỌP`, entry.title, `Tệp âm thanh: ${entry.fileName}`, `Thời gian: ${createdAt}`, "", entry.transcript].join("\n");
+  const fileBase = (entry.title || entry.fileName.replace(/\.[^.]+$/, ""))
+    .replace(/[<>:"\/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "")
+    .slice(0, 100) || "ban-chep-loi-cuoc-hop";
+  const url = URL.createObjectURL(new Blob(["\uFEFF", contents], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${fileBase}-ban-chep-loi.txt`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function recordingExtension(mimeType: string): string {
   const type = mimeType.toLowerCase();
@@ -273,6 +292,7 @@ export function AssistantMeetingNotes({ standalone = true, storageScope = "brows
         <section aria-labelledby="meeting-analysis-title" className="mt-5 rounded-xl border border-outline-variant p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 id="meeting-analysis-title" className="text-balance text-lg font-semibold">Phân tích và biên bản cuộc họp</h3>
+            <button type="button" onClick={() => downloadTranscript(selected)} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-medium text-primary hover:bg-surface-container-low", focus)}><Download className="size-4" aria-hidden="true" />Tải bản chép lời (.txt)</button>
             <button type="button" disabled={summarizing} onClick={() => void summarize(selected)} className={cn("min-h-10 rounded-lg border border-outline-variant px-4 text-sm font-medium text-primary hover:bg-surface-container-low disabled:opacity-50", focus)}>{selected.summary ? "Tạo lại phân tích" : "Phân tích cuộc họp"}</button>
           </div>
           {summarizing ? <p role="status" className="mt-3 text-sm text-on-surface-variant">AI đang phân tích nội dung cuộc họp…</p> : selected.summary ? <p className="mt-3 whitespace-pre-wrap text-pretty text-sm leading-6">{selected.summary}</p> : <p className="mt-3 text-pretty text-sm text-on-surface-variant">Chưa có phân tích. Hãy chọn “Phân tích cuộc họp” để tạo biên bản.</p>}
