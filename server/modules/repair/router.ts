@@ -84,7 +84,7 @@ repairRouter.post("/tickets/:id/parts", partIssue, async (req, res, next) => { t
 repairRouter.post("/tickets/:id/parts/:partId/return", partIssue, async (req, res, next) => { try { return res.json({ success: true, data: await returnRepairPart(scope(req), req.params.id, req.params.partId, String(req.body?.reason || ""), actor(req)) }); } catch (error) { next(error); } });
 
 // --- Lịch sử thiết bị theo IMEI / SĐT khách ---
-repairRouter.get("/history", read, async (req, res, next) => { try { return res.json({ success: true, data: await lookupRepairHistory({ companyCode: reportScope(req).companyCode }, { imei: req.query.imei ? String(req.query.imei) : undefined, phone: req.query.phone ? String(req.query.phone) : undefined }) }); } catch (error) { next(error); } });
+repairRouter.get("/history", read, async (req, res, next) => { try { return res.json({ success: true, data: await lookupRepairHistory(reportScope(req), { imei: req.query.imei ? String(req.query.imei) : undefined, phone: req.query.phone ? String(req.query.phone) : undefined, customerId: typeof req.query.customerId === "string" ? req.query.customerId : undefined }) }); } catch (error) { next(error); } });
 
 // --- Kỹ thuật viên & đánh giá ---
 repairRouter.post("/tickets/:id/assign", assign, async (req, res, next) => { try { return res.json({ success: true, data: await assignRepairTechnician(scope(req), req.params.id, String(req.body?.technicianId || ""), actor(req)) }); } catch (error) { next(error); } });

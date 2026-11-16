@@ -19,6 +19,7 @@ export interface ICustomerPointsPolicy {
 }
 
 export interface ICustomerSettings {
+  hiddenSourceTransfers?: ("students" | "healthcare")[];
   companyCode: string;
   tierEvaluationMetric?: "gross_profit"; // Xếp hạng luôn căn cứ vào lợi nhuận gộp
   evaluationWindow?: "rolling12Months" | "allTime"; // Chu kỳ xét hạng (mặc định "rolling12Months")

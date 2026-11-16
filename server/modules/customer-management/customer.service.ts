@@ -1,4 +1,4 @@
-﻿import { Types } from "mongoose";
+﻿import { Types, type ClientSession } from "mongoose";
 import { CustomerError } from "./customer-errors";
 import { appendCustomerNotes } from "./customer-notes";
 import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
@@ -12,6 +12,7 @@ export type CustomerListQuery = {
   q?: string;
   status?: CustomerStatus | "all";
   type?: CustomerType;
+  customerKind?: NonNullable<ICustomer["customerKind"]> | "unclassified";
   page?: number;
   limit?: number;
 };
@@ -21,9 +22,9 @@ type StoredCustomer = ICustomer & { _id: unknown };
 export interface CustomerRepository {
   list(filter: Record<string, unknown>, skip: number, limit: number): Promise<StoredCustomer[]>;
   count(filter: Record<string, unknown>): Promise<number>;
-  nextSequence(scope: CustomerScope): Promise<number>;
-  findByPhone(scope: CustomerScope, normalizedPhone: string): Promise<StoredCustomer | null>;
-  create(values: Record<string, unknown>): Promise<StoredCustomer>;
+  nextSequence(scope: CustomerScope, session?: ClientSession): Promise<number>;
+  findByPhone(scope: CustomerScope, normalizedPhone: string, session?: ClientSession): Promise<StoredCustomer | null>;
+  create(values: Record<string, unknown>, session?: ClientSession): Promise<StoredCustomer>;
   findById(scope: CustomerScope, id: string): Promise<StoredCustomer | null>;
   updateWithVersion(scope: CustomerScope, id: string, version: number, values: Record<string, unknown>): Promise<StoredCustomer | null>;
   setStatus(scope: CustomerScope, id: string, version: number, status: CustomerStatus): Promise<StoredCustomer | null>;
@@ -37,6 +38,11 @@ export function buildCustomerListFilter(scope: CustomerScope, query: CustomerLis
     ...(query.status === "all" ? {} : { status: query.status || "active" }),
     ...(query.type ? { type: query.type } : {}),
   };
+  if (query.customerKind === "individual" || query.customerKind === "business") {
+    filter.customerKind = query.customerKind;
+  } else if (query.customerKind === "unclassified") {
+    filter.customerKind = { $nin: ["individual", "business"] };
+  }
   const q = String(query.q || "").trim();
   if (q) {
     const pattern = new RegExp(escapeRegex(q), "i");
@@ -58,11 +64,12 @@ function requireId(id: string): void {
 }
 
 function duplicatePhoneError(): CustomerError {
-  return new CustomerError("CUSTOMER_PHONE_EXISTS", "Số điện thoại đã thuộc một khách hàng khác.", 409);
+  return new CustomerError("CUSTOMER_PHONE_EXISTS", "Đã có khách dùng số này. Hãy chọn hồ sơ có sẵn hoặc xác nhận tạo hồ sơ riêng.", 409);
 }
 
-function isDuplicateKey(error: unknown): boolean {
-  return Number((error as { code?: unknown })?.code) === 11000;
+function isDuplicatePhoneKey(error: unknown): boolean {
+  const failure = error as { code?: unknown; keyPattern?: Record<string, unknown> } | undefined;
+  return failure?.code === 11000 && Boolean(failure.keyPattern?.normalizedPhone || failure.keyPattern?.phoneIdentityKey);
 }
 
 export function createCustomerService(repository: CustomerRepository) {
@@ -78,13 +85,14 @@ export function createCustomerService(repository: CustomerRepository) {
       return { items, total, page, limit };
     },
 
-    async create(scope: CustomerScope, input: CustomerInput | Record<string, unknown>, actor: CustomerActor) {
+    async create(scope: CustomerScope, input: CustomerInput | Record<string, unknown>, actor: CustomerActor, session?: ClientSession) {
       const values = normalizeCustomerInput(input);
-      if (await repository.findByPhone(scope, values.normalizedPhone)) throw duplicatePhoneError();
-      const sequence = await repository.nextSequence(scope);
+      if (input.allowSharedPhone !== true && await repository.findByPhone(scope, values.normalizedPhone, session)) throw duplicatePhoneError();
+      const sequence = await repository.nextSequence(scope, session);
       try {
         return await repository.create({
           ...values,
+          phoneIdentityKey: input.allowSharedPhone === true ? null : values.normalizedPhone,
           customerKind: values.customerKind || "individual",
           source: values.source || "manual",
           companyCode: scope.companyCode,
@@ -92,9 +100,9 @@ export function createCustomerService(repository: CustomerRepository) {
           createdBy: actor.id,
           createdByName: actor.name,
           version: 0,
-        });
+        }, session);
       } catch (error) {
-        if (isDuplicateKey(error)) throw duplicatePhoneError();
+        if (isDuplicatePhoneKey(error)) throw duplicatePhoneError();
         throw error;
       }
     },
@@ -112,13 +120,19 @@ export function createCustomerService(repository: CustomerRepository) {
       if (!current) throw new CustomerError("CUSTOMER_NOT_FOUND", "Không tìm thấy khách hàng.", 404);
       // Capture only submitted extra information, never metadata from the stored record.
       const values = normalizeCustomerInput({ ...current, ...input }, input);
-      const samePhone = await repository.findByPhone(scope, values.normalizedPhone);
-      if (samePhone && String(samePhone._id) !== id) throw duplicatePhoneError();
+      const changedPhone = values.normalizedPhone !== normalizePhone(current.phone);
+      if (input.allowSharedPhone !== true && changedPhone) {
+        const samePhone = await repository.findByPhone(scope, values.normalizedPhone);
+        if (samePhone && String(samePhone._id) !== id) throw duplicatePhoneError();
+      }
       try {
-        const updated = await repository.updateWithVersion(scope, id, version, values);
+        const updated = await repository.updateWithVersion(scope, id, version, {
+          ...values,
+          ...(changedPhone ? { phoneIdentityKey: input.allowSharedPhone === true ? null : values.normalizedPhone } : {}),
+        });
         if (updated) return updated;
       } catch (error) {
-        if (isDuplicateKey(error)) throw duplicatePhoneError();
+        if (isDuplicatePhoneKey(error)) throw duplicatePhoneError();
         throw error;
       }
       throw new CustomerError("CUSTOMER_VERSION_CONFLICT", "Hồ sơ đã được thay đổi ở nơi khác. Vui lòng tải lại.", 409);
@@ -150,16 +164,19 @@ export function createCustomerService(repository: CustomerRepository) {
 const mongooseRepository: CustomerRepository = {
   list: (filter, skip, limit) => CustomerModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean() as any,
   count: (filter) => CustomerModel.countDocuments(filter),
-  nextSequence: async (scope) => {
+  nextSequence: async (scope, session) => {
     const counter = await CustomerCounterModel.findOneAndUpdate(
       { companyCode: scope.companyCode },
       { $inc: { sequence: 1 } },
-      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true, session },
     ).lean();
     return counter!.sequence;
   },
-  findByPhone: (scope, normalizedPhone) => CustomerModel.findOne({ ...scope, normalizedPhone: { $in: phoneLookupVariants(normalizedPhone) } }).lean() as any,
-  create: async (values) => (await CustomerModel.create(values)).toObject() as any,
+  findByPhone: (scope, normalizedPhone, session) => CustomerModel.findOne({ ...scope, normalizedPhone: { $in: phoneLookupVariants(normalizedPhone) } }).session(session ?? null).lean() as any,
+  create: async (values, session) => {
+    const { phoneIdentityKey: _phoneIdentityKey, ...customer } = (await new CustomerModel(values).save({ session })).toObject();
+    return customer;
+  },
   findById: (scope, id) => CustomerModel.findOne({ _id: id, ...scope }).lean() as any,
   updateWithVersion: (scope, id, version, values) => CustomerModel.findOneAndUpdate(
     { _id: id, ...scope, version }, { $set: values, $inc: { version: 1 } }, { returnDocument: 'after', runValidators: true },

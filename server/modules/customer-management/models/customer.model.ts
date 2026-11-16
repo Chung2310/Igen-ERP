@@ -11,6 +11,7 @@ const CustomerSchema = new Schema<ICustomer>({
   name: { type: String, required: true, trim: true },
   phone: { type: String, required: true, trim: true },
   normalizedPhone: { type: String, required: true, trim: true },
+  phoneIdentityKey: { type: String, select: false },
   email: { type: String, trim: true, lowercase: true },
   avatarUrl: { type: String, trim: true, default: "" },
   dateOfBirth: Date,
@@ -48,7 +49,8 @@ const CustomerSchema = new Schema<ICustomer>({
 }, { timestamps: true, versionKey: false });
 
 CustomerSchema.index({ companyCode: 1, customerCode: 1 }, { unique: true });
-CustomerSchema.index({ companyCode: 1, normalizedPhone: 1 }, { unique: true });
+CustomerSchema.index({ companyCode: 1, normalizedPhone: 1 }, { name: "customer_phone_lookup" });
+CustomerSchema.index({ companyCode: 1, phoneIdentityKey: 1 }, { unique: true, partialFilterExpression: { phoneIdentityKey: { $type: "string" } } });
 CustomerSchema.index({ companyCode: 1, status: 1, name: 1 });
 CustomerSchema.index({ companyCode: 1, type: 1, createdAt: -1 });
 CustomerSchema.index({ companyCode: 1, "tier.code": 1 });

@@ -4,6 +4,8 @@ import type { Student } from "./types";
 import { StudentLoadState } from "./components/StudentLoadState";
 import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
+import { useBranch } from "../../context/BranchContext";
+import { apiFetch } from "../shared/lib/apiFetch";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
@@ -73,6 +75,8 @@ function PageLoader() {
 export default function StudentManagementTab() {
   React.useLayoutEffect(() => { setBusinessApiScope("student"); }, []);
   const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
+  const [linkedProfileError, setLinkedProfileError] = React.useState("");
   const { centers } = useAdminCenters();
   const entityLabel = useEntityLabel();
 
@@ -112,6 +116,22 @@ export default function StudentManagementTab() {
     setSelectedStudent(student);
     setInitialStudentTab(tab);
   }, []);
+
+  React.useEffect(() => {
+    setLinkedProfileError("");
+    if (!activeBranchId || !canReadStudents || entityLabel.loading) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("studentId");
+    if (!id || !/^[a-f0-9]{24}$/i.test(id) || params.get("branch") !== activeBranchId) return;
+    const controller = new AbortController();
+    setSelectedStudent(null);
+    void apiFetch<{ data: Omit<Student, "id"> }>(`/students/${id}`, { signal: controller.signal, headers: { "x-branch-id": activeBranchId } }).then(result => {
+      if (!controller.signal.aborted) handleOpenStudent({ ...result.data, id });
+    }).catch(cause => {
+      if (!controller.signal.aborted) setLinkedProfileError(cause instanceof Error ? cause.message : "Không mở được hồ sơ học viên.");
+    });
+    return () => controller.abort();
+  }, [activeBranchId, canReadStudents, entityLabel.loading, handleOpenStudent]);
 
   if (entityLabel.loading) {
     return (
@@ -215,6 +235,7 @@ export default function StudentManagementTab() {
         />
       ) : null}
 
+      {linkedProfileError && <p role="alert" className="px-3 text-sm text-error">{linkedProfileError}</p>}
       {selectedStudent ? (
         <StudentDetailModal
           student={selectedStudent}

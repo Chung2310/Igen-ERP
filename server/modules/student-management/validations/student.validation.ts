@@ -35,6 +35,7 @@ const uploadedFileSchema = Joi.object({
 });
 
 export const createStudentSchema = Joi.object({
+  customerId: objectIdSchema.optional(),
   fullName: Joi.string().required().messages({
     "any.required": "Họ và tên là bắt buộc.",
     "string.empty": "Họ và tên không được để trống.",

@@ -1,5 +1,5 @@
 import { Document } from "mongoose";
-import type { LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadNeed, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
 
 export interface ILeadProductSelection {
   productId: string;
@@ -45,5 +45,7 @@ export interface ICRMTicket extends Document {
   lastIntakeMessageAt?: Date;
   collectionStatus?: "collecting" | "complete" | "needs_human";
   lastInteractionAt?: Date;
+  customerId?: string;
+  needs?: LeadNeed[];
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: Date; syncedBy: string };
 }

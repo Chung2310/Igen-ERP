@@ -64,11 +64,11 @@ export async function savePageCustomer(input: {
     await CustomerService.appendNotes({ companyCode }, String(customer._id), notes);
     return saved(String(customer._id));
   };
-  const filter = input.customerId ? { companyCode, _id: input.customerId }
-    : { companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } };
-  const existing = await CustomerModel.findOne(filter).select("_id email address contactName").lean();
-  if (existing) return remember(existing);
-  if (input.customerId) return undefined;
+  if (input.customerId) {
+    const existing = await CustomerModel.findOne({ companyCode, _id: input.customerId }).select("_id email address contactName").lean();
+    return existing ? remember(existing) : undefined;
+  }
+  if (await CustomerModel.exists({ companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } })) return undefined;
   try {
     const customer = await CustomerService.create({ companyCode }, {
       ...profile, name: profile.name?.slice(0, 200) || `Khách Page ${phone.slice(-4)}`, phone, source: "page",
@@ -77,8 +77,6 @@ export async function savePageCustomer(input: {
     return saved(String(customer._id));
   } catch (error) {
     if ((error as { code?: string }).code !== "CUSTOMER_PHONE_EXISTS") throw error;
-    const duplicate = await CustomerModel.findOne({ companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } }).select("_id email address contactName").lean();
-    if (!duplicate) throw error;
-    return remember(duplicate);
+    return undefined;
   }
 }

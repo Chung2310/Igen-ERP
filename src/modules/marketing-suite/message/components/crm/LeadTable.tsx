@@ -28,9 +28,11 @@ import {
   Table2,
   Trash2,
   Type,
+  UserRound,
   X,
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
+import { useDebouncedValue } from "../../../../../hooks/useDebouncedValue";
 import {
   LEAD_INTAKE_FIELD_TYPES,
   type LeadCollectionStatus,
@@ -48,6 +50,8 @@ import { primaryCreateButtonClass } from "../../../../../components/common/prima
 import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
 import { HrPageTitle } from "../../../../../components/hr/HrPageTitle";
 import { cn } from "../../../../student-management/lib/utils";
+import { customerDetailHref } from "../../../../customer-management/navigation";
+import { isModuleEnabled } from "../../../../../config/modules";
 import {
   crmService,
   type ActiveLeadIntakeProfile,
@@ -56,6 +60,7 @@ import {
 } from "../../services/crmService";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
+import { LeadCustomerDialog } from "./LeadCustomerDialog";
 import { LeadModuleSyncModal } from "./LeadModuleSyncModal";
 import { LeadSheetCell, type CellDirection } from "./LeadSheetCell";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
@@ -85,7 +90,7 @@ import {
 interface LeadTableProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  setShowCreateLeadModal: (show: boolean) => void;
+  onCreateLead: (columns: LeadSheetColumn[]) => void;
   deleteLead: (id: string) => Promise<void> | void;
   handleGoToChat: (customerName: string, conversationId?: string, channel?: string, accountId?: string) => void;
   activeChannel: "all" | LeadSocialPlatform;
@@ -93,9 +98,10 @@ interface LeadTableProps {
   companyCode: string;
   branchId: string;
   enabledModules?: string[];
+  canViewCustomers?: boolean;
+  canSaveCustomer?: boolean;
   accounts?: LeadAccountOption[];
   onSelectAccountScope?: (channel: "all" | LeadSocialPlatform, accountId?: string) => void;
-  onActiveFieldsChange?: (fields: LeadIntakeField[]) => void;
   refreshToken?: number;
 }
 
@@ -186,7 +192,7 @@ function readCellValue(lead: ExtendedLeadCard, col: LeadSheetColumn): string {
 export const LeadTable: React.FC<LeadTableProps> = ({
   searchQuery,
   setSearchQuery,
-  setShowCreateLeadModal,
+  onCreateLead,
   deleteLead,
   handleGoToChat,
   activeChannel,
@@ -194,9 +200,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   companyCode,
   branchId,
   enabledModules,
+  canViewCustomers = false,
+  canSaveCustomer = false,
   accounts = [],
   onSelectAccountScope,
-  onActiveFieldsChange,
   refreshToken = 0,
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
@@ -228,6 +235,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [deleteColumnTarget, setDeleteColumnTarget] = useState<LeadSheetColumn | null>(null);
   const [deletingColumn, setDeletingColumn] = useState(false);
   const [detailLead, setDetailLead] = useState<ExtendedLeadCard | null>(null);
+  const closeDetailLead = useCallback(() => setDetailLead(null), []);
+  const [customerLead, setCustomerLead] = useState<ExtendedLeadCard | null>(null);
+  const customerDialogTrigger = useRef<HTMLElement | null>(null);
+  const customerModuleEnabled = isModuleEnabled(enabledModules, "customer");
   const [syncLead, setSyncLead] = useState<ExtendedLeadCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExtendedLeadCard | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -406,10 +417,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     }
     return profiles.find(profile => profile.platform === activeChannel && profile.accountId === "default") || companyProfile;
   }, [profiles, activeChannel, accountId, companyProfile]);
-
-  useEffect(() => {
-    onActiveFieldsChange?.(scopedProfile?.fields || []);
-  }, [scopedProfile, onActiveFieldsChange]);
 
   const allColumns = useMemo<LeadSheetColumn[]>(() => {
     const isScopedAccount = activeChannel !== "all" && Boolean(accountId);
@@ -628,9 +635,16 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const hasCustomSort = effectiveSortParam !== "updatedAt:desc";
   const hasActiveFilters = Boolean(searchQuery.trim() || effectiveFieldFilters.length > 0 || hasCustomSort);
 
+  const trimmedSearch = searchQuery.trim();
+  const queryFilters = useMemo(() => ({
+    scope: effectiveScopeKey, search: trimmedSearch, fieldFilters: effectiveFieldFilters,
+  }), [effectiveScopeKey, trimmedSearch, effectiveFieldFilters]);
+  const delayedFilters = useDebouncedValue(queryFilters, 1_000);
+  const { search, fieldFilters } = delayedFilters.scope === effectiveScopeKey ? delayedFilters : queryFilters;
+
   const filterSignature = useMemo(
-    () => `${effectiveScopeKey}|${searchQuery}|${JSON.stringify(effectiveFieldFilters)}|${effectiveSortParam}`,
-    [effectiveScopeKey, searchQuery, effectiveFieldFilters, effectiveSortParam],
+    () => JSON.stringify([effectiveScopeKey, search, fieldFilters, effectiveSortParam]),
+    [effectiveScopeKey, search, fieldFilters, effectiveSortParam],
   );
   const [pageState, setPageState] = useState<{ sig: string; value: number }>({ sig: "", value: 1 });
   const page = pageState.sig === filterSignature ? pageState.value : 1;
@@ -652,8 +666,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       const result = await crmService.getLeadPage({
         channel: activeChannel,
         accountId,
-        search: searchQuery,
-        ...(effectiveFieldFilters.length > 0 ? { fieldFilters: effectiveFieldFilters } : {}),
+        search,
+        ...(fieldFilters.length > 0 ? { fieldFilters } : {}),
         sort: effectiveSortParam,
         page,
         limit: pageSize,
@@ -667,7 +681,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeChannel, accountId, searchQuery, effectiveFieldFilters, effectiveSortParam, page, pageSize]);
+  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -682,7 +696,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     void Promise.resolve().then(() => {
       if (!cancelled) void loadLeads();
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      requestSeqRef.current += 1;
+    };
   }, [loadLeads, refreshToken]);
 
   const syncGridScrollState = useCallback(() => {
@@ -1124,7 +1141,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
             {exporting ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : <Download aria-hidden="true" className="size-3.5" />}
             Xuất Excel
           </button>
-          <button type="button" onClick={() => setShowCreateLeadModal(true)} className={primaryCreateButtonClass}>
+          <button type="button" onClick={() => onCreateLead(visibleColumns)} className={primaryCreateButtonClass}>
             <Plus aria-hidden="true" className="size-4" />
             Thêm Lead
           </button>
@@ -1848,6 +1865,24 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                               <MessageCircle aria-hidden="true" className="size-3.5" />
                             </button>
                           )}
+                          {customerModuleEnabled && lead.customerId && canViewCustomers && <a
+                            id={`lead-customer-${lead.id}-row`}
+                            href={customerDetailHref(lead.customerId, "lead-needs")}
+                            aria-label={`Mở hồ sơ Khách hàng của ${lead.customerName}`}
+                            title="Mở hồ sơ Khách hàng"
+                            className="inline-flex size-7 items-center justify-center rounded-md text-primary hover:bg-primary/10 focus-visible:outline-1 focus-visible:outline-primary"
+                          >
+                            <UserRound aria-hidden="true" className="size-3.5" />
+                          </a>}
+                          {customerModuleEnabled && !lead.customerId && canSaveCustomer && <button
+                            type="button"
+                            aria-label={`Lưu ${lead.customerName} vào Khách hàng`}
+                            title="Lưu vào Khách hàng"
+                            onClick={event => { customerDialogTrigger.current = event.currentTarget; setCustomerLead(lead); }}
+                            className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-1 focus-visible:outline-primary"
+                          >
+                            <UserRound aria-hidden="true" className="size-3.5" />
+                          </button>}
                           <button
                             type="button"
                             aria-label={lead.moduleSync ? `${lead.customerName} đã đồng bộ module` : `Đồng bộ ${lead.customerName} sang module`}
@@ -1898,7 +1933,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               </p>
               <button
                 type="button"
-                onClick={() => (hasActiveFilters ? handleResetAllFilters() : setShowCreateLeadModal(true))}
+                onClick={() => (hasActiveFilters ? handleResetAllFilters() : onCreateLead(visibleColumns))}
                 className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary hover:text-on-primary focus-visible:outline-1 focus-visible:outline-primary"
               >
                 {hasActiveFilters ? "Đặt lại bộ lọc" : "Tạo Lead mới"}
@@ -2060,9 +2095,14 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
       {/* Side Drawer for Full Lead Editing */}
       <LeadDetailDrawer
-        lead={detailLead}
+        lead={leads.find(lead => lead.id === detailLead?.id) ?? detailLead}
         configuredFields={scopedProfile?.fields || []}
-        onClose={() => setDetailLead(null)}
+        canViewCustomer={customerModuleEnabled && canViewCustomers}
+        onSaveCustomer={customerModuleEnabled && canSaveCustomer ? (lead, trigger) => {
+          customerDialogTrigger.current = trigger;
+          setCustomerLead(lead);
+        } : undefined}
+        onClose={closeDetailLead}
         onUpdated={(updated) => {
           setLeads(current => current.map(item => (item.id === updated.id ? updated : item)));
           toast.success("Đã lưu thay đổi Lead.");
@@ -2079,6 +2119,22 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           setDeleteTarget(lead);
         }}
       />
+
+      {customerLead && <LeadCustomerDialog key={customerLead.id}
+        lead={customerLead}
+        companyCode={companyCode}
+        onClose={() => { setCustomerLead(null); requestAnimationFrame(() => customerDialogTrigger.current?.focus()); }}
+        onSaved={customerId => {
+          setLeads(current => current.map(item => item.id === customerLead.id ? { ...item, customerId } : item));
+          setCustomerLead(null);
+          toast.success("Đã lưu Lead vào Khách hàng.");
+          requestAnimationFrame(() => {
+            const trigger = customerDialogTrigger.current;
+            if (trigger?.isConnected) trigger.focus();
+            else document.getElementById(`lead-customer-${customerLead.id}-${detailLead ? "drawer" : "row"}`)?.focus();
+          });
+        }}
+      />}
 
       {/* Sync Lead to Education / Healthcare / Workers Module */}
       {syncLead && (

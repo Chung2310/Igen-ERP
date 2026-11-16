@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customerApi } from "../../../customer-management/customerApi";
+import { ApiClientError } from "../../../../services/apiClientError";
 import CreateCustomerDialog from "./CreateCustomerDialog";
 
 vi.mock("../../../customer-management/customerApi", () => ({
@@ -47,9 +48,13 @@ beforeEach(() => {
 });
 
 describe("CreateCustomerDialog", () => {
+  async function chooseVat() {
+    await userEvent.click(screen.getByRole("button", { name: "Loại khách hàng" }));
+    await userEvent.click(screen.getByRole("option", { name: "Khách xuất VAT" }));
+  }
   async function fillVat(taxId = "0312345678", email = "invoice@example.com") {
     fireEvent.change(screen.getByRole("textbox", { name: "Số điện thoại" }), { target: { value: "0909123456" } });
-    await userEvent.selectOptions(screen.getByRole("combobox"), "vat");
+    await chooseVat();
     for (const [label, value] of [
       ["Tên khách hàng", "Cong ty A"],
       ["Tên pháp nhân", "Cong ty A"],
@@ -117,7 +122,7 @@ describe("CreateCustomerDialog", () => {
   it("allows choosing VAT customer type", async () => {
     render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
 
-    await userEvent.selectOptions(screen.getAllByRole("combobox")[0], "vat");
+    await chooseVat();
     expect(screen.getByRole("textbox", { name: "Tên pháp nhân" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Mã số thuế" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Địa chỉ hóa đơn" })).toBeTruthy();
@@ -144,7 +149,7 @@ describe("CreateCustomerDialog", () => {
   it("keeps the VAT dialog scrollable and mobile-friendly on smaller screens", async () => {
     render(<CreateCustomerDialog scope={scope} initialPhone="0909" onClose={vi.fn()} onCreated={vi.fn()} />);
 
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Loại khách hàng" }), "vat");
+    await chooseVat();
 
     const dialog = screen.getByRole("dialog", { name: "Tạo khách hàng mới" }).querySelector("form")!;
     expect(dialog.className).toContain("max-h-[calc(100vh-2rem)]");
@@ -184,11 +189,24 @@ describe("CreateCustomerDialog", () => {
     expect((name as HTMLInputElement).value).toBe("Nguyễn Văn B");
   });
 
+  it("sends shared-phone confirmation only after a phone conflict", async () => {
+    vi.mocked(customerApi.create).mockRejectedValueOnce(new ApiClientError({ status: 409, code: "CUSTOMER_PHONE_EXISTS", message: "Đã có khách dùng số này." }));
+    const onCreated = vi.fn();
+    render(<CreateCustomerDialog scope={scope} initialPhone="0909123456" onClose={vi.fn()} onCreated={onCreated} />);
+    await userEvent.type(screen.getByRole("textbox", { name: "Tên khách hàng" }), "Nguyễn Văn B");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
+    const confirm = await screen.findByRole("button", { name: "Xác nhận tạo khách riêng" });
+    expect(vi.mocked(customerApi.create).mock.calls[0][0].allowSharedPhone).toBeUndefined();
+    await userEvent.click(confirm);
+    await waitFor(() => expect(onCreated).toHaveBeenCalledOnce());
+    expect(vi.mocked(customerApi.create).mock.calls[1][0].allowSharedPhone).toBe(true);
+  });
+
   it("retries a failed VAT profile without creating a duplicate POS customer", async () => {
     vi.mocked(customerApi.createBillingProfile).mockRejectedValueOnce(new Error("Lỗi lưu VAT"));
     const onCreated = vi.fn();
     render(<CreateCustomerDialog scope={scope} initialPhone="0909123456" onClose={vi.fn()} onCreated={onCreated} />);
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Loại khách hàng" }), "vat");
+    await chooseVat();
     await userEvent.type(screen.getByRole("textbox", { name: "Tên khách hàng" }), "Công ty A");
     await userEvent.type(screen.getByRole("textbox", { name: "Tên pháp nhân" }), "Công ty A");
     await userEvent.type(screen.getByRole("textbox", { name: "Mã số thuế" }), "0312345678");

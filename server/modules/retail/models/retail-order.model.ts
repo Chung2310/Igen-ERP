@@ -22,7 +22,7 @@ RetailOrderSchema.index(
 );
 RetailOrderSchema.add({ collaboratorId: String, commissionSnapshot: Schema.Types.Mixed });
 RetailOrderSchema.add({ couponCode: { type: String, default: "" }, couponSnapshot: { type: new Schema({ id: String, code: String, name: String, amount: Number, version: Number }, { _id: false }), default: null } });
-RetailOrderSchema.add({ salesChannel: { type: String, enum: ["tiktok-shop", "facebook-page"] }, externalOrderId: String, externalShopId: String, externalShopCipher: String, externalOrderStatus: String, isSimulation: { type: Boolean, default: false, index: true } });
+RetailOrderSchema.add({ salesChannel: { type: String, enum: ["tiktok-shop", "facebook-page"] }, externalOrderId: String, externalShopId: String, externalBuyerId: String, externalShopCipher: String, externalOrderStatus: String, isSimulation: { type: Boolean, default: false, index: true } });
 RetailOrderSchema.index({ companyCode: 1, branchId: 1, status: 1, completedAt: 1 });
 RetailOrderSchema.index({ companyCode: 1, externalShopCipher: 1, externalOrderId: 1 }, { unique: true, partialFilterExpression: { salesChannel: "tiktok-shop", externalOrderId: { $type: "string" } } });
 RetailOrderSchema.index({ companyCode: 1, salesChannel: 1, externalShopId: 1, externalOrderId: 1 }, { unique: true, partialFilterExpression: { salesChannel: "facebook-page", externalOrderId: { $type: "string" } } });

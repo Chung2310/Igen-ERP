@@ -24,6 +24,7 @@ export interface ICustomer {
   name: string;
   phone: string;
   normalizedPhone: string;
+  phoneIdentityKey?: string | null;
   email?: string;
   avatarUrl?: string;
   dateOfBirth?: Date;
@@ -51,4 +52,4 @@ export interface ICustomer {
 
 export type CustomerInput = Partial<Pick<ICustomer,
   "type" | "customerKind" | "contactName" | "name" | "phone" | "email" | "avatarUrl" | "dateOfBirth" | "gender" | "address" | "notes" | "status" | "source"
->> & { dateOfBirth?: Date | string };
+>> & { dateOfBirth?: Date | string; allowSharedPhone?: boolean };

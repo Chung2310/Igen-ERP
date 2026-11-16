@@ -84,12 +84,14 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
         fullName: values.fullName.trim(), phone: values.phone.trim(), email: values.email.trim(),
         registrationDate: values.registrationDate, birthday: values.dateOfBirth, address: values.address.trim(),
         referral: `Lead ${lead.sourcePlatform || "thủ công"}`,
+        ...(lead.customerId ? { customerId: lead.customerId } : {}),
       }));
     }
     if (activeTargetModule === "healthcare") {
       return recordId(await postJson("/api/v1/healthcare/patients", {
         name: values.fullName.trim(), phone: values.phone.trim(), dateOfBirth: values.dateOfBirth,
         address: values.address.trim(), note: notes,
+        ...(lead.customerId ? { customerId: lead.customerId } : {}),
       }));
     }
     if (!companyCode) throw new Error("Không xác định được doanh nghiệp để tạo hồ sơ lao động.");

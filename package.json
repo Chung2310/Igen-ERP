@@ -22,6 +22,8 @@
     "backfill:batch-enrollments": "tsx server/scripts/backfill-batch-enrollments.ts",
     "migrate:canonical-enrollments": "tsx tools/migrate-canonical-batch-enrollments.ts",
     "migrate:legacy-products-to-catalog": "tsx server/scripts/migrate-legacy-products-to-catalog.ts",
+    "import:customer-module-links": "tsx server/scripts/import-customer-module-links.ts",
+    "migrate:customer-phone-index": "tsx server/scripts/migrate-customer-phone-index.ts",
     "migrate:inventory-foundation": "tsx server/scripts/migrate-legacy-products-to-catalog.ts",
     "backfill:partner-scheme-policies": "tsx server/scripts/backfill-labor-partner-scheme-policies.ts",
     "backfill:payment-paid-on": "tsx server/scripts/backfill-payment-paid-on.ts",
