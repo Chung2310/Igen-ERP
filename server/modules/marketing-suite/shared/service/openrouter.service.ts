@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../../../src/shared/ai-provider-error";
 /**
  * OpenRouter Service
  * ─────────────────────────────────────────────────────────────────
@@ -183,7 +184,7 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ 
         }
         const publicMessage =
           response.status === 402
-            ? "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng thử lại sau."
+            ? AI_PROVIDER_TEMPORARY_ERROR
             : hasImagePayload ? `OpenRouter image request failed (HTTP ${response.status}).`
               : `OpenRouter API lỗi ${response.status}: ${errText}`;
         const err = new Error(publicMessage) as any;

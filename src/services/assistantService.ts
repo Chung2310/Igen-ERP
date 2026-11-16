@@ -7,6 +7,7 @@ import type { AssistantSlideDeck, AssistantSlideDeckUpdate, AssistantSlideHistor
 import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSourceType, AssistantMindmapWriteMode } from "../shared/assistant-mindmap";
 import type { AssistantPromptTemplate } from "../components/common/assistant-prompt-library-data";
 import type { AssistantProject, AssistantProjectFile } from "../components/common/assistant-project-data";
+import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../shared/ai-provider-error";
 export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
@@ -18,11 +19,15 @@ export interface AssistantStudioMindmapRequest { sourceType: AssistantMindmapSou
 export class AssistantServiceError extends Error {
   constructor(message: string, public readonly status: number) { super(message); this.name = "AssistantServiceError"; }
 }
+function assistantErrorMessage(value: unknown, fallback: string): string {
+  const message = typeof value === "string" ? value : "";
+  return isAiProviderBillingError(message) ? AI_PROVIDER_TEMPORARY_ERROR : message || fallback;
+}
 async function request<T>(path: string, init: RequestInit = {}, branchId?: string, deviceId?: string): Promise<T> {
   const token = localStorage.getItem("accessToken");
   const response = await fetch(`/api/v1/chatbot/assistant${path}`, { ...init, headers: { ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branchId ? { "x-branch-id": branchId } : {}), ...(deviceId ? { "x-device-id": deviceId } : {}), ...init.headers } });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok || !result.success) throw new AssistantServiceError(result.message || "Không thể kết nối trợ lý AI.", response.status);
+  if (!response.ok || !result.success) throw new AssistantServiceError(assistantErrorMessage(result.message, "Không thể kết nối trợ lý AI."), response.status);
   return result.data;
 }
 export const assistantService = {
@@ -40,7 +45,7 @@ export const assistantService = {
     });
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      throw new AssistantServiceError(result.message || "Không thể tải tệp dự án.", response.status);
+      throw new AssistantServiceError(assistantErrorMessage(result.message, "Không thể tải tệp dự án."), response.status);
     }
     return response.blob();
   },
@@ -62,7 +67,7 @@ export const assistantService = {
       signal,
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) throw new Error(result.message || "Không thể tạo slide lúc này.");
+    if (!response.ok || !result.success) throw new Error(assistantErrorMessage(result.message, "Không thể tạo slide lúc này."));
     return result.data as AssistantSlideDeck;
   },
   studioSlideDecks: () => request<AssistantSlideHistoryItem[]>("/studio/slides"),
@@ -82,7 +87,7 @@ export const assistantService = {
       body: form,
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) throw new Error(result.message || "Không thể tạo mindmap lúc này.");
+    if (!response.ok || !result.success) throw new Error(assistantErrorMessage(result.message, "Không thể tạo mindmap lúc này."));
     return result.data as AssistantMindmapResult;
   },
   studioTranscripts: () => request<AssistantStudioTranscript[]>("/studio/transcriptions"),
@@ -100,7 +105,7 @@ export const assistantService = {
       body: form,
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) throw new Error(result.message || "Không thể tạo biểu đồ từ tệp dữ liệu.");
+    if (!response.ok || !result.success) throw new Error(assistantErrorMessage(result.message, "Không thể tạo biểu đồ từ tệp dữ liệu."));
     return result.data as AssistantChartResult;
   },
   editStudioChart: async (id: string, data: { request: string; title?: string; chartType?: AssistantChartType }): Promise<AssistantChartResult> =>
@@ -116,7 +121,7 @@ export const assistantService = {
       body: form,
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) throw new Error(result.message || "Không thể đọc tệp tài liệu.");
+    if (!response.ok || !result.success) throw new Error(assistantErrorMessage(result.message, "Không thể đọc tệp tài liệu."));
     return result.data as { fileName: string; text: string };
   },
   transcribeStudioAudio: async (file: File): Promise<AssistantStudioTranscript> => {
@@ -129,7 +134,7 @@ export const assistantService = {
       body: form,
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) throw new Error(result.message || "Không thể chuyển giọng nói thành văn bản.");
+    if (!response.ok || !result.success) throw new Error(assistantErrorMessage(result.message, "Không thể chuyển giọng nói thành văn bản."));
     return result.data as AssistantStudioTranscript;
   },
   settings: (signal?: AbortSignal) => request<AssistantSettings>("/settings", { signal }),
@@ -167,7 +172,7 @@ export const assistantService = {
     });
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      throw new Error(result.message || "Không thể tải tệp. Bạn thử lại nhé.");
+      throw new Error(assistantErrorMessage(result.message, "Không thể tải tệp. Bạn thử lại nhé."));
     }
     if (response.headers.get("content-type")?.split(";")[0] !== file.mimeType.split(";")[0]) throw new Error("Máy chủ trả về định dạng tệp không hợp lệ.");
     return response.blob();
@@ -188,7 +193,7 @@ export const assistantService = {
     }
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      throw new Error(result.message || "Không thể tạo giọng nói lúc này.");
+      throw new Error(assistantErrorMessage(result.message, "Không thể tạo giọng nói lúc này."));
     }
     if (response.headers.get("content-type")?.split(";")[0] !== "audio/mpeg") {
       throw new Error("Máy chủ không trả về tệp âm thanh MP3 hợp lệ.");

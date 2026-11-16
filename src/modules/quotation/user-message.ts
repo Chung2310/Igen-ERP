@@ -1,9 +1,12 @@
+import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../../shared/ai-provider-error";
+
 const fallbackMessage = "Không thể hoàn tất yêu cầu lúc này. Vui lòng thử lại.";
 
 /** Also handles old saved errors and browser failures when a server has not yet been updated. */
 export function userMessage(value: unknown, fallback = fallbackMessage): string {
   const message = value instanceof Error ? value.message : typeof value === "string" ? value : "";
   if (!message.trim()) return fallback;
+  if (isAiProviderBillingError(message)) return AI_PROVIDER_TEMPORARY_ERROR;
   if (/vẫn đang xử lý|still processing/i.test(message)) return "Yêu cầu vẫn đang xử lý. Bạn có thể kiểm tra lại sau ít phút.";
   if (/cloudinary/i.test(message)) return /download|tải (?:file|tệp) từ|xem trước/i.test(message) ? "Chưa tải được file đã lưu. Vui lòng thử lại." : "Chưa lưu được file. Vui lòng thử lại sau.";
   if (/open\s*router?|openai|anthropic|gemini|gpt-[\w.-]+|\bluna\b|insufficient (?:funds|credits?)|\bcredits?\b|max[_ ](?:output[_ ])?tokens?|provider/i.test(message)) return "Chức năng AI tạm thời chưa sẵn sàng. Vui lòng thử lại sau.";

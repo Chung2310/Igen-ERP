@@ -3,6 +3,7 @@ import { model, Schema } from "mongoose";
 import { resolveMediaBinary } from "../modules/marketing-suite/shared/service/media-binary.service";
 import { billAiCall, withAiUsage } from "../modules/marketing-suite/shared/service/ai-subscription.service";
 import { AssistantError } from "./policy";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 const modelName = process.env.OPENROUTER_CAPTION_STT_MODEL?.trim() || "openai/whisper-large-v3";
 const maxProviderBytes = 20_000_000;
@@ -80,7 +81,7 @@ export async function transcribeAudioToText(input: { buffer: Buffer; fileName: s
       body: JSON.stringify({ model: modelName, input_audio: { data: audio.toString("base64"), format: "mp3" }, language: "vi", response_format: "json" }),
       signal: AbortSignal.timeout(300_000),
     });
-    if (!response.ok) throw new AssistantError(response.status === 402 ? "Tài khoản OpenRouter không đủ số dư." : `Dịch vụ nhận dạng âm thanh trả về lỗi ${response.status}.`, response.status === 429 ? 429 : 502);
+    if (!response.ok) throw new AssistantError(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `Dịch vụ nhận dạng âm thanh trả về lỗi ${response.status}.`, response.status === 429 ? 429 : 502);
     const payload = await response.json() as { text?: string };
     if (!payload.text?.trim()) throw new AssistantError("Không nhận dạng được lời nói trong tệp âm thanh.", 422);
     return payload.text.trim();

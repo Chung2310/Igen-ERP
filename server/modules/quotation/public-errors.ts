@@ -1,3 +1,5 @@
+import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../../../src/shared/ai-provider-error";
+
 const temporaryAi = "Chức năng AI tạm thời chưa sẵn sàng. Vui lòng thử lại sau.";
 const retry = "Không thể hoàn tất yêu cầu lúc này. Vui lòng thử lại.";
 
@@ -5,6 +7,7 @@ const retry = "Không thể hoàn tất yêu cầu lúc này. Vui lòng thử l�
 export function publicErrorMessage(value: unknown, fallback = retry): string {
   const message = value instanceof Error ? value.message : typeof value === "string" ? value : "";
   if (!message.trim()) return fallback;
+  if (isAiProviderBillingError(message)) return AI_PROVIDER_TEMPORARY_ERROR;
   if (/vẫn đang xử lý|still processing/i.test(message)) return "Yêu cầu vẫn đang xử lý. Bạn có thể kiểm tra lại sau ít phút.";
   if (/cloudinary/i.test(message)) {
     if (/download|tải (?:file|tệp) từ|xem trước/i.test(message)) return "Chưa tải được file đã lưu. Vui lòng thử lại.";
