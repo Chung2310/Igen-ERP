@@ -1,5 +1,6 @@
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowUpRight, ChevronDown, Copy, FileText, Lightbulb, Link2, MoreVertical, Paperclip, Plus, Search, Send, Settings2, Star, Trash2, Upload, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, ArrowRight, ArrowUpRight, CheckCircle2, ChevronDown, Copy, FileText, Lightbulb, Link2, LoaderCircle, MoreVertical, Paperclip, Plus, Search, Send, Settings2, Star, Trash2, Upload, X } from "lucide-react";
 import { assistantAgentService, type AgentChatMessage } from "../../services/assistantAgentService";
 import { cn } from "../../modules/student-management/lib/utils";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
@@ -95,30 +96,196 @@ function AgentCard({ name, avatar, subtitle, description, headerActions, childre
   </article>;
 }
 
-function ResourceEditor({ draft, updateDraft }: { draft: AgentDraft; updateDraft: (patch: Partial<AgentDraft>) => void }) {
-  const resourceErrorId = useId();
-  const [addMode, setAddMode] = useState<KnowledgeKind | null>(null);
+type PreparedResource = { title: string; content: string; kind: KnowledgeKind };
+
+function KnowledgeIngestionDialog({ mode, resourceCount, onAdd, onClose }: {
+  mode: KnowledgeKind;
+  resourceCount: number;
+  onAdd: (resources: AgentResource[]) => void;
+  onClose: () => void;
+}) {
+  const titleId = useId();
+  const errorId = useId();
+  const fileInputId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const closeRef = useRef(onClose);
+  const busyRef = useRef(false);
+  const [step, setStep] = useState<1 | 2>(1);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [urls, setUrls] = useState([""]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [prepared, setPrepared] = useState<PreparedResource[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [resourceError, setResourceError] = useState("");
+  const maxResources = Math.max(0, 20 - resourceCount);
+  closeRef.current = onClose;
+  busyRef.current = busy;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    try { dialog.showModal(); }
+    catch { dialog.setAttribute("open", ""); }
+    const firstField = dialog.querySelector<HTMLElement>("[data-dialog-autofocus]");
+    firstField?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!busyRef.current) closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([type="hidden"]):not([hidden]):not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]'));
+      if (!focusable.length) { event.preventDefault(); return; }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    dialog.addEventListener("keydown", handleKeyDown);
+    return () => {
+      dialog.removeEventListener("keydown", handleKeyDown);
+      if (dialog.open && typeof dialog.close === "function") dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, []);
+
+  const addFiles = (incoming: FileList | File[]) => {
+    const nextFiles = Array.from(incoming);
+    if (!nextFiles.length) return;
+    if (nextFiles.length + files.length > maxResources) { setResourceError(`Trợ lý chỉ còn chỗ cho ${maxResources} tài liệu.`); return; }
+    const allowed = /\.(pdf|docx|txt|csv|xls|xlsx)$/i;
+    const invalidFile = nextFiles.find(file => !allowed.test(file.name));
+    if (invalidFile) { setResourceError(`Tệp ${invalidFile.name} không thuộc định dạng được hỗ trợ.`); return; }
+    const oversizedFile = nextFiles.find(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFile) { setResourceError(`Tệp ${oversizedFile.name} vượt quá giới hạn 10 MB.`); return; }
+    setFiles(current => [...current, ...nextFiles]);
+    setResourceError("");
+  };
+
+  const continueToPreview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setResourceError("");
+    if (maxResources < 1) { setResourceError("Mỗi trợ lý hỗ trợ tối đa 20 tài liệu tri thức."); return; }
+    if (mode === "text") {
+      if (!title.trim() || !content.trim()) { setResourceError("Hãy nhập tiêu đề và nội dung."); return; }
+      setPrepared([{ title: title.trim(), content: content.trim(), kind: mode }]);
+      setStep(2);
+      return;
+    }
+    if (mode === "file" && !files.length) { setResourceError("Hãy chọn ít nhất một tệp tài liệu."); return; }
+    const normalizedUrls = urls.map(url => url.trim()).filter(Boolean);
+    if (mode === "link" && !normalizedUrls.length) { setResourceError("Hãy nhập ít nhất một liên kết."); return; }
+    if (mode === "link" && normalizedUrls.length > maxResources) { setResourceError(`Trợ lý chỉ còn chỗ cho ${maxResources} tài liệu.`); return; }
+    setBusy(true);
+    try {
+      if (mode === "file") {
+        const extracted = await Promise.all(files.map(file => assistantAgentService.extractFile(file)));
+        setPrepared(extracted.map(item => ({ title: item.fileName.slice(0, 120), content: item.text, kind: mode })));
+      } else {
+        const extracted = await Promise.all(normalizedUrls.map(url => assistantAgentService.extractLink(url)));
+        setPrepared(extracted.map(item => ({ title: item.title, content: `Nguồn: ${item.url}\n\n${item.text}`, kind: mode })));
+      }
+      setStep(2);
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : mode === "file" ? "Không thể đọc tệp tài liệu." : "Không thể đọc nội dung trang web.");
+    } finally { setBusy(false); }
+  };
+
+  const addToKnowledge = () => {
+    if (!prepared.length || prepared.length > maxResources) {
+      setResourceError("Mỗi trợ lý hỗ trợ tối đa 20 tài liệu tri thức.");
+      return;
+    }
+    const createdAt = new Date().toISOString();
+    onAdd(prepared.map(resource => ({ ...resource, id: crypto.randomUUID(), createdAt })));
+  };
+
+  const dialogTitle = mode === "file" ? "Thêm tệp tài liệu" : mode === "link" ? "Thêm liên kết" : "Nội dung";
+  const nextLabel = mode === "file" ? "Đọc tệp và tiếp tục" : mode === "link" ? "Đọc liên kết và tiếp tục" : "Tiếp tục";
+
+  return createPortal(<dialog ref={dialogRef} aria-labelledby={titleId} aria-describedby={resourceError ? errorId : undefined}
+    onCancel={event => { event.preventDefault(); if (!busyRef.current) closeRef.current(); }}
+    onClick={event => { if (event.target === event.currentTarget && !busyRef.current) onClose(); }}
+    className="fixed inset-0 m-0 flex size-full max-h-none max-w-none items-center justify-center border-0 bg-transparent p-3 backdrop:bg-black/40 sm:p-6">
+    <section role="document" className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-xl sm:max-h-[calc(100dvh-3rem)]">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-outline-variant px-5 py-4 sm:px-6">
+        <h2 id={titleId} className="text-balance text-lg font-semibold">{dialogTitle}</h2>
+        <button type="button" aria-label="Đóng" disabled={busy} onClick={onClose} className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50", focusClass)}><X className="size-5" aria-hidden="true" /></button>
+      </header>
+      <div className="shrink-0 px-4 pt-5 sm:px-6">
+        <ol aria-label="Tiến trình nạp tri thức" className="mx-auto flex w-fit items-center gap-3 text-sm sm:gap-4">
+          <li aria-current={step === 1 ? "step" : undefined} className={cn("flex items-center gap-2", step === 1 ? "font-medium text-primary" : "text-on-surface-variant")}><span className={cn("grid size-7 place-items-center rounded-full tabular-nums", step === 1 ? "bg-primary text-on-primary" : "bg-surface-container-low text-on-surface-variant")}>{step > 1 ? <CheckCircle2 className="size-4" aria-hidden="true" /> : "1"}</span><span>{mode === "file" ? "Tải tệp lên" : mode === "link" ? "Thêm liên kết" : "Thêm nội dung"}</span></li>
+          <span className="h-px w-10 bg-outline-variant sm:w-16" aria-hidden="true" />
+          <li aria-current={step === 2 ? "step" : undefined} className={cn("flex items-center gap-2", step === 2 ? "font-medium text-primary" : "text-on-surface-variant")}><span className={cn("grid size-7 place-items-center rounded-full tabular-nums", step === 2 ? "bg-primary text-on-primary" : "bg-surface-container-low text-on-surface-variant")}>2</span><span>Nạp tri thức</span></li>
+        </ol>
+      </div>
+      <form onSubmit={continueToPreview} className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          {step === 1 && mode === "file" && <div className={cn("rounded-xl border border-dashed p-5 text-center sm:p-8", dragging ? "border-primary bg-primary/10" : "border-primary/50 bg-primary/5")} onDragEnter={event => { event.preventDefault(); setDragging(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }} onDrop={event => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer.files); }}>
+            <input ref={fileInputRef} id={fileInputId} type="file" multiple accept=".pdf,.docx,.txt,.csv,.xls,.xlsx" className="hidden" aria-label="Chọn tệp tài liệu từ máy tính" aria-describedby={`${fileInputId}-help${resourceError ? ` ${errorId}` : ""}`} onChange={event => { addFiles(event.currentTarget.files || []); event.currentTarget.value = ""; }} />
+            <div className="mx-auto flex min-h-44 flex-col items-center justify-center rounded-lg px-4 py-5">
+              <span className="grid size-12 place-items-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant"><Upload className="size-5" aria-hidden="true" /></span>
+              <span className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm font-medium"><button type="button" data-dialog-autofocus onClick={() => fileInputRef.current?.click()} className={cn("rounded-sm text-primary underline-offset-2 hover:underline", focusClass)}>Chọn tệp</button><span>hoặc kéo thả tệp vào đây</span></span>
+              <span id={`${fileInputId}-help`} className="mt-2 text-pretty text-xs text-on-surface-variant">PDF, DOCX, TXT, CSV, XLS, XLSX · tối đa 10 MB mỗi tệp</span>
+            </div>
+            {files.length > 0 && <ul aria-label="Tệp đã chọn" className="mx-auto mt-3 max-w-xl divide-y divide-outline-variant rounded-lg border border-outline-variant bg-surface-container-lowest text-left">{files.map((file, index) => <li key={`${file.name}:${file.lastModified}:${index}`} className="flex min-w-0 items-center gap-3 px-3 py-2"><FileText className="size-4 shrink-0 text-primary" aria-hidden="true" /><span className="min-w-0 flex-1 truncate text-sm">{file.name}</span><span className="shrink-0 text-xs tabular-nums text-on-surface-variant">{(file.size / (1024 * 1024)).toFixed(1)} MB</span><button type="button" aria-label={`Bỏ tệp ${file.name}`} onClick={() => setFiles(current => current.filter((_, fileIndex) => fileIndex !== index))} className={cn("grid size-8 shrink-0 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-low", focusClass)}><X className="size-4" aria-hidden="true" /></button></li>)}</ul>}
+          </div>}
+
+          {step === 1 && mode === "link" && <div className="space-y-3">
+            <p className="text-pretty text-sm text-on-surface-variant">Nhập liên kết trang web công khai. Nội dung trang sẽ được đọc tự động.</p>
+            {urls.map((url, index) => <div key={index} className="flex items-center gap-2">
+              <label className="sr-only" htmlFor={`${fileInputId}-url-${index}`}>Liên kết {index + 1}</label>
+              <div className="relative min-w-0 flex-1"><Link2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" /><input id={`${fileInputId}-url-${index}`} data-dialog-autofocus={index === 0 ? true : undefined} type="url" required maxLength={2000} value={url} onChange={event => setUrls(current => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} className={cn(inputClass, "pl-9")} placeholder="Nhập liên kết, ví dụ https://example.com" /></div>
+              {urls.length > 1 && <button type="button" aria-label={`Xóa liên kết ${index + 1}`} onClick={() => setUrls(current => current.filter((_, itemIndex) => itemIndex !== index))} className={cn("grid size-10 shrink-0 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low", focusClass)}><X className="size-4" aria-hidden="true" /></button>}
+            </div>)}
+            <button type="button" onClick={() => setUrls(current => [...current, ""])} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-primary hover:bg-primary/5", focusClass)}><Plus className="size-4" aria-hidden="true" />Thêm liên kết</button>
+            <p className="text-xs text-on-surface-variant">Trang yêu cầu đăng nhập hoặc chỉ hiển thị nội dung bằng JavaScript có thể không đọc được.</p>
+          </div>}
+
+          {step === 1 && mode === "text" && <div className="space-y-4">
+            <label className="block text-sm font-medium">Tiêu đề <span className="text-error">*</span><input data-dialog-autofocus type="text" value={title} onChange={event => setTitle(event.target.value)} required maxLength={120} className={cn(inputClass, "mt-1.5")} placeholder="Nhập tiêu đề" /></label>
+            <label className="block text-sm font-medium">Nội dung <span className="text-error">*</span><textarea value={content} onChange={event => setContent(event.target.value)} required maxLength={10000} rows={11} className={cn(inputClass, "mt-1.5 min-h-56 resize-y")} placeholder="Dán hoặc nhập nội dung tham khảo cho trợ lý" /><span className="mt-1 block text-right text-xs tabular-nums text-on-surface-variant">{content.length.toLocaleString("vi-VN")} / 10.000</span></label>
+          </div>}
+
+          {step === 2 && <div className="space-y-4">
+            <p role="status" className="flex items-center gap-2 text-sm font-medium"><CheckCircle2 className="size-4 text-primary" aria-hidden="true" />Đã sẵn sàng nạp {prepared.length} tài liệu vào trợ lý.</p>
+            <ul aria-label="Nội dung sẽ được nạp" className="space-y-3">{prepared.map((resource, index) => <li key={`${resource.title}:${index}`} className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+              <div className="flex items-center gap-2 border-b border-outline-variant bg-surface-container-low px-3 py-2"><FileText className="size-4 shrink-0 text-primary" aria-hidden="true" /><h3 className="min-w-0 flex-1 truncate text-sm font-medium">{resource.title}</h3><span className="shrink-0 text-xs text-on-surface-variant">{resource.kind === "link" ? "Liên kết" : resource.kind === "file" ? "Tệp tài liệu" : "Nội dung"}</span></div>
+              {resource.kind === "link" && <p className="truncate border-b border-outline-variant px-3 py-2 text-xs text-on-surface-variant">{resource.content.split("\n")[0]?.replace(/^Nguồn:\s*/, "")}</p>}
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words px-3 py-3 font-sans text-sm leading-5 text-on-surface">{resource.kind === "link" ? resource.content.slice(resource.content.indexOf("\n\n") + 2) : resource.content}</pre>
+            </li>)}</ul>
+          </div>}
+
+          {resourceError && <p id={errorId} role="alert" className="mt-4 rounded-lg bg-error/10 p-3 text-sm text-error">{resourceError}</p>}
+          {busy && <p role="status" aria-live="polite" className="mt-4 flex items-center gap-2 text-sm text-on-surface-variant"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />{mode === "file" ? "Đang đọc nội dung tệp…" : "Đang đọc nội dung trang…"}</p>}
+        </div>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-outline-variant px-4 py-4 sm:px-6">
+          <div>{step === 2 && <button type="button" disabled={busy} onClick={() => { setResourceError(""); setStep(1); }} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-medium hover:bg-surface-container-low disabled:opacity-50", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />Quay lại</button>}</div>
+          <div className="ml-auto flex items-center gap-2"><button type="button" disabled={busy} onClick={onClose} className={cn("inline-flex min-h-10 items-center justify-center rounded-lg border border-outline-variant px-4 text-sm font-medium hover:bg-surface-container-low disabled:opacity-50", focusClass)}>Hủy</button>
+            {step === 1 ? <button type="submit" disabled={busy || maxResources < 1} className={cn(primaryCreateButtonClass, "inline-flex min-h-10 items-center gap-2 disabled:opacity-50", focusClass)}>{busy ? "Đang xử lý…" : nextLabel}{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}</button> : <button type="button" onClick={addToKnowledge} disabled={busy || !prepared.length || prepared.length > maxResources} className={cn(primaryCreateButtonClass, "inline-flex min-h-10 items-center gap-2 disabled:opacity-50", focusClass)}><Plus className="size-4" aria-hidden="true" />Nạp tri thức</button>}
+          </div>
+        </footer>
+      </form>
+    </section>
+  </dialog>, document.body);
+}
+
+function ResourceEditor({ draft, updateDraft }: { draft: AgentDraft; updateDraft: (patch: Partial<AgentDraft>) => void }) {
+  const [addMode, setAddMode] = useState<KnowledgeKind | null>(null);
   const [query, setQuery] = useState("");
   const items = draft.knowledge;
   const visible = items.filter(item => `${item.title} ${item.content}`.toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")));
-  const add = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!addMode || items.length >= 20) { setResourceError("Mỗi trợ lý hỗ trợ tối đa 20 tài liệu tri thức."); return; }
-    setBusy(true); setResourceError("");
-    try {
-      const extracted = addMode === "file" && selectedFile ? await assistantAgentService.extractFile(selectedFile) : null;
-      if (addMode === "file" && !extracted) throw new Error("Hãy chọn một tệp tài liệu.");
-      const resource: AgentResource = { id: crypto.randomUUID(), title: title.trim() || extracted?.fileName || "Nội dung mới", kind: addMode, content: extracted?.text || (addMode === "link" ? `Nguồn: ${linkUrl.trim()}\n${content.trim()}` : content.trim()), createdAt: new Date().toISOString() };
-      updateDraft({ knowledge: [...items, resource] });
-      setTitle(""); setContent(""); setLinkUrl(""); setSelectedFile(null); setAddMode(null);
-    } catch (error) { setResourceError(error instanceof Error ? error.message : "Không thể nạp tri thức."); }
-    finally { setBusy(false); }
+  const addResources = (resources: AgentResource[]) => {
+    updateDraft({ knowledge: [...items, ...resources] });
+    setAddMode(null);
   };
 
   return <section aria-label="Tri thức của trợ lý" className="space-y-4">
@@ -126,27 +293,21 @@ function ResourceEditor({ draft, updateDraft }: { draft: AgentDraft; updateDraft
       <Upload className="size-9 text-primary" aria-hidden="true" />
       <p className="mt-3 text-balance text-sm font-medium">Nạp tri thức bằng các cách dưới đây</p>
       <div className="mt-4 flex flex-wrap justify-center gap-2" role="group" aria-label="Cách thêm tri thức">
-        <button type="button" aria-pressed={addMode === "file"} onClick={() => setAddMode("file")} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm hover:bg-primary/10", addMode === "file" && "border-primary text-primary", focusClass)}><Upload className="size-4" aria-hidden="true" />Tải tệp lên</button>
-        <button type="button" aria-pressed={addMode === "link"} onClick={() => setAddMode("link")} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm hover:bg-primary/10", addMode === "link" && "border-primary text-primary", focusClass)}><Link2 className="size-4" aria-hidden="true" />Thêm liên kết</button>
-        <button type="button" aria-pressed={addMode === "text"} onClick={() => setAddMode("text")} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm hover:bg-primary/10", addMode === "text" && "border-primary text-primary", focusClass)}><FileText className="size-4" aria-hidden="true" />Nhập nội dung</button>
+        <button type="button" disabled={items.length >= 20} onClick={() => setAddMode("file")} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}><Upload className="size-4" aria-hidden="true" />Tải tệp lên</button>
+        <button type="button" disabled={items.length >= 20} onClick={() => setAddMode("link")} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}><Link2 className="size-4" aria-hidden="true" />Thêm liên kết</button>
+        <button type="button" disabled={items.length >= 20} onClick={() => setAddMode("text")} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}><FileText className="size-4" aria-hidden="true" />Nhập nội dung</button>
       </div>
+      {items.length >= 20 && <p className="mt-3 text-xs text-on-surface-variant">Trợ lý đã đạt giới hạn 20 tài liệu tri thức.</p>}
     </div>
-    {addMode && <form onSubmit={add} aria-describedby={resourceError ? resourceErrorId : undefined} className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-low p-4">
-      <label className="block text-sm font-medium">{addMode === "link" ? "Tên liên kết" : addMode === "text" ? "Tên nội dung" : "Tên tệp"}<input value={title} onChange={event => setTitle(event.target.value)} required maxLength={120} className={cn(inputClass, "mt-1.5")} placeholder="Đặt tên để dễ tìm" /></label>
-      {addMode === "link" ? <><label className="block text-sm font-medium">Đường dẫn<input type="url" value={linkUrl} onChange={event => setLinkUrl(event.target.value)} required maxLength={2000} className={cn(inputClass, "mt-1.5")} placeholder="https://..." /></label><label className="block text-sm font-medium">Nội dung tham khảo<textarea value={content} onChange={event => setContent(event.target.value)} required maxLength={7500} rows={5} className={cn(inputClass, "mt-1.5 resize-y")} placeholder="Dán nội dung từ trang này để trợ lý có thể dùng khi trả lời" /></label></>
-        : addMode === "text" ? <label className="block text-sm font-medium">Nội dung<textarea value={content} onChange={event => setContent(event.target.value)} required maxLength={10000} rows={5} className={cn(inputClass, "mt-1.5 resize-y")} placeholder="Dán nội dung tham chiếu" /></label>
-          : <label className="block text-sm font-medium">Chọn tệp<input type="file" accept=".pdf,.docx,.txt" onChange={event => { const file = event.currentTarget.files?.[0] || null; setSelectedFile(file); setTitle(file?.name || ""); }} required className={cn(inputClass, "mt-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1 file:text-primary")} /></label>}
-      {resourceError && <p id={resourceErrorId} role="alert" className="text-sm text-error">{resourceError}</p>}
-      <div className="flex gap-2"><button type="submit" disabled={busy} className={cn("rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50", focusClass)}>{busy ? "Đang đọc tài liệu…" : "Thêm tri thức"}</button><button type="button" onClick={() => setAddMode(null)} className={cn("rounded-lg border border-outline-variant px-3 py-2 text-sm", focusClass)}>Hủy</button></div>
-    </form>}
     {items.length > 0 && <>
       <label className="relative block"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" /><span className="sr-only">Tìm tri thức</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm tri thức" className={cn(inputClass, "pl-9")} /></label>
       {visible.length ? <ul className="divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant">{visible.map(item => <li key={item.id} className="flex items-center gap-3 px-3 py-3">
       {item.kind === "link" ? <Link2 className="size-4 shrink-0 text-primary" aria-hidden="true" /> : item.kind === "file" ? <Upload className="size-4 shrink-0 text-primary" aria-hidden="true" /> : <FileText className="size-4 shrink-0 text-primary" aria-hidden="true" />}
-      <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.title}</p><p className="truncate text-xs text-on-surface-variant">{item.kind === "link" ? "Liên kết và nội dung tham khảo" : item.kind === "text" ? "Nội dung văn bản" : "Văn bản đã trích xuất từ tệp"}</p></div>
+      <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.title}</p><p className="truncate text-xs text-on-surface-variant">{item.kind === "link" ? "Liên kết và nội dung đã đọc" : item.kind === "text" ? "Nội dung văn bản" : "Văn bản đã trích xuất từ tệp"}</p></div>
       <button type="button" aria-label={`Bỏ ${item.title} khỏi trợ lý`} onClick={() => updateDraft({ knowledge: items.filter(entry => entry.id !== item.id) })} className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low", focusClass)}><Trash2 className="size-4" aria-hidden="true" /></button>
       </li>)}</ul> : <p role="status" className="text-center text-sm text-on-surface-variant">Không tìm thấy tri thức phù hợp.</p>}
     </>}
+    {addMode && <KnowledgeIngestionDialog key={addMode} mode={addMode} resourceCount={items.length} onAdd={addResources} onClose={() => setAddMode(null)} />}
   </section>;
 }
 

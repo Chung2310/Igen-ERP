@@ -18,6 +18,7 @@ export const assistantAgentService = {
     form.append("file", file);
     return agentRequest<{ fileName: string; text: string }>("/extract", { method: "POST", body: form });
   },
+  extractLink: (url: string) => agentRequest<{ url: string; title: string; text: string }>("/extract-link", { method: "POST", body: JSON.stringify({ url }) }),
   chat: (agent: { instructions: string; avoid: string; tone: string; knowledge: AgentKnowledge[] }, messages: AgentChatMessage[]) =>
     agentRequest<{ reply: string }>("/chat", { method: "POST", body: JSON.stringify({ ...agent, knowledge: agent.knowledge.map(({ title, kind, content }) => ({ title, kind, content })), messages: messages.slice(-20).map(message => ({ role: message.role, content: `${message.content}${message.attachmentText ? `\n\nTài liệu đính kèm (${message.attachmentName || "tài liệu"}):\n${message.attachmentText}` : ""}`.slice(0, 12000) })) }) }),
 };

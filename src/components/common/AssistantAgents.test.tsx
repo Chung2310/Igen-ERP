@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { AssistantAgents } from "./AssistantAgents";
 import { assistantAgentService } from "../../services/assistantAgentService";
 
-vi.mock("../../services/assistantAgentService", () => ({ assistantAgentService: { chat: vi.fn(async () => ({ reply: "Quy trình gồm ba bước." })), extractFile: vi.fn() } }));
+vi.mock("../../services/assistantAgentService", () => ({ assistantAgentService: { chat: vi.fn(async () => ({ reply: "Quy trình gồm ba bước." })), extractFile: vi.fn(), extractLink: vi.fn() } }));
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
 
@@ -22,9 +22,12 @@ describe("AssistantAgents", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
     expect(screen.getByRole("heading", { name: "Nạp tri thức cho trợ lý" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Nhập nội dung" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Tên nội dung" }), { target: { value: "Quy trình" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Nội dung" }), { target: { value: "Quy trình gồm ba bước." } });
-    fireEvent.click(screen.getByRole("button", { name: "Thêm tri thức" }));
+    expect(screen.getByRole("dialog", { name: "Nội dung" })).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: /Tiêu đề/ }), { target: { value: "Quy trình" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Nội dung/ }), { target: { value: "Quy trình gồm ba bước." } });
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    expect(screen.getByText("Đã sẵn sàng nạp 1 tài liệu vào trợ lý.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Nạp tri thức" }));
     fireEvent.click(screen.getByRole("button", { name: "Tạo và trò chuyện" }));
     expect(screen.getByRole("heading", { name: "Trợ lý nội bộ" })).toBeTruthy();
     const chatInput = screen.getByRole("textbox", { name: /Tin nhắn gửi/ });
@@ -61,6 +64,42 @@ describe("AssistantAgents", () => {
     expect(screen.getByRole("button", { name: "Thêm liên kết" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Nhập nội dung" })).toBeTruthy();
     expect(screen.queryByText("Biểu mẫu")).toBeNull();
+  });
+
+  it("reads public link content before adding it to assistant knowledge", async () => {
+    vi.mocked(assistantAgentService.extractLink).mockResolvedValue({ url: "https://example.com/policy", title: "Chính sách", text: "Đổi trả trong 30 ngày." });
+    render(<AssistantAgents storageScope="agent-link-test" />);
+    fireEvent.click(screen.getByRole("button", { name: "Tạo Trợ lý AI" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Tên trợ lý/ }), { target: { value: "Trợ lý chính sách" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Chỉ dẫn/ }), { target: { value: "Trả lời theo nội dung đã nạp." } });
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thêm liên kết" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Liên kết 1" }), { target: { value: "https://example.com/policy" } });
+    fireEvent.click(screen.getByRole("button", { name: "Đọc liên kết và tiếp tục" }));
+    await waitFor(() => expect(screen.getByText("Đổi trả trong 30 ngày.")).toBeTruthy());
+    expect(assistantAgentService.extractLink).toHaveBeenCalledWith("https://example.com/policy");
+    fireEvent.click(screen.getByRole("button", { name: "Nạp tri thức" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Chính sách")).toBeTruthy();
+    expect(screen.getByText("Liên kết và nội dung đã đọc")).toBeTruthy();
+  });
+
+  it("uses the same two-step popup to upload and preview a document", async () => {
+    vi.mocked(assistantAgentService.extractFile).mockResolvedValue({ fileName: "quy-trinh.pdf", text: "Quy trình gồm ba bước." });
+    render(<AssistantAgents storageScope="agent-file-test" />);
+    fireEvent.click(screen.getByRole("button", { name: "Tạo Trợ lý AI" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Tên trợ lý/ }), { target: { value: "Trợ lý quy trình" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Chỉ dẫn/ }), { target: { value: "Trả lời theo tài liệu." } });
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tải tệp lên" }));
+    const file = new File(["pdf content"], "quy-trinh.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Chọn tệp tài liệu từ máy tính"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Đọc tệp và tiếp tục" }));
+    await waitFor(() => expect(screen.getByText("Quy trình gồm ba bước.")).toBeTruthy());
+    expect(assistantAgentService.extractFile).toHaveBeenCalledWith(file);
+    fireEvent.click(screen.getByRole("button", { name: "Nạp tri thức" }));
+    expect(screen.getByText("quy-trinh.pdf")).toBeTruthy();
+    expect(screen.getByText("Văn bản đã trích xuất từ tệp")).toBeTruthy();
   });
 
   it("shows saved assistants as cards with settings, chat, favorite, and delete actions", () => {
