@@ -1259,7 +1259,7 @@ export default function OrgChartTab({
         <div data-testid="org-chart-actions" className="grid w-full grid-cols-1 items-center gap-2 min-[420px]:grid-cols-2 min-[768px]:grid-cols-3 min-[1200px]:flex min-[1200px]:w-auto">
           <div data-testid="org-chart-view-toggle" className="flex w-full items-center rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 min-[1200px]:w-auto">
             <button type="button" onClick={() => setViewMode("tree")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${viewMode === "tree" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}><Network className="h-3.5 w-3.5 text-[#00ADFC]" /> Cây</button>
-            <button type="button" onClick={() => setViewMode("list")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${viewMode === "list" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}><List className="h-3.5 w-3.5 text-[#00ADFC]" /> Danh sách</button>
+            <button type="button" onClick={() => setViewMode("list")} className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-semibold cursor-pointer transition-all ${viewMode === "list" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}><List className="h-3.5 w-3.5 text-[#00ADFC]" /> Danh sách</button>
           </div>
 
           <div data-testid="org-chart-zoom-control" className="flex w-full items-center justify-center gap-2 px-2.5 py-1.5 min-[1200px]:w-auto min-[1200px]:px-0">

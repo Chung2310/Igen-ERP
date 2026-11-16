@@ -27,15 +27,22 @@ describe("AssistantAgents", () => {
     fireEvent.click(screen.getByRole("button", { name: "Thêm tri thức" }));
     fireEvent.click(screen.getByRole("button", { name: "Tạo và trò chuyện" }));
     expect(screen.getByRole("heading", { name: "Trợ lý nội bộ" })).toBeTruthy();
-    fireEvent.change(screen.getByRole("textbox", { name: /Tin nhắn gửi/ }), { target: { value: "Quy trình gồm mấy bước?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    const chatInput = screen.getByRole("textbox", { name: /Tin nhắn gửi/ });
+    fireEvent.change(chatInput, { target: { value: "Quy trình gồm mấy bước?" } });
+    expect(chatInput.closest(".assistant-conversation-composer")).toBeTruthy();
+    fireEvent.keyDown(chatInput, { key: "Enter", shiftKey: true });
+    expect(assistantAgentService.chat).not.toHaveBeenCalled();
+    fireEvent.keyDown(chatInput, { key: "Enter", shiftKey: false });
     await waitFor(() => expect(screen.getByText("Quy trình gồm ba bước.")).toBeTruthy());
     expect(assistantAgentService.chat).toHaveBeenCalledWith(expect.objectContaining({ instructions: "Giải thích quy trình nội bộ.", knowledge: [expect.objectContaining({ title: "Quy trình", content: "Quy trình gồm ba bước." })] }), [{ role: "user", content: "Quy trình gồm mấy bước?" }]);
     unmount();
 
     render(<AssistantAgents storageScope="agent-test" />);
     expect(screen.getByRole("heading", { name: "Trợ lý nội bộ" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Mở trò chuyện" }));
+    fireEvent.click(screen.getByRole("button", { name: "Trợ lý của tôi" }));
+    const savedCard = screen.getByText("Trợ lý nội bộ").closest("article");
+    expect(savedCard).not.toBeNull();
+    fireEvent.click(within(savedCard as HTMLElement).getByRole("button", { name: "Mở trò chuyện" }));
     expect(screen.getByText("Quy trình gồm mấy bước?")).toBeTruthy();
     expect(screen.getByText("Quy trình gồm ba bước.")).toBeTruthy();
   });
@@ -66,18 +73,44 @@ describe("AssistantAgents", () => {
     render(<AssistantAgents storageScope="agent-card-test" />);
 
     const card = screen.getByText("Trợ lý CSKH").closest("article");
+    expect(card).not.toBeNull();
     expect(card?.querySelector(".border-dashed")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Thiết lập trợ lý" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Mở trò chuyện" })).toBeTruthy();
+    expect(within(card as HTMLElement).getByRole("button", { name: "Thiết lập trợ lý" })).toBeTruthy();
+    expect(within(card as HTMLElement).getByRole("button", { name: "Mở trò chuyện" })).toBeTruthy();
     const favorite = screen.getByRole("button", { name: "Yêu thích Trợ lý CSKH" });
     fireEvent.click(favorite);
     expect(screen.getByRole("button", { name: "Bỏ yêu thích Trợ lý CSKH" }).getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(screen.getByLabelText("Tùy chọn Trợ lý CSKH"));
-    fireEvent.click(screen.getByRole("button", { name: "Xóa trợ lý" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa" }));
     expect(screen.getByText("Xóa trợ lý?")).toBeTruthy();
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Xóa trợ lý" }));
     expect(screen.queryByText("Trợ lý CSKH")).toBeNull();
     expect(localStorage.getItem("igen_erp_agent_chat:agent-card-test:saved-agent")).toBeNull();
+  });
+
+  it("duplicates a saved assistant from its three-dot menu without copying favorite or chat history", () => {
+    localStorage.setItem("igen_erp_agent_drafts:agent-clone-test", JSON.stringify([{
+      id: "saved-agent", name: "Trợ lý CSKH", description: "Giải đáp câu hỏi khách hàng.",
+      instructions: "Trả lời theo tài liệu.", avoid: "Không suy đoán.", tone: "Thân thiện", avatar: 2,
+      favorite: true, openingQuestions: ["Hỏi về đổi trả"],
+      knowledge: [{ id: "resource-1", title: "Chính sách", kind: "text", content: "Đổi trả trong 30 ngày.", createdAt: "2026-01-01T00:00:00.000Z" }],
+    }]));
+    localStorage.setItem("igen_erp_agent_chat:agent-clone-test:saved-agent", JSON.stringify([{ role: "user", content: "Xin chào" }]));
+    render(<AssistantAgents storageScope="agent-clone-test" />);
+
+    fireEvent.click(screen.getByLabelText("Tùy chọn Trợ lý CSKH"));
+    fireEvent.click(screen.getByRole("button", { name: "Nhân bản" }));
+
+    expect(screen.getByRole("status").textContent).toContain("Đã nhân bản");
+    expect(screen.getByText("Trợ lý CSKH (bản sao)")).toBeTruthy();
+    const assistants = JSON.parse(localStorage.getItem("igen_erp_agent_drafts:agent-clone-test") || "[]");
+    const copy = assistants.find((item: { name: string }) => item.name === "Trợ lý CSKH (bản sao)");
+    expect(copy).toMatchObject({ instructions: "Trả lời theo tài liệu.", avoid: "Không suy đoán.", tone: "Thân thiện", avatar: 2, favorite: false, openingQuestions: ["Hỏi về đổi trả"] });
+    expect(copy.id).not.toBe("saved-agent");
+    expect(copy.knowledge[0].id).not.toBe("resource-1");
+    expect(copy.knowledge[0].content).toBe("Đổi trả trong 30 ngày.");
+    expect(localStorage.getItem("igen_erp_agent_chat:agent-clone-test:saved-agent")).not.toBeNull();
+    expect(localStorage.getItem(`igen_erp_agent_chat:agent-clone-test:${copy.id}`)).toBeNull();
   });
 });

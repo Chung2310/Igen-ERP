@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { User } from "../models/user.model";
-import { buildCompanyUserFilter, buildStudentBranchQuery, getAllowedOwnerIds, requireStudentBranch } from "./auth.util";
+import { buildCompanyUserFilter, buildStudentBranchQuery, getAllowedOwnerIds, getCenterOwnerIds, requireStudentBranch } from "./auth.util";
 
 describe("student management branch owner scope", () => {
   it("limits company owners to the authenticated branch", () => {
@@ -43,5 +43,41 @@ describe("admin Partner owner visibility", () => {
 
     expect(owners).toEqual(expect.arrayContaining(["worker-a", "branch-a", "admin-id"]));
     vi.restoreAllMocks();
+  });
+
+  it("shows both admins the same company-admin-owned records in their selected branch", async () => {
+    const find = vi.spyOn(User, "find").mockImplementation(((query: Record<string, string>) => ({
+      select: async () => (query.role === "admin"
+        ? ["admin-a", "admin-b"].map((id) => ({ _id: { toString: () => id } }))
+        : [{ _id: { toString: () => "branch-worker" } }]),
+    })) as unknown as typeof User.find);
+
+    try {
+      const base = { role: "admin", centerId: "ACME", companyCode: "ACME", branchId: "branch-a" };
+      const first = await getAllowedOwnerIds({ ...base, uid: "admin-a" });
+      const second = await getAllowedOwnerIds({ ...base, uid: "admin-b" });
+      const createScope = await getCenterOwnerIds({ ...base, uid: "admin-a" });
+
+      expect(first).toEqual(["branch-worker", "branch-a", "admin-a", "admin-b"]);
+      expect(second).toEqual(first);
+      expect(createScope).toEqual(["branch-worker", "branch-a", "admin-a", "admin-b"]);
+      expect(find).toHaveBeenCalledWith({ companyCode: "ACME", role: "admin" });
+      expect(find).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "branch-a" });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("keeps a branch manager limited to users assigned to that branch", async () => {
+    const find = vi.spyOn(User, "find").mockReturnValue({
+      select: async () => [{ _id: { toString: () => "branch-worker" } }],
+    } as never);
+    try {
+      expect(await getAllowedOwnerIds({ uid: "manager-a", role: "manager", centerId: "ACME", companyCode: "ACME", branchId: "branch-a" }))
+        .toEqual(["branch-worker", "branch-a"]);
+      expect(find).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });

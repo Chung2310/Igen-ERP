@@ -316,7 +316,11 @@ export function HealthcareWorkspace({ branchId, hasPermission, customerCompanyCo
   const listHeaders = sectionHeaders[tab];
   const showCreate = canManage && (tab !== "patients" || !patientId);
   const pageActions = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div ref={heading} tabIndex={-1} className="flex flex-wrap items-center justify-end gap-2">
+      {tab === "patients" && !patientId && canManage && customerCompanyCode && hasPermission("customer:manage") &&
+        <CustomerSourceTransferAction module="healthcare" companyCode={customerCompanyCode} branchId={branchId}
+          initialRecords={patientRows.filter(patient => selectedPatientIds.includes(patient._id)).map(patient => ({ id: patient._id, name: patient.name, code: patient.code, phone: patient.phone, dateOfBirth: patient.dateOfBirth }))}
+          canConfigure={canConfigureCustomerTransfer} />}
       {tab === "patients" && !patientId && canManage && selectedPatientIds.length > 0 && <>
         <span className="rounded-lg bg-surface-container px-2.5 py-1.5 text-xs font-medium text-on-surface-variant">Đã chọn {selectedPatientIds.length}</span>
         <IconActionButton label={`Xóa hàng loạt (${selectedPatientIds.length})`} icon={Trash2} tone="danger" ariaHaspopup
@@ -396,16 +400,7 @@ export function HealthcareWorkspace({ branchId, hasPermission, customerCompanyCo
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
       <section className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
-        <div className="flex flex-wrap items-center justify-between gap-3" ref={heading} tabIndex={-1}>
-          <h3 id="healthcare-section-title" data-typography="section-title" className="text-balance text-lg font-semibold">{pageTitle}</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            {tab === "patients" && !patientId && canManage && customerCompanyCode && hasPermission("customer:manage") &&
-              <CustomerSourceTransferAction module="healthcare" companyCode={customerCompanyCode} branchId={branchId}
-                initialRecords={patientRows.filter(patient => selectedPatientIds.includes(patient._id)).map(patient => ({ id: patient._id, name: patient.name, code: patient.code, phone: patient.phone, dateOfBirth: patient.dateOfBirth }))}
-                canConfigure={canConfigureCustomerTransfer} />}
-            {!hasTable && pageActions}
-          </div>
-        </div>
+        {!hasTable && <div className="flex justify-end">{pageActions}</div>}
         {hasTable && <TableFilterToolbar
           appearance="plain"
           actions={pageActions}
@@ -572,7 +567,7 @@ export function HealthcareWorkspace({ branchId, hasPermission, customerCompanyCo
               </div></Cell>
             </tr>)}
             {tab === "settings" && (tableRows as CatalogItem[]).map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
-              <Cell className="min-w-0 align-middle"><span className="line-clamp-1 font-medium" title={row.name}>{row.name}</span></Cell>
+              <Cell className="min-w-0 align-middle"><span className="line-clamp-1 font-medium">{row.name}</span></Cell>
               <Cell align="center" className="align-middle whitespace-nowrap"><span className="inline-flex rounded bg-surface-container px-2 py-0.5 text-xs font-medium">{row.code}</span></Cell>
               <Cell align="center" className="align-middle whitespace-nowrap"><span className="inline-flex rounded bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">{catalogLabels[row.kind]}</span></Cell>
               <Cell align="center" className="align-middle whitespace-nowrap"><StatusBadge status={row.active ? "completed" : "inactive"} label={row.active ? "Đang sử dụng" : "Ngừng sử dụng"} /></Cell>

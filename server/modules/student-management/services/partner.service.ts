@@ -196,12 +196,13 @@ export class PartnerService {
     ownerId: string,
     data: PartnerData,
     context: CustomFieldWriteContext,
+    duplicateOwnerScope: string | string[] = ownerId,
   ): Promise<EnrichedPartner> {
     const branchId = typeof data.branchId === "string" ? data.branchId : undefined;
     logger.info(`[Partner] Creating partner name=${data.name}, phone=${data.phone} for ownerId=${ownerId}`);
     
     const writeData = await this.customFieldWrites.prepareCreate(context, data);
-    const existing = await Partner.findOne({ ownerId, phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
+    const existing = await Partner.findOne({ ...buildOwnerQuery(duplicateOwnerScope), phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
     if (existing) {
       throw new ConflictError("PARTNER_PHONE_ALREADY_EXISTS", "Số điện thoại đã tồn tại cho đối tác của trung tâm.", { field: "phone" });
     }
@@ -354,9 +355,7 @@ export class PartnerService {
     // Fetch detailed list of referred students
     const students = await Student.find({ partnerId: id }).sort({ createdAt: -1 });
     const studentsList = students.map(student => {
-      const commission = partner.commissionType === "fixed"
-        ? partner.commissionValue
-        : Math.round((parseCurrency(student.fee) * partner.commissionValue) / 100);
+      const commission = Math.round((parseCurrency(student.fee) * enriched.commissionValue) / 100);
 
       return {
         _id: student._id.toString(),
@@ -394,7 +393,8 @@ export class PartnerService {
     const writeData = await this.customFieldWrites.prepareUpdate(targetContext, partner, data);
 
     if (writeData.phone && writeData.phone !== partner.phone) {
-      const dup = await Partner.findOne({ ownerId: partner.ownerId, phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
+      const duplicateOwnerScope = context.actorRole === "superadmin" ? partner.ownerId : ownerId;
+      const dup = await Partner.findOne({ ...buildOwnerQuery(duplicateOwnerScope), phone: writeData.phone, ...buildBranchScopeQuery(branchId) });
       if (dup) {
         throw new ConflictError("PARTNER_PHONE_ALREADY_EXISTS", "Số điện thoại đã tồn tại cho một đối tác khác.", { field: "phone" });
       }

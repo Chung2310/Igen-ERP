@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowUpRight, ChevronDown, FileText, Lightbulb, Link2, MoreVertical, Paperclip, Plus, Search, Send, Settings2, Star, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronDown, Copy, FileText, Lightbulb, Link2, MoreVertical, Paperclip, Plus, Search, Send, Settings2, Star, Trash2, Upload, X } from "lucide-react";
 import { assistantAgentService, type AgentChatMessage } from "../../services/assistantAgentService";
 import { cn } from "../../modules/student-management/lib/utils";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
@@ -153,6 +153,7 @@ function ResourceEditor({ draft, updateDraft }: { draft: AgentDraft; updateDraft
 export function AssistantAgents({ storageScope, creatorName }: { storageScope: string; creatorName?: string }) {
   const formErrorId = useId();
   const chatErrorId = useId();
+  const chatKeyboardHelpId = useId();
   const storageKey = `igen_erp_agent_drafts:${storageScope}`;
   const [saved, setSaved] = useState<AgentDraft[]>(() => readDrafts(storageKey));
   const [draft, setDraft] = useState<AgentDraft | null>(null);
@@ -169,6 +170,7 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
   const [chatAttachmentBusy, setChatAttachmentBusy] = useState(false);
   const chatFileInputId = useId();
   const [deleteTarget, setDeleteTarget] = useState<AgentDraft | null>(null);
+  const [agentNotice, setAgentNotice] = useState("");
 
   useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(saved)); } catch { /* Keep the draft for this session. */ } }, [saved, storageKey]);
   const chatKey = (agentId: string) => `igen_erp_agent_chat:${storageScope}:${agentId}`;
@@ -227,6 +229,29 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
     setSaved(current => current.map(item => item.id === agentId ? { ...item, favorite: !item.favorite } : item));
     setChatAgent(current => current?.id === agentId ? { ...current, favorite: !current.favorite } : current);
   };
+  const cloneAgent = (agent: AgentDraft, trigger: HTMLButtonElement) => {
+    const suffixText = " (bản sao)";
+    const baseName = `${agent.name.slice(0, 50 - suffixText.length)}${suffixText}`;
+    let name = baseName;
+    let suffix = 2;
+    while (saved.some(item => item.name === name)) {
+      const ending = ` (bản sao ${suffix})`;
+      name = `${agent.name.slice(0, Math.max(1, 50 - ending.length))}${ending}`;
+      suffix += 1;
+    }
+    const now = new Date().toISOString();
+    const cloned: AgentDraft = {
+      ...agent,
+      id: crypto.randomUUID(),
+      name,
+      favorite: false,
+      openingQuestions: [...agent.openingQuestions],
+      knowledge: agent.knowledge.map(resource => ({ ...resource, id: crypto.randomUUID(), createdAt: now })),
+    };
+    setSaved(current => [cloned, ...current]);
+    setAgentNotice(`Đã nhân bản “${agent.name}”.`);
+    trigger.closest("details")?.removeAttribute("open");
+  };
   const deleteAgent = () => {
     if (!deleteTarget) return;
     setSaved(current => current.filter(item => item.id !== deleteTarget.id));
@@ -275,11 +300,12 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
       </div>}
     </div>
     <form onSubmit={sendChat} className="shrink-0 px-4 pb-4 pt-2 sm:px-6 sm:pb-5">
-      <div className="mx-auto max-w-5xl rounded-[1.5rem] border border-outline bg-surface-container-lowest p-3 transition-colors focus-within:border-primary sm:p-4">
+      <div className="assistant-conversation-composer mx-auto flex w-full max-w-4xl flex-col items-stretch gap-1 rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 py-2 shadow-sm">
         {chatAttachmentBusy && <p role="status" className="px-1 pb-2 text-xs text-on-surface-variant">Đang đọc tài liệu…</p>}
         {chatAttachment && <div className="mb-2 flex max-w-full items-center gap-2 rounded-lg bg-surface-container-low px-2 py-1.5 text-xs"><FileText className="size-4 shrink-0 text-primary" aria-hidden="true" /><span className="min-w-0 flex-1 truncate">{chatAttachment.fileName}</span><button type="button" disabled={chatBusy} aria-label={`Bỏ tệp ${chatAttachment.fileName}`} onClick={() => setChatAttachment(null)} className={cn("grid size-7 shrink-0 place-items-center rounded-md text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50", focusClass)}><X className="size-4" aria-hidden="true" /></button></div>}
-        <label className="block"><span className="sr-only">Tin nhắn gửi {chatAgent.name}</span><textarea value={chatInput} onChange={event => setChatInput(event.target.value)} aria-describedby={chatError ? chatErrorId : undefined} maxLength={12000} rows={2} placeholder="Hỏi tôi bất cứ điều gì" className="max-h-48 min-h-12 w-full resize-y border-0 bg-transparent px-1 py-1 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-0" /></label>
-        <div className="mt-2 flex items-center justify-between gap-3">
+        <label className="block"><span className="sr-only">Tin nhắn gửi {chatAgent.name}</span><textarea value={chatInput} onChange={event => setChatInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-describedby={chatError ? `${chatKeyboardHelpId} ${chatErrorId}` : chatKeyboardHelpId} maxLength={12000} rows={1} spellCheck={false} placeholder="Hỏi tôi bất cứ điều gì" className="block h-10 min-h-10 max-h-10 w-full min-w-0 resize-none overflow-y-auto border-0 bg-transparent px-2.5 py-1.5 text-sm leading-6 text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0" /></label>
+        <p id={chatKeyboardHelpId} className="sr-only">Nhấn Enter để gửi, Shift + Enter để xuống dòng.</p>
+        <div className="assistant-composer-toolbar order-3 flex w-full items-center justify-between gap-1">
           <div className="flex items-center gap-1">
             <label htmlFor={chatFileInputId} aria-label="Đính kèm tài liệu" title="Đính kèm tài liệu" className={cn("grid size-9 cursor-pointer place-items-center rounded-full text-on-surface-variant hover:bg-surface-container-low focus-within:ring-2 focus-within:ring-primary", chatAttachmentBusy || chatBusy ? "pointer-events-none opacity-45" : "")}><Paperclip className="size-5" aria-hidden="true" /></label>
             <input id={chatFileInputId} type="file" accept=".pdf,.docx,.txt" disabled={chatBusy || chatAttachmentBusy} onChange={event => { void attachChatFile(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} className="sr-only" aria-label="Chọn tài liệu đính kèm" />
@@ -287,7 +313,7 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-1.5 rounded-full px-2 text-sm text-on-surface-variant sm:inline-flex"><img src="/igenai.png" alt="" aria-hidden="true" className="size-5 object-contain" />Tự động</span>
-            <button type="submit" disabled={!chatInput.trim() || chatBusy || chatAttachmentBusy} aria-label="Gửi tin nhắn" className={cn("grid size-10 shrink-0 place-items-center rounded-full bg-primary text-on-primary disabled:opacity-45", focusClass)}><Send className="size-4" aria-hidden="true" /></button>
+            <button type="submit" disabled={!chatInput.trim() || chatBusy || chatAttachmentBusy} aria-label="Gửi tin nhắn" className={cn("grid size-9 shrink-0 place-items-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}><Send className="size-4" aria-hidden="true" /></button>
           </div>
         </div>
       </div>
@@ -330,12 +356,13 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
       <header className="mx-auto max-w-2xl text-center"><h3 data-typography="page-title" className="assistant-large-page-title text-balance text-on-surface">Trợ lý AI</h3><p className="mt-1 text-pretty text-sm text-on-surface-variant">Tạo trợ lý trò chuyện riêng theo nhu cầu của bạn.</p></header>
       <label className="relative mx-auto mt-6 block max-w-xl"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" /><span className="sr-only">Tìm Trợ lý AI</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Tìm trợ lý…" className={cn(inputClass, "pl-10")} /></label>
       <nav aria-label="Lọc Trợ lý AI" className="mx-auto mt-5 flex max-w-xl gap-1 border-b border-outline-variant">{(["all", "mine", "shared"] as const).map(value => <button key={value} type="button" aria-pressed={tab === value} onClick={() => setTab(value)} className={cn("min-h-10 border-b-2 border-transparent px-3 text-sm text-on-surface-variant hover:text-on-surface", tab === value && "border-primary font-medium text-primary", focusClass)}>{value === "all" ? "Tất cả" : value === "mine" ? "Trợ lý của tôi" : "Được chia sẻ với tôi"}</button>)}</nav>
+      {agentNotice && <p role="status" className="sr-only">{agentNotice}</p>}
       <div className="mt-6 space-y-8">
         {tab !== "shared" && visibleSaved.length > 0 && <section aria-labelledby="my-agents-heading">
           <h4 id="my-agents-heading" className="mb-3 text-balance text-sm font-semibold">Trợ lý của tôi</h4>
           <div className="grid gap-3 xl:grid-cols-2">{visibleSaved.map(item => <AgentCard key={item.id} name={item.name} avatar={item.avatar} subtitle="Của tôi" description={item.description || "Chưa có mô tả."} headerActions={<>
             <button type="button" aria-label={item.favorite ? `Bỏ yêu thích ${item.name}` : `Yêu thích ${item.name}`} aria-pressed={Boolean(item.favorite)} onClick={() => toggleFavorite(item.id)} className={cn("grid size-9 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low", item.favorite && "text-primary", focusClass)}><Star className={cn("size-4", item.favorite && "fill-current")} aria-hidden="true" /></button>
-            <details className="group relative"><summary aria-label={`Tùy chọn ${item.name}`} className={cn("grid size-9 cursor-pointer list-none place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low [&::-webkit-details-marker]:hidden", focusClass)}><MoreVertical className="size-4" aria-hidden="true" /></summary><div className="absolute right-0 z-10 mt-1 min-w-32 rounded-lg border border-outline-variant bg-surface-container-lowest p-1 shadow-md"><button type="button" onClick={() => setDeleteTarget(item)} className={cn("flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-error hover:bg-error/10", focusClass)}><Trash2 className="size-4" aria-hidden="true" />Xóa trợ lý</button></div></details>
+            <details className="group relative"><summary aria-label={`Tùy chọn ${item.name}`} className={cn("grid size-9 cursor-pointer list-none place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low [&::-webkit-details-marker]:hidden", focusClass)}><MoreVertical className="size-4" aria-hidden="true" /></summary><div className="absolute right-0 z-10 mt-1 min-w-40 rounded-lg border border-outline-variant bg-surface-container-lowest p-1 shadow-md"><button type="button" onClick={event => cloneAgent(item, event.currentTarget)} className={cn("flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-surface-container-low", focusClass)}><Copy className="size-4" aria-hidden="true" />Nhân bản</button><button type="button" onClick={() => setDeleteTarget(item)} className={cn("flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-error hover:bg-error/10", focusClass)}><Trash2 className="size-4" aria-hidden="true" />Xóa</button></div></details>
           </>}>
             <button type="button" onClick={() => { setDraft(item); setEditorTab("general"); setError(""); }} className={cn("inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-2.5 text-sm text-on-surface hover:bg-surface-container-low", focusClass)}><Settings2 className="size-4" aria-hidden="true" />Thiết lập trợ lý</button>
             <button type="button" onClick={() => openChat(item)} className={cn("inline-flex min-h-9 items-center gap-2 rounded-lg border border-primary px-2.5 text-sm text-primary hover:bg-primary/10", focusClass)}>Mở trò chuyện<ArrowUpRight className="size-4" aria-hidden="true" /></button>

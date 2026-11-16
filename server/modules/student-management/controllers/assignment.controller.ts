@@ -15,7 +15,8 @@ export class AssignmentController {
         req.user!.id,
         ownerId,
         ownerScope,
-        req.user!.companyCode
+        req.user!.companyCode,
+        req.user!.branchId,
       );
       res.status(201).json({ success: true, data });
     } catch (error: unknown) {
@@ -31,7 +32,12 @@ export class AssignmentController {
         return res.status(400).json({ success: false, error: "Thiếu mã lớp học batchId." });
       }
       const ownerScope = await getAllowedOwnerIds(req.user!);
-      const assignments = await AssignmentService.getAssignments(ownerScope, String(batchId), typeof search === "string" ? search : undefined);
+      const assignments = await AssignmentService.getAssignments(
+        ownerScope,
+        String(batchId),
+        req.user!.branchId,
+        typeof search === "string" ? search : undefined,
+      );
       res.json({ success: true, data: assignments });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi lấy danh sách bài tập.";
@@ -43,7 +49,7 @@ export class AssignmentController {
     try {
       const { id } = req.params;
       const ownerScope = await getAllowedOwnerIds(req.user!);
-      const submissions = await AssignmentService.getSubmissions(ownerScope, id);
+      const submissions = await AssignmentService.getSubmissions(ownerScope, id, req.user!.branchId);
       res.json({ success: true, data: submissions });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi lấy danh sách bài nộp.";
@@ -55,7 +61,7 @@ export class AssignmentController {
     try {
       const { id, studentId } = req.params;
       const ownerScope = await getAllowedOwnerIds(req.user!);
-      const data = await AssignmentService.gradeSubmission(id, studentId, req.body, req.user!.id, ownerScope);
+      const data = await AssignmentService.gradeSubmission(id, studentId, req.body, req.user!.id, ownerScope, req.user!.branchId);
       res.json({ success: true, data });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi chấm điểm bài nộp.";
@@ -66,7 +72,7 @@ export class AssignmentController {
   static async staffSubmit(req: AuthRequest, res: Response) {
     try {
       const ownerScope = await getAllowedOwnerIds(req.user!);
-      const data = await AssignmentService.staffSubmitProof(req.params.id, req.params.studentId, req.body, req.user!.id, ownerScope);
+      const data = await AssignmentService.staffSubmitProof(req.params.id, req.params.studentId, req.body, req.user!.id, ownerScope, req.user!.branchId);
       res.json({ success: true, data });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi lưu bài nộp hộ học viên.";
