@@ -116,6 +116,59 @@
   transition: width 180ms ease-out;
 }
 
+.assistant-sidebar-navigation {
+  transform-origin: top center;
+}
+
+.assistant-sidebar-navigation.is-compact {
+  animation: assistant-sidebar-compact-in 180ms ease-out both;
+}
+
+@keyframes assistant-sidebar-compact-in {
+  from {
+    opacity: 0.82;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.assistant-reference-sidebar.is-menu-compact .assistant-side-item {
+  justify-content: center;
+  padding-inline: 8px;
+}
+
+.assistant-reference-sidebar.is-menu-compact .assistant-side-label {
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  pointer-events: none;
+}
+
+.assistant-sidebar-navigation.is-compact .assistant-side-item {
+  min-width: 0;
+}
+
+.assistant-sidebar-navigation.is-compact .assistant-side-item > svg {
+  display: none;
+}
+
+.assistant-sidebar-navigation.is-compact .assistant-sidebar-history {
+  justify-content: center;
+}
+
+.assistant-sidebar-navigation.is-compact .assistant-sidebar-history > .assistant-side-item {
+  flex: 0 0 36px;
+  padding-inline: 8px;
+}
+
+.assistant-sidebar-navigation.is-compact .assistant-sidebar-history #assistant-quick-history-list {
+  left: auto;
+  right: 0;
+  width: calc(300% + 0.75rem);
+}
+
 .assistant-reference-sidebar.is-collapsed {
   width: 64px;
 }
@@ -227,6 +280,21 @@
   -webkit-text-fill-color: transparent;
 }
 
+.assistant-user-message-actions {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .assistant-user-message-actions {
+    opacity: 0;
+  }
+
+  .assistant-user-message:hover .assistant-user-message-actions,
+  .assistant-user-message:focus-within .assistant-user-message-actions {
+    opacity: 1;
+  }
+}
+
 .assistant-side-item.is-active {
   background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 11%, var(--color-surface-container-lowest)), color-mix(in srgb, #7567ff 9%, var(--color-surface-container-lowest)));
 }
@@ -256,8 +324,12 @@
 @media (prefers-reduced-motion: reduce) {
   .assistant-reference-sidebar,
   .assistant-sidebar-new-chat,
-  .assistant-side-label {
+  .assistant-side-label,
+  .assistant-sidebar-navigation,
+  .assistant-sidebar-navigation.is-compact,
+  .assistant-sidebar-navigation.is-compact .assistant-side-item {
     transition: none;
+    animation: none;
   }
 }
 

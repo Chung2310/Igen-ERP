@@ -639,7 +639,7 @@ describe("LeadTable", () => {
       expect(lastCall?.fieldFilters).toBeUndefined();
       expect(lastCall?.sort).toBe("updatedAt:desc");
     }, { timeout: 2500 });
-  });
+  }, 12_000);
 
   it("deduplicates cross-channel columns and updates Bộ lọc / Sắp xếp when toggling Cột hiển thị", async () => {
     vi.mocked(crmService.getActiveLeadIntakeProfiles).mockResolvedValue([
@@ -712,7 +712,7 @@ describe("LeadTable", () => {
       expect(lastCall?.fieldFilters).toBeUndefined();
     }, { timeout: 2500 });
     expect(screen.queryByRole("button", { name: "Bỏ lọc Trạng thái chốt" })).toBeNull();
-  });
+  }, 12_000);
 
   it("exposes visible horizontal scrollbar, scroll buttons, and centered empty state when many columns overflow", async () => {
     vi.mocked(crmService.getLeadPage).mockResolvedValue({

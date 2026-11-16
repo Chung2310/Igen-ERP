@@ -1,12 +1,12 @@
 import { operationById, type AssistantOperation } from "./catalog";
 import { redactAssistantResult } from "./structured-data";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
-import { formatAssistantResultTable } from "../../src/shared/assistant-result-table";
+import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 
-type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "path">>;
+type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "resultChildFields">>;
 type ResultRecord = Record<string, unknown>;
 
-const collectionKeys = ["items", "records", "results", "rows", "transactions", "vouchers", "workers", "partners", "students", "assets", "campaigns", "data"];
+const collectionKeys = ["items", "records", "results", "rows", "transactions", "vouchers", "workers", "partners", "students", "courses", "batches", "enrollments", "exams", "payments", "notifications", "resources", "assignments", "roadmaps", "learningRoadmaps", "steps", "bookings", "categories", "assets", "campaigns", "data"];
 const moneyKey = /(?:amount|salary|price|cost|paid|due|remaining|refund|total|tuition|fee|bookValue|depreciation|grossPay|grossProfit|deductions|netPay|cashNet|bankNet|expectedCash|countedCash|balance)/i;
 const commonStatusLabels: Record<string, string> = {
   active: "Đang hoạt động", inactive: "Đã ngừng hoạt động", enabled: "Đang bật", disabled: "Đang tắt",
@@ -21,7 +21,7 @@ const commonStatusLabels: Record<string, string> = {
   out_of_stock: "Hết hàng", in_transit: "Đang vận chuyển", resolved: "Đã xử lý", waiting: "Đang chờ",
   on_hold: "Tạm hoãn", partial: "Hoàn tất một phần", partially_completed: "Hoàn tất một phần",
   review: "Chờ duyệt", unknown: "Chưa xác định", not_started: "Chưa bắt đầu", skipped: "Đã bỏ qua",
-  sent: "Đã gửi", preview: "Bản xem trước", counting: "Đang kiểm đếm",
+  sent: "Đã gửi", sending: "Đang gửi", preview: "Bản xem trước", counting: "Đang kiểm đếm",
   pending_approval: "Chờ duyệt", conflict: "Xung đột tồn kho", needs_assets: "Thiếu ảnh",
   ready: "Sẵn sàng", bulk_queued: "Đang tạo", expiring: "Sắp hết hạn", planned: "Đã lên kế hoạch",
   reviewed: "Đã duyệt", verified: "Đã xác minh", reversed: "Đã đảo", synced: "Đã đồng bộ", received: "Đã nhận",
@@ -29,7 +29,7 @@ const commonStatusLabels: Record<string, string> = {
   generating_context: "Đang tạo nội dung ngữ cảnh", transcribing: "Đang nhận dạng lời thoại", rendering: "Đang kết xuất",
   analyzing: "Đang phân tích", retrying: "Đang thử lại", publishing: "Đang đăng",
   none: "Không áp dụng", unrecorded: "Chưa ghi nhận", placed: "Đã bố trí", present: "Có mặt",
-  late: "Đi muộn", absent: "Vắng", excused: "Có phép", "approved-leave": "Nghỉ phép",
+  late: "Đi muộn", absent: "Vắng", excused: "Có phép", "approved-leave": "Nghỉ phép", renewed: "Đã gia hạn", "missing-checkout": "Chưa ghi giờ ra",
   "left-early": "Về sớm", "half-day": "Nửa ngày", "late-left-early": "Đi muộn, về sớm",
   online: "Trực tuyến", offline: "Ngoại tuyến", busy: "Đang bận", away: "Vắng mặt",
   retired: "Đã ngừng áp dụng", ended: "Đã kết thúc", void: "Đã hủy", calculated: "Đã tính", terminated: "Đã chấm dứt",
@@ -40,6 +40,7 @@ const commonStatusLabels: Record<string, string> = {
   started: "Đã bắt đầu", reviewing: "Đang xem xét", negotiating: "Đang thương lượng", converted: "Đã chuyển đổi",
 };
 const enumValueLabelsByKey: Record<string, Record<string, string>> = {
+  alertLevel: { ok: "Còn hạn", expiring: "Sắp hết hạn", expired: "Đã hết hạn" },
   discountType: { amount: "Giảm theo số tiền", percent: "Giảm theo phần trăm" },
   productType: { physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm" },
   type: {
@@ -65,7 +66,8 @@ const enumValueLabelsByKey: Record<string, Record<string, string>> = {
   contractType: { official: "Chính thức", probation: "Thử việc", internship: "Thực tập", temporary: "Tạm thời", fixed_term: "Có thời hạn", indefinite: "Không xác định thời hạn" },
   paymentMethod: { cash: "Tiền mặt", bank_transfer: "Chuyển khoản", transfer: "Chuyển khoản", card: "Thẻ", ewallet: "Ví điện tử", wallet: "Ví điện tử" },
   commissionType: { percentage: "Phần trăm", fixed: "Số tiền cố định" },
-  mode: { speech: "Lời thoại", context: "Ngữ cảnh", combined: "Lời thoại và ngữ cảnh", fullscreen: "Toàn màn hình", window: "Cửa sổ nổi" },
+  mode: { goods: "Hàng hóa", services: "Dịch vụ", mixed: "Hàng hóa và dịch vụ", speech: "Lời thoại", context: "Ngữ cảnh", combined: "Lời thoại và ngữ cảnh", fullscreen: "Toàn màn hình", window: "Cửa sổ nổi" },
+  targetModule: { students: "Học viên", healthcare: "Bệnh nhân", workers: "Người lao động" },
   visibility: { public: "Công khai", private: "Riêng tư", company: "Trong doanh nghiệp" },
   sourceType: { manual: "Thủ công", campaign_orders: "Đơn sản xuất chiến dịch", sheet: "Bảng dữ liệu", system: "Hệ thống" },
   targetType: { standalone: "Tạo riêng", campaign: "Chiến dịch" },
@@ -82,7 +84,7 @@ const enumValueLabelsByKey: Record<string, Record<string, string>> = {
   trigger: { manual: "Thủ công", scheduled: "Theo lịch", automatic: "Tự động" },
   commissionScheme: { official_monthly: "Chính thức theo tháng", seasonal_hourly: "Thời vụ theo giờ" },
   confirmationSource: { contract: "Hợp đồng", manual: "Thủ công", attendance: "Chấm công" },
-  channel: { online: "Trực tuyến", phone: "Điện thoại", onsite: "Tại địa điểm", network: "Mạng", web: "Web", mobile: "Ứng dụng di động" },
+  channel: { online: "Trực tuyến", phone: "Điện thoại", onsite: "Tại địa điểm", network: "Mạng", web: "Web", mobile: "Ứng dụng di động", "in-app": "Trong ứng dụng", email: "Email" },
   connectionType: { network: "Mạng", wifi: "Wi-Fi", ethernet: "Mạng dây", mobile: "Mạng di động", wired: "Mạng dây", wireless: "Mạng không dây" },
   network: { network: "Mạng", wifi: "Wi-Fi", ethernet: "Mạng dây", mobile: "Mạng di động", wired: "Mạng dây", wireless: "Mạng không dây" },
   networkType: { network: "Mạng", wifi: "Wi-Fi", ethernet: "Mạng dây", mobile: "Mạng di động", wired: "Mạng dây", wireless: "Mạng không dây" },
@@ -100,7 +102,7 @@ const labels: Record<string, string> = {
   assetCode: "Mã tài sản", assetName: "Tài sản", barcode: "Mã vạch", group: "Nhóm tài sản", originalCost: "Nguyên giá", salvageValue: "Giá trị thanh lý", accumulatedDepreciation: "Khấu hao lũy kế", netBookValue: "Giá trị còn lại", usefulLifeMonths: "Thời gian sử dụng (tháng)", inServiceDate: "Ngày đưa vào sử dụng", disposalAmount: "Tiền thu hồi khi thanh lý", disposalReason: "Lý do thanh lý", accumulatedAfter: "Khấu hao lũy kế sau kỳ", netBookValueAfter: "Giá trị còn lại sau kỳ", custodianName: "Người quản lý", supplierName: "Nhà cung cấp", department: "Bộ phận", location: "Vị trí", period: "Kỳ", sessionCode: "Mã phiên kiểm kê", scope: "Phạm vi kiểm kê", total: "Tổng tài sản", counts: "Số lượng theo kết quả", variances: "Chênh lệch kiểm kê", grossPay: "Tổng thu nhập",
   laborType: "Loại lao động", name: "Tên", legalName: "Pháp nhân xuất hóa đơn", taxId: "Mã số thuế", invoiceEmail: "Email nhận hóa đơn", contactName: "Người liên hệ", isDefault: "Hồ sơ mặc định", warnings: "Lưu ý", netCollected: "Thực thu", note: "Ghi chú", occurredAt: "Thời điểm", occurredOn: "Ngày",
   outcome: "Kết quả quét", paidAmount: "Đã thanh toán", parentCode: "Mã đơn liên quan", payments: "Thanh toán", phone: "Điện thoại",
-  productName: "Sản phẩm", quantity: "Số lượng", refundedAmount: "Đã hoàn tiền", refunds: "Hoàn tiền", startDate: "Ngày bắt đầu", postsPerDay: "Số bài mỗi ngày",
+  productName: "Sản phẩm", quantity: "Số lượng", queued: "Đã xếp hàng gửi", skipped: "Bỏ qua", targetModule: "Phân hệ được liên kết", targetRecordName: "Hồ sơ được liên kết", refundedAmount: "Đã hoàn tiền", refunds: "Hoàn tiền", startDate: "Ngày bắt đầu", postsPerDay: "Số bài mỗi ngày",
   remaining: "Còn có thể hoàn", remainingLabor: "Còn có thể hoàn tiền công", remainingOther: "Còn có thể hoàn khoản khác",
   reservedQuantity: "Đã giữ chỗ", sku: "SKU", startAt: "Thời gian bắt đầu", status: "Trạng thái", summary: "Tóm tắt",
   question: "Câu hỏi", ticketCode: "Mã phiếu sửa chữa", title: "Tiêu đề", totalAmount: "Tổng tiền", unitCode: "Đơn vị", variantName: "Biến thể",
@@ -109,6 +111,9 @@ const labels: Record<string, string> = {
 
 Object.assign(labels, {
   workingDays: "Ngày làm việc", daysOfWeek: "Ngày trong tuần", createdAt: "Ngày tạo",
+  clientName: "Khách hàng hoặc đơn vị sử dụng lao động", workerName: "Người lao động", projectName: "Dự án",
+  alertLevel: "Cảnh báo hạn hợp đồng", previousEndDate: "Ngày kết thúc kỳ trước", renewedAt: "Ngày gia hạn",
+  quota: "Chỉ tiêu lao động", workedMinutes: "Số phút làm việc", checkInAt: "Giờ vào", checkOutAt: "Giờ ra",
   productType: "Loại sản phẩm", employmentStatus: "Tình trạng làm việc", trackingMode: "Cách theo dõi tồn kho",
   unitCategory: "Nhóm đơn vị tính", priority: "Mức độ ưu tiên", role: "Vai trò", format: "Hình thức",
   sourceType: "Nguồn dữ liệu", trigger: "Cách khởi chạy", visibility: "Chế độ hiển thị", targetType: "Phạm vi tạo",
@@ -169,7 +174,7 @@ Object.assign(labels, { mode: "Ch\u1EBF \u0111\u1ED9 kho tri th\u1EE9c", documen
 
 Object.assign(labels, { optimizedText: "Văn bản đã biên tập", subject: "Chủ thể", optimizedPrompt: "Prompt hình ảnh đã tối ưu", negativePrompt: "Nội dung cần tránh", suggestions: "Gợi ý chủ đề", feedbackUrl: "Liên kết đánh giá" });
 Object.assign(labels, { found: "Đã tìm thấy thiết bị", serialNumber: "Số sê-ri/IMEI", soldAt: "Ngày bán", orderCode: "Mã đơn bán", customerCode: "Mã khách hàng", customerCovered: "Còn bảo hành khách hàng", customerWarrantyEndAt: "Hết bảo hành khách hàng", customerWarrantyDaysLeft: "Ngày bảo hành khách hàng còn lại", supplierCovered: "Còn bảo hành nhà cung cấp", supplierWarrantyEndAt: "Hết bảo hành nhà cung cấp", supplierWarrantyDaysLeft: "Ngày bảo hành nhà cung cấp còn lại", costBearer: "Bên chịu chi phí" });
-Object.assign(labels, { sent: "Đã gửi", recipient: "Người nhận" });
+Object.assign(labels, { sent: "Đã gửi", recipient: "Người nhận", content: "Nội dung", recipients: "Phạm vi người nhận", recipientCount: "Số người nhận", channels: "Kênh gửi" });
 Object.assign(labels, { channel: "Kênh", senderName: "Khách hàng", lastMessageAt: "Hoạt động gần nhất", unreadCount: "Tin chưa đọc", isVip: "Khách VIP" });
 Object.assign(labels, { mediaType: "Loại tệp", voiceName: "Giọng đọc", duration: "Thời lượng", url: "Liên kết tệp" });
 Object.assign(labels, { aspectRatio: "Tỷ lệ ảnh", resolution: "Độ phân giải", modelName: "Mô hình tạo ảnh" });
@@ -229,6 +234,12 @@ export function localizedAssistantFieldLabel(key: string, label: string, operati
 }
 
 function labelFor(operation: ResultOperation, key: string): string {
+  if (operation.id.startsWith("worker.notification.")) {
+    const notificationLabels: Record<string, string> = {
+      recipients: "Phạm vi người nhận", recipientCount: "Số người nhận", channels: "Kênh gửi", createdAt: "Ngày tạo",
+    };
+    if (notificationLabels[key]) return notificationLabels[key];
+  }
   if (operation.id.startsWith("task.") && key === "category") return "Danh mục công việc";
   if (operation.id.startsWith("recruitment.job.") && key === "code") return "Mã vị trí tuyển dụng";
   if (operation.id === "department.list") {
@@ -252,6 +263,14 @@ function labelFor(operation: ResultOperation, key: string): string {
       qualification: "Tr\u00ECnh \u0111\u1ED9 chuy\u00EAn m\u00F4n",
     };
     if (employeeLabels[key]) return employeeLabels[key];
+  }
+  if (operation.id === "student.list") {
+    const studentLabels: Record<string, string> = {
+      fullName: "H\u1ECDc vi\u00EAn", phone: "S\u1ED1 \u0111i\u1EC7n tho\u1EA1i", email: "Email",
+      registrationDate: "Ng\u00E0y \u0111\u0103ng k\u00FD", status: "Tr\u1EA1ng th\u00E1i",
+      fee: "H\u1ECDc ph\u00ED", paidAmount: "\u0110\u00E3 thanh to\u00E1n",
+    };
+    if (studentLabels[key]) return studentLabels[key];
   }
   if (["marketing.video-caption.project.list", "marketing.video-caption.project.detail"].includes(operation.id)) {
     const projectLabels: Record<string, string> = {
@@ -297,10 +316,10 @@ function labelFor(operation: ResultOperation, key: string): string {
   if (operation.id === "notification.mark-all-read" && key === "success") return "Đã đánh dấu đọc toàn bộ";
   if (operation.id === "notification.delete" && key === "deleted") return "Đã xóa thông báo";
   if (operation.id === "marketing.elevenlabs.voices.list" && key === "name") return "Giọng đọc";
-  if (operation.id.startsWith("marketing.chat-flow.") && key === "goal") return "Mục tiêu workflow";
-  if (operation.id.startsWith("marketing.chat-flow.") && key === "completionMessage") return "Lời nhắn sau khi thu thập đủ thông tin";
-  if (operation.id.startsWith("marketing.chat-flow.") && key === "fields") return "Thông tin cần thu thập";
-  if (operation.id.startsWith("marketing.chat-flow.") && key === "createdAt") return "Tạo lúc";
+  if ((operation.id.startsWith("marketing.chat-flow.") || operation.id.startsWith("marketing.lead-intake-profile.")) && key === "goal") return "Mục tiêu thu thập thông tin";
+  if ((operation.id.startsWith("marketing.chat-flow.") || operation.id.startsWith("marketing.lead-intake-profile.")) && key === "completionMessage") return "Lời nhắn sau khi thu thập đủ thông tin";
+  if ((operation.id.startsWith("marketing.chat-flow.") || operation.id.startsWith("marketing.lead-intake-profile.")) && key === "fields") return "Thông tin cần thu thập";
+  if ((operation.id.startsWith("marketing.chat-flow.") || operation.id.startsWith("marketing.lead-intake-profile.")) && key === "createdAt") return "Tạo lúc";
   if (operation.id.startsWith("omni-inbox.ai-reply-log") && key === "channel") return "Kênh";
   if (operation.id.startsWith("omni-inbox.ai-reply-log") && key === "feedback") return "Đánh giá";
   if (operation.id.startsWith("omni-inbox.ai-reply-log") && key === "status") return "Trạng thái gửi";
@@ -493,7 +512,7 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
       const timestamp = new Date(value);
       return Number.isNaN(timestamp.valueOf()) ? value : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(timestamp);
     }
-    if (operation.id.startsWith("marketing.chat-flow.") && key === "status") return ({ draft: "Bản nháp", active: "Đang hoạt động", archived: "Đã lưu" } as Record<string, string>)[value] || value;
+    if ((operation.id.startsWith("marketing.chat-flow.") || operation.id.startsWith("marketing.lead-intake-profile.")) && key === "status") return ({ draft: "Bản nháp", active: "Đang hoạt động", archived: "Đã lưu" } as Record<string, string>)[value] || value;
     if (operation.id.startsWith("marketing.content.") && key === "status") return ({ draft: "Bản nháp", pending: "Chờ duyệt", approved: "Đã duyệt", scheduled: "Đã lên lịch", published: "Đã đăng", processing: "Đang xử lý", failed: "Thất bại" } as Record<string, string>)[value] || value;
     if (operation.id.startsWith("marketing.chat-flow.") && key === "createdAt") {
       const timestamp = new Date(value);
@@ -595,6 +614,13 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
   if (depth >= 3) return "Có thông tin chi tiết";
   if (Array.isArray(value)) {
     if (value.length === 0) return "Không có";
+    if (key === "channels") {
+      return value.filter((item): item is string => typeof item === "string")
+        .map(item => enumValueLabelsByKey.channel[item] || item).join(", ") || "Không có";
+    }
+    if (["student.list", "student.detail"].includes(operation.id) && key === "status") {
+      return value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).join(", ");
+    }
     if (["workingDays", "daysOfWeek"].includes(key) && value.every(day => Number.isInteger(Number(day)) && Number(day) >= 0 && Number(day) <= 6)) {
       return [...new Set(value.map(day => weekdayLabels[Number(day)]))].join(", ");
     }
@@ -679,7 +705,24 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
       const referralSources: Record<string, string> = { contract: "Hợp đồng", manual: "Thủ công", attendance: "Chấm công" };
       const calendarAuditActions: Record<string, string> = { created: "Tạo", updated: "Cập nhật", deleted: "Xóa", synced: "Đồng bộ" };
       const reminderTriggers: Record<string, string> = { manual: "Chạy thủ công", scheduled: "Theo lịch" };
-      const formatted = operation.id.startsWith("marketing.chat-flow.") && key === "fields" && Array.isArray(value)
+      const childFields = operation.resultChildFields?.[key];
+      const projectBySchema = (child: unknown, schema: NonNullable<typeof childFields>): unknown => {
+        if (Array.isArray(schema)) {
+          const childRecord = recordOf(child);
+          return childRecord
+            ? Object.fromEntries(schema.filter(childKey => Object.hasOwn(childRecord, childKey)).map(childKey => [childKey, childRecord[childKey]]))
+            : child;
+        }
+        const childRecord = recordOf(child);
+        if (!childRecord) return child;
+        return Object.fromEntries(Object.entries(schema)
+          .filter(([childKey]) => Object.hasOwn(childRecord, childKey))
+          .map(([childKey, nestedSchema]) => [childKey, projectBySchema(childRecord[childKey], nestedSchema)]));
+      };
+      const displayValue = childFields
+        ? Array.isArray(value) ? value.map(child => projectBySchema(child, childFields)) : projectBySchema(value, childFields)
+        : value;
+      const formatted = (operation.id.startsWith("marketing.chat-flow.") || operation.id.startsWith("marketing.lead-intake-profile.")) && key === "fields" && Array.isArray(value)
         ? value.map((field: any) => [field?.label, field?.question].filter((part: unknown) => typeof part === "string" && part.trim()).join(": ")).filter(Boolean).join("; ")
         : operation.id.startsWith("finance.reminders.runs.") && key === "trigger" && typeof value === "string"
         ? reminderTriggers[value] || formatValue(operation, key, value)
@@ -691,7 +734,9 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
           ? referralSchemes[value] || formatValue(operation, key, value)
           : operation.id.includes("referral") && key === "confirmationSource" && typeof value === "string"
             ? referralSources[value] || formatValue(operation, key, value)
-            : formatValue(operation, key, value);
+            : operation.id.startsWith("worker.notification.") && key === "recipients" && value === "all"
+              ? "Tất cả người lao động"
+              : formatValue(operation, key, displayValue);
       const commissionValue = key === "commissionRate" && typeof displayRecord[key] === "number"
         ? `${formatted}%`
         : key === "ratePercent" && typeof displayRecord[key] === "number"
@@ -707,12 +752,58 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
     .join("\n");
 }
 
+/** Build a table row from the same explicitly approved fields used by formatRecord. */
+function formatRecordTableRow(operation: ResultOperation, value: unknown): Record<string, string> {
+  const summary = formatRecord(operation, value);
+  const fields = new Map<string, string>();
+  const allowedLabels = new Set((operation.id === "department.list"
+    ? ["name", "code", "managerName", "isActive", "employeeCount"]
+    : operation.id === "employee.list"
+      ? ["displayName", "department", "division"]
+      : ["recruitment.job.delete", "recruitment.job.restore"].includes(operation.id)
+        ? ["code", "title", "status"]
+        : operation.resultFields).map(key => labelFor(operation, key)));
+  for (const line of summary.split(/\r?\n/)) {
+    const match = line.match(/^([^:\r\n]{1,80}):\s*(.*)$/);
+    if (!match || !allowedLabels.has(match[1])) continue;
+    fields.set(match[1], match[2].trim());
+  }
+  return Object.fromEntries(fields);
+}
+
 function collection(value: unknown): unknown[] | null {
   if (Array.isArray(value)) return value;
   const record = recordOf(value);
   if (!record) return null;
   for (const key of collectionKeys) if (Array.isArray(record[key])) return record[key] as unknown[];
   return null;
+}
+
+function workerManagementTableResult(operation: ResultOperation, input: unknown): string {
+  if (!/^\/worker-management\/(?:workers|projects|labor-contracts|attendance|notifications)(?:\/|$)/.test(operation.path || "")) return "";
+  const safe = redactAssistantResult(input);
+  const wrapper = recordOf(safe);
+  const data = recordOf(wrapper?.data);
+  const nested = recordOf(data?.worker) || recordOf(data?.project) || recordOf(data?.contract) || recordOf(data?.notification)
+    || recordOf(wrapper?.worker) || recordOf(wrapper?.project) || recordOf(wrapper?.contract) || recordOf(wrapper?.notification) || data;
+  const records = collection(safe) || collection(nested) || (nested ? [nested] : wrapper ? [wrapper] : []);
+  if (!records.length) return operation.method === "GET" ? `${operation.title}\nMình chưa tìm thấy kết quả phù hợp.` : "";
+  const rows = records.slice(0, 8).flatMap(value => {
+    const record = recordOf(value);
+    if (!record) return [];
+    const row = Object.fromEntries(operation.resultFields
+      .filter(key => Object.hasOwn(record, key) && record[key] !== null && record[key] !== undefined && record[key] !== "")
+      .map(key => [labelFor(operation, key), operation.id.startsWith("worker.notification.") && key === "recipients" && record[key] === "all"
+        ? "Tất cả người lao động" : formatValue(operation, key, record[key])]));
+    return Object.keys(row).length ? [row] : [];
+  });
+  if (!rows.length) return "";
+  const summary = operation.method === "GET" ? `Mình tìm thấy ${records.length} kết quả phù hợp cho bạn.`
+    : operation.method === "DELETE" ? "Mình đã xóa xong."
+      : operation.method === "POST" ? "Mình đã tạo xong."
+        : "Mình đã cập nhật xong.";
+  return formatAssistantResultTable(summary, rows,
+    records.length > rows.length ? [`Còn ${records.length - rows.length} kết quả chưa hiển thị.`] : []);
 }
 
 function formatLaborPartnerPolicy(operation: ResultOperation, input: unknown): string {
@@ -827,6 +918,77 @@ function formatLaborPartnerKpi(input: unknown): string {
   ];
   if (typeof kpi.note === "string" && kpi.note.trim()) lines.push(`Ghi chú: ${kpi.note.trim()}`);
   return lines.join("\n");
+}
+
+function studentQualityResultRow(operation: ResultOperation, record: ResultRecord): Record<string, string> {
+  const row: Record<string, string> = {};
+  const includes = (key: string) => operation.resultFields.includes(key);
+  const text = (key: string) => typeof record[key] === "string" ? String(record[key]).trim() : "";
+  const number = (key: string) => typeof record[key] === "number" && Number.isFinite(record[key]) ? record[key] as number : null;
+  const count = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
+  const formatScore = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
+  const rate = (value: number) => `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(value)}%`;
+
+  if (includes("studentName") && text("studentName")) row["H\u1ECDc vi\u00EAn"] = text("studentName");
+  if (includes("studentPhone") && text("studentPhone")) row["S\u1ED1 \u0111i\u1EC7n tho\u1EA1i"] = text("studentPhone");
+  if (includes("batchCode") && text("batchCode")) row["M\u00E3 l\u1EDBp"] = text("batchCode");
+  if (includes("courseTitle") && text("courseTitle")) row["Kh\u00F3a h\u1ECDc"] = text("courseTitle");
+
+  if (includes("attendanceRate") || includes("attendanceAttended") || includes("attendanceTotal")) {
+    const attended = number("attendanceAttended");
+    const total = number("attendanceTotal");
+    const attendanceRate = number("attendanceRate");
+    row["Chuy\u00EAn c\u1EA7n"] = total !== null && total > 0
+      ? `${attended === null ? "0" : count(attended)}/${count(total)}${attendanceRate === null ? "" : ` (${rate(attendanceRate)})`}`
+      : attendanceRate === null ? "Ch\u01B0a c\u00F3 d\u1EEF li\u1EC7u" : rate(attendanceRate);
+  }
+  if (includes("assignmentRate") || includes("assignmentCompleted") || includes("assignmentTotal")) {
+    const completed = number("assignmentCompleted");
+    const total = number("assignmentTotal");
+    const assignmentRate = number("assignmentRate");
+    row["B\u00E0i t\u1EADp"] = total !== null && total > 0
+      ? `${completed === null ? "0" : count(completed)}/${count(total)}${assignmentRate === null ? "" : ` (${rate(assignmentRate)})`}`
+      : assignmentRate === null ? "Ch\u01B0a c\u00F3 d\u1EEF li\u1EC7u" : rate(assignmentRate);
+  }
+
+  if (includes("latestMiniTestTitle") || includes("latestMiniTestScore") || includes("latestMiniTestMaxScore")) {
+    const title = text("latestMiniTestTitle");
+    const score = number("latestMiniTestScore");
+    const maxScore = number("latestMiniTestMaxScore");
+    if (title || score !== null) {
+      const scoreText = score === null ? "" : `: ${formatScore(score)}${maxScore === null ? "" : `/${formatScore(maxScore)}`}`;
+      row["Ki\u1EC3m tra g\u1EA7n nh\u1EA5t"] = `${title || "B\u00E0i ki\u1EC3m tra"}${scoreText}`;
+    }
+  }
+  if (includes("latestExamName") || includes("latestExamResult")) {
+    const name = text("latestExamName");
+    const examResult = record.latestExamResult;
+    const result = text("latestExamResult") || (typeof examResult === "number" && Number.isFinite(examResult) ? formatScore(examResult) : "");
+    if (name || result) row["K\u1EF3 thi g\u1EA7n nh\u1EA5t"] = [name, result].filter(Boolean).join(": ");
+  }
+
+  if (includes("warningLevel")) {
+    const warningLabels: Record<string, string> = {
+      risk: "C\u1EA7n can thi\u1EC7p", watch: "C\u1EA7n theo d\u00F5i", good: "\u1ED4n \u0111\u1ECBnh", unrated: "Ch\u01B0a \u0111\u00E1nh gi\u00E1",
+    };
+    const warning = text("warningLevel");
+    if (warning) row["M\u1EE9c \u0111\u00E1nh gi\u00E1"] = warningLabels[warning] || warning;
+  }
+  if (includes("teacherAssessment") && text("teacherAssessment")) row["\u0110\u00E1nh gi\u00E1 c\u1EE7a gi\u1EA3ng vi\u00EAn"] = text("teacherAssessment");
+  if (includes("attitudeNote") && text("attitudeNote")) row["Ghi ch\u00FA th\u00E1i \u0111\u1ED9"] = text("attitudeNote");
+  return row;
+}
+
+function remainingTuition(record: ResultRecord): number | null {
+  const tuitionNumber = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string" || !value.trim()) return null;
+    const digits = value.replace(/\D/g, "");
+    return digits ? Number(digits) : null;
+  };
+  const fee = tuitionNumber(record.fee);
+  const paid = tuitionNumber(record.paidAmount);
+  return fee !== null && fee > 0 && paid !== null ? Math.max(0, fee - paid) : null;
 }
 
 /** Format only catalog-approved fields into a short, readable result for the conversation. */
@@ -1103,7 +1265,8 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   }
   if (operation.id === "worker.create") {
     const wrapper = recordOf(safeResult);
-    const created = recordOf(wrapper?.worker) || recordOf(recordOf(wrapper?.data)?.worker) || recordOf(wrapper?.data);
+    const created = recordOf(wrapper?.worker) || recordOf(recordOf(wrapper?.data)?.worker) || recordOf(wrapper?.data)
+      || (wrapper && operation.resultFields.some(key => Object.hasOwn(wrapper, key)) ? wrapper : null);
     const summary = created ? formatRecord(operation, created) : "";
     return summary ? `${operation.title}\n${summary}` : `${operation.title} đã hoàn tất.`;
   }
@@ -1463,17 +1626,57 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const dataRecord = recordOf(recordOf(safeResult)?.data);
   const normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
   const rows = collection(normalizedResult);
+  const isStudentManagementLookup = operation.method === "GET"
+    && /^(?:student\.|course\.|batch\.)/.test(operation.id);
+  if (isStudentManagementLookup) {
+    const records = rows || (recordOf(normalizedResult) ? [normalizedResult] : []);
+    if (!records.length) return `Mình chưa tìm thấy kết quả phù hợp cho ${operation.title.toLocaleLowerCase("vi")}.`;
+    const tableRows = records.slice(0, 8).flatMap(value => {
+      const record = recordOf(value);
+      if (!record) return [];
+      const row = operation.id === "student.quality.list"
+        ? studentQualityResultRow(operation, record)
+        : Object.fromEntries(operation.resultFields
+          .filter(key => Object.hasOwn(record, key) && record[key] !== null && record[key] !== undefined && record[key] !== "")
+          .map(key => [labelFor(operation, key), formatValue(operation, key, record[key])]));
+      if (operation.id === "student.list" && operation.resultFields.includes("fee") && operation.resultFields.includes("paidAmount")) {
+        const remaining = remainingTuition(record);
+        if (remaining !== null) row["C\u00F2n ph\u1EA3i \u0111\u00F3ng"] = `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(remaining)} \u20AB`;
+      }
+      return Object.keys(row).length ? [row] : [];
+    });
+    if (!tableRows.length) return `Mình chưa tìm thấy kết quả phù hợp cho ${operation.title.toLocaleLowerCase("vi")}.`;
+    const count = rows?.length ?? tableRows.length;
+    return formatAssistantResultTable(
+      `Mình tìm thấy ${count} kết quả phù hợp cho bạn.`,
+      tableRows,
+      count > tableRows.length ? [`Còn ${count - tableRows.length} kết quả chưa hiển thị.`] : [],
+    );
+  }
   if (rows) {
     if (rows.length === 0) return `${operation.title}\nKhông có kết quả phù hợp.`;
-    const displayed = rows.slice(0, 8).map((row, index) => {
-      const summary = formatRecord(operation, row);
-      return summary ? `${index + 1}. ${summary.replace(/\n/g, " · ")}` : "";
-    }).filter(Boolean);
-    if (displayed.length === 0) return `${operation.title} · ${rows.length} kết quả. Mở phân hệ để xem chi tiết.`;
-    const count = rows.length > 8 ? ` (hiển thị ${displayed.length})` : "";
-    return `${operation.title} · ${rows.length} kết quả${count}:\n${displayed.join("\n")}`;
+    const tableRows = rows.slice(0, 8).flatMap(row => {
+      const fields = formatRecordTableRow(operation, row);
+      if (Object.keys(fields).length) return [fields];
+      const fallback = formatRecord(operation, row).replace(/\s*\n\s*/g, " · ").trim();
+      return fallback ? [{ "Thông tin": fallback }] : [];
+    });
+    if (tableRows.length === 0) return `${operation.title} · ${rows.length} kết quả. Mở phân hệ để xem chi tiết.`;
+    const count = rows.length;
+    return formatAssistantResultTable(
+      `Mình tìm thấy ${count} kết quả phù hợp cho bạn.`,
+      tableRows,
+      count > tableRows.length ? [`Còn ${count - tableRows.length} kết quả chưa hiển thị.`] : [],
+    );
   }
   const summary = formatRecord(operation, normalizedResult);
+  const tableFields = formatRecordTableRow(operation, normalizedResult);
+  if (Object.keys(tableFields).length) {
+    const success = operation.method === "GET"
+      ? "Mình tìm thấy 1 kết quả phù hợp cho bạn."
+      : `Xong rồi bạn nhé, mình đã thực hiện thao tác “${operation.title}”.`;
+    return formatAssistantResultTable(success, [tableFields]);
+  }
   return summary
     ? `${operation.title}\n${summary}`
     : `${operation.title} đã hoàn tất. Mở phân hệ để xem chi tiết.`;
@@ -1481,8 +1684,11 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
 
 /** Add a natural Vietnamese conversational frame to the already-filtered result. */
 export function formatFriendlyAssistantResult(operation: ResultOperation & { method?: string }, input: unknown): string {
+  const workerTable = workerManagementTableResult(operation, input);
+  if (workerTable) return workerTable;
   const formatted = formatAssistantResult(operation, input);
   if (["student.bulk.preview", "student.bulk.create"].includes(operation.id)) return formatted;
+  if (parseAssistantResultTable(formatted)) return formatted;
   const lines = formatted.split("\n");
   const firstLine = lines[0] || "";
   const listMatch = firstLine.match(/·\s*(\d+)\s+kết quả/i);

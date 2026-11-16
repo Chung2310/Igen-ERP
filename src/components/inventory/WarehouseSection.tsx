@@ -340,72 +340,6 @@ export function WarehouseSection() {
 
   return (
     <section className="space-y-4" aria-label="Kho hàng và Quản lý Tồn kho">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
-        {currentWarehouse && (
-          <span className="font-mono text-[11px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
-            {currentWarehouse.code}
-          </span>
-        )}
-
-        {/* Right Action Bar */}
-        <div className="ml-auto flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Warehouse Selector using common Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-semibold text-xs select-none">Kho:</span>
-            <Dropdown<string>
-              aria-label="Chọn kho lưu trữ"
-              value={warehouseId}
-              onChange={(val) => setWarehouseId(val)}
-              options={warehouseOptions}
-              placeholder="Chọn kho..."
-              variant="default"
-              size="sm"
-              triggerClassName="min-w-[190px] max-w-[280px] justify-between font-bold text-slate-800 border-slate-200 shadow-2xs rounded-lg py-1.5"
-            />
-          </div>
-
-          <button
-            type="button"
-            disabled={!warehouseId}
-            onClick={() => setCountingOpen(true)}
-            className="rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary shadow-xs hover:opacity-90 transition-colors whitespace-nowrap disabled:opacity-50 cursor-pointer"
-            title={warehouseId ? "Mở kiểm kê kho thực tế" : "Vui lòng chọn kho"}
-          >
-            Kiểm kê kho
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            disabled={balances.length === 0}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs whitespace-nowrap disabled:opacity-40"
-          >
-            Xuất Excel
-          </button>
-
-          <ErpRefreshButton onClick={() => void load()} title="Tải lại số dư kho" />
-        </div>
-      </div>
-
-      {tiktokStatus?.connected && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5">
-          <span className="mr-1 text-xs font-bold text-slate-600">TikTok Shop</span>
-          <button type="button" disabled={Boolean(tiktokBusy)} onClick={() => void syncTikTokProducts()} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
-            {tiktokBusy === "sync" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Đồng bộ sản phẩm
-          </button>
-          <button type="button" disabled={Boolean(tiktokBusy) || !activeBranchId} onClick={() => void importTikTokProducts()} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-50">
-            {tiktokBusy === "import" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Nhập vào kho
-          </button>
-          <button type="button" disabled={Boolean(tiktokBusy)} onClick={() => setPublishDialogOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-pink-700 disabled:opacity-50">
-            <Plus className="h-3.5 w-3.5" /> Đăng sản phẩm mới
-          </button>
-          <button type="button" disabled={Boolean(tiktokBusy) || !activeBranchId} onClick={() => void pushTikTokInventoryAndPrices()} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
-            {tiktokBusy === "push" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Đẩy giá & tồn kho
-          </button>
-        </div>
-      )}
-
       {publishDialogOpen && tiktokStatus?.connected && (
         <TikTokProductPublishDialog connections={tiktokStatus.connections} onClose={() => setPublishDialogOpen(false)} onPublished={loadTikTokStatus} />
       )}
@@ -476,52 +410,105 @@ export function WarehouseSection() {
           setPage(1);
         }}
         actions={
-          <div className="flex items-center gap-1.5 text-xs">
+          <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5 text-xs">
             <button
               type="button"
-              onClick={expandAll}
-              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
-              title="Mở rộng tất cả dòng biến thể"
+              disabled={!warehouseId}
+              onClick={() => setCountingOpen(true)}
+              className="rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary shadow-xs hover:opacity-90 transition-colors whitespace-nowrap disabled:opacity-50 cursor-pointer"
+              title={warehouseId ? "Mở kiểm kê kho thực tế" : "Vui lòng chọn kho"}
             >
-              Mở tất cả
+              Kiểm kê kho
             </button>
-            <span className="text-outline-variant">|</span>
             <button
               type="button"
-              onClick={collapseAll}
-              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
-              title="Thu gọn các dòng"
+              onClick={handleExportCsv}
+              disabled={balances.length === 0}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs whitespace-nowrap disabled:opacity-40"
             >
-              Thu gọn
+              Xuất Excel
             </button>
+            <ErpRefreshButton onClick={() => void load()} title="Tải lại số dư kho" />
+            {tiktokStatus?.connected && (
+              <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5 border-l border-outline-variant pl-2">
+                <span className="mr-1 whitespace-nowrap text-xs font-bold text-slate-600">TikTok Shop</span>
+                <button type="button" disabled={Boolean(tiktokBusy)} onClick={() => void syncTikTokProducts()} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+                  {tiktokBusy === "sync" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Đồng bộ sản phẩm
+                </button>
+                <button type="button" disabled={Boolean(tiktokBusy) || !activeBranchId} onClick={() => void importTikTokProducts()} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-50">
+                  {tiktokBusy === "import" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Nhập vào kho
+                </button>
+                <button type="button" disabled={Boolean(tiktokBusy)} onClick={() => setPublishDialogOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-pink-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-pink-700 disabled:opacity-50">
+                  <Plus className="h-3.5 w-3.5" /> Đăng sản phẩm mới
+                </button>
+                <button type="button" disabled={Boolean(tiktokBusy) || !activeBranchId} onClick={() => void pushTikTokInventoryAndPrices()} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                  {tiktokBusy === "push" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Đẩy giá & tồn kho
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 border-l border-outline-variant pl-2">
+              <button
+                type="button"
+                onClick={expandAll}
+                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
+                title="Mở rộng tất cả dòng biến thể"
+              >
+                Mở tất cả
+              </button>
+              <span className="text-outline-variant">|</span>
+              <button
+                type="button"
+                onClick={collapseAll}
+                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
+                title="Thu gọn các dòng"
+              >
+                Thu gọn
+              </button>
+            </div>
           </div>
         }
+        secondaryFilters={
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-slate-500 font-semibold text-xs select-none">Kho:</span>
+              <Dropdown<string>
+                aria-label="Chọn kho lưu trữ"
+                value={warehouseId}
+                onChange={(val) => setWarehouseId(val)}
+                options={warehouseOptions}
+                placeholder="Chọn kho..."
+                variant="default"
+                size="sm"
+                triggerClassName="min-w-[190px] max-w-[280px] justify-between font-bold text-slate-800 border-slate-200 shadow-2xs rounded-lg py-1.5"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {[
+                { id: "all", label: `Tất cả (${balances.length})` },
+                { id: "in_stock", label: `Còn hàng (${balances.filter((b) => b.quantity > 0).length})` },
+                { id: "low_stock", label: `Sắp hết (${alertStats.lowCount})` },
+                { id: "out_of_stock", label: `Hết hàng (${alertStats.outCount})` },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => {
+                    setStockFilter(pill.id as StockFilterType);
+                    setPage(1);
+                  }}
+                  className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                    stockFilter === pill.id
+                      ? "bg-primary text-on-primary font-bold shadow-xs"
+                      : "text-on-surface-variant hover:bg-surface hover:text-primary border border-outline-variant bg-surface-container-lowest"
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </>
+        }
       >
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1">
-          {[
-            { id: "all", label: `Tất cả (${balances.length})` },
-            { id: "in_stock", label: `Còn hàng (${balances.filter((b) => b.quantity > 0).length})` },
-            { id: "low_stock", label: `Sắp hết (${alertStats.lowCount})` },
-            { id: "out_of_stock", label: `Hết hàng (${alertStats.outCount})` },
-          ].map((pill) => (
-            <button
-              key={pill.id}
-              type="button"
-              onClick={() => {
-                setStockFilter(pill.id as StockFilterType);
-                setPage(1);
-              }}
-              className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                stockFilter === pill.id
-                  ? "bg-primary text-on-primary font-bold shadow-xs"
-                  : "text-on-surface-variant hover:bg-surface hover:text-primary border border-outline-variant bg-surface-container-lowest"
-              }`}
-            >
-              {pill.label}
-            </button>
-          ))}
-        </div>
       </TableFilterToolbar>
 
       {/* 4. Main Inventory Stock Table */}

@@ -4,6 +4,7 @@ import { toast } from "../../../../pages/Toast";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
 import { getBatchProgression, promoteBatchStudents, type BatchProgression } from "../../api/learningRoadmap.api";
 import { apiFetch } from "../../lib/api";
+import { calculateEstimatedEndDate } from "../../lib/batchSchedule";
 import type { Batch, Course, ResourceItem } from "../../types";
 import { ErpField, ErpInput, ErpModal } from "../Erp/ErpUI";
 import { RoadmapPicker } from "../ui/RoadmapPicker";
@@ -17,9 +18,9 @@ const WEEKDAYS = [
 ];
 
 type NewClassForm = {
-  code: string;
+  code: string | null;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   startTime: string;
   endTime: string;
   daysOfWeek: number[];
@@ -62,16 +63,16 @@ export function DirectLevelPromotionModal({
   onPromoted: () => void;
 }) {
   const [progression, setProgression] = React.useState<BatchProgression | null>(null);
-  const [selectedRoadmapId, setSelectedRoadmapId] = React.useState(batch.roadmapId || "");
+  const [selectedRoadmapId, setSelectedRoadmapId] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [error, setError] = React.useState("");
   const [createdTarget, setCreatedTarget] = React.useState<{ id: string; code: string } | null>(null);
   const [newClass, setNewClass] = React.useState<NewClassForm>(() => ({
-    code: "",
+    code: null,
     startDate: todayIsoDate(),
-    endDate: "",
+    endDate: null,
     startTime: batch.startTime || "18:00",
     endTime: batch.endTime || "20:00",
     daysOfWeek: batch.daysOfWeek || [],
@@ -82,45 +83,49 @@ export function DirectLevelPromotionModal({
     let active = true;
     setLoading(true);
     setError("");
+    setProgression(null);
     void getBatchProgression(batch.id, selectedRoadmapId)
       .then((data) => {
         if (!active) return;
         setProgression(data);
-        if (data.selectedRoadmapId && data.selectedRoadmapId !== selectedRoadmapId) {
-          setSelectedRoadmapId(data.selectedRoadmapId);
-        }
         setSelectedIds((data.rows || []).filter((row) => PROMOTABLE_STATUSES.has(row.enrollmentStatus || "")).slice(0, MAX_PROMOTION_STUDENTS).map((row) => row.studentId));
-        if (data.targetStep) {
-          setNewClass((current) => ({ ...current, code: current.code || suggestedCode(batch, data.targetStep!.order, batches) }));
-        }
       })
       .catch((requestError) => {
         if (active) setError(getApiErrorMessage(requestError, "Không thể tải level kế tiếp của lớp."));
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [batch.id, batch, batches, selectedRoadmapId]);
+  }, [batch.id, selectedRoadmapId]);
 
   const roadmaps = progression?.roadmaps || [];
-  const availableRows = (progression?.rows || []).filter((row) => PROMOTABLE_STATUSES.has(row.enrollmentStatus || ""));
+  const selectedRoadmap = roadmaps.find((roadmap) => roadmap.id === progression?.selectedRoadmapId);
+  const linkedRoadmap = Boolean(progression?.batch.roadmapId || batch.roadmapId);
+  const roadmapInactive = selectedRoadmap?.status === "inactive";
+  const rows = progression?.rows || [];
+  const availableRows = rows.filter((row) => PROMOTABLE_STATUSES.has(row.enrollmentStatus || ""));
   const selectableRows = availableRows.slice(0, MAX_PROMOTION_STUDENTS);
   const allSelected = selectableRows.length > 0 && selectableRows.every((row) => selectedIds.includes(row.studentId));
-  const targetStep = progression?.targetStep;
+  const targetStep = roadmapInactive ? null : progression?.targetStep;
   const targetCourse = courses.find((course) => course.id === targetStep?.courseId);
+  const estimatedEndDate = calculateEstimatedEndDate(newClass.startDate, newClass.daysOfWeek, Number(targetCourse?.duration));
+  const endDate = newClass.endDate ?? estimatedEndDate;
+  const autoEndDateHintId = React.useId();
+  const showAutoEndDateHint = Boolean(endDate) && newClass.endDate === null;
+  const classCode = createdTarget?.code ?? newClass.code ?? (targetStep ? suggestedCode(batch, targetStep.order, batches) : "");
 
   const createClassAndPromote = async () => {
-    if (!progression?.selectedRoadmapId || !targetStep) return;
+    if (loading || saving || !progression?.selectedRoadmapId || !targetStep) return;
     if (!selectedIds.length) { setError("Chọn ít nhất một học viên cần chuyển."); return; }
-    if (!newClass.code.trim() || !newClass.startDate || !newClass.endDate || !newClass.daysOfWeek.length) {
+    if (!classCode.trim() || !newClass.startDate || !endDate || !newClass.daysOfWeek.length) {
       setError("Nhập mã lớp, ngày bắt đầu/kết thúc và chọn ít nhất một ngày học.");
       return;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(newClass.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(newClass.endDate) || newClass.startDate > newClass.endDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newClass.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || newClass.startDate > endDate) {
       setError("Ngày bắt đầu và kết thúc không hợp lệ.");
       return;
     }
     if (newClass.startTime >= newClass.endTime) { setError("Giờ bắt đầu phải trước giờ kết thúc."); return; }
-    const code = normalizeCode(newClass.code);
+    const code = normalizeCode(classCode);
     if (code.length < 2 || code.length > 50) { setError("Mã lớp cần từ 2 đến 50 ký tự."); return; }
     if (!createdTarget && batches.some((item) => normalizeCode(item.code) === code)) {
       setError(`Mã lớp “${code}” đã tồn tại. Hãy nhập mã khác.`);
@@ -149,7 +154,7 @@ export function DirectLevelPromotionModal({
             startTime: newClass.startTime,
             endTime: newClass.endTime,
             startDate: newClass.startDate,
-            endDate: newClass.endDate,
+            endDate,
             location: newClass.location,
             instructorId: batch.instructorId || "",
             instructorText: batch.instructorText || "",
@@ -172,39 +177,45 @@ export function DirectLevelPromotionModal({
   };
 
   return (
-    <ErpModal title="Mở lớp level tiếp theo" onClose={onClose} maxWidth="max-w-3xl">
+    <ErpModal title="Mở lớp level tiếp theo" onClose={onClose} closeDisabled={saving} maxWidth="max-w-3xl">
       <div className="space-y-4">
         <div className="flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50 p-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700"><GraduationCap className="size-5" /></span>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700"><GraduationCap className="size-5" aria-hidden="true" /></span>
           <div>
             <p className="text-sm font-semibold text-slate-800">{batch.code} · {batch.courseTitle}</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">Chọn học viên, nhập lịch lớp mới và chuyển thẳng lên level kế tiếp. Không cần tạo kết quả thi; chức năng thi vẫn giữ nguyên.</p>
           </div>
         </div>
 
-        {loading ? <p className="py-8 text-center text-sm text-slate-500">Đang tải level kế tiếp...</p> : null}
+        {loading ? <p role="status" className="py-8 text-center text-sm text-on-surface-variant">Đang tải chặng kế tiếp...</p> : null}
         {!loading && error && !progression ? <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
 
-        {!loading && progression && roadmaps.length > 1 ? (
+        {!loading && progression && !linkedRoadmap && roadmaps.length > 1 ? (
           <ErpField label="Lộ trình học">
-          <RoadmapPicker value={selectedRoadmapId} disabled={Boolean(createdTarget)} onChange={setSelectedRoadmapId} placeholder="Chọn lộ trình" ariaLabel="Lộ trình học" options={roadmaps.map((roadmap) => ({ value: roadmap.id, label: `${roadmap.code} · ${roadmap.name}` }))} />
+          <RoadmapPicker value={progression.selectedRoadmapId} disabled={saving || Boolean(createdTarget)} onChange={(id) => {
+            setSelectedRoadmapId(id);
+            setNewClass((current) => ({ ...current, endDate: null, code: null }));
+          }} placeholder="Chọn lộ trình" ariaLabel="Lộ trình học" options={roadmaps.map((roadmap) => ({ value: roadmap.id, label: `${roadmap.code} · ${roadmap.name}` }))} />
           </ErpField>
         ) : null}
 
-        {!loading && progression && !progression.selectedRoadmapId && roadmaps.length === 0 ? (
+        {!loading && progression && !linkedRoadmap && !progression.selectedRoadmapId && roadmaps.length === 0 ? (
           <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Chưa có lộ trình đang hoạt động chứa khóa học của lớp này. Hãy thêm khóa học vào lộ trình để hệ thống xác định level tiếp theo.</p>
         ) : null}
 
+        {!loading && selectedRoadmap ? (
+          <div className="space-y-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface">
+            <p className="text-pretty">Lộ trình: <span className="font-semibold">{selectedRoadmap.name}</span></p>
+            {targetStep && progression?.sourceStep ? <p className="text-pretty tabular-nums">Chặng {progression.sourceStep.order} → Chặng {targetStep.order}{targetCourse ? `: ${targetCourse.title}` : ""}</p> : null}
+            {targetStep && targetStep.maxClassSize > 0 ? <p className="text-xs tabular-nums text-on-surface-variant">Tối đa {targetStep.maxClassSize} học viên</p> : null}
+          </div>
+        ) : null}
+
         {!loading && progression?.selectedRoadmapId && !targetStep ? (
-          <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Lớp đang ở level cuối của lộ trình, chưa có level tiếp theo để mở.</p>
+          <p role="status" className="rounded-lg border border-outline-variant bg-surface-container p-3 text-pretty text-sm text-on-surface">{roadmapInactive ? "Lộ trình này đã ngừng hoạt động. Hãy bật lại lộ trình để mở chặng kế tiếp." : "Lớp đã ở chặng cuối của lộ trình. Khi có thêm chặng, bạn có thể mở lớp tại đây."}</p>
         ) : null}
 
         {!loading && targetStep ? <>
-          <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 text-sm text-slate-700">
-            Level {targetStep.order}: <span className="font-semibold">{targetCourse?.title || "Khóa học kế tiếp"}</span>
-            {targetStep.maxClassSize > 0 ? <span className="ml-2 text-xs text-slate-500">Tối đa {targetStep.maxClassSize} học viên</span> : null}
-          </div>
-
           <section className="overflow-hidden rounded-xl border border-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
               <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><Users className="size-4" /> Chọn học viên ({selectedIds.length}/{availableRows.length})</span>
@@ -214,7 +225,7 @@ export function DirectLevelPromotionModal({
             </div>
             {availableRows.length > MAX_PROMOTION_STUDENTS ? <p className="border-b border-slate-100 px-3 py-2 text-xs text-amber-700">Mỗi lần chuyển tối đa {MAX_PROMOTION_STUDENTS} học viên.</p> : null}
             <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto">
-              {progression.rows.map((row) => {
+              {rows.map((row) => {
                 const canPromote = PROMOTABLE_STATUSES.has(row.enrollmentStatus || "");
                 return (
                   <label key={row.studentId} className={`flex items-center gap-3 px-3 py-2.5 text-sm ${canPromote ? "cursor-pointer hover:bg-sky-50/60" : "bg-slate-50/70 text-slate-400"}`}>
@@ -228,7 +239,7 @@ export function DirectLevelPromotionModal({
                   </label>
                 );
               })}
-              {progression.rows.length === 0 ? <p className="p-5 text-center text-sm text-slate-500">Lớp chưa có dữ liệu đăng ký học viên.</p> : null}
+              {rows.length === 0 ? <p className="p-5 text-center text-sm text-slate-500">Lớp chưa có dữ liệu đăng ký học viên.</p> : null}
             </div>
           </section>
 
@@ -240,16 +251,17 @@ export function DirectLevelPromotionModal({
             {createdTarget ? <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">Đã tạo lớp {createdTarget.code}. Nếu lần chuyển trước chưa hoàn tất, bấm lại để thử chuyển mà không tạo lớp trùng.</p> : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <ErpField label="Mã lớp mới *">
-                <ErpInput value={newClass.code} disabled={Boolean(createdTarget)} onChange={(event) => setNewClass((current) => ({ ...current, code: event.target.value }))} placeholder="Ví dụ: K32-L2" />
+                <ErpInput value={classCode} disabled={Boolean(createdTarget)} onChange={(event) => setNewClass((current) => ({ ...current, code: event.target.value }))} placeholder="Ví dụ: K32-L2" />
               </ErpField>
               <ErpField label="Phòng học">
                 <RoadmapPicker value={newClass.location} disabled={Boolean(createdTarget)} onChange={(location) => setNewClass((current) => ({ ...current, location }))} placeholder="Chọn phòng học" options={classrooms.map((room) => ({ value: room.name, label: room.identifier ? `${room.name} · ${room.identifier}` : room.name }))} portal />
               </ErpField>
               <ErpField label="Ngày khai giảng *">
-                <VietnameseDatePicker ariaLabel="Ngày khai giảng lớp mới" value={newClass.startDate} disabled={Boolean(createdTarget)} onChange={(startDate) => setNewClass((current) => ({ ...current, startDate, endDate: current.endDate && current.endDate < startDate ? "" : current.endDate }))} selectionOnly variant="filter" />
+                <VietnameseDatePicker ariaLabel="Ngày khai giảng lớp mới" value={newClass.startDate} disabled={saving || Boolean(createdTarget)} onChange={(startDate) => setNewClass((current) => ({ ...current, startDate, endDate: null }))} required selectionOnly variant="filter" />
               </ErpField>
               <ErpField label="Ngày bế giảng dự kiến *">
-                <VietnameseDatePicker ariaLabel="Ngày bế giảng lớp mới" value={newClass.endDate} disabled={Boolean(createdTarget)} min={newClass.startDate || undefined} onChange={(endDate) => setNewClass((current) => ({ ...current, endDate }))} selectionOnly variant="filter" />
+                <VietnameseDatePicker ariaLabel="Ngày bế giảng lớp mới" ariaDescribedBy={showAutoEndDateHint ? autoEndDateHintId : undefined} value={endDate} disabled={saving || Boolean(createdTarget)} min={newClass.startDate || undefined} onChange={(endDate) => setNewClass((current) => ({ ...current, endDate }))} required selectionOnly variant="filter" />
+                {showAutoEndDateHint ? <p id={autoEndDateHintId} className="mt-1 text-pretty text-xs text-on-surface-variant">Tự tính theo số buổi của khóa ở chặng kế tiếp. Bạn có thể sửa ngày này.</p> : null}
               </ErpField>
               <ErpField label="Giờ bắt đầu *">
                 <ErpInput type="time" value={newClass.startTime} disabled={Boolean(createdTarget)} onChange={(event) => setNewClass((current) => ({ ...current, startTime: event.target.value }))} />
@@ -263,7 +275,7 @@ export function DirectLevelPromotionModal({
               <div className="flex flex-wrap gap-2">
                 {WEEKDAYS.map((day) => {
                   const selected = newClass.daysOfWeek.includes(day.value);
-                  return <button key={day.value} type="button" aria-pressed={selected} disabled={Boolean(createdTarget)} onClick={() => setNewClass((current) => ({ ...current, daysOfWeek: selected ? current.daysOfWeek.filter((value) => value !== day.value) : [...current.daysOfWeek, day.value] }))} className={`h-9 min-w-10 rounded-md border px-2 text-xs font-semibold ${selected ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container"}`}>{day.label}</button>;
+                  return <button key={day.value} type="button" aria-pressed={selected} disabled={Boolean(createdTarget)} onClick={() => setNewClass((current) => ({ ...current, endDate: null, daysOfWeek: selected ? current.daysOfWeek.filter((value) => value !== day.value) : [...current.daysOfWeek, day.value] }))} className={`h-9 min-w-10 rounded-md border px-2 text-xs font-semibold ${selected ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface hover:bg-surface-container"}`}>{day.label}</button>;
                 })}
               </div>
             </div>
@@ -271,7 +283,7 @@ export function DirectLevelPromotionModal({
         </> : null}
 
         {error && progression ? <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-md border border-outline-variant px-4 text-sm font-medium text-on-surface hover:bg-surface-container disabled:opacity-50">Đóng</button>
           {targetStep ? <button type="button" onClick={() => void createClassAndPromote()} disabled={loading || saving || !selectedIds.length || !progression?.selectedRoadmapId} className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"><ArrowUpRight className="size-4" />{saving ? (createdTarget ? "Đang chuyển học viên..." : "Đang tạo lớp...") : createdTarget ? `Chuyển ${selectedIds.length} học viên` : `Tạo lớp và chuyển ${selectedIds.length} học viên`}</button> : null}
         </div>

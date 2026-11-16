@@ -381,33 +381,9 @@ export function InventoryTransferSection({
 
   return (
     <section className="space-y-6" aria-label="Điều chuyển kho">
-      {/* Top Header Card */}
       <div className="inventory-transfer-overview">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">
-              {total} phiếu
-            </span>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2.5">
-            <ErpRefreshButton onClick={() => setRevision((v) => v + 1)} loading={loading} title="Làm mới danh sách" />
-
-            {canManage && (
-              <button
-                type="button"
-                className={`${primaryCreateButtonClass} min-h-9`}
-                onClick={handleOpenCreateModal}
-              >
-                <Plus className="size-4" aria-hidden="true" />
-                <span>Tạo phiếu điều chuyển</span>
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Quick KPI stats strip */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="flex items-center gap-3 rounded-xl border border-slate-200/60 bg-white/80 p-3 shadow-2xs backdrop-blur-xs">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
               <Package className="h-5 w-5" />
@@ -479,6 +455,21 @@ export function InventoryTransferSection({
           setPage(1);
         }}
         resetLabel="Đặt lại bộ lọc"
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ErpRefreshButton onClick={() => setRevision((v) => v + 1)} loading={loading} title="Làm mới danh sách" />
+            {canManage && (
+              <button
+                type="button"
+                className={`${primaryCreateButtonClass} min-h-9`}
+                onClick={handleOpenCreateModal}
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                <span>Tạo phiếu điều chuyển</span>
+              </button>
+            )}
+          </div>
+        }
       >
         <div className="w-full sm:w-52 shrink-0">
           <StyledSelect

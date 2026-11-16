@@ -241,50 +241,12 @@ export default function RetailSettingsPage() {
 
   return (
     <div className="w-full space-y-6 pb-12">
-      <div className="border-b border-outline-variant pb-4">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="flex items-start gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50/80 px-3 py-0.5 text-xs font-semibold text-cyan-800">
-                  <Store className="h-3.5 w-3.5" />
-                  {activeBranch?.name || `Chi nhánh: ${activeBranchId}`}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-            {hasChanges && (
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={saving}
-                className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3.5 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Khôi phục
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={saving || !hasChanges}
-              onClick={() => void save()}
-              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-            >
-              <Save className="h-4 w-4" />
-              {saving ? "Đang lưu…" : "Lưu cài đặt"}
-            </button>
-          </div>
+      {error && (
+        <div role="alert" className="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-700">
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+          <span>{error}</span>
         </div>
-
-        {error && (
-          <div role="alert" className="mt-5 flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-700">
-            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
-            <span>{error}</span>
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Section 1: Kho & Vận hành quầy POS */}
@@ -641,6 +603,34 @@ export default function RetailSettingsPage() {
         </div>
       </div>
 
+      <footer className="flex flex-col gap-3 border-t border-outline-variant pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div aria-live="polite" className="text-xs font-medium text-on-surface-variant">
+          {hasChanges && "Có thay đổi cấu hình chưa lưu"}
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          {hasChanges && (
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={saving}
+              className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3.5 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+              Khôi phục
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={saving || !hasChanges}
+            onClick={() => void save()}
+            className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {saving ? "Đang lưu…" : "Lưu cài đặt"}
+          </button>
+        </div>
+      </footer>
+
       {testInvoice && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div role="dialog" aria-modal="true" aria-label="In thử hóa đơn" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
@@ -665,35 +655,6 @@ export default function RetailSettingsPage() {
         document.body,
       )}
 
-      {/* Floating / Sticky Save Bar when changes detected */}
-      {hasChanges && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white/95 px-6 py-3.5 shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
-            <span className="text-xs font-semibold text-slate-700">Có thay đổi cấu hình chưa lưu</span>
-          </div>
-          <div className="h-4 w-px bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={saving}
-              className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 cursor-pointer disabled:opacity-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void save()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 cursor-pointer disabled:opacity-50"
-            >
-              <Save className="h-3.5 w-3.5" />
-              {saving ? "Đang lưu…" : "Lưu thay đổi"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

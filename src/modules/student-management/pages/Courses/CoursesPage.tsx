@@ -28,7 +28,6 @@ import {
   ErpInput,
   ErpLoadingState,
   ErpModal,
-  ErpPageHeader,
   ErpPrimaryButton,
   ErpSearchBar,
   ErpSubmitButton,
@@ -477,31 +476,9 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   return (
     <div className="min-h-full space-y-2 p-3 text-left sm:p-4">
       {(courseLoadError || categoryLoadError) && <StudentLoadState error={courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadCourses(), reloadCategories()]); }} />}
-      <ErpPageHeader
-        title={copy.pageTitle}
-        action={canManage ? (
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              className={cn(
-                'px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer shrink-0 shadow-sm',
-                darkMode
-                  ? 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
-                  : 'bg-white hover:bg-[#EAF8FF] hover:text-[#0089C7] text-slate-700 border-[#DFECF5] hover:border-[#9CDFFF]'
-              )}
-            >
-              {copy.categoryManagerButton}
-            </button>
-            <ErpPrimaryButton onClick={() => setShowAddModal(true)}>
-              {copy.addButton}
-            </ErpPrimaryButton>
-          </div>
-        ) : undefined}
-      />
-
-      <div className="flex flex-col items-stretch justify-between gap-2.5 border-b border-outline-variant pb-3 md:flex-row md:items-center [&_input]:border-outline-variant">
+      <div className="flex flex-col items-stretch justify-between gap-2.5 border-b border-outline-variant pb-3 xl:flex-row xl:items-center [&_input]:border-outline-variant">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <ErpFilterRail>
             <ErpFilterTab active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>
               Tất cả
@@ -517,11 +494,13 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <button
               type="button"
               onClick={() => updateViewMode('list')}
+              aria-label="Hiển thị dạng danh sách"
+              aria-pressed={viewMode === 'list'}
               className={cn(
-                'p-1.5 rounded-md active:scale-95 transition-all cursor-pointer',
+                'flex size-9 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-primary',
                 viewMode === 'list'
-                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-[#008FCF] shadow-sm')
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface hover:text-primary'
               )}
               title="Hiển thị dạng danh sách"
             >
@@ -530,17 +509,33 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             <button
               type="button"
               onClick={() => updateViewMode('grid')}
+              aria-label="Hiển thị dạng lưới"
+              aria-pressed={viewMode === 'grid'}
               className={cn(
-                'p-1.5 rounded-md active:scale-95 transition-all cursor-pointer',
+                'flex size-9 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-primary',
                 viewMode === 'grid'
-                  ? (darkMode ? 'bg-slate-800 text-white' : 'bg-white text-[#008FCF] shadow-sm')
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface hover:text-primary'
               )}
               title="Hiển thị dạng lưới"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
             </button>
           </div>
+          {canManage ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(true)}
+                className="inline-flex h-9 shrink-0 items-center rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                {copy.categoryManagerButton}
+              </button>
+              <ErpPrimaryButton onClick={() => setShowAddModal(true)}>
+                {copy.addButton}
+              </ErpPrimaryButton>
+            </div>
+          ) : null}
         </div>
       </div>
 

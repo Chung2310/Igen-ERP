@@ -20,3 +20,12 @@ export const createPaymentSchema = Joi.object({
   }),
   note: Joi.string().allow("").optional(),
 });
+
+export const updatePaymentSchema = Joi.object({
+  expectedVersion: Joi.number().integer().min(0).optional(),
+  method: Joi.string().valid("Tiền mặt", "Chuyển khoản").optional(),
+  date: Joi.string().pattern(PAYMENT_DATE_PATTERN).optional().messages({
+    "string.pattern.base": "Ngày thanh toán phải đúng định dạng DD/MM/YYYY hoặc YYYY-MM-DD.",
+  }),
+  note: Joi.string().allow("").optional(),
+}).or("method", "date", "note");

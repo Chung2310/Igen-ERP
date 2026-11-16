@@ -4,41 +4,52 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { AssistantMessageActions } from "./AssistantMessageActions";
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-const originalHide = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidePopover");
+const originalShare = Object.getOwnPropertyDescriptor(navigator, "share");
 
 afterEach(() => {
   cleanup();
   if (originalClipboard) Object.defineProperty(navigator, "clipboard", originalClipboard);
   else Reflect.deleteProperty(navigator, "clipboard");
-  if (originalHide) Object.defineProperty(HTMLElement.prototype, "hidePopover", originalHide);
-  else Reflect.deleteProperty(HTMLElement.prototype, "hidePopover");
+  if (originalShare) Object.defineProperty(navigator, "share", originalShare);
+  else Reflect.deleteProperty(navigator, "share");
 });
 
 function setup(writeText: ReturnType<typeof vi.fn>) {
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  const hide = vi.fn();
-  Object.defineProperty(HTMLElement.prototype, "hidePopover", { configurable: true, value: hide });
   render(<AssistantMessageActions content={"Kết quả\n\n| Tên | Giá trị |\n| --- | --- |\n| An | 12 |\n\nBạn muốn bổ sung không?"} />);
-  fireEvent.click(screen.getByRole("button", { name: "Tùy chọn câu trả lời AI" }));
-  return hide;
 }
 
-it("connects the options button to its popover and copies the complete reply", async () => {
+it("copies the complete AI reply", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
-  const hide = setup(writeText);
-  const trigger = screen.getByRole("button", { name: "Tùy chọn câu trả lời AI" });
-  expect(document.getElementById(trigger.getAttribute("popovertarget")!)?.getAttribute("popover")).toBe("auto");
-  // jsdom does not implement the native popover opening behavior.
-  fireEvent.click(screen.getByRole("button", { name: "Copy tin nhắn", hidden: true }));
-  await waitFor(() => expect(hide).toHaveBeenCalledOnce());
-  expect(screen.queryByText("Đã sao chép tin nhắn.")).toBeNull();
+  setup(writeText);
+  fireEvent.click(screen.getByRole("button", { name: "Sao chép câu trả lời" }));
+  expect(await screen.findByRole("status")).toHaveProperty("textContent", "Đã sao chép câu trả lời.");
   expect(writeText).toHaveBeenCalledWith("Kết quả\n\n| Tên | Giá trị |\n| --- | --- |\n| An | 12 |\n\nBạn muốn bổ sung không?");
-  expect(hide).toHaveBeenCalledOnce();
 });
 
 it("reports denied clipboard access next to the action", async () => {
   setup(vi.fn().mockRejectedValue(new Error("Permission denied")));
-  fireEvent.click(screen.getByRole("button", { name: "Copy tin nhắn", hidden: true }));
-  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Không thể sao chép. Vui lòng thử lại.");
-  expect(screen.queryByText("Đã sao chép tin nhắn.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Sao chép câu trả lời" }));
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Không thể sao chép câu trả lời. Vui lòng thử lại.");
+});
+
+it("shares the complete reply using the native share sheet", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", { configurable: true, value: share });
+  setup(vi.fn());
+
+  fireEvent.click(screen.getByRole("button", { name: "Chia sẻ câu trả lời" }));
+
+  expect(await screen.findByRole("status")).toHaveProperty("textContent", "Đã chia sẻ câu trả lời.");
+  expect(share).toHaveBeenCalledWith({ text: "Kết quả\n\n| Tên | Giá trị |\n| --- | --- |\n| An | 12 |\n\nBạn muốn bổ sung không?" });
+});
+
+it("copies the reply as a sharing fallback when native sharing is unavailable", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  setup(writeText);
+
+  fireEvent.click(screen.getByRole("button", { name: "Chia sẻ câu trả lời" }));
+
+  expect(await screen.findByRole("status")).toHaveProperty("textContent", "Đã sao chép câu trả lời để bạn dán chia sẻ.");
+  expect(writeText).toHaveBeenCalledWith("Kết quả\n\n| Tên | Giá trị |\n| --- | --- |\n| An | 12 |\n\nBạn muốn bổ sung không?");
 });

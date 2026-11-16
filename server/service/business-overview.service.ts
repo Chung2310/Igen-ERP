@@ -19,13 +19,15 @@ import { getPersonnelNow, getProjectStats, getTimekeepingStats, type DashboardRa
 import { getRetailBusinessOverview } from './business-overview-retail';
 
 export function overviewAccess(user: DashboardUser): BusinessOverview['access'] {
-  const module = (key: string) => user.role === 'superadmin' || (user.enabledModules?.length ? user.enabledModules.includes(key) : !['finance', 'retail'].includes(key));
+  const module = (key: string) => user.role === 'superadmin' || (user.enabledModules?.length
+    ? user.enabledModules.includes(key) || (user.enabledModules.includes('partner') && ['student-partner', 'labor-partner'].includes(key))
+    : !['finance', 'retail'].includes(key));
   const permission = (...codes: string[]) => user.role === 'superadmin' || Boolean(user.permissions?.has('*') || codes.some(code => user.permissions?.has(code)));
   return {
     education: module('student') && permission('people:read', 'people:manage'),
     labor: module('worker') && permission('people:read', 'people:manage'),
     retail: module('retail') && permission('pos:manage', 'retail:manage'),
-    partners: module('worker') && module('partner') && permission('labor-partner:read', 'labor-partner:manage'),
+    partners: module('worker') && module('labor-partner') && permission('labor-partner:read', 'labor-partner:manage'),
     hr: module('hr') && permission('hr:read'),
     inventory: module('inventory') && permission('inventory:read'),
     repair: module('repair') && permission('repair:read', 'repair:manage'),

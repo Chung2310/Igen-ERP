@@ -22,7 +22,7 @@ export async function enhanceStudioImagePrompt(prompt: string): Promise<{ prompt
       model: process.env.IGENAI_PROMPT_MODEL?.trim() || "google/gemma-4-31b-it:free",
       fallbackModel: process.env.IGENAI_PROMPT_FALLBACK_MODEL?.trim() || "qwen/qwen3.5-flash-02-23",
       temperature: 0.3,
-      maxRetries: 1,
+      maxRetries: 3,
       messages: [
         { role: "system", content: "Bạn là biên tập viên prompt tạo ảnh. Viết lại yêu cầu thành một prompt ngắn, rõ và có thể dùng ngay: nêu chủ thể chính, hành động hoặc đặc điểm quan trọng, bối cảnh, bố cục và ánh sáng theo đúng những gì người dùng cung cấp. Sắp xếp chi tiết theo thứ tự dễ hình dung; diễn đạt trung tính khi cần nối ý. Giữ nguyên ngôn ngữ, chữ cần xuất hiện trong ảnh, tên riêng, màu sắc, số lượng, tỷ lệ và mọi điều cấm hoặc yêu cầu giữ nguyên. Không thêm người, vật, logo, thương hiệu, địa điểm, phong cách, góc máy hay chi tiết mới khi người dùng chưa nêu. Nếu yêu cầu đã rõ, chỉ sửa câu chữ. Chỉ trả một đoạn prompt hoàn chỉnh, không tiêu đề, giải thích hoặc Markdown." },
         { role: "user", content: prompt.trim() },

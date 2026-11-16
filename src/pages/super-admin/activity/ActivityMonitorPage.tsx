@@ -18,6 +18,14 @@ const categories = [
 ] as const;
 const dateLabel = (date: string) => new Date(date).toLocaleString("vi-VN");
 const initialFrom = () => new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+const TENANT_LIST_REFRESH_MS = 30_000;
+
+const lifecycleLabel = (status?: string) => {
+  if (status === "active") return "Đang hoạt động";
+  if (status === "suspended") return "Tạm ngưng";
+  if (status === "archived") return "Đã lưu trữ";
+  return status;
+};
 
 function EventDetails({ event }: { event: MonitorEvent }) {
   const values = [
@@ -44,22 +52,45 @@ export function ActivityMonitorPage() {
   const debouncedSearch = useDebouncedValue(search);
   const debouncedAccountSearch = useDebouncedValue(accountSearch);
   const [tenants, setTenants] = React.useState<Tenant[]>([]);
+  const [tenantListLoading, setTenantListLoading] = React.useState(true);
   const [accounts, setAccounts] = React.useState<MonitorAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = React.useState<MonitorAccount | null>(null);
   const [optionsError, setOptionsError] = React.useState("");
   const [accountsLoading, setAccountsLoading] = React.useState(false);
   const [optionsRevision, setOptionsRevision] = React.useState(0);
   const requestFilters = { ...filters, search: debouncedSearch };
-  const { snapshot, error, loading, paused, togglePaused, pendingCount, refresh } = useActivityMonitor(requestFilters);
+  const { snapshot, companySnapshot, error, loading, paused, togglePaused, pendingCount, refresh } = useActivityMonitor(requestFilters);
   const page = filters.page || 1;
   const pages = Math.max(1, Math.ceil((snapshot?.total || 0) / 30));
   const change = (next: Partial<ActivityMonitorFilters>) => setFilters((current) => ({ ...current, ...next, page: 1 }));
 
   React.useEffect(() => {
     let active = true;
-    superAdminTenantService.list().then((value) => { if (active) setTenants(value); }).catch(() => { if (active) setOptionsError("Không thể tải danh sách doanh nghiệp."); });
+    setTenantListLoading(true);
+    superAdminTenantService.list().then((value) => { if (active) setTenants(value); }).catch(() => { if (active) setOptionsError("Không thể tải danh sách doanh nghiệp."); }).finally(() => { if (active) setTenantListLoading(false); });
     return () => { active = false; };
   }, [optionsRevision]);
+  React.useEffect(() => {
+    let active = true;
+    let running = false;
+    const refreshTenants = async () => {
+      if (!active || running || document.visibilityState === "hidden") return;
+      running = true;
+      try {
+        const value = await superAdminTenantService.list();
+        if (active) setTenants(value);
+      } catch {
+        if (active) setOptionsError("Không thể cập nhật danh sách doanh nghiệp.");
+      } finally {
+        running = false;
+      }
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") void refreshTenants(); };
+    const timer = window.setInterval(() => { void refreshTenants(); }, TENANT_LIST_REFRESH_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { active = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
+
   React.useEffect(() => {
     const controller = new AbortController();
     setAccountsLoading(true);
@@ -72,6 +103,35 @@ export function ActivityMonitorPage() {
 
   const reset = () => { setFilters({ from: initialFrom(), page: 1 }); setSearch(""); setAccountSearch(""); setSelectedAccount(null); };
   const shownAccounts = selectedAccount && !accounts.some((account) => account._id === selectedAccount._id) ? [selectedAccount, ...accounts] : accounts;
+  const breakdown = companySnapshot?.companyBreakdown || [];
+  const breakdownByCode = new Map(breakdown.map((company) => [company.companyCode, company]));
+  const companiesByCode = new Map<string, {
+    code: string; name: string; lifecycleStatus?: string; total: number; failures: number;
+    activeUsers: number; latestActivityAt?: string;
+  }>();
+  tenants.forEach((tenant) => {
+    if (filters.companyCode && tenant.code !== filters.companyCode) return;
+    const stats = breakdownByCode.get(tenant.code);
+    companiesByCode.set(tenant.code, {
+      code: tenant.code, name: tenant.name || tenant.code, lifecycleStatus: tenant.lifecycleStatus,
+      total: stats?.total || 0, failures: stats?.failures || 0, activeUsers: stats?.activeUsers || 0,
+      latestActivityAt: stats?.latestActivityAt,
+    });
+  });
+  breakdown.forEach((company) => {
+    if (!companiesByCode.has(company.companyCode)) {
+      companiesByCode.set(company.companyCode, {
+        code: company.companyCode, name: company.companyCode, total: company.total,
+        failures: company.failures, activeUsers: company.activeUsers, latestActivityAt: company.latestActivityAt,
+      });
+    }
+  });
+  if (filters.companyCode && !companiesByCode.has(filters.companyCode)) {
+    companiesByCode.set(filters.companyCode, {
+      code: filters.companyCode, name: filters.companyCode, total: 0, failures: 0, activeUsers: 0,
+    });
+  }
+  const companyCards = [...companiesByCode.values()].sort((left, right) => left.name.localeCompare(right.name, "vi"));
   return <section aria-label="Giám sát hoạt động" className="mx-auto w-full max-w-7xl space-y-5 rounded-2xl bg-surface p-4 text-on-surface sm:p-6">
     <header className="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
       <div className="min-w-0"><h2 className="text-balance text-2xl font-semibold">Giám sát hoạt động</h2>
@@ -86,6 +146,59 @@ export function ActivityMonitorPage() {
     <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {[["Thao tác trong khoảng chọn", snapshot?.total], ["Doanh nghiệp có hoạt động", snapshot?.summary.companies], ["Tài khoản hoạt động 5 phút qua", snapshot?.summary.activeUsers], ["Thao tác thất bại / bị từ chối", snapshot?.summary.failures]].map(([label, value]) => <ErpCard key={String(label)} className={cn(cardClass, "p-4")}><dt className="text-pretty text-xs text-on-surface-variant">{label}</dt><dd className="mt-2 text-2xl font-semibold tabular-nums">{value == null ? "—" : Number(value).toLocaleString("vi-VN")}</dd></ErpCard>)}
     </dl>
+
+    <section aria-labelledby="company-monitor-heading" className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 id="company-monitor-heading" data-typography="section-title" className="text-balance text-lg font-semibold">Giám sát theo doanh nghiệp</h3>
+          <p className="mt-1 text-pretty text-xs text-on-surface-variant">Thẻ doanh nghiệp cập nhật theo luồng hoạt động hiện tại.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+          <p role="status">{error ? "Dữ liệu chưa thể cập nhật" : paused && page === 1 ? "Đang tạm dừng cập nhật" : "Cập nhật mỗi 3 giây"}</p>
+          {companySnapshot && <time dateTime={companySnapshot.generatedAt}>{dateLabel(companySnapshot.generatedAt)}</time>}
+        </div>
+      </div>
+      {companyCards.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {companyCards.map((company) => {
+          const isSelected = filters.companyCode === company.code;
+          return <ErpCard key={company.code} className={cn(cardClass, "space-y-4 p-4", isSelected && "border-primary ring-1 ring-primary/20")}>
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h4 className="truncate text-sm font-semibold" title={company.name}>{company.name}</h4>
+                <p className="mt-1 truncate text-xs text-on-surface-variant">{company.code}</p>
+              </div>
+              {company.lifecycleStatus && <span className="shrink-0 rounded-full bg-surface-container px-2 py-1 text-xs text-on-surface-variant">{lifecycleLabel(company.lifecycleStatus)}</span>}
+            </div>
+            <dl className="grid grid-cols-3 gap-2 border-y border-outline-variant py-3">
+              <div><dt className="text-xs text-on-surface-variant">Hoạt động</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{companySnapshot ? company.total.toLocaleString("vi-VN") : "—"}</dd></div>
+              <div><dt className="text-xs text-on-surface-variant">Tài khoản 5 phút</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{companySnapshot ? company.activeUsers.toLocaleString("vi-VN") : "—"}</dd></div>
+              <div><dt className="text-xs text-on-surface-variant">Thất bại</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{companySnapshot ? company.failures.toLocaleString("vi-VN") : "—"}</dd></div>
+            </dl>
+            <p className="text-xs text-on-surface-variant">
+              {company.latestActivityAt ? <>Hoạt động gần nhất: <time dateTime={company.latestActivityAt}>{dateLabel(company.latestActivityAt)}</time></> : "Chưa có hoạt động trong khoảng thời gian đã chọn."}
+            </p>
+            <ErpPrimaryButton type="button" icon={Activity} aria-pressed={isSelected} onClick={() => {
+              change({ companyCode: isSelected ? "" : company.code, userId: "" });
+              setSelectedAccount(null); setAccountSearch(""); setAccounts([]);
+            }} className={secondaryClass}>
+              {isSelected ? "Bỏ lọc doanh nghiệp" : "Xem hoạt động"}
+            </ErpPrimaryButton>
+          </ErpCard>;
+        })}
+      </div> : tenantListLoading ? <div className="space-y-3">
+        <p role="status" className="text-sm text-on-surface-variant">Đang tải danh sách doanh nghiệp…</p>
+        <div aria-hidden="true" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((item) => <ErpCard key={item} className={cn(cardClass, "space-y-4 p-4")}>
+            <div className="h-4 w-2/3 rounded bg-surface-container" />
+            <div className="h-12 rounded bg-surface-container-low" />
+            <div className="h-8 w-1/2 rounded bg-surface-container" />
+          </ErpCard>)}
+        </div>
+      </div> : <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5">
+        <p className="text-sm text-on-surface-variant">Chưa có doanh nghiệp phù hợp để giám sát.</p>
+        <button type="button" className="mt-2 rounded text-sm text-primary underline focus-visible:outline-2 focus-visible:outline-primary" onClick={() => setOptionsRevision((value) => value + 1)}>Tải lại danh sách</button>
+      </div>}
+    </section>
 
     <ErpCard className={cn(cardClass, "space-y-4 p-4")}>
       <h3 className="text-balance text-sm font-semibold">Phạm vi theo dõi</h3>

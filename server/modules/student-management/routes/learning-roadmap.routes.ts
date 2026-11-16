@@ -4,6 +4,7 @@ import { LearningRoadmapController } from "../controllers/learning-roadmap.contr
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
+import { idParamSchema } from "../validations/student.validation";
 import { batchProgressionQuerySchema, createLearningRoadmapSchema, directPromotionSchema, placeWaitlistSchema, progressionDecisionSchema, roadmapStepsParamsSchema, roadmapStepsQuerySchema, updateLearningRoadmapSchema, waitlistQuerySchema } from "../validations/learning-roadmap.validation";
 
 const router = Router();
@@ -13,6 +14,7 @@ router.get("/", LearningRoadmapController.list);
 router.get("/:id/steps", validate(roadmapStepsParamsSchema, "params"), validate(roadmapStepsQuerySchema, "query"), LearningRoadmapController.listSteps);
 router.post("/", requireManage, validate(createLearningRoadmapSchema), LearningRoadmapController.create);
 router.patch("/:id", requireManage, validate(updateLearningRoadmapSchema), LearningRoadmapController.update);
+router.delete("/:id", requireManage, validate(idParamSchema, "params"), LearningRoadmapController.delete);
 router.get("/batches/:batchId/progression", validate(batchProgressionQuerySchema, "query"), LearningRoadmapController.batchProgression);
 router.patch("/batches/:batchId/students/:studentId/progression", requireManage, validate(progressionDecisionSchema), LearningRoadmapController.saveDecision);
 router.post("/batches/:batchId/promote", requireManage, validate(directPromotionSchema), LearningRoadmapController.promoteStudents);

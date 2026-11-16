@@ -7,6 +7,11 @@ import { IInstallmentStatus } from "../interfaces/student.interface";
 interface NotificationFilters {
   page?: number | string;
   limit?: number | string;
+  search?: string;
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 interface NotificationCreateData {
@@ -21,6 +26,8 @@ interface NotificationCreateData {
   studentIds?: string[];
   [key: string]: unknown;
 }
+
+type NotificationUpdateData = Partial<Pick<INotification, "title" | "content" | "recipients" | "recipientCount" | "channels" | "status">>;
 
 export class NotificationService {
   static async createNotification(ownerId: string, branchId: string, data: NotificationCreateData): Promise<INotification> {
@@ -104,10 +111,14 @@ export class NotificationService {
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
 
-    const query = {
+    const query: Record<string, unknown> = {
       ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId,
       branchId,
     };
+    if (typeof filters.search === "string" && filters.search.trim()) {
+      const expression = new RegExp(escapeRegex(filters.search.trim().slice(0, 120)), "i");
+      query.$or = [{ title: expression }, { recipients: expression }, { content: expression }];
+    }
 
     const total = await Notification.countDocuments(query);
     const notifications = await Notification.find(query)
@@ -131,6 +142,15 @@ export class NotificationService {
       ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId,
     };
     return await Notification.findOneAndDelete(query);
+  }
+
+  static async updateNotification(ownerId: string | string[], id: string, branchId: string, data: NotificationUpdateData): Promise<INotification | null> {
+    const query = {
+      _id: id,
+      branchId,
+      ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId,
+    };
+    return Notification.findOneAndUpdate(query, { $set: data }, { returnDocument: "after", runValidators: true });
   }
 }
 

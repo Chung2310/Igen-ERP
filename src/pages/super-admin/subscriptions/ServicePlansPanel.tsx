@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "../../../config/modules";
+import { MODULE_LABELS, MODULE_OPTIONS, normalizeModuleKeys, type ModuleKey } from "../../../config/modules";
 import { superAdminTenantService, type Tenant } from "../../../services/superAdminTenantService";
 import { servicePlanAdminService as api, type ServicePlan, type ServicePlanInput, type ServiceSubscription } from "../../../services/servicePlanAdminService";
 
@@ -48,11 +48,13 @@ export default function ServicePlansPanel() {
   function edit(plan: ServicePlan | null) {
     setEditing(plan); setShowForm(true);
     setForm(plan ? { code: plan.code, name: plan.name, description: plan.description, priceVnd: String(plan.priceVnd),
-      durationDays: String(plan.durationDays), modules: [...plan.modules], active: plan.active, reason: "" } : { ...empty, modules: [] });
+      durationDays: String(plan.durationDays), modules: normalizeModuleKeys(plan.modules), active: plan.active, reason: "" } : { ...empty, modules: [] });
     setError(""); setNotice("");
   }
-  function toggleModule(key: string) {
-    setForm(value => ({ ...value, modules: value.modules.includes(key) ? value.modules.filter(item => item !== key) : [...value.modules, key] }));
+  function toggleModule(moduleKeys: readonly ModuleKey[]) {
+    setForm(value => ({ ...value, modules: moduleKeys.every(key => value.modules.includes(key))
+      ? value.modules.filter(item => !moduleKeys.includes(item as ModuleKey))
+      : [...new Set([...value.modules, ...moduleKeys])] }));
   }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,8 +102,8 @@ export default function ServicePlansPanel() {
         </div>
         <label className="sa-ai-label">Mô tả<textarea className="sa-ai-input" rows={2} maxLength={1000} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label>
         <fieldset><legend className="sa-ai-label">Phân hệ trong gói</legend>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{MODULE_KEYS.map(key => <label key={key} className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.modules.includes(key)} onChange={() => toggleModule(key)} />{MODULE_LABELS[key as ModuleKey]}
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{MODULE_OPTIONS.map(option => <label key={option.key} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={option.moduleKeys.every(key => form.modules.includes(key))} onChange={() => toggleModule(option.moduleKeys)} />{option.label}
           </label>)}</div>
           {form.modules.length === 0 && <p className="sa-ai-muted mt-1">Chọn ít nhất một phân hệ.</p>}
         </fieldset>
@@ -127,7 +129,7 @@ export default function ServicePlansPanel() {
         <label className="sa-ai-label">Gói cần cấp<select className="sa-ai-input" value={planId} onChange={event => setPlanId(event.target.value)}>
           <option value="">Chọn gói dịch vụ</option>{plans.filter(plan => plan.active).map(plan => <option key={plan._id} value={plan._id}>{plan.name} · {currency(plan.priceVnd)} · {plan.durationDays} ngày</option>)}
         </select></label>
-        {selectedPlan && <p className="sa-ai-muted">Phân hệ sẽ bật: {selectedPlan.modules.map(key => MODULE_LABELS[key as ModuleKey] || key).join(", ")}.</p>}
+        {selectedPlan && <p className="sa-ai-muted">Phân hệ sẽ bật: {normalizeModuleKeys(selectedPlan.modules).map(key => MODULE_LABELS[key] || key).join(", ")}.</p>}
         <label className="sa-ai-label">Lý do cấp hoặc thu hồi<textarea className="sa-ai-input" rows={2} minLength={3} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} /></label>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="sa-ai-button sa-ai-button-primary" disabled={!selectedPlan || reason.trim().length < 3 || busy || currentLoading} onClick={() => void grant()}>Cấp gói dịch vụ</button>

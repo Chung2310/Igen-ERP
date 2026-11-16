@@ -19,6 +19,7 @@ import {
   clearPendingSuperAdminChallenge,
   savePendingSuperAdminChallenge,
 } from "../../services/pendingSuperAdminChallenge";
+import "./super-admin-theme.css";
 
 export default function SuperAdminShell() {
   const [pendingChallenge] = React.useState(() => null);
@@ -195,8 +196,8 @@ export default function SuperAdminShell() {
     <div className="flex flex-col h-full">
       <div className="space-y-6 flex-1">
         <div>
-          <h1 className="text-xl font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
-          <p className="mt-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+          <h1 className="text-xl font-black text-on-surface tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
+          <p className="mt-1 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
             Không gian Quản trị Tối cao
           </p>
         </div>
@@ -209,11 +210,11 @@ export default function SuperAdminShell() {
               onClick={() => handleNavClick(id)}
               className={cn("group w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400",
                 activeTab === id
-                  ? "bg-white/5 text-white"
-                  : "text-slate-300 hover:text-white hover:bg-white/5 focus-visible:bg-white/5"
+                  ? "bg-surface-container-low text-on-surface"
+                  : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low focus-visible:bg-surface-container-low"
               )}
             >
-              <span aria-hidden="true" className="relative size-5 shrink-0 text-slate-300 group-hover:text-cyan-400 group-focus-visible:text-cyan-400 group-aria-[current=page]:text-cyan-400 [&_svg]:size-5">
+              <span aria-hidden="true" className="relative size-5 shrink-0 text-on-surface-variant group-hover:text-primary group-focus-visible:text-primary group-aria-[current=page]:text-primary [&_svg]:size-5">
                 <span className={`${activeTab === id ? "hidden" : "group-hover:hidden group-focus-visible:hidden"} absolute inset-0`}>{getSidebarArtworkIcon(artwork as SidebarArtworkName)}</span>
                 <span className={`${activeTab === id ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`}>{getSidebarArtworkIcon(artwork as SidebarArtworkName, true)}</span>
               </span>
@@ -224,7 +225,7 @@ export default function SuperAdminShell() {
       </div>
       <button
         onClick={handleLogout}
-        className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all border border-transparent mt-4"
+        className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-on-surface-variant hover:text-error hover:bg-surface-container-low transition-all border border-transparent mt-4"
       >
         <LogOut className="h-4 w-4 shrink-0" />
         Đăng xuất
@@ -234,20 +235,20 @@ export default function SuperAdminShell() {
 
   if (stage === "authenticated") {
     return (
-      <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col font-sans">
+      <div className="super-admin-shell min-h-dvh bg-surface-container-lowest text-on-surface flex flex-col font-sans">
         <EnvironmentBanner environment={environment} />
 
         {/* Mobile Top Navigation Bar */}
-        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-slate-950/95 backdrop-blur-xl px-4 py-3">
+        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-4 py-3">
           <div>
-            <span className="text-sm font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</span>
-            <span className="ml-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden sm:inline">
+            <span className="text-sm font-black text-on-surface tracking-wider">BẢNG ĐIỀU KHIỂN</span>
+            <span className="ml-2 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest hidden sm:inline">
               Quản trị Tối cao
             </span>
           </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-300 transition-all"
+            className="rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container p-2 text-on-surface-variant transition-all"
             aria-label="Mở menu điều hướng"
             aria-haspopup="dialog"
             aria-expanded={sidebarOpen}
@@ -264,19 +265,19 @@ export default function SuperAdminShell() {
           aria-label="Điều hướng Super Admin"
           onCancel={() => setSidebarOpen(false)}
           onClose={() => setSidebarOpen(false)}
-          className={cn("fixed inset-y-0 left-0 z-50 m-0 h-dvh max-h-dvh w-72 flex-col border-r border-white/10 bg-slate-900 p-5 text-slate-100 shadow-2xl backdrop:bg-black/60 lg:hidden", sidebarOpen ? "flex" : "hidden")}
+          className={cn("fixed inset-y-0 left-0 z-50 m-0 h-dvh max-h-dvh w-72 flex-col border-r border-outline-variant bg-surface-container-lowest p-5 text-on-surface shadow-2xl backdrop:bg-black/60 lg:hidden", sidebarOpen ? "flex" : "hidden")}
           style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-lg font-black text-white tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
-              <p className="mt-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              <h1 className="text-lg font-black text-on-surface tracking-wider">BẢNG ĐIỀU KHIỂN</h1>
+              <p className="mt-0.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
                 Quản trị Tối cao
               </p>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-400 hover:text-white transition-all"
+              className="rounded-xl border border-outline-variant bg-surface-container-low hover:bg-surface-container p-2 text-on-surface-variant hover:text-on-surface transition-all"
               aria-label="Đóng menu"
              data-erp-modal-close>
               <X className="h-4 w-4" />
@@ -287,12 +288,12 @@ export default function SuperAdminShell() {
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Desktop Sidebar */}
-          <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-white/10 bg-slate-950 p-6">
+          <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest p-6">
             <NavContent />
           </aside>
 
           {/* Main workspace */}
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-950 p-3 sm:p-6 lg:p-8">
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container-lowest p-3 sm:p-6 lg:p-8">
             {renderActiveTab()}
           </main>
         </div>
@@ -302,13 +303,13 @@ export default function SuperAdminShell() {
 
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-white grid place-items-center p-6">
-      <section className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-8 shadow-2xl">
+    <main className="super-admin-shell min-h-dvh bg-surface-container-lowest text-on-surface grid place-items-center p-6">
+      <section className="w-full max-w-md rounded-3xl border border-outline-variant bg-surface-container-lowest p-8 shadow-2xl">
         <p className="text-xs font-bold tracking-[.3em] text-cyan-400 uppercase">Quản trị Tối cao iGen</p>
         <h1 className="mt-3 text-2xl font-black">Đăng nhập đặc quyền</h1>
         
         {error && (
-          <p className="mt-4 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-300">
+          <p className="mt-4 rounded-xl bg-error-container border border-error/20 p-3 text-sm text-error">
             {error}
           </p>
         )}
@@ -316,14 +317,14 @@ export default function SuperAdminShell() {
         {stage === "password" ? (
           <form onSubmit={submitPassword} className="mt-8 space-y-4">
             <input
-              className="w-full rounded-xl bg-slate-800 border border-white/5 p-3 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-xl bg-surface-container-lowest border border-outline-variant p-3 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
             <input
               type="password"
-              className="w-full rounded-xl bg-slate-800 border border-white/5 p-3 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-xl bg-surface-container-lowest border border-outline-variant p-3 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               placeholder="Mật khẩu"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -334,10 +335,10 @@ export default function SuperAdminShell() {
           </form>
         ) : recoveryCodes.length ? (
           <div className="mt-6 space-y-4">
-            <p className="text-amber-300 text-sm">
+            <p className="text-amber-800 text-sm">
               Lưu các mã khôi phục này ngay. Chúng chỉ hiển thị một lần duy nhất.
             </p>
-            <pre className="rounded-xl bg-black/40 border border-white/5 p-4 text-sm font-mono text-slate-300 leading-relaxed">
+            <pre className="rounded-xl bg-surface-container-low border border-outline-variant p-4 text-sm font-mono text-on-surface-variant leading-relaxed">
               {recoveryCodes.join("\n")}
             </pre>
             <button
@@ -360,7 +361,7 @@ export default function SuperAdminShell() {
               </div>
             )}
             <input
-              className="w-full rounded-xl bg-slate-800 border border-white/5 p-3 text-center font-mono tracking-widest text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-xl bg-surface-container-lowest border border-outline-variant p-3 text-center font-mono tracking-widest text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               placeholder={stage === "recovery" ? "XXXXX-XXXXX" : "000000"}
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -372,7 +373,7 @@ export default function SuperAdminShell() {
               <button
                 type="button"
                 onClick={() => setStage(stage === "recovery" ? "totp" : "recovery")}
-                className="w-full text-xs text-slate-400 hover:text-white transition-all pt-2"
+                className="w-full text-xs text-on-surface-variant hover:text-on-surface transition-all pt-2"
               >
                 {stage === "recovery" ? "Sử dụng ứng dụng xác thực" : "Sử dụng mã khôi phục dự phòng"}
               </button>

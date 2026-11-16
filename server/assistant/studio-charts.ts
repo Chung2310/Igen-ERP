@@ -311,7 +311,7 @@ async function askModel(input: { companyCode: string; userId: string; system: st
       billAiCall("text", models.model, () => openrouterChat({
           ...models,
           temperature: 0.1,
-          maxRetries: 1,
+          maxRetries: 3,
           jsonMode: true,
           responseSchema: input.schema,
           messages: [

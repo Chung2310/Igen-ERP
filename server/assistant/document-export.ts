@@ -6,22 +6,36 @@ import PDFDocument from "pdfkit";
 import type { AssistantDocumentFormat } from "../../src/shared/assistant-document";
 import { AssistantError } from "./policy";
 import { renderDocumentWorkbook } from "./document-workbook";
+import { assistantDocumentCellAlignment, type AssistantDocumentAlignmentValue } from "./document-formatting";
 
 type Cell = string | number | boolean | null;
 export interface AssistantDocumentContent {
   title: string;
-  sections: { heading: string; text: string }[];
-  sheets: { name: string; columns: string[]; rows: Cell[][] }[];
+  titleAlignment?: AssistantDocumentAlignmentValue;
+  sections: { heading: string; text: string; alignment?: AssistantDocumentAlignmentValue }[];
+  sheets: {
+    name: string;
+    columns: string[];
+    rows: Cell[][];
+    headerAlignments?: AssistantDocumentAlignmentValue[];
+    columnAlignments?: AssistantDocumentAlignmentValue[];
+    cellAlignments?: AssistantDocumentAlignmentValue[][];
+  }[];
 }
 
 const cell = Joi.alternatives().try(Joi.string().allow("").max(4000), Joi.number(), Joi.boolean()).allow(null);
+const alignment = Joi.string().valid("left", "center", "right").allow(null);
 const contentSchema = Joi.object({
   title: Joi.string().trim().min(1).max(200).required(),
-  sections: Joi.array().max(60).items(Joi.object({ heading: Joi.string().max(200).allow("").required(), text: Joi.string().max(12000).allow("").required() })).required(),
+  titleAlignment: alignment.optional(),
+  sections: Joi.array().max(60).items(Joi.object({ heading: Joi.string().max(200).allow("").required(), text: Joi.string().max(12000).allow("").required(), alignment: alignment.optional() })).required(),
   sheets: Joi.array().max(8).items(Joi.object({
     name: Joi.string().trim().min(1).max(80).required(),
     columns: Joi.array().min(1).max(40).items(Joi.string().trim().min(1).max(200)).required(),
     rows: Joi.array().max(1000).items(Joi.array().max(40).items(cell)).required(),
+    headerAlignments: Joi.array().max(40).items(alignment).optional(),
+    columnAlignments: Joi.array().max(40).items(alignment).optional(),
+    cellAlignments: Joi.array().max(1000).items(Joi.array().max(40).items(alignment)).optional(),
   })).required(),
 }).required();
 
@@ -34,6 +48,11 @@ export function validateDocumentContent(input: unknown): AssistantDocumentConten
   }
   if (!document.sections.some(section => section.text.trim()) && !document.sheets.length) throw new AssistantError("Tài liệu chưa có nội dung để xuất.", 422);
   if (document.sheets.some(sheet => sheet.rows.some(row => row.length !== sheet.columns.length))) throw new AssistantError("Số ô trong bảng chưa khớp với số cột. Bạn thử tạo lại nhé.", 422);
+  if (document.sheets.some(sheet =>
+    (sheet.headerAlignments && sheet.headerAlignments.length !== sheet.columns.length)
+    || (sheet.columnAlignments && sheet.columnAlignments.length !== sheet.columns.length)
+    || (sheet.cellAlignments && (sheet.cellAlignments.length !== sheet.rows.length || sheet.cellAlignments.some(row => row.length !== sheet.columns.length)))
+  )) throw new AssistantError("Thông tin căn lề chưa khớp với các cột và dòng dữ liệu.", 422);
   return document;
 }
 
@@ -69,13 +88,21 @@ function documentText(document: AssistantDocumentContent, markdown: boolean) {
 }
 
 function wordDocument(document: AssistantDocumentContent) {
-  const paragraph = (text: string, style?: string) => text.split(/\r?\n/).map(line => `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ""}<w:r><w:t xml:space="preserve">${xml(line)}</w:t></w:r></w:p>`).join("");
+  const paragraph = (text: string, style?: string, alignment?: AssistantDocumentAlignmentValue) => text.split(/\r?\n/).map(line => {
+    const properties = `${style ? `<w:pStyle w:val="${style}"/>` : ""}${alignment ? `<w:jc w:val="${alignment}"/>` : ""}`;
+    return `<w:p>${properties ? `<w:pPr>${properties}</w:pPr>` : ""}<w:r><w:t xml:space="preserve">${xml(line)}</w:t></w:r></w:p>`;
+  }).join("");
   const table = (sheet: AssistantDocumentContent["sheets"][number]) => {
     const width = 11906 - 2 * 1134;
     const widths = sheet.columns.map((_column, index) => Math.floor(width / sheet.columns.length) + (index < width % sheet.columns.length ? 1 : 0));
-    return `<w:tbl><w:tblPr><w:tblW w:w="${width}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map(side => `<w:${side} w:val="single" w:sz="4"/>`).join("")}</w:tblBorders></w:tblPr><w:tblGrid>${widths.map(value => `<w:gridCol w:w="${value}"/>`).join("")}</w:tblGrid>${[sheet.columns, ...sheet.rows].map((row, index) => `<w:tr>${index === 0 ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}${row.map((value, column) => `<w:tc><w:tcPr><w:tcW w:w="${widths[column]}" w:type="dxa"/></w:tcPr>${paragraph(String(value ?? ""))}</w:tc>`).join("")}</w:tr>`).join("")}</w:tbl>`;
+    return `<w:tbl><w:tblPr><w:tblW w:w="${width}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map(side => `<w:${side} w:val="single" w:sz="4"/>`).join("")}</w:tblBorders></w:tblPr><w:tblGrid>${widths.map(value => `<w:gridCol w:w="${value}"/>`).join("")}</w:tblGrid>${[sheet.columns, ...sheet.rows].map((row, index) => `<w:tr>${index === 0 ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}${row.map((value, column) => {
+      const alignment = index === 0
+        ? sheet.headerAlignments?.[column]
+        : assistantDocumentCellAlignment(sheet.columnAlignments, sheet.cellAlignments, index - 1, column);
+      return `<w:tc><w:tcPr><w:tcW w:w="${widths[column]}" w:type="dxa"/></w:tcPr>${paragraph(String(value ?? ""), undefined, alignment)}</w:tc>`;
+    }).join("")}</w:tr>`).join("")}</w:tbl>`;
   };
-  const body = [paragraph(document.title, "Title"), ...document.sections.flatMap(section => [section.heading ? paragraph(section.heading, "Heading1") : "", paragraph(section.text)]), ...document.sheets.flatMap(sheet => [
+  const body = [paragraph(document.title, "Title", document.titleAlignment), ...document.sections.flatMap(section => [section.heading ? paragraph(section.heading, "Heading1", section.alignment) : "", paragraph(section.text, undefined, section.alignment)]), ...document.sheets.flatMap(sheet => [
     paragraph(sheet.name, "Heading1"),
     table(sheet),
   ])].join("");
@@ -100,14 +127,14 @@ async function pdfDocument(document: AssistantDocumentContent): Promise<Buffer> 
     pdf.on("pageAdded", () => { if (++pages > 150) pdf.destroy(new Error("Tài liệu PDF vượt quá 150 trang.")); });
     pdf.registerFont("Regular", path.resolve("server/assets/fonts/Roboto-Regular.ttf"));
     pdf.registerFont("Bold", path.resolve("server/assets/fonts/Roboto-Bold.ttf"));
-    pdf.font("Bold").fontSize(18).text(document.title).moveDown();
+    pdf.font("Bold").fontSize(18).text(document.title, document.titleAlignment ? { align: document.titleAlignment } : undefined).moveDown();
     for (const section of document.sections) {
       if (section.heading) {
         const headingHeight = pdf.font("Bold").fontSize(14).heightOfString(section.heading);
         if (pdf.y + headingHeight + 36 > pdf.page.height - pdf.page.margins.bottom) pdf.addPage();
-        pdf.font("Bold").fontSize(14).text(section.heading).moveDown(0.4);
+        pdf.font("Bold").fontSize(14).text(section.heading, section.alignment ? { align: section.alignment } : undefined).moveDown(0.4);
       }
-      pdf.font("Regular").fontSize(11).text(section.text, { lineGap: 3 }).moveDown();
+      pdf.font("Regular").fontSize(11).text(section.text, { lineGap: 3, ...(section.alignment ? { align: section.alignment } : {}) }).moveDown();
     }
     for (const sheet of document.sheets) {
       const headingHeight = pdf.font("Bold").fontSize(13).heightOfString(sheet.name);
@@ -121,7 +148,10 @@ async function pdfDocument(document: AssistantDocumentContent): Promise<Buffer> 
         const usableHeight = pdf.page.height - pdf.page.margins.top - pdf.page.margins.bottom;
         if (rowHeight <= usableHeight && pdf.y + rowHeight > pdf.page.height - pdf.page.margins.bottom) pdf.addPage();
         pdf.font("Bold").fontSize(11).text(`${index + 1}.`);
-        row.forEach((value, column) => pdf.font("Regular").fontSize(10).text(`${sheet.columns[column]}: ${value ?? ""}`, { lineGap: 2 }));
+        row.forEach((value, column) => {
+          const alignment = assistantDocumentCellAlignment(sheet.columnAlignments, sheet.cellAlignments, index, column);
+          pdf.font("Regular").fontSize(10).text(`${sheet.columns[column]}: ${value ?? ""}`, { lineGap: 2, ...(alignment ? { align: alignment } : {}) });
+        });
         pdf.moveDown(0.6);
       });
     }
