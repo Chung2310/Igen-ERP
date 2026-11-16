@@ -3,6 +3,7 @@ import { model, Schema } from "mongoose";
 import { resolveMediaBinary } from "../modules/marketing-suite/shared/service/media-binary.service";
 import { billAiCall, withAiUsage } from "../modules/marketing-suite/shared/service/ai-subscription.service";
 import { AssistantError } from "./policy";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 const modelName = process.env.OPENROUTER_CAPTION_STT_MODEL?.trim() || "openai/whisper-large-v3";
 const maxProviderBytes = 20_000_000;
@@ -21,6 +22,7 @@ function hasSupportedAudioSignature(input: Buffer): boolean {
     || (input.length >= 12 && input.subarray(0, 4).toString("ascii") === "RIFF" && input.subarray(8, 12).toString("ascii") === "WAVE")
     || input.subarray(0, 4).toString("ascii") === "fLaC"
     || input.subarray(0, 4).toString("ascii") === "OggS"
+    || input.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
     || (input.length >= 12 && input.subarray(4, 8).toString("ascii") === "ftyp");
 }
 
@@ -39,7 +41,7 @@ export function normalizeStudioAudio(input: Buffer, fileName = ""): Promise<Buff
   if (/\.mp3$/i.test(fileName) && hasMp3Signature(input) && input.length <= maxProviderBytes) return Promise.resolve(input);
 
   return new Promise((resolve, reject) => {
-    const child = spawn(resolveMediaBinary("ffmpeg"), ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "48k", "-f", "mp3", "pipe:1"], { shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+    const child = spawn(resolveMediaBinary("ffmpeg"), ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "40k", "-f", "mp3", "pipe:1"], { shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
     const chunks: Buffer[] = [];
     let size = 0;
     let settled = false;
@@ -58,7 +60,7 @@ export function normalizeStudioAudio(input: Buffer, fileName = ""): Promise<Buff
     });
     child.on("error", (error: NodeJS.ErrnoException) => finish(new AssistantError(
       error.code === "ENOENT"
-        ? "Máy chủ chưa cài ffmpeg để chuyển đổi tệp âm thanh này. Hãy dùng MP3 dưới 20 MB hoặc cài ffmpeg."
+        ? "Giới hạn tải lên là 50 MB. Máy chủ chưa cài ffmpeg để chuyển đổi tệp này nên hiện chỉ xử lý được MP3 tối đa 20 MB. Hãy dùng MP3 tối đa 20 MB hoặc cài ffmpeg trên máy chủ."
         : "Không thể khởi chạy ffmpeg để xử lý âm thanh.",
       503,
     )));
@@ -79,7 +81,7 @@ export async function transcribeAudioToText(input: { buffer: Buffer; fileName: s
       body: JSON.stringify({ model: modelName, input_audio: { data: audio.toString("base64"), format: "mp3" }, language: "vi", response_format: "json" }),
       signal: AbortSignal.timeout(300_000),
     });
-    if (!response.ok) throw new AssistantError(response.status === 402 ? "Tài khoản OpenRouter không đủ số dư." : `Dịch vụ nhận dạng âm thanh trả về lỗi ${response.status}.`, response.status === 429 ? 429 : 502);
+    if (!response.ok) throw new AssistantError(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `Dịch vụ nhận dạng âm thanh trả về lỗi ${response.status}.`, response.status === 429 ? 429 : 502);
     const payload = await response.json() as { text?: string };
     if (!payload.text?.trim()) throw new AssistantError("Không nhận dạng được lời nói trong tệp âm thanh.", 422);
     return payload.text.trim();

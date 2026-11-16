@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantDataShape, AssistantField, AssistantQuotationAcceptanceForm, AssistantQuotationAcceptanceLinesInput, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { TRAINING_CATEGORY_OPTIONS } from "../../src/shared/training-categories";
+import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../../src/shared/ai-provider-error";
 import { AssistantDocumentModel, AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
 import { actorScope, assertOperation, currentWorkflow, listWorkflows } from "./workflows";
 import { AssistantError, collectValues, isAssistantFieldApplicable, isBlank } from "./policy";
@@ -259,6 +260,7 @@ const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalA
 function friendlyFailure(error: unknown) {
   if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công; bạn thử lại sau giúp mình nhé.";
   const message = error.message || "";
+  if (message === AI_PROVIDER_TEMPORARY_ERROR || isAiProviderBillingError(message)) return AI_PROVIDER_TEMPORARY_ERROR;
   if (/dữ liệu yêu cầu không hợp lệ/i.test(message)) {
     return "Mình chưa làm được vì một vài thông tin gửi lên chưa đúng định dạng. Bạn kiểm tra lại yêu cầu rồi gửi mình nhé; dữ liệu vẫn chưa thay đổi.";
   }

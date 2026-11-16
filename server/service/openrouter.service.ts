@@ -9,6 +9,7 @@
 
 import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, META_MUSE_IMAGE_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -229,7 +230,7 @@ async function chatWithRetries(
 
       if (!response.ok) {
         const errText = await response.text();
-        const err = new Error(`OpenRouter API lỗi ${response.status}: ${errText}`) as any;
+        const err = new Error(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `OpenRouter API lỗi ${response.status}: ${errText}`) as any;
         err.status = response.status;
         throw err;
       }
