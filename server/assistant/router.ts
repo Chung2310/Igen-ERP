@@ -103,7 +103,7 @@ assistantRouter.patch("/prompt-templates/:templateId/favorite", validateRequest(
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để cập nhật yêu thích.", 403);
   return setAssistantPromptTemplateFavorite({ companyCode: req.user.companyCode, userId: req.user.id }, req.params.templateId, req.body.favorite);
 }));
-const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.originalname)) });
+const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac|webm)$/i.test(file.originalname)) });
 const studioChartUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|xlsx|xls|docx|csv)$/i.test(file.originalname)) });
 const studioMindmapUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|pptx|txt)$/i.test(file.originalname)) });
 const studioSlideUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => /\.(pdf|docx|pptx|txt)$/i.test(file.originalname) ? callback(null, true) : callback(new Error("Unsupported slide source")) });
@@ -134,7 +134,7 @@ assistantRouter.post("/speech/document", expensiveApiRateLimiter, (req, res, nex
 }));
 assistantRouter.post("/studio/transcriptions", expensiveApiRateLimiter, (req, res, next) => studioAudioUpload.single("audio")(req, res, (error) => error ? res.status(413).json({ success: false, message: "Tệp âm thanh vượt giới hạn 50 MB hoặc không hợp lệ." }) : next()), wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu bản chép lời.", 403);
-  if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG hoặc FLAC.", 400);
+  if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG, FLAC hoặc WEBM.", 400);
   return transcribeStudioAudio({ buffer: req.file.buffer, fileName: req.file.originalname.slice(0, 255), companyCode: req.user.companyCode, userId: req.user.id });
 }));
 assistantRouter.get("/studio/transcriptions", wrap(req => {

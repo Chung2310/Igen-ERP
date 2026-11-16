@@ -6,7 +6,7 @@ import { assistantAgentService } from "../../services/assistantAgentService";
 
 type Meeting = { id: string; title: string; notes: string; transcript: string; summary?: string; fileName: string; createdAt: string };
 const limit = 50 * 1024 * 1024;
-const maxRecordingSeconds = 8 * 60;
+const maxRecordingSeconds = 60 * 60;
 const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const readHistory = (storageKey: string): Meeting[] => {
   try {
@@ -23,25 +23,14 @@ const formattedNotes = (value: string) => value.split(/(\*\*[^*]+\*\*|\*[^*]+\*|
   return part;
 });
 
-async function toWav(blob: Blob): Promise<File> {
-  const context = new AudioContext();
-  try {
-    const audio = await context.decodeAudioData(await blob.arrayBuffer());
-    if (44 + audio.length * 2 > limit) throw new Error("Bản ghi vượt giới hạn 50 MB. Hãy tạo bản ghi ngắn hơn.");
-    const buffer = new ArrayBuffer(44 + audio.length * 2);
-    const view = new DataView(buffer);
-    const tag = (at: number, text: string) => { for (let i = 0; i < text.length; i++) view.setUint8(at + i, text.charCodeAt(i)); };
-    tag(0, "RIFF"); view.setUint32(4, buffer.byteLength - 8, true); tag(8, "WAVE"); tag(12, "fmt ");
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-    view.setUint32(24, audio.sampleRate, true); view.setUint32(28, audio.sampleRate * 2, true);
-    view.setUint16(32, 2, true); view.setUint16(34, 16, true); tag(36, "data"); view.setUint32(40, audio.length * 2, true);
-    const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i));
-    for (let i = 0; i < audio.length; i++) {
-      const sample = Math.max(-1, Math.min(1, channels.reduce((total, channel) => total + channel[i], 0) / channels.length));
-      view.setInt16(44 + i * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
-    }
-    return new File([buffer], "cuoc-hop-" + Date.now() + ".wav", { type: "audio/wav" });
-  } finally { await context.close(); }
+function recordingExtension(mimeType: string): string {
+  const type = mimeType.toLowerCase();
+  if (type.includes("webm")) return "webm";
+  if (type.includes("mp4") || type.includes("m4a")) return "m4a";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+  if (type.includes("wav")) return "wav";
+  throw new Error("Trình duyệt không tạo được định dạng âm thanh được hỗ trợ.");
 }
 async function createMinutes(transcript: string, notes: string): Promise<string> {
   if (!transcript.trim()) throw new Error("Không có nội dung lời nói để tạo biên bản.");
@@ -233,16 +222,22 @@ export function AssistantMeetingNotes({ standalone = true, storageScope = "brows
     try {
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
       const activeMicrophone = microphone;
-      const device = new MediaRecorder(activeMicrophone);
+      const preferredType = ["audio/webm;codecs=opus", "audio/mp4;codecs=mp4a.40.2", "audio/ogg;codecs=opus"].find(type => MediaRecorder.isTypeSupported(type));
+      const device = new MediaRecorder(activeMicrophone, { ...(preferredType ? { mimeType: preferredType } : {}), audioBitsPerSecond: 48_000 });
       stream.current = activeMicrophone; recorder.current = device; chunks.current = []; discard.current = false;
       device.ondataavailable = event => { if (event.data.size) chunks.current.push(event.data); };
       device.onstop = () => {
         activeMicrophone.getTracks().forEach(track => track.stop());
         stream.current = null; setRecording(false); setPaused(false);
         if (discard.current) return;
-        const audio = new Blob(chunks.current, { type: device.mimeType });
+        const audio = new Blob(chunks.current, { type: device.mimeType || chunks.current[0]?.type });
         if (!audio.size) { setError("Bản ghi không có âm thanh."); return; }
-        void toWav(audio).then(wav => transcribe(wav, noteValues.current.title, noteValues.current.notes)).catch(cause => setError(cause instanceof Error ? cause.message : "Không đọc được bản ghi âm."));
+        if (audio.size > limit) { setError("Bản ghi vượt quá 50 MB. Hãy ghi âm trong thời lượng ngắn hơn."); return; }
+        try {
+          const type = audio.type || device.mimeType;
+          const file = new File([audio], "cuoc-hop-" + Date.now() + "." + recordingExtension(type), { type });
+          void transcribe(file, noteValues.current.title, noteValues.current.notes);
+        } catch (cause) { setError(cause instanceof Error ? cause.message : "Không đọc được bản ghi âm."); }
       };
       device.start(1000); setRecording(true);
     } catch { microphone?.getTracks().forEach(track => track.stop()); setError("Không truy cập được micro. Hãy cấp quyền ghi âm rồi thử lại."); }
@@ -250,7 +245,7 @@ export function AssistantMeetingNotes({ standalone = true, storageScope = "brows
 
   function chooseFile(next?: File) {
     if (!next) return;
-    if (!/\.(mp3|wav|m4a|ogg|flac)$/i.test(next.name)) { setError("Chỉ hỗ trợ MP3, WAV, M4A, OGG và FLAC."); return; }
+    if (!/\.(mp3|wav|m4a|ogg|flac|webm)$/i.test(next.name)) { setError("Chỉ hỗ trợ MP3, WAV, M4A, OGG, FLAC và WEBM."); return; }
     if (next.size > limit) { setError("Tệp âm thanh không được vượt quá 50 MB."); return; }
     setFile(next); setSelected(null); setError("");
   }
@@ -273,7 +268,7 @@ export function AssistantMeetingNotes({ standalone = true, storageScope = "brows
       {historyOpen ? <div className="mx-auto mt-10 w-full max-w-3xl"><h2 className="text-balance text-xl font-semibold">Lịch sử ghi chép</h2><button type="button" onClick={() => setHistoryOpen(false)} className={cn("mt-4 min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary", focus)}>Tạo ghi chép mới</button>{history.length ? <ul className="mt-5 space-y-2">{history.map(entry => <li key={entry.id}><button type="button" onClick={() => { setSelected(entry); setHistoryOpen(false); }} className={cn("flex min-h-16 w-full flex-col justify-center rounded-xl border border-outline-variant px-4 text-left hover:bg-surface-container-low", focus)}><span className="font-medium">{entry.title}</span><span className="text-xs text-on-surface-variant">{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.createdAt))} · {entry.fileName}</span></button></li>)}</ul> : <p className="mt-6 text-pretty text-sm text-on-surface-variant">Chưa có bản ghi cuộc họp nào.</p>}</div>
       : selected ? <div className="mx-auto mt-10 w-full max-w-4xl"><button type="button" onClick={() => setSelected(null)} className={cn("mb-5 text-sm text-primary", focus)}>← Tạo ghi chép mới</button><h2 className="text-balance text-2xl font-semibold">{selected.title}</h2><p className="mt-1 text-sm text-on-surface-variant">{selected.fileName}</p>{selected.notes && <div className="mt-6 rounded-xl border border-outline-variant p-5"><h3 className="text-balance font-semibold">Ghi chú</h3><p className="mt-3 whitespace-pre-wrap text-pretty text-sm">{formattedNotes(selected.notes)}</p></div>}<div className="mt-5 rounded-xl border border-outline-variant p-5"><h3 className="text-balance font-semibold">Bản chép lời</h3><p className="mt-3 whitespace-pre-wrap text-pretty text-sm leading-6">{selected.transcript}</p></div></div>
       : recording ? <div className="mt-4 grid min-h-96 flex-1 gap-4 lg:grid-cols-3"><div className="flex flex-col items-center justify-center rounded-2xl border border-outline-variant p-6 lg:col-span-2"><MeetingWaveform stream={stream.current!} paused={paused} seconds={seconds} /><div className="flex gap-5 sm:gap-10"><div className="text-center"><button type="button" aria-label="Hủy ghi âm" onClick={() => { discard.current = true; recorder.current?.stop(); }} className={action}><X className="size-7" aria-hidden="true" /></button><span className="mt-3 block text-sm">Hủy</span></div><div className="text-center"><button type="button" aria-label={paused ? "Tiếp tục ghi âm" : "Tạm dừng ghi âm"} onClick={() => { if (paused) recorder.current?.resume(); else recorder.current?.pause(); setPaused(!paused); }} className={action}>{paused ? <Play className="size-7" aria-hidden="true" /> : <Pause className="size-7" aria-hidden="true" />}</button><span className="mt-3 block text-sm">{paused ? "Tiếp tục" : "Tạm dừng"}</span></div><div className="text-center"><button type="button" aria-label="Hoàn tất ghi âm" onClick={() => recorder.current?.stop()} className={action}><Square className="size-7 fill-primary text-primary" aria-hidden="true" /></button><span className="mt-3 block text-sm">Hoàn tất</span></div></div></div><div className="flex min-h-80 flex-col rounded-2xl border border-outline-variant p-4"><h3 className="font-medium">Ghi chú</h3><div role="toolbar" aria-label="Định dạng ghi chú" className="mt-3 flex flex-wrap gap-1 border-b border-outline-variant pb-2">{([ ["bold", "B"], ["italic", "I"], ["underline", "U"], ["strike", "S"], ["bullet", "•"], ["number", "1."] ] as const).map(([kind, label]) => <button key={kind} type="button" aria-label={"Định dạng " + kind} onClick={() => formatNote(kind)} className={cn("grid size-9 place-items-center rounded-md text-sm text-on-surface-variant hover:bg-surface-container-low", focus)}>{label}</button>)}</div><input aria-label="Tiêu đề ghi chú" value={title} onChange={event => { setTitle(event.target.value); noteValues.current.title = event.target.value; }} placeholder="Nội dung tiêu đề" className="mt-5 w-full border-0 bg-transparent text-lg outline-none placeholder:text-on-surface-variant focus-visible:underline" /><textarea ref={noteInput} aria-label="Ghi chú cuộc họp" value={notes} onChange={event => { setNotes(event.target.value); noteValues.current.notes = event.target.value; }} placeholder="Nhập các ghi chú của bạn" className="mt-3 min-h-48 w-full flex-1 resize-none border-0 bg-transparent text-sm outline-none placeholder:text-on-surface-variant focus-visible:underline" /></div></div>
-      : <div className={cn("flex flex-1 flex-col items-center", mode === "upload" ? "pt-6 sm:pt-8" : "pt-10 sm:pt-14")}><h2 className="text-balance text-2xl font-semibold text-on-surface sm:text-3xl">Ghi chép <span className="text-primary">cuộc họp</span></h2><p className="mt-4 max-w-2xl text-center text-pretty text-sm text-on-surface-variant sm:text-base">{mode === "record" ? "Ghi chép, tóm tắt và tạo biên bản họp thông minh cho mọi cuộc họp của bạn" : "Tải lên file âm thanh để tạo biên bản họp tức thì"}</p>{mode === "record" && <p className="text-sm text-on-surface-variant">Ghi âm tối đa 8 phút mỗi lần · Tệp xử lý tối đa 50 MB</p>}{mode === "record" ? <><div className="mt-12 w-full max-w-lg rounded-xl border border-primary bg-primary/5 p-5"><span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary"><AudioLines className="size-5" aria-hidden="true" /></span><h3 className="mt-3 text-balance font-medium text-primary">Ghi âm trực tiếp</h3><p className="mt-2 text-pretty text-sm text-on-surface-variant">Ghi lại âm thanh từ micro của bạn ngay lập tức</p></div><button type="button" disabled={busy} onClick={() => void start()} className={cn("mt-12 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 font-semibold text-on-primary hover:bg-primary/90 disabled:opacity-50", focus)}><Mic className="size-5" aria-hidden="true" />Bắt đầu ghi âm</button></> : <div onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); chooseFile(event.dataTransfer.files[0]); }} className="mt-6 flex min-h-64 w-full max-w-4xl flex-col items-center justify-center rounded-2xl border border-dashed border-primary/50 p-6 text-center sm:min-h-72"><MeetingAudioFileIcon /><button type="button" onClick={() => input.current?.click()} className={cn("mt-5 text-lg font-semibold text-on-surface hover:opacity-80", focus)}>Chọn tệp <span className="text-primary">để tải lên</span></button><input ref={input} type="file" accept=".mp3,.wav,.m4a,.ogg,.flac" aria-label="Tệp âm thanh cuộc họp" className="sr-only" onChange={event => chooseFile(event.target.files?.[0])} /><p className="mt-6 text-sm text-on-surface-variant">Dung lượng tối đa: 50 MB</p><p className="mt-2 text-sm text-on-surface-variant">Định dạng hỗ trợ: .mp3, .wav, .m4a, .ogg, .flac</p>{file && <><p className="mt-5 text-sm font-medium">{file.name}</p><button type="button" disabled={busy} onClick={() => void transcribe(file)} className={cn("mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-on-primary disabled:opacity-50", focus)}><Upload className="size-4" aria-hidden="true" />Tạo ghi chép</button></>}</div>}</div>}
+      : <div className={cn("flex flex-1 flex-col items-center", mode === "upload" ? "pt-6 sm:pt-8" : "pt-10 sm:pt-14")}><h2 className="text-balance text-2xl font-semibold text-on-surface sm:text-3xl">Ghi chép <span className="text-primary">cuộc họp</span></h2><p className="mt-4 max-w-2xl text-center text-pretty text-sm text-on-surface-variant sm:text-base">{mode === "record" ? "Ghi chép, tóm tắt và tạo biên bản họp thông minh cho mọi cuộc họp của bạn" : "Tải lên file âm thanh để tạo biên bản họp tức thì"}</p>{mode === "record" && <p className="text-sm text-on-surface-variant">Ghi âm tối đa 60 phút mỗi lần · Tệp xử lý tối đa 50 MB</p>}{mode === "record" ? <><div className="mt-12 w-full max-w-lg rounded-xl border border-primary bg-primary/5 p-5"><span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary"><AudioLines className="size-5" aria-hidden="true" /></span><h3 className="mt-3 text-balance font-medium text-primary">Ghi âm trực tiếp</h3><p className="mt-2 text-pretty text-sm text-on-surface-variant">Ghi lại âm thanh từ micro của bạn ngay lập tức</p></div><button type="button" disabled={busy} onClick={() => void start()} className={cn("mt-12 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 font-semibold text-on-primary hover:bg-primary/90 disabled:opacity-50", focus)}><Mic className="size-5" aria-hidden="true" />Bắt đầu ghi âm</button></> : <div onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); chooseFile(event.dataTransfer.files[0]); }} className="mt-6 flex min-h-64 w-full max-w-4xl flex-col items-center justify-center rounded-2xl border border-dashed border-primary/50 p-6 text-center sm:min-h-72"><MeetingAudioFileIcon /><button type="button" onClick={() => input.current?.click()} className={cn("mt-5 text-lg font-semibold text-on-surface hover:opacity-80", focus)}>Chọn tệp <span className="text-primary">để tải lên</span></button><input ref={input} type="file" accept=".mp3,.wav,.m4a,.ogg,.flac,.webm" aria-label="Tệp âm thanh cuộc họp" className="sr-only" onChange={event => chooseFile(event.target.files?.[0])} /><p className="mt-6 text-sm text-on-surface-variant">Dung lượng tối đa: 50 MB</p><p className="mt-2 text-sm text-on-surface-variant">Định dạng hỗ trợ: .mp3, .wav, .m4a, .ogg, .flac, .webm</p>{file && <><p className="mt-5 text-sm font-medium">{file.name}</p><button type="button" disabled={busy} onClick={() => void transcribe(file)} className={cn("mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-on-primary disabled:opacity-50", focus)}><Upload className="size-4" aria-hidden="true" />Tạo ghi chép</button></>}</div>}</div>}
       {selected && <div className="mx-auto mt-5 w-full max-w-4xl rounded-xl border border-outline-variant p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-balance font-semibold">Biên bản cuộc họp</h3><button type="button" disabled={summarizing} onClick={() => void summarize(selected)} className={cn("min-h-10 rounded-lg border border-outline-variant px-4 text-sm font-medium text-primary hover:bg-surface-container-low disabled:opacity-50", focus)}>{selected.summary ? "Tạo lại biên bản" : "Tạo biên bản"}</button></div>{summarizing ? <p role="status" className="mt-3 text-sm text-on-surface-variant">Đang tạo biên bản từ bản chép lời…</p> : selected.summary ? <p className="mt-3 whitespace-pre-wrap text-pretty text-sm leading-6">{selected.summary}</p> : <p className="mt-3 text-sm text-on-surface-variant">Bản chép lời đã lưu. Bạn có thể tạo biên bản tự động.</p>}</div>}
       {busy && <p role="status" className="mt-5 text-center text-sm text-primary">Đang chuyển âm thanh thành văn bản…</p>}
       {error && <p role="alert" className="mx-auto mt-5 max-w-xl text-center text-pretty text-sm text-error">{error}</p>}

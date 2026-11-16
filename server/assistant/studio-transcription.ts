@@ -21,6 +21,7 @@ function hasSupportedAudioSignature(input: Buffer): boolean {
     || (input.length >= 12 && input.subarray(0, 4).toString("ascii") === "RIFF" && input.subarray(8, 12).toString("ascii") === "WAVE")
     || input.subarray(0, 4).toString("ascii") === "fLaC"
     || input.subarray(0, 4).toString("ascii") === "OggS"
+    || input.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
     || (input.length >= 12 && input.subarray(4, 8).toString("ascii") === "ftyp");
 }
 
@@ -39,7 +40,7 @@ export function normalizeStudioAudio(input: Buffer, fileName = ""): Promise<Buff
   if (/\.mp3$/i.test(fileName) && hasMp3Signature(input) && input.length <= maxProviderBytes) return Promise.resolve(input);
 
   return new Promise((resolve, reject) => {
-    const child = spawn(resolveMediaBinary("ffmpeg"), ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "48k", "-f", "mp3", "pipe:1"], { shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+    const child = spawn(resolveMediaBinary("ffmpeg"), ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "40k", "-f", "mp3", "pipe:1"], { shell: false, windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
     const chunks: Buffer[] = [];
     let size = 0;
     let settled = false;
