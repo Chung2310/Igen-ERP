@@ -425,6 +425,8 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
 
   if (chatAgent) return <section aria-label={`Trò chuyện với ${chatAgent.name}`} className="flex min-h-0 flex-1 flex-col bg-surface-container-lowest text-on-surface">
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant px-4 py-3 sm:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <button type="button" disabled={chatBusy} onClick={() => setChatAgent(null)} aria-label="Quay lại danh sách Trợ lý AI" title="Quay lại" className={cn("grid size-10 shrink-0 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low disabled:opacity-45", focusClass)}><ArrowLeft className="size-5" aria-hidden="true" /></button>
       <details className="group relative min-w-0">
         <summary aria-disabled={chatBusy} onClick={event => { if (chatBusy) event.preventDefault(); }} className={cn("flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-1 text-left hover:bg-surface-container-low [&::-webkit-details-marker]:hidden", chatBusy && "pointer-events-none opacity-50", focusClass)}>
           <AgentAvatar avatar={chatAgent.avatar} className="size-9" />
@@ -437,6 +439,7 @@ export function AssistantAgents({ storageScope, creatorName }: { storageScope: s
           <button type="button" disabled={chatBusy} onClick={() => setChatAgent(null)} className={cn("mt-1 min-h-10 w-full rounded-lg border-t border-outline-variant px-2 pt-1 text-left text-sm text-primary disabled:opacity-45", focusClass)}>Tất cả trợ lý</button>
         </div>
       </details>
+      </div>
       <div className="flex shrink-0 items-center gap-1">
         <button type="button" disabled={chatBusy} aria-label={chatAgent.favorite ? `Bỏ yêu thích ${chatAgent.name}` : `Yêu thích ${chatAgent.name}`} aria-pressed={Boolean(chatAgent.favorite)} onClick={() => toggleFavorite(chatAgent.id)} className={cn("grid size-10 place-items-center rounded-lg text-on-surface-variant hover:bg-surface-container-low disabled:opacity-45", chatAgent.favorite && "text-favorite", focusClass)}><Star className={cn("size-5", chatAgent.favorite && "fill-current")} aria-hidden="true" /></button>
         <details className="group relative">
