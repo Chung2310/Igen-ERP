@@ -96,19 +96,20 @@ describe("ChatbotWidget welcome", () => {
     expect(screen.queryByRole("button", { name: "Tạo Trợ lý AI" })).toBeNull();
   });
 
-  it("keeps the Dự án tab locked in desktop and mobile navigation", () => {
+  it("opens Dự án from desktop and mobile navigation", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:projects-navigation-test:company", "work");
     const { container } = render(<ChatbotWidget storageScope="projects-navigation-test" mode="standalone" />);
     const desktopProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
     const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>('.assistant-mobile-mode-nav button')).find(button => button.textContent?.includes("Dự án"))!;
 
-    expect(desktopProjects.disabled).toBe(true);
+    expect(desktopProjects.disabled).toBe(false);
     fireEvent.click(desktopProjects);
-    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
-    expect(desktopProjects.querySelector("svg")).not.toBeNull();
-    expect(container.querySelector('.assistant-sidebar button[aria-label="Mở danh sách dự án"]')).toBeNull();
-    expect(mobileProjects.disabled).toBe(true);
+    expect(await screen.findByRole("heading", { name: "Dự án" })).toBeTruthy();
+    expect(desktopProjects.getAttribute("aria-current")).toBe("page");
+    expect(mobileProjects.disabled).toBe(false);
     fireEvent.click(mobileProjects);
-    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
+    expect(mobileProjects.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Dự án" })).toBeTruthy();
   });
 
   it("keeps project conversations under Dự án in the sidebar and returns to that project", async () => {
@@ -457,15 +458,14 @@ describe("ChatbotWidget welcome", () => {
     expect(input.selectionEnd).toBe(input.value.indexOf("[thời gian]") + "[thời gian]".length);
   }, 15000);
 
-  it("opens meeting notes history in the shared history view", () => {
+  it("opens meeting notes and its own history from the sidebar", () => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
     const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
     const sidebar = container.querySelector(".assistant-sidebar")!;
-    fireEvent.click(sidebar.querySelector<HTMLButtonElement>('button[aria-label="Ghi chép cuộc họp"]')!);
-    expect(container.querySelector('section[aria-label="Ghi chép cuộc họp"] button[aria-label="Lịch sử"]')).toBeNull();
-    fireEvent.click(sidebar.querySelector<HTMLButtonElement>('button[aria-label="Lịch sử trò chuyện"]')!);
-    const meetingTab = Array.from(container.querySelectorAll('div[aria-label="Loại lịch sử"] button')).find(button => button.textContent === "Ghi chép");
-    expect(meetingTab?.getAttribute("aria-pressed")).toBe("true");
-    expect(container.textContent).toContain("Lịch sử Ghi chép sẽ xuất hiện khi tính năng này được kết nối.");
+    const meetingButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Ghi chép cuộc họp"]')!;
+    fireEvent.click(meetingButton);
+    expect(meetingButton.getAttribute("aria-current")).toBe("page");
+    fireEvent.click(container.querySelector('section[aria-label="Ghi chép cuộc họp"] button')!);
+    expect(screen.getByRole("heading", { name: "Lịch sử ghi chép" })).toBeTruthy();
   });
 });

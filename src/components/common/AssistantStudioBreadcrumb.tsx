@@ -3,8 +3,8 @@ import { cn } from "../../modules/student-management/lib/utils";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-export function AssistantStudioBreadcrumb({ title, onBack, titleAsHeading = true }: { title: string; onBack: () => void; titleAsHeading?: boolean }) {
-  const currentTitleClass = "min-w-0 truncate text-on-surface";
+export function AssistantStudioBreadcrumb({ title, onBack, titleAsHeading = true, truncateTitle = true }: { title: string; onBack: () => void; titleAsHeading?: boolean; truncateTitle?: boolean }) {
+  const currentTitleClass = cn("min-w-0 text-on-surface", truncateTitle && "truncate");
 
   return <div className="flex min-w-0 items-center gap-1 text-sm">
     <button type="button" onClick={onBack} className={cn("inline-flex shrink-0 items-center gap-1 rounded-md px-1 py-1 text-on-surface/60 hover:text-on-surface", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />AI Studio</button>

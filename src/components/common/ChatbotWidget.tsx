@@ -89,8 +89,8 @@ const chatFeatureActions = [
   { label: "Tạo giọng cá nhân", Icon: AudioLines, from: "#d04a9e", middle: "#d95dc9", to: "#984be2", comingSoon: true },
   { label: "iGen Voice", Icon: AssistantVoiceChatIcon, comingSoon: true, isVoiceChat: true },
   { label: "Tạo biểu đồ", Icon: ChartNoAxesCombined, from: "#6349cd", middle: "#8d5be6", to: "#ba6ce5", studioToolId: "chart" },
-  { label: "Notebook", Icon: NotebookPen, from: "#398cd6", middle: "#5ba3e4", to: "#7757d8", view: "notebook", gradientOutline: true, comingSoon: true },
-  { label: "Ghi chép cuộc họp", Icon: FileText, from: "#d8784c", middle: "#e8a264", to: "#c8659c", view: "meeting", gradientOutline: true, comingSoon: true },
+  { label: "Notebook", Icon: NotebookPen, from: "#398cd6", middle: "#5ba3e4", to: "#7757d8", view: "notebook" },
+  { label: "Ghi chép cuộc họp", Icon: FileText, from: "#00adfc", middle: "#00adfc", to: "#00adfc", view: "meeting" },
   { label: "Tạo mindmap", Icon: WandSparkles, from: "#d4743c", middle: "#e79545", to: "#cb563e", studioToolId: "mindmap" },
   { label: "Tóm tắt YouTube", Icon: Youtube, from: "#ca494f", middle: "#ea654c", to: "#d78446", comingSoon: true },
 ] as const;
@@ -326,6 +326,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const isStandaloneChatHome = mode === "standalone" && assistantMode === "qa";
   const chatGreeting = `Chào ${greetingName}, tôi có thể giúp gì cho bạn?`;
   const workGreeting = `Xin chào ${greetingName}, iGen AI có thể giúp gì cho bạn?`;
+  const welcomeHeadingRef = useRef<HTMLHeadingElement>(null);
+  const [welcomeHeadingVisible, setWelcomeHeadingVisible] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const launcherStorageKey = `igen_erp_chatbot_launcher_position:${launcherStorageScope}`;
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -643,6 +645,18 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   activeContextRef.current = { assistantMode, conversationId, view };
   const isWelcomeScreen = !isViewingHistory && messages.length === 1 && messages[0].role === "assistant" && messages[0].content === activeWelcomeMessage.content;
 
+  useEffect(() => {
+    if (mode !== "standalone" || isStandaloneChatHome || !isWelcomeScreen) {
+      setWelcomeHeadingVisible(true);
+      return;
+    }
+    const heading = welcomeHeadingRef.current;
+    if (!heading || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => setWelcomeHeadingVisible(entries[0]?.isIntersecting ?? false));
+    observer.observe(heading);
+    return () => observer.disconnect();
+  }, [headerPanel, isStandaloneChatHome, isWelcomeScreen, mode]);
+
 
   useEffect(() => {
     const el = inputRef.current;
@@ -732,7 +746,6 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setError(pendingTurnErrorsRef.current.get(pendingTurnErrorKey) || "");
     pendingTurnErrorsRef.current.delete(pendingTurnErrorKey);
     setVoiceError("");
-    setView("chat");
   }, [assistantMode]);
 
   useEffect(() => {
@@ -1473,10 +1486,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const visibleHistoryConversations = filterAssistantHistory(conversations, historyCategory);
   const historyCategoryLabel = assistantHistoryCategories.find(category => category.value === historyCategory)?.label ?? "Lịch sử";
   const changeView = (nextView: "chat" | "history" | "studio" | "notebook" | "meeting" | "projects" | "tools" | "agents") => {
-    if (nextView === "notebook" || nextView === "meeting") return;
-    if (nextView === "projects" && assistantMode !== "qa") onAssistantModeChange("qa");
+    if (nextView === "projects") {
+      setPendingProjectOpen(null);
+      onAssistantModeChange("qa");
+    }
     if (nextView !== "chat") { closeSpeech(); stopReplySpeech(); }
-    if (nextView === "studio" || nextView === "tools" || nextView === "projects" || nextView === "agents") {
+    if (nextView === "studio" || nextView === "notebook" || nextView === "meeting" || nextView === "tools" || nextView === "projects" || nextView === "agents") {
       setMountedViews(current => current[nextView] ? current : { ...current, [nextView]: true });
     }
     setView(nextView);
@@ -1563,13 +1578,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       setLastReply(null);
       setSelectedReferences({});
       setReferenceSearches({});
-      setView("chat");
       return;
     }
-    if (!synced || isLoading || isViewingHistory || view !== "chat") return;
+    if (!synced || isLoading || isViewingHistory) return;
     setPendingProjectPrompt(null);
     void handleSend(pendingProjectPrompt.text);
-  }, [pendingProjectPrompt, assistantMode, conversationId, synced, isLoading, isViewingHistory, view]);
+  }, [pendingProjectPrompt, assistantMode, conversationId, synced, isLoading, isViewingHistory]);
   const closeStudioHistoryItem = useCallback(() => setStudioHistoryItem(null), []);
   const openChatFeature = (action: ChatFeatureAction) => {
     if ("comingSoon" in action && action.comingSoon) return;
@@ -1801,8 +1815,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                   return <li key={tool.id}><button type="button" aria-label={`Mở công cụ yêu thích: ${tool.title}`} onClick={() => openStudioTool(tool.id)} className={cn("flex min-h-9 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-xs text-on-surface-variant hover:bg-surface-container-low hover:text-primary", focusClass)}><ToolIcon className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{tool.title}</span></button></li>;
                 })}
               </ul>}
-              <button type="button" aria-label="Notebook (tạm thời bị vô hiệu hóa)" data-sidebar-tooltip="Notebook" disabled className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="notebook" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Notebook</span></button>
-              <button type="button" aria-label="Ghi chép cuộc họp (tạm thời bị vô hiệu hóa)" data-sidebar-tooltip="Ghi chép cuộc họp" disabled className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="meeting" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Ghi chép cuộc họp</span></button>
+              <button type="button" aria-label="Notebook" data-sidebar-tooltip="Notebook" aria-current={view === "notebook" ? "page" : undefined} onClick={() => changeView("notebook")} className={cn("assistant-side-item", view === "notebook" && "is-active", focusClass)}><AssistantRailIcon name="notebook" active={view === "notebook"} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Notebook</span></button>
+              <button type="button" aria-label="Ghi chép cuộc họp" data-sidebar-tooltip="Ghi chép cuộc họp" aria-current={view === "meeting" ? "page" : undefined} onClick={() => changeView("meeting")} className={cn("assistant-side-item", view === "meeting" && "is-active", focusClass)}><AssistantRailIcon name="meeting" active={view === "meeting"} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Ghi chép cuộc họp</span></button>
               <button type="button" aria-label="Trợ lý ERP" data-sidebar-tooltip="Trợ lý ERP" aria-current={view === "chat" && assistantMode === "work" ? "page" : undefined} onClick={openAssistantInput} className={cn("assistant-side-item", view === "chat" && assistantMode === "work" && "is-active", focusClass)}><AssistantRailIcon name="assistant" active={view === "chat" && assistantMode === "work"} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trợ lý ERP</span></button>
               {mode === "standalone" && <button type="button" aria-label="Dự án" data-sidebar-tooltip="Dự án" aria-current={isProjectsNavigationActive ? "page" : undefined} onClick={openProjectsFromNavigation} className={cn("assistant-side-item", isProjectsNavigationActive && "is-active", focusClass)}><AssistantRailIcon name="project" active={isProjectsNavigationActive} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Dự án</span></button>}
               <button type="button" aria-label="Công cụ trợ lý" data-sidebar-tooltip="Công cụ" aria-current={view === "tools" ? "page" : undefined} onClick={() => changeView("tools")} className={cn("assistant-side-item", view === "tools" && "is-active", focusClass)}><AssistantRailIcon name="tools" active={view === "tools"} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Công cụ</span></button>
@@ -1821,8 +1835,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             <nav aria-label="Chế độ trợ lý" className="assistant-mobile-mode-nav flex shrink-0 gap-1 overflow-x-auto border-b border-outline-variant bg-surface-container-lowest p-2">
               <button type="button" aria-pressed={isChatNavigationActive} onClick={() => openMode("qa")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", isChatNavigationActive && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><MessageSquare className="size-4 shrink-0" aria-hidden="true" />Trò chuyện</span></button>
               <button type="button" aria-pressed={view === "studio"} onClick={() => changeView("studio")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "studio" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="studio" active={view === "studio"} />AI Studio</span></button>
-              <button type="button" disabled title="Tính năng tạm thời bị vô hiệu hóa" aria-label="Notebook (tạm thời bị vô hiệu hóa)" className={cn("min-w-0 flex-1 cursor-not-allowed rounded-xl px-2 py-2 text-sm opacity-40", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="notebook" />Notebook</span></button>
-              <button type="button" disabled title="Tính năng tạm thời bị vô hiệu hóa" aria-label="Ghi chép cuộc họp (tạm thời bị vô hiệu hóa)" className={cn("min-w-0 flex-1 cursor-not-allowed rounded-xl px-2 py-2 text-sm opacity-40", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="meeting" />Ghi chép cuộc họp</span></button>
+              <button type="button" aria-pressed={view === "notebook"} onClick={() => changeView("notebook")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "notebook" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="notebook" active={view === "notebook"} />Notebook</span></button>
+              <button type="button" aria-pressed={view === "meeting"} onClick={() => changeView("meeting")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "meeting" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="meeting" active={view === "meeting"} />Ghi chép cuộc họp</span></button>
               <button type="button" aria-pressed={view === "chat" && assistantMode === "work"} onClick={openAssistantInput} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "work" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="assistant" active={view === "chat" && assistantMode === "work"} />Trợ lý ERP</span></button>
               {mode === "standalone" && <button type="button" aria-pressed={isProjectsNavigationActive} onClick={openProjectsFromNavigation} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", isProjectsNavigationActive && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="project" active={isProjectsNavigationActive} />Dự án</span></button>}
               <button type="button" aria-pressed={view === "tools"} onClick={() => changeView("tools")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "tools" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="tools" active={view === "tools"} />Công cụ</span></button>
@@ -1834,10 +1848,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               <AssistantStudio historyItem={studioHistoryItem} initialToolRequest={studioToolRequest} onHistoryItemBack={() => setStudioHistoryItem(null)} favoriteToolIds={favoriteStudioToolIds} onToggleToolFavorite={toggleStudioToolFavorite} />
             </div>
             <div hidden={view !== "notebook"} className={cn("min-h-0 flex-1 flex-col", view === "notebook" && "flex")}>
-              <AssistantNotebook />
+              <AssistantNotebook active={view === "notebook"} greetingName={creatorName} />
             </div>
             <div hidden={view !== "meeting"} className={cn("min-h-0 flex-1 flex-col", view === "meeting" && "flex")}>
-              <AssistantMeetingNotes standalone={mode === "standalone"} />
+              <AssistantMeetingNotes standalone={mode === "standalone"} storageScope={storageScope} />
             </div>
             <div hidden={view !== "tools"} className={cn("min-h-0 flex-1 flex-col", view === "tools" && "flex")}>
               <AssistantTools branchId={branchId} />
@@ -1936,7 +1950,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                 </div>
               </div> : <div ref={logRef} className="assistant-welcome assistant-reference-welcome relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
                 <section aria-labelledby="assistant-welcome-title" className={cn("assistant-reference-content mx-auto flex min-h-full w-full flex-col justify-center", mode === "standalone" && !isStandaloneChatHome ? "max-w-5xl gap-5" : "max-w-6xl gap-7 sm:gap-8")}>
-                  <h1 id="assistant-welcome-title" aria-label={isStandaloneChatHome ? `${chatGreeting} 👋` : mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`} className={cn("text-balance text-center", mode === "standalone" && !isStandaloneChatHome ? "text-3xl font-normal sm:text-4xl" : "assistant-welcome-title")}>{isStandaloneChatHome ? <>{chatGreeting} <span aria-hidden="true">👋</span></> : <span aria-hidden="true">{mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`}</span>}</h1>
+                  <h1 ref={welcomeHeadingRef} id="assistant-welcome-title" aria-label={isStandaloneChatHome ? `${chatGreeting} 👋` : mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`} className={cn("text-balance text-center", mode === "standalone" && !isStandaloneChatHome ? "flex flex-wrap items-center justify-center gap-x-2 text-3xl font-normal sm:text-4xl" : "assistant-welcome-title")}>
+                    {isStandaloneChatHome ? <>{chatGreeting} <span aria-hidden="true">👋</span></> : <>
+                      {mode === "standalone" && <picture aria-hidden="true" className="inline-flex size-8 shrink-0 sm:size-10">
+                        <source media="(prefers-reduced-motion: reduce)" srcSet="/bot-1-transparent-poster.png" />
+                        <img src={welcomeHeadingVisible ? "/bot-1-transparent.gif" : undefined} alt="" className="size-full object-contain" />
+                      </picture>}
+                      <span aria-hidden="true" className={mode === "standalone" ? "min-w-0" : undefined}>{mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`}</span>
+                    </>}
+                  </h1>
                   {isLoading && <p role="status" className="text-center text-sm text-on-surface/70">Đang tải cuộc trò chuyện…</p>}
                   {view === "chat" && renderComposer("landing")}
                   {mode === "standalone" && !isStandaloneChatHome && (
@@ -1949,7 +1971,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                     {chatFeatureActions.map(action => {
                       const comingSoon = "comingSoon" in action && action.comingSoon;
                       const accent = "middle" in action ? action.middle : "from" in action ? action.from : "var(--color-primary)";
-                      return <button key={action.label} type="button" disabled={Boolean(comingSoon)} title={comingSoon ? undefined : `Mở ${action.label}`} onClick={() => openChatFeature(action)} className={cn("assistant-action-chip", comingSoon && "is-coming-soon", "gradientOutline" in action && action.gradientOutline && "is-featured", focusClass)} style={{ "--assistant-accent": accent } as React.CSSProperties}>
+                      return <button key={action.label} type="button" disabled={Boolean(comingSoon)} title={comingSoon ? undefined : `Mở ${action.label}`} onClick={() => openChatFeature(action)} data-feature={"view" in action ? action.view : undefined} className={cn("assistant-action-chip", comingSoon && "is-coming-soon", focusClass)} style={{ "--assistant-accent": accent } as React.CSSProperties}>
                         {"isVoiceChat" in action ? <AssistantVoiceChatIcon /> : <AssistantGradientIcon Icon={action.Icon} from={action.from} middle={action.middle} to={action.to} className="size-4" />}
                         <span>{action.label}</span>
                         {comingSoon && <span className="sr-only">Tính năng chưa khả dụng</span>}

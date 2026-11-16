@@ -1,0 +1,49 @@
+.notebook-accent--mindmap { --notebook-accent: #f97316; --notebook-ink: #c2410c; }
+.notebook-accent--infographic { --notebook-accent: #3b82f6; --notebook-ink: #1d4ed8; }
+.notebook-accent--report { --notebook-accent: #6366f1; --notebook-ink: #4338ca; }
+.notebook-accent--chart { --notebook-accent: #a855f7; --notebook-ink: #7e22ce; }
+.notebook-accent--spreadsheet { --notebook-accent: #22c55e; --notebook-ink: #15803d; }
+
+.notebook-accent {
+  color: var(--notebook-ink);
+  background: color-mix(in srgb, var(--notebook-accent) 8%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--notebook-accent) 22%, var(--color-outline-variant));
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+.notebook-accent:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgb(15 23 42 / 10%);
+}
+.notebook-accent[aria-pressed="true"] {
+  border-color: var(--notebook-accent);
+  box-shadow: inset 0 0 0 1px var(--notebook-accent);
+}
+.notebook-prompt-icon { color: var(--notebook-ink); }
+.notebook-output-point { background: color-mix(in srgb, var(--notebook-accent) 7%, var(--color-surface-container-lowest)); border-color: color-mix(in srgb, var(--notebook-accent) 22%, var(--color-outline-variant)); }
+.notebook-output-point.notebook-accent--mindmap { border-left-color: var(--notebook-accent); }
+.dark .notebook-accent--mindmap { --notebook-accent: #fb923c; --notebook-ink: #fdba74; }
+.dark .notebook-accent--infographic { --notebook-accent: #60a5fa; --notebook-ink: #93c5fd; }
+.dark .notebook-accent--report { --notebook-accent: #818cf8; --notebook-ink: #a5b4fc; }
+.dark .notebook-accent--chart { --notebook-accent: #c084fc; --notebook-ink: #d8b4fe; }
+.dark .notebook-accent--spreadsheet { --notebook-accent: #4ade80; --notebook-ink: #86efac; }
+@media (prefers-reduced-motion: reduce) {
+  .notebook-accent { transition: none; }
+  .notebook-accent:hover { transform: none; }
+}
+.notebook-kind--analysis { --notebook-kind-accent: #22c55e; }
+.notebook-kind--research { --notebook-kind-accent: #f59e0b; }
+.notebook-kind-card {
+  background: color-mix(in srgb, var(--notebook-kind-accent) 6%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--notebook-kind-accent) 35%, var(--color-outline-variant));
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+.notebook-kind-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgb(15 23 42 / 10%);
+}
+.dark .notebook-kind--analysis { --notebook-kind-accent: #4ade80; }
+.dark .notebook-kind--research { --notebook-kind-accent: #fb923c; }
+@media (prefers-reduced-motion: reduce) {
+  .notebook-kind-card { transition: none; }
+  .notebook-kind-card:hover { transform: none; }
+}

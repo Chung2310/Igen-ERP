@@ -385,6 +385,7 @@ input[type="number"]::-webkit-outer-spin-button,
   --color-tertiary-fixed-dim: #fed7aa;
   --color-on-tertiary-fixed: #431407;
   --color-on-tertiary-fixed-variant: #9a4f00;
+  --color-favorite: #eab308;
 
   --color-error: #e11d48;
   --color-on-error: #ffffff;
@@ -876,6 +877,7 @@ body {
   --color-on-secondary-container: #94a3b8;
   --color-tertiary-container: #291e12;
   --color-on-tertiary-container: #fdb54c;
+  --color-favorite: #facc15;
 }
 
 .dark #header_checkin_btn {

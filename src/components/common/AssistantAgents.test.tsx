@@ -118,7 +118,9 @@ describe("AssistantAgents", () => {
     expect(within(card as HTMLElement).getByRole("button", { name: "Mở trò chuyện" })).toBeTruthy();
     const favorite = screen.getByRole("button", { name: "Yêu thích Trợ lý CSKH" });
     fireEvent.click(favorite);
-    expect(screen.getByRole("button", { name: "Bỏ yêu thích Trợ lý CSKH" }).getAttribute("aria-pressed")).toBe("true");
+    const favorited = screen.getByRole("button", { name: "Bỏ yêu thích Trợ lý CSKH" });
+    expect(favorited.getAttribute("aria-pressed")).toBe("true");
+    expect(favorited.className).toContain("text-favorite");
 
     fireEvent.click(screen.getByLabelText("Tùy chọn Trợ lý CSKH"));
     fireEvent.click(screen.getByRole("button", { name: "Xóa" }));

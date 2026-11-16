@@ -1,0 +1,73 @@
+MANUAL QA - BAN LE / KHO & SAN PHAM - STAGING - 13/11/2026
+
+Phuong phap: Playwright dieu khien Chrome va thao tac tren giao dien nhu nguoi dung. Khong ghi du lieu bang API truc tiep. Chi doc ma nguon de doi chieu sau khi phat hien bat thuong. Pham vi: 2 tai khoan admin cung cong ty, chi nhanh MAIN va QA-KHO-20261113; khong danh gia noi dung thong bao, chi danh gia ket qua nghiep vu.
+
+Du lieu test tao tren staging qua giao dien:
+- Chi nhanh QA-KHO-20261113, ten QA Kho Test 20261113 (dang hoat dong).
+- San pham dung chung SP-QA-KHO-HANG-20261113 / SKU QA-KHO-HANG-20261113, theo doi so luong.
+- Nha cung cap ban le QA-NCC-20261113 / QA NCC Kho o chi nhanh QA.
+- Phieu nhap MAIN PN-6A89056EE3B6959DBCE373F7-20261113-000001: 5 san pham, gia nhap 50.000d, hoan thanh.
+- Phieu xuat MAIN PX-5B8A2C: 2 san pham, hoan thanh.
+- Phieu nhap QA PN-6AF684C98B8B3317835B8E4C-20261113-000001: 2 san pham, gia nhap 50.000d, hoan thanh.
+- Phieu dieu chuyen CK-6AF6888A8B8B3317835B92F5: QA -> MAIN, 1 san pham, da nhan du.
+
+TEST CASE / KET QUA
+
+01. Tao san pham o MAIN, xem cung san pham o QA va bang admin khac.
+Ky vong: danh muc san pham co the dung chung trong cong ty.
+Quan sat: ca hai admin va hai chi nhanh deu tim thay san pham. PASS.
+
+02. Gia ban theo chi nhanh.
+Ky vong: gia o MAIN khong tu ap cho QA neu gia quan ly theo chi nhanh.
+Quan sat: MAIN co gia 130.000d; khi moi chuyen sang QA, san pham hien "Chua co gia". Dat gia 130.000d tai QA roi tai lai trang, QA hien 130.000d. PASS.
+
+03. Tao phieu nhap MAIN, kiem tra ton theo trang thai.
+Ky vong: phieu nhap nhap khong cong ton; hoan thanh moi cong ton.
+Quan sat: phieu nhap 5 san pham o trang thai Nhap, ton van 0; sau Gui xac nhan -> Nhap kho -> Hoan thanh, ton KHO-MAIN = 5, gia von BQ 50.000d, gia tri 250.000d. PASS.
+
+04. Tao phieu xuat MAIN, kiem tra ton theo trang thai.
+Ky vong: phieu cho xu ly khong tru ton; hoan thanh tru dung so luong.
+Quan sat: ton van 5 khi phieu cho xu ly; hoan thanh phieu 2 san pham thi ton = 3, gia tri = 150.000d. Admin con lai cung thay ton 3. PASS.
+
+05. Chan xuat vuot ton.
+Ky vong: khong cho tao phieu xuat 4 khi chi con 3.
+Quan sat: truong so luong hien Max: 3; khi nhap 4, tong so luong bi gioi han 3. Khong luu phieu vuot ton. PASS o muc giao dien.
+
+06. Cach ly ton kho va chung tu theo chi nhanh.
+Ky vong: QA khong thay ton/chung tu cua MAIN, chi nhanh co kho rieng.
+Quan sat: truoc khi nhap QA, QA hien 0 ton, 0 phieu nhap, 0 phieu xuat, 0 giao dich, 0 serial, 0 hoa don; MAIN co 3 san pham test, 14 phieu nhap, 23 phieu xuat, 36 giao dich, 45 serial, 20 hoa don tai thoi diem do. Sau khi hoan thanh nhap QA, kho KHO-QA-KHO-20261113 xuat hien, QA co 2 san pham test va MAIN van 3. PASS.
+
+07. Dieu chuyen giua chi nhanh, ton tren duong va nhan hang.
+Ky vong: xuat QA tru 1 o kho gui; MAIN chi cong 1 khi nhan; dung kho va gia von.
+Quan sat: tao phieu QA -> MAIN 1 san pham qua form; trang thai Dang van chuyen, QA tu 2 xuong 1; tai MAIN co nut "Nhan du nguyen phieu"; sau nhan, phieu Da nhan, MAIN tu 3 len 4, gia von BQ 50.000d, gia tri mat hang 200.000d. PASS.
+
+08. Doi soat giao dich kho.
+Ky vong: nhap/xuat hoan thanh tao but toan phu hop.
+Quan sat: nhat ky MAIN co +5 va -2 cho san pham test, phu hop ton 3 truoc dieu chuyen. PASS cho cac but toan da xem.
+
+09. Serial/IMEI va hoa don cu.
+Ky vong: serial da ban co lich su nhap va ban, hoa don dung chi nhanh.
+Quan sat: serial 668889999999 o MAIN co lich su Nhap kho -> Ban hang; hoa don HD-MAIN-202610-000005 chua serial nay, chi nhanh Tru so chinh. Hai admin thay cung 20 hoa don MAIN; QA hien 0. PASS cho du lieu hien co.
+
+10. Tao nha cung cap tai Doi tac ban le va chon tren phieu nhap QA.
+Ky vong: nha cung cap moi QA-NCC-20261113 co vai tro Nha cung cap xuat hien trong form Nhap hang, theo chi dan ngay tai form.
+Quan sat: doi tac QA NCC Kho hien tren trang Doi tac ban le; tai lai va mo lai form Nhap hang van chi co IHONE, NOKIB, XOAMI; QA NCC Kho khong co. FAIL, loi chuc nang da tai hien. De tiep tuc test kho, phieu nhap QA dung nha cung cap IHONE co san.
+
+11. Tao hoa don moi va POS theo chi nhanh.
+Ky vong: hoa don moi ghi nhan vao dung chi nhanh/kho va tru ton khi hoan thanh.
+Ket qua sau lan test tiep theo: tao tai khoan POS thu tai QA qua giao dien, ban 1 san pham gia 130.000d, phat hanh HD-QA-KHO-20261113-202611-000001, ton QA 1 -> 0, MAIN van 4. Sau do tra hang, ton QA 0 -> 1. PASS. Xem chi tiet tai retail-sales-manual-test-2026-11-13.txt.
+
+12. Kiem ke kho.
+Quan sat: MAIN co phieu kiem ke nhap KK-MTMPYXPE-40JI, bao pham vi da thay doi, 9 mat hang, so sach 107 va dem 25. Khong phe duyet/dieu chinh vi co the anh huong du lieu san co. CHUA TEST luong dieu chinh; phieu nhap cu can duoc nguoi quan ly kiem tra.
+
+VAN DE CAN XU LY
+
+[P1] Nha cung cap tao tai Doi tac ban le khong chon duoc tai Nhap hang.
+Tai hien: chon QA-KHO-20261113 -> Doi tac ban le -> tao QA-NCC-20261113 voi vai tro Nha cung cap -> Kho & san pham / Nhap hang -> Tao phieu nhap moi -> mo danh sach Nha cung cap. Ket qua: doi tac moi khong hien du da tai lai trang. Form chi dan tao nha cung cap tai Doi tac ban le, nen day la dut luong nghiep vu thuc te.
+
+GIOI HAN VA GHI CHU
+
+- San pham la danh muc chung; ton va phieu nhap/xuat/dieu chuyen/hoa don duoc kiem tra theo chi nhanh/kho. Viec kho QA chi xuat hien sau lan nhap dau tien phu hop voi co che tao kho mac dinh khi co phieu; khong ket luan do la loi.
+- Luong hoa don moi, tru ton POS va tra hang da duoc kiem tra bo sung trong retail-sales-manual-test-2026-11-13.txt.
+- Khong thu nghiem phe duyet phieu kiem ke cu; khong thu nghiem xu ly serial moi vi san pham test theo doi so luong.
+- Tat ca du lieu test liet ke o tren con tren staging sau test; ton san pham test cuoi cung la QA = 1, MAIN = 4.

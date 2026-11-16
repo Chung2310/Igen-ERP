@@ -76,18 +76,45 @@ describe("AssistantStudioImage", () => {
     localStorage.removeItem(storageKey);
   });
 
-  it("shows sample style library with 8 styles and applies prompt and ratio on selection", () => {
+  it("shows the expanded image library and applies each sample prompt and ratio", () => {
     render(<AssistantStudioImage onBack={() => {}} />);
     expect(screen.getByRole("heading", { name: "Thư viện mẫu" })).toBeTruthy();
     const styleLabels = ["Poster", "Điện ảnh", "Quảng cáo", "Cổ trang", "Anime", "Ảnh thẻ", "Hoạt hình", "Banner"];
     for (const label of styleLabels) {
-      expect(screen.getByRole("button", { name: new RegExp(label) })).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: new RegExp(label) }).length).toBeGreaterThan(0);
     }
-    const posterButton = screen.getByRole("button", { name: /Poster/ });
+    const posterButton = screen.getByRole("region", { name: "Thư viện mẫu" }).querySelector<HTMLButtonElement>('[data-style-card="poster"]')!;
     fireEvent.click(posterButton);
     const textarea = screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement;
     expect(textarea.value).toContain("phong cách Poster");
     const ratioTrigger = screen.getByRole("button", { name: "Tỷ lệ khung hình" });
     expect(ratioTrigger.textContent).toContain("1:1 · Vuông");
+    fireEvent.click(screen.getByRole("region", { name: "Thư viện mẫu" }).querySelector<HTMLButtonElement>('[data-style-card="tet-holiday-notice"]')!);
+    expect(textarea.value).toContain("Thông báo lịch nghỉ Tết Nguyên Đán");
+    expect(ratioTrigger.textContent).toContain("3:4 · Dọc");
+    expect(screen.getByRole("region", { name: "Thư viện mẫu" }).querySelectorAll("[data-style-card]")).toHaveLength(28);
+  });
+
+  it("loads the supplied iGen image prompt and matching landscape ratio", () => {
+    render(<AssistantStudioImage onBack={() => {}} />);
+    const library = screen.getByRole("region", { name: "Thư viện mẫu" });
+    expect(screen.getAllByText("Bài đăng Facebook")).toHaveLength(5);
+    expect(screen.getByText("Poster quốc khánh")).toBeTruthy();
+    const card = library.querySelector<HTMLButtonElement>('[data-style-card="igen-national-day"]')!;
+    expect(card.querySelector("img")?.getAttribute("src")).toBe("/style-image/sample-igen-national-day.jpg");
+    fireEvent.click(card);
+    const prompt = (screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement).value;
+    expect(prompt).toContain("chào mừng Quốc khánh Việt Nam");
+    expect(prompt).not.toContain("81 năm");
+    expect(screen.getByRole("button", { name: "Tỷ lệ khung hình" }).textContent).toContain("3:2 · Ngang");
+  });
+
+  it("requires an original image for comic translation", async () => {
+    render(<AssistantStudioImage onBack={() => {}} />);
+    fireEvent.click(screen.getByRole("region", { name: "Thư viện mẫu" }).querySelector<HTMLButtonElement>('[data-style-card="comic-translation"]')!);
+    expect(screen.getByText("(cần ảnh gốc)")).toBeTruthy();
+    fireEvent.submit(screen.getByRole("form", { name: "Thiết lập tạo hình ảnh" }));
+    expect(screen.getByRole("alert").textContent).toContain("Mẫu này cần ảnh gốc");
+    expect(requestStudioImages).not.toHaveBeenCalled();
   });
 });

@@ -761,6 +761,11 @@
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
+.assistant-workspace[data-chat-home="true"] .assistant-action-chip[data-feature] {
+  border-color: color-mix(in srgb, var(--assistant-accent) 42%, var(--color-outline-variant));
+  background: color-mix(in srgb, var(--assistant-accent) 8%, var(--color-surface-container-lowest));
+}
+
 .assistant-workspace[data-chat-home="true"] .assistant-action-chip:not(:disabled):is(:hover, :focus-visible) {
   border-width: 2px;
   border-color: transparent;

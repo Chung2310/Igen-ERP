@@ -1,89 +1,283 @@
-import { useState } from "react";
-import { AudioLines, History, Mic, Monitor, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AudioLines, History, Mic, Pause, Play, Square, Upload, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
-import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
-import "./AssistantRainbowBorder.css";
+import { assistantService } from "../../services/assistantService";
+import { assistantAgentService } from "../../services/assistantAgentService";
 
-type MeetingMode = "record" | "upload";
-type AudioSource = "microphone" | "browser";
+type Meeting = { id: string; title: string; notes: string; transcript: string; summary?: string; fileName: string; createdAt: string };
+const limit = 50 * 1024 * 1024;
+const maxRecordingSeconds = 8 * 60;
+const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const readHistory = (storageKey: string): Meeting[] => {
+  try {
+    const data: unknown = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    return Array.isArray(data) ? data.filter((item): item is Meeting => Boolean(item && typeof item.id === "string" && typeof item.title === "string" && typeof item.notes === "string" && typeof item.transcript === "string" && typeof item.fileName === "string" && typeof item.createdAt === "string" && !Number.isNaN(Date.parse(item.createdAt)))) : [];
+  } catch { return []; }
+};
+const clock = (seconds: number) => [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map(value => String(value).padStart(2, "0")).join(":");
+const formattedNotes = (value: string) => value.split(/(\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|~~[^~]+~~)/g).map((part, index) => {
+  if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+  if (part.startsWith("__") && part.endsWith("__")) return <u key={index}>{part.slice(2, -2)}</u>;
+  if (part.startsWith("~~") && part.endsWith("~~")) return <s key={index}>{part.slice(2, -2)}</s>;
+  if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
+  return part;
+});
 
-const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+async function toWav(blob: Blob): Promise<File> {
+  const context = new AudioContext();
+  try {
+    const audio = await context.decodeAudioData(await blob.arrayBuffer());
+    if (44 + audio.length * 2 > limit) throw new Error("Bản ghi vượt giới hạn 50 MB. Hãy tạo bản ghi ngắn hơn.");
+    const buffer = new ArrayBuffer(44 + audio.length * 2);
+    const view = new DataView(buffer);
+    const tag = (at: number, text: string) => { for (let i = 0; i < text.length; i++) view.setUint8(at + i, text.charCodeAt(i)); };
+    tag(0, "RIFF"); view.setUint32(4, buffer.byteLength - 8, true); tag(8, "WAVE"); tag(12, "fmt ");
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, audio.sampleRate, true); view.setUint32(28, audio.sampleRate * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true); tag(36, "data"); view.setUint32(40, audio.length * 2, true);
+    const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i));
+    for (let i = 0; i < audio.length; i++) {
+      const sample = Math.max(-1, Math.min(1, channels.reduce((total, channel) => total + channel[i], 0) / channels.length));
+      view.setInt16(44 + i * 2, sample < 0 ? sample * 32768 : sample * 32767, true);
+    }
+    return new File([buffer], "cuoc-hop-" + Date.now() + ".wav", { type: "audio/wav" });
+  } finally { await context.close(); }
+}
+async function createMinutes(transcript: string, notes: string): Promise<string> {
+  if (!transcript.trim()) throw new Error("Không có nội dung lời nói để tạo biên bản.");
+  const agent = {
+    instructions: "Soạn biên bản họp tiếng Việt ngắn gọn từ bản chép lời. Có các mục: Tóm tắt, Quyết định, Việc cần làm (người phụ trách và hạn nếu được nói rõ), Vấn đề chưa thống nhất. Chỉ dùng thông tin có trong đầu vào; mục nào không có thông tin thì ghi 'Chưa ghi nhận'.",
+    avoid: "Không suy đoán tên, thời hạn, quyết định hoặc nội dung không được đề cập.",
+    tone: "Rõ ràng, chuyên nghiệp",
+    knowledge: [],
+  };
+  const parts = transcript.match(/[\s\S]{1,9000}/g) || [];
+  const summaries: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const result = await assistantAgentService.chat(agent, [{ role: "user", content: `Bản chép lời, phần ${i + 1}/${parts.length}:\n${parts[i]}${i === 0 && notes ? `\n\nGhi chú của người dùng:\n${notes.slice(0, 1500)}` : ""}` }]);
+    summaries.push(result.reply);
+  }
+  if (summaries.length === 1) return summaries[0];
+  let combined = summaries.join("\n\n");
+  for (let round = 0; combined.length > 11000 && round < 3; round++) {
+    const pieces = combined.match(/[\s\S]{1,9000}/g) || [];
+    const reduced: string[] = [];
+    for (const piece of pieces) {
+      const result = await assistantAgentService.chat(agent, [{ role: "user", content: `Rút gọn phần biên bản sau, giữ nguyên các quyết định và việc cần làm:\n${piece}` }]);
+      reduced.push(result.reply);
+    }
+    combined = reduced.join("\n\n");
+  }
+  if (combined.length > 11000) throw new Error("Biên bản quá dài để tổng hợp trong một lần.");
+  const final = await assistantAgentService.chat(agent, [{ role: "user", content: `Hợp nhất các phần biên bản sau thành một biên bản không trùng lặp:\n${combined}` }]);
+  return final.reply;
+}
 
-type MeetingIconName = "record" | "browser" | "upload" | "microphone" | "audioFile" | "document";
+const waveBarCount = 28;
 
-function MeetingIcon({ name, className }: { name: MeetingIconName; className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true" focusable="false">
-    {name === "record" && <><path d="M3 10v4m3-7v10m3-6v2m3-9v16m3-12v8m3-11v14m3-9v4" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /></>}
-    {name === "browser" && <><rect x="2.5" y="3.5" width="19" height="16" rx="2.5" /><path d="M2.5 8h19M6 5.8h.01M9 5.8h.01m.5 6.7v3m3-5v7m3-4.5v2" /></>}
-    {name === "upload" && <><path d="M5 3.5h9l5 5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5Z" /><path d="M14 3.5V9h5m-7 8v-6m-2.5 2.5L12 11l2.5 2.5" /></>}
-    {name === "microphone" && <><rect x="9" y="2.5" width="6" height="12" rx="3" /><path d="M6 11.5a6 6 0 0 0 12 0M12 17.5v3m-3 0h6" /></>}
-    {name === "audioFile" && <><path d="M5 3.5h9l5 5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5Z" /><path d="M14 3.5V9h5m-11 6v2m2-3v4m2-5v6m2-4v2m2-3v4" /></>}
-    {name === "document" && <><path d="M5 3.5h9l5 5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5Z" /><path d="M14 3.5V9h5M8 12h8m-8 3h8m-8 3h5" /></>}
+function MeetingWaveform({ stream, paused, seconds }: { stream: MediaStream; paused: boolean; seconds: number }) {
+  const waveform = useRef<HTMLDivElement>(null);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (typeof AudioContext === "undefined") return;
+    let context: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    try {
+      context = new AudioContext();
+      source = context.createMediaStreamSource(stream);
+      const nextAnalyser = context.createAnalyser();
+      nextAnalyser.fftSize = 512;
+      source.connect(nextAnalyser);
+      setAnalyser(nextAnalyser);
+      void context.resume().catch(() => {});
+    } catch {
+      source?.disconnect();
+      if (context) void context.close();
+    }
+    return () => {
+      source?.disconnect();
+      if (context) void context.close();
+    };
+  }, [stream]);
+
+  useEffect(() => {
+    if (!waveform.current || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => setVisible(entries[0]?.isIntersecting ?? false));
+    observer.observe(waveform.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const bars = waveform.current?.querySelectorAll<HTMLElement>("[data-wave-bar]");
+    if (!bars) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (!analyser || paused || !visible || reducedMotion || typeof requestAnimationFrame !== "function") {
+      bars.forEach(bar => { bar.style.transform = "scaleY(0.12)"; });
+      return;
+    }
+    const samples = new Uint8Array(analyser.fftSize);
+    const levels = Array<number>(waveBarCount).fill(0.12);
+    let frame = 0;
+    let previous = 0;
+    const update = (time: number) => {
+      frame = requestAnimationFrame(update);
+      if (time - previous < 32) return;
+      previous = time;
+      analyser.getByteTimeDomainData(samples);
+      let energy = 0;
+      for (const sample of samples) energy += ((sample - 128) / 128) ** 2;
+      const volume = Math.min(1, Math.max(0.12, Math.sqrt(energy / samples.length) * 9));
+      levels.pop();
+      levels.unshift(volume);
+      bars.forEach((bar, index) => {
+        const level = index < waveBarCount ? levels[waveBarCount - index - 1] : levels[index - waveBarCount];
+        bar.style.transform = `scaleY(${level.toFixed(2)})`;
+      });
+    };
+    frame = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frame);
+  }, [analyser, paused, visible]);
+
+  const bars = Array.from({ length: waveBarCount }, (_, index) => <span key={index} data-wave-bar className={cn("h-12 w-1 flex-none origin-center rounded-full bg-primary", index % 2 === 1 && "hidden sm:block")} style={{ transform: "scaleY(0.12)" }} />);
+  return <div ref={waveform} className="mb-14 flex w-full max-w-2xl items-center justify-center gap-3 sm:gap-5">
+    <div aria-hidden="true" className="flex h-12 min-w-0 flex-1 items-center justify-end gap-0.5 overflow-hidden">{bars}</div>
+    <p role="timer" className="shrink-0 text-center text-lg tabular-nums text-on-surface sm:text-xl">{clock(seconds)}</p>
+    <div aria-hidden="true" className="flex h-12 min-w-0 flex-1 items-center justify-start gap-0.5 overflow-hidden">{bars}</div>
+  </div>;
+}
+
+function MeetingAudioFileIcon() {
+  return <svg viewBox="0 0 72 72" className="size-14" fill="none" aria-hidden="true">
+    <path d="M12 17a5 5 0 0 1 5-5h25l12 12v34a5 5 0 0 1-5 5H17a5 5 0 0 1-5-5V17Z" fill="var(--color-primary-container)" stroke="var(--color-primary)" strokeWidth="2" />
+    <path d="M27 10a5 5 0 0 1 5-5h21l9 10v34a5 5 0 0 1-5 5H32a5 5 0 0 1-5-5V10Z" fill="var(--color-primary)" />
+    <path d="M53 5v8a3 3 0 0 0 3 3h6" fill="var(--color-primary-container)" />
+    <path d="M37 30v9m5-14v19m5-14v9m5-12v15" stroke="var(--color-on-primary)" strokeWidth="3" strokeLinecap="round" />
+    <path d="M19 30h5m-5 7h5m-5 7h5" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" />
   </svg>;
 }
 
-export function AssistantMeetingNotes({ standalone = true }: { standalone?: boolean }) {
-  const [mode, setMode] = useState<MeetingMode>("record");
-  const [source, setSource] = useState<AudioSource>("microphone");
-  const [showHistory, setShowHistory] = useState(false);
+export function AssistantMeetingNotes({ standalone = true, storageScope = "browser" }: { standalone?: boolean; storageScope?: string }) {
+  const storageKey = "igen_erp_meeting_minutes:" + storageScope;
+  const [mode, setMode] = useState<"record" | "upload">("record");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState(() => readHistory(storageKey));
+  const [selected, setSelected] = useState<Meeting | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [notice, setNotice] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
+  const [error, setError] = useState("");
+  const [title, setTitle] = useState("");
+  const [notes, setNotes] = useState("");
+  const recorder = useRef<MediaRecorder | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const discard = useRef(false);
+  const noteValues = useRef({ title: "", notes: "" });
+  const input = useRef<HTMLInputElement>(null);
+  const noteInput = useRef<HTMLTextAreaElement>(null);
 
-  const changeMode = (nextMode: MeetingMode) => {
-    setMode(nextMode);
-    setShowHistory(false);
-    setNotice("");
-  };
+  useEffect(() => {
+    if (!recording || paused) return;
+    const timer = window.setInterval(() => setSeconds(value => {
+      if (value >= maxRecordingSeconds - 1 && recorder.current?.state !== "inactive") recorder.current?.stop();
+      return Math.min(value + 1, maxRecordingSeconds);
+    }), 1000);
+    return () => window.clearInterval(timer);
+  }, [recording, paused]);
+  useEffect(() => () => {
+    discard.current = true;
+    if (recorder.current?.state !== "inactive") recorder.current?.stop();
+    stream.current?.getTracks().forEach(track => track.stop());
+  }, []);
 
-  return <section aria-label="Ghi chép cuộc họp" className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-5 text-on-surface sm:px-8 sm:py-7 lg:px-12">
-    <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col">
-      <div className={cn("flex flex-wrap items-start gap-4", standalone ? "justify-center" : "justify-between")}>
-        {!standalone && <div className="hidden sm:block" aria-hidden="true" />}
-        <div role="group" aria-label="Cách tạo ghi chép" className={cn("mx-auto flex w-full max-w-md rounded-xl bg-surface-container-low p-1", !standalone && "order-2 sm:order-1 sm:w-96")}>
-          <button type="button" aria-pressed={!showHistory && mode === "record"} onClick={() => changeMode("record")} className={cn("assistant-meeting-tab min-h-9 flex-1 rounded-lg px-3 text-sm font-medium", !showHistory && mode === "record" ? "text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface", focusClass)}>Ghi âm</button>
-          <button type="button" aria-pressed={!showHistory && mode === "upload"} onClick={() => changeMode("upload")} className={cn("assistant-meeting-tab min-h-9 flex-1 rounded-lg px-3 text-sm font-medium", !showHistory && mode === "upload" ? "text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface", focusClass)}>Tải tài liệu</button>
-        </div>
-        {!standalone && <button type="button" aria-pressed={showHistory} onClick={() => { setShowHistory(value => !value); setNotice(""); }} className={cn("order-1 ml-auto inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low sm:order-2", focusClass)}><History className="size-4" aria-hidden="true" />Lịch sử</button>}
-      </div>
+  async function transcribe(audio: File, meetingTitle = "", meetingNotes = "") {
+    setBusy(true); setError("");
+    try {
+      const result = await assistantService.transcribeStudioAudio(audio);
+      const entry: Meeting = { id: result.id, title: meetingTitle.trim() || audio.name.replace(/\.[^.]+$/, ""), notes: meetingNotes, transcript: result.text, fileName: audio.name, createdAt: result.createdAt };
+      setHistory(current => {
+        const next = [entry, ...current.filter(item => item.id !== entry.id)].slice(0, 30);
+        try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* In-memory history remains usable. */ }
+        return next;
+      });
+      setSelected(entry); setFile(null);
+      void summarize(entry);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể tạo ghi chép cuộc họp."); }
+    finally { setBusy(false); }
+  }
 
-      {showHistory ? <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
-        <div className="flex size-14 items-center justify-center rounded-xl bg-surface-container-low text-primary"><History className="size-6" aria-hidden="true" /></div>
-        <h2 className="mt-5 text-balance text-2xl font-semibold">Lịch sử ghi chép</h2>
-        <p className="mt-2 max-w-md text-pretty text-sm leading-6 text-on-surface-variant">Các bản ghi và biên bản cuộc họp sẽ xuất hiện tại đây khi dịch vụ được kết nối.</p>
-        <button type="button" onClick={() => setShowHistory(false)} className={cn("mt-6 min-h-10 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90", focusClass)}>Tạo ghi chép mới</button>
-      </div> : <div className="flex flex-1 flex-col items-center justify-center py-12 sm:py-16">
-        <div className="w-full text-center">
-          <h2 className="text-balance text-2xl font-semibold sm:text-3xl">Ghi chép cuộc họp</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-pretty text-sm leading-6 text-on-surface-variant sm:text-base">Ghi chép, tóm tắt và tạo biên bản họp thông minh cho mọi cuộc họp của bạn</p>
-          <p className="text-pretty text-sm text-on-surface-variant">Thời lượng tối đa 3 tiếng</p>
-        </div>
+  async function summarize(entry: Meeting) {
+    setSummarizing(true);
+    try {
+      const summary = await createMinutes(entry.transcript, entry.notes);
+      const updated = { ...entry, summary };
+      setSelected(current => current?.id === entry.id ? updated : current);
+      setHistory(current => {
+        const next = current.map(item => item.id === entry.id ? updated : item);
+        try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep the result in memory. */ }
+        return next;
+      });
+    } catch { setError("Chưa tạo được biên bản tự động. Bạn có thể thử lại; bản chép lời đã được lưu."); }
+    finally { setSummarizing(false); }
+  }
 
-        {mode === "record" ? <>
-          <div role="group" aria-label="Nguồn âm thanh" className="mt-10 grid w-full gap-4 sm:mt-14 sm:grid-cols-2 sm:gap-6">
-            <button type="button" aria-label="Ghi âm trực tiếp" aria-pressed={source === "microphone"} onClick={() => { setSource("microphone"); setNotice(""); }} className={cn("flex min-h-36 flex-col items-start rounded-xl border bg-surface-container-lowest p-5 text-left hover:bg-surface-container-low", standalone && "assistant-meeting-source", source === "microphone" ? "border-primary shadow-sm" : "border-outline-variant", focusClass)}>
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">{standalone ? <MeetingIcon name="record" className="size-5" /> : <AudioLines className="size-5" aria-hidden="true" />}</span>
-              <span className="assistant-meeting-source-title mt-3 text-sm font-semibold">Ghi âm trực tiếp</span>
-              <span className="mt-2 text-pretty text-sm leading-5 text-on-surface-variant">Ghi lại âm thanh từ micro của bạn ngay lập tức</span>
-            </button>
-            <button type="button" aria-label="Ghi âm tab trình duyệt" aria-pressed={source === "browser"} onClick={() => { setSource("browser"); setNotice(""); }} className={cn("flex min-h-36 flex-col items-start rounded-xl border bg-surface-container-lowest p-5 text-left hover:bg-surface-container-low", standalone && "assistant-meeting-source", source === "browser" ? "border-primary shadow-sm" : "border-outline-variant", focusClass)}>
-              <span className="flex size-10 items-center justify-center rounded-lg bg-surface-container-low text-on-surface">{standalone ? <MeetingIcon name="browser" className="size-5" /> : <Monitor className="size-5" aria-hidden="true" />}</span>
-              <span className="assistant-meeting-source-title mt-3 text-sm font-semibold">Ghi âm tab trình duyệt</span>
-              <span className="mt-2 text-pretty text-sm leading-5 text-on-surface-variant">Ghi lại âm thanh từ một tab trình duyệt khác</span>
-            </button>
-          </div>
-          <button type="button" onClick={() => setNotice("Giao diện đã sẵn sàng. Chức năng ghi âm sẽ hoạt động khi dịch vụ được kết nối.")} className={cn("mt-10 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 sm:mt-12", focusClass)}>{standalone ? <MeetingIcon name="microphone" className="size-4" /> : <Mic className="size-4" aria-hidden="true" />}Bắt đầu ghi âm</button>
-        </> : <div className="mt-10 flex w-full max-w-xl flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-6 text-center sm:mt-14 sm:p-8">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">{standalone ? <MeetingIcon name="upload" className="size-6" /> : <Upload className="size-6" aria-hidden="true" />}</span>
-          <h3 className="mt-4 text-balance text-base font-semibold">Tải tài liệu cuộc họp</h3>
-          <p className="mt-2 text-pretty text-sm leading-6 text-on-surface-variant">Chọn tệp âm thanh hoặc tài liệu để chuẩn bị tạo ghi chép.</p>
-          <label htmlFor="assistant-meeting-file" className="mt-5 block w-full text-left text-sm font-medium">Tệp cuộc họp</label>
-          <input id="assistant-meeting-file" type="file" accept="audio/*,.pdf,.doc,.docx,.txt" onChange={event => { setFile(event.currentTarget.files?.[0] ?? null); setNotice(""); }} className="mt-2 block w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface-container-low file:px-3 file:py-2 file:text-on-surface focus:border-primary focus:outline-none" />
-          {file && <p className="mt-3 flex items-center gap-2 self-start text-pretty text-sm text-on-surface-variant"><AssistantFileTypeIcon fileName={file.name} className="size-6 shrink-0" /><span className="break-all">{file.name}</span></p>}
-          <button type="button" disabled={!file} onClick={() => setNotice("Tệp đã được chọn trên giao diện. Chức năng tạo ghi chép sẽ hoạt động khi dịch vụ được kết nối.")} className={cn("mt-6 min-h-10 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Tạo ghi chép</button>
-        </div>}
-        {notice && <p role="status" className="mt-5 max-w-xl rounded-lg border border-outline-variant bg-surface-container-low p-3 text-center text-pretty text-sm text-on-surface">{notice}</p>}
-        <p className="mt-auto pt-10 text-center text-xs text-on-surface-variant">Chưa kết nối dịch vụ ghi chép cuộc họp</p>
-      </div>}
+  async function start() {
+    setError(""); setSelected(null); setSeconds(0); setTitle(""); setNotes(""); noteValues.current = { title: "", notes: "" };
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError("Trình duyệt không hỗ trợ ghi âm bằng micro."); return; }
+    let microphone: MediaStream | null = null;
+    try {
+      microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const activeMicrophone = microphone;
+      const device = new MediaRecorder(activeMicrophone);
+      stream.current = activeMicrophone; recorder.current = device; chunks.current = []; discard.current = false;
+      device.ondataavailable = event => { if (event.data.size) chunks.current.push(event.data); };
+      device.onstop = () => {
+        activeMicrophone.getTracks().forEach(track => track.stop());
+        stream.current = null; setRecording(false); setPaused(false);
+        if (discard.current) return;
+        const audio = new Blob(chunks.current, { type: device.mimeType });
+        if (!audio.size) { setError("Bản ghi không có âm thanh."); return; }
+        void toWav(audio).then(wav => transcribe(wav, noteValues.current.title, noteValues.current.notes)).catch(cause => setError(cause instanceof Error ? cause.message : "Không đọc được bản ghi âm."));
+      };
+      device.start(1000); setRecording(true);
+    } catch { microphone?.getTracks().forEach(track => track.stop()); setError("Không truy cập được micro. Hãy cấp quyền ghi âm rồi thử lại."); }
+  }
+
+  function chooseFile(next?: File) {
+    if (!next) return;
+    if (!/\.(mp3|wav|m4a|ogg|flac)$/i.test(next.name)) { setError("Chỉ hỗ trợ MP3, WAV, M4A, OGG và FLAC."); return; }
+    if (next.size > limit) { setError("Tệp âm thanh không được vượt quá 50 MB."); return; }
+    setFile(next); setSelected(null); setError("");
+  }
+
+  function formatNote(kind: "bold" | "italic" | "underline" | "strike" | "bullet" | "number") {
+    const field = noteInput.current;
+    if (!field) return;
+    const [open, close] = { bold: ["**", "**"], italic: ["*", "*"], underline: ["__", "__"], strike: ["~~", "~~"], bullet: ["• ", ""], number: ["1. ", ""] }[kind];
+    const { selectionStart: start, selectionEnd: end } = field;
+    const next = notes.slice(0, start) + open + notes.slice(start, end) + close + notes.slice(end);
+    setNotes(next); noteValues.current.notes = next;
+    requestAnimationFrame(() => { field.focus(); field.setSelectionRange(start + open.length, end + open.length); });
+  }
+
+  const action = cn("grid size-16 place-items-center rounded-full border border-outline-variant bg-surface-container-lowest shadow-md hover:bg-surface-container-low sm:size-20", focus);
+  return <section aria-label="Ghi chép cuộc họp" data-standalone={standalone} className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-5 text-on-surface sm:px-8 lg:px-10">
+    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col">
+      <div className="flex justify-end">{!recording && <button type="button" aria-pressed={historyOpen} onClick={() => { setHistoryOpen(value => !value); setSelected(null); }} className={cn("inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-medium hover:bg-surface-container-low", focus)}><History className="size-4" aria-hidden="true" />Lịch sử</button>}</div>
+      {!recording && !selected && !historyOpen && <div role="group" aria-label="Cách tạo ghi chép" className="mx-auto mt-3 flex w-full max-w-md rounded-lg bg-surface-container-low p-1"><button type="button" aria-pressed={mode === "record"} onClick={() => setMode("record")} className={cn("min-h-10 flex-1 rounded-md text-sm font-medium", mode === "record" ? "bg-surface-container-lowest text-primary shadow-sm" : "hover:bg-surface-container-high", focus)}>Ghi âm</button><button type="button" aria-pressed={mode === "upload"} onClick={() => setMode("upload")} className={cn("min-h-10 flex-1 rounded-md text-sm font-medium", mode === "upload" ? "bg-surface-container-lowest text-primary shadow-sm" : "hover:bg-surface-container-high", focus)}>Tải tài liệu</button></div>}
+      {historyOpen ? <div className="mx-auto mt-10 w-full max-w-3xl"><h2 className="text-balance text-xl font-semibold">Lịch sử ghi chép</h2><button type="button" onClick={() => setHistoryOpen(false)} className={cn("mt-4 min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary", focus)}>Tạo ghi chép mới</button>{history.length ? <ul className="mt-5 space-y-2">{history.map(entry => <li key={entry.id}><button type="button" onClick={() => { setSelected(entry); setHistoryOpen(false); }} className={cn("flex min-h-16 w-full flex-col justify-center rounded-xl border border-outline-variant px-4 text-left hover:bg-surface-container-low", focus)}><span className="font-medium">{entry.title}</span><span className="text-xs text-on-surface-variant">{new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.createdAt))} · {entry.fileName}</span></button></li>)}</ul> : <p className="mt-6 text-pretty text-sm text-on-surface-variant">Chưa có bản ghi cuộc họp nào.</p>}</div>
+      : selected ? <div className="mx-auto mt-10 w-full max-w-4xl"><button type="button" onClick={() => setSelected(null)} className={cn("mb-5 text-sm text-primary", focus)}>← Tạo ghi chép mới</button><h2 className="text-balance text-2xl font-semibold">{selected.title}</h2><p className="mt-1 text-sm text-on-surface-variant">{selected.fileName}</p>{selected.notes && <div className="mt-6 rounded-xl border border-outline-variant p-5"><h3 className="text-balance font-semibold">Ghi chú</h3><p className="mt-3 whitespace-pre-wrap text-pretty text-sm">{formattedNotes(selected.notes)}</p></div>}<div className="mt-5 rounded-xl border border-outline-variant p-5"><h3 className="text-balance font-semibold">Bản chép lời</h3><p className="mt-3 whitespace-pre-wrap text-pretty text-sm leading-6">{selected.transcript}</p></div></div>
+      : recording ? <div className="mt-4 grid min-h-96 flex-1 gap-4 lg:grid-cols-3"><div className="flex flex-col items-center justify-center rounded-2xl border border-outline-variant p-6 lg:col-span-2"><MeetingWaveform stream={stream.current!} paused={paused} seconds={seconds} /><div className="flex gap-5 sm:gap-10"><div className="text-center"><button type="button" aria-label="Hủy ghi âm" onClick={() => { discard.current = true; recorder.current?.stop(); }} className={action}><X className="size-7" aria-hidden="true" /></button><span className="mt-3 block text-sm">Hủy</span></div><div className="text-center"><button type="button" aria-label={paused ? "Tiếp tục ghi âm" : "Tạm dừng ghi âm"} onClick={() => { if (paused) recorder.current?.resume(); else recorder.current?.pause(); setPaused(!paused); }} className={action}>{paused ? <Play className="size-7" aria-hidden="true" /> : <Pause className="size-7" aria-hidden="true" />}</button><span className="mt-3 block text-sm">{paused ? "Tiếp tục" : "Tạm dừng"}</span></div><div className="text-center"><button type="button" aria-label="Hoàn tất ghi âm" onClick={() => recorder.current?.stop()} className={action}><Square className="size-7 fill-primary text-primary" aria-hidden="true" /></button><span className="mt-3 block text-sm">Hoàn tất</span></div></div></div><div className="flex min-h-80 flex-col rounded-2xl border border-outline-variant p-4"><h3 className="font-medium">Ghi chú</h3><div role="toolbar" aria-label="Định dạng ghi chú" className="mt-3 flex flex-wrap gap-1 border-b border-outline-variant pb-2">{([ ["bold", "B"], ["italic", "I"], ["underline", "U"], ["strike", "S"], ["bullet", "•"], ["number", "1."] ] as const).map(([kind, label]) => <button key={kind} type="button" aria-label={"Định dạng " + kind} onClick={() => formatNote(kind)} className={cn("grid size-9 place-items-center rounded-md text-sm text-on-surface-variant hover:bg-surface-container-low", focus)}>{label}</button>)}</div><input aria-label="Tiêu đề ghi chú" value={title} onChange={event => { setTitle(event.target.value); noteValues.current.title = event.target.value; }} placeholder="Nội dung tiêu đề" className="mt-5 w-full border-0 bg-transparent text-lg outline-none placeholder:text-on-surface-variant focus-visible:underline" /><textarea ref={noteInput} aria-label="Ghi chú cuộc họp" value={notes} onChange={event => { setNotes(event.target.value); noteValues.current.notes = event.target.value; }} placeholder="Nhập các ghi chú của bạn" className="mt-3 min-h-48 w-full flex-1 resize-none border-0 bg-transparent text-sm outline-none placeholder:text-on-surface-variant focus-visible:underline" /></div></div>
+      : <div className={cn("flex flex-1 flex-col items-center", mode === "upload" ? "pt-6 sm:pt-8" : "pt-10 sm:pt-14")}><h2 className="bg-gradient-to-r from-on-surface via-on-surface to-primary bg-clip-text text-balance text-2xl font-semibold text-transparent sm:text-3xl">Ghi chép cuộc họp</h2><p className="mt-4 max-w-2xl text-center text-pretty text-sm text-on-surface-variant sm:text-base">{mode === "record" ? "Ghi chép, tóm tắt và tạo biên bản họp thông minh cho mọi cuộc họp của bạn" : "Tải lên file âm thanh để tạo biên bản họp tức thì"}</p>{mode === "record" && <p className="text-sm text-on-surface-variant">Ghi âm tối đa 8 phút mỗi lần · Tệp xử lý tối đa 50 MB</p>}{mode === "record" ? <><div className="mt-12 w-full max-w-lg rounded-xl border border-primary bg-primary/5 p-5"><span className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary"><AudioLines className="size-5" aria-hidden="true" /></span><h3 className="mt-3 text-balance font-medium text-primary">Ghi âm trực tiếp</h3><p className="mt-2 text-pretty text-sm text-on-surface-variant">Ghi lại âm thanh từ micro của bạn ngay lập tức</p></div><button type="button" disabled={busy} onClick={() => void start()} className={cn("mt-12 inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 font-semibold text-on-primary hover:bg-primary/90 disabled:opacity-50", focus)}><Mic className="size-5" aria-hidden="true" />Bắt đầu ghi âm</button></> : <div onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); chooseFile(event.dataTransfer.files[0]); }} className="mt-6 flex min-h-64 w-full max-w-4xl flex-col items-center justify-center rounded-2xl border border-dashed border-primary/50 p-6 text-center sm:min-h-72"><MeetingAudioFileIcon /><button type="button" onClick={() => input.current?.click()} className={cn("mt-5 bg-gradient-to-r from-on-surface to-primary bg-clip-text text-lg font-semibold text-transparent hover:opacity-80", focus)}>Chọn tệp để tải lên</button><input ref={input} type="file" accept=".mp3,.wav,.m4a,.ogg,.flac" aria-label="Tệp âm thanh cuộc họp" className="sr-only" onChange={event => chooseFile(event.target.files?.[0])} /><p className="mt-6 text-sm text-on-surface-variant">Dung lượng tối đa: 50 MB</p><p className="mt-2 text-sm text-on-surface-variant">Định dạng hỗ trợ: .mp3, .wav, .m4a, .ogg, .flac</p>{file && <><p className="mt-5 text-sm font-medium">{file.name}</p><button type="button" disabled={busy} onClick={() => void transcribe(file)} className={cn("mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-on-primary disabled:opacity-50", focus)}><Upload className="size-4" aria-hidden="true" />Tạo ghi chép</button></>}</div>}</div>}
+      {selected && <div className="mx-auto mt-5 w-full max-w-4xl rounded-xl border border-outline-variant p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-balance font-semibold">Biên bản cuộc họp</h3><button type="button" disabled={summarizing} onClick={() => void summarize(selected)} className={cn("min-h-10 rounded-lg border border-outline-variant px-4 text-sm font-medium text-primary hover:bg-surface-container-low disabled:opacity-50", focus)}>{selected.summary ? "Tạo lại biên bản" : "Tạo biên bản"}</button></div>{summarizing ? <p role="status" className="mt-3 text-sm text-on-surface-variant">Đang tạo biên bản từ bản chép lời…</p> : selected.summary ? <p className="mt-3 whitespace-pre-wrap text-pretty text-sm leading-6">{selected.summary}</p> : <p className="mt-3 text-sm text-on-surface-variant">Bản chép lời đã lưu. Bạn có thể tạo biên bản tự động.</p>}</div>}
+      {busy && <p role="status" className="mt-5 text-center text-sm text-primary">Đang chuyển âm thanh thành văn bản…</p>}
+      {error && <p role="alert" className="mx-auto mt-5 max-w-xl text-center text-pretty text-sm text-error">{error}</p>}
+      {!recording && !selected && !historyOpen && <p className="mt-auto pt-8 text-center text-xs text-on-surface-variant">Xử lý âm thanh qua dịch vụ AI của iGen</p>}
     </div>
   </section>;
 }
