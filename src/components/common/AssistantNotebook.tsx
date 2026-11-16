@@ -175,7 +175,7 @@ export function AssistantNotebook({ active = true, greetingName }: { active?: bo
   const toggleOutput = (value: OutputKind) => setRequested(current => current.includes(value) ? current.filter(item => item !== value) : [...current, value]);
   return <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-surface-container-lowest p-3 text-on-surface sm:p-4">
     {!selected ? notebooks.length === 0 ? <div className="flex min-h-full flex-col items-center justify-center px-2 py-10 text-center">
-      <h1 className="max-w-3xl text-balance text-4xl! font-semibold leading-tight! sm:text-5xl!">Nghiên cứu và hệ thống hóa thông tin từ <span className="text-primary">đa nguồn tài liệu</span></h1>
+      <h1 className="max-w-3xl text-balance text-2xl! font-semibold leading-tight! sm:text-3xl!">Nghiên cứu và hệ thống hóa thông tin từ <span className="text-primary">đa nguồn tài liệu</span></h1>
       <div className="mt-12 grid w-full max-w-3xl gap-4 sm:grid-cols-2">
         {kinds.map(item => <button key={item.id} type="button" onClick={() => createNotebook(item.id)} className={cn("notebook-kind-card flex min-h-72 flex-col items-center justify-center rounded-2xl border p-6 text-center", "notebook-kind--" + item.id, focus)}>
           <img src={item.artwork} alt="" width="88" height="88" className="size-20 object-contain" />
