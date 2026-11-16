@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
 import { runInTransaction } from "../../../config/database";
+import { inInventoryTransaction } from "../inventory-transaction";
 import { publishDomainEvent } from "../../../integrations/shared/event-bus";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
@@ -659,7 +660,8 @@ export const ProductCatalogService = {
     return this.create(companyCodeValue, { ...productInput, status: "active" }, actor, { branchId, sellingPrice, costPrice });
   },
 
-  async bulkCreateWithVariants(companyCodeValue: unknown, input: ProductCatalogBulkCreateInput, actor: unknown) {
+  async bulkCreateWithVariants(companyCodeValue: unknown, input: ProductCatalogBulkCreateInput, actor: unknown,
+    priceContext?: { branchId: string; prices: unknown }) {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
@@ -673,6 +675,26 @@ export const ProductCatalogService = {
     }
 
     const variants = input.variants.map((variant) => normalizeVariantInput({ ...variant, unitCode: variant.unitCode || baseUnitCode }, normalized.productType));
+    let prices: Array<{ sellingPrice: number; costPrice: number }> = [];
+    if (priceContext) {
+      if (!priceContext.branchId || normalized.status !== "active" || variants.some(variant => variant.status !== "active")) {
+        throw new ProductCatalogValidationError("Cần chọn chi nhánh và kích hoạt sản phẩm, SKU để lưu kèm giá.");
+      }
+      if (normalized.productType === "service" && normalized.serviceBranchIds?.length && !normalized.serviceBranchIds.includes(priceContext.branchId)) {
+        throw new ProductCatalogValidationError("Dịch vụ chưa được cung cấp tại chi nhánh này.");
+      }
+      if (!Array.isArray(priceContext.prices) || priceContext.prices.length !== variants.length) {
+        throw new ProductCatalogValidationError("Cần nhập giá cho từng SKU.");
+      }
+      prices = priceContext.prices.map(price => {
+        const sellingPrice = price?.sellingPrice;
+        const costPrice = price?.costPrice ?? 0;
+        if (!Number.isSafeInteger(sellingPrice) || sellingPrice < 0 || !Number.isSafeInteger(costPrice) || costPrice < 0) {
+          throw new ProductCatalogValidationError("Giá bán và giá vốn phải là số nguyên không âm.");
+        }
+        return { sellingPrice, costPrice };
+      });
+    }
     
     if (variants.some(v => v.status === "active") && (normalized.status === "inactive" || normalized.status === "archived")) {
       throw new ProductCatalogValidationError("Sản phẩm inactive/archived không thể có SKU đang hoạt động.");
@@ -693,7 +715,7 @@ export const ProductCatalogService = {
     if (existing.length) throw new ProductCatalogValidationError(`SKU hoặc mã vạch đã tồn tại: ${existing.map((item: any) => item.sku || item.barcode).join(", ")}.`);
 
     let productId = "";
-    await runInTransaction(async (session) => {
+    const save = async (session?: mongoose.ClientSession) => {
       await ensureDefaultUnit(companyCode, createdBy, session);
       if (normalized.templateCode) {
         const template = await findTemplate(companyCode, normalized.templateCode, session);
@@ -711,8 +733,25 @@ export const ProductCatalogService = {
       const [product] = await ProductCatalogModel.create([{ ...normalized, productCode, baseUnitCode, companyCode, normalizedName: normalized.name!.toLocaleLowerCase("vi-VN"), createdBy, updatedBy: createdBy }], { session });
       productId = String(product._id);
       
-      await ProductVariantModel.create(variants.map(variant => ({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy })), { session, ordered: true });
-    });
+      const createdVariants = await ProductVariantModel.create(variants.map(variant => ({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy })), { session, ordered: true });
+      if (priceContext) {
+        const { branchId } = priceContext;
+        const priceRows = createdVariants.map((variant, index) => ({
+          ...prices[index], companyCode, branchId, productId, variantId: String(variant._id),
+          sku: variant.sku, status: "active" as const, createdBy, updatedBy: createdBy,
+        }));
+        await ProductPriceModel.insertMany(priceRows, { session });
+        for (const { variantId, sku } of priceRows) {
+          await publishDomainEvent({
+            eventId: randomUUID(), eventType: "inventory.price.changed", companyCode, branchId,
+            aggregateType: "product-variant", aggregateId: variantId, payload: { variantId, sku },
+            occurredAt: new Date(), actorId: createdBy, actorName: createdBy,
+          }, session);
+        }
+      }
+    };
+    if (priceContext) await inInventoryTransaction(save);
+    else await runInTransaction(save);
     return this.get(companyCode, productId);
   },
 

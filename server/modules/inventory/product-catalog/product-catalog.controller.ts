@@ -142,7 +142,10 @@ export const productCatalogController = {
 
   bulkCreateWithVariants: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      res.status(201).json({ success: true, data: await ProductCatalogService.bulkCreateWithVariants(companyCode(req), req.body, actor(req)) });
+      const { variantPrices, ...input } = req.body || {};
+      const priceContext = variantPrices === undefined ? undefined
+        : { branchId: (await customerScopeFromRequest(req)).branchId!, prices: variantPrices };
+      res.status(201).json({ success: true, data: await ProductCatalogService.bulkCreateWithVariants(companyCode(req), input, actor(req), priceContext) });
     } catch (error) {
       next(error);
     }
