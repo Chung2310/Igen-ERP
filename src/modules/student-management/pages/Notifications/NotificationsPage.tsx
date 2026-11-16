@@ -1077,14 +1077,6 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
           </div>
         )}
 
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-xl font-medium text-on-surface text-left">Gửi thông báo hàng loạt</h1>
-          {operationalCopy.notificationSubtitle ? <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p> : null}
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
         {/* Composer */}
         {canManage && <div

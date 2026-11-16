@@ -18,6 +18,20 @@ export class NotificationController {
     }
   }
 
+  static async update(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const notification = await NotificationService.updateNotification(ownerId, req.params.id, req.user!.branchId!, req.body);
+      if (!notification) {
+        return res.status(404).json({ success: false, error: "Không tìm thấy thông báo để cập nhật." });
+      }
+      res.json({ success: true, data: notification });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

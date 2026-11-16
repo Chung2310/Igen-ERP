@@ -276,25 +276,6 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
 
   return (
     <section className="min-w-0 space-y-3" aria-label="Danh mục sản phẩm và dịch vụ">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-on-surface">{mixedView || mode === "mixed" ? "Sản phẩm & dịch vụ" : serviceView ? "Dịch vụ" : "Hàng hóa"}</h2>
-          {branchName && <p className="mt-0.5 text-xs text-on-surface-variant">{branchName}</p>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(canManage || canConfigureWorkspace) && <button type="button" onClick={() => {
-            setWorkspaceDraft(mode);
-            setWorkspaceSaveError("");
-            setSetupOpen(true);
-          }} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
-            <Settings2 className="size-4" aria-hidden="true" /> Thiết lập danh mục
-          </button>}
-          {canManage && <button type="button" onClick={() => setEditor("create")} className={primaryCreateButtonClass + " min-h-9"}>
-            <PackagePlus className="size-4" aria-hidden="true" /> {createLabel}
-          </button>}
-        </div>
-      </div>
-
       <TableFilterToolbar
         search={{
           value: query,
@@ -306,6 +287,20 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
         countLabel={serviceView ? "dịch vụ" : mixedView ? "mục" : "hàng hóa"}
         hasActiveFilters={hasFilters}
         onResetFilters={resetFilter}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {(canManage || canConfigureWorkspace) && <button type="button" onClick={() => {
+              setWorkspaceDraft(mode);
+              setWorkspaceSaveError("");
+              setSetupOpen(true);
+            }} className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+              <Settings2 className="size-4" aria-hidden="true" /> Thiết lập danh mục
+            </button>}
+            {canManage && <button type="button" onClick={() => setEditor("create")} className={primaryCreateButtonClass + " min-h-9"}>
+              <PackagePlus className="size-4" aria-hidden="true" /> {createLabel}
+            </button>}
+          </div>
+        }
       >
         <Dropdown<string>
           aria-label="Nhóm danh mục"

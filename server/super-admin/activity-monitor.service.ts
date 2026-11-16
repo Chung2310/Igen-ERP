@@ -74,12 +74,31 @@ export function createActivityMonitorService(deps: {
           ],
           totals: [{ $group: { _id: null, total: { $sum: 1 }, failures: { $sum: { $cond: [{ $eq: ["$result", "failure"] }, 1, 0] } } } }],
           companies: [{ $group: { _id: "$companyCode" } }, { $count: "count" }],
+          companyBreakdown: [
+            { $group: {
+              _id: "$companyCode",
+              total: { $sum: 1 },
+              failures: { $sum: { $cond: [{ $eq: ["$result", "failure"] }, 1, 0] } },
+              activeUserIds: { $addToSet: { $cond: [{ $gte: ["$occurredAt", new Date(now.getTime() - 5 * 60_000)] }, "$userId", null] } },
+              latestActivityAt: { $max: "$occurredAt" },
+            } },
+            { $project: {
+              _id: 0,
+              companyCode: "$_id",
+              total: 1,
+              failures: 1,
+              activeUsers: { $size: { $filter: { input: "$activeUserIds", as: "userId", cond: { $ne: ["$$userId", null] } } } },
+              latestActivityAt: 1,
+            } },
+            { $sort: { latestActivityAt: -1, companyCode: 1 } },
+          ],
           activeUsers: [{ $match: { occurredAt: { $gte: new Date(now.getTime() - 5 * 60_000) } } }, { $group: { _id: "$userId" } }, { $count: "count" }],
         } },
       ]);
       return {
         data: snapshot?.data || [], total: snapshot?.totals[0]?.total || 0, page, limit,
         summary: { failures: snapshot?.totals[0]?.failures || 0, companies: snapshot?.companies[0]?.count || 0, activeUsers: snapshot?.activeUsers[0]?.count || 0 },
+        companyBreakdown: snapshot?.companyBreakdown || [],
         generatedAt: now.toISOString(), retentionDays: 90,
       };
     },

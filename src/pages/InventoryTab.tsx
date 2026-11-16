@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { CheckCircle, FolderTree, Pencil, Plus, Search, Tags, Trash2, Package, ArrowLeftRight, Warehouse, PackagePlus, Barcode, PackageMinus, ClipboardList, TrendingUp } from "lucide-react";
+import { CheckCircle, FolderTree, Pencil, Plus, Search, Trash2, ArrowLeftRight, Warehouse, Package, PackagePlus, Barcode, PackageMinus, ClipboardList, TrendingUp } from "lucide-react";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
@@ -771,32 +771,24 @@ function InventoryWorkspace() {
               <SummaryCard icon={CheckCircle} label="Đang sử dụng" value={activeCategoryCount} tone="green" />
             </div>
 
-            <div className="flex flex-col gap-4 rounded-2xl border border-gray-150 bg-white p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-800">
-                  <Tags className="h-4.5 w-4.5 text-blue-500" />
-                  Phân loại sản phẩm trong kho
-                </h4>
-                <p className="mt-1 text-pretty text-xs text-on-surface-variant">
-                  Danh mục được dùng chung cho mọi chi nhánh trong doanh nghiệp.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="relative w-full sm:w-72">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Search className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Tìm loại hoặc mã phân loại..."
-                    className="w-full rounded-lg border border-gray-200 bg-slate-50 py-2 pl-9 pr-4 text-xs"
-                    value={searchCategory}
-                    onChange={(event) => setSearchCategory(event.target.value)}
-                  />
+            <div className="flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Search className="size-4 text-on-surface-variant" aria-hidden="true" />
                 </div>
+                <input
+                  type="search"
+                  aria-label="Tìm loại hoặc mã phân loại"
+                  placeholder="Tìm loại hoặc mã phân loại..."
+                  className="min-h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-4 text-xs text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
+                  value={searchCategory}
+                  onChange={(event) => setSearchCategory(event.target.value)}
+                />
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <ViewToggle mode={categoryViewMode} onChange={setCategoryViewMode} />
-                <button onClick={openCreateCategoryModal} className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 w-full sm:w-auto shrink-0">
-                  <Plus className="h-4 w-4" />
+                <button type="button" onClick={openCreateCategoryModal} className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
+                  <Plus className="size-4" aria-hidden="true" />
                   Thêm phân loại
                 </button>
               </div>

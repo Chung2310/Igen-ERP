@@ -15,6 +15,17 @@ export class PaymentController {
     }
   }
 
+  static async update(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const payment = await PaymentService.updatePayment(ownerId, req.params.id, req.body, req.user!.branchId);
+      res.json({ success: true, data: payment });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
@@ -22,6 +33,7 @@ export class PaymentController {
         page: typeof req.query.page === "string" ? req.query.page : undefined,
         limit: typeof req.query.limit === "string" ? req.query.limit : undefined,
         studentId: typeof req.query.studentId === "string" ? req.query.studentId : undefined,
+        search: typeof req.query.search === "string" ? req.query.search : undefined,
         ownerFilter: typeof req.query.ownerFilter === "string" ? req.query.ownerFilter : undefined,
         startDate: typeof req.query.startDate === "string" ? req.query.startDate : undefined,
         endDate: typeof req.query.endDate === "string" ? req.query.endDate : undefined,

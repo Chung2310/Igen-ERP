@@ -4,7 +4,7 @@ import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
 import { LearningRoadmapService } from "../services/learning-roadmap.service";
 
 export class LearningRoadmapController {
-  static async list(req: AuthRequest, res: Response, next: NextFunction) { try { res.json({ success: true, data: await LearningRoadmapService.listRoadmaps(await getAllowedOwnerIds(req.user!), req.user!.branchId) }); } catch (error) { next(error); } }
+  static async list(req: AuthRequest, res: Response, next: NextFunction) { try { res.json({ success: true, data: await LearningRoadmapService.listRoadmaps(await getAllowedOwnerIds(req.user!), req.user!.branchId, typeof req.query.search === "string" ? req.query.search : undefined) }); } catch (error) { next(error); } }
   static async listSteps(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const data = await LearningRoadmapService.listRoadmapSteps(
@@ -19,6 +19,7 @@ export class LearningRoadmapController {
   }
   static async create(req: AuthRequest, res: Response, next: NextFunction) { try { const ownerId = await resolveCreateOwnerId(req.user!, req.body.companyCode); const courseOwnerScope = await getAllowedOwnerIds(req.user!); const data = await LearningRoadmapService.createRoadmap(ownerId, req.user!.branchId, req.body, courseOwnerScope); res.status(201).json({ success: true, data }); } catch (error) { next(error); } }
   static async update(req: AuthRequest, res: Response, next: NextFunction) { try { const data = await LearningRoadmapService.updateRoadmap(await getAllowedOwnerIds(req.user!), req.params.id, req.user!.branchId, req.body); res.json({ success: true, data }); } catch (error) { next(error); } }
+  static async delete(req: AuthRequest, res: Response, next: NextFunction) { try { const data = await LearningRoadmapService.deleteRoadmap(await getAllowedOwnerIds(req.user!), req.params.id, req.user!.branchId); if (!data) return res.status(404).json({ success: false, error: "Không tìm thấy lộ trình." }); res.json({ success: true, data }); } catch (error) { next(error); } }
   static async batchProgression(req: AuthRequest, res: Response, next: NextFunction) { try { const data = await LearningRoadmapService.getBatchProgression(await getAllowedOwnerIds(req.user!), req.params.batchId, typeof req.query.roadmapId === "string" ? req.query.roadmapId : undefined, req.user!.branchId); res.json({ success: true, data }); } catch (error) { next(error); } }
   static async saveDecision(req: AuthRequest, res: Response, next: NextFunction) { try { const data = await LearningRoadmapService.saveDecision(await getAllowedOwnerIds(req.user!), req.user!, { ...req.body, batchId: req.params.batchId, studentId: req.params.studentId }); res.json({ success: true, data }); } catch (error) { next(error); } }
   static async promoteStudents(req: AuthRequest, res: Response, next: NextFunction) { try { const data = await LearningRoadmapService.promoteStudents(await getAllowedOwnerIds(req.user!), req.user!, { ...req.body, sourceBatchId: req.params.batchId }); res.json({ success: true, data }); } catch (error) { next(error); } }

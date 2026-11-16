@@ -1201,7 +1201,25 @@ export async function listBatchEnrollments(ownerId: string | string[], batchId: 
   const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
   if (!batch) return null;
   await backfillBatchEnrollments(batch);
-  return BatchEnrollment.find({ batchId: String(batch._id) }).lean({ virtuals: true });
+  const enrollments = await BatchEnrollment.find({
+    batchId: String(batch._id),
+    ...buildOwnerQuery(ownerId),
+    ...buildBranchScopeQuery(branchId),
+  }).lean({ virtuals: true });
+  const students = await Student.find({
+    _id: { $in: [...new Set(enrollments.map((enrollment) => enrollment.studentId))] },
+    ...buildOwnerQuery(ownerId),
+    ...buildBranchScopeQuery(branchId),
+  }).select("fullName phone").lean();
+  const studentById = new Map(students.map((student) => [String(student._id), student]));
+  return enrollments.map((enrollment) => {
+    const student = studentById.get(enrollment.studentId);
+    return {
+      ...enrollment,
+      studentName: student?.fullName || "",
+      studentPhone: student?.phone || "",
+    };
+  });
 }
 
 // Danh sách buổi theo lịch — export lại để các service khác dùng chung nguồn

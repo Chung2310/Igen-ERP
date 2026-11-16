@@ -29,7 +29,7 @@ export async function summarizeAssistantSession(previous: string, messages: { ro
         model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
         temperature: 0,
         jsonMode: true,
-        maxRetries: 1,
+        maxRetries: 3,
         messages: [
           {
             role: "system",

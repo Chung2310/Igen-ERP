@@ -36,7 +36,7 @@ export const studentManagementRouter = Router();
 
 const studentModuleGuard = requireModule("student") as RequestHandler;
 const workerModuleGuard = requireModule("worker") as RequestHandler;
-const partnerModuleGuard = requireModule("partner") as RequestHandler;
+const partnerModuleGuard = requireModule("student-partner") as RequestHandler;
 export const resolveBusinessModuleKey = (originalUrl: string) =>
   originalUrl.includes("/worker-management/") ? "worker" : "student";
 const requireStudentModule: RequestHandler = (req, res, next) => {

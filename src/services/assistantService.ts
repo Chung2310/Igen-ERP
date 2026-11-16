@@ -126,8 +126,8 @@ export const assistantService = {
   interpretWorkflow: (id: string, data: { version: number; text: string }, signal?: AbortSignal) => request<AssistantWorkflow>(`/workflows/${encodeURIComponent(id)}/interpret`, { method: "POST", body: JSON.stringify(data), signal }),
   saveWorkflow: (id: string, data: AssistantWorkflowUpdate) => request<AssistantWorkflow>(`/workflows/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(data) }),
   resetWorkflow: (id: string, version: number) => request<AssistantWorkflow>(`/workflows/${encodeURIComponent(id)}/reset`, { method: "POST", body: JSON.stringify({ version }) }),
-  conversations: (cursor?: AssistantConversationCursor, signal?: AbortSignal, branchId?: string) => {
-    const query = new URLSearchParams({ limit: "30", ...(cursor || {}) });
+  conversations: (cursor?: AssistantConversationCursor, signal?: AbortSignal, branchId?: string, search?: string) => {
+    const query = new URLSearchParams({ limit: "30", ...(cursor || {}), ...(search?.trim() ? { search: search.trim() } : {}) });
     return request<AssistantConversationPage>(`/conversations?${query.toString()}`, { signal }, branchId);
   },
   sessionMemory: (id: string, signal?: AbortSignal, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { signal }, branchId),

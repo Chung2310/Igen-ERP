@@ -24,6 +24,10 @@ function buildOwnerQuery(ownerId: OwnerScope): Record<string, unknown> {
   return { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId };
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function resolveCompanyCodeForOwner(ownerId: string): Promise<string> {
   let companyCode = "";
   let ownerEmail = "";
@@ -108,14 +112,22 @@ export class AssignmentService {
     return assignment;
   }
 
-  static async getAssignments(ownerScope: OwnerScope, batchId: string): Promise<any[]> {
-    return AssignmentModel.find({ batchId, ...buildOwnerQuery(ownerScope) }).sort({ createdAt: -1 });
+  static async getAssignments(ownerScope: OwnerScope, batchId: string, search?: string): Promise<any[]> {
+    const query: Record<string, unknown> = { batchId, ...buildOwnerQuery(ownerScope) };
+    if (search?.trim()) query.title = { $regex: escapeRegex(search.trim().slice(0, 120)), $options: "i" };
+    return AssignmentModel.find(query).sort({ createdAt: -1 });
   }
 
   static async getSubmissions(ownerScope: OwnerScope, assignmentId: string): Promise<any[]> {
     const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
     if (!assignment) throw new Error("Assignment not found.");
-    return SubmissionModel.find({ assignmentId });
+    const submissions = await SubmissionModel.find({ assignmentId }).sort({ submittedAt: -1 });
+    const studentIds = [...new Set(submissions.map((submission) => submission.studentId))];
+    const students = studentIds.length
+      ? await Student.find({ _id: { $in: studentIds }, ...buildOwnerQuery(ownerScope), ...(assignment.branchId ? { branchId: assignment.branchId } : {}) }).select("_id fullName").lean()
+      : [];
+    const studentNames = new Map(students.map((student) => [String(student._id), student.fullName]));
+    return submissions.map((submission) => ({ ...submission.toObject(), studentName: studentNames.get(submission.studentId) || "Học viên không còn tồn tại" }));
   }
 
   static async notifyStudents(
@@ -381,6 +393,7 @@ export class AssignmentService {
 
     if (!submission) throw new Error("Học viên chưa nộp bài tập này.");
 
-    return submission;
+    const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId, ...(assignment.branchId ? { branchId: assignment.branchId } : {}) }).select("fullName").lean();
+    return { ...submission.toObject(), studentName: student?.fullName || "Học viên không còn tồn tại" };
   }
 }

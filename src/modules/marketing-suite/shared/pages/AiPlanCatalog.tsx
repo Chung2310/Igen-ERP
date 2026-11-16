@@ -7,8 +7,8 @@ import AiPlanReview from './AiPlanReview';
 const number = (value: number) => value.toLocaleString('vi-VN');
 const duration = (days: number) => number(days) + ' ngày';
 
-export default function AiPlanCatalog({ subscription, revision, companyName, companyCode, subscriptionReady = true, mobileDock }: {
-  subscription: AiSubscriptionSummary | null; revision: number; companyName?: string; companyCode?: string;
+export default function AiPlanCatalog({ subscription, companyName, companyCode, subscriptionReady = true, mobileDock }: {
+  subscription: AiSubscriptionSummary | null; companyName?: string; companyCode?: string;
   subscriptionReady?: boolean; mobileDock: HTMLElement | null;
 }) {
   const [plans, setPlans] = useState<AiSubscriptionPlan[]>([]);
@@ -44,7 +44,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName, com
       window.removeEventListener('focus', onRefresh);
       document.removeEventListener('visibilitychange', onRefresh);
     };
-  }, [revision, retry]);
+  }, [retry]);
 
   const durations = [...new Set(plans.map(plan => plan.durationDays))].sort((a, b) => a - b);
   const activeDays = selectedDays !== null && durations.includes(selectedDays) ? selectedDays : null;
@@ -57,13 +57,10 @@ export default function AiPlanCatalog({ subscription, revision, companyName, com
   const currentAvailable = activeSubscription ? subscription.remaining : 0;
   const requestRetry = () => { setError(''); setRetry(value => value + 1); };
 
-  return <section className="w-full space-y-6" aria-labelledby="ai_plan_catalog_title" aria-busy={!loaded}>
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <h2 id="ai_plan_catalog_title" className="text-balance text-base font-semibold">Chọn gói</h2>
-      {loaded && durations.length > 1 && <div className="ai-plan-filters" role="group" aria-label="Lọc gói theo thời hạn">
+  return <section className="w-full space-y-6" aria-label="Danh sách gói AI" aria-busy={!loaded}>
+    {loaded && durations.length > 1 && <div className="ai-plan-filters w-fit" role="group" aria-label="Lọc gói theo thời hạn">
         {[null, ...durations].map(days => <button key={days ?? 'all'} type="button" aria-pressed={activeDays === days} onClick={() => setSelectedDays(days)} className={cn('ai-plan-duration', activeDays === days && 'ai-plan-duration-active')}>{days === null ? 'Tất cả' : duration(days)}</button>)}
-      </div>}
-    </div>
+    </div>}
     {selectedId && loaded && !selectedPlan && <p role="status" className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-pretty text-sm text-on-surface-variant">Gói đã chọn không còn được cung cấp. Vui lòng chọn lại gói khác.</p>}
     {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4">
       <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

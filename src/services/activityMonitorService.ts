@@ -12,6 +12,9 @@ export interface ActivityMonitorFilters {
 export interface MonitorSnapshot {
   data: MonitorEvent[]; total: number; page: number; limit: number;
   summary: { failures: number; companies: number; activeUsers: number };
+  companyBreakdown?: Array<{
+    companyCode: string; total: number; failures: number; activeUsers: number; latestActivityAt?: string;
+  }>;
   generatedAt: string; retentionDays: number;
 }
 export interface MonitorAccount { _id: string; displayName?: string; email: string; companyCode: string; role: string; }
@@ -21,6 +24,8 @@ function query(input: Record<string, unknown>) {
 export const activityMonitorService = {
   list: (filters: ActivityMonitorFilters, signal?: AbortSignal): Promise<MonitorSnapshot> =>
     superAdminRequest(`/api/v1/super-admin/activity/events?${query({ ...filters, limit: 30 })}`, { signal, suppressErrorToast: true }),
+  companySummary: (filters: ActivityMonitorFilters, signal?: AbortSignal): Promise<MonitorSnapshot> =>
+    superAdminRequest(`/api/v1/super-admin/activity/events?${query({ ...filters, page: 1, limit: 1 })}`, { signal, suppressErrorToast: true }),
   accounts: (companyCode: string, search: string, signal?: AbortSignal): Promise<MonitorAccount[]> =>
     superAdminRequest(`/api/v1/super-admin/activity/accounts?${query({ companyCode, search })}`, { signal, suppressErrorToast: true }),
 };
