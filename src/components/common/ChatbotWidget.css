@@ -899,65 +899,74 @@
 }
 
 .assistant-voice-orb {
-  position: relative;
   display: grid;
   place-items: center;
-  width: 128px;
-  height: 128px;
+  width: 112px;
+  height: 112px;
   flex: none;
-}
-
-.assistant-voice-orb::before {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-  animation: assistant-voice-pulse 2.4s ease-in-out infinite;
 }
 
 .assistant-voice-orb-core {
   position: relative;
   width: 104px;
   height: 104px;
+  overflow: hidden;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 36% 28%, var(--color-surface-container-lowest) 0%, transparent 42%),
-    radial-gradient(circle at 70% 70%, color-mix(in srgb, var(--color-primary) 40%, var(--color-surface-container-lowest)) 0%, var(--color-primary) 75%);
-  box-shadow: inset 0 -8px 18px color-mix(in srgb, var(--color-primary) 28%, transparent);
-  animation: assistant-voice-float 3.6s ease-in-out infinite;
+  background: linear-gradient(160deg, #315bd0 0%, var(--color-primary) 47%, #c8d9ff 100%);
+  box-shadow: inset 0 -5px 12px rgb(35 77 178 / 16%);
 }
 
-.assistant-voice-orb[data-phase="speaking"] .assistant-voice-orb-core {
-  animation-duration: 1.4s;
+.assistant-voice-orb-core::before,
+.assistant-voice-orb-core::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  pointer-events: none;
 }
 
-.assistant-voice-orb[data-phase="thinking"] .assistant-voice-orb-core {
-  animation-duration: 2s;
+.assistant-voice-orb-core::before {
+  background: radial-gradient(ellipse at 45% 58%, rgb(255 255 255 / 96%) 0%, rgb(231 240 255 / 86%) 24%, transparent 53%);
+  animation: assistant-voice-cloud 4.8s ease-in-out infinite alternate;
+}
+
+.assistant-voice-orb-core::after {
+  background: radial-gradient(ellipse at 68% 24%, rgb(33 77 194 / 82%) 0%, rgb(77 124 224 / 46%) 25%, transparent 52%);
+  animation: assistant-voice-blue 5.7s ease-in-out infinite alternate;
+}
+
+.assistant-voice-orb[data-phase="speaking"] .assistant-voice-orb-core::before,
+.assistant-voice-orb[data-phase="speaking"] .assistant-voice-orb-core::after {
+  animation-duration: 2.6s;
+}
+
+.assistant-voice-orb[data-phase="thinking"] .assistant-voice-orb-core::before,
+.assistant-voice-orb[data-phase="thinking"] .assistant-voice-orb-core::after {
+  animation-duration: 3.7s;
 }
 
 .assistant-voice-orb[data-phase="muted"] {
   opacity: .5;
 }
 
-.assistant-voice-orb[data-phase="muted"]::before,
-.assistant-voice-orb[data-phase="muted"] .assistant-voice-orb-core {
+.assistant-voice-orb[data-phase="muted"] .assistant-voice-orb-core::before,
+.assistant-voice-orb[data-phase="muted"] .assistant-voice-orb-core::after {
   animation: none;
 }
 
-@keyframes assistant-voice-float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-6px) scale(1.07); }
+@keyframes assistant-voice-cloud {
+  from { transform: translate(-13%, 8%) rotate(-12deg) scale(.9); opacity: .72; }
+  to { transform: translate(12%, -10%) rotate(16deg) scale(1.14); opacity: 1; }
 }
 
-@keyframes assistant-voice-pulse {
-  0%, 100% { transform: scale(.92); opacity: .35; }
-  50% { transform: scale(1.14); opacity: .8; }
+@keyframes assistant-voice-blue {
+  from { transform: translate(12%, -10%) rotate(8deg) scale(1.04); opacity: .9; }
+  to { transform: translate(-11%, 12%) rotate(-14deg) scale(.88); opacity: .58; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-voice-orb::before,
-  .assistant-voice-orb-core {
+  .assistant-voice-orb-core::before,
+  .assistant-voice-orb-core::after {
     animation: none;
   }
 }
