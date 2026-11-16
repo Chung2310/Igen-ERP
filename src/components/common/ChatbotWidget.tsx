@@ -519,6 +519,13 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   }, [fileAttachment]);
   const [isListening, setIsListening] = useState(false);
   const [twoWayVoiceEnabled, setTwoWayVoiceEnabled] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [spokenReplyText, setSpokenReplyText] = useState("");
+  const [spokenWordCount, setSpokenWordCount] = useState(0);
+  const [voiceMuted, setVoiceMuted] = useState(false);
+  const [voiceInputFocused, setVoiceInputFocused] = useState(false);
+  const voiceExitButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreVoiceFocusRef = useRef(false);
   const [twoWayRestartVersion, setTwoWayRestartVersion] = useState(0);
   const twoWayVoiceRef = useRef(false);
   const voiceBlockedRef = useRef(false);
@@ -580,6 +587,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const speakReply = useCallback(async (text: string) => {
     if (!settings.speakReplies && !twoWayVoiceRef.current) return;
     stopReplySpeech();
+    if (twoWayVoiceRef.current) { setSpokenReplyText(text); setSpokenWordCount(0); }
     const runId = speechRunIdRef.current;
     const controller = new AbortController();
     speechRequestRef.current = controller;
@@ -602,7 +610,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       speechAudioUrlRef.current = url;
       const audio = new Audio(url);
       speechAudioRef.current = audio;
-      audio.onended = finish;
+      const words = text.trim().split(/\s+/);
+      const updateSpokenWords = () => {
+        if (!twoWayVoiceRef.current || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        setSpokenWordCount(Math.min(words.length, Math.floor((audio.currentTime / audio.duration) * words.length)));
+      };
+      audio.ontimeupdate = updateSpokenWords;
+      audio.onloadedmetadata = updateSpokenWords;
+      audio.onended = () => { if (twoWayVoiceRef.current) setSpokenWordCount(words.length); finish(); };
       audio.onerror = () => {
         if (runId !== speechRunIdRef.current) return;
         finish();
@@ -634,6 +649,13 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const logRef = useRef<HTMLDivElement>(null);
   const historyBannerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (twoWayVoiceEnabled) voiceExitButtonRef.current?.focus({ preventScroll: true });
+    else if (restoreVoiceFocusRef.current) {
+      restoreVoiceFocusRef.current = false;
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [twoWayVoiceEnabled]);
   const inputHighlightRef = useRef<HTMLDivElement>(null);
   const resumeFocusRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
@@ -1148,7 +1170,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     attachmentButtonRef.current?.focus({ preventScroll: true });
   };
   const toggleTwoWayVoice = () => {
-    if (twoWayVoiceRef.current) { closeSpeech(); stopReplySpeech(); inputRef.current?.focus({ preventScroll: true }); return; }
+    if (twoWayVoiceRef.current) { restoreVoiceFocusRef.current = true; closeSpeech(); stopReplySpeech(); return; }
     const contextError = voiceContextError();
     if (contextError) { setVoiceError(contextError); return; }
     const Recognition = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
@@ -1157,6 +1179,11 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     voiceBlockedRef.current = false;
     twoWayVoiceRef.current = true;
     setTwoWayVoiceEnabled(true);
+    setVoiceMuted(false);
+    setVoiceInputFocused(false);
+    setVoiceTranscript("");
+    setSpokenReplyText("");
+    setSpokenWordCount(0);
     setVoiceError("");
     setSpeechError("");
   };
@@ -1244,7 +1271,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   };
   const voiceTurnBusy = isLoading && synced;
   useEffect(() => {
-    if (!twoWayVoiceEnabled || !settingsReady || !isOpen || !synced || isLoading || pendingVoiceCommand || isSpeaking || isReadingAttachment || isViewingHistory || view !== "chat" || isSettingsDialogOpen || retryRef.current) return;
+    if (!twoWayVoiceEnabled || voiceMuted || voiceInputFocused || !settingsReady || !isOpen || !synced || isLoading || pendingVoiceCommand || isSpeaking || isReadingAttachment || isViewingHistory || view !== "chat" || isSettingsDialogOpen || retryRef.current) return;
     const Recognition = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
     if (!Recognition) return;
     let stop: (() => void) | undefined;
@@ -1263,8 +1290,13 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             setVoiceStatus("off"); setIsListening(false);
           }
         },
-        onTranscript: text => { if (twoWayVoiceRef.current) setInput(text); },
-        onSubmit: text => { if (twoWayVoiceRef.current) setPendingVoiceCommand(text); },
+        onTranscript: text => {
+          if (!twoWayVoiceRef.current) return;
+          setVoiceTranscript(text);
+          setSpokenReplyText("");
+          setSpokenWordCount(0);
+        },
+        onSubmit: text => { if (twoWayVoiceRef.current) { setVoiceTranscript(text); setPendingVoiceCommand(text); } },
         onError: code => {
           voiceBlockedRef.current = true;
           twoWayVoiceRef.current = false;
@@ -1283,7 +1315,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const timer = cooldown ? window.setTimeout(begin, cooldown) : null;
     if (!cooldown) begin();
     return () => { if (timer !== null) window.clearTimeout(timer); stop?.(); };
-  }, [twoWayVoiceEnabled, twoWayRestartVersion, settingsReady, isOpen, synced, isLoading, pendingVoiceCommand, isSpeaking, isReadingAttachment, isViewingHistory, view, isSettingsDialogOpen]);
+  }, [twoWayVoiceEnabled, voiceMuted, voiceInputFocused, twoWayRestartVersion, settingsReady, isOpen, synced, isLoading, pendingVoiceCommand, isSpeaking, isReadingAttachment, isViewingHistory, view, isSettingsDialogOpen]);
   useEffect(() => {
     if (!settingsReady || !settings.wakeWordEnabled || twoWayVoiceEnabled || voiceBlockedRef.current || voiceTurnBusy || pendingVoiceCommand || isSpeaking || isViewingHistory || view !== "chat" || isSettingsDialogOpen) return;
     const contextError = voiceContextError();
@@ -1923,7 +1955,24 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2 text-center", focusClass)}>
                 <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
               </div>}
-              {isWelcomeScreen ? headerPanel ? <div ref={logRef} className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-surface-container-lowest", fullscreen ? "justify-center px-4 py-8 sm:px-8" : "justify-end gap-4 p-4")}>
+              {twoWayVoiceEnabled ? <section aria-label="Trò chuyện giọng nói" className="flex min-h-0 flex-1 flex-col bg-surface-container-lowest px-4 py-5 sm:px-8">
+                <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6 overflow-y-auto py-6 text-center">
+                  {voiceTranscript && <div className="w-full max-w-2xl rounded-2xl bg-primary/10 px-4 py-3 text-left"><p className="text-xs font-medium text-on-surface-variant">Bạn</p><p className="mt-1 whitespace-pre-wrap text-pretty text-base text-on-surface">{voiceTranscript}</p></div>}
+                  {spokenReplyText && <div className="w-full max-w-2xl text-left"><p className="text-xs font-medium text-on-surface-variant">iGen AI</p><p className="mt-1 min-h-12 whitespace-pre-wrap text-pretty text-lg leading-relaxed text-on-surface">{spokenReplyText.trim().split(/\s+/).slice(0, spokenWordCount).join(" ")}</p></div>}
+                  <div aria-hidden="true" data-phase={voiceMuted || voiceInputFocused ? "muted" : isSpeaking ? "speaking" : isLoading || pendingVoiceCommand ? "thinking" : "listening"} className="assistant-voice-orb"><span className="assistant-voice-orb-core" /></div>
+                  <p role="status" className="sr-only">{voiceMuted ? "Micro đã tắt." : isSpeaking ? "AI đang trả lời." : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu." : "Đang nghe."}</p>
+                  {voiceError && <p role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
+                  {speechError && <p role="alert" className="text-pretty text-sm text-error">{speechError}</p>}
+                  {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
+                </div>
+                <form onSubmit={event => { event.preventDefault(); const text = input.trim(); if (!text || isLoading) return; closeSpeech(); stopReplySpeech(); setVoiceInputFocused(false); void handleSend(text); }} className="mx-auto flex min-h-14 w-full max-w-4xl items-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 shadow-sm focus-within:border-primary">
+                  <label htmlFor="assistant-voice-text-input" className="sr-only">Nhắn tin cho iGen AI</label>
+                  <textarea ref={inputRef} id="assistant-voice-text-input" rows={1} value={input} onChange={event => setInput(event.target.value)} onFocus={() => setVoiceInputFocused(true)} onBlur={() => setVoiceInputFocused(false)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Nhắn tin…" className="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+                  {input.trim() && <button type="submit" aria-label="Gửi tin nhắn" disabled={isLoading} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-50", focusClass)}><SendHorizontal className="size-4" aria-hidden="true" /></button>}
+                  <button type="button" aria-label={voiceMuted ? "Bật micro" : "Tắt micro"} aria-pressed={voiceMuted} onClick={() => setVoiceMuted(value => !value)} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high", focusClass)}>{voiceMuted ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}</button>
+                  <button ref={voiceExitButtonRef} type="button" aria-label="Kết thúc trò chuyện giọng nói" onClick={toggleTwoWayVoice} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90", focusClass)}><X className="size-4" aria-hidden="true" /></button>
+                </form>
+              </section> : isWelcomeScreen ? headerPanel ? <div ref={logRef} className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-surface-container-lowest", fullscreen ? "justify-center px-4 py-8 sm:px-8" : "justify-end gap-4 p-4")}>
                 <div className={cn("mx-auto flex w-full flex-col gap-4", fullscreen && "max-w-4xl")}>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
