@@ -309,16 +309,29 @@ suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
     answers: data.answers === undefined ? {} : leadAnswers(data.answers),
   };
   input.intakeSearchText = Object.values(input.answers as Record<string, string>).join(" ").slice(0, 100000);
-  if (data.intakeFields !== undefined) input.intakeFields = leadFieldSnapshot(data.intakeFields);
+  if (data.intakeFields !== undefined) {
+    const fields = leadFieldSnapshot(data.intakeFields);
+    input.intakeFields = fields;
+    const standard = mapIntakeStandardFields(fields, input.answers as Record<string, string>);
+    if (!input.phone && standard.phone) input.phone = standard.phone.slice(0, 40);
+    if (!input.email && standard.email) input.email = standard.email.slice(0, 254);
+    if (!input.company && standard.company) input.company = standard.company.slice(0, 200);
+    if (!input.productOfChoice && standard.productOfChoice) input.productOfChoice = standard.productOfChoice.slice(0, 200);
+    if (data.value === undefined && standard.value) {
+      const amount = parseLeadIntakeAmount(standard.value);
+      if (amount !== undefined) input.value = amount;
+    }
+  }
   if (data.collectionStatus !== undefined) {
     if (typeof data.collectionStatus !== "string" || !intakeStatusValues.has(data.collectionStatus)) return res.status(400).json({ status: "error", message: "Trạng thái thu thập Lead không hợp lệ." });
     input.collectionStatus = data.collectionStatus;
   }
   const sourcePlatform = data.sourcePlatform;
-  if (sourcePlatform !== undefined) {
+  if (sourcePlatform !== undefined || data.sourceAccountId !== undefined || data.sourceConversationId !== undefined) {
     if (typeof sourcePlatform !== "string" || !["facebook", "zalo", "tiktok"].includes(sourcePlatform)
       || typeof data.sourceAccountId !== "string" || !data.sourceAccountId.trim()
-      || typeof data.sourceConversationId !== "string" || !data.sourceConversationId.trim()) {
+      || (data.sourceConversationId !== undefined
+        && (typeof data.sourceConversationId !== "string" || !data.sourceConversationId.trim()))) {
       return res.status(400).json({ status: "error", message: "Thông tin nguồn hội thoại của Lead không hợp lệ." });
     }
     const platformName = sourcePlatform === "facebook" ? "Facebook" : sourcePlatform === "zalo" ? "Zalo" : "TikTok";
@@ -334,28 +347,20 @@ suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
     if (!ownedCompanyAccount && !ownedPersonalAccount) return res.status(404).json({ status: "error", message: "Không tìm thấy tài khoản nguồn của Lead." });
     input.sourcePlatform = sourcePlatform;
     input.sourceAccountId = data.sourceAccountId;
-    input.sourceConversationId = data.sourceConversationId;
+    if (typeof data.sourceConversationId === "string") input.sourceConversationId = data.sourceConversationId.trim();
     input.lastInteractionAt = new Date();
   } else {
     input.lastInteractionAt = new Date();
   }
-  let item;
-  if (input.sourcePlatform && input.sourceAccountId && input.sourceConversationId) {
-    const identity = {
-      companyCode: req.user!.companyCode, sourcePlatform: input.sourcePlatform,
-      sourceAccountId: input.sourceAccountId, sourceConversationId: input.sourceConversationId
-    };
-    try {
-      item = await CRMTicketModel.findOneAndUpdate(identity, { $setOnInsert: input }, { upsert: true, new: true, runValidators: true });
-    } catch (error) {
-      if ((error as { code?: number }).code !== 11000) throw error;
-      item = await CRMTicketModel.findOne(identity);
-    }
-  } else {
-    item = await CRMTicketModel.create(input);
+  try {
+    const item = await CRMTicketModel.create(input);
+    return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), false) });
+  } catch (error) {
+    if (!input.sourceConversationId || (error as { code?: number }).code !== 11000) throw error;
+    return res.status(409).json({
+      status: "error", message: "Hội thoại đã có Lead. Mở dòng đó trong bảng Lead để cập nhật thông tin.",
+    });
   }
-  if (!item) throw new Error("Không thể lưu Lead vào hệ thống.");
-  return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), false) });
 }));
 
 suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {

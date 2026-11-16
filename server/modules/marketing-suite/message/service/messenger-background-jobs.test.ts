@@ -11,7 +11,9 @@ import { enqueueLeadIntakeRetry, enqueueZaloWebhook, startMessengerBackgroundWor
 import { UserModel } from "../../../../model/user.model";
 import { claimMessengerReply, enqueueMessengerReply, expireMessengerReplyJobs, markMessengerReplySending } from "./facebook-auto-reply-queue";
 import { zaloMessengerService } from "./zalo-messenger.service";
-import { assertZaloDeliveryCurrent, readZaloFollowUpMessages, ZaloReplyCancelledError } from "./zalo-reply-context";
+import { assertZaloDeliveryCurrent, beginZaloFollowUpDelivery, expireZaloFollowUpDeliveries,
+  readZaloFollowUpMessages, ZaloReplyCancelledError } from "./zalo-reply-context";
+import { CRMTicketModel } from "../model/crm-ticket.model";
 
 const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn() }));
 vi.mock("./ai-auto-reply.service.ts", () => ({
@@ -76,6 +78,18 @@ it("acknowledges only after persisting and deduplicates a Zalo webhook without a
   expect(res.status).toHaveBeenLastCalledWith(200);
   expect(await MessengerBackgroundJobModel.countDocuments({ kind: "zalo-webhook", status: "pending" })).toBe(1);
   expect(await ZaloMessageModel.countDocuments()).toBe(0);
+});
+
+it("stores the sticker URL from the webhook attachment and dispatches the sticker turn", async () => {
+  const url = "https://api.zalo.me/api/emoticon/oasticker?eid=123&size=130";
+  await zaloMessengerService.handleWebhookEvent({
+    event_name: "user_send_sticker", recipient: { id: "oa" }, sender: { id: "customer" }, timestamp: Date.now(),
+    message: { msg_id: "sticker-1", attachments: [{ type: "sticker", payload: { url, id: "123" } }] },
+  });
+
+  const message = await ZaloMessageModel.findOne({ messageId: "sticker-1" }).lean();
+  expect(message).toMatchObject({ text: "[Sticker]", attachments: [{ type: "sticker", url }] });
+  expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith("zalo", "oa", String(message?.conversationId), "[Sticker]", "sticker-1", { propagateError: true });
 });
 
 it("recovers Zalo jobs across an expired lease and a failed message write without double-counting unread", async () => {
@@ -156,6 +170,50 @@ it("loads the newest Zalo follow-up history and aborts delivery if the customer 
     () => assertZaloDeliveryCurrent(conversationId, "oa", "m14", conversation))).rejects.toBeInstanceOf(ZaloReplyCancelledError);
   expect(send).not.toHaveBeenCalled();
   expect(await ZaloMessageModel.countDocuments({ conversationId, direction: "outbound" })).toBe(1);
+});
+
+it("allows multiple manual Leads in one account while keeping linked conversations unique", async () => {
+  await CRMTicketModel.init();
+  const scope = { companyCode: "LEAD-TEST", sourcePlatform: "zalo" as const, sourceAccountId: "OA", createdBy: "test" };
+  await CRMTicketModel.create({ ...scope, customerName: "An", sourceConversationId: "" });
+  await CRMTicketModel.create({ ...scope, customerName: "Bình" });
+  await CRMTicketModel.create({ ...scope, customerName: "Chi" });
+  await CRMTicketModel.create({ ...scope, customerName: "Dũng", sourceConversationId: "CONV" });
+  await expect(CRMTicketModel.create({ ...scope, customerName: "Trùng", sourceConversationId: "CONV" }))
+    .rejects.toMatchObject({ code: 11000 });
+  expect(await CRMTicketModel.countDocuments({ companyCode: scope.companyCode })).toBe(4);
+});
+
+it("clears an exhausted webhook marker and processes the customer's next message", async () => {
+  const { submit } = webhook();
+  await submit();
+  await MessengerBackgroundJobModel.updateOne({ kind: "zalo-webhook" }, { $set: { attempts: 7 } });
+  const failedWrite = vi.spyOn(ZaloMessageModel, "create").mockRejectedValueOnce(new Error("test message write failure"));
+  stopWorkers = startMessengerBackgroundWorkers();
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.exists({ kind: "zalo-webhook", status: "failed" })).toBeTruthy();
+  }, { timeout: 5_000 });
+  failedWrite.mockRestore();
+  expect(await ZaloConversationModel.findOne().select("+pendingInboundMessageIds").lean())
+    .toMatchObject({ pendingInboundMessageIds: [], unreadCount: 0 });
+  await webhook(Date.now() + 1).submit();
+  await vi.waitFor(async () => expect(mocks.dispatch).toHaveBeenCalledTimes(1), { timeout: 5_000 });
+  expect(await ZaloConversationModel.findOne().lean()).toMatchObject({ unreadCount: 1 });
+}, 15_000);
+
+it("allows a single worker to start a follow-up and never replays an interrupted delivery", async () => {
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer",
+    lastSender: "assistant", followUpStatus: "pending", lastAssistantMessageAt: new Date(1000) });
+  await ZaloMessageModel.create({ conversationId: conversation._id, senderId: "oa", recipientId: "customer",
+    direction: "outbound", messageId: "anchor", timestamp: new Date(1000), status: "delivered" });
+  const results = await Promise.allSettled([
+    beginZaloFollowUpDelivery(conversation, "anchor"), beginZaloFollowUpDelivery(conversation, "anchor"),
+  ]);
+  expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+  expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+  await expireZaloFollowUpDeliveries(Date.now() + 61_000);
+  expect(await ZaloConversationModel.findById(conversation._id).lean()).toMatchObject({ followUpStatus: "failed" });
+  await expect(beginZaloFollowUpDelivery(conversation, "anchor")).rejects.toBeInstanceOf(ZaloReplyCancelledError);
 });
 
 it("reclaims an interrupted Zalo reply once, without replaying a send of unknown outcome", async () => {

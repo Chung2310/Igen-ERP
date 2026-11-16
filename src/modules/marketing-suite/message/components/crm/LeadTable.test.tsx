@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LeadTable } from "./LeadTable";
 import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
+import { CreateLeadModal } from "./CreateLeadModal";
 import { crmService, type ActiveLeadIntakeProfile, type ExtendedLeadCard } from "../../services/crmService";
-import type { LeadAccountOption } from "./leadSheetUtils";
+import { DEFAULT_HIDDEN_SYSTEM_COLUMNS, saveSheetLayout, type LeadAccountOption } from "./leadSheetUtils";
+import { customerDetailHref } from "../../../../customer-management/navigation";
 import { customerApi } from "../../../../customer-management/customerApi";
 
 vi.mock("../../../../customer-management/customerApi", () => ({ customerApi: { searchActive: vi.fn() } }));
@@ -109,13 +112,13 @@ afterEach(() => {
 });
 
 describe("LeadTable", () => {
-  it("requires a choice for matching customers before saving a Lead", async () => {
+  it("requires confirmation before saving a selected customer and replaces the action with a profile link", async () => {
     vi.mocked(customerApi.searchActive).mockResolvedValue([
       { customerId: "customer-1", customerCode: "KH-001", name: sampleLead.customerName, phone: sampleLead.phone!, type: "regular", status: "active" },
       { customerId: "customer-2", customerCode: "KH-002", name: "Nguyễn Anh", phone: sampleLead.phone!, type: "regular", status: "active" },
     ]);
     vi.mocked(crmService.saveLeadCustomer).mockResolvedValue({ customerId: "customer-1", customerCode: "KH-001" });
-    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} setShowCreateLeadModal={vi.fn()} deleteLead={vi.fn()}
+    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()} deleteLead={vi.fn()}
       handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main" enabledModules={["customer"]}
       canViewCustomers canSaveCustomer />);
     fireEvent.click(await screen.findByRole("button", { name: `Lưu ${sampleLead.customerName} vào Khách hàng` }));
@@ -124,6 +127,64 @@ describe("LeadTable", () => {
     expect(crmService.saveLeadCustomer).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Liên kết hồ sơ đã chọn" }));
     await waitFor(() => expect(crmService.saveLeadCustomer).toHaveBeenCalledWith(sampleLead.id, { customerId: "customer-1" }));
+    const link = await screen.findByRole("link", { name: `Mở hồ sơ Khách hàng của ${sampleLead.customerName}` });
+    expect(link.getAttribute("href")).toBe(customerDetailHref("customer-1", "lead-needs"));
+  });
+  it("waits one second after the last search edit before fetching", async () => {
+    const props = {
+      setSearchQuery: vi.fn(), onCreateLead: vi.fn(), deleteLead: vi.fn(), handleGoToChat: vi.fn(),
+      activeChannel: "facebook" as const, accountId: "page_spa_01", companyCode: "SPA01",
+      branchId: "main", accounts,
+    };
+    const { rerender } = render(<LeadTable {...props} searchQuery="" />);
+    await screen.findByText("Nguyễn Minh Anh");
+    vi.mocked(crmService.getLeadPage).mockClear();
+    vi.useFakeTimers();
+    try {
+      rerender(<LeadTable {...props} searchQuery="Minh" />);
+      await act(() => vi.advanceTimersByTimeAsync(600));
+      rerender(<LeadTable {...props} searchQuery="Minh Anh" />);
+      await act(() => vi.advanceTimersByTimeAsync(999));
+      expect(crmService.getLeadPage).not.toHaveBeenCalled();
+      await act(() => vi.advanceTimersByTimeAsync(1));
+      expect(crmService.getLeadPage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ search: "Minh Anh", page: 1 }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("creates a manual Lead from the editable columns visible in the current worksheet", async () => {
+    saveSheetLayout("facebook:page_spa_01", {
+      widths: {},
+      hiddenKeys: [...DEFAULT_HIDDEN_SYSTEM_COLUMNS.filter(key => key !== "email"), "intake:dat_lich"],
+    });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    function Worksheet() {
+      const [columns, setColumns] = useState<Parameters<typeof CreateLeadModal>[0]["columns"]>();
+      return <>
+        <LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={setColumns}
+          deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="facebook" accountId="page_spa_01"
+          companyCode="SPA01" branchId="main" accounts={accounts} />
+        {columns && <CreateLeadModal columns={columns} scope={{ platform: "facebook", accountId: "page_spa_01" }}
+          accounts={accounts} conversations={[]} onSave={onSave} onClose={vi.fn()} />}
+      </>;
+    }
+    render(<Worksheet />);
+    await screen.findByText("Nguyễn Minh Anh");
+    fireEvent.click(screen.getByRole("button", { name: "Thêm Lead" }));
+    const form = within(screen.getByRole("dialog", { name: "Thêm Lead" }));
+    expect(form.queryByRole("textbox", { name: "Họ tên" })).toBeNull();
+    expect(form.queryByLabelText("Số điện thoại")).toBeNull();
+    expect(form.queryByLabelText("Xác nhận đặt lịch")).toBeNull();
+    expect(form.getByRole("textbox", { name: "Email" })).toBeTruthy();
+    fireEvent.click(form.getByRole("checkbox", { name: "Trị mụn" }));
+    fireEvent.change(form.getByLabelText("Ngân sách dự kiến"), { target: { value: "0" } });
+    fireEvent.click(form.getByRole("button", { name: "Lưu Lead" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      sourcePlatform: "facebook", sourceAccountId: "page_spa_01",
+      customerName: "Khách mới", answers: { nhu_cau: "Trị mụn", ngan_sach: "0" },
+    })));
+    expect(onSave.mock.calls[0][0]).not.toHaveProperty("sourceConversationId");
   });
   it("activates the starter columns without requiring field details", async () => {
     vi.mocked(crmService.getLeadIntakeProfilesForAccount).mockResolvedValue({ profiles: [], fallbackProfiles: [] });
@@ -165,7 +226,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="facebook"
@@ -203,7 +264,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="facebook"
@@ -264,7 +325,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="facebook"
@@ -306,7 +367,7 @@ describe("LeadTable", () => {
     vi.mocked(crmService.saveLeadIntakeDraft).mockResolvedValue({
       version: 4, status: "draft", goal: "Tư vấn", completionMessage: "Cảm ơn", fields: [],
     });
-    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} setShowCreateLeadModal={vi.fn()}
+    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()}
       deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="facebook" accountId="page_spa_01"
       companyCode="SPA01" branchId="main" accounts={accounts} />);
 
@@ -339,7 +400,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={deleteLead}
         handleGoToChat={vi.fn()}
         activeChannel="facebook"
@@ -392,7 +453,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="all"
@@ -441,7 +502,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="facebook"
@@ -480,7 +541,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery="Minh Anh"
         setSearchQuery={setSearchQuery}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="facebook"
@@ -514,7 +575,7 @@ describe("LeadTable", () => {
           fieldFilters: [{ key: "answers.nhu_cau", value: "Trị mụn", mode: "contains" }],
         }),
       );
-    });
+    }, { timeout: 2500 });
 
     // 2. Add condition 2 inside the same popover ("Ngân sách dự kiến")
     fireEvent.click(within(popover).getByRole("button", { name: "Thêm điều kiện" }));
@@ -534,7 +595,7 @@ describe("LeadTable", () => {
           ],
         }),
       );
-    });
+    }, { timeout: 2500 });
 
     // Close popover via "Xong" -> badge count and removable chips are visible
     fireEvent.click(within(popover).getByRole("button", { name: "Xong" }));
@@ -550,7 +611,7 @@ describe("LeadTable", () => {
           fieldFilters: [{ key: "answers.ngan_sach", value: "5000000", mode: "contains" }],
         }),
       );
-    });
+    }, { timeout: 2500 });
 
     // 3. Sort by visible custom column (hidden system columns excluded)
     fireEvent.click(screen.getByRole("button", { name: "Sắp xếp danh sách Lead theo trường" }));
@@ -565,7 +626,7 @@ describe("LeadTable", () => {
           sort: "answers.nhu_cau:asc",
         }),
       );
-    });
+    }, { timeout: 2500 });
 
     // 4. Clear all search, filters, chips & sort via "Xóa bộ lọc"
     fireEvent.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
@@ -577,7 +638,7 @@ describe("LeadTable", () => {
       const lastCall = vi.mocked(crmService.getLeadPage).mock.calls.at(-1)?.[0];
       expect(lastCall?.fieldFilters).toBeUndefined();
       expect(lastCall?.sort).toBe("updatedAt:desc");
-    });
+    }, { timeout: 2500 });
   });
 
   it("deduplicates cross-channel columns and updates Bộ lọc / Sắp xếp when toggling Cột hiển thị", async () => {
@@ -600,7 +661,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="all"
@@ -639,7 +700,7 @@ describe("LeadTable", () => {
           fieldFilters: [{ key: "status", value: "won", mode: "exact" }],
         }),
       );
-    });
+    }, { timeout: 2500 });
     fireEvent.click(within(popover).getByRole("button", { name: "Xong" }));
 
     // Turn off "Trạng thái chốt" again -> active filter on hidden column is cleared cleanly
@@ -649,7 +710,7 @@ describe("LeadTable", () => {
     await waitFor(() => {
       const lastCall = vi.mocked(crmService.getLeadPage).mock.calls.at(-1)?.[0];
       expect(lastCall?.fieldFilters).toBeUndefined();
-    });
+    }, { timeout: 2500 });
     expect(screen.queryByRole("button", { name: "Bỏ lọc Trạng thái chốt" })).toBeNull();
   });
 
@@ -666,7 +727,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="all"
@@ -721,7 +782,7 @@ describe("LeadTable", () => {
       <LeadTable
         searchQuery=""
         setSearchQuery={vi.fn()}
-        setShowCreateLeadModal={vi.fn()}
+        onCreateLead={vi.fn()}
         deleteLead={vi.fn()}
         handleGoToChat={vi.fn()}
         activeChannel="all"

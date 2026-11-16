@@ -47,7 +47,7 @@ export interface ChatOrderFlowReply {
 export interface LeadIntakeContext {
   goal: string;
   collected: Record<string, string>;
-  missingRequiredFields: Array<{ label: string; type: string; options?: string[] }>;
+  missingRequiredFields: Array<{ label: string; type: string; question?: string; options?: string[] }>;
   status: "inactive" | "collecting" | "just_completed" | "complete";
 }
 

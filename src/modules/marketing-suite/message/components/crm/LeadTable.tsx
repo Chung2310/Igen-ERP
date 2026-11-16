@@ -90,7 +90,7 @@ import {
 interface LeadTableProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  setShowCreateLeadModal: (show: boolean) => void;
+  onCreateLead: (columns: LeadSheetColumn[]) => void;
   deleteLead: (id: string) => Promise<void> | void;
   handleGoToChat: (customerName: string, conversationId?: string, channel?: string, accountId?: string) => void;
   activeChannel: "all" | LeadSocialPlatform;
@@ -102,7 +102,6 @@ interface LeadTableProps {
   canSaveCustomer?: boolean;
   accounts?: LeadAccountOption[];
   onSelectAccountScope?: (channel: "all" | LeadSocialPlatform, accountId?: string) => void;
-  onActiveFieldsChange?: (fields: LeadIntakeField[]) => void;
   refreshToken?: number;
 }
 
@@ -193,7 +192,7 @@ function readCellValue(lead: ExtendedLeadCard, col: LeadSheetColumn): string {
 export const LeadTable: React.FC<LeadTableProps> = ({
   searchQuery,
   setSearchQuery,
-  setShowCreateLeadModal,
+  onCreateLead,
   deleteLead,
   handleGoToChat,
   activeChannel,
@@ -205,7 +204,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   canSaveCustomer = false,
   accounts = [],
   onSelectAccountScope,
-  onActiveFieldsChange,
   refreshToken = 0,
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
@@ -419,10 +417,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     }
     return profiles.find(profile => profile.platform === activeChannel && profile.accountId === "default") || companyProfile;
   }, [profiles, activeChannel, accountId, companyProfile]);
-
-  useEffect(() => {
-    onActiveFieldsChange?.(scopedProfile?.fields || []);
-  }, [scopedProfile, onActiveFieldsChange]);
 
   const allColumns = useMemo<LeadSheetColumn[]>(() => {
     const isScopedAccount = activeChannel !== "all" && Boolean(accountId);
@@ -641,9 +635,16 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const hasCustomSort = effectiveSortParam !== "updatedAt:desc";
   const hasActiveFilters = Boolean(searchQuery.trim() || effectiveFieldFilters.length > 0 || hasCustomSort);
 
+  const trimmedSearch = searchQuery.trim();
+  const queryFilters = useMemo(() => ({
+    scope: effectiveScopeKey, search: trimmedSearch, fieldFilters: effectiveFieldFilters,
+  }), [effectiveScopeKey, trimmedSearch, effectiveFieldFilters]);
+  const delayedFilters = useDebouncedValue(queryFilters, 1_000);
+  const { search, fieldFilters } = delayedFilters.scope === effectiveScopeKey ? delayedFilters : queryFilters;
+
   const filterSignature = useMemo(
-    () => `${effectiveScopeKey}|${searchQuery}|${JSON.stringify(effectiveFieldFilters)}|${effectiveSortParam}`,
-    [effectiveScopeKey, searchQuery, effectiveFieldFilters, effectiveSortParam],
+    () => JSON.stringify([effectiveScopeKey, search, fieldFilters, effectiveSortParam]),
+    [effectiveScopeKey, search, fieldFilters, effectiveSortParam],
   );
   const [pageState, setPageState] = useState<{ sig: string; value: number }>({ sig: "", value: 1 });
   const page = pageState.sig === filterSignature ? pageState.value : 1;
@@ -665,8 +666,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       const result = await crmService.getLeadPage({
         channel: activeChannel,
         accountId,
-        search: searchQuery,
-        ...(effectiveFieldFilters.length > 0 ? { fieldFilters: effectiveFieldFilters } : {}),
+        search,
+        ...(fieldFilters.length > 0 ? { fieldFilters } : {}),
         sort: effectiveSortParam,
         page,
         limit: pageSize,
@@ -680,7 +681,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeChannel, accountId, searchQuery, effectiveFieldFilters, effectiveSortParam, page, pageSize]);
+  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -695,7 +696,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     void Promise.resolve().then(() => {
       if (!cancelled) void loadLeads();
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      requestSeqRef.current += 1;
+    };
   }, [loadLeads, refreshToken]);
 
   const syncGridScrollState = useCallback(() => {
@@ -1137,7 +1141,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
             {exporting ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : <Download aria-hidden="true" className="size-3.5" />}
             Xuất Excel
           </button>
-          <button type="button" onClick={() => setShowCreateLeadModal(true)} className={primaryCreateButtonClass}>
+          <button type="button" onClick={() => onCreateLead(visibleColumns)} className={primaryCreateButtonClass}>
             <Plus aria-hidden="true" className="size-4" />
             Thêm Lead
           </button>
@@ -1929,7 +1933,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               </p>
               <button
                 type="button"
-                onClick={() => (hasActiveFilters ? handleResetAllFilters() : setShowCreateLeadModal(true))}
+                onClick={() => (hasActiveFilters ? handleResetAllFilters() : onCreateLead(visibleColumns))}
                 className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary hover:text-on-primary focus-visible:outline-1 focus-visible:outline-primary"
               >
                 {hasActiveFilters ? "Đặt lại bộ lọc" : "Tạo Lead mới"}

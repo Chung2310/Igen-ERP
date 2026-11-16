@@ -12,6 +12,7 @@ const schema = new Schema({
   leaseToken: String,
   leaseUntil: Date,
   completedAt: Date,
+  inboundCleanupAt: Date,
 }, { versionKey: false });
 
 schema.index({ kind: 1, status: 1, dueAt: 1 });
