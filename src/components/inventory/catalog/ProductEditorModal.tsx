@@ -621,24 +621,15 @@ export function ProductEditorModal({
             });
           });
 
+          if (form.status === "active" && !branchId) throw new Error("Cần chọn chi nhánh để lưu giá SKU.");
+          const priceContext = form.status === "active" && branchId ? { branchId, prices: variantsMatrix.map(row => ({
+            sellingPrice: Number(row.price || 0), costPrice: Number(row.costPrice || 0),
+          })) } : undefined;
           const createdProduct = await productCatalogService.bulkCreateWithVariants({
             ...payload,
             variants: matrixPayloads,
-          });
-
-          // Atomically upsert prices for every generated variant
-          if (createdProduct.variants && createdProduct.variants.length > 0) {
-            await Promise.all(
-              createdProduct.variants.map((v, idx) => {
-                const matrixRow = variantsMatrix[idx];
-                const sellingPrice = matrixRow ? Number(matrixRow.price || 0) : 0;
-                const costPrice = matrixRow ? Number(matrixRow.costPrice || 0) : 0;
-                return productCatalogService.upsertPrice(v._id, sellingPrice, costPrice);
-              })
-            );
-          }
-
-          toast.success(`Đã tạo thành công sản phẩm cùng ${createdProduct.variants?.length || matrixPayloads.length} biến thể kèm giá bán!`);
+          }, priceContext);
+          toast.success(`Đã tạo sản phẩm cùng ${createdProduct.variants?.length || matrixPayloads.length} SKU${priceContext ? " kèm giá bán" : ""}.`);
         } else {
           // Single create flow
           let sku = (variant.sku || "").trim();

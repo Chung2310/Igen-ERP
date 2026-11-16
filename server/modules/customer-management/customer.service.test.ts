@@ -42,6 +42,15 @@ test("customer list is company-wide and caps page size", async () => {
   assert.equal(result.limit, 100);
 });
 
+test("customer kind filters independently of VAT and includes unclassified legacy records", () => {
+  assert.deepEqual(buildCustomerListFilter(scope, { customerKind: "business", type: "regular" }), {
+    companyCode: "IGEN", status: "active", customerKind: "business", type: "regular",
+  });
+  assert.deepEqual(buildCustomerListFilter(scope, { customerKind: "unclassified", type: "vat" }).customerKind, {
+    $nin: ["individual", "business"],
+  });
+});
+
 test("create allocates a permanent code and rejects duplicate phone", async () => {
   const service = createCustomerService(repository());
   const created = await service.create(scope, { name: "An", phone: "0901" }, actor);
@@ -50,6 +59,9 @@ test("create allocates a permanent code and rejects duplicate phone", async () =
 
   const duplicate = createCustomerService(repository({ findByPhone: async () => stored }));
   await assert.rejects(() => duplicate.create(scope, { name: "Bình", phone: "0901" }, actor), (error: any) => error.code === "CUSTOMER_PHONE_EXISTS");
+  const separate = await duplicate.create(scope, { name: "Bình", phone: "0901", allowSharedPhone: true }, actor);
+  assert.equal(separate.name, "Bình");
+  assert.equal(separate.notes, undefined);
 });
 
 test("update uses company and version and reports a stale write", async () => {

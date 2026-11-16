@@ -36,7 +36,7 @@ const patientFields = {
   address: text(350), note: text(1000),
 };
 export type PatientCreateInput = Omit<RecordInput<Patient>, "code"> & { code?: string };
-export const patientCreateInput = Joi.object<PatientCreateInput>({ code: patientCode.optional(), ...patientFields }).required();
+export const patientCreateInput = Joi.object<PatientCreateInput>({ code: patientCode.optional(), customerId: Joi.string().hex().length(24).optional(), ...patientFields }).required();
 export const patientInput = Joi.object<RecordInput<Patient>>({ code: patientCode, ...patientFields }).required();
 
 const visitFields = {

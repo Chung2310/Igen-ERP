@@ -1,8 +1,63 @@
 import { apiFetch } from "../shared/lib/apiFetch";
-import type { BillingProfile, BillingProfileInput, Customer, CustomerInput, CustomerListQuery, CustomerPurchaseHistory, CustomerPurchaseHistoryScope, CustomerStatus, PaginatedCustomers } from "./types";
+import type { BillingProfile, BillingProfileInput, Customer, CustomerInput, CustomerLeadNeeds, CustomerListQuery, CustomerModule, CustomerModuleLinks, CustomerModuleRecord, CustomerPurchaseHistory, CustomerPurchaseHistoryScope, CustomerStatus, PaginatedCustomers } from "./types";
 import type { CustomerTransactionDetail, CustomerTransactionFilter, CustomerTransactionRow, CustomerTransactionsResult } from '../../../shared/customer-transactions';
+import type { CustomerSourceBatchRow, CustomerSourceCandidates, CustomerSourceLinkInput, CustomerSourceRef } from "./types";
 
 export const customerApi = {
+  async leadNeeds(id: string, companyCode: string, signal?: AbortSignal) {
+    return (await apiFetch<{ data: CustomerLeadNeeds[] }>(`/customers/${id}/lead-needs`, { params: { companyCode }, signal })).data;
+  },
+  async moduleLinks(id: string, scope: CustomerPurchaseHistoryScope, signal?: AbortSignal) {
+    return (await apiFetch<{ data: CustomerModuleLinks }>(`/customers/${id}/module-links`, { params: scope, signal })).data;
+  },
+  async linkedModules(scope: CustomerPurchaseHistoryScope, customerIds: string[], signal?: AbortSignal) {
+    return (await apiFetch<{ data: Record<string, CustomerModule[]> }>("/customers/linked-modules", {
+      params: { ...scope, customerIds: customerIds.join(",") }, signal,
+    })).data;
+  },
+  async sourceRecords(module: CustomerModule, scope: CustomerPurchaseHistoryScope, q: string, signal?: AbortSignal) {
+    return (await apiFetch<{ data: CustomerModuleRecord[] }>(`/customers/source-records/${module}`, { params: { ...scope, q }, signal })).data;
+  },
+  async sourceQueue(module: CustomerModule, scope: CustomerPurchaseHistoryScope, q: string, page: number, signal?: AbortSignal) {
+    return (await apiFetch<{ data: { items: CustomerModuleRecord[]; hasMore: boolean } }>(`/customers/source-records/${module}/queue`, {
+      params: { ...scope, q, page }, signal,
+    })).data;
+  },
+  async sourceTransferSetting(module: CustomerModule, scope: CustomerPurchaseHistoryScope, signal?: AbortSignal) {
+    return (await apiFetch<{ data: { hidden: boolean } }>(`/customers/source-transfer-settings/${module}`, { params: scope, signal })).data;
+  },
+  async setSourceTransferHidden(module: CustomerModule, scope: CustomerPurchaseHistoryScope, hidden: boolean) {
+    return (await apiFetch<{ data: { hidden: boolean } }>(`/customers/source-transfer-settings/${module}`, {
+      method: "PATCH", params: scope, body: JSON.stringify({ hidden }),
+    })).data;
+  },
+  async sourceBatchPreview(scope: CustomerPurchaseHistoryScope, records: CustomerSourceRef[]) {
+    return (await apiFetch<{ data: CustomerSourceBatchRow[] }>("/customers/source-records/batch/preview", {
+      method: "POST", params: scope, body: JSON.stringify({ records }),
+    })).data;
+  },
+  async sourceBatchTransfer(scope: CustomerPurchaseHistoryScope, records: CustomerSourceRef[], approved: CustomerSourceRef[]) {
+    return (await apiFetch<{ data: CustomerSourceBatchRow[] }>("/customers/source-records/batch/transfer", {
+      method: "POST", params: scope, body: JSON.stringify({ records, approved }),
+    })).data;
+  },
+  async sourceCustomerCandidates(module: CustomerModule, sourceId: string, scope: CustomerPurchaseHistoryScope, q?: string, signal?: AbortSignal) {
+    return (await apiFetch<{ data: CustomerSourceCandidates }>(`/customers/source-records/${module}/${encodeURIComponent(sourceId)}/customers`, { params: { ...scope, q }, signal })).data;
+  },
+  async importSourceRecord(module: CustomerModule, sourceId: string, scope: CustomerPurchaseHistoryScope, input: CustomerSourceLinkInput) {
+    return (await apiFetch<{ data: Customer }>(`/customers/source-records/${module}/${encodeURIComponent(sourceId)}/customer`, {
+      method: "POST", params: scope, body: JSON.stringify(input),
+    })).data;
+  },
+  async moduleLinkCandidates(id: string, module: CustomerModule, scope: CustomerPurchaseHistoryScope & { q: string }) {
+    return (await apiFetch<{ data: CustomerModuleRecord[] }>(`/customers/${id}/module-links/${module}/candidates`, { params: scope })).data;
+  },
+  async unlinkModuleRecord(id: string, module: CustomerModule, sourceId: string, scope: CustomerPurchaseHistoryScope) {
+    await apiFetch(`/customers/${id}/module-links/${module}/${encodeURIComponent(sourceId)}`, { method: "DELETE", params: scope });
+  },
+  async linkModuleRecord(id: string, module: CustomerModule, sourceId: string, scope: CustomerPurchaseHistoryScope) {
+    return (await apiFetch<{ data: CustomerModuleRecord }>(`/customers/${id}/module-links/${module}/${encodeURIComponent(sourceId)}`, { method: "PUT", params: scope })).data;
+  },
   async transactions(id: string, scope: CustomerPurchaseHistoryScope, query: { type: CustomerTransactionFilter; from: string; to: string; page: number; limit: number }, signal?: AbortSignal) {
     return (await apiFetch<{ data: CustomerTransactionsResult }>(`/customers/${id}/transactions`, { params: { ...scope, ...query }, headers: { 'x-branch-id': scope.branchId }, signal })).data;
   },
@@ -13,12 +68,12 @@ export const customerApi = {
     const response = await apiFetch<{ success: true; data: PaginatedCustomers }>("/customers", { params: query });
     return response.data;
   },
-  async searchActive(query: Pick<CustomerListQuery, "companyCode" | "q" | "limit">) {
-    const response = await apiFetch<{ success: true; data: Array<{ customerId: string; customerCode: string; name: string; phone: string; type: Customer["type"]; status: CustomerStatus; tier?: { code: string; name: string } }> }>("/customers/search", { params: query });
+  async searchActive(query: Pick<CustomerListQuery, "companyCode" | "q" | "limit">, signal?: AbortSignal) {
+    const response = await apiFetch<{ success: true; data: Array<{ customerId: string; customerCode: string; name: string; phone: string; type: Customer["type"]; status: CustomerStatus; tier?: { code: string; name: string } }> }>("/customers/search", { params: query, signal });
     return response.data;
   },
-  async detail(id: string, companyCode?: string) {
-    const response = await apiFetch<{ success: true; data: Customer }>(`/customers/${id}`, { params: { companyCode } });
+  async detail(id: string, companyCode?: string, signal?: AbortSignal) {
+    const response = await apiFetch<{ success: true; data: Customer }>(`/customers/${encodeURIComponent(id)}`, { params: { companyCode }, signal });
     return response.data;
   },
   async create(input: CustomerInput, companyCode?: string) {

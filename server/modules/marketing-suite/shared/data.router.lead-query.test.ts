@@ -1,12 +1,15 @@
 import type { IRoute, NextFunction, Request, Response } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { suiteDataRouter } from "./data.router";
+import { SocialIntegrationModel } from "./model/social-integration.model";
+import { UserModel } from "../../../model/user.model";
 
 const state = vi.hoisted(() => ({
   findFilter: {} as Record<string, unknown>,
   sortExpr: "",
   permissions: ["omni-inbox:read"],
   rows: [] as Array<Record<string, unknown>>,
+  create: vi.fn(),
 }));
 
 vi.mock("../../../middleware/auth", () => ({
@@ -16,6 +19,7 @@ vi.mock("../../../middleware/auth", () => ({
 
 vi.mock("../message/model/crm-ticket.model", () => ({
   CRMTicketModel: {
+    create: state.create,
     find: (filter: Record<string, unknown>) => {
       state.findFilter = filter;
       return {
@@ -37,9 +41,9 @@ vi.mock("../message/model/crm-ticket.model", () => ({
 
 type RuntimeRoute = IRoute & { methods: Record<string, boolean> };
 
-function queryLeads(query: Record<string, string>) {
+function requestLeads(method: "get" | "post", query: Record<string, string>, body: Record<string, unknown> = {}) {
   const route = suiteDataRouter.stack.find(
-    layer => layer.route?.path === "/omni-inbox/leads" && (layer.route as RuntimeRoute).methods.get,
+    layer => layer.route?.path === "/omni-inbox/leads" && (layer.route as RuntimeRoute).methods[method],
   )!.route;
 
   return new Promise<{ status: number; body: unknown }>((resolve, reject) => {
@@ -48,7 +52,7 @@ function queryLeads(query: Record<string, string>) {
     const req = {
       query,
       params: {},
-      body: {},
+      body,
       user: { id: "operator", companyCode: "SPA01" },
     } as unknown as Request;
     const res = {
@@ -74,6 +78,41 @@ function queryLeads(query: Record<string, string>) {
     next();
   });
 }
+
+const queryLeads = (query: Record<string, string>) => requestLeads("get", query);
+
+it("creates a manual Lead in an owned account worksheet without a conversation", async () => {
+  const owned = vi.spyOn(SocialIntegrationModel, "exists").mockResolvedValue({ _id: "oa" } as never);
+  const personal = vi.spyOn(UserModel, "exists").mockResolvedValue(null);
+  state.create.mockImplementation(async data => ({ toObject: () => data }));
+  try {
+    const response = await requestLeads("post", {}, {
+      customerName: "An", sourcePlatform: "zalo", sourceAccountId: "OA",
+      answers: { sdt: "0901234567" },
+      intakeFields: [{ key: "sdt", label: "SĐT", question: "SĐT", type: "phone" }],
+    });
+    expect(response.status).toBe(201);
+    expect(owned).toHaveBeenCalledWith(expect.objectContaining({ companyCode: "SPA01", platform: "Zalo", username: "OA" }));
+    expect(state.create).toHaveBeenCalledWith(expect.objectContaining({
+      companyCode: "SPA01", sourcePlatform: "zalo", sourceAccountId: "OA",
+      phone: "0901234567", answers: { sdt: "0901234567" },
+    }));
+    expect(state.create.mock.calls[0][0]).not.toHaveProperty("sourceConversationId");
+    state.create.mockRejectedValueOnce({ code: 11000 });
+    expect(await requestLeads("post", {}, {
+      customerName: "Tên sửa", sourcePlatform: "zalo", sourceAccountId: "OA", sourceConversationId: "CONV",
+    })).toMatchObject({ status: 409, body: { message: expect.stringContaining("Hội thoại đã có Lead") } });
+    owned.mockResolvedValue(null);
+    expect((await requestLeads("post", {}, {
+      customerName: "An", sourcePlatform: "zalo", sourceAccountId: "OTHER-OA",
+    })).status).toBe(404);
+    expect(state.create).toHaveBeenCalledTimes(2);
+  } finally {
+    owned.mockRestore();
+    personal.mockRestore();
+    state.create.mockReset();
+  }
+});
 
 describe("GET /omni-inbox/leads dynamic field filtering & sorting", () => {
   beforeEach(() => {

@@ -18,6 +18,7 @@ import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
+import CustomerReferencePicker, { type CustomerOption } from "../../../customer-management/components/CustomerReferencePicker";
 import { AddPartnerModal } from '../../pages/Partners/components/AddPartnerModal';
 
 interface AddStudentModalProps {
@@ -111,6 +112,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
   
   const { centers } = useAdminCenters();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customer, setCustomer] = useState<CustomerOption | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [batchId, setBatchId] = useState('');
   const [selectedCenterId, setSelectedCenterId] = useState<string>(() => {
@@ -225,6 +227,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
         method: 'POST',
         body: JSON.stringify({
           ...formData,
+          ...(customer ? { customerId: customer.customerId } : {}),
           birthday: toDisplayDate(formData.birthday),
           enrollmentDate: toDisplayDate(formData.enrollmentDate),
           fee: '',
@@ -285,6 +288,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
           email: '',
           customFields: {},
         });
+        setCustomer(null);
         setReferralMode('none');
         setBatchId('');
         setFaceBlob(null);
@@ -298,6 +302,11 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const selectCustomer = (next: CustomerOption | null) => {
+    setCustomer(next);
+    if (next) setFormData(current => ({ ...current, fullName: next.name, phone: next.phone }));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -352,6 +361,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                {!isWorkerPreset && user?.role !== "superadmin" && user?.companyCode && user.enabledModules?.includes("customer") && <CustomerReferencePicker
+                  key={user.companyCode} companyCode={user.companyCode} value={customer} onChange={selectCustomer} />}
                 {isFieldVisible('fullName') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('fullName')}

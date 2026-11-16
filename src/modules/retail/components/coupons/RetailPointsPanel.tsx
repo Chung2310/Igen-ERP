@@ -10,10 +10,10 @@ type PointLedger = { _id: string; type: string; points: number; balanceAfter: nu
 const field = "mt-1 h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:border-primary focus:outline-none";
 const button = "h-9 rounded-md bg-primary px-3.5 text-sm font-medium text-on-primary disabled:opacity-50";
 
-export default function RetailPointsPanel() {
+export default function RetailPointsPanel({ initialCustomerCode }: { initialCustomerCode?: string } = {}) {
   const { scope } = useRetailScope();
   const [policy, setPolicy] = useState<Policy | null>(null);
-  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerSearch, setCustomerSearch] = useState(initialCustomerCode || "");
   const [customers, setCustomers] = useState<PointCustomer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<PointCustomer | null>(null);
   const [ledger, setLedger] = useState<PointLedger[]>([]);

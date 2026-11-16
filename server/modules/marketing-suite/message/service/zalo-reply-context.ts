@@ -21,6 +21,25 @@ export function zaloFollowUpTurn(conversation: ZaloFollowUpTurn) {
   };
 }
 
+export async function beginZaloFollowUpDelivery(conversation: ZaloFollowUpTurn, expectedMessageId: string) {
+  await assertZaloDeliveryCurrent(String(conversation._id), conversation.oaId, expectedMessageId, conversation);
+  const startedAt = new Date();
+  const result = await ZaloConversationModel.updateOne({
+    ...zaloFollowUpTurn(conversation),
+    "pendingInboundMessageIds.0": { $exists: false },
+    $or: [{ aiPausedUntil: null }, { aiPausedUntil: { $lte: startedAt } }],
+  }, { $set: { followUpStatus: "sending", followUpDeliveryStartedAt: startedAt, lastAssistantMessageId: expectedMessageId } });
+  if (!result.matchedCount) throw new ZaloReplyCancelledError();
+  return { ...zaloFollowUpTurn(conversation), lastAssistantMessageId: expectedMessageId,
+    followUpStatus: "sending" as const, followUpDeliveryStartedAt: startedAt };
+}
+
+export async function expireZaloFollowUpDeliveries(now = Date.now()) {
+  await ZaloConversationModel.updateMany({
+    followUpStatus: "sending", followUpDeliveryStartedAt: { $lte: new Date(now - 60_000) },
+  }, { $set: { followUpStatus: "failed" }, $unset: { followUpDeliveryStartedAt: 1 } });
+}
+
 export async function assertZaloDeliveryCurrent(
   conversationId: string,
   oaId: string,

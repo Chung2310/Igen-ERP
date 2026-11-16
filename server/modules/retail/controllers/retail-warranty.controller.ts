@@ -27,7 +27,7 @@ export const retailWarrantyController = {
       const user = (req as any).user || {};
       const scope = retailScopeFromRequest(user, { companyCode: req.query.companyCode, branchId: req.query.branchId });
       const phone = String(req.params.phone || req.query.phone || "");
-      const result = await lookupWarrantyByPhone(scope, phone);
+      const result = await lookupWarrantyByPhone(scope, phone, undefined, typeof req.query.customerId === "string" ? req.query.customerId : undefined);
       return res.json({ success: true, data: result });
     } catch (error: any) {
       return res.status(Number(error.status || error.statusCode) || 500).json({ success: false, message: error.message });

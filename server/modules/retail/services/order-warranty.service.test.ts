@@ -1,6 +1,7 @@
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { CustomerModel } from "../../customer-management/models/customer.model";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { RetailInvoiceModel } from "../models/retail-invoice.model";
 import { RetailAfterSaleModel } from "../models/retail-after-sale.model";
@@ -19,7 +20,7 @@ async function sold(extra = {}, items = [line()]) {
 let mongo: MongoMemoryServer;
 describe("ERP order warranty", () => {
   beforeAll(async () => { mongo = await MongoMemoryServer.create(); await mongoose.connect(mongo.getUri()); }, 30000);
-  beforeEach(async () => { await Promise.all([RetailOrderModel, RetailInvoiceModel, RetailAfterSaleModel].map(model => model.collection.deleteMany({}))); });
+  beforeEach(async () => { await Promise.all([RetailOrderModel, RetailInvoiceModel, RetailAfterSaleModel, CustomerModel].map(model => model.collection.deleteMany({}))); });
   afterAll(async () => { await mongoose.disconnect(); await mongo?.stop(); });
 
   it("finds quantity goods without identifiers by order, invoice, customer or SKU", async () => {
@@ -77,6 +78,23 @@ describe("ERP order warranty", () => {
       expect(status).toBe(403);
       expect(data).toMatchObject({ success: false });
     }
+  });
+
+  it("does not combine devices belonging to customers who share a phone", async () => {
+    const phone = "0900000005";
+    const ids = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+    await CustomerModel.collection.insertMany(ids.map((_id, index) => ({
+      _id, companyCode: scope.companyCode, normalizedPhone: phone, phone, name: `Khách ${index}`, customerCode: `KH-${index}`,
+    })));
+    for (const [index, id] of ids.entries()) await sold({
+      customerId: String(id), customerPhone: phone, customerSnapshot: { customerId: String(id), phone },
+      orderCode: `DH-${index}`,
+    });
+    expect(await lookupWarrantyByPhone(scope, phone, at)).toMatchObject({ devices: [], candidates: [
+      { customerId: String(ids[0]) }, { customerId: String(ids[1]) },
+    ] });
+    const selected = await lookupWarrantyByPhone(scope, phone, at, String(ids[1]));
+    expect(selected.devices.map(device => device.found && device.sold?.orderCode)).toEqual(["DH-1"]);
   });
 
   it("lookupWarrantyByPhone finds customer devices and calculates warranty by phone number", async () => {
