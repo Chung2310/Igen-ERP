@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
-import { createAssistantVisualIllustration, recommendAssistantVisualCreation, type AssistantVisualRecommendation } from "./assistant-visual-creation";
+import { createAssistantVisualIllustration, createAssistantVisualIllustrations, recommendAssistantVisualCreation, type AssistantVisualRecommendation } from "./assistant-visual-creation";
 import { openrouterChat } from "../service/openrouter.service";
 import { generateStudioImages } from "./studio-images";
 
@@ -86,5 +86,27 @@ describe("assistant answer illustration", () => {
 
     expect(illustration.url).toMatch(/^data:image\/webp;base64,/);
     expect(Buffer.byteLength(illustration.url)).toBeLessThan(1_050_000);
+  });
+
+  it("returns every generated image as an independent conversation illustration", async () => {
+    vi.mocked(generateStudioImages).mockResolvedValue({
+      images: [1, 2, 3].map(index => ({ url: `https://images.example.com/variation-${index}.webp` })),
+      model: "iGenAI",
+      aspectRatio: "16:9",
+    });
+
+    const illustrations = await createAssistantVisualIllustrations(recommendation, undefined, 3);
+
+    expect(generateStudioImages).toHaveBeenCalledWith({
+      prompt: recommendation.prompt,
+      aspectRatio: "16:9",
+      count: 3,
+    });
+    expect(illustrations).toHaveLength(3);
+    expect(illustrations.map(image => image.alt)).toEqual([
+      `Ảnh 1: ${recommendation.alt}`,
+      `Ảnh 2: ${recommendation.alt}`,
+      `Ảnh 3: ${recommendation.alt}`,
+    ]);
   });
 });

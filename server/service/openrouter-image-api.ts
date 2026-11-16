@@ -1,4 +1,5 @@
 export const DEFAULT_IMAGE_MODEL = "google/gemini-3.1-flash-lite-image";
+export const META_MUSE_IMAGE_MODEL = "meta/muse-image";
 export const RECRAFT_IMAGE_MODEL = "recraft/recraft-v4.1-flash";
 export const IMAGE_EDIT_MODEL = "google/gemini-3.1-flash-image";
 export const TRANSPARENT_IMAGE_EDIT_MODEL = "openai/gpt-image-2.6-flare";

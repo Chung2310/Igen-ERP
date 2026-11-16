@@ -99,20 +99,31 @@ async function compactGeneratedImage(url: string) {
   return `data:image/webp;base64,${optimized.toString("base64")}`;
 }
 
-export async function createAssistantVisualIllustration(recommendation: AssistantVisualRecommendation, referenceImage?: string): Promise<AssistantIllustration> {
+export async function createAssistantVisualIllustrations(
+  recommendation: AssistantVisualRecommendation,
+  referenceImage?: string,
+  count = 1,
+): Promise<AssistantIllustration[]> {
   const generated = await generateStudioImages({
     prompt: recommendation.prompt,
     aspectRatio: recommendation.aspectRatio,
-    count: 1,
+    count,
     ...(referenceImage ? { referenceImage } : {}),
   });
-  const firstImage = generated.images[0];
-  if (!firstImage?.url || (!firstImage.url.startsWith("data:image/") && !/^https:\/\//i.test(firstImage.url))) {
-    throw new Error("The image provider did not return a usable illustration.");
-  }
-  return {
-    alt: recommendation.alt,
-    url: await compactGeneratedImage(firstImage.url),
-    generatedByAi: true,
-  };
+  return Promise.all(generated.images.map(async (image, index) => {
+    if (!image.url || (!image.url.startsWith("data:image/") && !/^https:\/\//i.test(image.url))) {
+      throw new Error("The image provider did not return a usable illustration.");
+    }
+    return {
+      alt: generated.images.length > 1 ? `Ảnh ${index + 1}: ${recommendation.alt}` : recommendation.alt,
+      url: await compactGeneratedImage(image.url),
+      generatedByAi: true,
+    };
+  }));
+}
+
+export async function createAssistantVisualIllustration(recommendation: AssistantVisualRecommendation, referenceImage?: string): Promise<AssistantIllustration> {
+  const [illustration] = await createAssistantVisualIllustrations(recommendation, referenceImage, 1);
+  if (!illustration) throw new Error("The image provider did not return a usable illustration.");
+  return illustration;
 }

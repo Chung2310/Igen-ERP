@@ -13,6 +13,7 @@ import { useBranchOptional } from "../../context/BranchContext";
 import { getPosTerminalId } from "../../modules/retail/posTerminal";
 import { AssistantActionProductTable, AssistantMessageContent } from "./AssistantMessageContent";
 import { formatActionPreviewValues } from "./assistant-message-format";
+import { getAssistantImageGenerationRequest } from "../../shared/assistant-image-generation";
 import { AssistantGeneratedFiles } from "./AssistantGeneratedFiles";
 import type { AssistantChatMessage, AssistantIllustration, AssistantSource } from "../../shared/assistant-document";
 import { assistantSourceKind, safeAssistantHttpUrl } from "./assistant-link-utils";
@@ -1454,6 +1455,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
 
   const displayMessages = messages.filter((message, index) => !(index === 0 && message.role === "assistant" && message.content === activeWelcomeMessage.content));
   const showReplyDetails = !revealingReply;
+  const isGeneratingImageRequest = Boolean(retryRef.current?.text && getAssistantImageGenerationRequest(retryRef.current.text));
   const activeQuotationCreate = retryRef.current?.mode === "work" && (
     ["quotation.customer-quote.create", "quotation.estimate.create", "quotation.estimate.from-customer"].includes(lastReply?.action?.id || "")
     || /\b(?:tạo|lập)\b.{0,24}\b(?:báo giá|dự toán)\b|\b(?:báo giá|dự toán)\b.{0,24}\b(?:tạo|lập)\b/i.test(retryRef.current.text || "")
@@ -2105,9 +2107,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                       </div>}
                     </section>}
                     {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
-                    {isLoading && isOpen && <div role="status" aria-label={quotationFileProgressText || (retryRef.current?.research ? "Đang nghiên cứu web nhiều nguồn" : retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện")} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
+                    {isLoading && isOpen && <div role="status" aria-label={quotationFileProgressText || (isGeneratingImageRequest ? "Đang phân tích yêu cầu tạo ảnh" : retryRef.current?.research ? "Đang nghiên cứu web nhiều nguồn" : retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện")} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
                       <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
-                      {quotationFileProgressText ? <span className="ml-2 text-sm">{quotationFileProgressText}</span> : retryRef.current?.research && <span className="ml-2 text-sm">Đang nghiên cứu và đối chiếu nhiều nguồn…</span>}
+                      {quotationFileProgressText ? <span className="ml-2 text-pretty text-sm">{quotationFileProgressText}</span> : isGeneratingImageRequest ? <span className="ml-2 text-pretty text-sm">Đang phân tích yêu cầu và tạo hình ảnh…</span> : retryRef.current?.research && <span className="ml-2 text-pretty text-sm">Đang nghiên cứu và đối chiếu nhiều nguồn…</span>}
                     </div>}
                   </div>
                 </div>
