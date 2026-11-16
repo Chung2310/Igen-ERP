@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { useState } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { AssistantStudio } from "./AssistantStudio";
+import { allStyleSamples } from "./AssistantStudioImage";
 
 afterEach(cleanup);
 
@@ -12,6 +13,18 @@ function AssistantStudioWithFavorites() {
 }
 
 describe("AssistantStudio", () => {
+  it("shows the existing image sample library below Nội dung and opens the selected sample", () => {
+    render(<AssistantStudio />);
+
+    const contentHeading = screen.getByRole("heading", { name: "Nội dung" });
+    const library = screen.getByRole("region", { name: "Thư viện mẫu" });
+    expect(contentHeading.compareDocumentPosition(library) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(library.querySelectorAll("[data-style-card]").length).toBe(allStyleSamples.length);
+
+    fireEvent.click(within(library).getByRole("button", { name: "Poster quốc khánh" }));
+    expect((screen.getByRole("textbox", { name: "Mô tả hình ảnh" }) as HTMLTextAreaElement).value).toBe(allStyleSamples.find(sample => sample.id === "igen-national-day")?.prompt);
+  });
+
   it("opens the infographic workspace from the image tools", () => {
     render(<AssistantStudio />);
     fireEvent.click(screen.getByRole("button", { name: /Tạo infographic/ }));
@@ -23,7 +36,8 @@ describe("AssistantStudio", () => {
     render(<AssistantStudio />);
     const studioTitle = screen.getByRole("heading", { name: "Chào mừng đến với iGen AI Studio" });
     expect(studioTitle.parentElement?.className).toContain("text-left");
-    expect(studioTitle.className).toContain("text-[27px]!");
+    expect(studioTitle.className).toContain("text-4xl!");
+    expect(studioTitle.className).toContain("sm:text-5xl!");
     expect(studioTitle.className).toContain("flex-wrap");
     expect(studioTitle.querySelector("svg")).not.toBeNull();
     expect(screen.queryByText("Khám phá iGen AI Studio")).toBeNull();

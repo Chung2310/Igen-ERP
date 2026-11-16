@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { ChevronRight, Download, Heart, LoaderCircle, Plus, X } from "lucide-react";
+import { ChevronRight, Download, LoaderCircle, Plus, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { StyledSelect } from "./StyledSelect";
 import { requestStudioImages, studioImageRatios, type StudioImageRequest, type StudioImageResponse } from "./assistantStudioImageApi";
@@ -8,8 +8,9 @@ import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory,
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
-import { prioritizeAssistantStudioStyles, useAssistantStudioStyleFavorites } from "./useAssistantStudioStyleFavorites";
+import { useAssistantStudioStyleFavorites } from "./useAssistantStudioStyleFavorites";
 import { extraImageSamples } from "./assistantStudioExtraImageSamples";
+import { AssistantStudioImageLibrary } from "./AssistantStudioImageLibrary";
 
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -23,7 +24,7 @@ const ratioDescriptions: Record<StudioImageRequest["aspectRatio"], string> = {
   "2:3": "Dọc",
 };
 
-interface StudioStyleSample {
+export interface StudioStyleSample {
   id: string;
   label: string;
   accessibleLabel?: string;
@@ -141,14 +142,7 @@ Dùng bố cục hai vùng. Bên trái là nền xanh ngọc nhạt và tiêu đ
   },
 ];
 
-const allStyleSamples: StudioStyleSample[] = [...extraImageSamples, ...studioStyleSamples];
-
-function getLibraryColumnCount() {
-  if (typeof window === "undefined") return 4;
-  if (window.innerWidth >= 1280) return 4;
-  if (window.innerWidth >= 768) return 3;
-  return 2;
-}
+export const allStyleSamples: StudioStyleSample[] = [...extraImageSamples, ...studioStyleSamples];
 
 function AspectRatioIcon({ ratio }: { ratio: StudioImageRequest["aspectRatio"] }) {
   const [widthRatio, heightRatio] = ratio.split(":").map(Number);
@@ -165,13 +159,13 @@ const aspectRatioOptions = studioImageRatios.map(ratio => ({
   icon: <AspectRatioIcon ratio={ratio} />,
 }));
 
-export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
+export function AssistantStudioImage({ onBack, historyItem, initialStyleId }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null; initialStyleId?: string | null }) {
+  const initialStyle = initialStyleId ? allStyleSamples.find(sample => sample.id === initialStyleId) : undefined;
   const { favoriteIds, toggleFavorite } = useAssistantStudioStyleFavorites("create-image");
-  const [libraryColumnCount, setLibraryColumnCount] = useState(getLibraryColumnCount);
-  const [aspectRatio, setAspectRatio] = useState<StudioImageRequest["aspectRatio"]>("1:1");
+  const [aspectRatio, setAspectRatio] = useState<StudioImageRequest["aspectRatio"]>(initialStyle?.aspectRatio ?? "1:1");
   const [count, setCount] = useState(1);
-  const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? "");
-  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? initialStyle?.prompt ?? "");
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(initialStyle?.id ?? null);
   const [referenceImage, setReferenceImage] = useState("");
   const [referenceName, setReferenceName] = useState("");
   const [result, setResult] = useState<StudioImageResponse | null>(() => historyItem?.kind === "create-image" ? historyItem.payload as StudioImageResponse : null);
@@ -182,16 +176,6 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
-  useEffect(() => {
-    const updateColumns = () => setLibraryColumnCount(getLibraryColumnCount());
-    window.addEventListener("resize", updateColumns);
-    return () => window.removeEventListener("resize", updateColumns);
-  }, []);
-
-  const libraryColumns = Array.from({ length: libraryColumnCount }, () => [] as StudioStyleSample[]);
-  prioritizeAssistantStudioStyles(allStyleSamples, favoriteIds).forEach((sample, index) => {
-    libraryColumns[index % libraryColumnCount].push(sample);
-  });
   const selectedStyleRequiresReference = allStyleSamples.some(sample => sample.id === selectedStyleId && sample.requiresReference);
 
   async function openHistory() {
@@ -307,62 +291,7 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
               <div className="my-5 flex w-full justify-center">
                 <img src="/ai-studio-image-hero.png" alt="Minh họa bãi biển, bình hoa và đồ uống được tạo bằng AI" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />
               </div>
-              <section aria-label="Thư viện mẫu" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
-                <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>
-                <div className={cn("grid items-start gap-2.5", libraryColumnCount === 4 ? "grid-cols-4" : libraryColumnCount === 3 ? "grid-cols-3" : "grid-cols-2")}>
-                  {libraryColumns.map((column, columnIndex) => <div key={columnIndex} className="flex min-w-0 flex-col gap-2.5">{column.map((sample) => {
-                    const isSelected = prompt === sample.prompt;
-                    const isFavorite = favoriteIds.includes(sample.id);
-                    return (
-                      <div key={sample.id} className="relative min-w-0">
-                        <button
-                          type="button"
-                          aria-label={sample.accessibleLabel ?? sample.label}
-                          onClick={() => {
-                            setPrompt(sample.prompt);
-                            setSelectedStyleId(sample.id);
-                            setAspectRatio(sample.aspectRatio);
-                            setError("");
-                          }}
-                          disabled={loading}
-                          aria-pressed={isSelected}
-                          data-style-card={sample.id}
-                          className={cn(
-                            "group relative h-full w-full overflow-hidden rounded-xl border border-outline-variant transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                            isSelected && "border-primary ring-2 ring-primary/30"
-                          )}
-                        >
-                          <div className="relative w-full overflow-hidden bg-surface-container-low" style={{ aspectRatio: sample.previewRatio ?? ({ cinema: "16 / 9", banner: "16 / 9", poster: "4 / 5", period: "4 / 5", anime: "4 / 5" }[sample.id] || "1 / 1") }}>
-                            <img
-                              src={sample.imageUrl}
-                              alt=""
-                              loading="lazy"
-                              className="size-full object-cover transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none"
-                            />
-                            <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                            <span className={cn(
-                              "absolute bottom-1.5 left-2 right-2 truncate text-left text-xs font-semibold text-white drop-shadow-sm",
-                              isSelected && "text-primary-container"
-                            )}>
-                              {sample.label}
-                            </span>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`${isFavorite ? "Bỏ ghim" : "Ghim"} phong cách ${sample.accessibleLabel ?? sample.label}`}
-                          title={`${isFavorite ? "Bỏ ghim" : "Ghim"} phong cách ${sample.accessibleLabel ?? sample.label}`}
-                          aria-pressed={isFavorite}
-                          onClick={() => toggleFavorite(sample.id)}
-                          className={cn("absolute right-1.5 top-1.5 z-10 grid size-8 place-items-center rounded-full border border-outline-variant bg-surface-container-lowest/95 shadow-xs hover:bg-surface-container-lowest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest", isFavorite && "text-primary")}
-                        >
-                          <Heart className={cn("size-4", isFavorite ? "fill-primary text-primary" : "text-on-surface-variant")} aria-hidden="true" />
-                        </button>
-                      </div>
-                    );
-                  })}</div>)}
-                </div>
-              </section>
+              <AssistantStudioImageLibrary samples={allStyleSamples} favoriteIds={favoriteIds} onToggleFavorite={toggleFavorite} selectedPrompt={prompt} disabled={loading} onSelect={sample => { setPrompt(sample.prompt); setSelectedStyleId(sample.id); setAspectRatio(sample.aspectRatio); setError(""); }} />
             </div>}
       </section>
       <AssistantStudioHistoryDrawer open={showHistory} title="Lịch sử tạo ảnh" onClose={() => setShowHistory(false)}>

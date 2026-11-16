@@ -3,7 +3,9 @@ import { ArrowUpRight, AudioLines, FileAudio, FileText, Image, Mic, Network, Pre
 import { cn } from "../../modules/student-management/lib/utils";
 import "./AssistantStudio.css";
 import "./AssistantRainbowBorder.css";
-import { AssistantStudioImage } from "./AssistantStudioImage";
+import { AssistantStudioImage, allStyleSamples } from "./AssistantStudioImage";
+import { AssistantStudioImageLibrary } from "./AssistantStudioImageLibrary";
+import { useAssistantStudioStyleFavorites } from "./useAssistantStudioStyleFavorites";
 import { AssistantStudioChart } from "./AssistantStudioChart";
 import { AssistantStudioInfographic } from "./AssistantStudioInfographic";
 import { AssistantStudioEdit } from "./AssistantStudioEdit";
@@ -12,7 +14,7 @@ import { AssistantStudioBrandMark } from "./AssistantStudioBrandMark";
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioMindmap } from "./AssistantStudioMindmap";
 import { AssistantStudioSlideTool } from "./AssistantStudioSlideTool";
-import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
+import { assistantStudioTitleAccentClass } from "./assistantStudioTitleStyles";
 import type { AssistantStudioCreationRecord, AssistantStudioHistoryEntry } from "../../services/assistantStudioHistory";
 import type { AssistantChartHistoryItem } from "../../shared/assistant-chart";
 import type { AssistantSlideHistoryItem } from "../../shared/assistant-slide";
@@ -67,6 +69,8 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
   const [draft, setDraft] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [notice, setNotice] = useState("");
+  const [selectedImageStyleId, setSelectedImageStyleId] = useState<string | null>(null);
+  const { favoriteIds: favoriteImageStyleIds, toggleFavorite: toggleImageStyleFavorite } = useAssistantStudioStyleFavorites("create-image");
   const selected = tools.find(tool => tool.id === selectedId);
   const creationHistoryItem = historyItem && (historyItem.kind === "create-image" || historyItem.kind === "infographic" || historyItem.kind === "edit-image" || historyItem.kind === "mindmap") ? historyItem.payload as AssistantStudioCreationRecord : null;
   const chartHistoryId = historyItem?.kind === "chart" ? (historyItem.payload as AssistantChartHistoryItem).id : null;
@@ -109,8 +113,8 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
   ), [category, favoriteIds, query]);
   const filteredFavorites = category === "Tất cả" ? filtered.filter(tool => favoriteIds.has(tool.id)) : [];
 
-  const backToStudioHome = () => { setSelectedId(null); onHistoryItemBack?.(); };
-  const openTool = (tool: StudioTool) => { if (tool.comingSoon) return; setSelectedId(tool.id); setDraft(""); setFile(null); setNotice(""); };
+  const backToStudioHome = () => { setSelectedId(null); setSelectedImageStyleId(null); onHistoryItemBack?.(); };
+  const openTool = (tool: StudioTool) => { if (tool.comingSoon) return; setSelectedImageStyleId(null); setSelectedId(tool.id); setDraft(""); setFile(null); setNotice(""); };
   const prepareDraft = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setNotice("Nội dung đã sẵn sàng trên màn hình. Tính năng xử lý sẽ hoạt động khi dịch vụ AI được kết nối.");
@@ -119,8 +123,8 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
   const isSplitTool = selected?.id === "create-image" || selected?.id === "edit-image" || selected?.id === "chart" || selected?.id === "infographic" || selected?.id === "slide" || selected?.id === "mindmap" || selected?.category === "Âm thanh";
 
   return <section aria-label="AI Studio" className={cn("min-h-0 flex-1 bg-surface-container-lowest text-on-surface", isSplitTool ? "p-0 h-full overflow-hidden flex flex-col" : "overflow-y-auto px-4 py-8 sm:px-8 lg:px-12")}>
-    <div className={cn("w-full", isSplitTool ? "h-full min-h-0 flex-1 flex flex-col" : "mx-auto max-w-6xl")}>
-      {selected?.id === "create-image" ? <AssistantStudioImage key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "create-image" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.id === "edit-image" ? <AssistantStudioEdit key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "edit-image" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.id === "chart" ? <AssistantStudioChart key={historyItem?.id ?? selected.id} historyId={chartHistoryId} onBack={backToStudioHome} /> : selected?.id === "infographic" ? <AssistantStudioInfographic key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "infographic" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.id === "slide" ? <AssistantStudioSlideTool key={historyItem?.id ?? selected.id} initialDeckId={slideHistoryId} onBack={backToStudioHome} /> : selected?.id === "mindmap" ? <AssistantStudioMindmap key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "mindmap" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.category === "Âm thanh" ? <AssistantStudioAudio key={historyItem?.id ?? selected.id} historyItem={audioHistoryItem} tool={selected.id as AudioTool} onBack={backToStudioHome} /> : selected ? <>
+    <div className={cn("w-full", isSplitTool ? "h-full min-h-0 flex-1 flex flex-col" : selected ? "mx-auto max-w-6xl" : "max-w-none")}>
+      {selected?.id === "create-image" ? <AssistantStudioImage key={historyItem?.id ?? selectedImageStyleId ?? selected.id} historyItem={creationHistoryItem?.kind === "create-image" ? creationHistoryItem : null} initialStyleId={selectedImageStyleId} onBack={backToStudioHome} /> : selected?.id === "edit-image" ? <AssistantStudioEdit key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "edit-image" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.id === "chart" ? <AssistantStudioChart key={historyItem?.id ?? selected.id} historyId={chartHistoryId} onBack={backToStudioHome} /> : selected?.id === "infographic" ? <AssistantStudioInfographic key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "infographic" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.id === "slide" ? <AssistantStudioSlideTool key={historyItem?.id ?? selected.id} initialDeckId={slideHistoryId} onBack={backToStudioHome} /> : selected?.id === "mindmap" ? <AssistantStudioMindmap key={historyItem?.id ?? selected.id} historyItem={creationHistoryItem?.kind === "mindmap" ? creationHistoryItem : null} onBack={backToStudioHome} /> : selected?.category === "Âm thanh" ? <AssistantStudioAudio key={historyItem?.id ?? selected.id} historyItem={audioHistoryItem} tool={selected.id as AudioTool} onBack={backToStudioHome} /> : selected ? <>
         <div className="mb-7"><AssistantStudioBreadcrumb title={selected.title} onBack={backToStudioHome} titleAsHeading={false} /></div>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
           <section aria-labelledby="studio-tool-title">
@@ -135,7 +139,7 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
           <aside className="h-fit rounded-xl border border-outline-variant bg-surface-container-low p-5"><h2 className="text-balance text-sm font-semibold">Sẵn sàng kết nối AI</h2><p className="mt-2 text-pretty text-sm leading-6 text-on-surface-variant">Giao diện đã có chỗ nhập yêu cầu và chọn ảnh tham chiếu. Khi tích hợp dịch vụ, kết quả sẽ được hiển thị tại đây.</p><div className="mt-5 flex min-h-44 items-center justify-center rounded-lg border border-dashed border-outline bg-surface-container-lowest text-center text-sm text-on-surface-variant">Kết quả sẽ xuất hiện ở đây</div></aside>
         </div>
       </> : <>
-        <header className="mb-9 text-left"><h1 aria-label="Chào mừng đến với iGen AI Studio" className={cn("mx-0 flex max-w-full flex-wrap items-center gap-2", assistantStudioTitleClass)}><span>Chào mừng đến với</span><span className={assistantStudioTitleAccentClass}>iGen AI Studio</span><AssistantStudioBrandMark className="size-8 shrink-0" /></h1></header>
+        <header className="mb-9 text-left"><h1 aria-label="Chào mừng đến với iGen AI Studio" className="mx-0 flex max-w-full flex-wrap items-center gap-2 text-balance text-4xl! font-bold leading-tight! text-on-surface sm:text-5xl!"><span>Chào mừng đến với</span><span className={assistantStudioTitleAccentClass}>iGen AI Studio</span><AssistantStudioBrandMark className="size-8 shrink-0" /></h1></header>
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center"><label className="relative block min-w-0 sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" /><span className="sr-only">Tìm công cụ AI Studio</span><input value={query} onChange={event => setQuery(event.target.value)} type="search" placeholder="Tìm kiếm công cụ" className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none" /></label><div role="group" aria-label="Lọc công cụ theo loại" className="flex flex-wrap gap-1">{categories.map(item => <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={cn("min-h-9 rounded-lg px-3 text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface", category === item && "bg-primary/10 font-medium text-primary", focusClass)}>{item}</button>)}</div></div>
         {filtered.length === 0 ? <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center"><p className="text-sm font-medium">{category === "Yêu thích" && !query.trim() ? "Chưa có công cụ yêu thích." : "Không tìm thấy công cụ phù hợp."}</p>{category !== "Tất cả" && <button type="button" onClick={() => { setQuery(""); setCategory("Tất cả"); }} className={cn("mt-3 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10", focusClass)}>Xem tất cả công cụ</button>}</div> : <>
         {category === "Yêu thích" && <section aria-labelledby="studio-favorites-heading" className="mb-10">
@@ -161,6 +165,13 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
             </div>
           </section>;
         })}
+        {!query.trim() && (category === "Tất cả" || category === "Nội dung") && <AssistantStudioImageLibrary
+          samples={allStyleSamples}
+          favoriteIds={favoriteImageStyleIds}
+          onToggleFavorite={toggleImageStyleFavorite}
+          onSelect={sample => { setSelectedImageStyleId(sample.id); setSelectedId("create-image"); }}
+          fullWidth
+        />}
         </>}
       </>}
     </div>

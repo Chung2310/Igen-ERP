@@ -24,7 +24,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   chat: "Trò chuyện",
   student: "Quản lý học viên",
   worker: "Quản lý lao động",
-  "student-partner": "Đối tác học viên",
+  "student-partner": "Đối tác",
   "labor-partner": "Đối tác lao động",
   customer: "Khách hàng",
   partner: "Đối tác (tương thích dữ liệu cũ)",

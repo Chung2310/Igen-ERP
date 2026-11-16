@@ -47,7 +47,7 @@ describe("TenantModuleDialog", () => {
     expect((screen.getByRole("checkbox", { name: "Nhân sự" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Trò chuyện" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Kho & Sản phẩm" }) as HTMLInputElement).checked).toBe(false);
-    expect(screen.getByRole("checkbox", { name: "Đối tác học viên" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Đối tác" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Đối tác lao động" })).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Tên doanh nghiệp" })).toBeNull();
     expect(screen.queryByRole("textbox", { name: "Mã doanh nghiệp" })).toBeNull();
