@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
-import { ChevronRight, Download, LoaderCircle, Plus, X } from "lucide-react";
+import { ChevronRight, Download, Heart, LoaderCircle, Plus, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { requestStudioImageEdit, type StudioEditMode } from "./assistantStudioImageApi";
 import { getAssistantSpeechHistoryUserId } from "../../services/assistantSpeechHistory";
@@ -8,6 +8,7 @@ import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { Assistant2DFileIcon } from "./Assistant2DFileIcon";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
+import { prioritizeAssistantStudioStyles, useAssistantStudioStyleFavorites } from "./useAssistantStudioStyleFavorites";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
@@ -74,6 +75,7 @@ const legacyCustomEditType: EditType = {
 type EditedResult = { url: string; source: string; name: string; prompt: string; mode: StudioEditMode; regionApplied: boolean };
 
 export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
+  const { favoriteIds, toggleFavorite } = useAssistantStudioStyleFavorites("edit-image");
   const fileRef = useRef<HTMLInputElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const initialResult = historyItem?.kind === "edit-image" ? historyItem.payload as EditedResult : null;
@@ -394,34 +396,47 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
             <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
               <h3 className="px-1 text-balance text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>
               <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-                {editTypes.map(editType => {
+                {prioritizeAssistantStudioStyles(editTypes, favoriteIds).map(editType => {
                   const isSelected = mode === editType.id;
+                  const isFavorite = favoriteIds.includes(editType.id);
                   return (
-                    <button
-                      key={editType.id}
-                      type="button"
-                      onClick={() => selectEditType(editType)}
-                      aria-pressed={isSelected}
-                      title={editType.description}
-                      className={cn(
-                        "overflow-hidden rounded-xl border border-outline-variant hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50",
-                        isSelected && "border-primary ring-2 ring-primary/30"
-                      )}
-                    >
-                      <div className="aspect-[3/2] w-full bg-surface-container-low">
-                        <img
-                          src={editType.artwork}
-                          alt=""
-                          aria-hidden="true"
-                          width={768}
-                          height={512}
-                          loading="lazy"
-                          decoding="async"
-                          className="size-full object-cover"
-                        />
-                      </div>
-                      <span className={cn("block truncate bg-surface-container-lowest px-2 py-1.5 text-center text-xs font-semibold text-on-surface", isSelected && "text-primary")}>{editType.label}</span>
-                    </button>
+                    <div key={editType.id} className="relative min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => selectEditType(editType)}
+                        aria-pressed={isSelected}
+                        data-style-card={editType.id}
+                        title={editType.description}
+                        className={cn(
+                          "h-full w-full overflow-hidden rounded-xl border border-outline-variant hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50",
+                          isSelected && "border-primary ring-2 ring-primary/30"
+                        )}
+                      >
+                        <div className="aspect-[3/2] w-full bg-surface-container-low">
+                          <img
+                            src={editType.artwork}
+                            alt=""
+                            aria-hidden="true"
+                            width={768}
+                            height={512}
+                            loading="lazy"
+                            decoding="async"
+                            className="size-full object-cover"
+                          />
+                        </div>
+                        <span className={cn("block truncate bg-surface-container-lowest px-2 py-1.5 text-center text-xs font-semibold text-on-surface", isSelected && "text-primary")}>{editType.label}</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`${isFavorite ? "Bỏ ghim" : "Ghim"} phong cách ${editType.label}`}
+                        title={`${isFavorite ? "Bỏ ghim" : "Ghim"} phong cách ${editType.label}`}
+                        aria-pressed={isFavorite}
+                        onClick={() => toggleFavorite(editType.id)}
+                      className={cn("absolute right-1.5 top-1.5 z-10 grid size-8 place-items-center rounded-full border border-outline-variant bg-surface-container-lowest/95 shadow-xs hover:bg-surface-container-lowest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest", isFavorite && "text-primary")}
+                      >
+                      <Heart className={cn("size-4", isFavorite ? "fill-primary text-primary" : "text-on-surface-variant")} aria-hidden="true" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

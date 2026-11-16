@@ -10,6 +10,20 @@ export const AssistantSessionModel = model("AssistantSession", sessionSchema);
 const projectCollectionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, projects: { type: [Schema.Types.Mixed], default: [] } }, { timestamps: true });
 projectCollectionSchema.index({ companyCode: 1, userId: 1, branchId: 1 }, { unique: true });
 export const AssistantProjectCollectionModel = model("AssistantProjectCollection", projectCollectionSchema);
+const projectFileSchema = new Schema({
+  ...scope,
+  branchId: { type: String, default: "" },
+  projectId: { type: String, required: true },
+  fileId: { type: String, required: true },
+  fileName: { type: String, required: true, maxlength: 180 },
+  mimeType: { type: String, required: true, maxlength: 120 },
+  size: { type: Number, required: true, min: 0, max: 15 * 1024 * 1024 },
+  extractedText: { type: String, required: true, select: false },
+  bytes: { type: Buffer, required: true, select: false },
+}, { timestamps: true });
+projectFileSchema.index({ companyCode: 1, userId: 1, branchId: 1, projectId: 1, fileId: 1 }, { unique: true });
+projectFileSchema.index({ companyCode: 1, userId: 1, branchId: 1, projectId: 1, updatedAt: -1 });
+export const AssistantProjectFileModel = model("AssistantProjectFile", projectFileSchema);
 const turnSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, requestId: { type: String, required: true }, conversationId: { type: String, required: true }, digest: { type: String, required: true }, status: { type: String, enum: ["processing", "executing", "completed", "uncertain"], default: "processing" }, actionId: String, workflowVersion: Number, payload: Schema.Types.Mixed, result: Schema.Types.Mixed }, { timestamps: true });
 turnSchema.index({ companyCode: 1, userId: 1, branchId: 1, requestId: 1 }, { unique: true });
 turnSchema.index({ companyCode: 1, userId: 1, conversationId: 1, createdAt: -1 });
@@ -66,5 +80,5 @@ export const AssistantDocumentModel = model("AssistantDocument", documentSchema)
 let indexReadiness: Promise<unknown> | undefined;
 /** Do not accept deduplicated writes until their unique indexes exist. */
 export function ensureAssistantIndexes() {
-  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
+  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantProjectFileModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
 }

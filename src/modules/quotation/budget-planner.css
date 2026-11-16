@@ -1379,15 +1379,15 @@
   max-width: none;
 }
 .quotation-module .bp-search-input {
-  height: 50px;
-  padding-left: 48px;
+  height: 40px;
+  padding-left: 42px;
   border-color: #d9e5ef;
-  border-radius: 14px;
+  border-radius: 12px;
   color: #172943;
-  font-size: 15px;
+  font-size: 14px;
 }
 .quotation-module .bp-search-input::placeholder { color: #8493a9; }
-.quotation-module .bp-search-icon { left: 17px; color: #23344e; }
+.quotation-module .bp-search-icon { left: 14px; color: #23344e; }
 
 .quotation-module .bp-filter-pills { gap: 9px; }
 .quotation-module .bp-filter-btn {

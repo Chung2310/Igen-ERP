@@ -35,6 +35,12 @@ async function getCompanyUserIds(companyCode?: string, branchId?: string) {
   return users.map((user) => user._id.toString());
 }
 
+async function getCompanyAdminIds(companyCode?: string) {
+  if (!companyCode) return [];
+  const admins = await User.find({ companyCode, role: "admin" }).select("_id");
+  return admins.map((admin) => admin._id.toString());
+}
+
 async function getCompanyPrimaryOwnerId(companyCode?: string, branchId?: string) {
   if (!companyCode) return null;
 
@@ -79,7 +85,12 @@ export async function getAllowedOwnerIds(user: StudentModuleUser): Promise<strin
   const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
   const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
   if (user.role === "admin") {
-    return [...new Set([...branchOwnerIds, user.uid])];
+    // Company admins can select a branch without having a fixed branchId. Their
+    // imported records still belong to that branch, so include their owner IDs.
+    const companyAdminIds = user.branchId
+      ? await getCompanyAdminIds(user.companyCode || user.centerId)
+      : [];
+    return [...new Set([...branchOwnerIds, ...companyAdminIds, user.uid])];
   }
   // Giảng viên cần xem danh mục và dữ liệu đào tạo của toàn trung tâm/chi nhánh
   // để tra cứu khi đứng lớp. Các API ghi vẫn được requireTeacherOperation giới hạn
@@ -98,7 +109,11 @@ export async function getCenterOwnerIds(user: StudentModuleUser): Promise<string
 
   const companyUserIds = await getCompanyUserIds(user.companyCode || user.centerId, user.branchId);
   const branchOwnerIds = user.branchId ? [...companyUserIds, user.branchId] : companyUserIds;
-  return branchOwnerIds.length > 0 ? [...new Set(branchOwnerIds)] : [user.uid];
+  const companyAdminIds = user.role === "admin" && user.branchId
+    ? await getCompanyAdminIds(user.companyCode || user.centerId)
+    : [];
+  const ownerIds = [...new Set([...branchOwnerIds, ...companyAdminIds])];
+  return ownerIds.length > 0 ? ownerIds : [user.uid];
 }
 
 export async function resolveCreateOwnerId(

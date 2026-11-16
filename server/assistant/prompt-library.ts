@@ -27,6 +27,7 @@ function toTemplate(record: PromptTemplateRecord): AssistantPromptTemplate {
 }
 
 async function seedIgenTemplates(companyCode: string) {
+  const activeTemplateIds = starterAssistantPromptTemplates.map(template => template.id);
   await AssistantPromptTemplateModel.bulkWrite(starterAssistantPromptTemplates.map(template => ({
     updateOne: {
       filter: { companyCode, templateId: template.id },
@@ -44,6 +45,11 @@ async function seedIgenTemplates(companyCode: string) {
       upsert: true,
     },
   })), { ordered: false });
+  await AssistantPromptTemplateModel.deleteMany({
+    companyCode,
+    owner: "igen",
+    templateId: { $nin: activeTemplateIds },
+  });
 }
 
 export const assistantPromptTemplateCreateSchema = Joi.object({

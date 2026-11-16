@@ -485,15 +485,6 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
   };
 
   return <div className={`page-stack price-list-page ${!loading && products.length === 0 ? "is-empty" : ""}`}>
-    <section className="page-heading-row price-list-heading">
-      <div><div className="price-list-title-row"><h1>Bảng giá</h1>{!loading && <span className="price-list-total-badge">{statusCounts.all} sản phẩm</span>}</div></div>
-      <div className="price-list-header-actions catalog-header-actions">
-        <ErpRefreshButton className="price-list-refresh-button" loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
-        {products.length > 0 && <button type="button" className="button price-list-export-button price-list-excel-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
-        <button ref={importTrigger} type="button" className="button price-list-excel-button" disabled={!canManage || busy || loading} aria-haspopup="dialog" aria-expanded={importOpen} aria-controls={importOpen ? importDialogId : undefined} onClick={() => { setPendingImports([]); setImportError(""); setImportOpen(true); }}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
-        <button type="button" className="button button-primary price-list-add-button" disabled={!canManage || busy || loading} title={canManage ? "Nhập sản phẩm trực tiếp" : "Cần quyền quản lý bảng giá"} onClick={openCreate}>Thêm sản phẩm</button>
-      </div>
-    </section>
     {loadError && <p className="form-error" role="alert">{loadError} Hãy bấm Làm mới để tải lại.</p>}
     {importOpen && <dialog ref={importDialog} id={importDialogId} className="template-dialog catalog-bulk-dialog price-list-import-dialog" aria-labelledby={importTitleId} aria-describedby={importHelpId} onCancel={(event) => { event.preventDefault(); closeImport(); }}>
       <div className="settings-card-heading"><h2 id={importTitleId} className="text-balance">Nhập bảng giá từ Excel/CSV</h2><button type="button" className="icon-button" aria-label="Đóng cửa sổ nhập bảng giá" disabled={busy} onClick={closeImport}>×</button></div>
@@ -533,7 +524,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
       <div className="preview-actions"><button type="button" className="button button-soft" disabled={busy} onClick={closeImport}>Hủy</button><button type="button" className="button button-primary" disabled={!canManage || busy || !pendingImports.length} aria-describedby={importError ? importErrorId : !pendingImports.length ? importHelpId : undefined} onClick={() => void confirmImports()}>{busy ? "Đang xử lý…" : "Xác nhận và nhập"}</button></div>
     </dialog>}
     <section className="content-card list-card price-list-product-card">
-      {(loading || products.length > 0) && <div className="price-list-toolbar-section">
+      <div className="price-list-toolbar-section">
         <div className="price-list-search-row">
           <div className="price-list-search-box">
             <span className="price-list-search-icon" aria-hidden="true"><SearchIcon size={16} /></span>
@@ -583,6 +574,12 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
                 { value: "price_desc", label: "Đơn giá: Cao → Thấp" },
               ]}
             />
+          </div>
+          <div className="price-list-header-actions catalog-header-actions">
+            <ErpRefreshButton className="price-list-refresh-button" loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
+            {products.length > 0 && <button type="button" className="button price-list-export-button price-list-excel-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
+            <button ref={importTrigger} type="button" className="button price-list-excel-button" disabled={!canManage || busy || loading} aria-haspopup="dialog" aria-expanded={importOpen} aria-controls={importOpen ? importDialogId : undefined} onClick={() => { setPendingImports([]); setImportError(""); setImportOpen(true); }}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
+            <button type="button" className="button button-primary price-list-add-button" disabled={!canManage || busy || loading} title={canManage ? "Nhập sản phẩm trực tiếp" : "Cần quyền quản lý bảng giá"} onClick={openCreate}>Thêm sản phẩm</button>
           </div>
         </div>
 
@@ -643,7 +640,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
             </button>
           </div>
         )}
-      </div>}
+      </div>
 
       {loading ? (
         <div className="loading-state" role="status">Đang tải danh sách sản phẩm…</div>

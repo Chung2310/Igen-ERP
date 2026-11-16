@@ -734,27 +734,6 @@ function QuoteWorkspace({
         <button type="button" className="quote-top-icon" aria-label="Cài đặt tài khoản" onClick={() => onNavigate("profile")}><Icon name="settings" size={20} /></button>
         <button type="button" className="quote-top-avatar" aria-label="Trang cá nhân" onClick={() => onNavigate("profile")}>{userName.trim().charAt(0).toLocaleUpperCase("vi") || "U"}</button>
       </div>
-      {/* HEADER ROW */}
-      <section className="page-heading-row quote-workspace-header">
-        <div className="page-heading-actions ml-auto">
-          {loadFailed && (
-            <button type="button" className="button button-soft" onClick={() => setReloadKey((key) => key + 1)}>
-              Tải lại
-            </button>
-          )}
-          <button type="button" className="button button-soft" disabled={!canCreate} onClick={() => setCreatingFromQuote(true)}>
-            <Icon name="file" size={17} /> Tạo từ báo giá khách
-          </button>
-          <button
-            className="button button-primary quote-create-button"
-            disabled={!canCreate}
-            onClick={onCreate}
-          >
-            <Icon name="plus" size={17} />
-            <span>Tạo dự toán mới</span>
-          </button>
-        </div>
-      </section>
       {creatingFromQuote && <CreateEstimateFromQuoteDialog onClose={() => setCreatingFromQuote(false)} onAiUsed={onRefreshUsage} onCreated={(id, fileError) => { setCreatingFromQuote(false); onRefreshUsage(); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán và lưu file.", fileError ? "error" : "success"); onOpen(id); }} />}
       <QuoteUsageWidget usage={usage} quoteUsageLabel={quoteUsageLabel} canCreate={canCreate} createBlockedMessage={createBlockedMessage} onRefreshUsage={onRefreshUsage} showUsageError={showUsageError} onNavigate={onNavigate} variant="workspace" />
 
@@ -840,6 +819,25 @@ function QuoteWorkspace({
                   { value: "customer", label: "Tên khách hàng: A-Z" },
                 ]}
               />
+            </div>
+            <div className="quote-toolbar-actions">
+              {loadFailed && (
+                <button type="button" className="button button-soft" onClick={() => setReloadKey((key) => key + 1)}>
+                  Tải lại
+                </button>
+              )}
+              <button type="button" className="button button-soft" disabled={!canCreate} onClick={() => setCreatingFromQuote(true)}>
+                <Icon name="file" size={17} /> Tạo từ báo giá khách
+              </button>
+              <button
+                type="button"
+                className="button button-primary quote-create-button"
+                disabled={!canCreate}
+                onClick={onCreate}
+              >
+                <Icon name="plus" size={17} />
+                <span>Tạo dự toán mới</span>
+              </button>
             </div>
           </div>
 

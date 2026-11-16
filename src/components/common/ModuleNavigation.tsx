@@ -154,7 +154,7 @@ export function ModuleNavigation({
         onClick={() => setCollapsed((current) => !current)}
         className="hidden size-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
       >
-        {toggleIcon ? toggleIcon(collapsed) : <HrFilledSidebarToggleIcon collapsed={collapsed} twoTone />}
+        {toggleIcon ? toggleIcon(collapsed) : <HrFilledSidebarToggleIcon collapsed={collapsed} />}
       </button>}
       {layout === 'sidebar' && headerAction !== null && (headerAction !== undefined || !collapsed) && <div data-module-navigation-header-action className="hidden lg:flex">
         {headerAction ?? <GlobalSidebarSearch />}

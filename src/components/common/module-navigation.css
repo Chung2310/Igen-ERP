@@ -19,6 +19,11 @@
   color: var(--color-primary);
 }
 
+[data-module-navigation-toggle]:is(:hover, :focus-visible) svg,
+[data-global-sidebar-search-trigger]:is(:hover, :focus-visible) svg {
+  color: var(--color-primary);
+}
+
 [data-module-navigation] :is(.module-nav-filled, .module-nav-toggle-filled) {
   display: none;
 }

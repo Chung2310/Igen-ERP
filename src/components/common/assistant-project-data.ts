@@ -8,6 +8,7 @@ export interface AssistantProjectConversation {
   title: string;
   preview: string;
   createdAt: string;
+  updatedAt?: string;
   sourceConversationId?: string;
   sourceMode?: "work" | "qa";
 }
@@ -56,6 +57,7 @@ export function moveAssistantConversationToProject(projects: AssistantProject[],
         title: conversation.title || "Cuộc hội thoại",
         preview: conversation.preview,
         createdAt: conversation.updatedAt,
+        updatedAt: conversation.updatedAt,
         sourceConversationId: conversation.conversationId,
         sourceMode: conversation.mode ?? "qa",
       }, ...remaining],

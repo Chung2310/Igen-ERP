@@ -103,7 +103,7 @@ const baseMenuItems: MenuItem[] = [
   },
   {
     label: "ĐỐI TÁC",
-    title: "Đối tác học viên",
+    title: "Đối tác",
     icon: Handshake,
     group: "operations",
   },

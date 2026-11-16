@@ -1,0 +1,12 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Tài liệu đang được tải lên</title>
+  <circle cx="48" cy="47" r="38" fill="#E8F8FF"/>
+  <circle cx="16" cy="29" r="3" fill="#80D9FF"/>
+  <circle cx="79" cy="20" r="2" fill="#80D9FF"/>
+  <path d="M20 75h56" stroke="#B8E9FF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M29 24a5 5 0 0 1 5-5h21l13 13v35a5 5 0 0 1-5 5H34a5 5 0 0 1-5-5V24Z" fill="#fff" stroke="#00ADFC" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M55 19v10a3 3 0 0 0 3 3h10" fill="#C8EDFF" stroke="#00ADFC" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M37 58h23" stroke="#B8E9FF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M48 53V35m0 0-7 7m7-7 7 7" stroke="#00ADFC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M37 64h14" stroke="#B8E9FF" stroke-width="3" stroke-linecap="round"/>
+</svg>
