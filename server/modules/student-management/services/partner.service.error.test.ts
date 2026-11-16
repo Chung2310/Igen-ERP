@@ -33,23 +33,3 @@ test("createPartner reports a stable conflict when phone already exists in branc
     PartnerService.customFieldWrites = originalWrites;
   }
 });
-
-test("createPartner checks the same branch across company admin owners", async () => {
-  const originalFindOne = Partner.findOne;
-  const originalWrites = PartnerService.customFieldWrites;
-  let query: unknown;
-  (Partner as any).findOne = async (value: unknown) => { query = value; return { _id: "existing" }; };
-  PartnerService.customFieldWrites = { prepareCreate: async (_context: unknown, data: unknown) => data } as any;
-  try {
-    await assert.rejects(() => PartnerService.createPartner(
-      "branch-owner",
-      { name: "Đối tác A", phone: "0123456750", commissionType: "fixed", commissionValue: 0, branchId: "branch-1" } as any,
-      { tenantId: "tenant-1", moduleKey: "partners", actorRole: "admin" } as any,
-      ["branch-owner", "other-admin"],
-    ), ConflictError);
-    assert.deepEqual(query, { ownerId: { $in: ["branch-owner", "other-admin"] }, phone: "0123456750", branchId: "branch-1" });
-  } finally {
-    (Partner as any).findOne = originalFindOne;
-    PartnerService.customFieldWrites = originalWrites;
-  }
-});

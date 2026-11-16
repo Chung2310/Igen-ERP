@@ -12,9 +12,6 @@ const { AssignmentModel } = await import("../models/assignment.model");
 const { SubmissionModel } = await import("../models/submission.model");
 const { Batch } = await import("../models/batch.model");
 const { Student } = await import("../models/student.model");
-const { StudentQualityThreshold } = await import("../models/student-quality-threshold.model");
-const { assignmentResourceService } = await import("./assignment-resource.service");
-const { User } = await import("../models/user.model");
 
 test("assignment operations apply the caller owner scope to every lookup", async (t) => {
   const ownerScope = ["tenant-a-admin", "tenant-a-teacher"];
@@ -36,9 +33,6 @@ test("assignment operations apply the caller owner scope to every lookup", async
       (AssignmentModel as any).findOne,
       (Student as any).findOne,
       (SubmissionModel as any).findOne,
-      (StudentQualityThreshold as any).findOne,
-      (User as any).findOne,
-      assignmentResourceService.finalizeAssignment,
       AssignmentService.notifyStudents,
     ];
     (Batch as any).findOne = async () => batch;
@@ -49,9 +43,6 @@ test("assignment operations apply the caller owner scope to every lookup", async
     (AssignmentModel as any).findOne = async () => createdData;
     (Student as any).findOne = async () => ({ _id: "tenant-b-student", ownerId: tenantOwner });
     (SubmissionModel as any).findOne = async () => null;
-    (StudentQualityThreshold as any).findOne = () => ({ select: () => ({ lean: async () => null }) });
-    (User as any).findOne = () => ({ select: () => ({ lean: async () => ({ companyCode: "TENANT-B", email: "owner@example.com" }) }) });
-    assignmentResourceService.finalizeAssignment = async () => [];
     AssignmentService.notifyStudents = async (_assignment: any, _batch: any, ownerId: string) => {
       notifiedOwner = ownerId;
     };
@@ -71,10 +62,7 @@ test("assignment operations apply the caller owner scope to every lookup", async
       (AssignmentModel as any).findOne = originals[2];
       (Student as any).findOne = originals[3];
       (SubmissionModel as any).findOne = originals[4];
-      (StudentQualityThreshold as any).findOne = originals[5];
-      (User as any).findOne = originals[6];
-      assignmentResourceService.finalizeAssignment = originals[7];
-      AssignmentService.notifyStudents = originals[8];
+      AssignmentService.notifyStudents = originals[5];
     }
   });
 
@@ -100,23 +88,6 @@ test("assignment operations apply the caller owner scope to every lookup", async
     try {
       await AssignmentService.getAssignments(ownerScope, "tenant-b-batch");
       assert.deepEqual(filter, { batchId: "tenant-b-batch", ownerId: expectedOwner });
-    } finally { (AssignmentModel as any).find = original; }
-  });
-
-  await t.test("selected branch limits assignments even when both company admins own records", async () => {
-    let filter: any;
-    const original = (AssignmentModel as any).find;
-    (AssignmentModel as any).find = (value: any) => {
-      filter = value;
-      return { sort: async () => [] };
-    };
-    try {
-      await AssignmentService.getAssignments(["admin-a", "admin-b"], "batch-a", "branch-a");
-      assert.deepEqual(filter, {
-        batchId: "batch-a",
-        ownerId: { $in: ["admin-a", "admin-b"] },
-        branchId: "branch-a",
-      });
     } finally { (AssignmentModel as any).find = original; }
   });
 

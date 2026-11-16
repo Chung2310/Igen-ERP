@@ -7,19 +7,15 @@ import { AssistantPromptLibrary } from "./AssistantPromptLibrary";
 afterEach(() => cleanup());
 
 describe("AssistantPromptLibrary", () => {
-  it("filters the replacement sample prompts by category and search", () => {
+  it("filters sample prompts by category and search", () => {
     render(<AssistantPromptLibrary open onClose={vi.fn()} onUsePrompt={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Kinh doanh" }));
-    expect(screen.queryByRole("button", { name: "Dùng mẫu: Phân tích 3 đối thủ cạnh tranh" })).toBeNull();
-
     fireEvent.click(screen.getByRole("button", { name: "Marketing" }));
-    expect(screen.getByRole("button", { name: "Dùng mẫu: Phân tích 3 đối thủ cạnh tranh" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Dùng mẫu: Xây dựng chân dung khách hàng" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Dùng mẫu: Lập kế hoạch nội dung mạng xã hội" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Dùng mẫu: Phân tích đối thủ cạnh tranh" })).toBeNull();
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Tìm kiếm mẫu câu lệnh" }), { target: { value: "đối thủ cạnh tranh" } });
-    expect(screen.getByRole("button", { name: "Dùng mẫu: Phân tích 3 đối thủ cạnh tranh" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Dùng mẫu: Xây dựng chân dung khách hàng" })).toBeNull();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Tìm kiếm mẫu câu lệnh" }), { target: { value: "mạng xã hội" } });
+    expect(screen.getByRole("button", { name: "Dùng mẫu: Lập kế hoạch nội dung mạng xã hội" })).not.toBeNull();
     fireEvent.change(screen.getByRole("searchbox", { name: "Tìm kiếm mẫu câu lệnh" }), { target: { value: "không có kết quả" } });
     expect(screen.getByText("Không tìm thấy mẫu phù hợp")).not.toBeNull();
   });
@@ -29,13 +25,13 @@ describe("AssistantPromptLibrary", () => {
     const onClose = vi.fn();
     render(<AssistantPromptLibrary open onClose={onClose} onUsePrompt={onUsePrompt} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Thêm yêu thích Phân tích 3 đối thủ cạnh tranh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thêm yêu thích Viết bài giới thiệu sản phẩm" }));
     fireEvent.click(screen.getByRole("button", { name: /Yêu thích/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Xem chi tiết Phân tích 3 đối thủ cạnh tranh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xem chi tiết Viết bài giới thiệu sản phẩm" }));
     expect(screen.getAllByText("Nội dung mẫu").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Dùng câu lệnh này" }));
 
-    expect(onUsePrompt).toHaveBeenCalledWith(expect.stringContaining("so sánh ba đối thủ cạnh tranh"));
+    expect(onUsePrompt).toHaveBeenCalledWith(expect.stringContaining("Hãy viết bài giới thiệu"));
     expect(onClose).not.toHaveBeenCalled();
   });
 

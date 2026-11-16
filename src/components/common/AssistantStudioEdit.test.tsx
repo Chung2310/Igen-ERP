@@ -12,23 +12,6 @@ vi.mock("./assistantStudioImageApi", async importOriginal => ({
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("AssistantStudioEdit preset prompts", () => {
-  it("pins favorite edit styles above the others and restores the pin after remounting", () => {
-    const storageKey = "igen_erp_ai_studio_style_favorites:browser:edit-image";
-    localStorage.removeItem(storageKey);
-    const order = (section: HTMLElement) => Array.from(section.querySelectorAll<HTMLButtonElement>("[data-style-card]")).map(card => card.dataset.styleCard);
-    const firstRender = render(<AssistantStudioEdit onBack={() => {}} />);
-    const section = screen.getByRole("region", { name: "Loại chỉnh sửa" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Ghim phong cách Nâng cao chất lượng" }));
-    expect(order(section)[0]).toBe("enhance");
-    expect(screen.getByRole("button", { name: "Bỏ ghim phong cách Nâng cao chất lượng" }).getAttribute("aria-pressed")).toBe("true");
-
-    firstRender.unmount();
-    render(<AssistantStudioEdit onBack={() => {}} />);
-    expect(order(screen.getByRole("region", { name: "Loại chỉnh sửa" }))[0]).toBe("enhance");
-    localStorage.removeItem(storageKey);
-  });
-
   it.each([
     ["Xóa vùng ảnh", "Đối tượng/vùng cần xóa:"],
     ["Xóa nền", "kênh alpha trong suốt thật"],

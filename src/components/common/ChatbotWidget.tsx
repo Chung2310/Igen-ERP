@@ -326,8 +326,6 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const isStandaloneChatHome = mode === "standalone" && assistantMode === "qa";
   const chatGreeting = `Chào ${greetingName}, tôi có thể giúp gì cho bạn?`;
   const workGreeting = `Xin chào ${greetingName}, iGen AI có thể giúp gì cho bạn?`;
-  const welcomeHeadingRef = useRef<HTMLHeadingElement>(null);
-  const [welcomeHeadingVisible, setWelcomeHeadingVisible] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const launcherStorageKey = `igen_erp_chatbot_launcher_position:${launcherStorageScope}`;
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -644,19 +642,6 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const pendingTurnErrorsRef = useRef(new Map<string, string>());
   activeContextRef.current = { assistantMode, conversationId, view };
   const isWelcomeScreen = !isViewingHistory && messages.length === 1 && messages[0].role === "assistant" && messages[0].content === activeWelcomeMessage.content;
-
-  useEffect(() => {
-    if (mode !== "standalone" || isStandaloneChatHome || !isWelcomeScreen) {
-      setWelcomeHeadingVisible(true);
-      return;
-    }
-    const heading = welcomeHeadingRef.current;
-    if (!heading || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(entries => setWelcomeHeadingVisible(entries[0]?.isIntersecting ?? false));
-    observer.observe(heading);
-    return () => observer.disconnect();
-  }, [headerPanel, isStandaloneChatHome, isWelcomeScreen, mode]);
-
 
   useEffect(() => {
     const el = inputRef.current;
@@ -1950,12 +1935,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                 </div>
               </div> : <div ref={logRef} className="assistant-welcome assistant-reference-welcome relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
                 <section aria-labelledby="assistant-welcome-title" className={cn("assistant-reference-content mx-auto flex min-h-full w-full flex-col justify-center", mode === "standalone" && !isStandaloneChatHome ? "max-w-5xl gap-5" : "max-w-6xl gap-7 sm:gap-8")}>
-                  <h1 ref={welcomeHeadingRef} id="assistant-welcome-title" aria-label={isStandaloneChatHome ? `${chatGreeting} 👋` : mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`} className={cn("text-balance text-center", mode === "standalone" && !isStandaloneChatHome ? "flex flex-wrap items-center justify-center gap-x-2 text-3xl font-normal sm:text-4xl" : "assistant-welcome-title")}>
+                  <h1 id="assistant-welcome-title" aria-label={isStandaloneChatHome ? `${chatGreeting} 👋` : mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`} className={cn("text-balance text-center", mode === "standalone" && !isStandaloneChatHome ? "flex flex-wrap items-center justify-center gap-x-2 text-3xl font-normal sm:text-4xl" : "assistant-welcome-title")}>
                     {isStandaloneChatHome ? <>{chatGreeting} <span aria-hidden="true">👋</span></> : <>
-                      {mode === "standalone" && <picture aria-hidden="true" className="inline-flex size-8 shrink-0 sm:size-10">
-                        <source media="(prefers-reduced-motion: reduce)" srcSet="/bot-1-transparent-poster.png" />
-                        <img src={welcomeHeadingVisible ? "/bot-1-transparent.gif" : undefined} alt="" className="size-full object-contain" />
-                      </picture>}
                       <span aria-hidden="true" className={mode === "standalone" ? "min-w-0" : undefined}>{mode === "standalone" ? workGreeting : `Chào ${greetingName} 👋`}</span>
                     </>}
                   </h1>

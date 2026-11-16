@@ -12,76 +12,26 @@ const project: AssistantProject = {
 };
 
 describe("AssistantProjectWorkspace", () => {
-  it("renders the shared chat composer instead of a project-specific prompt", () => {
+  it("starts a real conversation from the project prompt", () => {
     const onProjectsChange = vi.fn();
-    const composer = <form><label htmlFor="shared-chat-input">Tin nhắn cho trợ lý ảo</label><textarea id="shared-chat-input" /></form>;
-    render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} composer={composer} />);
+    const onStartConversation = vi.fn();
+    render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} onStartConversation={onStartConversation} />);
 
-    expect(screen.getByRole("textbox", { name: "Tin nhắn cho trợ lý ảo" })).toBeTruthy();
-    expect(screen.queryByRole("textbox", { name: "Hỏi trong dự án" })).toBeNull();
-    expect(screen.queryByText("Hội thoại sẽ mở trong giao diện Trò chuyện chung.")).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: "Hỏi trong dự án" }), { target: { value: "Kế hoạch tuần này?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Thêm cuộc hội thoại vào dự án" }));
+
+    expect(onStartConversation).toHaveBeenCalledWith(project.id, "Kế hoạch tuần này?");
     expect(onProjectsChange).not.toHaveBeenCalled();
   });
 
-  it("offers conversation actions from the ellipsis menu and removes only the project link", () => {
+  it("removes a conversation from the project without deleting the chat", () => {
     const onProjectsChange = vi.fn();
-    const onDeleteConversation = vi.fn();
     const withConversation: AssistantProject = { ...project, conversations: [{ id: "link-1", title: "Kế hoạch", preview: "Kế hoạch", createdAt: project.createdAt, sourceConversationId: "00000000-0000-4000-8000-000000000001", sourceMode: "qa" }] };
-    render(<AssistantProjectWorkspace projects={[withConversation]} onProjectsChange={onProjectsChange} onDeleteConversation={onDeleteConversation} selectedId={project.id} onSelect={() => undefined} />);
-
-    fireEvent.click(screen.getByLabelText("Tùy chọn cuộc trò chuyện Kế hoạch"));
-    expect(screen.getByText("Di chuyển sang dự án")).toBeTruthy();
-    expect(screen.getByRole("button", { name: 'Xóa khỏi "Marketing"' })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sửa tên" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Xóa trò chuyện" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: 'Xóa khỏi "Marketing"' }));
-
-    expect(onProjectsChange).toHaveBeenCalledWith([expect.objectContaining({ conversations: [] })]);
-    expect(onDeleteConversation).not.toHaveBeenCalled();
-  });
-
-  it("renames a project conversation from its ellipsis menu", () => {
-    const onProjectsChange = vi.fn();
-    const withConversation: AssistantProject = { ...project, conversations: [{ id: "link-1", title: "Kế hoạch", preview: "Kế hoạch", createdAt: project.createdAt, sourceConversationId: "conversation-1", sourceMode: "qa" }] };
     render(<AssistantProjectWorkspace projects={[withConversation]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} />);
 
-    fireEvent.click(screen.getByLabelText("Tùy chọn cuộc trò chuyện Kế hoạch"));
-    fireEvent.click(screen.getByRole("button", { name: "Sửa tên" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Tên cuộc trò chuyện" }), { target: { value: "Kế hoạch mới" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bỏ Kế hoạch khỏi dự án" }));
 
-    expect(onProjectsChange).toHaveBeenCalledWith([expect.objectContaining({ conversations: [expect.objectContaining({ title: "Kế hoạch mới" })] })]);
-  });
-
-  it("moves a project conversation to another project from the submenu", () => {
-    const onProjectsChange = vi.fn();
-    const withConversation: AssistantProject = { ...project, conversations: [{ id: "link-1", title: "Kế hoạch", preview: "Kế hoạch", createdAt: project.createdAt, sourceConversationId: "conversation-1", sourceMode: "qa" }] };
-    const target: AssistantProject = { ...project, id: "project-2", name: "Research" };
-    render(<AssistantProjectWorkspace projects={[withConversation, target]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} />);
-
-    fireEvent.click(screen.getByLabelText("Tùy chọn cuộc trò chuyện Kế hoạch"));
-    fireEvent.click(screen.getByText("Di chuyển sang dự án"));
-    fireEvent.click(screen.getByRole("button", { name: "Research" }));
-
-    expect(onProjectsChange).toHaveBeenCalledWith([
-      expect.objectContaining({ id: project.id, conversations: [] }),
-      expect.objectContaining({ id: target.id, conversations: [expect.objectContaining({ title: "Kế hoạch", sourceConversationId: "conversation-1" })] }),
-    ]);
-  });
-
-  it("requests confirmed conversation deletion from the ellipsis menu", () => {
-    const onProjectsChange = vi.fn();
-    const onDeleteConversation = vi.fn();
-    const conversation = { id: "link-1", title: "Kế hoạch", preview: "Kế hoạch", createdAt: project.createdAt, sourceConversationId: "conversation-1", sourceMode: "qa" as const };
-    const withConversation: AssistantProject = { ...project, conversations: [conversation] };
-    render(<AssistantProjectWorkspace projects={[withConversation]} onProjectsChange={onProjectsChange} onDeleteConversation={onDeleteConversation} selectedId={project.id} onSelect={() => undefined} />);
-
-    fireEvent.click(screen.getByLabelText("Tùy chọn cuộc trò chuyện Kế hoạch"));
-    fireEvent.click(screen.getByRole("button", { name: "Xóa trò chuyện" }));
-
-    expect(onDeleteConversation).toHaveBeenCalledWith(conversation);
-    expect(onProjectsChange).not.toHaveBeenCalled();
+    expect(onProjectsChange).toHaveBeenCalledWith([expect.objectContaining({ conversations: [] })]);
   });
   it("requires a name before creating a project", () => {
     const onProjectsChange = vi.fn();
@@ -99,17 +49,12 @@ describe("AssistantProjectWorkspace", () => {
     render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Thiết lập chỉ dẫn" }));
-    expect(screen.getByText("Mô hình")).toBeTruthy();
-    expect(screen.queryByText("Mô hình mặc định")).toBeNull();
-    const model = screen.getByLabelText("Mô hình iGenAI");
-    expect(model.querySelector("img")?.getAttribute("src")).toBe("/igenai.png");
-    expect(model.querySelector("select")).toBeNull();
+    expect(screen.getByLabelText("Mô hình mặc định")).toHaveProperty("value", "iGenAI");
     fireEvent.change(screen.getByLabelText("Chỉ dẫn cho dự án"), { target: { value: "Trả lời ngắn gọn" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
     expect(onProjectsChange).toHaveBeenCalledWith([expect.objectContaining({ instructions: "Trả lời ngắn gọn" })]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tệp đính kèm" }));
-    fireEvent.click(screen.getByRole("button", { name: "Thêm tệp" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thêm tệp vào dự án" }));
     expect(screen.getByText("Chọn tệp từ máy tính")).toBeTruthy();
     expect(screen.queryByText(/Google Drive/i)).toBeNull();
   });

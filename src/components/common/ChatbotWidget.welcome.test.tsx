@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistantQuickPromptSuggestions, ChatbotWidget } from "./ChatbotWidget";
 import { assistantService } from "../../services/assistantService";
-import type { AssistantProject } from "./assistant-project-data";
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ userProfile: { displayName: "An", companyCode: "MAIN", uid: "test" } }),
@@ -16,16 +15,15 @@ vi.mock("../../services/assistantService", () => ({ assistantService: {
   settings: () => new Promise(() => undefined),
   state: vi.fn(() => new Promise(() => undefined)),
   turn: vi.fn(),
-  conversations: vi.fn(() => Promise.resolve({ items: [], nextCursor: null })),
-  deleteConversation: vi.fn(() => Promise.resolve({ deleted: true })),
+  conversations: () => Promise.resolve({ items: [], nextCursor: null }),
   promptTemplates: () => Promise.resolve({
     templates: [
       {
-        id: "igen-marketing-competitor-analysis",
-        title: "Phân tích 3 đối thủ cạnh tranh",
-        description: "So sánh sản phẩm, điểm mạnh, giá và hoạt động marketing gần đây.",
+        id: "igen-marketing-plan",
+        title: "Lập kế hoạch nội dung mạng xã hội",
+        description: "Tạo lịch nội dung theo mục tiêu, nhóm khách hàng và kênh truyền thông.",
         category: "Marketing",
-        prompt: "Bạn là chuyên gia phân tích thị trường. Hãy lập báo cáo so sánh ba đối thủ cạnh tranh chính của [sản phẩm/công ty].",
+        prompt: "Bạn là chuyên gia marketing. Hãy lập kế hoạch nội dung mạng xã hội trong [thời gian] cho [sản phẩm/dịch vụ], hướng đến [nhóm khách hàng]. Mục tiêu là [mục tiêu]. Trình bày thành bảng gồm ngày đăng, chủ đề, thông điệp, định dạng và lời kêu gọi hành động. Giữ giọng điệu [phong cách] và không tự thêm thông tin chưa được cung cấp.",
         owner: "igen",
       },
     ],
@@ -50,38 +48,9 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.mocked(assistantService.state).mockImplementation(() => new Promise(() => undefined));
   vi.mocked(assistantService.turn).mockReset();
-  vi.mocked(assistantService.conversations).mockReset().mockResolvedValue({ items: [], nextCursor: null });
-  vi.mocked(assistantService.deleteConversation).mockReset().mockResolvedValue({ deleted: true });
 });
 
 describe("ChatbotWidget welcome", () => {
-  it("keeps the history list visible while refreshing after deleting a session", async () => {
-    const removed = { conversationId: "history-delete-target", mode: "qa" as const, title: "Phiên cần xóa", preview: "Nội dung cũ", messageCount: 2, updatedAt: "2026-11-16T08:00:00.000Z" };
-    const remaining = { conversationId: "history-remaining", mode: "qa" as const, title: "Phiên còn lại", preview: "Nội dung khác", messageCount: 3, updatedAt: "2026-11-16T07:00:00.000Z" };
-    let finishReload!: (page: { items: typeof remaining[]; nextCursor: null }) => void;
-    vi.mocked(assistantService.conversations)
-      .mockResolvedValueOnce({ items: [removed, remaining], nextCursor: null })
-      .mockImplementationOnce(() => new Promise(resolve => { finishReload = resolve; }));
-    vi.mocked(assistantService.deleteConversation).mockResolvedValue({ deleted: true });
-    localStorage.setItem("igen_erp_chatbot_mode:history-delete-test:company", "qa");
-
-    render(<ChatbotWidget storageScope="history-delete-test" mode="standalone" />);
-    fireEvent.click(screen.getByRole("button", { name: "Lịch sử trò chuyện" }));
-    await screen.findByText("Phiên cần xóa");
-
-    fireEvent.click(screen.getByRole("button", { name: "Tùy chọn cuộc trò chuyện Phiên cần xóa" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Xóa$/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Xóa phiên" }));
-
-    await waitFor(() => expect(assistantService.deleteConversation).toHaveBeenCalledWith("history-delete-target", ""));
-    await waitFor(() => expect(assistantService.conversations).toHaveBeenCalledTimes(2));
-    expect(screen.getByText("Phiên còn lại")).toBeTruthy();
-    expect(screen.queryByText("Phiên cần xóa")).toBeNull();
-
-    finishReload({ items: [remaining], nextCursor: null });
-    await waitFor(() => expect(screen.getByText("Phiên còn lại")).toBeTruthy());
-  }, 15000);
-
   it("keeps the Trợ lý AI tab locked in desktop and mobile navigation", () => {
     const { container } = render(<ChatbotWidget storageScope="agents-navigation-test" mode="standalone" />);
     const sidebar = container.querySelector(".assistant-sidebar")!;
@@ -96,97 +65,19 @@ describe("ChatbotWidget welcome", () => {
     expect(screen.queryByRole("button", { name: "Tạo Trợ lý AI" })).toBeNull();
   });
 
-  it("opens Dự án from desktop and mobile navigation", async () => {
-    localStorage.setItem("igen_erp_chatbot_mode:projects-navigation-test:company", "work");
+  it("keeps the Dự án tab locked in desktop and mobile navigation", () => {
     const { container } = render(<ChatbotWidget storageScope="projects-navigation-test" mode="standalone" />);
     const desktopProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
     const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>('.assistant-mobile-mode-nav button')).find(button => button.textContent?.includes("Dự án"))!;
 
-    expect(desktopProjects.disabled).toBe(false);
+    expect(desktopProjects.disabled).toBe(true);
     fireEvent.click(desktopProjects);
-    expect(await screen.findByRole("heading", { name: "Dự án" })).toBeTruthy();
-    expect(desktopProjects.getAttribute("aria-current")).toBe("page");
-    expect(mobileProjects.disabled).toBe(false);
+    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
+    expect(desktopProjects.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector('.assistant-sidebar button[aria-label="Mở danh sách dự án"]')).toBeNull();
+    expect(mobileProjects.disabled).toBe(true);
     fireEvent.click(mobileProjects);
-    expect(mobileProjects.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("heading", { name: "Dự án" })).toBeTruthy();
-  });
-
-  it("keeps project conversations under Dự án in the sidebar and returns to that project", async () => {
-    const storageScope = "project-sidebar-context-test:company";
-    const conversationId = "00000000-0000-4000-8000-000000000001";
-    const project: AssistantProject = {
-      id: "project-sidebar-context",
-      name: "Test project",
-      icon: "rocket",
-      tone: "primary",
-      favorite: false,
-      instructions: "",
-      model: "iGenAI",
-      conversations: [{
-        id: "project-conversation-link",
-        title: "GOAT",
-        preview: "Trao đổi trong dự án",
-        createdAt: "2026-11-16T00:00:00.000Z",
-        updatedAt: "2026-11-16T00:00:00.000Z",
-        sourceConversationId: conversationId,
-        sourceMode: "qa",
-      }],
-      files: [],
-      createdAt: "2026-11-16T00:00:00.000Z",
-    };
-    localStorage.setItem(`igen_erp_chatbot_history:${storageScope}:qa:conversation`, conversationId);
-    localStorage.setItem(`igen_ai_assistant_projects:${storageScope}`, JSON.stringify([project]));
-
-    const { container } = render(<ChatbotWidget storageScope="project-sidebar-context-test" mode="standalone" />);
-    const sidebarChat = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Trò chuyện"]')!;
-    const sidebarProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
-    const mobileChat = container.querySelector<HTMLButtonElement>(".assistant-mobile-mode-nav button")!;
-    const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>(".assistant-mobile-mode-nav button")).find(button => button.textContent?.includes("Dự án"))!;
-
-    await waitFor(() => expect(sidebarProjects.getAttribute("aria-current")).toBe("page"));
-    expect(sidebarProjects.className).toContain("is-active");
-    expect(sidebarChat.getAttribute("aria-current")).toBeNull();
-    expect(sidebarChat.className).not.toContain("is-active");
-    expect(mobileProjects.getAttribute("aria-pressed")).toBe("true");
-    expect(mobileChat.getAttribute("aria-pressed")).toBe("false");
-
-    fireEvent.click(sidebarProjects);
-    expect(await screen.findByRole("heading", { name: "Test project" })).toBeTruthy();
-    expect(screen.getAllByText("GOAT").length).toBeGreaterThan(0);
-  });
-
-  it("opens a favorite AI Studio tool from its sidebar shortcut", async () => {
-    const favoriteKey = "igen_erp_ai_studio_tool_favorites:browser";
-    localStorage.setItem(favoriteKey, JSON.stringify(["create-image"]));
-
-    try {
-      render(<ChatbotWidget storageScope="studio-favorite-sidebar-test" mode="standalone" />);
-      fireEvent.click(screen.getByRole("button", { name: "Mở công cụ yêu thích: Tạo hình ảnh" }));
-      expect(await screen.findByRole("form", { name: "Thiết lập tạo hình ảnh" })).toBeTruthy();
-    } finally {
-      localStorage.removeItem(favoriteKey);
-    }
-  });
-
-  it("adds a favorite tool to the sidebar without opening its feature", async () => {
-    const favoriteKey = "igen_erp_ai_studio_tool_favorites:browser";
-    localStorage.removeItem(favoriteKey);
-
-    try {
-      const { container } = render(<ChatbotWidget storageScope="studio-favorite-toggle-test" mode="standalone" />);
-      fireEvent.click(container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="AI Studio"]')!);
-      const imageTool = await screen.findByRole("button", { name: /Tạo hình ảnh/ });
-      const imageCard = imageTool.closest(".assistant-studio-card")!;
-
-      fireEvent.click(imageCard.querySelector<HTMLButtonElement>('button[aria-label="Thêm vào yêu thích"]')!);
-
-      expect(screen.getByRole("heading", { name: "Chào mừng đến với iGen AI Studio" })).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Mở công cụ yêu thích: Tạo hình ảnh" })).toBeTruthy();
-      expect(JSON.parse(localStorage.getItem(favoriteKey) || "[]")).toContain("create-image");
-    } finally {
-      localStorage.removeItem(favoriteKey);
-    }
+    expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
   });
 
   it("mounts AI Studio on demand and preserves it when switching views", () => {
@@ -440,10 +331,10 @@ describe("ChatbotWidget welcome", () => {
     const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Mở thư viện câu lệnh mẫu" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Dùng mẫu: Phân tích 3 đối thủ cạnh tranh" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Dùng mẫu: Lập kế hoạch nội dung mạng xã hội" }));
 
     const input = container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!;
-    expect(input.value).toContain("Bạn là chuyên gia phân tích thị trường.");
+    expect(input.value).toContain("Bạn là chuyên gia marketing.");
 
     // Verify placeholder chips are displayed
     const placeholderRegion = container.querySelector('[aria-label="Các vị trí cần điền"]');
@@ -458,14 +349,15 @@ describe("ChatbotWidget welcome", () => {
     expect(input.selectionEnd).toBe(input.value.indexOf("[thời gian]") + "[thời gian]".length);
   }, 15000);
 
-  it("opens meeting notes and its own history from the sidebar", () => {
+  it("opens meeting notes history in the shared history view", () => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
     const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
     const sidebar = container.querySelector(".assistant-sidebar")!;
-    const meetingButton = sidebar.querySelector<HTMLButtonElement>('button[aria-label="Ghi chép cuộc họp"]')!;
-    fireEvent.click(meetingButton);
-    expect(meetingButton.getAttribute("aria-current")).toBe("page");
-    fireEvent.click(container.querySelector('section[aria-label="Ghi chép cuộc họp"] button')!);
-    expect(screen.getByRole("heading", { name: "Lịch sử ghi chép" })).toBeTruthy();
+    fireEvent.click(sidebar.querySelector<HTMLButtonElement>('button[aria-label="Ghi chép cuộc họp"]')!);
+    expect(container.querySelector('section[aria-label="Ghi chép cuộc họp"] button[aria-label="Lịch sử"]')).toBeNull();
+    fireEvent.click(sidebar.querySelector<HTMLButtonElement>('button[aria-label="Lịch sử trò chuyện"]')!);
+    const meetingTab = Array.from(container.querySelectorAll('div[aria-label="Loại lịch sử"] button')).find(button => button.textContent === "Ghi chép");
+    expect(meetingTab?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).toContain("Lịch sử Ghi chép sẽ xuất hiện khi tính năng này được kết nối.");
   });
 });

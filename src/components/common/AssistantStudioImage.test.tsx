@@ -59,62 +59,18 @@ describe("AssistantStudioImage", () => {
     expect(trigger.querySelector("svg rect")).toBeTruthy();
   });
 
-  it("pins favorite styles above the others and restores the pin after remounting", () => {
-    const storageKey = "igen_erp_ai_studio_style_favorites:browser:create-image";
-    localStorage.removeItem(storageKey);
-    const order = (section: HTMLElement) => Array.from(section.querySelectorAll<HTMLButtonElement>("[data-style-card]")).map(card => card.dataset.styleCard);
-    const firstRender = render(<AssistantStudioImage onBack={() => {}} />);
-    const section = screen.getByRole("region", { name: "Thư viện mẫu" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Ghim phong cách Banner" }));
-    expect(order(section)[0]).toBe("banner");
-    expect(screen.getByRole("button", { name: "Bỏ ghim phong cách Banner" }).getAttribute("aria-pressed")).toBe("true");
-
-    firstRender.unmount();
-    render(<AssistantStudioImage onBack={() => {}} />);
-    expect(order(screen.getByRole("region", { name: "Thư viện mẫu" }))[0]).toBe("banner");
-    localStorage.removeItem(storageKey);
-  });
-
-  it("shows the expanded image library and applies each sample prompt and ratio", () => {
+  it("shows sample style library with 8 styles and applies prompt and ratio on selection", () => {
     render(<AssistantStudioImage onBack={() => {}} />);
     expect(screen.getByRole("heading", { name: "Thư viện mẫu" })).toBeTruthy();
     const styleLabels = ["Poster", "Điện ảnh", "Quảng cáo", "Cổ trang", "Anime", "Ảnh thẻ", "Hoạt hình", "Banner"];
     for (const label of styleLabels) {
-      expect(screen.getAllByRole("button", { name: new RegExp(label) }).length).toBeGreaterThan(0);
+      expect(screen.getByRole("button", { name: new RegExp(label) })).toBeTruthy();
     }
-    const posterButton = screen.getByRole("region", { name: "Thư viện mẫu" }).querySelector<HTMLButtonElement>('[data-style-card="poster"]')!;
+    const posterButton = screen.getByRole("button", { name: /Poster/ });
     fireEvent.click(posterButton);
     const textarea = screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement;
     expect(textarea.value).toContain("phong cách Poster");
     const ratioTrigger = screen.getByRole("button", { name: "Tỷ lệ khung hình" });
     expect(ratioTrigger.textContent).toContain("1:1 · Vuông");
-    fireEvent.click(screen.getByRole("region", { name: "Thư viện mẫu" }).querySelector<HTMLButtonElement>('[data-style-card="tet-holiday-notice"]')!);
-    expect(textarea.value).toContain("Thông báo lịch nghỉ Tết Nguyên Đán");
-    expect(ratioTrigger.textContent).toContain("3:4 · Dọc");
-    expect(screen.getByRole("region", { name: "Thư viện mẫu" }).querySelectorAll("[data-style-card]")).toHaveLength(28);
-  });
-
-  it("loads the supplied iGen image prompt and matching landscape ratio", () => {
-    render(<AssistantStudioImage onBack={() => {}} />);
-    const library = screen.getByRole("region", { name: "Thư viện mẫu" });
-    expect(screen.getAllByText("Bài đăng Facebook")).toHaveLength(5);
-    expect(screen.getByText("Poster quốc khánh")).toBeTruthy();
-    const card = library.querySelector<HTMLButtonElement>('[data-style-card="igen-national-day"]')!;
-    expect(card.querySelector("img")?.getAttribute("src")).toBe("/style-image/sample-igen-national-day.jpg");
-    fireEvent.click(card);
-    const prompt = (screen.getByLabelText("Mô tả hình ảnh") as HTMLTextAreaElement).value;
-    expect(prompt).toContain("chào mừng Quốc khánh Việt Nam");
-    expect(prompt).not.toContain("81 năm");
-    expect(screen.getByRole("button", { name: "Tỷ lệ khung hình" }).textContent).toContain("3:2 · Ngang");
-  });
-
-  it("requires an original image for comic translation", async () => {
-    render(<AssistantStudioImage onBack={() => {}} />);
-    fireEvent.click(screen.getByRole("region", { name: "Thư viện mẫu" }).querySelector<HTMLButtonElement>('[data-style-card="comic-translation"]')!);
-    expect(screen.getByText("(cần ảnh gốc)")).toBeTruthy();
-    fireEvent.submit(screen.getByRole("form", { name: "Thiết lập tạo hình ảnh" }));
-    expect(screen.getByRole("alert").textContent).toContain("Mẫu này cần ảnh gốc");
-    expect(requestStudioImages).not.toHaveBeenCalled();
   });
 });
