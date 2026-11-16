@@ -252,12 +252,16 @@ export const productCatalogService = {
     return result.data;
   },
 
-  async bulkCreateWithVariants(input: ProductInput & { variants: VariantInput[] }) {
+  async bulkCreateWithVariants(input: ProductInput & { variants: VariantInput[] },
+    priceContext?: { branchId: string; prices: Array<{ sellingPrice: number; costPrice: number }> }) {
     const payload = {
       ...input,
       variants: (input.variants || []).map(stripCatalogVariantPricing),
+      ...(priceContext ? { variantPrices: priceContext.prices } : {}),
     };
-    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products/bulk-create-with-variants`, { method: "POST", body: JSON.stringify(payload) });
+    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products/bulk-create-with-variants`, {
+      method: "POST", params: { branchId: priceContext?.branchId }, body: JSON.stringify(payload),
+    });
     return result.data;
   },
 

@@ -29,12 +29,15 @@ import { applyOrderStockOut } from "../retail/services/retail-stock.service";
 import { CompanyModel } from "../../model/company.model";
 import { ProductCatalogService } from "./product-catalog/product-catalog.service";
 import { readCatalogWorkspace, updateCatalogWorkspace } from "./product-catalog/catalog-workspace.service";
+import { ProductCatalogCategoryModel, UnitOfMeasureModel } from "../../model/product-catalog-resource.model";
+import { ProductPriceModel } from "../../model/product-price.model";
+import { DomainEventModel } from "../../integrations/shared/domain-event.model";
 
 const id = () => new mongoose.Types.ObjectId().toString();
 const companyCode = "AUDIT";
 const branchId = id(), warehouseId = id(), otherWarehouseId = id(), productId = id(), variantId = id(), secondVariantId = id();
 const scope = { companyCode, branchId };
-const models = [CompanyModel, BranchModel, WarehouseModel, ProductCatalogModel, ProductVariantModel, InventoryBalanceModel, InventoryLedgerEntryModel, StockLogModel, SerialUnitModel, SerialEventModel, GoodsReceiptModel, ProductModel, InventoryCountModel, ReceiptCounterModel, SupplierModel];
+const models = [CompanyModel, BranchModel, WarehouseModel, ProductCatalogModel, ProductVariantModel, InventoryBalanceModel, InventoryLedgerEntryModel, StockLogModel, SerialUnitModel, SerialEventModel, GoodsReceiptModel, ProductModel, InventoryCountModel, ReceiptCounterModel, SupplierModel, ProductCatalogCategoryModel, UnitOfMeasureModel, ProductPriceModel, DomainEventModel];
 let replica: MongoMemoryReplSet;
 const line = (more: any = {}) => ({ productId, variantId, sku: "SKU-A", productName: "Phone", quantity: 1, unitPrice: 200, unitCost: 0, ...more });
 const ticket = (more: any = {}) => ({ type: "xuất", purpose: "bán", status: "Hoàn thành", operatorName: "Tester", title: "Outbound", warehouseId, items: [line()], ...more });
@@ -108,6 +111,31 @@ describe("inventory posting invariants", () => {
     expect(await quantity()).toBe(2);
     expect(await InventoryLedgerEntryModel.countDocuments()).toBe(0);
     expect(await ProductCatalogModel.countDocuments({ companyCode })).toBe(1);
+  });
+
+  it("rolls back a product and all its SKUs if price storage fails, then allows a clean retry", async () => {
+    await ProductCatalogCategoryModel.create({ companyCode, code: "PHONE", name: "Phone", normalizedName: "phone", createdBy: "test", updatedBy: "test" });
+    await UnitOfMeasureModel.create({ companyCode, code: "PCS", name: "Pieces", category: "count", createdBy: "test", updatedBy: "test" });
+    const product = { productCode: "MATRIX", name: "Matrix", categoryCode: "PHONE",
+      productType: "physical" as const, status: "active" as const, baseUnitCode: "PCS",
+      variants: [
+        { sku: "MATRIX-1", unitCode: "PCS", trackingMode: "quantity" as const, status: "active" as const },
+        { sku: "MATRIX-2", unitCode: "PCS", trackingMode: "quantity" as const, status: "active" as const },
+      ] };
+    const prices = { branchId, prices: [{ sellingPrice: 0, costPrice: 0 }, { sellingPrice: 200, costPrice: 100 }] };
+    const failure = vi.spyOn(ProductPriceModel, "insertMany").mockRejectedValueOnce(new Error("price storage failed"));
+    await expect(ProductCatalogService.bulkCreateWithVariants(companyCode, product, "test", prices)).rejects.toThrow("price storage failed");
+    failure.mockRestore();
+    expect(await ProductCatalogModel.exists({ companyCode, productCode: product.productCode })).toBeNull();
+    expect(await ProductVariantModel.countDocuments({ companyCode, sku: /^MATRIX-/ })).toBe(0);
+    expect(await ProductPriceModel.countDocuments({ companyCode })).toBe(0);
+    const saved = await ProductCatalogService.bulkCreateWithVariants(companyCode, product, "test", prices);
+    const persisted = await ProductPriceModel.find({ productId: String(saved._id), branchId }).sort({ sku: 1 }).lean();
+    expect(persisted.map(({ sku, sellingPrice, costPrice }) => ({ sku, sellingPrice, costPrice }))).toEqual([
+      { sku: "MATRIX-1", sellingPrice: 0, costPrice: 0 },
+      { sku: "MATRIX-2", sellingPrice: 200, costPrice: 100 },
+    ]);
+    expect(await DomainEventModel.countDocuments({ companyCode, eventType: "inventory.price.changed" })).toBe(2);
   });
 
   it("POS barcode lookup only matches serial units in its selling warehouse", async () => {
