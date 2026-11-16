@@ -59,7 +59,7 @@ export function normalizeStudioAudio(input: Buffer, fileName = ""): Promise<Buff
     });
     child.on("error", (error: NodeJS.ErrnoException) => finish(new AssistantError(
       error.code === "ENOENT"
-        ? "Máy chủ chưa cài ffmpeg để chuyển đổi tệp âm thanh này. Hãy dùng MP3 dưới 20 MB hoặc cài ffmpeg."
+        ? "Giới hạn tải lên là 50 MB. Máy chủ chưa cài ffmpeg để chuyển đổi tệp này nên hiện chỉ xử lý được MP3 tối đa 20 MB. Hãy dùng MP3 tối đa 20 MB hoặc cài ffmpeg trên máy chủ."
         : "Không thể khởi chạy ffmpeg để xử lý âm thanh.",
       503,
     )));
