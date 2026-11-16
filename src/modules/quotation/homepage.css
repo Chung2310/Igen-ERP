@@ -4425,9 +4425,9 @@
 .quotation-module .quote-heading-icon { display: grid; place-items: center; flex: none; width: 58px; height: 58px; border-radius: 50%; background: #daf1ff; color: #098eed; }
 .quotation-module .quote-workspace-heading-left h1 { margin: 0 0 4px; font-size: 36px; line-height: 1.2; color: #0b1020; }
 .quotation-module .quote-workspace-heading-left p { margin: 0; color: #607191; font-size: 16px; }
-.quotation-module .quote-workspace-header .quote-create-button, .quotation-module .quote-empty-action > .quote-create-button { min-height: 46px; padding: 0 22px; border: 0; border-radius: 999px; background: linear-gradient(110deg,#00b0fc,#078bf2); box-shadow: 0 7px 16px rgba(3,153,238,.16); color: var(--color-on-primary); font-size: 14px; }
-.quotation-module .quote-workspace-header .quote-create-button svg, .quotation-module .quote-empty-action > .quote-create-button svg { color: var(--color-on-primary); }
-.quotation-module .quote-workspace-header .quote-create-button:disabled, .quotation-module .quote-empty-action > .quote-create-button:disabled { opacity: .55; box-shadow: none; }
+.quotation-module .quote-workspace-header .quote-create-button, .quotation-module .quote-workspace-toolbar .quote-create-button, .quotation-module .quote-empty-action > .quote-create-button { min-height: 46px; padding: 0 22px; border: 0; border-radius: 999px; background: linear-gradient(110deg,#00b0fc,#078bf2); box-shadow: 0 7px 16px rgba(3,153,238,.16); color: var(--color-on-primary); font-size: 14px; }
+.quotation-module .quote-workspace-header .quote-create-button svg, .quotation-module .quote-workspace-toolbar .quote-create-button svg, .quotation-module .quote-empty-action > .quote-create-button svg { color: var(--color-on-primary); }
+.quotation-module .quote-workspace-header .quote-create-button:disabled, .quotation-module .quote-workspace-toolbar .quote-create-button:disabled, .quotation-module .quote-empty-action > .quote-create-button:disabled { opacity: .55; box-shadow: none; }
 .quotation-module .quote-heading-icon > svg { color: #078bea; }
 .quotation-module .app-shell:has(.quote-workspace-page) .sidebar .nav-button,
 .quotation-module .app-shell:has(.quote-workspace-page) .sidebar .nav-button > span { color: var(--color-on-surface); }
@@ -4509,7 +4509,7 @@
   .quotation-module .quote-workspace-heading-left { gap: 10px; }
   .quotation-module .quote-workspace-heading-left h1 { font-size: 25px; }
   .quotation-module .quote-workspace-heading-left p { font-size: 12px; }
-  .quotation-module .quote-workspace-header .quote-create-button { min-height: 39px; padding: 0 12px; font-size: 12px; }
+  .quotation-module .quote-workspace-header .quote-create-button, .quotation-module .quote-toolbar-actions .quote-create-button { min-height: 39px; padding: 0 12px; font-size: 12px; }
   .quotation-module .quote-workspace-header .quote-create-button svg { display: none; }
   .quotation-module .quote-workspace-page .quote-quota-card.variant-workspace { min-height: 130px; gap: 13px; padding: 15px; background-image: none; }
   .quotation-module .quote-quota-ring { width: 70px; height: 70px; }

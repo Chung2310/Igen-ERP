@@ -59,6 +59,23 @@ describe("AssistantStudioImage", () => {
     expect(trigger.querySelector("svg rect")).toBeTruthy();
   });
 
+  it("pins favorite styles above the others and restores the pin after remounting", () => {
+    const storageKey = "igen_erp_ai_studio_style_favorites:browser:create-image";
+    localStorage.removeItem(storageKey);
+    const order = (section: HTMLElement) => Array.from(section.querySelectorAll<HTMLButtonElement>("[data-style-card]")).map(card => card.dataset.styleCard);
+    const firstRender = render(<AssistantStudioImage onBack={() => {}} />);
+    const section = screen.getByRole("region", { name: "Thư viện mẫu" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ghim phong cách Banner" }));
+    expect(order(section)[0]).toBe("banner");
+    expect(screen.getByRole("button", { name: "Bỏ ghim phong cách Banner" }).getAttribute("aria-pressed")).toBe("true");
+
+    firstRender.unmount();
+    render(<AssistantStudioImage onBack={() => {}} />);
+    expect(order(screen.getByRole("region", { name: "Thư viện mẫu" }))[0]).toBe("banner");
+    localStorage.removeItem(storageKey);
+  });
+
   it("shows sample style library with 8 styles and applies prompt and ratio on selection", () => {
     render(<AssistantStudioImage onBack={() => {}} />);
     expect(screen.getByRole("heading", { name: "Thư viện mẫu" })).toBeTruthy();

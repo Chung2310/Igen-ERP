@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistantQuickPromptSuggestions, ChatbotWidget } from "./ChatbotWidget";
 import { assistantService } from "../../services/assistantService";
+import type { AssistantProject } from "./assistant-project-data";
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ userProfile: { displayName: "An", companyCode: "MAIN", uid: "test" } }),
@@ -15,7 +16,8 @@ vi.mock("../../services/assistantService", () => ({ assistantService: {
   settings: () => new Promise(() => undefined),
   state: vi.fn(() => new Promise(() => undefined)),
   turn: vi.fn(),
-  conversations: () => Promise.resolve({ items: [], nextCursor: null }),
+  conversations: vi.fn(() => Promise.resolve({ items: [], nextCursor: null })),
+  deleteConversation: vi.fn(() => Promise.resolve({ deleted: true })),
   promptTemplates: () => Promise.resolve({
     templates: [
       {
@@ -48,9 +50,38 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.mocked(assistantService.state).mockImplementation(() => new Promise(() => undefined));
   vi.mocked(assistantService.turn).mockReset();
+  vi.mocked(assistantService.conversations).mockReset().mockResolvedValue({ items: [], nextCursor: null });
+  vi.mocked(assistantService.deleteConversation).mockReset().mockResolvedValue({ deleted: true });
 });
 
 describe("ChatbotWidget welcome", () => {
+  it("keeps the history list visible while refreshing after deleting a session", async () => {
+    const removed = { conversationId: "history-delete-target", mode: "qa" as const, title: "Phiên cần xóa", preview: "Nội dung cũ", messageCount: 2, updatedAt: "2026-11-16T08:00:00.000Z" };
+    const remaining = { conversationId: "history-remaining", mode: "qa" as const, title: "Phiên còn lại", preview: "Nội dung khác", messageCount: 3, updatedAt: "2026-11-16T07:00:00.000Z" };
+    let finishReload!: (page: { items: typeof remaining[]; nextCursor: null }) => void;
+    vi.mocked(assistantService.conversations)
+      .mockResolvedValueOnce({ items: [removed, remaining], nextCursor: null })
+      .mockImplementationOnce(() => new Promise(resolve => { finishReload = resolve; }));
+    vi.mocked(assistantService.deleteConversation).mockResolvedValue({ deleted: true });
+    localStorage.setItem("igen_erp_chatbot_mode:history-delete-test:company", "qa");
+
+    render(<ChatbotWidget storageScope="history-delete-test" mode="standalone" />);
+    fireEvent.click(screen.getByRole("button", { name: "Lịch sử trò chuyện" }));
+    await screen.findByText("Phiên cần xóa");
+
+    fireEvent.click(screen.getByRole("button", { name: "Tùy chọn cuộc trò chuyện Phiên cần xóa" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Xóa$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa phiên" }));
+
+    await waitFor(() => expect(assistantService.deleteConversation).toHaveBeenCalledWith("history-delete-target", ""));
+    await waitFor(() => expect(assistantService.conversations).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Phiên còn lại")).toBeTruthy();
+    expect(screen.queryByText("Phiên cần xóa")).toBeNull();
+
+    finishReload({ items: [remaining], nextCursor: null });
+    await waitFor(() => expect(screen.getByText("Phiên còn lại")).toBeTruthy());
+  }, 15000);
+
   it("keeps the Trợ lý AI tab locked in desktop and mobile navigation", () => {
     const { container } = render(<ChatbotWidget storageScope="agents-navigation-test" mode="standalone" />);
     const sidebar = container.querySelector(".assistant-sidebar")!;
@@ -78,6 +109,83 @@ describe("ChatbotWidget welcome", () => {
     expect(mobileProjects.disabled).toBe(true);
     fireEvent.click(mobileProjects);
     expect(screen.queryByRole("heading", { name: "Dự án" })).toBeNull();
+  });
+
+  it("keeps project conversations under Dự án in the sidebar and returns to that project", async () => {
+    const storageScope = "project-sidebar-context-test:company";
+    const conversationId = "00000000-0000-4000-8000-000000000001";
+    const project: AssistantProject = {
+      id: "project-sidebar-context",
+      name: "Test project",
+      icon: "rocket",
+      tone: "primary",
+      favorite: false,
+      instructions: "",
+      model: "iGenAI",
+      conversations: [{
+        id: "project-conversation-link",
+        title: "GOAT",
+        preview: "Trao đổi trong dự án",
+        createdAt: "2026-11-16T00:00:00.000Z",
+        updatedAt: "2026-11-16T00:00:00.000Z",
+        sourceConversationId: conversationId,
+        sourceMode: "qa",
+      }],
+      files: [],
+      createdAt: "2026-11-16T00:00:00.000Z",
+    };
+    localStorage.setItem(`igen_erp_chatbot_history:${storageScope}:qa:conversation`, conversationId);
+    localStorage.setItem(`igen_ai_assistant_projects:${storageScope}`, JSON.stringify([project]));
+
+    const { container } = render(<ChatbotWidget storageScope="project-sidebar-context-test" mode="standalone" />);
+    const sidebarChat = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Trò chuyện"]')!;
+    const sidebarProjects = container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="Dự án"]')!;
+    const mobileChat = container.querySelector<HTMLButtonElement>(".assistant-mobile-mode-nav button")!;
+    const mobileProjects = Array.from(container.querySelectorAll<HTMLButtonElement>(".assistant-mobile-mode-nav button")).find(button => button.textContent?.includes("Dự án"))!;
+
+    await waitFor(() => expect(sidebarProjects.getAttribute("aria-current")).toBe("page"));
+    expect(sidebarProjects.className).toContain("is-active");
+    expect(sidebarChat.getAttribute("aria-current")).toBeNull();
+    expect(sidebarChat.className).not.toContain("is-active");
+    expect(mobileProjects.getAttribute("aria-pressed")).toBe("true");
+    expect(mobileChat.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(sidebarProjects);
+    expect(await screen.findByRole("heading", { name: "Test project" })).toBeTruthy();
+    expect(screen.getAllByText("GOAT").length).toBeGreaterThan(0);
+  });
+
+  it("opens a favorite AI Studio tool from its sidebar shortcut", async () => {
+    const favoriteKey = "igen_erp_ai_studio_tool_favorites:browser";
+    localStorage.setItem(favoriteKey, JSON.stringify(["create-image"]));
+
+    try {
+      render(<ChatbotWidget storageScope="studio-favorite-sidebar-test" mode="standalone" />);
+      fireEvent.click(screen.getByRole("button", { name: "Mở công cụ yêu thích: Tạo hình ảnh" }));
+      expect(await screen.findByRole("form", { name: "Thiết lập tạo hình ảnh" })).toBeTruthy();
+    } finally {
+      localStorage.removeItem(favoriteKey);
+    }
+  });
+
+  it("adds a favorite tool to the sidebar without opening its feature", async () => {
+    const favoriteKey = "igen_erp_ai_studio_tool_favorites:browser";
+    localStorage.removeItem(favoriteKey);
+
+    try {
+      const { container } = render(<ChatbotWidget storageScope="studio-favorite-toggle-test" mode="standalone" />);
+      fireEvent.click(container.querySelector<HTMLButtonElement>('.assistant-sidebar button[aria-label="AI Studio"]')!);
+      const imageTool = await screen.findByRole("button", { name: /Tạo hình ảnh/ });
+      const imageCard = imageTool.closest(".assistant-studio-card")!;
+
+      fireEvent.click(imageCard.querySelector<HTMLButtonElement>('button[aria-label="Thêm vào yêu thích"]')!);
+
+      expect(screen.getByRole("heading", { name: "Chào mừng đến với iGen AI Studio" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Mở công cụ yêu thích: Tạo hình ảnh" })).toBeTruthy();
+      expect(JSON.parse(localStorage.getItem(favoriteKey) || "[]")).toContain("create-image");
+    } finally {
+      localStorage.removeItem(favoriteKey);
+    }
   });
 
   it("mounts AI Studio on demand and preserves it when switching views", () => {

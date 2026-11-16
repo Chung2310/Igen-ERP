@@ -18,17 +18,17 @@ vi.mock("../../services/assistantSpeechHistory", () => ({
   getAssistantSpeechHistoryUserId: () => "test-user",
   listAssistantSpeechHistory: async () => [],
 }));
-vi.mock("./AssistantMoveToProjectMenu", () => ({ AssistantMoveToProjectMenu: () => null }));
-
 const baseProps = {
   branchId: "branch-1",
   onOpenConversation: vi.fn(),
   onOpenStudio: vi.fn(),
   onOpenHistory: vi.fn(),
   projects: [],
-  assignedConversationIds: new Set<string>(),
   onMoveConversation: vi.fn(),
   onOpenProjects: vi.fn(),
+  onToggleFavorite: vi.fn(),
+  onRenameConversation: vi.fn(),
+  onDeleteConversation: vi.fn(),
 };
 
 beforeEach(() => {
@@ -44,11 +44,23 @@ afterEach(cleanup);
 it("opens recent history without a search field", async () => {
   render(<AssistantQuickHistoryDropdown {...baseProps} />);
 
-  expect(screen.getByRole("button", { name: "Xem nhanh lịch sử" }).getAttribute("aria-expanded")).toBe("true");
+  const historyToggle = screen.getByRole("button", { name: "Xem nhanh lịch sử" });
+  expect(historyToggle.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(historyToggle);
+  expect(historyToggle.getAttribute("aria-expanded")).toBe("true");
   const historyRegion = screen.getByRole("region", { name: "Lịch sử gần nhất" });
   expect(historyRegion).not.toBeNull();
   expect(screen.queryByRole("searchbox")).toBeNull();
   expect(await screen.findByRole("button", { name: "Tra cứu gần đây" })).not.toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Tùy chọn cuộc trò chuyện Tra cứu gần đây" }));
+  expect(screen.getByRole("button", { name: "Yêu thích" })).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Sửa tên" })).not.toBeNull();
+  expect(screen.getByText("Di chuyển sang dự án")).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Xóa" })).not.toBeNull();
+  expect(screen.queryByText("Chia sẻ")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Yêu thích" }));
+  expect(baseProps.onToggleFavorite).toHaveBeenCalledWith(expect.objectContaining({ conversationId: "recent-1" }), true);
 
   fireEvent.click(screen.getByRole("button", { name: "Mở toàn bộ lịch sử" }));
   expect(baseProps.onOpenHistory).toHaveBeenCalledOnce();

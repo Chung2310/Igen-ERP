@@ -276,25 +276,17 @@
   color: var(--color-primary);
 }
 
-.assistant-side-item:not(:disabled):is(.is-active, :hover, :focus-visible) .assistant-side-icon svg {
-  stroke: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.assistant-side-item:not(:disabled):is(.is-active, :hover, :focus-visible) > span:not(.assistant-side-icon):not(.assistant-studio-nav-label) {
-  background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-.assistant-studio-nav-label {
+.assistant-side-item.is-active:not(:disabled) .assistant-side-label {
   background: linear-gradient(90deg, var(--color-primary), var(--color-purple-400));
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+.assistant-mobile-mode-nav button[aria-pressed="true"],
+.assistant-mobile-mode-nav button[aria-expanded="true"] {
+  color: var(--color-primary);
 }
 
 .assistant-message-author {

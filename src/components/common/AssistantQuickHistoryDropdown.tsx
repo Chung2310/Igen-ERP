@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, LoaderCircle } from "lucide-react";
+import { ChevronDown, LoaderCircle, Star } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService, type AssistantConversationSummary } from "../../services/assistantService";
 import {
@@ -9,7 +9,7 @@ import {
 } from "../../services/assistantStudioHistory";
 import { getAssistantSpeechHistoryUserId, listAssistantSpeechHistory } from "../../services/assistantSpeechHistory";
 import type { AssistantProject } from "./assistant-project-data";
-import { AssistantMoveToProjectMenu } from "./AssistantMoveToProjectMenu";
+import { AssistantConversationActionsMenu } from "./AssistantConversationActionsMenu";
 
 const focusClass =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -27,9 +27,13 @@ export interface AssistantQuickHistoryDropdownProps {
   onOpenHistory: () => void;
   projects: AssistantProject[];
   projectsLocked?: boolean;
-  assignedConversationIds: ReadonlySet<string>;
+  historyReload?: number;
+  conversationPreferences?: Readonly<Record<string, { favorite?: boolean; title?: string }>>;
   onMoveConversation: (conversation: AssistantConversationSummary, projectId: string) => void;
   onOpenProjects: () => void;
+  onToggleFavorite?: (conversation: AssistantConversationSummary, favorite: boolean) => void;
+  onRenameConversation?: (conversation: AssistantConversationSummary, title: string) => void;
+  onDeleteConversation?: (conversation: AssistantConversationSummary) => void;
 }
 
 export function AssistantQuickHistoryDropdown({
@@ -39,9 +43,13 @@ export function AssistantQuickHistoryDropdown({
   onOpenHistory,
   projects,
   projectsLocked,
-  assignedConversationIds,
+  historyReload = 0,
+  conversationPreferences = {},
   onMoveConversation,
   onOpenProjects,
+  onToggleFavorite,
+  onRenameConversation,
+  onDeleteConversation,
 }: AssistantQuickHistoryDropdownProps) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<UnifiedItem[]>([]);
@@ -50,6 +58,7 @@ export function AssistantQuickHistoryDropdown({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const loadedRef = useRef(false);
+  const historyReloadRef = useRef(historyReload);
 
   const load = useCallback(async () => {
     if (loadedRef.current) return;
@@ -97,6 +106,13 @@ export function AssistantQuickHistoryDropdown({
     if (open) void load();
   }, [load, open]);
 
+  useEffect(() => {
+    if (historyReloadRef.current === historyReload) return;
+    historyReloadRef.current = historyReload;
+    loadedRef.current = false;
+    if (open) void load();
+  }, [historyReload, load, open]);
+
   function toggle() {
     setOpen(value => !value);
   }
@@ -107,7 +123,7 @@ export function AssistantQuickHistoryDropdown({
       const target = e.target as Node;
       const inDropdown = containerRef.current?.contains(target);
       const inTrigger = triggerRef.current?.contains(target);
-      if (!inDropdown && !inTrigger && !(target instanceof Element && target.closest("[data-assistant-project-menu]"))) setOpen(false);
+      if (!inDropdown && !inTrigger && !(target instanceof Element && target.closest("[data-assistant-project-menu], [data-assistant-conversation-menu]"))) setOpen(false);
     }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -124,12 +140,12 @@ export function AssistantQuickHistoryDropdown({
 
   function handleSelect(item: UnifiedItem) {
     setOpen(false);
-    if (item.type === "conversation") onOpenConversation(item.data);
+    if (item.type === "conversation") onOpenConversation({ ...item.data, title: conversationPreferences[item.data.conversationId]?.title || item.data.title });
     else onOpenStudio(item.data);
   }
 
   function getTitle(item: UnifiedItem): string {
-    if (item.type === "conversation") return item.data.title || "Chưa có tiêu đề";
+    if (item.type === "conversation") return conversationPreferences[item.data.conversationId]?.title || item.data.title || "Chưa có tiêu đề";
     return item.data.title || item.data.label;
   }
 
@@ -195,9 +211,19 @@ export function AssistantQuickHistoryDropdown({
                           focusClass
                         )}
                       >
-                        {getTitle(item)}
+                        {item.type === "conversation" ? <span className="flex min-w-0 items-center gap-1.5"><span className="min-w-0 truncate">{getTitle(item)}</span>{conversationPreferences[item.data.conversationId]?.favorite && <Star className="size-3.5 shrink-0 fill-tertiary text-tertiary" aria-hidden="true" />}</span> : getTitle(item)}
                       </button>
-                      {item.type === "conversation" && item.data.mode === "qa" && !projectsLocked && !assignedConversationIds.has(item.data.conversationId) && <AssistantMoveToProjectMenu conversation={item.data} projects={projects} onMove={onMoveConversation} onOpenProjects={() => { setOpen(false); onOpenProjects(); }} />}
+                      {item.type === "conversation" && <AssistantConversationActionsMenu
+                        conversation={{ ...item.data, title: conversationPreferences[item.data.conversationId]?.title || item.data.title }}
+                        projects={projects}
+                        projectsLocked={projectsLocked}
+                        isFavorite={Boolean(conversationPreferences[item.data.conversationId]?.favorite)}
+                        onMove={onMoveConversation}
+                        onOpenProjects={() => { setOpen(false); onOpenProjects(); }}
+                        onToggleFavorite={onToggleFavorite}
+                        onRename={onRenameConversation}
+                        onDelete={onDeleteConversation}
+                      />}
                     </li>
                   );
                 })}

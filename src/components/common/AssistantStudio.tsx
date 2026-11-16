@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowUpRight, AudioLines, FileAudio, FileText, Image, Mic, Network, Presentation, Search, Video, WandSparkles, Youtube } from "lucide-react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { ArrowUpRight, AudioLines, FileAudio, FileText, Image, Mic, Network, Presentation, Search, Star, Video, WandSparkles, Youtube } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import "./AssistantStudio.css";
 import "./AssistantRainbowBorder.css";
@@ -44,9 +44,11 @@ const tools: StudioTool[] = [
   { id: "mindmap", title: "Tạo Mindmap", description: "Sắp xếp ý tưởng thành sơ đồ tư duy trực quan", category: "Nội dung", icon: Network, artworkImage: "/ai-studio-mindmap.webp", promptLabel: "Chủ đề và nội dung mindmap", promptPlaceholder: "Nhập chủ đề hoặc nội dung bạn muốn tạo thành sơ đồ tư duy…" },
 ];
 
-const categories = ["Tất cả", "Hình ảnh", "Video", "Âm thanh", "Nội dung"] as const;
+const categories = ["Tất cả", "Yêu thích", "Hình ảnh", "Video", "Âm thanh", "Nội dung"] as const;
 const sectionOrder: StudioCategory[] = ["Hình ảnh", "Video", "Âm thanh", "Nội dung"];
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
+export const assistantStudioFavoriteTools = tools.filter(tool => !tool.comingSoon).map(({ id, title, icon }) => ({ id, title, icon }));
 
 function ComingSoonBadge() {
   return <span className="assistant-studio-coming-soon-badge inline-flex shrink-0 rounded-full px-2 py-1 text-xs font-semibold leading-none text-white">Sắp ra mắt</span>;
@@ -58,7 +60,7 @@ function ToolArtwork({ tool, className }: { tool: StudioTool; className?: string
   </span>;
 }
 
-export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolRequest }: { historyItem?: AssistantStudioHistoryEntry | null; onHistoryItemBack?: () => void; initialToolRequest?: { toolId: string | null; requestId: number } | null }) {
+export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolRequest, favoriteToolIds = [], onToggleToolFavorite = () => {} }: { historyItem?: AssistantStudioHistoryEntry | null; onHistoryItemBack?: () => void; initialToolRequest?: { toolId: string | null; requestId: number } | null; favoriteToolIds?: readonly string[]; onToggleToolFavorite?: (toolId: string) => void }) {
   const [category, setCategory] = useState<(typeof categories)[number]>("Tất cả");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -99,10 +101,13 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
     setFile(null);
     setNotice("");
   }, [initialToolRequest?.requestId]);
+  const favoriteIds = useMemo(() => new Set(favoriteToolIds), [favoriteToolIds]);
   const filtered = useMemo(() => tools.filter(tool =>
-    (category === "Tất cả" || tool.category === category)
+    (category === "Tất cả" || category === "Yêu thích" || tool.category === category)
+    && (category !== "Yêu thích" || favoriteIds.has(tool.id))
     && `${tool.title} ${tool.description}`.toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")),
-  ), [category, query]);
+  ), [category, favoriteIds, query]);
+  const filteredFavorites = category === "Tất cả" ? filtered.filter(tool => favoriteIds.has(tool.id)) : [];
 
   const backToStudioHome = () => { setSelectedId(null); onHistoryItemBack?.(); };
   const openTool = (tool: StudioTool) => { if (tool.comingSoon) return; setSelectedId(tool.id); setDraft(""); setFile(null); setNotice(""); };
@@ -132,13 +137,65 @@ export function AssistantStudio({ historyItem, onHistoryItemBack, initialToolReq
       </> : <>
         <header className="mb-9 text-left"><h1 aria-label="Chào mừng đến với iGen AI Studio" className={cn("mx-0 flex max-w-full flex-wrap items-center gap-2", assistantStudioTitleClass)}><span>Chào mừng đến với</span><span className={assistantStudioTitleAccentClass}>iGen AI Studio</span><AssistantStudioBrandMark className="size-8 shrink-0" /></h1></header>
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center"><label className="relative block min-w-0 sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" /><span className="sr-only">Tìm công cụ AI Studio</span><input value={query} onChange={event => setQuery(event.target.value)} type="search" placeholder="Tìm kiếm công cụ" className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none" /></label><div role="group" aria-label="Lọc công cụ theo loại" className="flex flex-wrap gap-1">{categories.map(item => <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={cn("min-h-9 rounded-lg px-3 text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface", category === item && "bg-primary/10 font-medium text-primary", focusClass)}>{item}</button>)}</div></div>
-        {filtered.length === 0 ? <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center"><p className="text-sm font-medium">Không tìm thấy công cụ phù hợp.</p><button type="button" onClick={() => { setQuery(""); setCategory("Tất cả"); }} className={cn("mt-3 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10", focusClass)}>Xem tất cả công cụ</button></div> : sectionOrder.map(section => {
+        {filtered.length === 0 ? <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center"><p className="text-sm font-medium">{category === "Yêu thích" && !query.trim() ? "Chưa có công cụ yêu thích." : "Không tìm thấy công cụ phù hợp."}</p>{category !== "Tất cả" && <button type="button" onClick={() => { setQuery(""); setCategory("Tất cả"); }} className={cn("mt-3 rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10", focusClass)}>Xem tất cả công cụ</button>}</div> : <>
+        {category === "Yêu thích" && <section aria-labelledby="studio-favorites-heading" className="mb-10">
+          <h2 id="studio-favorites-heading" className="mb-4 text-balance text-lg font-semibold">Yêu thích</h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {filtered.map(tool => <StudioToolCard key={tool.id} tool={tool} isFavorite={favoriteIds.has(tool.id)} onOpen={openTool} onToggleFavorite={onToggleToolFavorite} />)}
+          </div>
+        </section>}
+        {category === "Tất cả" && filteredFavorites.length > 0 && <section aria-labelledby="studio-favorites-heading" className="mb-10">
+          <h2 id="studio-favorites-heading" className="mb-4 text-balance text-lg font-semibold">Yêu thích</h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {filteredFavorites.map(tool => <StudioToolCard key={tool.id} tool={tool} isFavorite onOpen={openTool} onToggleFavorite={onToggleToolFavorite} />)}
+          </div>
+        </section>}
+        {category !== "Yêu thích" && sectionOrder.map(section => {
           const sectionTools = filtered.filter(tool => tool.category === section);
           if (!sectionTools.length) return null;
           const sectionId = `studio-section-${sectionOrder.indexOf(section)}`;
-          return <section key={section} aria-labelledby={sectionId} className="mb-10"><h2 id={sectionId} className="mb-4 text-balance text-lg font-semibold">{section}</h2><div className="grid gap-3 md:grid-cols-2">{sectionTools.map(tool => <button key={tool.id} type="button" disabled={tool.comingSoon} onClick={() => openTool(tool)} className="assistant-studio-card grid min-w-0 grid-cols-5 items-center gap-3 rounded-xl p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60"><ToolArtwork tool={tool} className="col-span-2 w-full aspect-[3/2]" /><span className="col-span-3 min-w-0"><span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-on-surface"><span>{tool.title}</span>{tool.comingSoon && <ComingSoonBadge />}</span><span className="mt-1 block text-pretty text-xs leading-5 text-on-surface-variant">{tool.description}</span><span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">{tool.comingSoon ? "Sắp ra mắt" : <>Khám phá <ArrowUpRight className="size-3.5" aria-hidden="true" /></>}</span></span></button>)}</div></section>;
+          return <section key={section} aria-labelledby={sectionId} className="mb-10">
+            <h2 id={sectionId} className="mb-4 text-balance text-lg font-semibold">{section}</h2>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {sectionTools.map(tool => <StudioToolCard key={tool.id} tool={tool} isFavorite={favoriteIds.has(tool.id)} onOpen={openTool} onToggleFavorite={onToggleToolFavorite} />)}
+            </div>
+          </section>;
         })}
+        </>}
       </>}
     </div>
   </section>;
+}
+
+function StudioToolCard({ tool, isFavorite, onOpen, onToggleFavorite }: { tool: StudioTool; isFavorite: boolean; onOpen: (tool: StudioTool) => void; onToggleFavorite: (toolId: string) => void }) {
+  const titleId = useId();
+  return <article className={cn("assistant-studio-card group relative min-w-0 rounded-xl", tool.comingSoon && "is-disabled")}>
+    <button
+      type="button"
+      disabled={tool.comingSoon}
+      onClick={() => onOpen(tool)}
+      className={cn("flex min-h-full w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl p-2.5 pr-12 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60")}
+    >
+      <ToolArtwork tool={tool} className="size-28 shrink-0 sm:size-32" />
+      <span className="min-w-0 flex-1">
+        <span id={titleId} className="assistant-studio-card-title flex flex-wrap items-center gap-2 text-sm font-semibold text-on-surface">
+          <span>{tool.title}</span>{tool.comingSoon && <ComingSoonBadge />}
+          {isFavorite && <Star className="size-4 fill-tertiary text-tertiary" aria-hidden="true" />}
+        </span>
+        <span className="mt-1 block text-pretty text-xs leading-5 text-on-surface-variant">{tool.description}</span>
+        <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-on-surface-variant">
+          {tool.comingSoon ? "Sắp ra mắt" : <>Khám phá <ArrowUpRight className="size-3.5" aria-hidden="true" /></>}
+        </span>
+      </span>
+    </button>
+    {!tool.comingSoon && <button
+      type="button"
+      aria-label={isFavorite ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
+      aria-describedby={titleId}
+      aria-pressed={isFavorite}
+      title={isFavorite ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
+      onClick={() => onToggleFavorite(tool.id)}
+      className={cn("assistant-studio-card-favorite absolute right-2 top-2 z-10 flex size-9 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant opacity-0 hover:bg-surface-container-high focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface", isFavorite && "is-favorite opacity-100 text-tertiary")}
+    ><Star className={cn("size-4", isFavorite && "fill-tertiary")} aria-hidden="true" /></button>}
+  </article>;
 }

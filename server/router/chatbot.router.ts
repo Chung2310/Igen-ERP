@@ -1,4 +1,5 @@
 import { assistantRouter } from "../assistant/router";
+import { agentRouter } from "./agent.router";
 import { Router, type RequestHandler } from "express";
 import Joi from "joi";
 import { chatbotController } from "../controller/chatbot.controller";
@@ -7,6 +8,7 @@ import { requireAuth, requirePermission } from "../middleware/auth";
 
 export const chatbotRouter = Router();
 chatbotRouter.use("/assistant", assistantRouter);
+chatbotRouter.use("/agents", agentRouter);
 
 const chatSchema = {
   body: Joi.object({

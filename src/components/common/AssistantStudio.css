@@ -1,12 +1,29 @@
 .assistant-studio-card {
   border: 1px solid transparent;
-  background: var(--color-surface-container-lowest);
+  background: transparent;
 }
 
-.assistant-workspace[data-standalone="false"] .assistant-studio-card:is(:hover, :focus-visible) {
-  background:
-    linear-gradient(var(--color-surface-container-lowest), var(--color-surface-container-lowest)) padding-box,
-    linear-gradient(115deg, #00adfc, #7567ff, #ff57b3, #ff9d43, #ffe66d, #4ed9a2) border-box;
+.assistant-studio-card:is(:hover, :focus-within):not(.is-disabled) {
+  background: var(--color-surface-container-low);
+}
+
+.assistant-studio-card:is(:hover, :focus-within):not(.is-disabled) .assistant-studio-card-title {
+  color: var(--color-primary);
+}
+
+.assistant-studio-card:is(:hover, :focus-within) .assistant-studio-card-favorite {
+  opacity: 1;
+}
+
+.assistant-studio-card-favorite.is-favorite {
+  color: var(--color-tertiary);
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .assistant-studio-card-favorite {
+    opacity: 1;
+  }
 }
 
 .assistant-studio-chart-prompt {

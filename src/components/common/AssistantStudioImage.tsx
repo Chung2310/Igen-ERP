@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { ChevronRight, Download, LoaderCircle, Plus, X } from "lucide-react";
+import { ChevronRight, Download, Heart, LoaderCircle, Plus, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { StyledSelect } from "./StyledSelect";
 import { requestStudioImages, studioImageRatios, type StudioImageRequest, type StudioImageResponse } from "./assistantStudioImageApi";
@@ -8,6 +8,7 @@ import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory,
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
+import { prioritizeAssistantStudioStyles, useAssistantStudioStyleFavorites } from "./useAssistantStudioStyleFavorites";
 
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -152,6 +153,7 @@ const aspectRatioOptions = studioImageRatios.map(ratio => ({
 }));
 
 export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
+  const { favoriteIds, toggleFavorite } = useAssistantStudioStyleFavorites("create-image");
   const [aspectRatio, setAspectRatio] = useState<StudioImageRequest["aspectRatio"]>("1:1");
   const [count, setCount] = useState(1);
   const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? "");
@@ -277,42 +279,55 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
               <section aria-label="Thư viện mẫu" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
                 <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>
                 <div className="grid grid-cols-4 gap-2.5">
-                  {studioStyleSamples.map((sample) => {
+                  {prioritizeAssistantStudioStyles(studioStyleSamples, favoriteIds).map((sample) => {
                     const isSelected = prompt === sample.prompt;
+                    const isFavorite = favoriteIds.includes(sample.id);
                     return (
-                      <button
-                        key={sample.id}
-                        type="button"
-                        onClick={() => {
-                          setPrompt(sample.prompt);
-                          setAspectRatio(sample.aspectRatio);
-                          setError("");
-                        }}
-                        disabled={loading}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          "group relative overflow-hidden rounded-xl border border-outline-variant transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                          isSelected && "border-primary ring-2 ring-primary/30"
-                        )}
-                      >
-                        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-container-low">
-                          <img
-                            src={sample.imageUrl}
-                            alt={`Mẫu phong cách ${sample.label}`}
-                            loading="lazy"
-                            width={320}
-                            height={180}
-                            className="size-full object-cover transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none"
-                          />
-                          <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                          <span className={cn(
-                            "absolute bottom-1.5 left-2 right-2 truncate text-left text-xs font-semibold text-white drop-shadow-sm",
-                            isSelected && "text-primary-container"
-                          )}>
-                            {sample.label}
-                          </span>
-                        </div>
-                      </button>
+                      <div key={sample.id} className="relative min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrompt(sample.prompt);
+                            setAspectRatio(sample.aspectRatio);
+                            setError("");
+                          }}
+                          disabled={loading}
+                          aria-pressed={isSelected}
+                          data-style-card={sample.id}
+                          className={cn(
+                            "group relative h-full w-full overflow-hidden rounded-xl border border-outline-variant transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                            isSelected && "border-primary ring-2 ring-primary/30"
+                          )}
+                        >
+                          <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-container-low">
+                            <img
+                              src={sample.imageUrl}
+                              alt={`Mẫu phong cách ${sample.label}`}
+                              loading="lazy"
+                              width={320}
+                              height={180}
+                              className="size-full object-cover transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none"
+                            />
+                            <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                            <span className={cn(
+                              "absolute bottom-1.5 left-2 right-2 truncate text-left text-xs font-semibold text-white drop-shadow-sm",
+                              isSelected && "text-primary-container"
+                            )}>
+                              {sample.label}
+                            </span>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${isFavorite ? "Bỏ ghim" : "Ghim"} phong cách ${sample.label}`}
+                          title={`${isFavorite ? "Bỏ ghim" : "Ghim"} phong cách ${sample.label}`}
+                          aria-pressed={isFavorite}
+                          onClick={() => toggleFavorite(sample.id)}
+                          className={cn("absolute right-1.5 top-1.5 z-10 grid size-8 place-items-center rounded-full border border-outline-variant bg-surface-container-lowest/95 shadow-xs hover:bg-surface-container-lowest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest", isFavorite && "text-primary")}
+                        >
+                          <Heart className={cn("size-4", isFavorite ? "fill-primary text-primary" : "text-on-surface-variant")} aria-hidden="true" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

@@ -95,22 +95,6 @@ export default function CustomerQuotes({
 
   return (
     <div className="customer-quotes-page">
-      {/* Header Banner */}
-      <section className="cq-header-banner">
-        <div className="cq-header-copy">
-          <h1>Báo giá khách</h1>
-        </div>
-        <div className="cq-header-actions">
-          <button type="button" className="cq-create-btn" onClick={() => setCreating(true)} disabled={!["quotation:manage", "quotation-ai:manage", "quotation-template:read", "quotation-price-book:read"].every(hasQuotationCapability)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span>Tạo báo giá khách mới</span>
-          </button>
-        </div>
-      </section>
-
       {error && (
         <div className="quote-setup-notice" role="alert" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#b91c1c" }}>
           {error}
@@ -239,6 +223,14 @@ export default function CustomerQuotes({
               Cần sửa <span className="cq-filter-count">{quotes.filter((q) => q.status === "rejected").length}</span>
             </button>
           </div>
+
+          <button type="button" className="cq-create-btn" onClick={() => setCreating(true)} disabled={!["quotation:manage", "quotation-ai:manage", "quotation-template:read", "quotation-price-book:read"].every(hasQuotationCapability)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Tạo báo giá khách mới</span>
+          </button>
         </div>
 
         {/* Quotes List Table */}

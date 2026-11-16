@@ -259,12 +259,11 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
   };
 
   if (loading) return <div className="workflow-page"><div className="workflow-loading"><span className="spinner spinner-dark" />Đang tải dữ liệu…</div></div>;
-  const sectionHeader = <>
-    <header className={`workflow-header${view === "contracts" && !id ? " workflow-contract-list-header" : ""}`}>
-      <div className="workflow-header-copy"><span className="workflow-header-badge">{id ? view === "contracts" ? "CHI TIẾT HỢP ĐỒNG" : "CHI TIẾT NGHIỆM THU" : "DANH SÁCH"}</span><h1>{view === "contracts" ? "Hợp đồng" : "Nghiệm thu"}</h1></div>
-      {view === "contracts" && !id && <button type="button" className="button button-primary" onClick={() => setShowEstimatePicker(true)} disabled={!hasQuotationCapability("quotation-contract:manage")}>Tạo hợp đồng từ dự toán</button>}
-    </header>
-  </>;
+  const sectionHeader = !id && view === "contracts" ? (
+    <div className="workflow-list-actions">
+      <button type="button" className="button button-primary" onClick={() => setShowEstimatePicker(true)} disabled={!hasQuotationCapability("quotation-contract:manage")}>Tạo hợp đồng từ dự toán</button>
+    </div>
+  ) : null;
   if (!id) return <div className="workflow-page">
     {sectionHeader}
     {view === "contracts" ? contracts.length ? <div className="workflow-cards-grid">{contracts.map((item) => <button className="workflow-card" key={item._id} onClick={() => navigate("contracts", item._id)}>

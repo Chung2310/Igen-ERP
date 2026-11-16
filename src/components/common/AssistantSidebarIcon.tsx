@@ -44,37 +44,45 @@ const artwork: Record<Exclude<AssistantSidebarIconName, "agents" | "assistant">,
   </>,
 };
 
-export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName }) {
-  if (name === "agents") return <AssistantSupportIcon />;
-  if (name === "assistant") return <AiAssistantIcon />;
-  if (name === "studio") return <AssistantStudioSidebarIcon />;
-  return <svg viewBox="2 2 20 20" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+export function AssistantSidebarIcon({ name, active = false }: { name: AssistantSidebarIconName; active?: boolean }) {
+  const gradientId = useId().replace(/:/g, "");
+  if (name === "agents") return <AssistantSupportIcon gradientId={gradientId} active={active} />;
+  if (name === "assistant") return <AiAssistantIcon gradientId={active ? gradientId : undefined} />;
+  if (name === "studio") return <AssistantStudioSidebarIcon active={active} />;
+  return <svg viewBox="2 2 20 20" fill="none" stroke={active ? `url(#${gradientId})` : "currentColor"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    {active && <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor="var(--color-primary)" /><stop offset="100%" stopColor="var(--color-purple-400)" /></linearGradient></defs>}
     {artwork[name]}
   </svg>;
 }
 
-function AssistantSupportIcon() {
+function AssistantSupportIcon({ gradientId, active }: { gradientId: string; active: boolean }) {
+  const color = active ? `url(#${gradientId})` : "currentColor";
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    <path d="M5.4 16.7V9.8a6.6 6.6 0 0 1 13.2 0v6.9" />
-    <rect x="2.4" y="10.4" width="3" height="6.6" rx="1.5" />
-    <rect x="18.6" y="10.4" width="3" height="6.6" rx="1.5" />
-    <path d="M5.4 16.7a3.4 3.4 0 0 0 3.4 3.4h1.7" />
-    <rect x="10.5" y="18.9" width="4.5" height="2.4" rx="1.2" />
-    <circle cx="9" cy="13.5" r=".65" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="13.5" r=".65" fill="currentColor" stroke="none" />
-    <circle cx="15" cy="13.5" r=".65" fill="currentColor" stroke="none" />
+    {active && <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor="var(--color-primary)" /><stop offset="100%" stopColor="var(--color-purple-400)" /></linearGradient></defs>}
+    <g stroke={color}>
+      <path d="M5.4 16.7V9.8a6.6 6.6 0 0 1 13.2 0v6.9" />
+      <rect x="2.4" y="10.4" width="3" height="6.6" rx="1.5" />
+      <rect x="18.6" y="10.4" width="3" height="6.6" rx="1.5" />
+      <path d="M5.4 16.7a3.4 3.4 0 0 0 3.4 3.4h1.7" />
+      <rect x="10.5" y="18.9" width="4.5" height="2.4" rx="1.2" />
+    </g>
+    <g fill={color} stroke="none">
+      <circle cx="9" cy="13.5" r=".65" />
+      <circle cx="12" cy="13.5" r=".65" />
+      <circle cx="15" cy="13.5" r=".65" />
+    </g>
   </svg>;
 }
 
-function AssistantStudioSidebarIcon() {
+function AssistantStudioSidebarIcon({ active }: { active: boolean }) {
   const gradientId = useId().replace(/:/g, "");
   return <svg viewBox="2 1 21 21" className="assistant-studio-icon" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    <defs>
+    {active && <defs>
       <linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
         <stop stopColor="var(--color-primary)" />
         <stop offset="100%" stopColor="var(--color-purple-400)" />
       </linearGradient>
-    </defs>
-    <g stroke={`url(#${gradientId})`}>{artwork.studio}</g>
+    </defs>}
+    <g stroke={active ? `url(#${gradientId})` : "currentColor"}>{artwork.studio}</g>
   </svg>;
 }
