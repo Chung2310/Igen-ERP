@@ -467,9 +467,9 @@ if (!user) return <p role="status">Phiên ERP đã thay đổi. Vui lòng mở l
                       <PriceListPanel key={refreshKey} onToast={notify} />
                       : <QuotationSettings />}</main>
     </div>
-    {creatingQuote && <NewQuoteDialog canManageTemplate={hasQuotationCapability("quotation-template:manage")} onQuotaExceeded={() => void loadUsage()} onAiUsed={() => void loadUsage()} onClose={() => setCreatingQuote(false)} onManageTemplate={() => { setCreatingQuote(false); navigateSection("templates"); setTemplateCategoryToOpen("estimate"); }} onCreated={(id, fileError) => { setCreatingQuote(false); refresh(); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán và lưu file AI lên Cloudinary.", fileError ? "error" : "success"); openQuote(id); }} />}
+    {creatingQuote && <NewQuoteDialog canManageTemplate={hasQuotationCapability("quotation-template:manage")} onQuotaExceeded={() => void loadUsage()} onAiUsed={() => void loadUsage()} onClose={() => setCreatingQuote(false)} onManageTemplate={() => { setCreatingQuote(false); navigateSection("templates"); setTemplateCategoryToOpen("estimate"); }} onCreated={(id, fileError) => { setCreatingQuote(false); refresh(); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán. Trạng thái file mẫu hiển thị tại trang chi tiết.", fileError ? "error" : "success"); openQuote(id); }} />}
     {creatingContractFromQuote && <ContractCreationDialog quote={creatingContractFromQuote} onClose={() => setCreatingContractFromQuote(null)} onCreated={(id, fileError) => { setCreatingContractFromQuote(null); openWorkflow("contracts", id); notify(fileError ? `Đã tạo hợp đồng nhưng chưa tạo được file AI: ${fileError}` : "Đã tạo hợp đồng, AI đã điền mẫu và lưu file.", fileError ? "error" : "success"); }} notify={notify} />}
-    {creatingEstimateFromQuote && <CreateEstimateFromQuoteDialog sourceQuote={creatingEstimateFromQuote} onQuotaExceeded={() => void loadUsage()} onAiUsed={() => void loadUsage()} onClose={() => setCreatingEstimateFromQuote(null)} onCreated={(id, fileError) => { setCreatingEstimateFromQuote(null); refresh(); openQuote(id); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán và lưu file AI lên Cloudinary.", fileError ? "error" : "success"); }} />}
+    {creatingEstimateFromQuote && <CreateEstimateFromQuoteDialog sourceQuote={creatingEstimateFromQuote} onQuotaExceeded={() => void loadUsage()} onAiUsed={() => void loadUsage()} onClose={() => setCreatingEstimateFromQuote(null)} onCreated={(id, fileError) => { setCreatingEstimateFromQuote(null); refresh(); openQuote(id); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán. Trạng thái file mẫu hiển thị tại trang chi tiết.", fileError ? "error" : "success"); }} />}
     {notification && <NotificationToast notification={notification} onDismiss={dismiss} />}
     {confirmationDialog}
   </div></NotificationProvider>;
@@ -734,7 +734,28 @@ function QuoteWorkspace({
         <button type="button" className="quote-top-icon" aria-label="Cài đặt tài khoản" onClick={() => onNavigate("profile")}><Icon name="settings" size={20} /></button>
         <button type="button" className="quote-top-avatar" aria-label="Trang cá nhân" onClick={() => onNavigate("profile")}>{userName.trim().charAt(0).toLocaleUpperCase("vi") || "U"}</button>
       </div>
-      {creatingFromQuote && <CreateEstimateFromQuoteDialog onClose={() => setCreatingFromQuote(false)} onAiUsed={onRefreshUsage} onCreated={(id, fileError) => { setCreatingFromQuote(false); onRefreshUsage(); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán và lưu file.", fileError ? "error" : "success"); onOpen(id); }} />}
+      {/* HEADER ROW */}
+      <section className="page-heading-row quote-workspace-header">
+        <div className="page-heading-actions ml-auto">
+          {loadFailed && (
+            <button type="button" className="button button-soft" onClick={() => setReloadKey((key) => key + 1)}>
+              Tải lại
+            </button>
+          )}
+          <button type="button" className="button button-soft" disabled={!canCreate} onClick={() => setCreatingFromQuote(true)}>
+            <Icon name="file" size={17} /> Tạo từ báo giá khách
+          </button>
+          <button
+            className="button button-primary quote-create-button"
+            disabled={!canCreate}
+            onClick={onCreate}
+          >
+            <Icon name="plus" size={17} />
+            <span>Tạo dự toán mới</span>
+          </button>
+        </div>
+      </section>
+      {creatingFromQuote && <CreateEstimateFromQuoteDialog onClose={() => setCreatingFromQuote(false)} onAiUsed={onRefreshUsage} onCreated={(id, fileError) => { setCreatingFromQuote(false); onRefreshUsage(); notify(fileError ? `Đã tạo dự toán nhưng chưa lưu được file AI: ${fileError}` : "Đã tạo dự toán. Trạng thái file mẫu hiển thị tại trang chi tiết.", fileError ? "error" : "success"); onOpen(id); }} />}
       <QuoteUsageWidget usage={usage} quoteUsageLabel={quoteUsageLabel} canCreate={canCreate} createBlockedMessage={createBlockedMessage} onRefreshUsage={onRefreshUsage} showUsageError={showUsageError} onNavigate={onNavigate} variant="workspace" />
 
       {/* QUICK KPI MINI STRIP */}

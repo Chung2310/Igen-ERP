@@ -20,6 +20,8 @@ const nameBody = Joi.object({
   sortOrder: Joi.number().integer().min(0).max(9999),
   isActive: Joi.boolean(),
 });
+const updateBody = nameBody.keys({ name: Joi.string().trim().min(1).max(100) })
+  .or("name", "code", "description", "managerUid", "sortOrder", "isActive");
 const idParams = Joi.object({ id: Joi.string().hex().length(24).required() });
 const normalizeName = (name: string) => name.trim().replace(/\s+/g, " ");
 const nameKey = (name: string) => normalizeName(name).toLocaleLowerCase("vi");
@@ -99,26 +101,29 @@ hrDepartmentRouter.post("/", requirePermission(["hr:manage", "access:manage"]) a
   } catch (error) { return fail(res, error, "Không thể thêm phòng ban."); }
 });
 
-hrDepartmentRouter.patch("/:id", requirePermission(["hr:manage", "access:manage"]) as any, validateRequest({ params: idParams, query: companyQuery, body: nameBody }), async (req: AuthenticatedRequest, res) => {
+hrDepartmentRouter.patch("/:id", requirePermission(["hr:manage", "access:manage"]) as any, validateRequest({ params: idParams, query: companyQuery, body: updateBody }), async (req: AuthenticatedRequest, res) => {
   const companyCode = company(req);
   if (!companyCode) return res.status(400).json({ message: "Vui lòng chọn doanh nghiệp." });
   try {
     const department = await HrDepartmentModel.findOne({ _id: req.params.id, companyCode });
     if (!department) return res.status(404).json({ message: "Không tìm thấy phòng ban." });
-    const name = normalizeName(req.body.name);
+    const nameProvided = req.body.name !== undefined;
+    const name = nameProvided ? normalizeName(req.body.name) : department.name;
     const normalizedName = nameKey(name);
-    if (normalizedName !== department.normalizedName && await HrDepartmentModel.exists({ companyCode, normalizedName })) {
+    if (nameProvided && normalizedName !== department.normalizedName && await HrDepartmentModel.exists({ companyCode, normalizedName })) {
       return res.status(409).json({ message: "Phòng ban này đã tồn tại." });
     }
     const previous = department.toObject();
-    const employeeIds = await assignedUserIds(companyCode, department.normalizedName);
-    department.name = name;
-    department.normalizedName = normalizedName;
+    const employeeIds = nameProvided ? await assignedUserIds(companyCode, department.normalizedName) : [];
+    if (nameProvided) {
+      department.name = name;
+      department.normalizedName = normalizedName;
+    }
     Object.assign(department, await metadata(req.body, companyCode));
     await department.save();
     // Hồ sơ nhân sự hiện lưu phòng ban bằng chuỗi; đổi tên phải cập nhật cùng danh mục.
     try {
-      if (employeeIds.length) await UserModel.updateMany({ _id: { $in: employeeIds }, companyCode }, { $set: { department: name } });
+      if (nameProvided && employeeIds.length) await UserModel.updateMany({ _id: { $in: employeeIds }, companyCode }, { $set: { department: name } });
     } catch (error) {
       Object.assign(department, {
         name: previous.name,

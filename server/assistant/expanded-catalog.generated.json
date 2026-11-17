@@ -24463,6 +24463,196 @@
     "adapter": "contract"
   },
   {
+    "id": "student.installments.list",
+    "title": "Tra cứu các đợt học phí của học viên",
+    "description": "Liệt kê các đợt học phí của học viên đã chọn, gồm số đợt, số tiền còn phải thu, hạn thu và trạng thái. Không hiển thị mã nội bộ.",
+    "module": "student",
+    "permissions": [
+      "people:read"
+    ],
+    "permissionGroups": [
+      [
+        "people:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/students/:id/installments",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Tên hoặc số điện thoại học viên",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "student.list"
+      }
+    ],
+    "link": "/quan-ly-hoc-vien",
+    "confirmation": false,
+    "resultFields": [
+      "studentName",
+      "installmentNo",
+      "amountDue",
+      "status",
+      "dueDate"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "student.installment.create",
+    "title": "Tạo đợt học phí cho học viên",
+    "description": "Thêm một khoản học phí phải thu vào tổng học phí hiện tại của học viên; hệ thống tạo số đợt tiếp theo. Số tiền đợt được cộng vào tổng học phí và giới hạn số nguyên VND dương. Ngày đến hạn không bắt buộc. Không ghi nhận đã thu và không gửi thông báo. Cần xác nhận trước khi lưu.",
+    "module": "student",
+    "permissions": [
+      "people:manage"
+    ],
+    "permissionGroups": [
+      [
+        "people:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/students/:id/installments",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Tên hoặc số điện thoại học viên",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "student.list"
+      },
+      {
+        "key": "amountDue",
+        "label": "Số tiền đợt học phí (VND)",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 1,
+        "integer": true,
+        "source": "body",
+        "apiKey": "amountDue"
+      },
+      {
+        "key": "dueDate",
+        "label": "Ngày đến hạn",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "dueDate"
+      }
+    ],
+    "link": "/quan-ly-hoc-vien",
+    "confirmation": true,
+    "resultFields": [
+      "studentName",
+      "installmentNo",
+      "amountDue",
+      "totalFee",
+      "status",
+      "dueDate"
+    ],
+    "confirmationDetails": {
+      "path_id": [
+        {
+          "key": "fee",
+          "label": "Tổng học phí hiện tại"
+        }
+      ]
+    },
+    "adapter": "contract"
+  },
+  {
+    "id": "student.installment.update",
+    "title": "Cập nhật đợt học phí của học viên",
+    "description": "Sửa số tiền hoặc hạn thu của một đợt học phí chưa được thanh toán. Thay đổi số tiền cũng điều chỉnh tổng học phí cùng mức; không sửa khoản đã thu hoặc đã thanh toán một phần. Cần xác nhận trước khi lưu.",
+    "module": "student",
+    "permissions": [
+      "people:manage"
+    ],
+    "permissionGroups": [
+      [
+        "people:manage"
+      ]
+    ],
+    "method": "PATCH",
+    "path": "/students/:id/installments/:no",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Tên hoặc số điện thoại học viên",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "student.list"
+      },
+      {
+        "key": "path_no",
+        "label": "Đợt học phí cần sửa theo số đợt, hạn và số tiền",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "no",
+        "reference": "student.installments.list",
+        "referenceParentKey": "path_id",
+        "referenceValueKey": "installmentNo"
+      },
+      {
+        "key": "amountDue",
+        "label": "Số tiền đợt học phí mới (VND)",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "integer": true,
+        "source": "body",
+        "apiKey": "amountDue"
+      },
+      {
+        "key": "dueDate",
+        "label": "Ngày đến hạn mới",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "dueDate"
+      }
+    ],
+    "link": "/quan-ly-hoc-vien",
+    "confirmation": true,
+    "resultFields": [
+      "studentName",
+      "installmentNo",
+      "amountDue",
+      "totalFee",
+      "status",
+      "dueDate"
+    ],
+    "confirmationDetails": {
+      "path_id": [
+        {
+          "key": "fee",
+          "label": "Tổng học phí hiện tại"
+        }
+      ],
+      "path_no": [
+        {
+          "key": "amountDue",
+          "label": "Số tiền đợt hiện tại"
+        }
+      ]
+    },
+    "adapter": "contract"
+  },
+  {
     "id": "student.detail",
     "title": "Xem thông tin học viên",
     "description": "Xem thông tin cơ bản của một học viên đã chọn theo tên, số điện thoại hoặc email trong phạm vi công ty/chi nhánh. Nếu chưa nêu học viên cụ thể, hãy hỏi tên, số điện thoại hoặc email trước khi tra cứu. Chỉ trả thông tin liên hệ và trạng thái cơ bản; mã giấy tờ, địa chỉ, ghi chú sức khỏe, tài chính chi tiết và ID nội bộ không hiển thị.",
@@ -26693,8 +26883,8 @@
   },
   {
     "id": "student.resource.category.list",
-    "title": "Tra cứu loại phòng học và tài nguyên",
-    "description": "Liệt kê các loại tài nguyên có thể chọn khi thêm hoặc sửa phòng học và tài nguyên.",
+    "title": "Tra cứu loại phòng học, thiết bị và tài nguyên",
+    "description": "Liệt kê các loại tài nguyên có thể chọn khi thêm hoặc sửa phòng học và thiết bị.",
     "module": "student",
     "permissions": [
       "people:read"
@@ -26716,7 +26906,7 @@
   },
   {
     "id": "student.resource.category.create",
-    "title": "Thêm loại phòng học hoặc tài nguyên",
+    "title": "Thêm loại phòng học, thiết bị hoặc tài nguyên",
     "description": "Tạo loại tài nguyên mới trong chi nhánh hiện tại; tên không được trùng. Cần xác nhận trước khi tạo.",
     "module": "student",
     "permissions": [
@@ -26750,7 +26940,7 @@
   },
   {
     "id": "student.resource.category.delete",
-    "title": "Xóa loại phòng học hoặc tài nguyên",
+    "title": "Xóa loại phòng học, thiết bị hoặc tài nguyên",
     "description": "Xóa loại đã chọn khi không còn tài nguyên nào sử dụng loại đó; cần xác nhận trước khi xóa.",
     "module": "student",
     "permissions": [
@@ -26784,8 +26974,8 @@
   },
   {
     "id": "student.resource.create",
-    "title": "Thêm phòng học hoặc tài nguyên",
-    "description": "Tạo phòng học hoặc tài nguyên trong chi nhánh hiện tại. Loại tài nguyên phải chọn từ danh mục; cần xác nhận trước khi tạo.",
+    "title": "Thêm phòng học hoặc thiết bị",
+    "description": "Tạo phòng học, thiết bị hoặc tài nguyên trong chi nhánh hiện tại. Loại tài nguyên phải chọn từ danh mục; cần xác nhận trước khi tạo.",
     "module": "student",
     "permissions": [
       "people:manage"
@@ -26800,7 +26990,7 @@
     "fields": [
       {
         "key": "name",
-        "label": "Tên phòng học/tài nguyên",
+        "label": "Tên phòng học/thiết bị",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -26867,8 +27057,8 @@
   },
   {
     "id": "student.resource.list",
-    "title": "Tra cứu phòng học và tài nguyên",
-    "description": "Tra cứu phòng học hoặc tài nguyên theo tên, mã, loại và trạng thái trong chi nhánh hiện tại.",
+    "title": "Tra cứu phòng học, thiết bị và tài nguyên",
+    "description": "Tra cứu phòng học hoặc thiết bị theo tên, mã, loại và trạng thái trong chi nhánh hiện tại. Khi tìm thiết bị, có thể loại trừ phòng học để khớp danh sách trên giao diện.",
     "module": "student",
     "permissions": [
       "people:read"
@@ -26883,7 +27073,7 @@
     "fields": [
       {
         "key": "query_search",
-        "label": "Tên hoặc mã tài nguyên",
+        "label": "Tên hoặc mã phòng học/thiết bị",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -26901,6 +27091,15 @@
         "referenceValueKey": "name",
         "source": "query",
         "apiKey": "type"
+      },
+      {
+        "key": "query_excludeType",
+        "label": "Loại cần loại trừ",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "excludeType"
       },
       {
         "key": "query_status",
@@ -26954,8 +27153,8 @@
   },
   {
     "id": "student.resource.detail",
-    "title": "Xem chi tiết phòng học hoặc tài nguyên",
-    "description": "Xem thông tin cơ bản của tài nguyên đã chọn trong phạm vi chi nhánh.",
+    "title": "Xem chi tiết phòng học hoặc thiết bị",
+    "description": "Xem thông tin cơ bản của phòng học hoặc thiết bị đã chọn trong phạm vi chi nhánh.",
     "module": "student",
     "permissions": [
       "people:read"
@@ -26970,7 +27169,7 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Tên hoặc mã phòng học/tài nguyên",
+        "label": "Tên hoặc mã phòng học/thiết bị",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -26992,8 +27191,8 @@
   },
   {
     "id": "student.resource.update",
-    "title": "Sửa phòng học hoặc tài nguyên",
-    "description": "Cập nhật các thông tin được nêu cho tài nguyên đã chọn; trường khác giữ nguyên. Cần xác nhận trước khi lưu.",
+    "title": "Sửa phòng học hoặc thiết bị",
+    "description": "Cập nhật các thông tin được nêu cho phòng học hoặc thiết bị đã chọn; trường khác giữ nguyên. Cần xác nhận trước khi lưu.",
     "module": "student",
     "permissions": [
       "people:manage"
@@ -27008,7 +27207,7 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Tên hoặc mã phòng học/tài nguyên cần sửa",
+        "label": "Tên hoặc mã phòng học/thiết bị cần sửa",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -27018,7 +27217,7 @@
       },
       {
         "key": "name",
-        "label": "Tên phòng học/tài nguyên",
+        "label": "Tên phòng học/thiết bị",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -27088,8 +27287,8 @@
   },
   {
     "id": "student.resource.delete",
-    "title": "Xóa phòng học hoặc tài nguyên",
-    "description": "Xóa tài nguyên đã chọn trong phạm vi chi nhánh. Cần xác nhận trước khi xóa.",
+    "title": "Xóa phòng học hoặc thiết bị",
+    "description": "Xóa phòng học hoặc thiết bị đã chọn trong phạm vi chi nhánh. Cần xác nhận trước khi xóa.",
     "module": "student",
     "permissions": [
       "people:manage"
@@ -27104,7 +27303,7 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Tên hoặc mã phòng học/tài nguyên cần xóa",
+        "label": "Tên hoặc mã phòng học/thiết bị cần xóa",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -27125,8 +27324,8 @@
   },
   {
     "id": "student.resource.booking.create",
-    "title": "Đặt lịch phòng học hoặc tài nguyên",
-    "description": "Đặt lịch cho tài nguyên đã chọn. Giờ bắt đầu phải trước giờ kết thúc và không được trùng lịch đã có; cần xác nhận trước khi đặt.",
+    "title": "Đặt lịch phòng học hoặc thiết bị",
+    "description": "Đặt lịch cho phòng học hoặc thiết bị đã chọn. Giờ bắt đầu phải trước giờ kết thúc và không được trùng lịch đã có; cần xác nhận trước khi đặt.",
     "module": "student",
     "permissions": [
       "people:manage"
@@ -27141,7 +27340,7 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Tên hoặc mã phòng học/tài nguyên cần đặt",
+        "label": "Tên hoặc mã phòng học/thiết bị cần đặt",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -27217,8 +27416,8 @@
   },
   {
     "id": "student.resource.booking.delete",
-    "title": "Hủy lịch đặt phòng học hoặc tài nguyên",
-    "description": "Hủy đúng lịch đặt thuộc tài nguyên đã chọn. Trợ lý đối chiếu mục đích, người đăng ký, ngày và giờ trước khi hủy; cần xác nhận.",
+    "title": "Hủy lịch đặt phòng học hoặc thiết bị",
+    "description": "Hủy đúng lịch đặt thuộc phòng học hoặc thiết bị đã chọn. Trợ lý đối chiếu mục đích, người đăng ký, ngày và giờ trước khi hủy; cần xác nhận.",
     "module": "student",
     "permissions": [
       "people:manage"
@@ -27233,7 +27432,7 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Tên hoặc mã phòng học/tài nguyên",
+        "label": "Tên hoặc mã phòng học/thiết bị",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -28122,6 +28321,10 @@
         "type": "text",
         "systemRequired": false,
         "required": false,
+        "requiredWhen": {
+          "field": "status",
+          "equals": "Bảo lưu"
+        },
         "max": 500,
         "source": "body",
         "apiKey": "reason"
@@ -28169,10 +28372,7 @@
       "retakeCount",
       "retakeFee"
     ],
-    "adapter": "contract",
-    "systemBodyFields": [
-      "expectedVersion"
-    ]
+    "adapter": "contract"
   },
   {
     "id": "batch.attendance.learners",
@@ -39536,13 +39736,17 @@
     "permissions": [
       "customer:read",
       "pos:manage",
-      "repair:manage"
+      "repair:manage",
+      "people:manage",
+      "healthcare:manage"
     ],
     "permissionGroups": [
       [
         "customer:read",
         "pos:manage",
-        "repair:manage"
+        "repair:manage",
+        "people:manage",
+        "healthcare:manage"
       ]
     ],
     "method": "GET",
@@ -39616,6 +39820,10 @@
     "permissionGroups": [
       [
         "customer:read"
+      ],
+      [
+        "retail:read",
+        "retail:manage"
       ]
     ],
     "method": "GET",
@@ -39666,6 +39874,314 @@
         "warrantyEndAt"
       ]
     },
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.6cb617ae007ffb69",
+    "title": "Xem khách hàng khách hàng tiềm năng needs",
+    "description": "Xem khách hàng khách hàng tiềm năng needs. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:read"
+    ],
+    "permissionGroups": [
+      [
+        "customer:read"
+      ],
+      [
+        "omni-inbox:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/:id/lead-needs",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Mã bản ghi",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.d875a4aa67d731e4",
+    "title": "Tra cứu khách hàng linked modules",
+    "description": "Tra cứu khách hàng linked modules. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:read"
+    ],
+    "permissionGroups": [
+      [
+        "customer:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/linked-modules",
+    "fields": [],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.d2ae1750a90bd679",
+    "title": "Xem khách hàng source hồ sơ queue",
+    "description": "Xem khách hàng source hồ sơ queue. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:manage"
+    ],
+    "permissionGroups": [
+      [
+        "customer:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/source-records/:module/queue",
+    "fields": [
+      {
+        "key": "path_module",
+        "label": "Phân hệ",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "module"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.a4ae17fb66b3aa98",
+    "title": "Xem khách hàng source điều chuyển cài đặt",
+    "description": "Xem khách hàng source điều chuyển cài đặt. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:manage"
+    ],
+    "permissionGroups": [
+      [
+        "customer:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/source-transfer-settings/:module",
+    "fields": [
+      {
+        "key": "path_module",
+        "label": "Phân hệ",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "module"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.d3800a2be3ef2ad3",
+    "title": "Xem khách hàng source hồ sơ",
+    "description": "Xem khách hàng source hồ sơ. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:manage"
+    ],
+    "permissionGroups": [
+      [
+        "customer:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/source-records/:module",
+    "fields": [
+      {
+        "key": "path_module",
+        "label": "Phân hệ",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "module"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.d88c23c7286ccb3c",
+    "title": "Xem khách hàng source hồ sơ khách hàng",
+    "description": "Xem khách hàng source hồ sơ khách hàng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:manage"
+    ],
+    "permissionGroups": [
+      [
+        "customer:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/source-records/:module/:sourceId/customers",
+    "fields": [
+      {
+        "key": "path_module",
+        "label": "Phân hệ",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "module"
+      },
+      {
+        "key": "path_sourceId",
+        "label": "Mã sourceId",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "sourceId"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.7966d84b7eca1fb6",
+    "title": "Xem khách hàng module liên kết",
+    "description": "Xem khách hàng module liên kết. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:read"
+    ],
+    "permissionGroups": [
+      [
+        "customer:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/:id/module-links",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Mã bản ghi",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.8c0e265a4a489163",
+    "title": "Xem khách hàng module liên kết đề xuất",
+    "description": "Xem khách hàng module liên kết đề xuất. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "customer",
+    "permissions": [
+      "customer:manage"
+    ],
+    "permissionGroups": [
+      [
+        "customer:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/customers/:id/module-links/:module/candidates",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Mã bản ghi",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id"
+      },
+      {
+        "key": "path_module",
+        "label": "Phân hệ",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "module"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.delete.b880c725541c4bfa",
+    "title": "Xóa khách hàng module liên kết",
+    "description": "Xóa khách hàng module liên kết. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "customer",
+    "permissions": [
+      "customer:manage"
+    ],
+    "permissionGroups": [
+      [
+        "customer:manage"
+      ]
+    ],
+    "method": "DELETE",
+    "path": "/customers/:id/module-links/:module/:sourceId",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Mã bản ghi",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id"
+      },
+      {
+        "key": "path_module",
+        "label": "Phân hệ",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "module"
+      },
+      {
+        "key": "path_sourceId",
+        "label": "Mã sourceId",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "sourceId"
+      }
+    ],
+    "link": "/quan-ly-khach-hang",
+    "confirmation": true,
+    "resultFields": [],
     "adapter": "contract"
   },
   {

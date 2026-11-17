@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   customVariableFind: vi.fn(),
   evaluatePayrollFormulas: vi.fn(),
   lineOverrideFind: vi.fn(),
+  employeeCommissionLookup: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
@@ -56,6 +57,7 @@ vi.mock("../model/payroll-period-input.model", () => ({ PayrollPeriodInputModel:
 vi.mock("../model/payroll-custom-variable.model", () => ({ PayrollCustomVariableModel: { find: mocks.customVariableFind } }));
 vi.mock("../model/payroll-line-override.model", () => ({ PayrollLineOverrideModel: { find: mocks.lineOverrideFind } }));
 vi.mock("../service/payroll-formula-engine.service", () => ({ evaluatePayrollFormulas: mocks.evaluatePayrollFormulas }));
+vi.mock("../service/payroll-employee-commission.service", () => ({ getApprovedEmployeeCommissions: mocks.employeeCommissionLookup }));
 
 import { payrollController } from "./payroll.controller";
 
@@ -124,6 +126,7 @@ describe("payroll calculate endpoint", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mocks.employeeCommissionLookup.mockResolvedValue(new Map());
     readyState = mongoose.connection.readyState;
     (mongoose.connection as any).readyState = 1;
   });

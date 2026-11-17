@@ -23,6 +23,7 @@ export async function uploadCompanyFile(
   mimeType: string,
   companyId: string,
   settings: CloudinaryConfig,
+  folder = `bao-gia/${companyId}/files`,
 ): Promise<CloudinaryUploadResult> {
   if (!settings.cloudName || !settings.apiKey || !settings.apiSecret) {
     throw new Error("Cloudinary chưa được cấu hình trong biến môi trường của máy chủ.");
@@ -31,7 +32,7 @@ export async function uploadCompanyFile(
   const timestamp = String(Math.floor(Date.now() / 1000));
   const publicId = randomUUID();
   const parameters = {
-    folder: `bao-gia/${companyId}/files`,
+    folder,
     public_id: publicId,
     timestamp,
     type: "authenticated",

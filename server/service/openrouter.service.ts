@@ -80,6 +80,8 @@ export type OpenRouterContentPart =
 
 export interface OpenRouterChatParams {
   model: string;
+  /** Disable switching to fallback models or the self-hosted FreeLLM provider. */
+  allowFallback?: boolean;
   /** Model dự phòng riêng cho tác vụ này khi model chính lỗi hoặc hết lượt. */
   fallbackModel?: string;
   messages: OpenRouterMessage[];
@@ -116,6 +118,9 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   const apiKey = getApiKey();
   const freeLlm = getFreeLlmConfig();
 
+  if (params.allowFallback === false && !apiKey) {
+    throw new Error("[OpenRouter] OPENROUTER_API_KEY is required when model fallback is disabled.");
+  }
   if (!apiKey && !freeLlm) {
     throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
   }
@@ -152,7 +157,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
       lastError = error;
       const fallbackModel = params.fallbackModel ? mapModelName(params.fallbackModel) : getFallbackModel();
 
-      if (!isNonFallbackableError(error) && fallbackModel !== mappedModel) {
+      if (params.allowFallback !== false && !isNonFallbackableError(error) && fallbackModel !== mappedModel) {
         console.warn(
           `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
         );
@@ -166,7 +171,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   }
 
   // Tầng 3: FreeLLM server tự host
-  if (freeLlm) {
+  if (freeLlm && params.allowFallback !== false) {
     console.warn(
       `[OpenRouter] Fallback tầng 3 → FreeLLM server ${freeLlm.baseUrl} | model=${freeLlm.model}. Lỗi trước đó: ${lastError?.message || lastError || "OpenRouter chưa cấu hình"}`
     );
@@ -309,6 +314,8 @@ async function chatWithRetries(
 export interface OpenRouterImageParams {
   prompt: string;
   model?: string;
+  /** Keep this exact model instead of applying shared image/edit model routing. */
+  exactModel?: boolean;
   aspectRatio?: string;
   resolution?: string;
   quality?: "low" | "medium" | "high" | "auto";
@@ -336,7 +343,9 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
-  const model = params.background === "transparent"
+  const model = params.exactModel
+    ? configuredModel
+    : params.background === "transparent"
     ? configuredModel
     : params.referenceImages?.length
     ? configuredModel === META_MUSE_IMAGE_MODEL ? configuredModel : IMAGE_EDIT_MODEL

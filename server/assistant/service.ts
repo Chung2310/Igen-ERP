@@ -102,7 +102,8 @@ async function addWorkerNamesToContractResult(req: AuthenticatedRequest, value: 
 function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>, operation?: AssistantOperation) {
   return { ...preview, values: preview.values.filter(item => !item.defaulted).map(item => {
     const field = operation?.fields.find(candidate => candidate.label === item.label);
-    return { ...item, value: field ? safeAssistantPreviewFieldValue(field, item.value, item.value) : hideInternalAssistantIds(item.value) };
+    const displayValue = field && operation ? assistantPreviewValue(operation, field.key, item.value) : item.value;
+    return { ...item, value: field && operation ? safeAssistantPreviewFieldValue(field, item.value, displayValue) : hideInternalAssistantIds(item.value) };
   }) };
 }
 function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation, mode: TurnInput["mode"] = "work"): AssistantReply | null {
@@ -790,9 +791,10 @@ const relationMentioned = (intent: string, field: AssistantField) => {
   const text = normalizeAssistantText(intent);
   const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "hoc", "mot", "cac", "ban", "ghi", "lien", "quan", "tai"]);
   const intentTokens = new Set(text.split(/\s+/).filter(Boolean));
+  const isManagerReference = /manager|supervisor/i.test(`${field.key} ${field.apiKey || ""}`);
   const tokens = [field.key, field.apiKey || "", field.label]
     .flatMap(value => normalizeAssistantText(value).split(/[^a-z0-9]+/))
-    .filter(token => token.length >= 3 && !stopWords.has(token));
+    .filter(token => token.length >= 3 && !stopWords.has(token) && !(isManagerReference && token === "phong"));
   return tokens.some(token => intentTokens.has(token));
 };
 const relationChangeRequested = (intent: string, field: AssistantField) => {
@@ -804,11 +806,33 @@ function containsReference(shape?: AssistantDataShape): boolean {
   if (!shape) return false;
   return Boolean(shape.reference || Object.values(shape.keys || {}).some(containsReference) || containsReference(shape.items));
 }
+function fixedResourceTypeForRequest(op: AssistantOperation, intent: string): "Phòng học" | "Thiết bị" | undefined {
+  if (op.id !== "student.resource.create") return undefined;
+  const match = normalizeAssistantText(intent).match(/\b(?:tao|them)\s+(?:(?:them|moi|mot|giup toi)\s+){0,3}(phong hoc|thiet bi)\b/);
+  if (match?.[1] === "phong hoc") return "Phòng học";
+  if (match?.[1] === "thiet bi") return "Thiết bị";
+  return undefined;
+}
+function withoutFieldReference(field: AssistantField): AssistantField {
+  const { reference: _reference, referenceValueKey: _referenceValueKey, referenceParentKey: _referenceParentKey, referenceContext: _referenceContext, ...plainField } = field;
+  return { ...plainField, type: "text" };
+}
+function operationForRequest(op: AssistantOperation, intent: string): AssistantOperation {
+  if (!fixedResourceTypeForRequest(op, intent)) return op;
+  return {
+    ...op,
+    fields: op.fields.map(field => field.source === "body" && field.apiKey === "type" ? withoutFieldReference(field) : field),
+  };
+}
 function workflowForRequest(op: AssistantOperation, workflow: AssistantWorkflow, intent: string): AssistantWorkflow {
-  if (!["PATCH", "PUT"].includes(op.method)) return workflow;
+  const fixedResourceType = fixedResourceTypeForRequest(op, intent);
+  if (!["PATCH", "PUT"].includes(op.method) && !fixedResourceType) return workflow;
   return {
     ...workflow,
     fields: workflow.fields.map(field => {
+      if (fixedResourceType && field.source === "body" && field.apiKey === "type") {
+        return { ...withoutFieldReference(field), defaultValue: fixedResourceType };
+      }
       const isReferenceField = Boolean(field.reference || containsReference(field.structure));
       if (!isReferenceField || field.systemRequired || relationMentioned(intent, field)) return field;
       // Partial updates should only require linked records when the user asks
@@ -932,6 +956,27 @@ function assistantOptionLabel(op: AssistantOperation, field: AssistantField, val
   return value;
 }
 function assistantPreviewValue(op: AssistantOperation, fieldKey: string, value: AssistantValue): AssistantValue {
+  if (op.id === "student.learning-roadmap.create" && fieldKey === "steps") {
+    const parsed = parseStructuredAssistantValue(value);
+    if (!Array.isArray(parsed)) return value;
+    return parsed.map((step: any, index: number) => {
+      const order = Number.isInteger(Number(step?.order)) && Number(step.order) > 0 ? Number(step.order) : index + 1;
+      const course = typeof step?.courseId === "string" && step.courseId.trim() ? step.courseId.trim() : "Chưa chọn khóa học";
+      const details = [`Chặng ${order}: ${course}`];
+      if (step?.minClassSize !== undefined && Number.isFinite(Number(step.minClassSize))) details.push(`Sĩ số tối thiểu: ${step.minClassSize}`);
+      if (step?.maxClassSize !== undefined && Number.isFinite(Number(step.maxClassSize))) details.push(`Sĩ số tối đa: ${Number(step.maxClassSize) === 0 ? "Không giới hạn" : step.maxClassSize}`);
+      const policy = isAssistantRecord(step?.eligibilityPolicy) ? step.eligibilityPolicy : {};
+      const thresholds = [
+        ["Chuyên cần", policy.minAttendanceRate],
+        ["Bài tập", policy.minAssignmentRate],
+        ["Mini test", policy.minMiniTestRate],
+        ["Điểm thi", policy.minExamRate],
+      ].filter(([, rate]) => rate !== undefined && rate !== null && Number.isFinite(Number(rate)))
+        .map(([label, rate]) => `${label}: ${rate}%`);
+      if (thresholds.length) details.push(`Điều kiện: ${thresholds.join(", ")}`);
+      return details.join(" · ");
+    }).join("\n");
+  }
   if (op.id === "hr.workflow.update" && fieldKey === "steps") {
     const parsed = parseStructuredAssistantValue(value);
     if (!Array.isArray(parsed)) return value;
@@ -1117,6 +1162,7 @@ export async function missingReferencePrompts(
     }
     if (isCatalogProductCreate && field.apiKey === "baseUnitCode" && values[field.key] === undefined) continue;
     if (!field.reference || (values[field.key] !== undefined && !unresolvedReferenceKeys.has(field.key)) || skipped.has(field.key)) continue;
+    if (field.referenceParentKey && isBlank(values[field.referenceParentKey])) continue;
     if (field.alternativeField && !isBlank(values[field.alternativeField]) && isBlank(values[field.key])) continue;
     const configured = workflow.fields.find(item => item.key === field.key);
     const required = Boolean(field.systemRequired || configured?.required || conditionApplies(field));
@@ -1331,6 +1377,16 @@ export async function missingReferencePrompts(
         return;
       }
       if (shape.type === "array") {
+        if (op.id === "student.learning-roadmap.create" && field.key === "steps" && (!Array.isArray(node) || node.length === 0)) {
+          const key = "roadmapStepCount";
+          if (skipped.has(key)) return;
+          const label = "Số chặng của lộ trình";
+          const options = Array.from({ length: 30 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} chặng` }));
+          referenceSelections.push({ key, label, required: true, multiple: false, options });
+          optionSelectionKeys.add(key);
+          prompts.push("Bạn chọn số chặng cho lộ trình trong danh sách bên dưới nhé. Sau đó mình sẽ hiện khóa học để bạn chọn riêng cho từng chặng.");
+          return;
+        }
         if ((!Array.isArray(node) || node.length === 0) && shape.items?.reference) {
           const itemShape = shape.items;
           const normalizedPath = path.replace(/^\./, "");
@@ -1382,7 +1438,8 @@ export async function missingReferencePrompts(
         }
         if (!Array.isArray(node)) return;
         for (let index = 0; index < node.length; index++) {
-          await visit(shape.items || { type: "unknown" }, node[index], `${path}[${index + 1}]`, [...displayPath, `Mục ${index + 1}`], currentObject);
+          const itemLabel = op.id === "student.learning-roadmap.create" && field.key === "steps" ? `Chặng ${index + 1}` : `Mục ${index + 1}`;
+          await visit(shape.items || { type: "unknown" }, node[index], `${path}[${index + 1}]`, [...displayPath, itemLabel], currentObject);
         }
         return;
       }
@@ -1436,6 +1493,14 @@ function populatedNestedReferenceKeys(operation: AssistantOperation, values: Rec
   return populated;
 }
 function applyReferenceSelection(provided: Record<string, unknown>, operation: AssistantOperation, selection: AssistantReferenceSelection, values: string[]) {
+  if (operation.id === "student.learning-roadmap.create" && selection.key === "roadmapStepCount") {
+    const count = Number(values[0]);
+    if (values.length !== 1 || !Number.isInteger(count) || count < 1 || count > 30) {
+      throw new AssistantError("Bạn chọn số chặng từ 1 đến 30 giúp mình nhé.");
+    }
+    provided.steps = JSON.stringify(Array.from({ length: count }, (_, index) => ({ id: `step-${index + 1}`, order: index + 1 })));
+    return;
+  }
   if (operation.method === "POST" && operation.path === "/worker-management/partners/policies" && selection.key === "laborPolicyTypes") {
     const allowedTypes = new Set(["official", "seasonal"]);
     if (values.length !== 1 || values.some(value => !allowedTypes.has(value))) throw new AssistantError("Bạn cần chọn đúng một loại lao động: chính thức hoặc thời vụ.");
@@ -1808,14 +1873,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }));
       } catch { /* collectValues reports malformed JSON through the workflow's own validation */ }
     }
-    const finalValidation = collectValues(workflowForRequest(op, latest, pending?.intent || input.text || ""), validationValues);
+    const requestIntent = pending?.intent || input.text || "";
+    const finalValidation = collectValues(workflowForRequest(op, latest, requestIntent), validationValues);
     const missingWorkHours = missingCustomWorkHoursLabels(op, validationValues);
     finalValidation.missing.push(...missingWorkHours.filter(label => !finalValidation.missing.includes(label)));
     if (finalValidation.missing.length || finalValidation.errors.length) throw new AssistantError([...(finalValidation.missing.length ? [`Cần bổ sung: ${finalValidation.missing.join(", ")}.`] : []), ...finalValidation.errors].join("\n"));
     // Resolve again immediately before writing, including after a confirmation wait.
     const pinnedOperations = op.id.startsWith("recruitment.")
       || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
-    const checked = await resolveReferences(req, op, input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
+    const checked = await resolveReferences(req, operationForRequest(op, requestIntent), input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
     if (input.decision?.confirmed && op.id === "student.bulk.delete") {
       const expectedImpact = pending?.confirmationDetails?.studentDeleteImpact || [];
@@ -2029,6 +2095,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     provided = normalizeAcceptanceValues(op, provided, input.text || "");
     const workflow = await currentWorkflow(req, actionId);
     const requestWorkflow = workflowForRequest(op, workflow, intent);
+    const requestOperation = operationForRequest(op, intent);
     const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
     const explicitReferenceKeys = new Set(pending?.actionId === actionId ? pending.explicitReferenceKeys || [] : []);
     for (const key of selectedReferenceKeys) explicitReferenceKeys.add(key);
@@ -2094,6 +2161,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       previousPending?.provided?.__assistantQuotationMode,
       previousPending?.provided,
     );
+    if (fixedResourceTypeForRequest(op, intent)) delete selectedValues.type;
     if (op.id === "retail.coupon.create" && selectedValues.targetType === "all_customers") delete selectedValues.customerId;
     const kpiPeriodWasDefaulted = op.id === "worker.partner.kpi.set"
       && previousPending?.defaultedKeys?.includes("periodAnchor") === true
@@ -2111,7 +2179,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     collected.missing.push(...missingWorkHours.filter(label => !collected.missing.includes(label)));
     if (trainingInstructorIsDefault && !collected.defaulted.includes("instructor")) collected.defaulted.push("instructor");
     const id = randomUUID();
-    const references = await resolveReferences(req, op, {
+    const references = await resolveReferences(req, requestOperation, {
       ...collected.values,
       ...(typeof selectedValues.__assistantQuotationSuggested === "string" ? { __assistantQuotationSuggested: selectedValues.__assistantQuotationSuggested } : {}),
     });
@@ -2173,7 +2241,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       && !hasUpdatePayload(op, references.values);
     const relationshipPrompts = await missingReferencePrompts(
       req,
-      op,
+      requestOperation,
       requestWorkflow,
       promptValues,
       askBatchEditDetails ? "" : intent,
@@ -2290,7 +2358,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     preview.values = workflow.fields.filter(f => references.values[f.key] !== undefined
       && !(op.id === "quotation.acceptance.create" && f.key === "lines")).map(f => {
       const rawValue = references.values[f.key];
-      const displayValue = attachmentSummary?.fieldKey === f.key ? `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}` : references.labels[f.key] || (f.options?.includes(String(rawValue)) ? assistantOptionLabel(op, f, String(rawValue)) : assistantPreviewValue(op, f.key, rawValue));
+      const resolvedDisplayValue = attachmentSummary?.fieldKey === f.key ? `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}` : references.labels[f.key] || (f.options?.includes(String(rawValue)) ? assistantOptionLabel(op, f, String(rawValue)) : rawValue);
+      const displayValue = assistantPreviewValue(op, f.key, resolvedDisplayValue);
       return { label: f.label, value: safeAssistantPreviewFieldValue(f, rawValue, displayValue), defaulted: collected.defaulted.includes(f.key) };
     });
     preview.values.push(...Object.values(confirmationDetails).flat().map(detail => ({ label: detail.label, value: hideInternalAssistantIds(detail.value), defaulted: false })));
@@ -2371,9 +2440,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       else {
         const workflow = await currentWorkflow(req, pending.actionId);
         const operation = await assertOperation(req, pending.actionId);
+        const confirmationValues = Object.fromEntries(Object.entries(pending.resolved)
+          .filter(([key]) => !key.startsWith("__assistant") && !operation.systemBodyFields?.includes(key)));
+        const confirmationValidation = collectValues(workflowForRequest(operation, workflow, pending.intent), confirmationValues);
         reply = workflow.version !== pending.workflowVersion
           ? await prepare(pending.actionId, pending.provided, true, pending.intent)
           : missingCustomWorkHoursLabels(operation, pending.resolved).length
+            || confirmationValidation.missing.length
+            || confirmationValidation.errors.length
             ? await prepare(pending.actionId, pending.provided, true, pending.intent)
           : pending.preview.requiresPassword && !input.decision.password
             ? { status: "confirmation", reply: "Bạn nhập lại mật khẩu khởi tạo trong ô bảo mật giúp mình nhé. Mật khẩu sẽ không được giữ lại nếu tải lại trang.", action: pending.preview }

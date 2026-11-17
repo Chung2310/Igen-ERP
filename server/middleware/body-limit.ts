@@ -40,10 +40,13 @@ const largeParser = parserPair(ddosConfig.largeBodyLimit);
 const studioImageParser = parserPair("8mb");
 const studioImageEditParser = parserPair("22mb");
 const studioSlideEditParser = parserPair("10mb");
+const architectureImageParser = parserPair("8mb");
 
 export const selectiveBodyParser: RequestHandler = (req, res, next) => {
   const parser = /^\/api\/v1\/chatbot\/assistant\/studio\/slides\/[a-f0-9]{24}$/i.test(req.path)
     ? studioSlideEditParser
+    : /^\/api\/v1\/architect-assistant\/projects\/[^/]+\/(?:generate-image|videos)$/i.test(req.path)
+    ? architectureImageParser
     : req.path === "/api/v1/chatbot/assistant/studio/images/edit"
     ? studioImageEditParser
     : req.path === "/api/v1/chatbot/assistant/studio/images"

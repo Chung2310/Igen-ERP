@@ -1,6 +1,6 @@
 ﻿import { Types } from "mongoose";
 import { logger } from "../config/logger";
-import { IStudent, StudentStatus } from "../interfaces/student.interface";
+import { IInstallmentStatus, IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
 import { Payment } from "../models/payment.model";
 import { Batch } from "../models/batch.model";
@@ -222,6 +222,16 @@ async function ensureUniqueFieldsInScope(
       throw new Error(check.message);
     }
   }
+}
+
+function studentInstallmentDueAt(value: string) {
+  const dueAt = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T23:59:59.999+07:00`)
+    : new Date(value);
+  if (!Number.isFinite(dueAt.getTime())) {
+    throw Object.assign(new Error("Ngày đến hạn không hợp lệ."), { status: 400 });
+  }
+  return dueAt;
 }
 
 export class StudentService {
@@ -957,6 +967,143 @@ export class StudentService {
 
     logger.info(`[Student] Installment ${installmentNo} marked as paid for student ${studentId}`);
     return { success: true };
+  }
+
+  static async getStudentInstallments(ownerId: string | string[], studentId: string, branchId?: string) {
+    const student = await this.getStudentById(ownerId, studentId, branchId);
+    if (!student) return null;
+
+    return (student.installmentStatus || [])
+      .slice()
+      .sort((left, right) => left.installmentNo - right.installmentNo)
+      .map((installment) => ({
+        id: String(installment.installmentNo),
+        studentName: student.fullName,
+        installmentNo: installment.installmentNo,
+        amountDue: installment.amountDue,
+        status: installment.status,
+        dueDate: installment.dueAt ? new Date(installment.dueAt).toISOString().slice(0, 10) : "",
+      }));
+  }
+
+  static async createStudentInstallment(
+    ownerId: string | string[],
+    studentId: string,
+    data: { amountDue: number; dueDate?: string },
+    branchId?: string,
+  ) {
+    const query = {
+      _id: studentId,
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    };
+    const student = await Student.findOne(query);
+    if (!student) return null;
+
+    const totalFee = Number.parseInt(String(student.fee || "").replace(/\D/g, ""), 10) || 0;
+    const installments = (student.installmentStatus || []) as IInstallmentStatus[];
+    const paidAmount = Math.max(0, Number(student.paidAmount) || 0);
+    const scheduledAmount = installments
+      .filter((item) => item.status !== "Đã thu")
+      .reduce((sum, item) => sum + Math.max(0, Number(item.amountDue) || 0), 0);
+    const updatedTotalFee = totalFee + data.amountDue;
+    if (updatedTotalFee < paidAmount + scheduledAmount + data.amountDue) {
+      throw Object.assign(new Error("Tổng học phí sau khi thêm đợt không đủ cho các khoản đã thu và đợt đang mở."), { status: 400 });
+    }
+
+    const installmentNo = installments.reduce((max, item) => Math.max(max, item.installmentNo), 0) + 1;
+    const dueAt = data.dueDate ? studentInstallmentDueAt(data.dueDate) : undefined;
+    student.fee = updatedTotalFee.toLocaleString("vi-VN");
+    for (const existing of installments) {
+      if (existing.status !== "Đã thu") existing.percent = updatedTotalFee > 0 ? existing.amountDue / updatedTotalFee * 100 : 0;
+    }
+    const installment: IInstallmentStatus = {
+      installmentNo,
+      percent: data.amountDue / updatedTotalFee * 100,
+      amountDue: data.amountDue,
+      originalAmountDue: data.amountDue,
+      status: "Chưa gửi",
+      sentAt: "",
+      dueAt,
+      paidAt: "",
+      notificationId: "",
+    };
+    if (!student.installmentStatus) student.installmentStatus = [];
+    student.installmentStatus.push(installment as any);
+    student.markModified("installmentStatus");
+    await student.save();
+
+    return {
+      id: String(installmentNo),
+      studentName: student.fullName,
+      installmentNo,
+      amountDue: data.amountDue,
+      totalFee: updatedTotalFee,
+      status: installment.status,
+      dueDate: dueAt ? dueAt.toISOString().slice(0, 10) : "",
+    };
+  }
+
+  static async updateStudentInstallment(
+    ownerId: string | string[],
+    studentId: string,
+    installmentNo: number,
+    data: { amountDue?: number; dueDate?: string },
+    branchId?: string,
+  ) {
+    const query = {
+      _id: studentId,
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    };
+    const student = await Student.findOne(query);
+    if (!student) return null;
+
+    const installments = (student.installmentStatus || []) as IInstallmentStatus[];
+    const installment = installments.find((item) => item.installmentNo === installmentNo);
+    if (!installment) {
+      throw Object.assign(new Error(`Không tìm thấy đợt học phí số ${installmentNo} của học viên.`), { status: 404 });
+    }
+    if (installment.status === "Đã thu") {
+      throw Object.assign(new Error("Không thể sửa đợt học phí đã thu."), { status: 409 });
+    }
+
+    if (data.amountDue !== undefined) {
+      const originalAmount = Number(installment.originalAmountDue);
+      if (!Number.isFinite(originalAmount) || Number(installment.amountDue) < originalAmount) {
+        throw Object.assign(new Error("Đợt này đã phát sinh thanh toán một phần hoặc được tạo trước khi theo dõi số tiền gốc; chỉ có thể sửa hạn thu."), { status: 409 });
+      }
+
+      const totalFee = Number.parseInt(String(student.fee || "").replace(/\D/g, ""), 10) || 0;
+      const paidAmount = Math.max(0, Number(student.paidAmount) || 0);
+      const otherScheduledAmount = installments
+        .filter((item) => item !== installment && item.status !== "Đã thu")
+        .reduce((sum, item) => sum + Math.max(0, Number(item.amountDue) || 0), 0);
+      const updatedTotalFee = totalFee + data.amountDue - Number(installment.amountDue || 0);
+      if (updatedTotalFee < paidAmount + otherScheduledAmount + data.amountDue) {
+        throw Object.assign(new Error("Tổng học phí sau khi sửa không đủ cho các khoản đã thu và đợt còn lại."), { status: 400 });
+      }
+      student.fee = updatedTotalFee.toLocaleString("vi-VN");
+      installment.amountDue = data.amountDue;
+      installment.originalAmountDue = data.amountDue;
+      for (const existing of installments) {
+        if (existing.status !== "Đã thu") existing.percent = updatedTotalFee > 0 ? existing.amountDue / updatedTotalFee * 100 : 0;
+      }
+    }
+
+    if (data.dueDate !== undefined) installment.dueAt = studentInstallmentDueAt(data.dueDate);
+    student.markModified("installmentStatus");
+    await student.save();
+
+    return {
+      id: String(installmentNo),
+      studentName: student.fullName,
+      installmentNo,
+      amountDue: installment.amountDue,
+      totalFee: Number.parseInt(String(student.fee || "").replace(/\D/g, ""), 10) || 0,
+      status: installment.status,
+      dueDate: installment.dueAt ? new Date(installment.dueAt).toISOString().slice(0, 10) : "",
+    };
   }
 
   static async getStudentByIdCard(idCard: string): Promise<IStudent | null> {

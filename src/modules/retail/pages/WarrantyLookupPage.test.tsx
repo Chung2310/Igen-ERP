@@ -18,7 +18,7 @@ test("renders the Retail warranty interface and automatically searches after typ
   vi.mocked(retailWarrantyService.lookup).mockResolvedValue({ found: false });
   const user = userEvent.setup();
   render(<WarrantyLookupPage />);
-  expect(screen.getByRole("heading", { name: "Tra cứu bảo hành thiết bị" })).toBeTruthy();
+  expect(screen.getByRole("heading", { level: 1, name: "Tra cứu bảo hành thiết bị" })).toBeTruthy();
   expect(screen.getByText("1. Xác thực nguồn gốc từ shop")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Kiểm tra bảo hành" })).toHaveProperty("disabled", true);
   await user.type(screen.getByRole("textbox", { name: "IMEI, Serial hoặc mã vạch" }), "AUTO-001");

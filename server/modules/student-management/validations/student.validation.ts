@@ -25,6 +25,16 @@ export const installmentParamsSchema = Joi.object({
   no: Joi.number().integer().positive().required(),
 });
 
+export const createStudentInstallmentSchema = Joi.object({
+  amountDue: Joi.number().integer().positive().required(),
+  dueDate: Joi.string().isoDate().optional(),
+});
+
+export const updateStudentInstallmentSchema = Joi.object({
+  amountDue: Joi.number().integer().positive().optional(),
+  dueDate: Joi.string().isoDate().optional(),
+}).or("amountDue", "dueDate");
+
 const uploadedFileSchema = Joi.object({
   _id: Joi.any().optional(),
   name: Joi.string().required(),

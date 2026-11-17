@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn() }));
+const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), assertOperation: vi.fn() }));
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
@@ -38,7 +38,7 @@ vi.mock("./workflows", async () => {
   const { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } = await import("./catalog");
   return {
     actorScope: () => ({ userId: "actor", companyCode: "TEST" }),
-    assertOperation: vi.fn(async (_req, id) => operationById(id)),
+    assertOperation: state.assertOperation,
     currentWorkflow: vi.fn(async (_req, id) => defaultWorkflow(operationById(id)!)),
     listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(op => op.module === "student").map(defaultWorkflow)),
   };
@@ -52,7 +52,9 @@ vi.mock("./reply-rules", () => ({ applyAssistantResponseRules: async (reply: unk
 vi.mock("./documents", () => ({ answerAssistantConversation: vi.fn() }));
 vi.mock("./session-memory", () => ({ SESSION_MEMORY_LIMIT: 2400, summarizeAssistantSession: async () => null }));
 
-import { processTurn } from "./service";
+import { conversationState, processTurn } from "./service";
+import { AssistantError } from "./policy";
+import { operationById } from "./catalog";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -86,7 +88,7 @@ const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { 
 const normalizeSearch = (value: unknown) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
 
 beforeEach(() => {
-  state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset(); students = []; courses = []; batches = []; payments = []; exams = []; eligibleExamStudents = []; resources = []; notifications = []; assignments = []; roadmaps = []; waitlistEntries = []; qualityRows = []; placedWaitlist = undefined;
+  state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset(); state.assertOperation.mockReset().mockImplementation(async (_req: unknown, id: string) => operationById(id)); students = []; courses = []; batches = []; payments = []; exams = []; eligibleExamStudents = []; resources = []; notifications = []; assignments = []; roadmaps = []; waitlistEntries = []; qualityRows = []; placedWaitlist = undefined;
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const requestUrl = new URL(String(url));
     const path = requestUrl.pathname;
@@ -100,13 +102,38 @@ beforeEach(() => {
     if (path === "/api/v1/students" && method === "GET") { const rows = filterBySearch(students, "fullName", "phone", "email"); return json({ success: true, students: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
     if (path === "/api/v1/student-quality" && method === "GET") { const rows = filterBySearch(qualityRows, "studentName", "studentPhone", "batchCode", "courseTitle"); return json({ success: true, items: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
     if (path === "/api/v1/batches" && method === "GET") { const rows = filterBySearch(batches, "name", "code"); return json({ success: true, batches: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
+    if (path === "/api/v1/branches" && method === "GET") return json({ success: true, branches: [{ _id: req.user.branchId, name: "Trụ sở chính", code: "HQ" }] });
+    const batchEnrollmentsMatch = path.match(/^\/api\/v1\/batches\/([^/]+)\/enrollments$/);
+    if (batchEnrollmentsMatch && method === "GET") return json({ success: true, data: [{
+      _id: "64b000000000000000000031", studentId, __v: 2, branchId: req.user.branchId, studentName: "Nguyễn An", studentPhone: "0900000000", status: "Đang học",
+    }] });
+    const enrollmentStatusMatch = path.match(/^\/api\/v1\/batches\/([^/]+)\/learners\/([^/]+)\/enrollment-status$/);
+    if (enrollmentStatusMatch && method === "PATCH") return json({ success: true, data: {
+      status: body.status, suspensionReason: body.reason, attendedSessions: 2, allowedSessions: 10,
+    } });
     if (path === "/api/v1/payments" && method === "GET") { const rows = filterBySearch(payments, "studentName", "note"); return json({ success: true, payments: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
     if (path === "/api/v1/exams" && method === "GET") { const rows = filterBySearch(exams, "name", "rank"); return json({ success: true, exams: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
     const eligibleExamMatch = path.match(/^\/api\/v1\/exams\/([^/]+)\/eligible-students$/);
     if (eligibleExamMatch && method === "GET") return json({ success: true, data: eligibleExamStudents });
-    if (path === "/api/v1/student-resources" && method === "GET") { const rows = filterBySearch(resources, "name", "identifier"); return json({ success: true, resources: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
+    if (path === "/api/v1/student-resources" && method === "GET") {
+      const rows = filterBySearch(resources, "name", "identifier")
+        .filter((record: any) => !requestUrl.searchParams.get("type") || record.type === requestUrl.searchParams.get("type"))
+        .filter((record: any) => !requestUrl.searchParams.get("excludeType") || record.type !== requestUrl.searchParams.get("excludeType"));
+      return json({ success: true, resources: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 });
+    }
+    if (path === "/api/v1/student-resources/categories" && method === "GET") return json({ success: true, data: [{ _id: "64b000000000000000000009", name: "Thiết bị" }] });
+    if (path === "/api/v1/student-resources" && method === "POST") {
+      const record = { _id: resourceId, ...body };
+      resources.push(record);
+      return json({ success: true, data: record });
+    }
     if (path === "/api/v1/student-notifications" && method === "GET") { const rows = filterBySearch(notifications, "title", "content", "recipients"); return json({ success: true, notifications: rows, total: rows.length, page: 1, limit: 100, totalPages: 1 }); }
     if (path === "/api/v1/learning-roadmaps" && method === "GET") return json({ success: true, data: filterBySearch(roadmaps, "name", "code", "description") });
+    if (path === "/api/v1/learning-roadmaps" && method === "POST") {
+      const record = { _id: "64b00000000000000000000a", ...body };
+      roadmaps.push(record);
+      return json({ success: true, data: record });
+    }
     if (path === "/api/v1/learning-roadmaps/waitlist" && method === "GET") {
       const rows = filterBySearch(waitlistEntries, "studentName", "studentPhone");
       return json({ success: true, items: rows, total: rows.length, page: 1, totalPages: 1 });
@@ -119,6 +146,47 @@ beforeEach(() => {
       const batchFilter = requestUrl.searchParams.get("batchId");
       const rows = filterBySearch(assignments, "title", "description").filter(record => !batchFilter || record.batchId === batchFilter);
       return json({ success: true, data: rows });
+    }
+    const studentInstallmentsMatch = path.match(/^\/api\/v1\/students\/([^/]+)\/installments(?:\/([^/]+))?$/);
+    if (studentInstallmentsMatch) {
+      const student = students.find(record => String(record._id || record.id) === studentInstallmentsMatch[1]);
+      if (!student) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy học viên" }), { status: 404, headers: { "Content-Type": "application/json" } });
+      student.installmentStatus ??= [];
+      if (method === "GET" && !studentInstallmentsMatch[2]) {
+        return json({ success: true, data: student.installmentStatus.map((item: any) => ({
+          id: String(item.installmentNo), studentName: student.fullName, installmentNo: item.installmentNo,
+          amountDue: item.amountDue, status: item.status, dueDate: item.dueDate || "",
+        })) });
+      }
+      if (method === "POST" && !studentInstallmentsMatch[2]) {
+        const installmentNo = student.installmentStatus.reduce((max: number, item: any) => Math.max(max, item.installmentNo), 0) + 1;
+        const totalFee = Number(String(student.fee || "0").replace(/\D/g, "")) + Number(body.amountDue);
+        student.fee = totalFee.toLocaleString("vi-VN");
+        const installment = {
+          installmentNo, amountDue: Number(body.amountDue), status: "Chưa gửi", dueDate: body.dueDate || "",
+          originalAmountDue: Number(body.amountDue),
+        };
+        student.installmentStatus.push(installment);
+        return json({ success: true, data: {
+          id: String(installmentNo), studentName: student.fullName, installmentNo,
+          amountDue: installment.amountDue, totalFee, status: installment.status, dueDate: installment.dueDate,
+        } });
+      }
+      if (method === "PATCH" && studentInstallmentsMatch[2]) {
+        const installment = student.installmentStatus.find((item: any) => String(item.installmentNo) === studentInstallmentsMatch[2]);
+        if (!installment) return new Response(JSON.stringify({ success: false, error: "Không tìm thấy đợt học phí" }), { status: 404, headers: { "Content-Type": "application/json" } });
+        if (body.amountDue !== undefined) {
+          student.fee = (Number(String(student.fee || "0").replace(/\D/g, "")) + Number(body.amountDue) - installment.amountDue).toLocaleString("vi-VN");
+          installment.amountDue = Number(body.amountDue);
+          installment.originalAmountDue = installment.amountDue;
+        }
+        if (body.dueDate !== undefined) installment.dueDate = body.dueDate;
+        const totalFee = Number(String(student.fee || "0").replace(/\D/g, ""));
+        return json({ success: true, data: {
+          id: String(installment.installmentNo), studentName: student.fullName, installmentNo: installment.installmentNo,
+          amountDue: installment.amountDue, totalFee, status: installment.status, dueDate: installment.dueDate || "",
+        } });
+      }
     }
     const studentDetailMatch = path.match(/^\/api\/v1\/students\/([^/]+)$/);
     if (studentDetailMatch && method === "GET") {
@@ -150,6 +218,32 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it("gives manual steps for a clearly understood student request with no chat workflow and makes no API call", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "unsupported", unsupportedModule: "student" });
+
+  const result = await turn({ text: "Xuất báo cáo phân tích xu hướng học viên" });
+
+  expect(result.status).toBe("unsupported");
+  expect(result.reply).toContain("Mình hiểu bạn muốn thực hiện yêu cầu này");
+  expect(result.reply).toContain("tab QUẢN LÝ HỌC VIÊN");
+  expect(result.reply).toContain("Mở danh sách loại dữ liệu cần tra cứu");
+  expect(result.reply).toContain("chưa có dữ liệu nào được thay đổi");
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("guides manual handling when a recognized workflow is blocked by permissions", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.list", values: {}, intentType: "workflow", newRequest: true });
+  state.assertOperation.mockRejectedValueOnce(new AssistantError("Bạn không có quyền dùng thao tác này.", 403));
+
+  const result = await turn({ text: "Danh sách học viên" });
+
+  expect(result.status).toBe("unsupported");
+  expect(result.reply).toContain("chưa có dữ liệu nào được thay đổi");
+  expect(result.reply).toContain("tab QUẢN LÝ HỌC VIÊN");
+  expect(result.reply).toContain("Mở danh sách loại dữ liệu cần tra cứu");
+  expect(fetcher).not.toHaveBeenCalled();
+});
 
 it("creates one student, asks about missing optional fields, supplements that record, and renders shared result tables", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: {
@@ -261,6 +355,61 @@ it("answers a plain-language tuition question with the student's fee summary", a
   const request = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/students");
   expect(request).toBeDefined();
   expect(new URL(String(request![0])).searchParams.get("search")).toBe("La V\u0103n S\u1EBFn");
+});
+
+it("creates a tuition installment, confirms the total increase, and adds its missing due date to the same installment", async () => {
+  students = [{
+    _id: studentId, __v: 0, fullName: "ABC", phone: "0900000000", fee: "5000000", paidAmount: 0,
+    status: "Đang học", installmentStatus: [],
+  }];
+  state.interpret.mockResolvedValueOnce({
+    actionId: "student.installment.create", values: { path_id: "ABC", amountDue: 5_000_000 },
+    intentType: "workflow", newRequest: true,
+  });
+
+  const preview = await turn({ text: "Thêm học phí cho học viên ABC 5 triệu" });
+
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain("5.000.000 ₫");
+  expect(JSON.stringify(preview)).toContain("10.000.000 ₫");
+  expect(students[0].installmentStatus).toHaveLength(0);
+  expect(JSON.stringify(preview)).not.toContain(studentId);
+
+  const created = await confirm(preview);
+  expect(created.status).toBe("completed");
+  expect(students[0]).toMatchObject({ fee: "10.000.000", paidAmount: 0 });
+  expect(students[0].installmentStatus).toHaveLength(1);
+  expect(students[0].installmentStatus[0]).toMatchObject({ installmentNo: 1, amountDue: 5_000_000, status: "Chưa gửi", dueDate: "" });
+  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(JSON.stringify(created)).not.toContain(studentId);
+
+  const agreed = await turn({ text: "Có" });
+  expect(agreed.status).toBe("collecting");
+  expect(agreed.reply).toContain("cập nhật");
+  expect(JSON.stringify(agreed)).not.toContain(studentId);
+
+  state.interpret.mockResolvedValueOnce({
+    actionId: "student.installment.update", values: { dueDate: "2026-12-15" },
+    intentType: "workflow", newRequest: false,
+  });
+  const datePreview = await turn({ text: "Đặt hạn thu đợt vừa tạo là ngày 15/12/2026" });
+  expect(datePreview.status).toBe("confirmation");
+  expect(JSON.stringify(datePreview)).toContain("15/12/2026");
+  expect(JSON.stringify(datePreview)).not.toContain(studentId);
+
+  const updated = await confirm(datePreview);
+  expect(updated.status).toBe("completed");
+  expect(students[0].installmentStatus).toHaveLength(1);
+  expect(students[0].installmentStatus[0]).toMatchObject({ installmentNo: 1, amountDue: 5_000_000, dueDate: "2026-12-15" });
+  expect(students[0].fee).toBe("10.000.000");
+  const table = parseAssistantResultTable(updated.reply);
+  expect(table?.rows).toHaveLength(1);
+  expect(JSON.stringify(table?.rows[0].values)).toContain("ABC");
+  expect(JSON.stringify(table?.rows[0].values)).toContain("15/12/2026");
+  expect(updated.reply).not.toContain(studentId);
+  expect(renderToStaticMarkup(createElement(AssistantMessageContent, { content: updated.reply }))).toContain("<table");
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/students/${studentId}/installments` && init?.method === "POST")).toHaveLength(1);
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/students/${studentId}/installments/1` && init?.method === "PATCH")).toHaveLength(1);
 });
 
 it("understands a request for tuition payment history and filters by the learner's name", async () => {
@@ -495,7 +644,7 @@ it("offers the full course list for class creation and accepts a course selected
 });
 
 it("lets the user select both a class and learner before adding the learner", async () => {
-  batches = [{ _id: batchId, code: "LOP-A1", name: "Lớp giao tiếp A1", courseTitle: "Tiếng Anh A1", status: "Đang học" }];
+  batches = [{ _id: batchId, __v: 0, code: "LOP-A1", name: "Lớp giao tiếp A1", courseTitle: "Tiếng Anh A1", status: "Đang học" }];
   students = [{ _id: studentId, fullName: "Nguyễn An", phone: "0900000000" }];
   state.interpret.mockResolvedValueOnce({ actionId: "student.batch.learner.add", values: {}, intentType: "workflow", newRequest: true });
 
@@ -518,6 +667,89 @@ it("lets the user select both a class and learner before adding the learner", as
   expect(JSON.stringify(preview)).toContain("Lớp giao tiếp A1");
   expect(JSON.stringify(preview)).not.toContain(batchId);
   expect(JSON.stringify(preview)).not.toContain(studentId);
+});
+
+it("asks for the learner in the selected class before confirming a suspension", async () => {
+  batches = [{ _id: batchId, code: "LOP-A1", name: "Lớp giao tiếp A1", courseTitle: "Tiếng Anh A1", status: "Đang học", branchId: req.user.branchId }];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
+    status: "Bảo lưu", reason: "Học viên xin tạm dừng",
+  }, intentType: "workflow", newRequest: true });
+
+  const classPrompt = await turn({ text: "Bảo lưu học viên" });
+
+  expect(classPrompt.status).toBe("collecting");
+  expect(classPrompt.reply).not.toContain("Chưa có lựa chọn khả dụng cho Tên hoặc số điện thoại học viên trong lớp");
+  const classSelection = classPrompt.referenceSelections?.find(group => group.key === "path_id");
+  expect(classSelection?.options.map(option => option.label).join(" ")).toContain("Lớp giao tiếp A1");
+  expect(classPrompt.referenceSelections?.some(group => group.key === "path_studentId")).toBe(false);
+
+  const learnerPrompt = await turn({ referenceSelections: { path_id: [classSelection!.options[0].value] } });
+
+  expect(learnerPrompt.status).toBe("collecting");
+  const learnerSelection = learnerPrompt.referenceSelections?.find(group => group.key === "path_studentId");
+  expect(learnerSelection?.options.map(option => option.label).join(" ")).toContain("Nguyễn An");
+  expect(learnerSelection?.options.map(option => option.label).join(" ")).not.toContain("Trụ sở chính");
+
+  const preview = await turn({ referenceSelections: { path_studentId: [learnerSelection!.options[0].value] } });
+
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain("Nguyễn An");
+  expect(JSON.stringify(preview)).toContain("Bảo lưu");
+  expect(JSON.stringify(preview)).not.toContain(batchId);
+  expect(JSON.stringify(preview)).not.toContain(studentId);
+
+  const updated = await confirm(preview);
+
+  expect(updated.status).toBe("completed");
+  const updateCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH");
+  expect(updateCall).toBeDefined();
+  expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ status: "Bảo lưu", reason: "Học viên xin tạm dừng" });
+  expect(JSON.parse(String(updateCall?.[1]?.body))).not.toHaveProperty("expectedVersion");
+});
+
+it("collects a required suspension reason and reopens an older preview missing it", async () => {
+  batches = [{ _id: batchId, code: "LOP-A1", name: "Lớp giao tiếp A1", courseTitle: "Tiếng Anh A1", status: "Đang học", branchId: req.user.branchId }];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
+    status: "Bảo lưu",
+  }, intentType: "workflow", newRequest: true });
+
+  const classPrompt = await turn({ text: "Bảo lưu học viên" });
+  const classSelection = classPrompt.referenceSelections?.find(group => group.key === "path_id");
+  const learnerPrompt = await turn({ referenceSelections: { path_id: [classSelection!.options[0].value] } });
+  const learnerSelection = learnerPrompt.referenceSelections?.find(group => group.key === "path_studentId");
+  const reasonPrompt = await turn({ referenceSelections: { path_studentId: [learnerSelection!.options[0].value] } });
+
+  expect(classPrompt.status).toBe("collecting");
+  expect(learnerPrompt.status).toBe("collecting");
+  expect(reasonPrompt.status).toBe("collecting");
+  expect(reasonPrompt.reply).toContain("Lý do");
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH")).toBe(false);
+
+  state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
+    reason: "Học viên xin tạm dừng",
+  }, intentType: "workflow", newRequest: false });
+  const preview = await turn({ text: "Lý do: học viên xin tạm dừng" });
+  expect(preview.status).toBe("confirmation");
+
+  delete state.session.pending.provided.reason;
+  delete state.session.pending.resolved.reason;
+  const reopened = await confirm(preview);
+
+  expect(reopened.status).toBe("collecting");
+  expect(reopened.reply).toContain("Lý do");
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH")).toBe(false);
+
+  state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
+    reason: "Học viên xin tạm dừng",
+  }, intentType: "workflow", newRequest: false });
+  const correctedPreview = await turn({ text: "Lý do: học viên xin tạm dừng" });
+  expect(correctedPreview.status).toBe("confirmation");
+  const updated = await confirm(correctedPreview);
+
+  expect(updated.status).toBe("completed");
+  const updateCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH");
+  expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ status: "Bảo lưu", reason: "Học viên xin tạm dừng" });
+  expect(JSON.parse(String(updateCall?.[1]?.body))).not.toHaveProperty("expectedVersion");
 });
 
 it("shows the matching tuition transaction before updating it", async () => {
@@ -580,9 +812,101 @@ it("shows a resource picker before confirming a room booking", async () => {
   expect(resourceSelection?.options[0].label).toContain("Phòng học P101");
   const preview = await turn({ referenceSelections: { path_id: [resourceSelection!.options[0].value] } });
   expect(preview.status).toBe("confirmation");
-  expect(preview.action?.title).toBe("Đặt lịch phòng học hoặc tài nguyên");
+  expect(preview.action?.title).toBe("Đặt lịch phòng học hoặc thiết bị");
   expect(JSON.stringify(preview)).toContain("Phòng học P101");
   expect(JSON.stringify(preview)).not.toContain(resourceId);
+});
+
+it("lists equipment without classroom records when requested as equipment", async () => {
+  resources = [
+    { _id: resourceId, name: "Phòng học P101", type: "Phòng học", identifier: "P101", status: "Hoạt động" },
+    { _id: "64b000000000000000000010", name: "Máy chiếu Epson", type: "Máy chiếu", identifier: "MC01", status: "Sẵn sàng" },
+  ];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.resource.list", values: { query_excludeType: "Phòng học" }, intentType: "workflow", newRequest: true });
+
+  const result = await turn({ text: "Danh sách thiết bị" });
+
+  expect(result.status).toBe("completed");
+  expect(result.reply).toContain("Máy chiếu Epson");
+  expect(result.reply).not.toContain("Phòng học P101");
+  const listCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === "/api/v1/student-resources" && init?.method !== "POST");
+  expect(new URL(String(listCall?.[0])).searchParams.get("excludeType")).toBe("Phòng học");
+});
+
+it("uses the classroom type set by the classroom form without asking for a resource category", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.resource.create", values: {
+    name: "Phòng học P101", identifier: "P101", capacity: "20", type: "Thiết bị",
+  }, intentType: "workflow", newRequest: true });
+
+  const preview = await turn({ text: "Tạo phòng học P101 sức chứa 20" });
+
+  expect(preview.status).toBe("confirmation");
+  expect(preview.reply).not.toContain("Loại tài nguyên");
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/student-resources/categories")).toBe(false);
+
+  const created = await confirm(preview);
+
+  expect(created.status).toBe("completed");
+  expect(resources).toHaveLength(1);
+  expect(resources[0]).toMatchObject({ name: "Phòng học P101", identifier: "P101", capacity: "20", type: "Phòng học" });
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === "/api/v1/student-resources" && init?.method === "POST")).toHaveLength(1);
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/student-resources/categories")).toBe(false);
+});
+
+it("keeps a general resource category selectable", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.resource.create", values: {
+    name: "Máy chiếu Epson", identifier: "MC01", capacity: "1", type: "Thiết bị",
+  }, intentType: "workflow", newRequest: true });
+
+  const preview = await turn({ text: "Tạo tài nguyên máy chiếu Epson mã MC01" });
+
+  expect(preview.status).toBe("confirmation");
+  const categoryCalls = fetcher.mock.calls.filter(([url]) => new URL(String(url)).pathname === "/api/v1/student-resources/categories");
+  expect(categoryCalls.length).toBeGreaterThan(0);
+
+  const created = await confirm(preview);
+
+  expect(created.status).toBe("completed");
+  expect(resources).toHaveLength(1);
+  expect(resources[0]).toMatchObject({ name: "Máy chiếu Epson", identifier: "MC01", capacity: "1", type: "Thiết bị" });
+});
+
+it("defaults direct equipment creation and accepts details in the next message", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.resource.create", values: {}, intentType: "workflow", newRequest: true });
+
+  const selection = await turn({ text: "Thêm thiết bị cho học viên" });
+
+  expect(selection.status).toBe("collecting");
+  expect(selection.reply).not.toContain("Loại tài nguyên");
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/student-resources/categories")).toBe(false);
+
+  state.interpret.mockResolvedValueOnce({ actionId: "student.resource.create", values: {
+    name: "Máy chiếu 001", identifier: "MAYCHIEU001", capacity: "3",
+  }, intentType: "workflow", newRequest: false });
+
+  const preview = await turn({ text: "máy chiếu 001, MAYCHIEU001, 3" });
+
+  expect(preview.status).toBe("confirmation");
+  expect(preview.reply).not.toContain("Loại tài nguyên");
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/student-resources/categories")).toBe(false);
+
+  const created = await confirm(preview);
+
+  expect(created.status).toBe("completed");
+  expect(resources).toHaveLength(1);
+  expect(resources[0]).toMatchObject({ name: "Máy chiếu 001", identifier: "MAYCHIEU001", capacity: "3", type: "Thiết bị" });
+});
+
+it("still asks for a category when creating a general resource", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.resource.create", values: {
+    name: "Máy chiếu phòng học", identifier: "MC01", capacity: "1",
+  }, intentType: "workflow", newRequest: true });
+
+  const result = await turn({ text: "Tạo tài nguyên máy chiếu phòng học mã MC01" });
+
+  expect(result.status).toBe("collecting");
+  expect(result.referenceSelections?.find(selection => selection.key === "type")?.options.map(option => option.label)).toContain("Thiết bị");
+  expect(resources).toHaveLength(0);
 });
 
 it("lets the user choose multiple notification channels in chat", async () => {
@@ -606,22 +930,98 @@ it("lets the user choose multiple notification channels in chat", async () => {
 });
 
 it("offers course choices inside each learning-roadmap step", async () => {
-  courses = [{ _id: roadmapCourseId, title: "Tiếng Anh căn bản", code: "TA01", status: "Hoạt động" }];
+  const nextRoadmapCourseId = "64b000000000000000000009";
+  courses = [
+    { _id: roadmapCourseId, title: "Tiếng Anh căn bản", code: "TA01", status: "Hoạt động" },
+    { _id: nextRoadmapCourseId, title: "Tiếng Anh nâng cao", code: "TA02", status: "Hoạt động" },
+  ];
   state.interpret.mockResolvedValueOnce({ actionId: "student.learning-roadmap.create", values: {
     code: "LOTRINH-A1", name: "Lộ trình tiếng Anh A1",
-    steps: JSON.stringify([{ id: "A1", order: 1, minClassSize: 0, maxClassSize: 12 }]),
+    steps: JSON.stringify([
+      { id: "A1", order: 1, minClassSize: 0, maxClassSize: 12 },
+      { id: "A2", order: 2, minClassSize: 0, maxClassSize: 12 },
+    ]),
   }, intentType: "workflow", newRequest: true });
 
-  const selection = await turn({ text: "Tạo lộ trình tiếng Anh A1 gồm chặng A1, sĩ số tối đa 12" });
+  const selection = await turn({ text: "Tạo lộ trình tiếng Anh A1 gồm hai chặng A1 và A2, sĩ số tối đa 12" });
 
   expect(selection.status).toBe("collecting");
-  const courseSelection = selection.referenceSelections?.find(group => group.key === "steps[1].courseId");
-  expect(courseSelection?.required).toBe(true);
-  expect(courseSelection?.options[0].label).toContain("Tiếng Anh căn bản");
+  const firstCourseSelection = selection.referenceSelections?.find(group => group.key === "steps[1].courseId");
+  const secondCourseSelection = selection.referenceSelections?.find(group => group.key === "steps[2].courseId");
+  expect(firstCourseSelection?.required).toBe(true);
+  expect(secondCourseSelection?.required).toBe(true);
+  expect(firstCourseSelection?.options.some(option => option.label.includes("Tiếng Anh căn bản"))).toBe(true);
+  expect(secondCourseSelection?.options.some(option => option.label.includes("Tiếng Anh nâng cao"))).toBe(true);
 
-  const preview = await turn({ referenceSelections: { "steps[1].courseId": [courseSelection!.options[0].value] } });
+  const preview = await turn({ referenceSelections: {
+    "steps[1].courseId": [firstCourseSelection!.options.find(option => option.label.includes("Tiếng Anh căn bản"))!.value],
+    "steps[2].courseId": [secondCourseSelection!.options.find(option => option.label.includes("Tiếng Anh nâng cao"))!.value],
+  } });
   expect(preview.status).toBe("confirmation");
   expect(preview.action?.title).toBe("Tạo lộ trình học");
   expect(JSON.stringify(preview)).toContain("Tiếng Anh căn bản");
+  expect(JSON.stringify(preview)).toContain("Tiếng Anh nâng cao");
   expect(JSON.stringify(preview)).not.toContain(roadmapCourseId);
+  expect(JSON.stringify(preview)).not.toContain(nextRoadmapCourseId);
+});
+
+it("asks for the number of roadmap stages, then offers a course choice for each stage", async () => {
+  const nextRoadmapCourseId = "64b000000000000000000009";
+  courses = [
+    { _id: roadmapCourseId, title: "Tiếng Anh căn bản", code: "TA01", status: "Hoạt động" },
+    { _id: nextRoadmapCourseId, title: "Tiếng Anh nâng cao", code: "TA02", status: "Hoạt động" },
+  ];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.learning-roadmap.create", values: {}, intentType: "workflow", newRequest: true });
+  const firstPrompt = await turn({ text: "Tạo lộ trình học viên" });
+
+  expect(firstPrompt.status).toBe("collecting");
+  expect(firstPrompt.referenceSelections?.find(group => group.key === "roadmapStepCount")?.options).toHaveLength(30);
+
+  state.interpret.mockResolvedValueOnce({ actionId: "student.learning-roadmap.create", values: {
+    code: "KIEMTIEN", name: "Lộ trình kiếm tiền từ a đến z",
+  }, intentType: "workflow", newRequest: false });
+  const namedPrompt = await turn({ text: "KIEMTIEN, lộ trình kiếm tiền từ a đến z" });
+  expect(namedPrompt.status).toBe("collecting");
+  expect(namedPrompt.referenceSelections?.some(group => group.key === "roadmapStepCount")).toBe(true);
+
+  const countSelection = await turn({ referenceSelections: { roadmapStepCount: ["2"] } });
+  const firstStage = countSelection.referenceSelections?.find(group => group.key === "steps[1].courseId");
+  const secondStage = countSelection.referenceSelections?.find(group => group.key === "steps[2].courseId");
+  expect(countSelection.status).toBe("collecting");
+  expect(firstStage?.label).toContain("Chặng 1");
+  expect(secondStage?.label).toContain("Chặng 2");
+  expect(firstStage?.options.some(option => option.label.includes("Tiếng Anh căn bản"))).toBe(true);
+  expect(secondStage?.options.some(option => option.label.includes("Tiếng Anh nâng cao"))).toBe(true);
+
+  const preview = await turn({ referenceSelections: {
+    "steps[1].courseId": [firstStage!.options.find(option => option.label.includes("Tiếng Anh căn bản"))!.value],
+    "steps[2].courseId": [secondStage!.options.find(option => option.label.includes("Tiếng Anh nâng cao"))!.value],
+  } });
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain("Tiếng Anh căn bản");
+  expect(JSON.stringify(preview)).toContain("Tiếng Anh nâng cao");
+  const stagePreview = String(preview.action?.values.find(value => value.label === "Các chặng và khóa học được chọn theo tên")?.value);
+  expect(stagePreview).toContain("Chặng 1: Tiếng Anh căn bản");
+  expect(stagePreview).toContain("Chặng 2: Tiếng Anh nâng cao");
+  expect(stagePreview).not.toContain('"courseId"');
+  expect(stagePreview).not.toContain('"order"');
+
+  const storedStages = state.session.lastReply.action.values.find((value: any) => value.label === "Các chặng và khóa học được chọn theo tên");
+  storedStages.value = JSON.stringify([
+    { id: "step-1", order: 1, courseId: "Tiếng Anh căn bản" },
+    { id: "step-2", order: 2, courseId: "Tiếng Anh nâng cao" },
+  ]);
+  const restored = await conversationState(req, "student-conversation");
+  const restoredStages = String(restored.lastReply?.action?.values.find(value => value.label === "Các chặng và khóa học được chọn theo tên")?.value);
+  expect(restoredStages).toContain("Chặng 1: Tiếng Anh căn bản");
+  expect(restoredStages).toContain("Chặng 2: Tiếng Anh nâng cao");
+  expect(restoredStages).not.toContain('"courseId"');
+
+  const created = await confirm(preview);
+  const createCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === "/api/v1/learning-roadmaps" && init?.method === "POST");
+  expect(created.status).toBe("completed");
+  expect(JSON.parse(String(createCall?.[1]?.body)).steps).toEqual([
+    { id: "step-1", courseId: roadmapCourseId, order: 1 },
+    { id: "step-2", courseId: nextRoadmapCourseId, order: 2 },
+  ]);
 });

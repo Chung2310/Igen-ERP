@@ -3302,9 +3302,14 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
 }
 const referenceLabelKeys = ["displayName", "fullName", "studentName", "variantName", "sessionCode", "countCode", "name", "label", "legalName", "taxId", "title", "question", "purpose", "by", "startTime", "endTime", "roadmapName", "sourceBatchCode", "templateName", "assetName", "assetCode", "barcode", "internalBarcode", "serialNumber", "courseTitle", "location", "instructorName", "customerName", "recipientName", "recipientEmail", "senderName", "productName", "warehouseName", "branchName", "partnerName", "workerName", "employeeName", "cashierName", "partyName", "invoiceNo", "description", "bankKey", "reference", "referenceCode", "paymentCode", "code", "receivableCode", "sourceCode", "customerCode", "sku", "email", "phone", "ticketCode", "shiftCode", "orderCode", "sourceId", "periodKey", "baseRevision", "key", "channel", "date", "businessDate", "createdAt", "paymentDate", "lastMessageAt", "campaignTitle", "scheduledAt", "platform", "topicBrief"];
 function referenceValues(record: Record<string, any>) {
-  return [record.id, record._id, record.uid, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
+  return [record.id, record._id, record.uid, record.studentId, record.installmentNo, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.amountDue, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
 }
 function referenceLabel(record: Record<string, any>) {
+  if (Number.isSafeInteger(record.installmentNo) && Number.isFinite(Number(record.amountDue))) {
+    const amount = `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(record.amountDue))} ₫`;
+    return [`Đợt ${record.installmentNo}`, amount, record.status, record.dueDate ? `hạn ${formatAssistantTemporalValue(String(record.dueDate)) || record.dueDate}` : ""]
+      .filter(value => typeof value === "string" && value.trim()).join(" · ");
+  }
   if (typeof record.studentName === "string" && Number.isFinite(Number(record.amount)) && typeof record.date === "string") {
     const amount = `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(record.amount))} ₫`;
     const date = formatAssistantTemporalValue(record.date) || record.date;
@@ -3375,6 +3380,10 @@ function referenceLabel(record: Record<string, any>) {
   }
   if (typeof record.studentName === "string" && typeof record.roadmapName === "string") {
     return [record.studentName, `lộ trình ${record.roadmapName}`, record.sourceBatchCode ? `từ lớp ${record.sourceBatchCode}` : ""].filter(Boolean).join(" — ");
+  }
+  if (typeof record.studentName === "string" && record.studentName.trim()) {
+    return [record.studentName.trim(), typeof record.studentPhone === "string" ? record.studentPhone.trim() : ""]
+      .filter(Boolean).join(" — ");
   }
   if (typeof record.workerName === "string" && typeof record.effectiveFrom === "string") {
     return [record.workerName, `hiệu lực ${record.effectiveFrom}${record.effectiveTo ? ` đến ${record.effectiveTo}` : ""}`, record.status].filter(Boolean).join(" — ");
@@ -3533,7 +3542,7 @@ function referenceLabel(record: Record<string, any>) {
 }
 const referenceOptionDisambiguators = [
   { label: "mã", keys: ["code", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
-  { label: "SĐT", keys: ["__assistantReferencePhone", "phone"] },
+  { label: "SĐT", keys: ["__assistantReferencePhone", "phone", "studentPhone"] },
   { label: "email", keys: ["email"] },
   { label: "phòng ban", keys: ["departmentName", "department"] },
   { label: "chi nhánh", keys: ["branchName"] },
@@ -3578,9 +3587,9 @@ export function matchesReference(record: Record<string, any>, search: string) {
     && normalize(referenceLabel(record).split(/\s+[—–]\s+/u)[0] || "") === normalize(displayedParts[0])
     && normalize(String(record.branchName || "").replace(/^chi nhánh\s+/i, "").trim()) === normalize(branchSuffix || "");
   const matchesDisplayedPhone = displayedParts.length === 2
-    && typeof (record.__assistantReferencePhone || record.phone) === "string"
+    && typeof (record.__assistantReferencePhone || record.phone || record.studentPhone) === "string"
     && normalize(referenceLabel(record).split(/\s+[—–]\s+/u)[0] || "") === normalize(displayedParts[0])
-    && normalize(String(record.__assistantReferencePhone || record.phone)) === normalize(displayedParts[1]);
+    && normalize(String(record.__assistantReferencePhone || record.phone || record.studentPhone)) === normalize(displayedParts[1]);
   const matchesDisplayedCustomer = typeof record.name === "string" && typeof record.customerCode === "string"
     && displayedParts.length >= 2
     && normalize(displayedParts[0]) === normalize(record.name)
@@ -4065,6 +4074,8 @@ export async function suggestReferenceOptions(
   values: Record<string, AssistantValue>,
 ) {
   if (!field.reference) return [];
+  if (field.referenceParentKey
+    && (values[field.referenceParentKey] === undefined || values[field.referenceParentKey] === null || String(values[field.referenceParentKey]).trim() === "")) return [];
   if (op.module === "quotation") return suggestQuotationReferences(req, op, field, values, lookupRecords);
   if (op.module === "healthcare") return suggestHealthcareReferences(req, op, field, values, lookupRecords, matchesReference);
   const referenceOperation = operationById(field.reference);
@@ -4302,7 +4313,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     }
   const selectingCampaignSlot = ["marketing.campaign.slot.reject", "marketing.campaign.slot.retry", "marketing.campaign.slot.approve", "marketing.campaign.slot.publish-now", "marketing.campaign.slot.content.update"].includes(op.id)
       && field.reference === "marketing.campaign.calendar";
-    const exact = candidates.filter(row => matchesReference(row, search));
+    const exact = candidates.filter(row => matchesReference(row, search)
+      || Boolean(field.referenceValueKey && String(row[field.referenceValueKey] || "") === search));
     const record = exact.length === 1 ? exact[0] : undefined;
     const value = record && (field.referenceValueKey ? record[field.referenceValueKey] : record.id || record._id || record[field.key]);
     if (exact.length !== 1 || !record || !value) {
@@ -4763,7 +4775,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
   }
   if (op.adapter === "contract") for (const field of op.fields) {
     if (op.id.startsWith("marketing.chat-flow.")) continue;
-    if (field.source !== "path" || values[field.key] === undefined || !collectionPathFor(op, field)) continue;
+    if (field.source !== "path" || values[field.key] === undefined || (!field.reference && !collectionPathFor(op, field))) continue;
     if (["marketing.campaign.slot.reject", "marketing.campaign.slot.retry", "marketing.campaign.slot.approve", "marketing.campaign.slot.publish-now", "marketing.campaign.slot.content.update"].includes(op.id)
       && field.reference === "marketing.campaign.calendar") continue;
     const branchScopedOperation = isBranchScopedAssistantOperation(op);
@@ -4802,7 +4814,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       eligible = eligible.filter(row => Array.isArray(row.changes) && row.changes.length > 0 && !String(row.operation || "").startsWith("revert:"));
     }
     const exact = eligible.filter(row => isRecordIdentifier(search)
-      ? String(row._id || row.id || row.uid || row.__assistantRef?.id || "") === search
+      ? String(row[field.apiKey!] || row._id || row.id || row.uid || row.__assistantRef?.id || "") === search
       : matchesReference(row, search));
     if (exact.length !== 1) {
       const choices = eligible.slice(0, 8).map(referenceLabel).join("; ");
@@ -5275,6 +5287,25 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       } catch {
         errors.push("Không thể kiểm tra đơn và phiên bản hiện tại; chưa ghi thao tác.");
       }
+    }
+  }
+  const installmentStudent = resolvedReferences.path_id;
+  if ((op.id === "student.installment.create" || op.id === "student.installment.update") && installmentStudent) {
+    const currentFee = Number.parseInt(String(installmentStudent.fee || "").replace(/\D/g, ""), 10) || 0;
+    const installmentRecord = resolvedReferences.path_no;
+    const currentInstallment = Number(installmentRecord?.amountDue) || 0;
+    const requestedInstallment = op.id === "student.installment.create"
+      ? Number(resolved.amountDue)
+      : Number(resolved.amountDue ?? currentInstallment);
+    const updatedFee = op.id === "student.installment.create"
+      ? currentFee + requestedInstallment
+      : currentFee + requestedInstallment - currentInstallment;
+    if (Number.isFinite(requestedInstallment) && updatedFee >= 0) {
+      const amountLabel = (amount: number) => `${new Intl.NumberFormat("vi-VN").format(amount)} ₫`;
+      confirmationDetails.path_id = [
+        { label: "Tổng học phí hiện tại", value: amountLabel(currentFee) },
+        { label: "Tổng học phí sau thao tác", value: amountLabel(updatedFee) },
+      ];
     }
   }
   if (op.id === "omni-inbox.account.ai-config.update"

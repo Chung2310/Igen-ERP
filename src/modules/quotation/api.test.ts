@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, apiUploadWithProgress, ApiError, canUseErpCustomers, configureQuotationClient, createGeneratedExport, hasQuotationCapability, quotationEndpoint, quotationFetch } from "./api";
+import { api, apiUploadWithProgress, ApiError, canUseErpCustomers, configureQuotationClient, createGeneratedExport, hasQuotationCapability, queueGeneratedExport, quotationEndpoint, quotationFetch } from "./api";
 import { aiProgress } from "./ai-progress";
 const scope = (branchId = "branch-a", capabilities = ["quotation:manage"]) => ({ user: { id: "qa", name: "QA", email: "qa@example.test", role: "user" as const }, companyCode: "QA", branchId, capabilities });
 describe("quotation ERP transport", () => {
@@ -81,6 +81,12 @@ describe("quotation ERP transport", () => {
       status: 408,
       message: "Máy chủ không phản hồi khi bắt đầu tạo file. Dữ liệu đã được lưu; hãy mở lại chứng từ để kiểm tra hoặc tạo lại file.",
     });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it("returns as soon as the server accepts a large-template export job", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ jobId: "job-id", status: "queued" }, { status: 202 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(queueGeneratedExport("/api/quotes/quote-id/export?draft=1&background=1")).resolves.toEqual({ jobId: "job-id" });
     expect(fetch).toHaveBeenCalledOnce();
   });
   it("ends customer quote processing when its background file status request stalls", async () => {
