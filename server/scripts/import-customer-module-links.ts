@@ -1,15 +1,42 @@
 import { readFile } from "node:fs/promises";
 import mongoose from "mongoose";
-import type { Db } from "mongodb";
+import type { Collection, Db } from "mongodb";
 import { CustomerModel } from "../modules/customer-management/models/customer.model";
-import { CustomerModuleLinkModel, type CustomerSourceModule } from "../modules/customer-management/models/customer-module-link.model";
-import { linkExistingModuleRecord } from "../modules/customer-management/customer-module-links.router";
 import { BranchModel } from "../model/branch.model";
 import { UserModel } from "../model/user.model";
 import { Student } from "../modules/student-management/models/student.model";
 import { records } from "../modules/healthcare/store";
 
+const customerSourceModules = ["students", "healthcare"] as const;
+type CustomerSourceModule = typeof customerSourceModules[number];
 type Mapping = { module: CustomerSourceModule; sourceId: string; customerId: string; branchId: string };
+
+type CustomerModuleLink = {
+  companyCode: string;
+  module: CustomerSourceModule;
+  sourceId: string;
+  customerId: string;
+  linkedBy: string;
+  batchId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+async function linkExistingModuleRecord(links: Collection<CustomerModuleLink>, companyCode: string, module: CustomerSourceModule, sourceId: string, customerId: string, actorId: string, batchId: string) {
+  const key = { companyCode, module, sourceId };
+  try {
+    const now = new Date();
+    const link = await links.findOneAndUpdate(key, {
+      $setOnInsert: { ...key, customerId, linkedBy: actorId, batchId, createdAt: now, updatedAt: now },
+    }, { upsert: true, returnDocument: "after" });
+    if (link?.customerId === customerId) return;
+  } catch (error) {
+    if ((error as { code?: number })?.code !== 11000) throw error;
+    const existing = await links.findOne(key);
+    if (existing?.customerId === customerId) return;
+  }
+  throw new Error("Source record is already linked to another customer.");
+}
 
 async function main() {
   const [file, rawCompany, batchId, ...options] = process.argv.slice(2);
@@ -47,6 +74,7 @@ async function main() {
   try {
     const db = mongoose.connection.db;
     if (!db) throw new Error("Chưa kết nối được cơ sở dữ liệu.");
+    const customerLinks = (db as unknown as Db).collection<CustomerModuleLink>("customermodulelinks");
     const verdicts = [];
     for (const [index, row] of rows.entries()) {
       const result = { row: index + 1, ...row };
@@ -64,8 +92,9 @@ async function main() {
         verdicts.push({ ...result, status: "outside_scope" });
         continue;
       }
-      const link = await CustomerModuleLinkModel.findOne({ companyCode, module: row.module, sourceId: row.sourceId }).select("customerId").lean();
-      const linked = new Set([source.customerId, link?.customerId].filter(Boolean));
+      const sourceCustomerId = "customerId" in source && typeof source.customerId === "string" ? source.customerId : undefined;
+      const link = await customerLinks.findOne({ companyCode, module: row.module, sourceId: row.sourceId }, { projection: { customerId: 1 } });
+      const linked = new Set([sourceCustomerId, link?.customerId].filter((id): id is string => Boolean(id)));
       const status = [...linked].some(customerId => customerId !== row.customerId)
         ? "conflict" : linked.has(row.customerId) ? "unchanged" : "ready";
       verdicts.push({ ...result, status });
@@ -76,9 +105,13 @@ async function main() {
       throw new Error("Lô có dòng mâu thuẫn hoặc sai phạm vi. Sửa danh sách rồi chạy kiểm tra lại.");
     }
     if (!verdicts.some(row => row.status === "ready")) return;
-    await CustomerModuleLinkModel.createIndexes();
+    await Promise.all([
+      customerLinks.createIndex({ companyCode: 1, module: 1, sourceId: 1 }, { unique: true }),
+      customerLinks.createIndex({ companyCode: 1, customerId: 1 }),
+      customerLinks.createIndex({ companyCode: 1, batchId: 1 }),
+    ]);
     for (const row of verdicts) {
-      if (row.status === "ready") await linkExistingModuleRecord(companyCode, row.module, row.sourceId, row.customerId, "customer-link-import", batchId);
+      if (row.status === "ready") await linkExistingModuleRecord(customerLinks, companyCode, row.module, row.sourceId, row.customerId, "customer-link-import", batchId);
     }
     console.log(JSON.stringify({ companyCode, batchId, mode: "apply", linked: verdicts.filter(row => row.status === "ready").length }));
   } finally {
