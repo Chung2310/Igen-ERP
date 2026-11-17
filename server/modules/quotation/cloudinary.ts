@@ -71,3 +71,25 @@ export async function downloadCompanyFile(assetId: string, settings: CloudinaryC
   if (!response.ok) throw new Error("Không thể tải file từ Cloudinary để xem trước.");
   return Buffer.from(await response.arrayBuffer());
 }
+
+export async function deleteCompanyFile(assetId: string, resourceType: "image" | "raw", settings: CloudinaryConfig): Promise<void> {
+  if (!settings.cloudName || !settings.apiKey || !settings.apiSecret) throw new Error("Cloudinary chưa được cấu hình.");
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const parameters = { asset_id: assetId, invalidate: "true", timestamp };
+  const form = new FormData();
+  form.append("api_key", settings.apiKey);
+  for (const [key, value] of Object.entries(parameters)) form.append(key, value);
+  form.append("signature", uploadSignature(parameters, settings.apiSecret));
+  let response: Response;
+  try {
+    response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(settings.cloudName)}/${resourceType}/destroy`, {
+      method: "POST", body: form, signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new Error("Không thể kết nối tới Cloudinary để xóa tệp.");
+  }
+  const result = await response.json().catch(() => ({})) as { result?: unknown };
+  if (!response.ok || (result.result !== "ok" && result.result !== "not found")) {
+    throw new Error("Cloudinary không xóa được tệp lưu trữ.");
+  }
+}

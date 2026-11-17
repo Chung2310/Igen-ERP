@@ -6,6 +6,7 @@ import { LeadContractModel, LeadContractPhotoModel, type ContractPhotoRecord } f
 import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { parseLeadIntakeAmount, mapIntakeStandardFields } from "./lead-intake.service";
 import { isDuplicateInvoiceKey } from "./telecom-invoice-lead";
+import { broadcastEvent } from "../../shared/socket";
 
 export type StoredContractPhoto = ContractPhotoRecord & { _id: Types.ObjectId };
 type ContractWriteResult = { leadId: string; issue?: undefined } | { leadId?: undefined; issue: string };
@@ -71,7 +72,7 @@ export async function recordLeadContractPhoto(photo: StoredContractPhoto, values
 
   for (let attempt = 0; ; attempt++) {
     try {
-      return await LeadContractModel.db.transaction<ContractWriteResult>(async session => {
+      const result = await LeadContractModel.db.transaction<ContractWriteResult>(async session => {
         if (!await LeadContractPhotoModel.exists({ _id: photo._id, companyCode, status: "review" }).session(session)) {
           return { issue: "Ảnh này đã được xử lý." };
         }
@@ -124,6 +125,8 @@ export async function recordLeadContractPhoto(photo: StoredContractPhoto, values
         }, { session });
         return { leadId: String(leadId) };
       });
+      if (result.leadId) broadcastEvent("crm_leads_changed", { companyCode });
+      return result;
     } catch (error) {
       if (!isDuplicateInvoiceKey(error) || attempt >= 2) throw error;
     }

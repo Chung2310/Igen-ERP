@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { expandEffectivePermissions, PERMISSION_CODES } from "../../config/permission-catalog";
+import { DEFAULT_ROLE_PERMISSIONS } from "../../middleware/auth";
 
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
@@ -10,8 +12,6 @@ test("partners use standalone read and manage permissions", () => {
   const catalog = read("server/config/permission-catalog.ts");
   const seed = read("server/config/database.ts");
   const uiCatalog = read("src/utils/permissionUtils.ts");
-  const auth = read("server/middleware/auth.ts");
-
   assert.match(mount, /requirePermission\("relationship:read"\)/);
   assert.doesNotMatch(
     mount,
@@ -19,12 +19,13 @@ test("partners use standalone read and manage permissions", () => {
   );
   assert.match(routes, /requirePermission\("relationship:manage"\)/);
   assert.doesNotMatch(routes, /requirePermission\("people:manage"\)/);
-  for (const source of [catalog, seed, uiCatalog]) {
-    assert.match(source, /relationship:read/);
-    assert.match(source, /relationship:manage/);
-  }
+  assert.ok(PERMISSION_CODES.includes("relationship:read"));
+  assert.ok(PERMISSION_CODES.includes("relationship:manage"));
+  assert.match(catalog, /feature\("relationship"/);
+  assert.match(seed, /PERMISSION_CATALOG\.map/);
+  assert.match(uiCatalog, /Permission metadata is supplied by the backend registry catalog/);
 
-  const adminPermissions = auth.match(/admin:\s*\[([\s\S]*?)\r?\n\s*\],\r?\n\s*branch_owner:/)?.[1] || "";
-  assert.match(adminPermissions, /"relationship:read"/);
-  assert.match(adminPermissions, /"relationship:manage"/);
+  const adminPermissions = expandEffectivePermissions(DEFAULT_ROLE_PERMISSIONS.admin);
+  assert.ok(adminPermissions.has("relationship:read"));
+  assert.ok(adminPermissions.has("relationship:manage"));
 });

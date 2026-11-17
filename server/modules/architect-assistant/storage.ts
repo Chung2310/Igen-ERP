@@ -1,12 +1,15 @@
 import { isIP } from "node:net";
 import { randomUUID } from "node:crypto";
 import { ConflictError } from "../../errors/app-error";
-import { downloadCompanyFile, uploadCompanyFile } from "../quotation/cloudinary";
+import { deleteCompanyFile, downloadCompanyFile, uploadCompanyFile } from "../quotation/cloudinary";
 import { config } from "../quotation/config.js";
 import type { ArchitectureRenderAsset } from "../../../src/shared/architecture-assistant";
 import type { ArchitectureActor } from "./scope";
 
-export type StoredArchitectureAsset = ArchitectureRenderAsset & { storageAssetId: string };
+export type StoredArchitectureAsset = ArchitectureRenderAsset & {
+  storageAssetId: string;
+  storageResourceType: "image" | "raw";
+};
 
 function decodeImageDataUrl(dataUrl: string) {
   const match = /^data:(image\/(?:png|jpeg|webp));base64,([a-z\d+/=]+)$/i.exec(dataUrl);
@@ -21,12 +24,12 @@ async function readProviderImage(url: string) {
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hostname === "localhost" || isIP(parsed.hostname)) {
     throw new Error("Dịch vụ tạo ảnh trả về đường dẫn không an toàn.");
   }
-  const response = await fetch(parsed, { signal: AbortSignal.timeout(45_000), redirect: "error" });
+  const response = await fetch(parsed, { signal: AbortSignal.timeout(120_000), redirect: "error" });
   if (!response.ok) throw new Error("Không tải được ảnh do dịch vụ AI tạo.");
   const mimeType = response.headers.get("content-type")?.split(";")[0]?.toLowerCase() || "";
   if (!["image/png", "image/jpeg", "image/webp"].includes(mimeType)) throw new Error("Dịch vụ tạo ảnh trả về loại tệp không được hỗ trợ.");
   const bytes = Buffer.from(await response.arrayBuffer());
-  if (!bytes.length || bytes.length > 12 * 1024 * 1024) throw new Error("Ảnh tạo được rỗng hoặc vượt quá 12 MB.");
+  if (!bytes.length || bytes.length > 32 * 1024 * 1024) throw new Error("Ảnh tạo được rỗng hoặc vượt quá 32 MB.");
   return { mimeType, bytes };
 }
 
@@ -36,6 +39,7 @@ export async function storeArchitectureImage(
   model: string,
   kind: NonNullable<ArchitectureRenderAsset["kind"]> = "render",
   prompt = "",
+  resolution?: ArchitectureRenderAsset["resolution"],
 ): Promise<StoredArchitectureAsset> {
   if (!config.cloudinaryConfigured) throw new ConflictError("CONFLICT", "ERP chưa cấu hình kho ảnh Cloudinary.");
   const { bytes, mimeType } = await readProviderImage(url);
@@ -51,10 +55,12 @@ export async function storeArchitectureImage(
   return {
     id: randomUUID(),
     storageAssetId: uploaded.assetId,
+    storageResourceType: uploaded.resourceType,
     filename: `Phối cảnh kiến trúc.${extension}`,
     mimeType: mimeType as ArchitectureRenderAsset["mimeType"],
     bytes: bytes.length,
     model,
+    resolution,
     createdAt: new Date().toISOString(),
     kind,
     prompt: prompt.slice(0, 1200),
@@ -75,6 +81,7 @@ export async function storeArchitectureVideo(bytes: Buffer, actor: ArchitectureA
   return {
     id: randomUUID(),
     storageAssetId: uploaded.assetId,
+    storageResourceType: uploaded.resourceType,
     filename: "Video-kien-truc.mp4",
     mimeType: "video/mp4",
     bytes: bytes.length,
@@ -87,4 +94,10 @@ export async function storeArchitectureVideo(bytes: Buffer, actor: ArchitectureA
 
 export async function downloadArchitectureImage(asset: StoredArchitectureAsset) {
   return downloadCompanyFile(asset.storageAssetId, config.cloudinary);
+}
+
+export async function deleteArchitectureAsset(asset: StoredArchitectureAsset) {
+  if (!asset.storageAssetId || !asset.storageResourceType) return false;
+  await deleteCompanyFile(asset.storageAssetId, asset.storageResourceType, config.cloudinary);
+  return true;
 }

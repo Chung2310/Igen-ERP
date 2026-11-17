@@ -25,7 +25,7 @@ import { createStudioChart, deleteStudioChart, editStudioChart, getStudioChart, 
 import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studioSlideDeckUpdateSchema, studioSlideRequestSchema, updateStudioSlideDeck } from "./studio-slides";
 import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
 import { getAssistantProjectFile, listAssistantProjects, saveAssistantProjectCollection, saveAssistantProjectFile } from "./projects";
-import { assistantConversationFileFilter } from "./conversation-file";
+import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode } from "./conversation-file";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -218,7 +218,7 @@ const parseConversationFileUpload = (req: any, res: any, next: any) => {
       const payload = typeof payloadText === "string" ? JSON.parse(payloadText) : null;
       if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new AssistantError("Nội dung lượt chat không hợp lệ.", 400);
       if (!req.file) throw new AssistantError("Chưa nhận được tệp đính kèm. Hãy chọn lại tệp rồi gửi.", 400);
-      if (payload.mode !== "qa" || payload.attachment) throw new AssistantError("Tệp PDF, ảnh và video chỉ hỗ trợ trong mục Trò chuyện.", 400);
+      if (!isAssistantConversationFileAllowedForMode(req.file.originalname, payload.mode) || payload.attachment) throw new AssistantError("\u1ea2nh JPG, PNG, WebP ch\u1ec9 d\u00f9ng \u0111\u01b0\u1ee3c trong Thao t\u00e1c; PDF, t\u00e0i li\u1ec7u v\u00e0 video d\u00f9ng trong Tr\u00f2 chuy\u1ec7n.", 400);
       payload.conversationUpload = { buffer: req.file.buffer, fileName: req.file.originalname };
       req.body = payload;
       return next();

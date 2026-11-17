@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, Download, Home, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Download, FolderOpen, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
@@ -7,11 +7,24 @@ import type { ArchitecturePlan, ArchitectureProject, ArchitectureProjectInput, A
 import { cn } from "../student-management/lib/utils";
 import { architectAssistantApi } from "./api";
 import { ARCHITECTURE_TOOL_NAV, ArchitectureCreativeTools } from "./ArchitectureCreativeTools";
+import ArchitectAssistantHome from "./ArchitectAssistantHome";
 import FloorPlanEditor, { ArchitecturePlanSvg } from "./FloorPlanEditor";
+import "./architect-assistant.css";
 
 const inputClass = "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
 const emptyPlan = (): ArchitecturePlan => ({ rooms: [], notes: "" });
 const blankProject: ArchitectureProjectInput = { name: "", areaM2: 100, floors: 1, style: "Hiện đại", requirements: "" };
+type ArchitecturePage = "home" | "projects" | "rendering" | ArchitectureToolId;
+const RENDERING_TABS: Array<{ label: string; tool: ArchitectureToolId }> = [
+  { label: "Render", tool: "render" },
+  { label: "Cải thiện Render", tool: "enhance" },
+  { label: "Upscale", tool: "upscale" },
+  { label: "Đồng bộ", tool: "sync" },
+  { label: "Chỉnh sửa ảnh", tool: "edit" },
+  { label: "Virtual staging", tool: "staging" },
+  { label: "Canvas", tool: "canvas" },
+  { label: "Tiện ích khác", tool: "utilities" },
+];
 function apiMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -95,7 +108,10 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
   const [planDraft, setPlanDraft] = useState<ArchitecturePlan>(emptyPlan);
   const [activeFloor, setActiveFloor] = useState(1);
   const [tab, setTab] = useState<ArchitectureToolId>("plan");
+  const [page, setPage] = useState<ArchitecturePage>("home");
+  const [showProjectsPanel, setShowProjectsPanel] = useState(false);
   const [aspectRatio, setAspectRatio] = useState("4:3");
+  const [resolution, setResolution] = useState("1K");
   const [renderPrompt, setRenderPrompt] = useState("");
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -171,11 +187,11 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
       link.click();
     } catch (cause) { setError(apiMessage(cause, "Không xuất được bản vẽ mặt bằng.")); }
   };
-  const generatePlan = async () => {
+  const generatePlan = async (instructions = "", outline?: NonNullable<ArchitecturePlan["outline"]>) => {
     if (!selected) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await api.generatePlan(selected._id);
+      const result = await api.generatePlan(selected._id, instructions, outline);
       replaceProject(result.project); setPlanDraft(result.project.plan || emptyPlan()); setNotice("Đã tạo mặt bằng bằng AI. Kiểm tra và chỉnh lại kích thước trước khi dùng.");
     } catch (cause) { setError(apiMessage(cause, "Không tạo được mặt bằng.")); }
     finally { setBusy(false); }
@@ -193,11 +209,11 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         const saved = await api.update(selected._id, selected.revision, { plan: planDraft });
         replaceProject(saved.project); setPlanDraft(saved.project.plan || emptyPlan());
         const planImage = await makePlanImage(saved.project.plan || emptyPlan(), activeFloor);
-        const result = await api.render(selected._id, planImage, aspectRatio, prompt, activeFloor);
+        const result = await api.render(selected._id, planImage, aspectRatio, prompt, activeFloor, resolution);
         replaceProject(result.project);
       } else {
         const planImage = await makePlanImage(planDraft, activeFloor);
-        const result = await api.render(selected._id, planImage, aspectRatio, prompt, activeFloor);
+        const result = await api.render(selected._id, planImage, aspectRatio, prompt, activeFloor, resolution);
         replaceProject(result.project);
       }
       setNotice("Đã tạo phối cảnh. Hình ảnh được lưu trong dự án.");
@@ -219,7 +235,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         return `${room.name}: ${room.style || selected.style}; sàn ${finish.flooring || "Gỗ sáng"}; tường ${finish.walls || "Trắng ấm"}; trần ${finish.ceiling || "Trắng"}; cửa ${finish.doors || "Gỗ tự nhiên"}; cửa sổ ${finish.windows || "Kính trong, khung nhôm"}`;
       }).join("\n");
       const result = await api.generateImage(projectForRender._id, {
-        kind: "render", aspectRatio, referenceImage,
+        kind: "render", aspectRatio, resolution, referenceImages: [referenceImage],
         prompt: `Create a photorealistic architectural render from this exact 3D camera view. Preserve the camera angle, room layout, doors, windows, furniture placement, and proportions. Apply the project's selected finishes:\n${finishNotes}`,
       });
       replaceProject(result.project); setNotice("Đã tạo phối cảnh từ góc nhìn 3D và lưu vào thư viện dự án.");
@@ -237,22 +253,47 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
     finally { setDeleting(false); }
   };
 
-  return <div className="space-y-5 p-4 sm:p-6" aria-busy={busy || loading}>
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-primary-container text-on-primary-container"><Home className="size-5" aria-hidden="true" /></span>
-        <div><h2 data-typography="page-title" className="text-balance text-lg font-semibold text-on-surface">Trợ lý kiến trúc</h2><p className="text-pretty text-sm text-on-surface-variant">Lập dự án, bố trí mặt bằng và tạo phối cảnh.</p></div>
+  if (page === "home") return <ArchitectAssistantHome
+    onOpenTool={tool => { setTab(tool); setPage(tool === "render" ? "rendering" : tool); setShowProjectsPanel(false); setNotice(""); setError(""); }}
+    onOpenProjects={() => { setPage("projects"); setShowProjectsPanel(true); setTab("plan"); }}
+  />;
+
+  const pageTitle = page === "projects"
+    ? "Dự án kiến trúc"
+    : page === "rendering"
+      ? "Rendering"
+      : page === "plan"
+        ? "Vẽ bản vẽ AI"
+        : ARCHITECTURE_TOOL_NAV.find(item => item.id === page)?.label || "Trợ lý kiến trúc";
+
+  return <div className="architect-assistant-source min-h-full space-y-5 overflow-auto bg-surface p-4 sm:p-6" aria-busy={busy || loading}>
+    <header className="sticky top-0 z-30 -mx-4 -mt-4 flex min-h-16 items-center justify-between gap-3 border-b border-white/40 bg-white/70 px-4 py-3 shadow-sm shadow-slate-900/5 backdrop-blur-xl sm:-mx-6 sm:-mt-6 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <button type="button" onClick={() => setPage("home")} aria-label="Về trang công cụ kiến trúc" className="flex size-10 shrink-0 items-center justify-center rounded-full text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary">
+          <ArrowLeft className="size-5" aria-hidden="true" />
+        </button>
+        <img src="https://res.cloudinary.com/dfbk14k5w/image/upload/v1783992125/igen_assets/brand-icon.png" alt="iGen" className="hidden h-10 object-contain sm:block" referrerPolicy="no-referrer" />
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-extrabold uppercase text-on-surface sm:text-lg">{pageTitle}</h1>
+          <p className="truncate text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/70">Powered by iGen Vision Engine</p>
+        </div>
       </div>
-      <button type="button" onClick={() => void loadProjects()} disabled={loading} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">
-        <RefreshCw className="size-4" aria-hidden="true" /> Làm mới
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <button type="button" onClick={() => { setPage("projects"); setShowProjectsPanel(value => !value); setTab("plan"); }} aria-pressed={showProjectsPanel} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-3 text-xs font-semibold text-on-surface shadow-sm hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary sm:px-4 sm:text-sm">
+          <FolderOpen className="size-4 text-primary" aria-hidden="true" />
+          <span className="max-w-40 truncate">{selected?.name || "Dự án kiến trúc"}</span>
+        </button>
+        {page === "projects" && <button type="button" onClick={() => void loadProjects()} disabled={loading} aria-label="Làm mới dự án" className="flex size-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">
+          <RefreshCw className="size-4" aria-hidden="true" />
+        </button>}
+      </div>
     </header>
 
     {error && <div className="flex items-start justify-between gap-3 rounded-lg border border-error/40 bg-error-container/20 px-4 py-3 text-sm text-on-surface" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Đóng</button></div>}
     {notice && <p className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface" role="status"><Check className="size-4 text-primary" aria-hidden="true" />{notice}</p>}
 
-    <div className="grid items-start gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+    <div className={cn("grid items-start gap-5", showProjectsPanel ? "xl:grid-cols-[17rem_minmax(0,1fr)]" : "grid-cols-1")}>
+      {showProjectsPanel && <aside className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
         <div className="flex items-center justify-between gap-2"><h3 data-typography="section-title" className="text-sm font-semibold text-on-surface">Dự án</h3>
           {canManage && <button type="button" aria-label="Tạo dự án" onClick={() => { setShowCreate(value => !value); setError(""); }} className="flex size-9 items-center justify-center rounded-lg bg-primary text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" /></button>}
         </div>
@@ -267,15 +308,21 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
           <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} className="min-h-9 rounded-lg border border-outline-variant px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Hủy</button><button type="submit" disabled={busy} className="min-h-9 rounded-lg bg-primary px-3 text-sm font-medium text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">Tạo dự án</button></div>
         </form>}
         {loading ? <p className="py-4 text-sm text-on-surface-variant" role="status">Đang tải dự án…</p> : !projects.length ? <p className="py-4 text-pretty text-sm text-on-surface-variant">Chưa có dự án trong chi nhánh này. {canManage ? "Dùng nút Tạo dự án để bắt đầu." : ""}</p> : <ul className="space-y-1" aria-label="Danh sách dự án">{projects.map(project => <li key={project._id}>
-          <button type="button" onClick={() => { setSelectedId(project._id); setTab("plan"); setNotice(""); }} aria-current={project._id === selectedId ? "page" : undefined} className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary", project._id === selectedId ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface-container")}>
+          <button type="button" onClick={() => { setSelectedId(project._id); if (page === "projects") setTab("plan"); setNotice(""); }} aria-current={project._id === selectedId ? "page" : undefined} className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary", project._id === selectedId ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface-container")}>
             <span className="min-w-0"><span className="block truncate font-medium">{project.name}</span><span className="mt-0.5 block text-xs tabular-nums text-on-surface-variant">{project.areaM2} m² · {project.floors} tầng</span></span><ChevronRight className="size-4 shrink-0" aria-hidden="true" />
           </button>
         </li>)}</ul>}
-      </aside>
+      </aside>}
 
-      {!selected ? <section className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-8 text-center">
-        <Home className="mb-3 size-10 text-on-surface-variant" aria-hidden="true" /><h3 className="text-base font-semibold text-on-surface">Chọn hoặc tạo dự án</h3><p className="mt-1 max-w-md text-sm text-on-surface-variant">Mỗi dự án được lưu riêng trong chi nhánh đang chọn.</p>
-      </section> : <section className="min-w-0 space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+      {!selected ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-8 text-center">
+        <FolderOpen className="mb-4 size-12 text-primary" aria-hidden="true" />
+        <h2 className="text-balance text-xl font-bold text-on-surface">Chọn dự án để bắt đầu</h2>
+        <p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">Các bản vẽ, phối cảnh và ảnh được lưu trong dự án đang chọn.</p>
+        <button type="button" onClick={() => { setPage("projects"); setShowProjectsPanel(true); }} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
+          <FolderOpen className="size-4" aria-hidden="true" /> Mở danh sách dự án
+        </button>
+      </section> : <section className="min-w-0 space-y-4 rounded-xl bg-surface p-1 sm:p-2">
+        {page === "projects" && <>
         <div className="flex flex-wrap items-start justify-between gap-3">
         <div><p className="text-xs text-on-surface-variant">Dự án kiến trúc</p><h3 data-typography="section-title" className="mt-1 text-balance text-lg font-semibold text-on-surface">{selected.name}</h3><p className="mt-1 text-sm tabular-nums text-on-surface-variant">{selected.areaM2} m² · {selected.floors} tầng · {selected.style}</p></div>
           {canManage && <button type="button" onClick={() => setDeleteOpen(true)} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm text-error hover:bg-error-container/20 focus-visible:outline-2 focus-visible:outline-primary"><Trash2 className="size-4" aria-hidden="true" />Xóa</button>}
@@ -299,13 +346,21 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
           {tab === "plan" && canUseAi && <button type="button" onClick={() => void generatePlan()} disabled={busy} className="ml-auto inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Sparkles className="size-4" aria-hidden="true" />{busy ? "Đang tạo…" : "Tạo mặt bằng bằng AI"}</button>}
         </nav>
 
-        {(tab === "plan" || tab === "renders") && selected.floors > 1 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Chọn tầng">
+        </>}
+
+        {page === "rendering" && <nav className="flex gap-1 overflow-x-auto rounded-full bg-surface-container-low p-1.5" aria-label="Công cụ rendering">
+          {RENDERING_TABS.map(item => <button key={item.tool} type="button" aria-pressed={tab === item.tool} onClick={() => setTab(item.tool)} className={cn("min-h-10 shrink-0 rounded-full px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary sm:px-6", tab === item.tool ? "bg-white text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface")}>
+            {item.label}
+          </button>)}
+        </nav>}
+
+        {(page === "plan" || (page === "projects" && tab === "plan")) && selected.floors > 1 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Chọn tầng">
           <span className="text-sm text-on-surface-variant">Tầng</span>
           {Array.from({ length: selected.floors }, (_, index) => index + 1).map(floor => <button key={floor} type="button" aria-pressed={activeFloor === floor} onClick={() => setActiveFloor(floor)} className={cn("min-h-9 min-w-9 rounded-lg border px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary", activeFloor === floor ? "border-primary bg-primary/10 text-primary" : "border-outline-variant text-on-surface hover:bg-surface-container")}>{floor}</button>)}
         </div>}
 
-        {tab === "plan" ? <div className="space-y-4">
-          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} rendering={busy} onGenerate3DRender={image => void generateRenderFrom3D(image)} />
+        {(page === "plan" || (page === "projects" && tab === "plan")) ? <div className="space-y-4">
+          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline) => void generatePlan(prompt, outline)} onGenerate3DRender={image => void generateRenderFrom3D(image)} />
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant pt-4">
             <p className="text-xs text-on-surface-variant">AI đề xuất phương án tham khảo; hãy kiểm tra kích thước và quy chuẩn trước khi triển khai.</p>
             <div className="flex flex-wrap gap-2">
@@ -313,9 +368,10 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
               {canManage && <button type="button" onClick={() => void savePlan()} disabled={busy || !planDraft.rooms.length} className="min-h-9 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">{busy ? "Đang lưu…" : "Lưu mặt bằng"}</button>}
             </div>
           </div>
-        </div> : tab === "renders" ? <div className="space-y-5">
+        </div> : page === "projects" && tab === "renders" ? <div className="space-y-5">
           <div className="grid gap-4 rounded-lg border border-outline-variant p-4 md:grid-cols-[minmax(12rem,0.6fr)_minmax(12rem,1fr)_auto] md:items-end">
             <label className="block space-y-1 text-sm text-on-surface-variant"><span>Tỷ lệ ảnh</span><select className={inputClass} value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="1:1">1:1</option><option value="3:2">3:2</option><option value="2:3">2:3</option></select></label>
+            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Độ phân giải</span><select className={inputClass} value={resolution} onChange={event => setResolution(event.target.value)}><option value="1K">1K · tiêu chuẩn</option><option value="2K">2K · cao</option><option value="4K">4K · tối đa</option></select></label>
             <label className="block space-y-1 text-sm text-on-surface-variant"><span>Yêu cầu phối cảnh</span><input className={inputClass} maxLength={1200} value={renderPrompt} onChange={event => setRenderPrompt(event.target.value)} placeholder="Ví dụ: ánh sáng tự nhiên buổi sáng" /></label>
             {canUseAi && <button type="button" onClick={() => void generateRender()} disabled={busy || !planDraft.rooms.some(room => room.floor === activeFloor)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Sparkles className="size-4" aria-hidden="true" />{busy ? "Đang tạo…" : "Tạo phối cảnh"}</button>}
           </div>
@@ -326,7 +382,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
           </figure>)}</div>}
           {!selected.renders.length && <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant text-center"><Sparkles className="mb-2 size-8 text-on-surface-variant" aria-hidden="true" /><p className="text-sm text-on-surface-variant">Chưa có phối cảnh trong dự án này.</p></div>}
           {selected.plan && <details className="rounded-lg border border-outline-variant p-4"><summary className="cursor-pointer text-sm font-medium text-on-surface">Xem lại mặt bằng gốc</summary><div className="mt-4 max-w-xl"><ArchitecturePlanSvg plan={selected.plan} floor={activeFloor} /></div></details>}
-        </div> : <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} onProjectUpdated={replaceProject} onNavigate={setTab} />}
+        </div> : page === "rendering" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={setTab} /> : page === "projects" && tab !== "renders" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={setTab} /> : page !== "projects" ? <ArchitectureCreativeTools tool={page} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { setTab(tool); setPage(tool === "render" ? "rendering" : tool); }} /> : null}
       </section>}
     </div>
     <ConfirmDialog appearance="erp" native isOpen={deleteOpen} title="Xóa dự án kiến trúc?" description={`Dự án “${selected?.name || ""}” sẽ bị xóa khỏi chi nhánh hiện tại.`} error={deleteOpen ? error : undefined} confirmLabel="Xóa dự án" isSubmitting={deleting} onClose={() => setDeleteOpen(false)} onConfirm={deleteProject} />

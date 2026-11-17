@@ -1151,7 +1151,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         setAttachmentSubmitted(false);
         setAttachment(await readAssistantTableFile(file));
       } else {
-        if (assistantMode !== "qa") throw new Error("PDF, ảnh và video chỉ hỗ trợ trong mục Trò chuyện.");
+        if (assistantMode !== "qa" && !["png", "jpg", "jpeg", "webp"].includes(extension)) throw new Error("\u1ea2nh JPG/PNG/WebP c\u00f3 th\u1ec3 d\u00f9ng trong Thao t\u00e1c; PDF, t\u00e0i li\u1ec7u v\u00e0 video ch\u1ec9 d\u00f9ng trong Tr\u00f2 chuy\u1ec7n.");
         if (!["pdf", "docx", "txt", "png", "jpg", "jpeg", "webp", "mp4", "mov", "webm", "m4v"].includes(extension)) throw new Error("Định dạng chưa hỗ trợ. Chọn PDF, DOCX, TXT, ảnh JPG/PNG/WebP hoặc video MP4/MOV/WebM.");
         const maxBytes = ["mp4", "mov", "webm", "m4v"].includes(extension) ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
         if (file.size > maxBytes) throw new Error(`Tệp không được vượt quá ${maxBytes === 50 * 1024 * 1024 ? "50" : "20"} MB.`);
@@ -1645,7 +1645,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const currentAttachmentName = attachment?.fileName || fileAttachment?.name || "";
     const isVideoAttachment = Boolean(fileAttachment && /\.(?:mp4|mov|webm|m4v)$/i.test(fileAttachment.name));
     const attachmentPreviewUrl = fileAttachment && attachmentPreview?.file === fileAttachment ? attachmentPreview.url : null;
-    const attachmentAccept = ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" + (assistantMode === "qa" ? ",.pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.mp4,.mov,.webm,.m4v,application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" : "");
+    const attachmentAccept = ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" + (assistantMode === "qa" ? ",.pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.mp4,.mov,.webm,.m4v,application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" : ",.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp");
     const compactConversationComposer = placement === "conversation" && ((headerPanel && !fullscreen) || mode === "standalone");
     const compactPopupComposer = mode === "popup" && headerPanel && !fullscreen;
     const stackedLandingComposer = placement === "landing" && mode === "standalone" && !isStandaloneChatHome;
@@ -1718,7 +1718,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         </div>
       </form>
       {(placement === "conversation" || projectId) && <p id="erp-chatbot-keyboard-help" className="sr-only">Nhấn Enter để gửi, Shift + Enter để xuống dòng.</p>}
-      <p id="erp-chatbot-file-help" className="sr-only">Excel và CSV hỗ trợ trong các mục. Trò chuyện hỗ trợ thêm PDF, DOCX, TXT, ảnh JPG, PNG, WebP và video MP4, MOV, M4V, WebM; tối đa 20 MB với tài liệu, ảnh và 50 MB với video.</p>
+      <p id="erp-chatbot-file-help" className="sr-only">{"Excel v\u00e0 CSV d\u00f9ng cho nh\u1eadp b\u1ea3ng. \u1ea2nh JPG, PNG, WebP c\u00f3 th\u1ec3 \u0111\u00ednh k\u00e8m y\u00eau c\u1ea7u trong Thao t\u00e1c ho\u1eb7c Tr\u00f2 chuy\u1ec7n. Tr\u00f2 chuy\u1ec7n h\u1ed7 tr\u1ee3 th\u00eam PDF, DOCX, TXT v\u00e0 video; t\u1ed1i \u0111a 20 MB cho t\u00e0i li\u1ec7u v\u00e0 \u1ea3nh, 50 MB cho video."}</p>
       {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
       {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
       <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" || twoWayVoiceEnabled ? "status" : undefined} className={cn("text-pretty text-xs text-on-surface-variant", voiceStatus === "off" && !twoWayVoiceEnabled && "sr-only")}>{twoWayVoiceEnabled ? isSpeaking ? "Đang đọc câu trả lời…" : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu…" : retryRef.current ? "Đang chờ thử lại yêu cầu." : "Đang nghe. Dừng nói để gửi." : voiceStatus === "waiting" ? "Đang chờ “Hey Igen”. Hãy nói từ khóa rồi nêu yêu cầu." : voiceStatus === "command" ? "Đang nghe yêu cầu. Mình sẽ tự gửi khi bạn dừng nói." : voiceStatus === "manual" ? "Đang nghe tiếng Việt. Bấm micro để dừng và kiểm tra nội dung." : "Chế độ 2 chiều tự gửi khi bạn dừng nói và đọc câu trả lời có tính phí."}</p>

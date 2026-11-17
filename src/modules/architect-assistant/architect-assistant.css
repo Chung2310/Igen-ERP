@@ -1,0 +1,51 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:FILL@0..1&display=swap");
+
+.architect-assistant-source {
+  --color-primary: #00b5cd;
+  --color-surface: #f7f9fb;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #3c494c;
+  --color-surface-container: #eceef0;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-outline-variant: #bbc9cc;
+  --color-error: #ef4444;
+  --color-on-error: #ffffff;
+  --font-sans: "Plus Jakarta Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-on-surface);
+  background: var(--color-surface);
+}
+
+.architect-assistant-source .material-symbols-outlined {
+  display: inline-block;
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "liga";
+}
+
+.architect-assistant-source button,
+.architect-assistant-source a,
+.architect-assistant-source select,
+.architect-assistant-source input,
+.architect-assistant-source textarea {
+  transition: all 200ms ease-out;
+}
+
+.architect-assistant-source :focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.architect-assistant-source .glass-panel {
+  background: rgb(255 255 255 / 60%);
+  border: 1px solid rgb(255 255 255 / 20%);
+  backdrop-filter: blur(24px);
+}

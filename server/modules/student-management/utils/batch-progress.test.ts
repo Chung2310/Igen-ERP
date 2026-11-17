@@ -13,12 +13,12 @@ const base = {
 const at = (today: string) => ({ today });
 
 it("shows green before 80% of sessions have been completed", () => {
-  // 2026-08-05: còn buổi hôm nay + 4 buổi = 5
+  // 2026-08-05: đã điểm danh buổi hôm nay, còn 4 buổi theo lịch.
   const result = computeBatchProgress({ ...base, status: "Đang học" }, at("2026-08-05"));
   assert.equal(result.progressLevel, "green");
-  assert.equal(result.remainingSessions, 5);
+  assert.equal(result.remainingSessions, 4);
   assert.equal(result.totalSessions, 6);
-  assert.equal(result.doneSessions, 1);
+  assert.equal(result.doneSessions, 2);
 });
 
 it("switches to yellow once 80% of sessions have been completed", () => {
@@ -95,9 +95,9 @@ it("gives a cancelled class no age label — the label is for completed classes 
 });
 
 it("excludes holidays from the session counts behind the warning", () => {
-  // 2026-08-07 là buổi học; cho nghỉ lễ thì còn 3 buổi thay vì 4
+  // 2026-08-07 được nghỉ lễ nên không có bản ghi điểm danh/buổi bù.
   const result = computeBatchProgress(
-    { ...base, status: "Đang học" },
+    { ...base, status: "Đang học", attendanceSessions: base.attendanceSessions.filter((session) => session.date !== "2026-08-07") },
     { today: "2026-08-07", holidaySet: new Set(["2026-08-07"]) }
   );
   assert.equal(result.remainingSessions, 3);

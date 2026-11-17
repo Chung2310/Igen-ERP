@@ -76,6 +76,7 @@ DEFAULT_ROLE_PERMISSIONS.manager.push("repair:read");
 DEFAULT_ROLE_PERMISSIONS.admin.push("customer:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("marketing:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("omni-inbox:manage", "company-knowledge:manage", "social-integration:manage");
+DEFAULT_ROLE_PERMISSIONS.admin.push("legal-reference:manage");
 
 /**
  * Cấp bậc mặc định của các vai trò hệ thống (Số nhỏ hơn = cấp cao hơn)

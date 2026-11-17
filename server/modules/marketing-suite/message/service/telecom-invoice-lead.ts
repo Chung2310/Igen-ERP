@@ -4,6 +4,7 @@ import { enabledTelecomInvoiceAccount, TelecomInvoiceModel, TelecomInvoiceSettin
 import { mapIntakeStandardFields } from "./lead-intake.service";
 import { isInvoiceNumberField } from "./telecom-invoice-profile";
 import { missingInvoiceFields } from "./telecom-invoice-values";
+import { broadcastEvent } from "../../shared/socket";
 
 type StoredInvoice = TelecomInvoiceDraft & { _id: Types.ObjectId };
 type InvoiceSaveResult = "confirmed" | "duplicate" | "ambiguous" | "stale";
@@ -48,7 +49,7 @@ export async function saveTelecomInvoice(draft: StoredInvoice, trigger: InvoiceS
   // Retry the transaction so the subsequent attempt can use the now-existing Lead/invoice.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await TelecomInvoiceModel.db.transaction(async session => {
+      const result = await TelecomInvoiceModel.db.transaction<InvoiceSaveResult>(async session => {
         const pending = { _id: draft._id, companyCode: draft.companyCode, status: "pending" as const, revision: draft.revision,
           expiresAt: { $gt: new Date() }, ...(trigger.mode === "automatic" ? { autoEligible: true }
             : { presentedRevision: draft.revision, presentedAt: { $lte: trigger.messageAt } }),
@@ -92,6 +93,8 @@ export async function saveTelecomInvoice(draft: StoredInvoice, trigger: InvoiceS
         }, { session });
         return "confirmed";
       });
+      if (result === "confirmed") broadcastEvent("crm_leads_changed", { companyCode: draft.companyCode });
+      return result;
     } catch (error) {
       if (!isDuplicateInvoiceKey(error) || attempt === 2) throw error;
     }

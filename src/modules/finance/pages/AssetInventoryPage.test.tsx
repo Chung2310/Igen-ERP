@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { financeAssetInventoriesApi } from "../api/financeAssets.api";
 import AssetInventoryPage from "./AssetInventoryPage";
@@ -28,6 +28,21 @@ beforeEach(() => {
   vi.mocked(financeAssetInventoriesApi.open).mockResolvedValue(SESSION);
 });
 
+function chooseDate(label: string, value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  const calendar = screen.getByRole("dialog", { name: `Chọn ${label.toLowerCase()}` });
+  const today = new Date();
+  const monthDelta = (date.getFullYear() - today.getFullYear()) * 12 + date.getMonth() - today.getMonth();
+  const navigation = monthDelta >= 0 ? "Tháng sau" : "Tháng trước";
+  for (let index = 0; index < Math.abs(monthDelta); index += 1) {
+    fireEvent.click(within(calendar).getByRole("button", { name: navigation }));
+  }
+  fireEvent.click(within(calendar).getByRole("button", {
+    name: `Chọn ngày ${date.toLocaleDateString("vi-VN")}`,
+  }));
+}
+
 describe("AssetInventoryPage", () => {
   it("opens a session with its items and variance summary", async () => {
     render(<AssetInventoryPage permissions={["asset:read"]} />);
@@ -50,7 +65,8 @@ describe("AssetInventoryPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Phiên KK-2026-01" }));
     const input = await screen.findByLabelText("Mã vạch");
     fireEvent.change(input, { target: { value: " BC1 " } });
-    fireEvent.change(screen.getByLabelText("Kết quả kiểm kê"), { target: { value: "damaged" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kết quả kiểm kê" }));
+    fireEvent.click(screen.getByRole("option", { name: "Hư hỏng" }));
     fireEvent.click(screen.getByRole("button", { name: "Ghi nhận" }));
     await vi.waitFor(() => expect(financeAssetInventoriesApi.count).toHaveBeenCalled());
     expect(vi.mocked(financeAssetInventoriesApi.count).mock.calls[0][1]).toEqual({ barcode: "BC1", result: "damaged" });
@@ -93,7 +109,7 @@ describe("AssetInventoryPage", () => {
     fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: " KK-2026-02 " } });
     fireEvent.change(screen.getByLabelText("Tên phiên"), { target: { value: " Kiểm kê quý 2 " } });
     fireEvent.change(screen.getByLabelText("Chi nhánh (để trống = toàn công ty)"), { target: { value: "B1, B2 " } });
-    fireEvent.change(screen.getByLabelText("Ngày kiểm kê"), { target: { value: "2026-06-30" } });
+    chooseDate("Ngày kiểm kê", "2026-06-30");
     fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
     await vi.waitFor(() => expect(financeAssetInventoriesApi.open).toHaveBeenCalled());
     expect(vi.mocked(financeAssetInventoriesApi.open).mock.calls[0][0]).toEqual({
@@ -108,7 +124,7 @@ describe("AssetInventoryPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Mở phiên kiểm kê" }));
     fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: "KK-2026-03" } });
     fireEvent.change(screen.getByLabelText("Tên phiên"), { target: { value: "Toàn công ty" } });
-    fireEvent.change(screen.getByLabelText("Ngày kiểm kê"), { target: { value: "2026-06-30" } });
+    chooseDate("Ngày kiểm kê", "2026-06-30");
     fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
     await vi.waitFor(() => expect(financeAssetInventoriesApi.open).toHaveBeenCalled());
     expect(vi.mocked(financeAssetInventoriesApi.open).mock.calls[0][0]).toMatchObject({ scope: "company", branchIds: [] });
@@ -129,7 +145,7 @@ describe("AssetInventoryPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Mở phiên kiểm kê" }));
     fireEvent.change(screen.getByLabelText("Mã phiên"), { target: { value: "KK-2026-01" } });
     fireEvent.change(screen.getByLabelText("Tên phiên"), { target: { value: "Trùng" } });
-    fireEvent.change(screen.getByLabelText("Ngày kiểm kê"), { target: { value: "2026-06-30" } });
+    chooseDate("Ngày kiểm kê", "2026-06-30");
     fireEvent.click(screen.getByRole("button", { name: "Tạo phiên" }));
     expect(await screen.findByText("Mã phiên kiểm kê đã tồn tại.")).toBeTruthy();
   });

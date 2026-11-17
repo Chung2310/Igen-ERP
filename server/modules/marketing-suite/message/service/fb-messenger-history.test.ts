@@ -3,10 +3,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), latest: vi.fn(),
   persist: vi.fn(), updateInbound: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn(), enqueueOcr: vi.fn(),
+  updateConversationPreview: vi.fn(),
 }));
 vi.mock("../model/fb-messenger.model.ts", () => ({
   FBConversationModel: {
     findOne: mocks.conversation, findOneAndUpdate: mocks.conversationUpdate, findByIdAndUpdate: mocks.conversationUpdate,
+    updateOne: mocks.updateConversationPreview,
   },
   FBMessageModel: {
     find: mocks.messages, findOne: mocks.latest, findOneAndUpdate: mocks.persist, updateOne: mocks.updateInbound,
@@ -42,6 +44,48 @@ beforeEach(() => {
   vi.spyOn(fbMessengerService, "shouldSync").mockReturnValue(true);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+it("shares an in-flight Facebook page sync and sends a single list refresh after 50 rows", async () => {
+  const page = "sync-page";
+  const older = new Date("2026-11-01T00:00:00Z");
+  const newer = new Date("2026-11-02T00:00:00Z");
+  mocks.conversation.mockResolvedValue({ _id: "existing", senderName: "Demo", avatarUrl: "avatar", lastMessageAt: newer, isModified: () => true, save: vi.fn() });
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-sync-key");
+  vi.spyOn(fbMessengerService, "subscribePageWebhooks").mockResolvedValue({ success: true });
+  const graph = vi.spyOn(fbMessengerService, "fetchGraphJson").mockResolvedValue({
+    data: Array.from({ length: 50 }, (_, index) => ({ id: String(index), senders: { data: [{ id: String(index), name: "Demo" }] },
+      messages: { data: [{ message: "older", created_time: older.toISOString() }] } })),
+  });
+
+  const first = fbMessengerService.syncConversationsFromFacebook(page);
+  const second = fbMessengerService.syncConversationsFromFacebook(page);
+  expect(second).toBe(first);
+  await Promise.all([first, second]);
+
+  expect(graph).toHaveBeenCalledOnce();
+  expect(mocks.conversation).toHaveBeenCalledTimes(50);
+  expect(mocks.updateConversationPreview).not.toHaveBeenCalled();
+  expect(mocks.emit.mock.calls).toEqual([["facebook", page, "conversation_list_changed", {}]]);
+});
+
+it("deduplicates denied Facebook profile reads and retries transient failures", async () => {
+  const request = vi.fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ error: { code: 100, error_subcode: 33 } }, { status: 400 }))
+    .mockResolvedValueOnce(Response.json({ error: { code: 2 } }, { status: 502 }))
+    .mockResolvedValueOnce(Response.json({ first_name: "Demo" }));
+  vi.stubGlobal("fetch", request);
+
+  await expect(Promise.all([
+    fbMessengerService.getSenderProfile("demo-denied", "profile-key"),
+    fbMessengerService.getSenderProfile("demo-denied", "profile-key"),
+  ])).resolves.toEqual([null, null]);
+  await expect(fbMessengerService.getSenderProfile("demo-denied", "profile-key")).resolves.toBeNull();
+  expect(request).toHaveBeenCalledOnce();
+
+  await expect(fbMessengerService.getSenderProfile("demo-denied", "rotated-profile-key")).resolves.toBeNull();
+  await expect(fbMessengerService.getSenderProfile("demo-denied", "rotated-profile-key")).resolves.toEqual({ first_name: "Demo" });
+  expect(request).toHaveBeenCalledTimes(3);
+});
 
 it("returns the Facebook reply in the same sync response even when cached inbound messages already exist", async () => {
   vi.spyOn(fbMessengerService, "syncMessagesFromFacebook").mockImplementation(async () => {
