@@ -102,8 +102,9 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
       continue;
     }
     let value = provided[field.key];
-    if (isBlank(value) && field.defaultValue !== undefined && !relationshipFields.has(field.key)) { value = field.defaultValue; defaulted.push(field.key); }
-    if (isBlank(value)) {
+    const explicitlyClearingEmployeeTitle = workflow.actionId === "employee.update" && field.key === "jobTitle" && value === "";
+    if (isBlank(value) && !explicitlyClearingEmployeeTitle && field.defaultValue !== undefined && !relationshipFields.has(field.key)) { value = field.defaultValue; defaulted.push(field.key); }
+    if (isBlank(value) && !explicitlyClearingEmployeeTitle) {
       const alternativeSatisfied = Boolean(field.alternativeField && !isBlank(conditionValues[field.alternativeField]));
       if (!alternativeSatisfied && (field.systemRequired || field.required || conditionApplies(field))) {
         const requiredStructuredFields = field.type === "json" && field.structure?.type === "object"

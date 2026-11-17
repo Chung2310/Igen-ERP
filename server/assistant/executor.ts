@@ -594,7 +594,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   const strictPayrollRunList = op.id === "payroll.run.list";
   // These schemas reject otherwise implicit query scope; auth claims and x-branch-id remain authoritative.
   const rejectsImplicitScopeQuery = op.path === "/student-quality" || op.path === "/learning-roadmaps/waitlist";
-  for (const field of op.fields) if (field.source === "query" && input[field.key] !== undefined) {
+  for (const field of op.fields) if (field.source === "query" && input[field.key] !== undefined && !op.assistantOnlyFields?.includes(field.key)) {
     if (strictPayrollRunList && field.apiKey === "branchId") continue;
     url.searchParams.set(field.apiKey!, String(input[field.key]));
   }
@@ -607,11 +607,12 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     }
   }
   if (!strictPayrollRunList && !rejectsImplicitScopeQuery) url.searchParams.set("companyCode", companyCode);
-  if (["employee.list", "employee.detail"].includes(op.id)) {
+  if (["employee.list", "employee.detail", "employee.birthday.next-month"].includes(op.id)) {
     const employeeBranchId = req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
     if (employeeBranchId) url.searchParams.set("branchId", employeeBranchId);
   }
-  if (op.adapter !== "contract" && op.method === "GET" && !["employee.list", "employee.detail", "department.list"].includes(op.id)) {
+  if (op.id === "hr.training.incomplete.list" && req.user?.branchId) url.searchParams.set("branchId", req.user.branchId);
+  if (op.adapter !== "contract" && op.method === "GET" && !["employee.list", "employee.detail", "employee.birthday.next-month", "department.list"].includes(op.id)) {
     if (!url.searchParams.has("limit")) url.searchParams.set("limit", "100");
     if (!url.searchParams.has("page")) url.searchParams.set("page", "1");
   }
@@ -731,6 +732,39 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
         : {};
       body.contextLinks = { ...existingLinks, ...body.contextLinks };
     }
+  }
+  if (op.id === "timekeeping.record.update") {
+    if (!body.checkInTime && !body.checkOutTime) throw new AssistantError("Hãy nêu giờ vào hoặc giờ ra cần điều chỉnh.");
+    const date = String(input.query_date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AssistantError("Hãy cho biết ngày chấm công cần điều chỉnh.");
+    let existing: Record<string, any>;
+    try {
+      const parsed = JSON.parse(String(input.__assistantExistingRecord || ""));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid attendance record");
+      existing = parsed;
+    } catch { throw new AssistantError("Không đọc được bản ghi chấm công hiện tại; chưa thể điều chỉnh an toàn."); }
+    const time = (value: unknown) => {
+      if (typeof value !== "string" || !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(value)) throw new AssistantError("Giờ chấm công cần theo định dạng HH:MM.");
+      return value.length === 4 ? `0${value}` : value;
+    };
+    const detail = (previous: any, clock: string, nextDay = false) => {
+      const at = new Date(`${date}T${time(clock)}:00+07:00`);
+      if (Number.isNaN(at.valueOf())) throw new AssistantError("Ngày chấm công không hợp lệ.");
+      if (nextDay) at.setUTCDate(at.getUTCDate() + 1);
+      return {
+        ...(previous && typeof previous === "object" ? previous : { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual attendance adjustment", ipAddress: "" }),
+        time: at.toISOString(),
+      };
+    };
+    const checkInTime = body.checkInTime ? time(body.checkInTime) : "";
+    const checkOutTime = body.checkOutTime ? time(body.checkOutTime) : "";
+    if (checkInTime) body.checkIn = detail(existing.checkIn, checkInTime);
+    if (checkOutTime) {
+      const compareIn = checkInTime || (existing.checkIn?.time ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(existing.checkIn.time)) : "");
+      body.checkOut = detail(existing.checkOut, checkOutTime, Boolean(compareIn && checkOutTime < compareIn));
+    }
+    delete body.checkInTime;
+    delete body.checkOutTime;
   }
   if (op.id === "student.standard-fields.update") {
     const changeKeys = ["label", "placeholder", "isRequired", "isVisible", "isArchived"];
@@ -2783,6 +2817,24 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       ...(typeof zalo.oaName === "string" && zalo.oaName ? { zaloName: zalo.oaName } : {}),
     } };
   }
+  if (op.id === "department.lookup") {
+    const departments = Array.isArray(result?.data) ? result.data : [];
+    const query = normalize(String(input.query_department || ""));
+    const exact = departments.filter((department: any) => normalize(String(department?.name || "")) === query);
+    const matches = exact.length ? exact : departments.filter((department: any) => normalize(String(department?.name || "")).includes(query));
+    return { ...result, data: matches };
+  }
+  if (op.id === "hr.contract.extend" && result?.data && typeof result.data === "object") {
+    const extension = result.data.extension && typeof result.data.extension === "object" ? result.data.extension : {};
+    const contract = result.data.contract && typeof result.data.contract === "object" ? result.data.contract : {};
+    return { ...result, data: {
+      id: extension.contractId || contract._id,
+      employeeName: extension.employeeName || contract.employeeName,
+      previousEndDate: extension.previousEndDate,
+      newEndDate: extension.newEndDate,
+      extensionDate: extension.extensionDate,
+    } };
+  }
   if (op.id === "account.colleagues.list" && Array.isArray(result?.data)) {
     return { ...result, data: result.data.map((colleague: any) => ({
       // Keep the identifier only for internal name resolution; resultFields omit this property from chat.
@@ -2869,6 +2921,22 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       checkOut: record?.checkOut,
     })) };
   }
+  if (op.id === "timekeeping.record.update" && result?.data && typeof result.data === "object") {
+    const row = result.data;
+    const clock = (value: unknown) => {
+      if (!(typeof value === "string" || value instanceof Date)) return undefined;
+      const date = new Date(value);
+      return Number.isNaN(date.valueOf()) ? undefined : date.toISOString();
+    };
+    return { ...result, data: {
+      date: row.date,
+      status: row.status,
+      checkInTime: clock(row.checkIn?.time),
+      checkOutTime: clock(row.checkOut?.time),
+      manuallyAdjusted: row.manuallyAdjusted === true,
+      adjustmentReason: typeof row.adjustmentReason === "string" ? row.adjustmentReason : undefined,
+    } };
+  }
   if (op.id === "timekeeping.company.location" && result?.data) {
     return { ...result, data: safeCompanyLocation(result.data) };
   }
@@ -2944,7 +3012,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       officialDate: user?.officialDate ?? user?.workHoursConfig?.officialDate,
     } };
   }
-  if (op.id === "timekeeping.work-calendar.list" && Array.isArray(result?.data)) {
+  if (["timekeeping.work-calendar.list", "timekeeping.work-calendar.month-holidays"].includes(op.id) && Array.isArray(result?.data)) {
     const dayTypes: Record<string, string> = { holiday: "Ngày nghỉ lễ", substitute_holiday: "Nghỉ bù", working_override: "Ngày làm việc bù" };
     return { ...result, data: result.data.map((day: any) => ({
       __assistantRef: { id: String(day._id || day.id || ""), source: day.source },
@@ -3006,6 +3074,50 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
+  if (op.id === "employee.birthday.next-month") {
+    const nowParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", month: "2-digit" }).formatToParts(new Date());
+    const currentMonth = Number(nowParts.find(part => part.type === "month")?.value || 1);
+    const targetMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+    const birthdays = rawRecords(responseData).flatMap((employee: any) => {
+      const birthDate = typeof employee?.birthDate === "string" ? employee.birthDate : "";
+      const match = birthDate.match(/^(?:\d{4}[-/])?(\d{1,2})[-/](\d{1,2})/);
+      if (!match || Number(match[1]) !== targetMonth || typeof employee.displayName !== "string" || !employee.displayName.trim()) return [];
+      return [{ displayName: employee.displayName.trim().slice(0, 160), birthday: `${String(Number(match[2])).padStart(2, "0")}/${String(targetMonth).padStart(2, "0")}` }];
+    });
+    birthdays.sort((a, b) => a.birthday.localeCompare(b.birthday) || a.displayName.localeCompare(b.displayName, "vi"));
+    return [{ birthdays, total: birthdays.length, month: targetMonth } as unknown as AssistantRecord];
+  }
+  if (op.id === "hr.training.incomplete.list") {
+    const enrollments = rawRecords(responseData);
+    const incomplete = enrollments.flatMap((enrollment: any) => {
+      const status = String(enrollment?.status || "").toLowerCase();
+      if (status === "completed" || typeof enrollment?.userName !== "string" || !enrollment.userName.trim()) return [];
+      return [{
+        employeeName: enrollment.userName.trim().slice(0, 160),
+        ...(typeof enrollment.courseTitle === "string" && enrollment.courseTitle.trim() ? { courseTitle: enrollment.courseTitle.trim().slice(0, 160) } : {}),
+        ...(Number.isFinite(Number(enrollment.progress)) ? { progress: Math.max(0, Math.min(100, Number(enrollment.progress))) } : {}),
+        status,
+      }];
+    });
+    const fetchedTotal = enrollments.length;
+    const totalValue = responseData?.total ?? response?.total;
+    const overallTotal = Number.isSafeInteger(Number(totalValue)) && Number(totalValue) >= 0 ? Number(totalValue) : fetchedTotal;
+    return [{ incompleteEnrollments: incomplete, incompleteTotal: incomplete.length, fetchedTotal, overallTotal, truncated: overallTotal > fetchedTotal } as unknown as AssistantRecord];
+  }
+  if (op.id === "hr.contract.list") {
+    return rawRecords(responseData).flatMap((contract: any) => {
+      const id = String(contract?._id || contract?.id || "");
+      if (!/^[a-f\d]{24}$/i.test(id) || typeof contract?.employeeName !== "string" || !contract.employeeName.trim()) return [];
+      return [{
+        id,
+        employeeName: contract.employeeName.trim().slice(0, 160),
+        ...(typeof contract.contractType === "string" ? { contractType: contract.contractType.slice(0, 100) } : {}),
+        ...(typeof contract.startDate === "string" || contract.startDate instanceof Date ? { startDate: contract.startDate } : {}),
+        ...(typeof contract.endDate === "string" || contract.endDate instanceof Date ? { endDate: contract.endDate } : {}),
+        ...(typeof contract.status === "string" ? { status: contract.status.slice(0, 30) } : {}),
+      }];
+    });
+  }
   if (op.id === "hr.contract.missing.list") {
     const employees = Array.isArray(responseData?.withoutContractEmployees) ? responseData.withoutContractEmployees : [];
     const names = employees.flatMap((employee: any) => typeof employee?.name === "string" && employee.name.trim()
@@ -3312,6 +3424,14 @@ function referenceValues(record: Record<string, any>) {
   return [record.id, record._id, record.uid, record.studentId, record.installmentNo, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.amountDue, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
 }
 function referenceLabel(record: Record<string, any>) {
+  if (typeof record.employeeName === "string" && typeof record.date === "string" && typeof record.status === "string"
+    && (record.checkInTime !== undefined || record.checkOutTime !== undefined)) {
+    const time = (value: unknown) => typeof value === "string" ? formatAssistantTemporalValue(value) || value : "";
+    return [record.employeeName, formatAssistantTemporalValue(record.date) || record.date,
+      record.checkInTime ? `vào ${time(record.checkInTime)}` : "chưa có giờ vào",
+      record.checkOutTime ? `ra ${time(record.checkOutTime)}` : "chưa có giờ ra",
+    ].filter(Boolean).join(" · ");
+  }
   if (Number.isSafeInteger(record.installmentNo) && Number.isFinite(Number(record.amountDue))) {
     const amount = `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(record.amountDue))} ₫`;
     return [`Đợt ${record.installmentNo}`, amount, record.status, record.dueDate ? `hạn ${formatAssistantTemporalValue(String(record.dueDate)) || record.dueDate}` : ""]
@@ -3631,7 +3751,7 @@ function rawRecords(response: any): Record<string, any>[] {
   if (!data || typeof data !== "object") return [];
   if (Array.isArray(data.variants)) return data.variants.filter((item: any) => item && typeof item === "object").map((item: any) => ({ ...item, productId: item.productId || data._id || data.id, productName: data.name }));
   if (data.shift && typeof data.shift === "object" && !Array.isArray(data.shift)) return [data.shift];
-  for (const key of ["items", "records", "results", "rows", "events", "products", "courses", "batches", "enrollments", "exams", "payments", "notifications", "resources", "warehouses", "balances", "accounts", "vouchers", "bankLines", "users", "customers", "students", "partners", "workers", "branches", "campaigns", "stages", "data"]) {
+  for (const key of ["items", "records", "results", "rows", "events", "products", "courses", "contracts", "batches", "enrollments", "exams", "payments", "notifications", "resources", "warehouses", "balances", "accounts", "vouchers", "bankLines", "users", "customers", "students", "partners", "workers", "branches", "campaigns", "stages", "data"]) {
     if (Array.isArray(data[key])) return data[key].filter((item: any) => item && typeof item === "object").map((item: any) => item.payment && typeof item.payment === "object" ? { ...item, paymentMethod: item.payment.method, paymentAmount: item.payment.amount } : item);
   }
   return data._id || data.id || data.uid ? [data] : [];
@@ -3721,6 +3841,7 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
   try {
     let result = await callOperation(req, list, input);
     const requiresRecordProjection = list.id.startsWith("finance.treasury.")
+      || list.id === "hr.contract.list"
       || list.id === "hr.workflow.list"
       || list.id === "worker.partner.settlements.list"
       || list.id === "worker.partner.settlement.detail"
@@ -3777,6 +3898,37 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
   }
   let result = await callOperation(req, op, input);
   let records = projectRecords(op, result, req);
+  if (operationId === "timekeeping.record.list") {
+    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
+    const employees = await lookupRecords(req, "employee.list");
+    const employeeNames = new Map(employees.map(employee => [String(employee.id || ""), String(employee.displayName || "") ]));
+    records = records.flatMap(record => {
+      const source = sourceById.get(String(record.id || ""));
+      if (!source) return [];
+      const checkInTime = source.checkIn?.time instanceof Date ? source.checkIn.time.toISOString()
+        : typeof source.checkIn?.time === "string" ? source.checkIn.time : undefined;
+      const checkOutTime = source.checkOut?.time instanceof Date ? source.checkOut.time.toISOString()
+        : typeof source.checkOut?.time === "string" ? source.checkOut.time : undefined;
+      const safe: AssistantRecord = {
+        ...record,
+        employeeName: employeeNames.get(String(source.uid || "")) || "Nhân sự chưa xác định",
+        ...(checkInTime ? { checkInTime } : {}),
+        ...(checkOutTime ? { checkOutTime } : {}),
+      };
+      Object.defineProperty(safe, "__assistantExistingRecord", {
+        value: {
+          date: source.date,
+          checkIn: source.checkIn,
+          checkOut: source.checkOut,
+          status: source.status,
+          note: source.note,
+          branchId: source.branchId,
+        },
+        enumerable: false,
+      });
+      return [safe];
+    });
+  }
   if (operationId === "inventory.serial.list" && !records.length && search) {
     const barcodeField = op.fields.find(field => field.source === "query" && field.apiKey === "barcodes");
     const serialField = op.fields.find(field => field.source === "query" && field.apiKey === "serial");

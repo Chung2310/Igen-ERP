@@ -303,6 +303,27 @@ describe("ChatbotWidget welcome", () => {
     await waitFor(() => expect(screen.queryByText("Tệp sẽ được đọc khi gửi")).toBeNull());
   });
 
+  it("sends an image with an ERP request in work mode", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "work" });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "collecting", reply: "Mình cần thêm email." });
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    const file = new File(["image bytes"], "cccd.png", { type: "image/png" });
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, { target: { files: [file] } });
+    expect(await screen.findByText("Tệp sẽ được đọc khi gửi")).toBeTruthy();
+    fireEvent.change(container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!, { target: { value: "Tạo nhân sự theo thông tin trên CCCD này" } });
+    fireEvent.click(container.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
+      mode: "work",
+      text: "Tạo nhân sự theo thông tin trên CCCD này",
+      file,
+    });
+  });
+
   it.each([
     { fileName: "logo.png", mimeType: "image/png", selector: "img", label: "Xem trước ảnh logo.png" },
     { fileName: "gioi-thieu.mp4", mimeType: "video/mp4", selector: "video", label: "Xem trước video gioi-thieu.mp4" },

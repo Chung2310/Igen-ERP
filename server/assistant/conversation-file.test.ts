@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
-import { assistantConversationFileFilter, isAssistantConversationFileName, readAssistantConversationFile } from "./conversation-file";
+import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode, isAssistantConversationFileName, readAssistantConversationFile } from "./conversation-file";
 
 describe("assistant conversation file readers", () => {
   it("recognizes supported document, image, and video file extensions", () => {
@@ -9,6 +9,15 @@ describe("assistant conversation file readers", () => {
     expect(isAssistantConversationFileName("hop.mp4")).toBe(true);
     expect(isAssistantConversationFileName("bang.xlsx")).toBe(false);
     expect(isAssistantConversationFileName("ma-doc.exe")).toBe(false);
+  });
+
+  it("allows work-mode image context while keeping documents and videos in chat mode", () => {
+    expect(isAssistantConversationFileAllowedForMode("cccd.jpg", "work")).toBe(true);
+    expect(isAssistantConversationFileAllowedForMode("ho-so.webp", "work")).toBe(true);
+    expect(isAssistantConversationFileAllowedForMode("hop-dong.pdf", "work")).toBe(false);
+    expect(isAssistantConversationFileAllowedForMode("hop.mp4", "work")).toBe(false);
+    expect(isAssistantConversationFileAllowedForMode("hop-dong.pdf", "qa")).toBe(true);
+    expect(isAssistantConversationFileAllowedForMode("hop.mp4", "qa")).toBe(true);
   });
 
   it("explicitly accepts supported files in Multer's file filter", () => {

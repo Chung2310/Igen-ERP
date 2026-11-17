@@ -44,4 +44,15 @@ describe("HR contract expiry alerts", () => {
     expect(result.alertDays).toBe(30);
     expect(mocks.find).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "branch-1", status: "active", endDate: { $gte: startOfVietnamDay(now), $lt: new Date(startOfVietnamDay(now).getTime() + 31 * 86_400_000) } });
   });
+
+  it("filters expiry alerts by a literal contract type phrase", async () => {
+    await hrContractService.listExpiryAlerts({ companyCode: "ACME", branchId: "branch-1", now, days: 10, contractType: "thử việc" });
+    expect(mocks.find).toHaveBeenCalledWith({
+      companyCode: "ACME",
+      branchId: "branch-1",
+      status: "active",
+      endDate: { $gte: startOfVietnamDay(now), $lt: new Date(startOfVietnamDay(now).getTime() + 11 * 86_400_000) },
+      contractType: { $regex: "thử việc", $options: "i" },
+    });
+  });
 });
