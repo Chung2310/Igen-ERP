@@ -44,6 +44,17 @@ export const attendanceRecordsQuerySchema = {
   }).unknown(false),
 };
 
+const monthlyAttendanceReportQuerySchema = {
+  query: Joi.object({
+    month: Joi.number().integer().min(1).max(12).required(),
+    year: Joi.number().integer().min(2000).max(2200).required(),
+    companyCode: Joi.string().optional(),
+    branchId: Joi.string().optional(),
+    page: Joi.number().integer().min(1).optional(),
+    limit: Joi.number().integer().min(1).max(1000).optional(),
+  }).unknown(false),
+};
+
 const updateLocationSchema = {
   body: Joi.object({
     latitude: Joi.number().min(-90).max(90).required().messages({
@@ -124,6 +135,7 @@ const updateWorkHoursSchema = {
 // Get today's checkin/checkout log for the current user
 timekeepingRouter.get("/today", requireAuth as any, timekeepingController.getTodayStatus as any);
 timekeepingRouter.get("/records", requireAuth as any, requirePermission("timekeeping:read") as any, validateRequest(attendanceRecordsQuerySchema), timekeepingController.listAttendanceRecords as any);
+timekeepingRouter.get("/monthly-report", requireAuth as any, requirePermission("timekeeping:read") as any, validateRequest(monthlyAttendanceReportQuerySchema), timekeepingController.listMonthlyAttendanceReport as any);
 timekeepingRouter.get("/attempts", requireAuth as any, requirePermission("timekeeping:manage") as any, attendanceAttemptController.list as any);
 
 // Check-in

@@ -1427,6 +1427,7 @@ const leaveBalanceReport = {
   title: "Thống kê số phép năm còn lại của nhân sự",
   description: "Xem số phép năm được hưởng, đã dùng, đang chờ duyệt và còn lại của nhân sự trong phạm vi công ty hoặc chi nhánh được cấp quyền.",
   module: "hr" as ModuleKey,
+  adapter: "contract" as const,
   permissions: ["hr:read", "access:read", "timekeeping:read"],
   permissionGroups: [["hr:read"], ["access:read"], ["timekeeping:read"]],
   method: "GET" as const,
@@ -1452,8 +1453,8 @@ if (workCalendarLookup) operations.push({
   fields: [
     queryField({ ...number("year", "Năm"), min: 2000, max: 2200, integer: true }),
     queryField({ ...number("month", "Tháng"), min: 1, max: 12, integer: true }),
-    queryField({ ...choice("appliedOnly", "Chỉ ngày đang áp dụng", ["true", "false"]), defaultValue: "true" }),
-    queryField({ ...choice("holidaysOnly", "Chỉ ngày lễ/nghỉ bù", ["true", "false"]), defaultValue: "true" }),
+    queryField(choice("appliedOnly", "Chỉ ngày đang áp dụng", ["true", "false"])),
+    queryField(choice("holidaysOnly", "Chỉ ngày lễ/nghỉ bù", ["true", "false"])),
   ],
   resultFields: ["date", "name", "dayTypeLabel", "isApplied"],
   readOnly: true,

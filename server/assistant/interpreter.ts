@@ -260,7 +260,8 @@ function directEmployeeProfileUpdateRequest(text: string, workflows: AssistantWo
   if (moveCue > transferCue && transferCue >= 0) {
     let nameStart = transferCue + 2;
     while (["nhan", "su", "vien", "ten"].includes(words[nameStart] || "")) nameStart += 1;
-    const employeeName = tokens.slice(nameStart, moveCue).join(" ").replace(/\s+xuong$/i, "").trim();
+    const employeeEnd = words[moveCue - 1] === "xuong" ? moveCue - 1 : moveCue;
+    const employeeName = tokens.slice(nameStart, employeeEnd).join(" ").trim();
     const managerName = tokens.slice(moveCue + 5).join(" ").replace(/\s+(?:nhe|nha|giup|voi|gium)$/i, "").trim();
     if (employeeName && managerName) return finish("employee.update", { id: employeeName, parentId: managerName });
   }
@@ -411,7 +412,7 @@ function directHrReportRequest(text: string, workflows: AssistantWorkflow[], pen
     };
   }
 
-  const asksAnnualLeaveBalance = /\b(?:phep nam|nghi phep|luot nghi phep|ngay phep con lai|phep con lai|\d+ phep)\b/.test(intent)
+  const asksAnnualLeaveBalance = /\b(?:phep nam|nghi phep nam|luot nghi phep|ngay phep con lai|phep con lai|\d+ phep)\b/.test(intent)
     && /\b(?:nhan su|nhan vien|nhung ai|ai|thong ke|danh sach|con du|het|con lai)\b/.test(intent);
   if (asksAnnualLeaveBalance) {
     const year = vietnamYearMonth().year;

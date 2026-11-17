@@ -9,6 +9,7 @@ function validateDate(date: string) {
     studentId: VALID_OBJECT_ID,
     studentName: "Nguyễn Văn A",
     amount: 1_500_000,
+    method: "Tiền mặt",
     date,
   });
 }

@@ -20,6 +20,7 @@ export const HEADER_MODULE_LABELS: Record<TabType, string> = {
   "OMNI INBOX": "CRM",
   "MARKETING": "CRM",
   "KHO TRI THỨC": "CRM",
+  "VĂN BẢN PHÁP LUẬT": "PHÁP CHẾ",
   "TÍCH HỢP MARKETING": "CRM",
   "CHIẾN DỊCH NỘI DUNG": "CRM",
   "GÓI AI & LƯỢT SỬ DỤNG": "TRỢ LÝ AI",

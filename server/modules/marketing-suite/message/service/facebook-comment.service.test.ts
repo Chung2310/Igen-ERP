@@ -26,7 +26,13 @@ it("retries a known pre-send failure on redelivery, with tenant-scoped logs", as
   await facebookCommentService.handleIncomingComment("page", comment);
   expect(mocks.claim).toHaveBeenCalledTimes(2);
   expect(mocks.log).toHaveBeenCalledWith({ companyCode: "A", channel: "facebook_comment", commentId: "comment", status: "sent" });
-  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ companyCode: "A" }), expect.objectContaining({ $set: { status: "failed" } }));
+  expect(mocks.update).toHaveBeenCalledWith(
+    expect.objectContaining({ companyCode: "A", pageId: "page", commentId: "comment", lockId: expect.any(String) }),
+    expect.objectContaining({
+      $set: expect.objectContaining({ status: "failed", publicReplyStatus: "pending", lastError: "temporary context failure", nextAttemptAt: expect.any(Date) }),
+      $unset: { lockId: 1, lockExpiresAt: 1 },
+    }),
+  );
 });
 it("never retries a sent comment", async () => {
   mocks.log.mockResolvedValue({ status: "sent" });
@@ -37,5 +43,7 @@ it("leaves sent/sending/unknown durable deliveries blocked even if the log says 
   mocks.claim.mockRejectedValue({ code: 11000 });
   await facebookCommentService.handleIncomingComment("page", comment);
   expect(mocks.knowledge).not.toHaveBeenCalled();
-  expect(mocks.claim.mock.calls[0][0].$or).toEqual([{ status: "failed" }, { status: "processing", lockExpiresAt: { $lte: expect.any(Date) } }]);
+  expect(mocks.claim.mock.calls[0][0].$or.map((condition: { status: string }) => condition.status)).toEqual([
+    "pending", "failed", "processing",
+  ]);
 });

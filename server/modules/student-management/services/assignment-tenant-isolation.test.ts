@@ -12,6 +12,7 @@ const { AssignmentModel } = await import("../models/assignment.model");
 const { SubmissionModel } = await import("../models/submission.model");
 const { Batch } = await import("../models/batch.model");
 const { Student } = await import("../models/student.model");
+const { StudentQualityThreshold } = await import("../models/student-quality-threshold.model");
 
 test("assignment operations apply the caller owner scope to every lookup", async (t) => {
   const ownerScope = ["tenant-a-admin", "tenant-a-teacher"];
@@ -33,6 +34,7 @@ test("assignment operations apply the caller owner scope to every lookup", async
       (AssignmentModel as any).findOne,
       (Student as any).findOne,
       (SubmissionModel as any).findOne,
+      (StudentQualityThreshold as any).findOne,
       AssignmentService.notifyStudents,
     ];
     (Batch as any).findOne = async () => batch;
@@ -43,12 +45,13 @@ test("assignment operations apply the caller owner scope to every lookup", async
     (AssignmentModel as any).findOne = async () => createdData;
     (Student as any).findOne = async () => ({ _id: "tenant-b-student", ownerId: tenantOwner });
     (SubmissionModel as any).findOne = async () => null;
+    (StudentQualityThreshold as any).findOne = () => ({ select: () => ({ lean: async () => null }) });
     AssignmentService.notifyStudents = async (_assignment: any, _batch: any, ownerId: string) => {
       notifiedOwner = ownerId;
     };
     try {
       const assignment = await AssignmentService.createAssignment(
-        { batchId: batch._id, title: "Tenant B work" }, "superadmin-id", "SYSTEM", "ALL"
+        { batchId: batch._id, title: "Tenant B work" }, "superadmin-id", "SYSTEM", "ALL", "tenant-b"
       );
       const context = await AssignmentService.getPublicContext({
         assignmentId: assignment._id, batchId: batch._id, studentId: "tenant-b-student",
@@ -62,7 +65,8 @@ test("assignment operations apply the caller owner scope to every lookup", async
       (AssignmentModel as any).findOne = originals[2];
       (Student as any).findOne = originals[3];
       (SubmissionModel as any).findOne = originals[4];
-      AssignmentService.notifyStudents = originals[5];
+      (StudentQualityThreshold as any).findOne = originals[5];
+      AssignmentService.notifyStudents = originals[6];
     }
   });
 

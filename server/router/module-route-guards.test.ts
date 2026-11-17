@@ -16,6 +16,12 @@ test("default administrators can manage customers", () => {
   assert.ok(DEFAULT_ROLE_PERMISSIONS.admin.includes("customer:manage"));
 });
 
+test("legal reference is an optional tenant module with administrator access", () => {
+  assert.ok(MODULE_KEYS.includes("legal-reference" as any));
+  assert.equal(DEFAULT_MODULE_KEYS.includes("legal-reference" as any), false);
+  assert.ok(DEFAULT_ROLE_PERMISSIONS.admin.includes("legal-reference:manage"));
+});
+
 test("shared workflow resolves an independent guard from its mount path", () => {
   assert.equal(resolveBusinessModuleKey("/api/v1/student-management/send-email"), "student");
   assert.equal(resolveBusinessModuleKey("/api/v1/worker-management/send-email"), "worker");

@@ -81,6 +81,12 @@ function change(element: HTMLInputElement, value: string) {
   });
 }
 
+function changeDate(element: HTMLInputElement, value: string) {
+  act(() => element.focus());
+  change(element, value);
+  act(() => element.blur());
+}
+
 async function waitFor(assertion: () => void) {
   let error: unknown;
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -150,7 +156,7 @@ describe("course, batch and exam custom-field integration", () => {
 
     currentEntityPreset = "student";
     const studentView = render(<CoursesPage />);
-    expect(studentView.container.textContent).toContain("Danh mục khóa học");
+    expect(studentView.container.textContent).toContain("Quản lý phân loại");
     expect(studentView.container.textContent).toContain("Thêm khóa học mới");
     expect(studentView.container.textContent).toContain("Max: 20 HV");
   });
@@ -181,10 +187,16 @@ describe("course, batch and exam custom-field integration", () => {
     act(() => add?.click());
     const form = getDialogForm("Ngày khai giảng");
     change(form.querySelector('input[type="text"]')!, "b02");
+    const coursePicker = Array.from(form.querySelectorAll("button")).find((button) => button.getAttribute("aria-haspopup") === "listbox" && button.textContent?.includes("C01"));
+    if (coursePicker) {
+      act(() => coursePicker.click());
+      const courseOption = Array.from(document.body.querySelectorAll('[role="option"]')).find((option) => option.textContent?.includes("C01"));
+      if (courseOption) act(() => (courseOption as HTMLButtonElement).click());
+    }
     const startDate = form.querySelector<HTMLInputElement>('input[aria-label="Ngày khai giảng"]')!;
     const endDate = form.querySelector<HTMLInputElement>('input[aria-label="Ngày bế giảng dự kiến"]')!;
-    change(startDate, "01/09/2026"); act(() => startDate.blur());
-    change(endDate, "01/10/2026"); act(() => endDate.blur());
+    changeDate(startDate, "01/09/2026");
+    changeDate(endDate, "01/10/2026");
     act(() => Array.from(form.querySelectorAll("button")).find((button) => button.textContent === "T2")?.click());
     change(document.body.querySelector('[aria-label="custom-batches"]')!, "batch-dirty");
     await submit(form);
@@ -225,7 +237,8 @@ describe("course, batch and exam custom-field integration", () => {
     expect((document.body.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-dirty");
     expect(onClose).not.toHaveBeenCalled();
     expect(expectedError).toHaveBeenCalled();
-    expect(JSON.parse(String(mockedApiFetch.mock.calls[0][1]?.body)).customFields).toEqual({ extra: "exam-dirty" });
+    const examRequest = mockedApiFetch.mock.calls.find(([path]) => path === "/exams");
+    expect(JSON.parse(String(examRequest?.[1]?.body)).customFields).toEqual({ extra: "exam-dirty" });
 
     view.rerender(<AddExamModal isOpen onClose={onClose} onSuccess={vi.fn()} initialData={exam} />);
     await waitFor(() => expect((document.body.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-existing"));

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { NextFunction, Request, Response } from "express";
-import { cashierShiftController } from "./cashier-shift.controller";
-import { CashierShiftService } from "../services/cashier-shift.service";
+import { setRateLimitRedisClientForTesting } from "../../../infrastructure/rate-limit-redis";
+
+setRateLimitRedisClientForTesting({ eval: async () => [1, 60_000], decr: async () => 0, del: async () => 0 } as any);
+const { CashierShiftService } = await import("../services/cashier-shift.service");
+const { cashierShiftController } = await import("./cashier-shift.controller");
 
 test("close forwards service errors to Express error middleware", async () => {
   const originalClose = CashierShiftService.close;

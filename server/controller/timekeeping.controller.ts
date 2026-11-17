@@ -13,6 +13,7 @@ import { getRequestPublicIp } from "../utils/request-ip";
 import { isAttendanceLogActiveOnDate } from "../service/active-attendance-log.service";
 import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 import { buildAttendanceReportRows } from "../utils/attendance-report";
+import { buildMonthlyAttendanceReport } from "../utils/monthly-attendance-report";
 
 const attendanceAction = (req: AuthenticatedRequest) => req.path.includes("check-out") ? "check-out" as const : "check-in" as const;
 async function enforceBranchAttendance(req: AuthenticatedRequest, latitude: number, longitude: number) {
@@ -182,6 +183,40 @@ export const timekeepingController = {
     } catch (error: any) {
       console.error("[timekeepingController.listAttendanceRecords] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể tải bảng chấm công nhân sự." });
+    }
+  },
+
+  async listMonthlyAttendanceReport(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const year = Number(req.query.year);
+      const month = Number(req.query.month);
+      if (!Number.isInteger(year) || year < 2000 || year > 2200 || !Number.isInteger(month) || month < 1 || month > 12) {
+        return res.status(400).json({ status: "error", message: "Tháng hoặc năm báo cáo chấm công không hợp lệ." });
+      }
+
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const endDate = `${year}-${String(month).padStart(2, "0")}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
+      const rosterScope = buildBranchRosterFilter(req.user?.branchId);
+      const employees = await UserModel.find({ companyCode, ...rosterScope })
+        .select("_id displayName")
+        .sort({ displayName: 1 })
+        .lean();
+      const employeeIds = employees.map((employee) => String(employee._id));
+      const logs = employeeIds.length
+        ? await TimekeepingLogModel.find({ companyCode, date: { $gte: startDate, $lte: endDate }, uid: { $in: employeeIds }, ...rosterScope })
+          .select("uid status")
+          .lean()
+        : [];
+
+      const records = buildMonthlyAttendanceReport(year, month, employees.map((employee) => ({
+        id: String(employee._id),
+        displayName: employee.displayName,
+      })), logs.map((log) => ({ uid: log.uid, status: log.status })));
+      return res.status(200).json({ status: "success", data: { year, month, records } });
+    } catch (error: any) {
+      console.error("[timekeepingController.listMonthlyAttendanceReport] Error:", error);
+      return res.status(500).json({ status: "error", message: "Không thể tổng hợp dữ liệu chấm công theo tháng." });
     }
   },
 

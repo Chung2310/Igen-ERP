@@ -11,6 +11,7 @@ export interface OpenRouterImagesApiOptions {
   background?: "auto" | "transparent" | "opaque";
   outputFormat?: "png" | "jpeg" | "webp";
   inputReferences?: string[];
+  resolution?: "512" | "1K" | "2K" | "4K";
 }
 
 /** Text-only image models use OpenRouter's dedicated Images API. */
@@ -34,6 +35,7 @@ export async function generateImageViaImagesApi(
     body: JSON.stringify({
       model,
       prompt,
+      ...(options.resolution ? { resolution: options.resolution } : {}),
       ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
       ...(quality ? { quality } : {}),
       ...(options.background ? { background: options.background } : {}),

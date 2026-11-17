@@ -145,7 +145,7 @@ test('mobile checkout stays outside the scrolling list and hides when switching 
 test('a removed plan cannot leave a stale payment summary after refreshing the catalog', async () => {
   const user = await chooseGrowth();
   mocks.plans.mockResolvedValue([plans[0]]);
-  await user.click(screen.getByRole('button', { name: 'Làm mới' }));
+  await act(async () => { window.dispatchEvent(new Event('focus')); });
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Chọn Tăng trưởng' })).toBeNull());
   expect(screen.getByText('Chưa chọn gói')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Thanh toán' })).toBeNull();

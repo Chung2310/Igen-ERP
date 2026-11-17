@@ -107,6 +107,20 @@ beforeEach(() => {
         { _id: "507f1f77bcf86cd799439083", userName: "La Văn Sến", uid: employeeId, courseTitle: "An toàn lao động", progress: 100, status: "completed" },
       ], total: 2,
     });
+    if (path === "/api/v1/timekeeping/monthly-report" && (init?.method || "GET") === "GET") {
+      const requestUrl = new URL(String(url));
+      return json({ status: "success", data: { year: Number(requestUrl.searchParams.get("year")), month: Number(requestUrl.searchParams.get("month")), records: [
+        { employeeName: "Nguyễn Anh", workedDays: 19, absentDays: 2, leaveDays: 1, daysOff: 3, lateDays: 3, leftEarlyDays: 0 },
+        { employeeName: "La Văn Sến", workedDays: 22, absentDays: 0, leaveDays: 0, daysOff: 0, lateDays: 0, leftEarlyDays: 0 },
+      ] } });
+    }
+    if (path === "/api/v1/leave/balances" && (init?.method || "GET") === "GET") return json({ status: "success", data: { year: 2026, balances: [
+      { employeeName: "La Văn Sến", department: "Kế toán", entitlement: 12, used: 0, pending: 0, unexcused: 0, remaining: 12 },
+      { employeeName: "Nguyễn Anh", department: "Marketing", entitlement: 12, used: 3, pending: 0, unexcused: 0, remaining: 9 },
+    ] } });
+    if (path === "/api/v1/timekeeping/work-calendar" && (init?.method || "GET") === "GET") return json([
+      { _id: "507f1f77bcf86cd799439099", date: "2026-11-20", name: "Ngày nghỉ công ty", dayType: "holiday", isApplied: true },
+    ]);
     throw new Error(`Unexpected API: ${init?.method || "GET"} ${path}`);
   });
   vi.stubGlobal("fetch", fetcher);
@@ -367,6 +381,58 @@ it("asks for required employee details before creating from an ID-card request",
   expect(result.status).toBe("collecting");
   expect(result.reply).toMatch(/họ và tên|ngày sinh|email/i);
   expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname === "/api/v1/auth/register-user" && init?.method === "POST")).toBe(false);
+});
+
+it("moves an employee under the selected manager only after confirmation", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const preview = await turn({ text: "điều chuyển La Văn Sến xuống dưới quyền quản lý của Nguyễn Anh" });
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain("La Văn Sến");
+  expect(JSON.stringify(preview)).toContain("Nguyễn Anh");
+  expect(JSON.stringify(preview)).not.toContain(employeeId);
+  expect(JSON.stringify(preview)).not.toContain(secondEmployeeId);
+
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  const update = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "PATCH");
+  expect(result.status).toBe("completed");
+  expect(JSON.parse(String(update?.[1]?.body))).toMatchObject({ parentId: secondEmployeeId });
+});
+
+it("reads a monthly attendance report and formats it as the shared table", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const result = await turn({ text: "tháng này ai nghỉ nhiều nhất" });
+  const request = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/timekeeping/monthly-report");
+  const requestUrl = new URL(String(request?.[0]));
+  expect(result.status).toBe("completed");
+  expect(requestUrl.searchParams.get("month")).toBe(String(Number(new Intl.DateTimeFormat("en", { timeZone: "Asia/Ho_Chi_Minh", month: "numeric" }).format(new Date()))));
+  expect(parseAssistantResultTable(result.reply)?.rows[0]?.values["Nhân sự"]).toBe("Nguyễn Anh");
+});
+
+it("filters annual leave to staff with at least twelve days remaining", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const result = await turn({ text: "danh sách nhân sự còn đủ 12 phép" });
+  expect(result.status).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)?.rows.map(row => row.values["Nhân sự"]), result.reply).toEqual(["La Văn Sến"]);
+  expect(result.reply).not.toContain("Nguyễn Anh");
+});
+
+it("returns holidays for the requested month instead of the full annual calendar", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const result = await turn({ text: "tháng này có những ngày nào được nghỉ" });
+  const request = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/timekeeping/work-calendar");
+  const requestUrl = new URL(String(request?.[0]));
+  expect(result.status).toBe("completed");
+  expect(requestUrl.searchParams.get("holidaysOnly")).toBe("true");
+  expect(requestUrl.searchParams.get("month")).toBeTruthy();
+  expect(parseAssistantResultTable(result.reply)?.rows[0]?.values["Nội dung"]).toBe("Ngày nghỉ công ty");
 });
 
 it("uses attached employee information in work mode and still asks for missing fields before confirmation", async () => {

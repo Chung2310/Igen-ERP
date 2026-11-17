@@ -24,6 +24,7 @@ import { ensureDefaultPayrollPolicy } from "./payroll-policy-operations.service"
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 import { assertAccountUsable, assertPrivilegedSessionCurrent } from "../security/account-access";
+import { assertValidOrgChartParent, calculateOrgChartDescendantLevels } from "../utils/org-chart-hierarchy";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
 export const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 export const REGULAR_SESSION_REPLACED_EVENT = "auth:session-replaced";
@@ -738,6 +739,31 @@ export const authService = {
       }
     }
 
+    let updatedOrgChartLevel: number | undefined;
+    let shouldClearParent = false;
+    let orgChartRelationships: Array<{ id: string; parentId?: string }> = [];
+    if (updateData.parentId !== undefined) {
+      shouldClearParent = updateData.parentId === null || updateData.parentId === "";
+      orgChartRelationships = (await UserModel.find({ companyCode: user.companyCode, disabledAt: null, isActive: { $ne: false }, role: { $ne: "superadmin" } })
+        .select("_id parentId level")
+        .lean()).map((record: any) => ({ id: String(record._id), parentId: record.parentId ? String(record.parentId) : undefined }));
+      if (shouldClearParent) {
+        updateData.parentId = undefined;
+        updatedOrgChartLevel = 1;
+        updateData.level = updatedOrgChartLevel;
+      } else {
+        const targetId = String(user._id);
+        const managerId = String(updateData.parentId);
+        const manager = orgChartRelationships.find((record) => record.id === managerId);
+        if (!manager) throw new Error("Quản lý trực tiếp không tồn tại, đã ngừng hoạt động hoặc không thuộc cùng công ty.");
+        const parentById = new Map(orgChartRelationships.map((record) => [record.id, record.parentId]));
+        assertValidOrgChartParent(targetId, managerId, parentById);
+        const managerRecord = await UserModel.findById(managerId).select("level").lean();
+        updatedOrgChartLevel = Math.max(1, Number(managerRecord?.level) || 1) + 1;
+        updateData.level = updatedOrgChartLevel;
+      }
+    }
+
     if (updateData.branchId !== undefined) {
       const targetCompany = updateData.companyCode || user.companyCode;
       if (updateData.branchId) {
@@ -794,8 +820,19 @@ export const authService = {
     const roleChanged = Boolean(updateData.role && updateData.role !== user.role);
     const previousSessionId = roleChanged ? user.activeSessionId : "";
     const userUpdate: Record<string, any> = { $set: updateData };
+    if (shouldClearParent) {
+      delete userUpdate.$set.parentId;
+      userUpdate.$unset = { parentId: "" };
+    }
     if (roleChanged) userUpdate.$set.activeSessionId = "";
     const updatedUser = await UserModel.findByIdAndUpdate(userId, userUpdate, { returnDocument: 'after' }).select("-password");
+    if (updatedOrgChartLevel !== undefined && orgChartRelationships.length) {
+      const descendantLevels = calculateOrgChartDescendantLevels(String(user._id), updatedOrgChartLevel, orgChartRelationships);
+      const updates = [...descendantLevels].map(([id, level]) => ({
+        updateOne: { filter: { _id: id, companyCode: user.companyCode }, update: { $set: { level } } },
+      }));
+      if (updates.length) await UserModel.bulkWrite(updates);
+    }
     if (roleChanged) await notifyRoleChangedSession(previousSessionId);
     return updatedUser;
   },

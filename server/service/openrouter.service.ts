@@ -318,6 +318,8 @@ export interface OpenRouterImageParams {
   exactModel?: boolean;
   aspectRatio?: string;
   resolution?: string;
+  /** Use OpenRouter's Images API for providers that expose normalized output resolution tiers. */
+  useImagesApi?: boolean;
   quality?: "low" | "medium" | "high" | "auto";
   background?: "auto" | "transparent" | "opaque";
   outputFormat?: "png" | "jpeg" | "webp";
@@ -341,7 +343,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
       ? mapModelName(process.env.IGENAI_TRANSPARENT_IMAGE_EDIT_MODEL || TRANSPARENT_IMAGE_EDIT_MODEL)
     : (process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
 
-  const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
+  const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
   const model = params.exactModel
     ? configuredModel
@@ -368,6 +370,16 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   console.log(`[OpenRouter Image] model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey} | hasReference=${Boolean(params.referenceImages?.length)}`);
 
   try {
+    if (params.useImagesApi) {
+      const resolution = ["512", "1K", "2K", "4K"].includes(params.resolution || "")
+        ? params.resolution as "512" | "1K" | "2K" | "4K"
+        : "1K";
+      return await generateImageViaImagesApi(apiKey, model, params.prompt, ratioKey, undefined, {
+        inputReferences: params.referenceImages,
+        outputFormat: params.outputFormat ?? "png",
+        resolution,
+      });
+    }
     if (params.background === "transparent") {
       return await generateImageViaImagesApi(
         apiKey,

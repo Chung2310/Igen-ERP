@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cashierShiftRoutes } from "./cashier-shift.routes";
+import { setRateLimitRedisClientForTesting } from "../../../infrastructure/rate-limit-redis";
+
+setRateLimitRedisClientForTesting({ eval: async () => [1, 60_000], decr: async () => 0, del: async () => 0 } as any);
+const { cashierShiftRoutes } = await import("./cashier-shift.routes");
 
 const mountedPaths = () => cashierShiftRoutes.stack
   .map((layer: any) => layer.route?.path)
