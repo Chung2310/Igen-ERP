@@ -13,8 +13,26 @@ import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_I
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
-function getApiKey(): string {
-  return process.env.OPENROUTER_API_KEY || "";
+export type OpenRouterKeyScope = "chat-message";
+
+function getApiKey(keyScope?: OpenRouterKeyScope): string {
+  return keyScope === "chat-message"
+    ? process.env.OPENROUTER_CHAT_MESSAGE_API_KEY?.trim() || ""
+    : process.env.OPENROUTER_API_KEY || "";
+}
+
+export function hasChatMessageOpenRouterKey(): boolean {
+  return Boolean(getApiKey("chat-message"));
+}
+
+export function requireChatMessageOpenRouterKey(): string {
+  const key = getApiKey("chat-message");
+  if (!key) {
+    throw Object.assign(new Error("Chưa cấu hình OPENROUTER_CHAT_MESSAGE_API_KEY cho Chat Message."), {
+      code: "CHAT_MESSAGE_OPENROUTER_KEY_MISSING",
+    });
+  }
+  return key;
 }
 
 /**
@@ -46,6 +64,7 @@ export type OpenRouterContentPart =
 export interface OpenRouterChatParams {
   model: string;
   messages: OpenRouterMessage[];
+  keyScope?: OpenRouterKeyScope;
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
@@ -77,10 +96,11 @@ export interface OpenRouterChatDiagnostics {
  * Chat completions — text và/hoặc vision (base64 images).
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string }> {
-  return billAiCall("text", mapModelName(params.model), () => openrouterChatUnmetered(params));
+  const apiKey = params.keyScope === "chat-message" ? requireChatMessageOpenRouterKey() : getApiKey();
+  return billAiCall("text", mapModelName(params.model), () => openrouterChatUnmetered(params, apiKey));
 }
 
-async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ text: string }> {
+async function openrouterChatUnmetered(params: OpenRouterChatParams, apiKey: string): Promise<{ text: string }> {
   const {
     model,
     temperature = 0.7,
@@ -93,8 +113,6 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ 
     deadlineAt,
     reasoning,
   } = params;
-  const apiKey = getApiKey();
-
   if (!apiKey) {
     throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
   }
