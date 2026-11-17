@@ -6,7 +6,7 @@ import { BillingProfileService } from "./billing-profile.service";
 import { CustomerPurchaseHistoryService } from "./customer-purchase-history.service";
 import { requireRetailBranch, retailScopeFromRequest, resolveRetailScopeFromRequest, RetailScopeError, type RetailBranchScope } from "../retail/contracts";
 
-export function scopeFromRequest(req: Request): CustomerScope {
+function scopeFromRequest(req: Request): CustomerScope {
   const user = (req as any).user || {};
   const rawCompanyCode = user.role === "superadmin" ? req.query.companyCode : user.companyCode;
   const companyCode = String(rawCompanyCode || "").trim().toUpperCase();

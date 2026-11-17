@@ -5,54 +5,13 @@ import { generateReplyCompletion } from "../../ai-reply-provider";
 import { PAGE_CUSTOMER_NOTES_KEY } from "../../page-customer.service";
 import { appendCustomerNotes } from "../../../../../customer-management/customer-notes";
 import { findLeadForIntake, upsertLeadFromIntake } from "../../lead-intake.service";
-import { parseIntakeNumber } from "../../intake-number";
+import { normalizeIntakeValue } from "../../normalize-intake-fields";
 import type { LeadIntakeField, LeadNeed, LeadNeedGroup } from "../../../../../../../shared/marketing-suite/lead-intake";
 
 type Field = LeadIntakeField;
 const LEAD_INTENT_KEY = "__lead_intent";
 const LEAD_NEEDS_KEY = "__lead_needs";
-function matchOption(value: string, options: string[]) {
-  const normalizedValue = value.trim().toLocaleLowerCase();
-  return options.find(option => option.trim().toLocaleLowerCase() === normalizedValue);
-}
-
-export function normalizeIntakeValue(field: Field, value: unknown): string | undefined {
-  const type = field.type || "text";
-  if (type === "checkbox") {
-    if (value === true) return "Có";
-    if (value === false) return "Không";
-    if (typeof value !== "string") return undefined;
-    const normalizedValue = value.trim().toLocaleLowerCase();
-    if (["true", "yes", "có", "co", "1"].includes(normalizedValue)) return "Có";
-    if (["false", "no", "không", "khong", "0"].includes(normalizedValue)) return "Không";
-    return undefined;
-  }
-  if (type === "multi_select") {
-    const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,;\n]/) : [];
-    if (!raw.length || raw.some(item => typeof item !== "string")) return undefined;
-    const selected = [...new Set(raw.map(item => matchOption(item, field.options || [])).filter((item): item is string => Boolean(item)))];
-    return selected.length === raw.length ? selected.join(", ") : undefined;
-  }
-  const rawValue = typeof value === "string" ? value.trim() : typeof value === "number" && Number.isFinite(value) ? String(value) : "";
-  if (!rawValue || rawValue.length > (type === "long_text" ? 3000 : 300)) return undefined;
-  if (type === "single_select") return matchOption(rawValue, field.options || []);
-  if (type === "number" || type === "currency") {
-    const parsed = parseIntakeNumber(typeof value === "number" ? value : rawValue, type === "currency");
-    return parsed === undefined ? undefined : String(parsed);
-  }
-  if (type === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawValue) ? rawValue : undefined;
-  if (type === "phone") {
-    const digits = rawValue.replace(/\D/g, "");
-    return digits.length >= 8 && digits.length <= 15 && /^[+\d\s().-]+$/.test(rawValue) ? rawValue : undefined;
-  }
-  if (type === "date") {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawValue);
-    if (!match) return undefined;
-    const date = new Date(`${rawValue}T00:00:00Z`);
-    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === rawValue ? rawValue : undefined;
-  }
-  return rawValue;
-}
+export { normalizeIntakeValue };
 
 async function extractValues(input: ChatOrderFlowInput, fields: Field[], known: Record<string, string>, groups: LeadNeedGroup[] = [], previousNeeds: LeadNeed[] = []) {
   const result = await generateReplyCompletion({ jsonMode: true, temperature: 0, maxTokens: 4096,

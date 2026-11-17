@@ -30,7 +30,6 @@ export interface HealthcareRecord {
 }
 
 export interface Patient extends HealthcareRecord {
-  customerId?: string;
   code: string;
   name: string;
   phone: string;

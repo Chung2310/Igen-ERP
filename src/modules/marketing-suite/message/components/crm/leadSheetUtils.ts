@@ -1,4 +1,5 @@
 import type { LeadCollectionStatus, LeadIntakeFieldType } from "../../../../../../shared/marketing-suite/lead-intake";
+import { leadCustomerDestinationLabels } from "../../../../../../shared/marketing-suite/lead-customer-transfer";
 import type { ExtendedLeadCard, LeadFieldFilter } from "../../services/crmService";
 
 export type LeadSocialPlatform = "facebook" | "zalo" | "tiktok";
@@ -174,7 +175,7 @@ export async function downloadLeadsExcel(leads: ExtendedLeadCard[], fields: Lead
     LEAD_STATUS_META[lead.status]?.label || lead.status,
     Number(lead.value) || 0,
     lead.collectionStatus ? COLLECTION_STATUS_META[lead.collectionStatus].label : "Chưa cấu hình",
-    lead.moduleSync?.targetModule || "",
+    lead.customerTransfer?.completedAt ? leadCustomerDestinationLabels[lead.customerTransfer.destination] : lead.moduleSync?.targetModule || "",
     ...intakeColumns.map(field => leadHasIntakeField(lead, field) ? lead.answers?.[field.answerKey || field.key] || "" : ""),
   ]);
   const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows].map(row => row.map(safeExcelCell)));
