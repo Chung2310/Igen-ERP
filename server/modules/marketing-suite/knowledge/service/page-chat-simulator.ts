@@ -1,4 +1,5 @@
 import { generateReplyCompletion } from "../../message/service/ai-reply-provider";
+import { hasChatMessageOpenRouterKey } from "../../shared/service/openrouter.service";
 import { getPageErpContext } from "../../message/service/page-erp-context.service";
 import { aiKnowledgeService } from "./ai-knowledge.service";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model";
@@ -135,12 +136,13 @@ export async function simulatePageChat(input: {
   companyCode: string; pageId?: string; message: string; history: SimulatedTurn[];
   documentText?: string; rule?: string;
 }): Promise<SimulatedResult> {
-  if (!process.env.OPENROUTER_API_KEY && /sơn nhà|mua sơn|bán sơn/i.test(input.documentText || "")) return fallbackPaintReply(input);
+  const hasOpenRouterKey = hasChatMessageOpenRouterKey();
+  if (!hasOpenRouterKey && /sơn nhà|mua sơn|bán sơn/i.test(input.documentText || "")) return fallbackPaintReply(input);
   const context = await aiKnowledgeService.prepareChatContext({
     companyCode: input.companyCode, channel: "facebook", pageId: input.pageId || undefined,
     message: input.message, history: input.history.map(turn => ({ sender: turn.role === "customer" ? "user" : "model", text: turn.text })),
   });
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!hasOpenRouterKey) {
     let paintScenario = /sơn nhà|mua sơn|bán sơn|chống thấm/i.test(context.scenarioContextText || "");
     if (!paintScenario) {
       const documents = await AIKnowledgeDocumentModel.find({

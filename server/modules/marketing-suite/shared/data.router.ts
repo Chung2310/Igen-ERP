@@ -21,6 +21,7 @@ import { createMarketingContentDraft, deleteMarketingContentDraft, updateMarketi
 import { queueLeadSheet } from "../message/service/lead-sheet.service";
 import { PageChatFlowStateModel } from "../message/model/page-chat-flow.model";
 import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/service/lead-intake.service";
+import { leadContractRouter } from "../message/router/lead-contract.router";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
 type AsyncHandler = (req: AuthenticatedRequest, res: Response) => Promise<unknown>;
@@ -69,6 +70,7 @@ function leadFieldSnapshot(value: unknown) {
 }
 
 export const suiteDataRouter = Router();
+suiteDataRouter.use("/omni-inbox", leadContractRouter);
 const ALLOWED_LEAD_SORT_KEYS = new Set([
   "customerName",
   "phone",
@@ -309,6 +311,13 @@ suiteDataRouter.get("/omni-inbox/leads/:id/telecom-invoices", requirePermission(
     }),
     ...(invoices.length > limit ? { before: String(items[limit - 1]._id) } : {}),
   } });
+}));
+
+suiteDataRouter.get("/omni-inbox/leads/:id", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
+  const lead = await CRMTicketModel.findOne({ companyCode: req.user!.companyCode, _id: req.params.id }).lean();
+  if (!lead) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
+  return res.json({ status: "success", data: publicRecord(lead, false) });
 }));
 
 suiteDataRouter.post("/omni-inbox/leads/export-google-sheets", requirePermission("omni-inbox:manage"), run(async (req, res) => {

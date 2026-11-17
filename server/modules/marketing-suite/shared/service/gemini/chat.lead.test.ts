@@ -20,7 +20,7 @@ const leadIntake = {
 };
 
 it("uses the previous offer and Lead details when the customer's answer is just 'ok'", async () => {
-  vi.stubEnv("OPENROUTER_API_KEY", "test");
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
   const text = "Lớp tối bắt đầu lúc 19h, mình muốn học ngày nào ạ?";
   vi.mocked(generateText)
     .mockResolvedValueOnce({ text } as never)
@@ -43,7 +43,7 @@ it("uses the previous offer and Lead details when the customer's answer is just 
 });
 
 it("provides the next configured booking question to generation and review after a short name", async () => {
-  vi.stubEnv("OPENROUTER_API_KEY", "test");
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
   const question = "Cho em xin số liên hệ để lễ tân xác nhận lịch nhé?";
   const initial = "Dạ, gói Nam còn 1.420.000đ ạ.";
   const corrected = `Dạ, em ghi nhận tên Cường rồi ạ. ${question}`;
@@ -74,7 +74,7 @@ it.each(["[Sticker]", "1. [Sticker]\n2. [Sticker]"])("acknowledges a sticker wit
 });
 
 it.each(["ok", "được em", "đồng ý", "chốt giúp anh"])("uses the pending booking context for %s without requiring a phrase", async message => {
-  vi.stubEnv("OPENROUTER_API_KEY", "test");
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
   vi.mocked(generateText).mockResolvedValueOnce({ text: "Dạ, em ghi nhận mình đồng ý với lịch dự kiến ạ." } as never);
   const history = [{ sender: "model", text: "Gói Nam, dự kiến 8h ngày 20. Anh xác nhận chốt lịch giúp em nhé?" }];
 
@@ -103,7 +103,7 @@ it("treats 'ok' after an informational booking message as a courtesy reply", asy
 });
 
 it.each([" ", "```json\n{}\n```"])("fails a Lead generation with no usable reply text", async raw => {
-  vi.stubEnv("OPENROUTER_API_KEY", "test");
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
   vi.mocked(generateText).mockResolvedValueOnce({ text: raw } as never);
   await expect(geminiChatService.chat("Em muốn đăng ký", [], { companyName: "Trung tâm" }, { leadIntake }))
     .rejects.toThrow("empty Lead intake reply");

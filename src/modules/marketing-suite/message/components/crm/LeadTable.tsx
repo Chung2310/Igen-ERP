@@ -14,6 +14,7 @@ import {
   Columns3,
   DollarSign,
   Download,
+  FileCheck2,
   Hash,
   List,
   Loader2,
@@ -57,6 +58,7 @@ import {
   type LeadFieldFilter,
 } from "../../services/crmService";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
+import { LeadContractReconciliation } from "./LeadContractReconciliation";
 import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
 import { LeadModuleSyncModal } from "./LeadModuleSyncModal";
 import { LeadSheetCell, type CellDirection } from "./LeadSheetCell";
@@ -98,6 +100,7 @@ interface LeadTableProps {
   accounts?: LeadAccountOption[];
   onSelectAccountScope?: (channel: "all" | LeadSocialPlatform, accountId?: string) => void;
   refreshToken?: number;
+  canReconcileContracts?: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -198,6 +201,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   accounts = [],
   onSelectAccountScope,
   refreshToken = 0,
+  canReconcileContracts = false,
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -208,6 +212,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [profiles, setProfiles] = useState<ActiveLeadIntakeProfile[]>([]);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const [reconciliationOpen, setReconciliationOpen] = useState(false);
 
   const [builderState, setBuilderState] = useState<{
     open: boolean;
@@ -1128,6 +1133,11 @@ export const LeadTable: React.FC<LeadTableProps> = ({
             <Settings2 aria-hidden="true" className="size-3.5 text-primary" />
             Thiết lập thu thập Lead
           </button>
+          {canReconcileContracts && <button type="button" aria-haspopup="dialog" className={secondaryBtnClass}
+            onClick={() => setReconciliationOpen(true)}>
+            <FileCheck2 aria-hidden="true" className="size-3.5" />
+            Đối soát hợp đồng
+          </button>}
           <button
             type="button"
             disabled={exporting}
@@ -2073,6 +2083,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       />
 
       {/* Side Drawer for Full Lead Editing */}
+      {reconciliationOpen && <LeadContractReconciliation onClose={() => setReconciliationOpen(false)}
+        onOpenLead={lead => { setReconciliationOpen(false); setDetailLead(lead); }}
+        onOpenSource={photo => { setReconciliationOpen(false); handleGoToChat("", photo.conversationId, photo.platform, photo.pageId); }}
+        onSaved={() => void loadLeads()} />}
       <LeadDetailDrawer
         lead={leads.find(lead => lead.id === detailLead?.id) ?? detailLead}
         configuredFields={scopedProfile?.fields || []}

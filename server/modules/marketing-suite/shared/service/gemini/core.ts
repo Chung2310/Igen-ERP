@@ -409,6 +409,7 @@ export async function generateText(
     let diagnostics: OpenRouterChatDiagnostics | undefined;
     const result = await openrouterChat({
       model: selectedModel, messages, temperature: config?.temperature ?? 0.7,
+      keyScope: config?.keyScope,
       jsonMode: needsJson, responseSchema: config?.responseSchema,
       maxRetries, timeoutMs, deadlineAt: config?.deadlineAt,
       maxTokens: config?.maxTokens, reasoning: config?.reasoning, operation,

@@ -14,14 +14,19 @@ import { zaloMessengerService } from "./zalo-messenger.service";
 import { assertZaloDeliveryCurrent, beginZaloFollowUpDelivery, expireZaloFollowUpDeliveries,
   readZaloFollowUpMessages, ZaloReplyCancelledError } from "./zalo-reply-context";
 import { CRMTicketModel } from "../model/crm-ticket.model";
+import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 
-const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn() }));
+const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
 vi.mock("./ai-auto-reply.service.ts", () => ({
   aiAutoReplyService: { triggerAutoReply: mocks.dispatch },
   recoverZaloAutoReplyJobs: vi.fn(),
 }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: vi.fn() }));
 vi.mock("../webhook-access", () => ({ canProcessMessengerWebhook: async () => true }));
+vi.mock("./lead-contract-ocr", async importOriginal => ({
+  ...(await importOriginal<typeof import("./lead-contract-ocr")>()),
+  processLeadContractMessage: mocks.contractOcr,
+}));
 vi.mock("./chat-ordering/registry", () => ({
   chatOrderFlowRegistry: { resolveForCompanyPage: async () => ({ key: "page-intake", process: mocks.intake }) },
 }));
@@ -40,9 +45,10 @@ afterAll(async () => {
 beforeEach(async () => {
   mocks.dispatch.mockReset();
   mocks.intake.mockReset();
+  mocks.contractOcr.mockReset();
   vi.spyOn(UserModel, "findOne").mockResolvedValue({ zaloIntegration: { isMock: true } } as never);
   await Promise.all([ZaloConversationModel.deleteMany({}), ZaloMessageModel.deleteMany({}),
-    MessengerBackgroundJobModel.deleteMany({}), FacebookAutoReplyJobModel.deleteMany({})]);
+    MessengerBackgroundJobModel.deleteMany({}), FacebookAutoReplyJobModel.deleteMany({}), TelecomInvoiceSettingsModel.deleteMany({})]);
   vi.stubEnv("ZALO_APP_ID", "test-app");
   vi.stubEnv("ZALO_OA_SECRET_KEY", "test-secret");
 });
@@ -107,6 +113,30 @@ it("keeps each Zalo invoice photo in order when images arrive in the same attach
   expect(messages.flatMap(message => message.attachments.map(item => item.url))).toEqual([first, second, third]);
   expect(mocks.dispatch).toHaveBeenLastCalledWith("zalo", "oa", String(messages[0].conversationId), "[Hình ảnh]", "images-1", { propagateError: true });
 });
+
+it("dispatches the original image and question to the chatbot before the separate contract OCR job runs", async () => {
+  await TelecomInvoiceSettingsModel.create({ companyCode: "TEST", pageId: "oa", zalo: {
+    enabled: true, mode: "contract", contractFieldKey: "ma_hop_dong", contractProvider: "FPT",
+  } });
+  const body = {
+    event_name: "user_send_image", recipient: { id: "oa" }, sender: { id: "customer" }, timestamp: Date.now(),
+    message: { msg_id: "contract-1", text: "Gói này còn bán không?",
+      attachments: [{ type: "image", payload: { url: "https://s120-ava-talk.zadn.vn/image/contract.jpg" } }] },
+  };
+  await zaloMessengerService.handleWebhookEvent(body);
+  const message = await ZaloMessageModel.findOne({ messageId: body.message.msg_id }).lean();
+  const conversationId = String(message?.conversationId);
+  expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith("zalo", "oa", conversationId, body.message.text, body.message.msg_id, { propagateError: true });
+  expect(mocks.contractOcr).not.toHaveBeenCalled();
+  expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-contract-ocr", status: "pending" })).toBe(1);
+
+  stopWorkers = startMessengerBackgroundWorkers();
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-contract-ocr", status: "completed" })).toBe(1);
+  }, { timeout: 6_000 });
+  expect(mocks.contractOcr).toHaveBeenCalledExactlyOnceWith({ companyCode: "TEST", platform: "zalo", pageId: "oa", conversationId, messageId: body.message.msg_id });
+  expect(mocks.dispatch).toHaveBeenCalledTimes(1);
+}, 10_000);
 
 it("recovers Zalo jobs across an expired lease and a failed message write without double-counting unread", async () => {
   const eventTimestamp = Math.floor(Date.now() / 1000);

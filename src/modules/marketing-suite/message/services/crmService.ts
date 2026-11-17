@@ -3,7 +3,7 @@ import { getAccessToken } from "../../shared/services/authService";
 import { LeadCard } from "../../shared/types/index";
 import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
 import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
-import type { ConfirmedTelecomInvoice, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
+import type { ConfirmedTelecomInvoice, LeadContractPhoto, LeadContractReport, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
 
 export interface LeadProductSelection {
   productId: string;
@@ -29,6 +29,7 @@ export interface ExtendedLeadCard extends LeadCard {
   customerId?: string;
   customerTransfer?: LeadCustomerTransfer;
   telecomSubscriberCode?: string;
+  hasContractPhotos?: boolean;
   telecomConversationId?: string;
   telecomPageId?: string;
   telecomPlatform?: TelecomInvoicePlatform;
@@ -227,6 +228,39 @@ export const crmService = {
       `/omni-inbox/leads/${encodeURIComponent(leadId)}/telecom-invoices`, { params: { before }, signal },
     );
     return result.data;
+  },
+
+  async getLead(id: string) {
+    const { data } = await apiFetch<{ data: CrmLeadRecord }>(`/omni-inbox/leads/${encodeURIComponent(id)}`);
+    return { ...data, id: data._id || data.id };
+  },
+
+  async getLeadContractProviders(signal?: AbortSignal) {
+    const { data } = await apiFetch<{ data: string[] }>("/omni-inbox/lead-contracts/providers", { signal });
+    return data;
+  },
+
+  async reconcileLeadContracts(file: File, provider: string, year: number, quarter: number, signal?: AbortSignal) {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("provider", provider);
+    body.append("year", String(year));
+    body.append("quarter", String(quarter));
+    const { data } = await apiFetch<{ data: LeadContractReport }>("/omni-inbox/lead-contracts/reconcile", { method: "POST", body, signal });
+    return data;
+  },
+
+  async getLeadContractPhotos(leadId?: string, before?: string, signal?: AbortSignal) {
+    const endpoint = leadId ? `/omni-inbox/leads/${encodeURIComponent(leadId)}/contract-photos` : "/omni-inbox/lead-contracts/review";
+    const { data } = await apiFetch<{ data: { items: LeadContractPhoto[]; before?: string } }>(endpoint, { params: { before }, signal });
+    return data;
+  },
+
+  async confirmLeadContractPhoto(id: string, values: Record<string, string>) {
+    const { data } = await apiFetch<{ data: { leadId: string } }>(`/omni-inbox/lead-contracts/review/${encodeURIComponent(id)}`, {
+      method: "POST", body: JSON.stringify({ values }),
+    });
+    return data;
   },
 
   async getActiveLeadIntakeProfiles(): Promise<ActiveLeadIntakeProfile[]> {
