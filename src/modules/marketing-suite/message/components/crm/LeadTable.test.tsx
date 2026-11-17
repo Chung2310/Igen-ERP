@@ -7,10 +7,6 @@ import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
 import { CreateLeadModal } from "./CreateLeadModal";
 import { crmService, type ActiveLeadIntakeProfile, type ExtendedLeadCard } from "../../services/crmService";
 import { DEFAULT_HIDDEN_SYSTEM_COLUMNS, saveSheetLayout, type LeadAccountOption } from "./leadSheetUtils";
-import { customerDetailHref } from "../../../../customer-management/navigation";
-import { customerApi } from "../../../../customer-management/customerApi";
-
-vi.mock("../../../../customer-management/customerApi", () => ({ customerApi: { searchActive: vi.fn() } }));
 
 vi.mock("../../../../../pages/Toast", () => ({
   toast: {
@@ -27,7 +23,6 @@ vi.mock("../../services/crmService", () => ({
     getAllLeadRows: vi.fn(),
     updateLead: vi.fn(),
     createLead: vi.fn(),
-    saveLeadCustomer: vi.fn(),
     getLeadIntakeProfilesForAccount: vi.fn(),
     suggestLeadIntakeProfile: vi.fn(),
     saveLeadIntakeDraft: vi.fn(),
@@ -112,24 +107,28 @@ afterEach(() => {
 });
 
 describe("LeadTable", () => {
-  it("requires confirmation before saving a selected customer and replaces the action with a profile link", async () => {
-    vi.mocked(customerApi.searchActive).mockResolvedValue([
-      { customerId: "customer-1", customerCode: "KH-001", name: sampleLead.customerName, phone: sampleLead.phone!, type: "regular", status: "active" },
-      { customerId: "customer-2", customerCode: "KH-002", name: "Nguyễn Anh", phone: sampleLead.phone!, type: "regular", status: "active" },
-    ]);
-    vi.mocked(crmService.saveLeadCustomer).mockResolvedValue({ customerId: "customer-1", customerCode: "KH-001" });
-    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()} deleteLead={vi.fn()}
-      handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main" enabledModules={["customer"]}
-      canViewCustomers canSaveCustomer />);
-    fireEvent.click(await screen.findByRole("button", { name: `Lưu ${sampleLead.customerName} vào Khách hàng` }));
-    const dialog = screen.getByRole("dialog", { name: "Lưu Lead vào Khách hàng" });
-    fireEvent.click(await within(dialog).findByRole("radio", { name: /KH-001/ }));
-    expect(crmService.saveLeadCustomer).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Liên kết hồ sơ đã chọn" }));
-    await waitFor(() => expect(crmService.saveLeadCustomer).toHaveBeenCalledWith(sampleLead.id, { customerId: "customer-1" }));
-    const link = await screen.findByRole("link", { name: `Mở hồ sơ Khách hàng của ${sampleLead.customerName}` });
-    expect(link.getAttribute("href")).toBe(customerDetailHref("customer-1", "lead-needs"));
+  it("keeps direct module sync available while protecting leads already transferred to a native module", async () => {
+    vi.mocked(crmService.getLeadPage).mockResolvedValue({
+      data: [sampleLead, {
+        ...sampleLead,
+        id: "lead-2",
+        customerName: "Học viên cũ",
+        customerTransfer: { destination: "students", targetRecordId: "student-1", completedAt: "2026-11-16" },
+      }],
+      total: 2,
+      page: 1,
+      limit: 25,
+      totalPages: 1,
+    });
+
+    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()}
+      deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main"
+      accounts={accounts} enabledModules={["student"]} />);
+
+    expect(await screen.findByRole("button", { name: "Học viên cũ đã đồng bộ module" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: `Đồng bộ ${sampleLead.customerName} sang module` })).toHaveProperty("disabled", false);
   });
+
   it("waits one second after the last search edit before fetching", async () => {
     const props = {
       setSearchQuery: vi.fn(), onCreateLead: vi.fn(), deleteLead: vi.fn(), handleGoToChat: vi.fn(),

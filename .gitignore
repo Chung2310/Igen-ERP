@@ -22,8 +22,6 @@ scripts/
 !server/scripts/
 server/scripts/*
 !server/scripts/backfill-labor-partner-scheme-policies.ts
-!server/scripts/migrate-customer-phone-index.ts
-!server/scripts/import-customer-module-links.ts
 !server/assistant/scripts/
 !server/assistant/scripts/**
 

@@ -92,6 +92,22 @@ it("stores the sticker URL from the webhook attachment and dispatches the sticke
   expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith("zalo", "oa", String(message?.conversationId), "[Sticker]", "sticker-1", { propagateError: true });
 });
 
+it("keeps each Zalo invoice photo in order when images arrive in the same attachment batch and in separate events", async () => {
+  const first = "https://s120-ava-talk.zadn.vn/image/invoice-1.jpg";
+  const second = "https://s120-ava-talk.zadn.vn/image/invoice-2.jpg";
+  const third = "https://s120-ava-talk.zadn.vn/image/invoice-3.jpg";
+  const timestamp = Date.now();
+  for (const [index, urls] of [[first, second], [third]].entries()) {
+    await zaloMessengerService.handleWebhookEvent({
+      event_name: "user_send_image", recipient: { id: "oa" }, sender: { id: "customer" }, timestamp: timestamp + index,
+      message: { msg_id: `images-${index}`, attachments: urls.map(url => ({ type: "image", payload: { url } })) },
+    });
+  }
+  const messages = await ZaloMessageModel.find({ recipientId: "oa", direction: "inbound" }).sort({ timestamp: 1 }).lean();
+  expect(messages.flatMap(message => message.attachments.map(item => item.url))).toEqual([first, second, third]);
+  expect(mocks.dispatch).toHaveBeenLastCalledWith("zalo", "oa", String(messages[0].conversationId), "[Hình ảnh]", "images-1", { propagateError: true });
+});
+
 it("recovers Zalo jobs across an expired lease and a failed message write without double-counting unread", async () => {
   const eventTimestamp = Math.floor(Date.now() / 1000);
   const { submit } = webhook(eventTimestamp);

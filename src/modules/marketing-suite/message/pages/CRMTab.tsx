@@ -1640,8 +1640,6 @@ export default function CRMTab() {
               companyCode={userProfile?.companyCode || ""}
               branchId={branchContext?.activeBranchId || userProfile?.branchId || ""}
               enabledModules={userProfile?.enabledModules}
-              canViewCustomers={hasPermission("customer:read") || hasPermission("customer:manage")}
-              canSaveCustomer={hasPermission("customer:manage") && hasPermission("omni-inbox:manage")}
               accounts={leadSheetAccounts}
               onSelectAccountScope={handleSelectLeadAccountScope}
               refreshToken={leadSheetRefreshToken}
