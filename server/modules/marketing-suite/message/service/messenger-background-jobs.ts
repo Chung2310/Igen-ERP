@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { MessengerBackgroundJobModel, type MessengerBackgroundJobKind } from "../model/messenger-background-job.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
+import { enabledLeadContractAccount, TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { startQueueRecovery } from "../../shared/queue-recovery";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
 import type { ChatOrderFlowInput } from "./chat-ordering/core/types";
+import type { LeadContractMessageJob } from "./lead-contract-ocr";
 
 const ZALO_MESSAGE_EVENTS = new Set(["user_send_text", "user_send_image", "user_send_link", "user_send_sticker"]);
 const LEASE_MS = 120_000;
@@ -50,10 +52,35 @@ export function enqueueLeadIntakeRetry(input: ChatOrderFlowInput) {
   });
 }
 
+export async function enqueueLeadContractOcr(input: Omit<LeadContractMessageJob, "companyCode">, attachments: Array<{ type?: string }> = []) {
+  if (!attachments.length) return;
+  try {
+    const { isLeadContractImage } = await import("./lead-contract-ocr");
+    if (!attachments.some(isLeadContractImage)) return;
+    const settings = await TelecomInvoiceSettingsModel.find(enabledLeadContractAccount(input)).select("companyCode").lean();
+    if (!settings.length) return;
+    const { canProcessMessengerWebhook } = await import("../webhook-access");
+    for (const { companyCode } of settings) {
+      if (!await canProcessMessengerWebhook(input.platform === "zalo" ? "Zalo" : "Facebook", input.pageId, companyCode)) continue;
+      await enqueue("lead-contract-ocr", [companyCode, input.platform, input.pageId, input.conversationId, input.messageId], { ...input, companyCode });
+      return;
+    }
+  } catch (error) {
+    console.error("[Messenger jobs] Không xếp được tác vụ OCR hợp đồng", {
+      platform: input.platform, messageId: input.messageId, error: error instanceof Error ? error.name : typeof error,
+    });
+  }
+}
+
 async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
   if (kind === "zalo-webhook") {
     const { zaloMessengerService } = await import("./zalo-messenger.service");
     await zaloMessengerService.handleWebhookEvent(payload, { resumeDispatch: true });
+    return;
+  }
+  if (kind === "lead-contract-ocr") {
+    const { processLeadContractMessage } = await import("./lead-contract-ocr");
+    await processLeadContractMessage(payload as LeadContractMessageJob);
     return;
   }
   const { canProcessMessengerWebhook } = await import("../webhook-access");
@@ -161,6 +188,7 @@ export function startMessengerBackgroundWorkers() {
     }, 5_000),
     startQueueRecovery(recoverFailedZaloInboundMarkers, 10_000),
     startQueueRecovery(() => runJobs("lead-intake"), 3_000),
+    startQueueRecovery(() => runJobs("lead-contract-ocr"), 3_000),
   ];
   return () => timers.forEach(clearInterval);
 }

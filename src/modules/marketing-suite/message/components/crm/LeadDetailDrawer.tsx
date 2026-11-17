@@ -8,6 +8,7 @@ import { DateInput24 } from "../../../../../components/common/TimeInput24";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
 import { LeadTelecomInvoices } from "./LeadTelecomInvoices";
+import { LeadContractPhotos } from "./LeadContractPhotos";
 import { COLLECTION_STATUS_META, LEAD_STATUS_META, parseMultiSelectValue, PLATFORM_LABELS, type LeadSocialPlatform } from "./leadSheetUtils";
 
 interface LeadDetailDrawerProps {
@@ -190,6 +191,11 @@ function LeadDetailDrawerPanel({
 
             {lead.telecomSubscriberCode && <LeadTelecomInvoices leadId={lead.id} subscriberCode={lead.telecomSubscriberCode}
               onOpenSource={invoice => onOpenChat({ ...lead, sourceConversationId: invoice.conversationId, sourceAccountId: invoice.pageId, sourcePlatform: invoice.platform })} />}
+            {lead.hasContractPhotos && <section className="space-y-2">
+              <h4 className="text-balance text-sm font-semibold">Ảnh hợp đồng</h4>
+              <LeadContractPhotos leadId={lead.id} onOpenSource={photo =>
+                onOpenChat({ ...lead, sourceConversationId: photo.conversationId, sourceAccountId: photo.pageId, sourcePlatform: photo.platform })} />
+            </section>}
             {Boolean(lead.needs?.length) && <section aria-label="Nhu cầu đã ghi nhận" className="space-y-2">
               <h4 className="text-sm font-semibold">Nhu cầu đã ghi nhận</h4>
               <ul className="space-y-2">{lead.needs?.map(need => <li key={need.id} className="rounded-md border border-outline-variant p-3 text-sm">

@@ -47,6 +47,7 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   lastInteractionAt: { type: Date, index: true },
   customerId: { type: String },
   telecomSubscriberCode: { type: String },
+  hasContractPhotos: Boolean,
   telecomConversationId: { type: String },
   telecomPageId: { type: String },
   telecomPlatform: { type: String, enum: ["facebook", "zalo"] },

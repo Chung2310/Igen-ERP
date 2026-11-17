@@ -12,6 +12,7 @@ import { messengerOrderService } from "./messenger-order.service.ts";
 import { companyProductCatalogService } from "./company-product-catalog.service.ts";
 import { AmbiguousAutoReplyOwnerError, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { facebookSendRequest } from "../../shared/service/facebook-send-request";
+import { enqueueLeadContractOcr } from "./messenger-background-jobs";
 import {
   FacebookMessengerError,
   createFacebookIntegrationNotFoundError,
@@ -806,6 +807,7 @@ export const fbMessengerService = {
     emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
 
     const conversationId = conversation._id.toString();
+    const contractOcr = enqueueLeadContractOcr({ platform: "facebook", pageId: resolvedPageId, conversationId, messageId }, attachments);
     const handleOrderMessage = async () => {
       try {
         const { chatOrderFlowRegistry } = await import("./chat-ordering/registry");
@@ -912,6 +914,7 @@ export const fbMessengerService = {
         }
       }).catch(() => console.error(`[FB Service] Không thể lên lịch thử lại cho messageId=${messageId}`));
     });
+    await contractOcr;
   },
 
   /**

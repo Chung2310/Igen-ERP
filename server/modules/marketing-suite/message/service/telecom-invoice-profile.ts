@@ -16,6 +16,14 @@ export function findSubscriberField(fields: LeadIntakeField[], configuredKey?: s
   return matches.length === 1 ? matches[0] : undefined;
 }
 
+export function findContractField(fields: LeadIntakeField[], configuredKey?: string) {
+  const eligible = fields.filter(field => !field.type || field.type === "text");
+  if (configuredKey) return eligible.find(field => field.key === configuredKey);
+  const identifiers = new Set(["so hd", "ma hd", "so hop dong", "ma hop dong", "contract code", "contract number"]);
+  const matches = eligible.filter(field => identifiers.has(invoiceFieldName(field.key)) || identifiers.has(invoiceFieldName(field.label)));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function isInvoiceNumberField(field: LeadIntakeField) {
   return invoiceNumberNames.has(invoiceFieldName(field.key)) || invoiceNumberNames.has(invoiceFieldName(field.label));
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), latest: vi.fn(),
-  persist: vi.fn(), updateInbound: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn(),
+  persist: vi.fn(), updateInbound: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn(), enqueueOcr: vi.fn(),
   updateConversationPreview: vi.fn(),
 }));
 vi.mock("../model/fb-messenger.model.ts", () => ({
@@ -19,6 +19,7 @@ vi.mock("../../../../model/user.model.ts", () => ({ UserModel: {} }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: mocks.emit }));
 vi.mock("../../shared/service/facebook-send-request", () => ({ facebookSendRequest: mocks.send }));
 vi.mock("./ai-auto-reply.service.ts", () => ({ aiAutoReplyService: { triggerAutoReply: mocks.trigger } }));
+vi.mock("./messenger-background-jobs", () => ({ enqueueLeadContractOcr: mocks.enqueueOcr }));
 vi.mock("../webhook-access", () => ({ canProcessMessengerWebhook: async () => true }));
 vi.mock("./facebook-comment.service.ts", () => ({ facebookCommentService: { processPendingComments: async () => {} } }));
 vi.mock("../../shared/model/social-integration.model.ts", () => ({ SocialIntegrationModel: {} }));
@@ -195,6 +196,29 @@ it("makes a failed inbound dispatch eligible for recovery before its original le
   });
   expect(update.$set.autoReplyDispatchAfter.getTime() - Date.now()).toBeGreaterThan(25_000);
   expect(update.$set.autoReplyDispatchAfter.getTime()).toBeLessThan(originalLease.getTime());
+});
+
+it("dispatches the Facebook chat question without waiting for contract OCR enqueue", async () => {
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-token");
+  mocks.latest.mockResolvedValue(inbound);
+  mocks.conversationUpdate.mockResolvedValue({ _id: "conversation" });
+  mocks.updateInbound.mockResolvedValueOnce({ upsertedCount: 1 }).mockResolvedValueOnce({ matchedCount: 1 });
+  let finishEnqueue!: () => void;
+  mocks.enqueueOcr.mockReturnValueOnce(new Promise<void>(resolve => { finishEnqueue = resolve; }));
+  const url = "https://scontent.fbcdn.net/contract.jpg";
+  const message = { mid: "contract", text: "Gói này còn bán không?", attachments: [{ type: "image", payload: { url } }] };
+  const event = fbMessengerService.processIncomingMessage({ sender: { id: "customer" }, recipient: { id: "page" },
+    timestamp: Date.now(), message }, "page");
+  try {
+    await vi.waitFor(() => expect(mocks.trigger).toHaveBeenCalledExactlyOnceWith("facebook", "page", "conversation", message.text,
+      message.mid, { propagateError: true }));
+    expect(mocks.enqueueOcr).toHaveBeenCalledExactlyOnceWith({
+      platform: "facebook", pageId: "page", conversationId: "conversation", messageId: message.mid,
+    }, [{ type: "image", url }]);
+  } finally {
+    finishEnqueue();
+    await event;
+  }
 });
 
 it("cancels a typing indicator that is still in progress when delivery starts", async () => {
