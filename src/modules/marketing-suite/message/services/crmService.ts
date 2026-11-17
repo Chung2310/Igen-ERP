@@ -1,5 +1,7 @@
 import { apiFetch } from "../../../shared/lib/apiFetch";
 import { getAccessToken } from "../../shared/services/authService";
+import { socketService } from "../../../../services/socketService";
+import { createInboxRefreshQueue } from "./inboxRefreshQueue";
 import { LeadCard } from "../../shared/types/index";
 import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
 import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
@@ -37,6 +39,8 @@ export interface ExtendedLeadCard extends LeadCard {
 }
 
 export type CreateLeadInput = Omit<ExtendedLeadCard, "id" | "value"> & { value?: number };
+
+export type ConversationLead = Pick<ExtendedLeadCard, "collectionStatus" | "moduleSync" | "customerTransfer">;
 
 export interface LeadPageResult {
   data: ExtendedLeadCard[];
@@ -110,53 +114,35 @@ function logCrmTiming(
   });
 }
 
-// Central cache state for crmService to optimize performance
-let cachedLeads: ExtendedLeadCard[] = [];
-let listeners: Array<{
-  callback: (leads: ExtendedLeadCard[]) => void;
-  onError?: (error: unknown) => void;
-}> = [];
-let pollInterval: ReturnType<typeof setInterval> | null = null;
-let isFirstFetchDone = false;
 let activeGetLeadsPromise: Promise<ExtendedLeadCard[]> | null = null;
+const localLeadChanged = "crm:local-leads-changed";
 
-const triggerListeners = (data: ExtendedLeadCard[]) => {
-  listeners.forEach((listener) => {
-    try {
-      listener.callback(data);
-    } catch (err) {
-      console.error("[crmService] Error in listener callback:", err);
-    }
+function notifyLocalLeadChange() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(localLeadChanged));
+}
+
+export function subscribeCrmLeadChanges(refresh: () => Promise<void> | void, initial = false) {
+  const queue = createInboxRefreshQueue(async () => { if (!document.hidden) await refresh(); }, 350);
+  const request = () => { if (!document.hidden) queue.request("leads"); };
+  const unsubscribeLead = socketService.on("crm_leads_changed", request);
+  let connected = socketService.isConnected();
+  const unsubscribeStatus = socketService.onStatusChange(next => {
+    if (next && !connected) request();
+    connected = next;
   });
-};
-
-const triggerListenersError = (err: unknown) => {
-  listeners.forEach((listener) => {
-    if (listener.onError) {
-      try {
-        listener.onError(err);
-      } catch (e) {
-        console.error("[crmService] Error in listener error callback:", e);
-      }
-    }
-  });
-};
-
-const fetchLeadsInternal = async () => {
-  try {
-    const data = await crmService.getLeads();
-    // Only trigger listener callback if data changed (prevent deep re-renders and blinking)
-    const dataStr = JSON.stringify(data);
-    const cachedStr = JSON.stringify(cachedLeads);
-    if (!isFirstFetchDone || dataStr !== cachedStr) {
-      cachedLeads = data;
-      isFirstFetchDone = true;
-      triggerListeners(data);
-    }
-  } catch (err) {
-    triggerListenersError(err);
-  }
-};
+  const fallback = setInterval(() => { if (!connected) request(); }, 60_000);
+  document.addEventListener("visibilitychange", request);
+  window.addEventListener(localLeadChanged, request);
+  if (initial) request();
+  return () => {
+    unsubscribeLead();
+    unsubscribeStatus();
+    clearInterval(fallback);
+    document.removeEventListener("visibilitychange", request);
+    window.removeEventListener(localLeadChanged, request);
+    queue.dispose();
+  };
+}
 
 export const crmService = {
   getLeads(): Promise<ExtendedLeadCard[]> {
@@ -227,6 +213,13 @@ export const crmService = {
       `/omni-inbox/leads/${encodeURIComponent(leadId)}/telecom-invoices`, { params: { before }, signal },
     );
     return result.data;
+  },
+
+  async getLeadForConversation(channel: "facebook" | "zalo" | "tiktok", accountId: string, conversationId: string, signal?: AbortSignal) {
+    const { data } = await apiFetch<{ data: ConversationLead | null }>("/omni-inbox/leads/by-conversation", {
+      params: { channel, accountId, conversationId }, signal,
+    });
+    return data;
   },
 
   async getActiveLeadIntakeProfiles(): Promise<ActiveLeadIntakeProfile[]> {
@@ -374,90 +367,34 @@ export const crmService = {
     return result.data as NonNullable<ExtendedLeadCard["moduleSync"]>;
   },
 
-  subscribeLeads(callback: (leads: ExtendedLeadCard[]) => void, onError?: (error: unknown) => void) {
-    const listener = { callback, onError };
-    listeners.push(listener);
-
-    // If cache is ready, emit immediately to avoid visual lag
-    if (isFirstFetchDone) {
-      callback(cachedLeads);
-    } else {
-      fetchLeadsInternal();
-    }
-
-    if (!pollInterval) {
-      // Use single centralized interval to poll database
-      pollInterval = setInterval(fetchLeadsInternal, 5000);
-    }
-
-    return () => {
-      listeners = listeners.filter((l) => l !== listener);
-      if (listeners.length === 0 && pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-        isFirstFetchDone = false;
-      }
-    };
-  },
-
   async createLead(lead: CreateLeadInput): Promise<string> {
     const startedAt = Date.now();
-    const tempId = `temp-${Date.now()}`;
+    const res = await fetch("/api/v1/omni-inbox/leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        ...lead,
+        createdAt: Date.now(),
+      }),
+    });
 
-    // 1. Instantly update UI with a temporary ID (0ms lag!)
-    const createdLead: ExtendedLeadCard = { ...lead, value: lead.value ?? 0, id: tempId };
-    const oldLeads = [...cachedLeads];
-    cachedLeads = [...cachedLeads, createdLead];
-    triggerListeners(cachedLeads);
-
-    try {
-      const res = await fetch("/api/v1/omni-inbox/leads", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({
-          ...lead,
-          createdAt: Date.now(),
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Tạo Lead thất bại.");
-      }
-
-      const json = await res.json();
-      const realId = json.data._id;
-      logCrmTiming("create", startedAt, { id: realId });
-
-      // 2. Swap temporary ID with real ID in the cache
-      cachedLeads = cachedLeads.map((item) =>
-        item.id === tempId ? { ...item, id: realId } : item
-      );
-      triggerListeners(cachedLeads);
-
-      // Re-sync background cache
-      fetchLeadsInternal();
-      return realId;
-    } catch (err) {
-      // Rollback optimistic update on error
-      cachedLeads = oldLeads;
-      triggerListeners(cachedLeads);
-      throw err;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Tạo Lead thất bại.");
     }
+
+    const json = await res.json();
+    const realId = json.data._id;
+    logCrmTiming("create", startedAt, { id: realId });
+    notifyLocalLeadChange();
+    return realId;
   },
 
   async updateLead(id: string, lead: Partial<ExtendedLeadCard>): Promise<ExtendedLeadCard> {
     const startedAt = Date.now();
-    
-    // 1. Optimistic Update (Immediate 120fps feel)
-    const oldLeads = [...cachedLeads];
-    cachedLeads = cachedLeads.map((item) =>
-      item.id === id ? { ...item, ...lead } : item
-    );
-    triggerListeners(cachedLeads);
 
     const res = await fetch(`/api/v1/omni-inbox/leads/${id}`, {
       method: "PATCH",
@@ -472,9 +409,6 @@ export const crmService = {
     });
 
     if (!res.ok) {
-      // Rollback optimistic update on error
-      cachedLeads = oldLeads;
-      triggerListeners(cachedLeads);
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || "Cập nhật Lead thất bại.");
     }
@@ -483,22 +417,15 @@ export const crmService = {
     const updatedItem = json.data as CrmLeadRecord | undefined;
     const normalizedItem: ExtendedLeadCard = updatedItem
       ? { ...updatedItem, id: updatedItem._id || updatedItem.id || id }
-      : { ...(cachedLeads.find((item) => item.id === id) || {}), ...lead, id } as ExtendedLeadCard;
-
-    cachedLeads = cachedLeads.map((item) => (item.id === id ? normalizedItem : item));
-    triggerListeners(cachedLeads);
+      : { ...lead, id } as ExtendedLeadCard;
 
     logCrmTiming("update", startedAt, { id, fields: Object.keys(lead) });
+    notifyLocalLeadChange();
     return normalizedItem;
   },
 
   async deleteLead(id: string): Promise<void> {
     const startedAt = Date.now();
-
-    // 1. Optimistic UI update
-    const oldLeads = [...cachedLeads];
-    cachedLeads = cachedLeads.filter((item) => item.id !== id);
-    triggerListeners(cachedLeads);
 
     const res = await fetch(`/api/v1/omni-inbox/leads/${id}`, {
       method: "DELETE",
@@ -508,62 +435,42 @@ export const crmService = {
     });
 
     if (!res.ok) {
-      // Rollback on error
-      cachedLeads = oldLeads;
-      triggerListeners(cachedLeads);
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || "Xóa Lead thất bại.");
     }
 
     logCrmTiming("delete", startedAt, { id });
-    fetchLeadsInternal();
+    notifyLocalLeadChange();
   },
 
   async bulkUpdateLeads(updates: Array<{ id: string; lead: Partial<ExtendedLeadCard> }>): Promise<void> {
     const startedAt = Date.now();
     if (updates.length === 0) return;
 
-    // 1. Optimistic UI update
-    const oldLeads = [...cachedLeads];
-    cachedLeads = cachedLeads.map((item) => {
-      const update = updates.find((u) => u.id === item.id);
-      return update ? { ...item, ...update.lead } : item;
-    });
-    triggerListeners(cachedLeads);
-
-    try {
-      await Promise.all(
-        updates.map(({ id, lead }) =>
-          fetch(`/api/v1/omni-inbox/leads/${id}`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${getAccessToken()}`,
-            },
-            body: JSON.stringify({
-              ...lead,
-              updatedAt: Date.now(),
-            }),
-          }).then(async (res) => {
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              throw new Error(err.message || "Cập nhật thất bại.");
-            }
-          })
-        )
-      );
-    } catch (err) {
-      // Rollback on error
-      cachedLeads = oldLeads;
-      triggerListeners(cachedLeads);
-      throw err;
-    }
-
+    await Promise.all(
+      updates.map(({ id, lead }) =>
+        fetch(`/api/v1/omni-inbox/leads/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({
+            ...lead,
+            updatedAt: Date.now(),
+          }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || "Cập nhật thất bại.");
+          }
+        })
+      )
+    );
     logCrmTiming("bulkUpdate", startedAt, {
       count: updates.length,
       ids: updates.map(({ id }) => id),
     });
-
-    fetchLeadsInternal();
+    notifyLocalLeadChange();
   },
 };

@@ -22,6 +22,11 @@ import {
 
 const syncTimestamps = new Map<string, number>();
 const CONVERSATION_SYNC_TTL_MS = 15000;
+const conversationSyncs = new Map<string, Promise<void>>();
+const profileDenials = new Map<string, number>();
+const profileRequests = new Map<string, Promise<any>>();
+const PROFILE_DENIAL_TTL_MS = 30 * 60_000;
+const PROFILE_DENIAL_CACHE_LIMIT = 4096;
 const MESSAGE_SYNC_TTL_MS = 5000;
 const FACEBOOK_SENDER_ACTION_TIMEOUT_MS = 1500;
 const pageWebhookSubscriptions = new Map<string, number>();
@@ -60,8 +65,8 @@ export const fbMessengerService = {
     return true;
   },
 
-  async fetchGraphJson(url: string) {
-    const response = await (globalThis as any).fetch(url);
+  async fetchGraphJson(url: string, signal?: AbortSignal) {
+    const response = signal ? await fetch(url, { signal }) : await fetch(url);
     const rawText = await response.text();
     let parsed: any = null;
 
@@ -78,7 +83,17 @@ export const fbMessengerService = {
     return parsed;
   },
 
-  async syncConversationsFromFacebook(pageId: string, tokenContext?: FacebookTokenContext) {
+  syncConversationsFromFacebook(pageId: string, tokenContext?: FacebookTokenContext): Promise<void> {
+    const inFlight = conversationSyncs.get(pageId);
+    if (inFlight) return inFlight;
+    const sync = this.runConversationSync(pageId, tokenContext)
+      .then(() => { syncTimestamps.set(`conversations:${pageId}`, Date.now()); })
+      .finally(() => conversationSyncs.delete(pageId));
+    conversationSyncs.set(pageId, sync);
+    return sync;
+  },
+
+  async runConversationSync(pageId: string, tokenContext?: FacebookTokenContext) {
     const startedAt = Date.now();
     console.log(`[FB Service syncConversations] Bắt đầu đồng bộ hội thoại trực tiếp từ Facebook cho Page ID: ${pageId}`);
     const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
@@ -98,82 +113,93 @@ export const fbMessengerService = {
       "messages.limit(1){id,message,created_time,from,to}"
     ].join(",");
     const url = `https://graph.facebook.com/v25.0/${pageId}/conversations?fields=${encodeURIComponent(fields)}&limit=50&access_token=${encodeURIComponent(token)}`;
-    const data = await this.fetchGraphJson(url);
+    const data = await this.fetchGraphJson(url, AbortSignal.timeout(15_000));
     const conversations = Array.isArray(data?.data) ? data.data : [];
 
-    for (const fbConversation of conversations) {
-      const senders = Array.isArray(fbConversation?.senders?.data) ? fbConversation.senders.data : [];
-      const latestMessage = Array.isArray(fbConversation?.messages?.data) ? fbConversation.messages.data[0] : null;
-      const nonPageSender = senders.find((sender: any) => sender?.id && sender.id !== pageId);
-      const fallbackRecipientId = latestMessage?.from?.id && latestMessage.from.id !== pageId
-        ? latestMessage.from.id
-        : "";
-      const recipientId = nonPageSender?.id || fallbackRecipientId;
+    let processed = 0;
+    try {
+      for (const fbConversation of conversations) {
+        const senders = Array.isArray(fbConversation?.senders?.data) ? fbConversation.senders.data : [];
+        const latestMessage = Array.isArray(fbConversation?.messages?.data) ? fbConversation.messages.data[0] : null;
+        const nonPageSender = senders.find((sender: any) => sender?.id && sender.id !== pageId);
+        const fallbackRecipientId = latestMessage?.from?.id && latestMessage.from.id !== pageId
+          ? latestMessage.from.id
+          : "";
+        const recipientId = nonPageSender?.id || fallbackRecipientId;
 
-      if (!recipientId) {
-        console.warn(`[FB Service syncConversations] Bỏ qua conversation ${fbConversation?.id} vì không xác định được recipientId.`);
-        continue;
-      }
+        if (!recipientId) {
+          console.warn(`[FB Service syncConversations] Bỏ qua conversation ${fbConversation?.id} vì không xác định được recipientId.`);
+          continue;
+        }
 
-      let conversation = await FBConversationModel.findOne({
-        pageId,
-        $or: [
-          { facebookConversationId: fbConversation.id },
-          { recipientId }
-        ]
-      });
+        let conversation = await FBConversationModel.findOne({
+          pageId,
+          $or: [
+            { facebookConversationId: fbConversation.id },
+            { recipientId }
+          ]
+        });
 
-      let avatarUrl = "";
-      let senderName = nonPageSender?.name || "";
+        let avatarUrl = "";
+        let senderName = nonPageSender?.name || "";
 
-      // Chỉ fetch profile của khách hàng nếu hội thoại chưa có trong DB hoặc chưa có đủ Tên/Avatar
-      if (!conversation || !conversation.avatarUrl || !conversation.senderName || conversation.senderName === "Khách hàng Facebook") {
-        if (recipientId) {
-          try {
-            const profile = await this.getSenderProfile(recipientId, token);
-            avatarUrl = profile?.profile_pic || "";
-            if (profile?.first_name || profile?.last_name) {
-              senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+        // Chỉ fetch profile của khách hàng nếu hội thoại chưa có trong DB hoặc chưa có đủ Tên/Avatar
+        if (!conversation || !conversation.avatarUrl || !conversation.senderName || conversation.senderName === "Khách hàng Facebook") {
+          if (recipientId) {
+            try {
+              const profile = await this.getSenderProfile(recipientId, token);
+              avatarUrl = profile?.profile_pic || "";
+              if (profile?.first_name || profile?.last_name) {
+                senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+              }
+            } catch (error) {
+              console.warn(`[FB Service syncConversations] Không lấy được avatar/profile cho PSID ${recipientId}:`, error);
             }
-          } catch (error) {
-            console.warn(`[FB Service syncConversations] Không lấy được avatar/profile cho PSID ${recipientId}:`, error);
           }
         }
-      }
 
-      if (conversation) {
-        conversation.facebookConversationId = normalizeOptionalFacebookConversationId(fbConversation.id);
-        conversation.recipientId = recipientId;
-        conversation.senderName = senderName || conversation.senderName || "Khách hàng Facebook";
-        if (avatarUrl) {
-          conversation.avatarUrl = avatarUrl;
+        const messageTime = latestMessage?.created_time || fbConversation?.updated_time;
+        const messageAt = messageTime ? new Date(messageTime) : undefined;
+        if (conversation) {
+          conversation.facebookConversationId = normalizeOptionalFacebookConversationId(fbConversation.id);
+          conversation.recipientId = recipientId;
+          conversation.senderName = senderName || conversation.senderName || "Khách hàng Facebook";
+          if (avatarUrl) {
+            conversation.avatarUrl = avatarUrl;
+          }
+          conversation.status = "open";
+          // Reconcile metadata first. Only advance the preview if a webhook has not already saved a newer message.
+          if (conversation.isModified()) await conversation.save();
+          if (latestMessage && messageAt && Number.isFinite(messageAt.getTime())
+            && (!conversation.lastMessageAt || conversation.lastMessageAt < messageAt)) {
+            await FBConversationModel.updateOne({ _id: conversation._id, pageId, $or: [
+              { lastMessageAt: { $lt: messageAt } }, { lastMessageAt: null },
+            ] }, { $set: { lastMessageText: latestMessage.message || "[Đính kèm]", lastMessageAt: messageAt } });
+          }
+        } else {
+          conversation = new FBConversationModel({
+            recipientId,
+            pageId,
+            facebookConversationId: normalizeOptionalFacebookConversationId(fbConversation.id),
+            senderName: senderName || "Khách hàng Facebook",
+            avatarUrl,
+            lastMessageText: latestMessage?.message || "[Đính kèm]",
+            lastMessageAt: latestMessage?.created_time
+              ? new Date(latestMessage.created_time)
+              : new Date(fbConversation?.updated_time || Date.now()),
+            status: "open",
+          });
+          await conversation.save();
         }
-        conversation.lastMessageText = latestMessage?.message || conversation.lastMessageText || "[Đính kèm]";
-        conversation.lastMessageAt = latestMessage?.created_time
-          ? new Date(latestMessage.created_time)
-          : (conversation.lastMessageAt || new Date(fbConversation?.updated_time || Date.now()));
-        conversation.status = "open";
-        await conversation.save();
-      } else {
-        conversation = new FBConversationModel({
-          recipientId,
-          pageId,
-          facebookConversationId: normalizeOptionalFacebookConversationId(fbConversation.id),
-          senderName: senderName || "Khách hàng Facebook",
-          avatarUrl,
-          lastMessageText: latestMessage?.message || "[Đính kèm]",
-          lastMessageAt: latestMessage?.created_time
-            ? new Date(latestMessage.created_time)
-            : new Date(fbConversation?.updated_time || Date.now()),
-          status: "open",
-        });
-        await conversation.save();
+        processed++;
       }
-
-      // Phát sự kiện socket để cập nhật realtime danh sách ở frontend
-      emitToMessengerAccount("facebook", pageId, "conversation_updated", conversation);
+    } finally {
+      if (processed) {
+        await emitToMessengerAccount("facebook", pageId, "conversation_list_changed", {}).catch(error => {
+          console.warn("[FB Service syncConversations] Không thể gửi tín hiệu làm mới danh sách:", error?.name);
+        });
+      }
     }
-
     console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);
   },
 
@@ -933,14 +959,33 @@ export const fbMessengerService = {
   /**
    * Gọi Graph API lấy Profile từ PSID bằng Token động
    */
-  async getSenderProfile(psid: string, token: string): Promise<any> {
+  getSenderProfile(psid: string, token: string): Promise<any> {
+    const key = `${createHash("sha256").update(token).digest("hex")}:${psid}`;
+    const expiresAt = profileDenials.get(key) ?? 0;
+    if (expiresAt > Date.now()) return Promise.resolve(null);
+    if (expiresAt) profileDenials.delete(key);
+    const inFlight = profileRequests.get(key);
+    if (inFlight) return inFlight;
+    const request = this.fetchSenderProfile(psid, token, key).finally(() => profileRequests.delete(key));
+    profileRequests.set(key, request);
+    return request;
+  },
+
+  async fetchSenderProfile(psid: string, token: string, cacheKey: string): Promise<any> {
     const url = `https://graph.facebook.com/v25.0/${encodeURIComponent(psid)}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`;
     try {
-      const response = await (globalThis as any).fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!response.ok) {
         const errText = await response.text();
-        if (errText.includes('"error_subcode":33') || errText.includes('"code":100')) {
-          console.warn(`[FB Service GraphAPI] Không có quyền lấy profile chi tiết cho PSID ${psid} (Facebook App hạn chế quyền User Profile hoặc tài khoản khách hàng bật bảo mật). Sẽ sử dụng thông tin mặc định.`);
+        const denied = response.status >= 400 && response.status < 500 && response.status !== 429
+          && (/"error_subcode"\s*:\s*33\b/.test(errText) || /"code"\s*:\s*(10|100|200)\b/.test(errText));
+        if (denied) {
+          if (profileDenials.size >= PROFILE_DENIAL_CACHE_LIMIT) {
+            const oldest = profileDenials.keys().next().value;
+            if (oldest !== undefined) profileDenials.delete(oldest);
+          }
+          profileDenials.set(cacheKey, Date.now() + PROFILE_DENIAL_TTL_MS);
+          console.warn("[FB Service GraphAPI] Facebook từ chối lấy profile; giữ thông tin hội thoại hiện tại.");
         } else {
           console.error(`[FB Service GraphAPI] Lỗi phản hồi từ Graph API: ${response.status} - ${errText}`);
         }
