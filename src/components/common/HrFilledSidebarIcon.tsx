@@ -94,7 +94,7 @@ export function HrFilledSidebarIcon({ name, twoTone = false, ...props }: SVGProp
 export function HrFilledSidebarToggleIcon({ collapsed, twoTone = false }: { collapsed: boolean; twoTone?: boolean }) {
   const gradientId = useId().replace(/:/g, '');
   const cutout = 'var(--color-surface-container-lowest)';
-  return <svg className="size-5 text-primary" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+  return <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
     {twoTone ? <>
       <defs><HrBrandGradient id={gradientId} /></defs>
       <rect x="2" y="2" width="20" height="20" rx="4" fill={`url(#${gradientId})`} />

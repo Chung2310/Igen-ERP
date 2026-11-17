@@ -3,8 +3,9 @@ import { ArrowDown, ArrowUp, ChevronRight, Loader2, Plus, Settings2, Sparkles, T
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
-import { LEAD_INTAKE_FIELD_TYPES, type LeadIntakeField, type LeadIntakeFieldType } from "../../../../../../shared/marketing-suite/lead-intake";
+import { LEAD_INTAKE_FIELD_TYPES, type LeadIntakeField, type LeadIntakeFieldType, type LeadNeedGroup } from "../../../../../../shared/marketing-suite/lead-intake";
 import { crmService } from "../../services/crmService";
+import { TelecomInvoiceSettingsPanel } from "./TelecomInvoiceSettings";
 import { FIELD_TYPE_META, PLATFORM_LABELS, toIntakeFieldKey, type LeadAccountOption } from "./leadSheetUtils";
 
 type EditableField = LeadIntakeField & {
@@ -115,6 +116,7 @@ function LeadIntakeBuilderModalBody({
   const [goal, setGoal] = useState("");
   const [completionMessage, setCompletionMessage] = useState("Cảm ơn anh/chị đã cung cấp thông tin, bên em sẽ tư vấn ngay ạ.");
   const [fields, setFields] = useState<EditableField[]>([]);
+  const [needGroups, setNeedGroups] = useState<LeadNeedGroup[]>([]);
   const [hasOwnProfile, setHasOwnProfile] = useState(false);
   const [sourceDocumentIds, setSourceDocumentIds] = useState<string[]>([]);
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -172,6 +174,7 @@ function LeadIntakeBuilderModalBody({
         setCompletionMessage(base?.completionMessage || "Cảm ơn anh/chị đã cung cấp thông tin, bên em sẽ tư vấn ngay ạ.");
         setSourceDocumentIds(base?.sourceDocumentIds || []);
         setFields(baseFields);
+        setNeedGroups(base?.needGroups || []);
         setHasOwnProfile(Boolean(active || draft));
         setProfileStatus(draft ? "Bản nháp" : active ? "Đang áp dụng" : fallback ? "Dùng mặc định" : "Chưa thiết lập");
         setExpandedFieldId(undefined);
@@ -337,6 +340,10 @@ function LeadIntakeBuilderModalBody({
       return;
     }
 
+    if (needGroups.some(group => !group.label.trim())) {
+      setError("Nhập tên cho từng nhóm nhu cầu.");
+      return;
+    }
     setBusy(draftOnly ? "draft" : "save");
     try {
       const input = {
@@ -344,6 +351,7 @@ function LeadIntakeBuilderModalBody({
         goal: (goal.trim() || "Thu thập thông tin khách hàng tiềm năng").slice(0, 300),
         completionMessage: (completionMessage.trim() || "Cảm ơn anh/chị đã cung cấp thông tin, bên em sẽ tư vấn ngay ạ.").slice(0, 500),
         fields: prepared,
+        needGroups: needGroups.map(group => ({ ...group, label: group.label.trim(), fieldKeys: group.fieldKeys.filter(key => usedKeys.has(key)) })),
         sourceDocumentIds,
       };
       if (draftOnly) {
@@ -395,6 +403,8 @@ function LeadIntakeBuilderModalBody({
             />
           </div> : <p className="text-sm text-on-surface">Mặc định doanh nghiệp</p>}
         </div>
+        {!initialAddColumn && (selectedAccount?.platform === "zalo" || selectedAccount?.platform === "facebook") &&
+          <TelecomInvoiceSettingsPanel key={`${selectedAccount.platform}:${selectedAccount.accountId}`} platform={selectedAccount.platform} accountId={selectedAccount.accountId} />}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-sm font-medium text-on-surface">Thông tin cần thu</h4>
@@ -602,6 +612,34 @@ function LeadIntakeBuilderModalBody({
             </div>
           </div>
         )}
+
+        {!loading && !loadFailed && <section aria-label="Nhóm nhu cầu" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-medium">Nhóm nhu cầu</h4>
+            <button type="button" className={secondaryBtnClass} disabled={cannotEdit || needGroups.length >= 20}
+              onClick={() => setNeedGroups(current => [...current, { key: `nhom_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`, label: "", fieldKeys: [] }])}>Thêm nhóm</button>
+          </div>
+          {needGroups.map(group => <fieldset key={group.key} disabled={cannotEdit} className="space-y-2 rounded-md border border-outline-variant p-3">
+            <legend className="px-1 text-xs">{group.label || "Nhóm mới"}</legend>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="min-w-0 grow text-xs">Tên nhóm
+                <input className={fieldInputClass} value={group.label} maxLength={100} onChange={event => setNeedGroups(current => current.map(item => item.key === group.key ? { ...item, label: event.target.value } : item))} />
+              </label>
+              <button type="button" className={secondaryBtnClass} onClick={() => setNeedGroups(current => current.filter(item => item.key !== group.key))}>Xóa nhóm</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {fields.filter(field => field.key && field.label.trim()).map(field => <label key={field._localId} className="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={group.fieldKeys.includes(field.key)} onChange={event => {
+                  const checked = event.target.checked;
+                  setNeedGroups(current => current.map(item => item.key !== group.key ? item : {
+                    ...item, fieldKeys: checked ? [...item.fieldKeys, field.key] : item.fieldKeys.filter(key => key !== field.key),
+                  }));
+                }} />
+                {field.label}
+              </label>)}
+            </div>
+          </fieldset>)}
+        </section>}
 
         <div className="flex items-center gap-2 text-xs">
           <button

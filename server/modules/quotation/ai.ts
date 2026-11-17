@@ -6,6 +6,7 @@ import { extractAttachedRequest } from "./price-list.js";
 import { minimumQuantityInstructions, resolveMinimumQuantity } from "./product-quantity.js";
 import { chatSamplingParameters, parseJsonResponse, requestStructuredAi, responseContent, type AiChatMessage } from "./structured-ai.js";
 import type { AnalyzedItem, CatalogItem, MatchStatus, SuggestedProduct } from "./types.js";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../src/shared/ai-provider-error";
 
 interface AnalysisResult {
   status: MatchStatus;
@@ -421,7 +422,7 @@ export async function analyzeRequest(requestText: string, items: CatalogItem[], 
 
 export class TemplateAiCreditError extends Error {
   constructor() {
-    super("Không thể điền mẫu bằng AI vì số dư hoặc hạn mức khóa OpenRouter không đủ (HTTP 402). Hãy bổ sung số dư/điều chỉnh hạn mức khóa, hoặc dùng mẫu Word có trường dữ liệu để xuất không cần AI.");
+    super(AI_PROVIDER_TEMPORARY_ERROR);
     this.name = "TemplateAiCreditError";
   }
 }

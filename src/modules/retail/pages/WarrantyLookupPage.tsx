@@ -74,7 +74,15 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
   const request = useRef<AbortController | null>(null);
   const recentKey = "igen.warranty-lookups:" + (scope?.companyCode || "local") + ":" + (scope?.branchId || "local") + ":" + searchMode;
 
-  useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    request.current?.abort();
+    setResult(null);
+    setPhoneResult(null);
+    setSelectedDeviceIndex(null);
+    setSearchedCode("");
+    setBusy(false);
+    return () => request.current?.abort();
+  }, [scope?.companyCode, scope?.branchId]);
 
   const setCode = (value: string) => {
     request.current?.abort();
@@ -106,7 +114,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
     });
   }, [recentKey]);
 
-  const doLookup = useCallback(async (lookupQuery: string, forcedMode?: "serial" | "phone") => {
+  const doLookup = useCallback(async (lookupQuery: string, forcedMode?: "serial" | "phone", customerId?: string) => {
     const trimmed = lookupQuery.trim();
     if (!trimmed) return;
     const mode = forcedMode || searchMode;
@@ -121,9 +129,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
 
     try {
       if (mode === "phone") {
-        const res = scope
-          ? await retailWarrantyService.lookupByPhone(trimmed, { ...scope, signal: controller.signal })
-          : await retailWarrantyService.lookupByPhone(trimmed);
+        const res = await retailWarrantyService.lookupByPhone(trimmed, { ...scope, signal: controller.signal, customerId });
         if (controller.signal.aborted || request.current !== controller) return;
         setPhoneResult(res);
         if (res.found && res.devices.length === 1) {
@@ -244,6 +250,9 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
     <div className="space-y-5 w-full">
       {/* Main Search Hero Box */}
       <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs">
+        <h1 className="mb-3 text-balance text-lg font-semibold text-on-surface" data-typography="page-title">
+          Tra cứu bảo hành thiết bị
+        </h1>
         {/* Search Mode Tabs: IMEI/Serial vs SDT */}
         <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit text-xs font-semibold text-slate-600" role="tablist" aria-label="Phương thức tra cứu">
           <button
@@ -392,8 +401,24 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
         </div>
       )}
 
-      {/* CASE PHONE SEARCH: NOT FOUND */}
-      {searchMode === "phone" && phoneResult && !phoneResult.found && (
+      {searchMode === "phone" && Boolean(phoneResult?.candidates?.length) && (
+        <section aria-label="Chọn khách hàng" className="space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
+          <p role="status" className="text-sm text-on-surface">Có nhiều khách dùng số này. Chọn khách để xem bảo hành.</p>
+          <ul className="flex flex-wrap gap-2">
+            {phoneResult?.candidates?.map(customer => (
+              <li key={customer.customerId}>
+                <button type="button" className="min-h-10 rounded-md border border-outline-variant px-3 text-sm text-on-surface hover:bg-surface-container focus-visible:outline-primary" onClick={() => void doLookup(searchedCode, "phone", customer.customerId)}>
+                  {customer.name} · {customer.customerCode}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {searchMode === "phone" && phoneResult?.needsIdentification && (
+        <p role="status" className="text-sm text-on-surface">Số này khớp nhiều đơn cũ. Hãy tra bằng IMEI hoặc số sê-ri, hoặc tìm mã đơn trong Bán lẻ.</p>
+      )}
+      {searchMode === "phone" && phoneResult && !phoneResult.found && !phoneResult.candidates?.length && !phoneResult.needsIdentification && (
         <div className="rounded-2xl border border-amber-200/90 bg-amber-50/70 p-6 text-amber-900 shadow-xs space-y-4">
           <div className="flex items-start gap-4">
             <div className="rounded-2xl bg-amber-100 p-3 text-amber-700 shrink-0">

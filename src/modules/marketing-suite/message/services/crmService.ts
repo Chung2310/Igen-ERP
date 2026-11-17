@@ -1,6 +1,9 @@
+import { apiFetch } from "../../../shared/lib/apiFetch";
 import { getAccessToken } from "../../shared/services/authService";
 import { LeadCard } from "../../shared/types/index";
-import type { LeadCollectionStatus, LeadIntakeField, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
+import type { ConfirmedTelecomInvoice, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
 
 export interface LeadProductSelection {
   productId: string;
@@ -23,8 +26,17 @@ export interface ExtendedLeadCard extends LeadCard {
   intakeProfileVersion?: number;
   collectionStatus?: LeadCollectionStatus;
   lastInteractionAt?: string;
+  customerId?: string;
+  customerTransfer?: LeadCustomerTransfer;
+  telecomSubscriberCode?: string;
+  telecomConversationId?: string;
+  telecomPageId?: string;
+  telecomPlatform?: TelecomInvoicePlatform;
+  needs?: LeadNeed[];
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: string; syncedBy: string };
 }
+
+export type CreateLeadInput = Omit<ExtendedLeadCard, "id" | "value"> & { value?: number };
 
 export interface LeadPageResult {
   data: ExtendedLeadCard[];
@@ -71,6 +83,7 @@ export interface LeadIntakeProfileVersion {
   accountId?: string;
   version: number;
   status: "draft" | "active" | "archived";
+  needGroups?: LeadNeedGroup[];
   goal: string;
   fields: LeadIntakeField[];
   completionMessage: string;
@@ -79,7 +92,7 @@ export interface LeadIntakeProfileVersion {
 
 type CrmLeadRecord = ExtendedLeadCard & { _id?: string };
 
-type LeadIntakeProfileInput = Pick<LeadIntakeProfileVersion, "platform" | "accountId" | "goal" | "completionMessage" | "fields" | "sourceDocumentIds">;
+type LeadIntakeProfileInput = Pick<LeadIntakeProfileVersion, "platform" | "accountId" | "goal" | "completionMessage" | "fields" | "sourceDocumentIds" | "needGroups">;
 
 function leadIntakeScopePayload(input: Pick<LeadIntakeProfileInput, "platform" | "accountId">) {
   return input.platform && input.accountId ? { platform: input.platform, pageId: input.accountId } : {};
@@ -197,6 +210,25 @@ export const crmService = {
     };
   },
 
+  async getTelecomInvoiceSettings(platform: TelecomInvoicePlatform, accountId: string, signal?: AbortSignal) {
+    const result = await apiFetch<{ data: TelecomInvoiceSettings }>(`/marketing-settings/telecom-invoices/${platform}/${encodeURIComponent(accountId)}`, { signal });
+    return result.data;
+  },
+
+  async saveTelecomInvoiceSettings(platform: TelecomInvoicePlatform, accountId: string, settings: TelecomInvoiceSettingsInput) {
+    const result = await apiFetch<{ data: TelecomInvoiceSettings }>(`/marketing-settings/telecom-invoices/${platform}/${encodeURIComponent(accountId)}`, {
+      method: "PUT", body: JSON.stringify(settings),
+    });
+    return result.data;
+  },
+
+  async getLeadTelecomInvoices(leadId: string, before?: string, signal?: AbortSignal) {
+    const result = await apiFetch<{ data: { items: ConfirmedTelecomInvoice[]; before?: string } }>(
+      `/omni-inbox/leads/${encodeURIComponent(leadId)}/telecom-invoices`, { params: { before }, signal },
+    );
+    return result.data;
+  },
+
   async getActiveLeadIntakeProfiles(): Promise<ActiveLeadIntakeProfile[]> {
     const response = await fetch("/api/v1/marketing-settings/lead-intake-profiles", {
       headers: { Authorization: `Bearer ${getAccessToken()}` },
@@ -271,6 +303,7 @@ export const crmService = {
         goal: input.goal,
         completionMessage: input.completionMessage,
         fields: input.fields,
+        ...(input.needGroups ? { needGroups: input.needGroups } : {}),
         sourceDocumentIds: input.sourceDocumentIds,
       }),
     });
@@ -367,12 +400,12 @@ export const crmService = {
     };
   },
 
-  async createLead(lead: Omit<ExtendedLeadCard, "id">): Promise<string> {
+  async createLead(lead: CreateLeadInput): Promise<string> {
     const startedAt = Date.now();
     const tempId = `temp-${Date.now()}`;
 
     // 1. Instantly update UI with a temporary ID (0ms lag!)
-    const createdLead: ExtendedLeadCard = { ...lead, id: tempId };
+    const createdLead: ExtendedLeadCard = { ...lead, value: lead.value ?? 0, id: tempId };
     const oldLeads = [...cachedLeads];
     cachedLeads = [...cachedLeads, createdLead];
     triggerListeners(cachedLeads);

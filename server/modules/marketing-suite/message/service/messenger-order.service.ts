@@ -4,6 +4,7 @@ import { MessengerOrderModel } from "../model/messenger-order.model.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { googleOrderSheetService, parseGoogleSpreadsheetId } from "./google-order-sheet.service.ts";
 import { generateReplyCompletion } from "./ai-reply-provider";
+import { isPendingTelecomConfirmation } from "./telecom-invoice-flow";
 import { selectCurrentOrderContext } from "./messenger-order-context";
 import { companyTelegramOrderService } from "./company-telegram-order.service.ts";
 import { cloudinaryService } from "../../shared/service/cloudinary.service.ts";
@@ -338,6 +339,7 @@ export const messengerOrderService = {
       console.warn(`[Messenger Order] Bỏ qua vì chưa bật cấu hình Google Sheets: pageId=${pageId}`);
       return null;
     }
+    if (await isPendingTelecomConfirmation({ companyCode: integration.companyCode, pageId, conversationId }, latestText)) return null;
 
     const existing = await MessengerOrderModel.findOne({ sourceMessageId });
     if (existing) {

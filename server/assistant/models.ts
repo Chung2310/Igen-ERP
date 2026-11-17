@@ -10,6 +10,20 @@ export const AssistantSessionModel = model("AssistantSession", sessionSchema);
 const projectCollectionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, projects: { type: [Schema.Types.Mixed], default: [] } }, { timestamps: true });
 projectCollectionSchema.index({ companyCode: 1, userId: 1, branchId: 1 }, { unique: true });
 export const AssistantProjectCollectionModel = model("AssistantProjectCollection", projectCollectionSchema);
+const projectFileSchema = new Schema({
+  ...scope,
+  branchId: { type: String, default: "" },
+  projectId: { type: String, required: true },
+  fileId: { type: String, required: true },
+  fileName: { type: String, required: true, maxlength: 180 },
+  mimeType: { type: String, required: true, maxlength: 120 },
+  size: { type: Number, required: true, min: 0, max: 15 * 1024 * 1024 },
+  extractedText: { type: String, required: true, select: false },
+  bytes: { type: Buffer, required: true, select: false },
+}, { timestamps: true });
+projectFileSchema.index({ companyCode: 1, userId: 1, branchId: 1, projectId: 1, fileId: 1 }, { unique: true });
+projectFileSchema.index({ companyCode: 1, userId: 1, branchId: 1, projectId: 1, updatedAt: -1 });
+export const AssistantProjectFileModel = model("AssistantProjectFile", projectFileSchema);
 const turnSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, requestId: { type: String, required: true }, conversationId: { type: String, required: true }, digest: { type: String, required: true }, status: { type: String, enum: ["processing", "executing", "completed", "uncertain"], default: "processing" }, actionId: String, workflowVersion: Number, payload: Schema.Types.Mixed, result: Schema.Types.Mixed }, { timestamps: true });
 turnSchema.index({ companyCode: 1, userId: 1, branchId: 1, requestId: 1 }, { unique: true });
 turnSchema.index({ companyCode: 1, userId: 1, conversationId: 1, createdAt: -1 });
@@ -45,6 +59,23 @@ promptTemplateSchema.index({ companyCode: 1, templateId: 1 }, { unique: true });
 promptTemplateSchema.index({ companyCode: 1, owner: 1, userId: 1, updatedAt: -1 });
 export const AssistantPromptTemplateModel = model("AssistantPromptTemplate", promptTemplateSchema);
 
+const userAgentSchema = new Schema({
+  ...scope,
+  agentId: { type: String, required: true },
+  name: { type: String, required: true, maxlength: 50 },
+  description: { type: String, default: "", maxlength: 150 },
+  instructions: { type: String, required: true, maxlength: 10000 },
+  avoid: { type: String, default: "", maxlength: 2000 },
+  tone: { type: String, required: true, maxlength: 60 },
+  avatar: { type: Number, default: 0, min: 0, max: 5 },
+  favorite: { type: Boolean, default: false },
+  openingQuestions: { type: [String], default: [] },
+  knowledge: { type: [Schema.Types.Mixed], default: [] },
+}, { timestamps: true });
+userAgentSchema.index({ companyCode: 1, userId: 1, agentId: 1 }, { unique: true });
+userAgentSchema.index({ companyCode: 1, userId: 1, updatedAt: -1 });
+export const UserAssistantAgentModel = model("UserAssistantAgent", userAgentSchema);
+
 const documentFileSchema = new Schema({
   id: { type: String, required: true }, fileName: { type: String, required: true },
   format: { type: String, required: true }, mimeType: { type: String, required: true },
@@ -66,5 +97,5 @@ export const AssistantDocumentModel = model("AssistantDocument", documentSchema)
 let indexReadiness: Promise<unknown> | undefined;
 /** Do not accept deduplicated writes until their unique indexes exist. */
 export function ensureAssistantIndexes() {
-  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
+  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantProjectFileModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, UserAssistantAgentModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
 }

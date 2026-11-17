@@ -2,7 +2,7 @@ import "../../shared/marketing-workspace.css";
 import {
   AlertCircle,
   AlertTriangle,
-  BookOpenCheck,
+  Building2,
   Bot,
   ChevronDown,
   ExternalLink,
@@ -10,6 +10,8 @@ import {
   Link2,
   LoaderCircle,
   MessageSquare,
+  MessageSquareText,
+  Package,
   Search,
   Send,
   Settings2,
@@ -17,8 +19,10 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "../../../student-management/lib/utils";
 import { useAuth } from "../../shared/context/AuthContext";
 import { PageChatSimulator } from "../components/knowledge/PageChatSimulator";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
@@ -27,7 +31,6 @@ import { KnowledgeDocumentTypeSelect } from "../components/knowledge/KnowledgeDo
 import {
   CompanyKnowledgeDocument,
   CompanyKnowledgeHealth,
-  FaqCandidatesResponse,
   KnowledgeChannelScope,
   KnowledgeDocumentType,
   KnowledgePageScope,
@@ -45,8 +48,6 @@ type KnowledgeSection = "documents" | "faq_learning" | "test_search" | "page_cha
 
 const KNOWLEDGE_SECTION_ROUTES = [
   { slug: "documents", value: "documents" },
-  { slug: "faq-learning", value: "faq_learning" },
-  { slug: "test-search", value: "test_search" },
   { slug: "page-chat", value: "page_chat" },
 ] as const satisfies ReadonlyArray<{ slug: string; value: KnowledgeSection }>;
 
@@ -89,11 +90,12 @@ const KNOWLEDGE_SECTIONS: Array<{
   label: string;
   description: string;
   types: KnowledgeDocumentType[];
+  icon: LucideIcon;
 }> = [
-  { id: "company_profile", label: "Giới thiệu", description: "Doanh nghiệp, địa chỉ, giờ mở cửa, liên hệ", types: ["company_profile"] },
-  { id: "policy", label: "Chính sách", description: "Giao hàng, thanh toán, đặt trước, đổi trả", types: ["policy"] },
-  { id: "scenario", label: "Kịch bản", description: "Cách tư vấn và xử lý tình huống với khách", types: ["scenario"] },
-  { id: "product", label: "Sản phẩm/Bảng giá", description: "Sản phẩm, thành phần, kích thước và giá bán", types: ["product", "pricing"] },
+  { id: "company_profile", label: "Giới thiệu", description: "Doanh nghiệp, địa chỉ, giờ mở cửa, liên hệ", types: ["company_profile"], icon: Building2 },
+  { id: "policy", label: "Chính sách", description: "Giao hàng, thanh toán, đặt trước, đổi trả", types: ["policy"], icon: ShieldCheck },
+  { id: "scenario", label: "Kịch bản", description: "Cách tư vấn và xử lý tình huống với khách", types: ["scenario"], icon: MessageSquareText },
+  { id: "product", label: "Sản phẩm/Bảng giá", description: "Sản phẩm, thành phần, kích thước và giá bán", types: ["product", "pricing"], icon: Package },
 ];
 
 function toggleScope<T extends string>(current: T[], value: T) {
@@ -261,7 +263,7 @@ export default function CompanyKnowledgePage() {
   const [editDocumentType, setEditDocumentType] = useState<KnowledgeDocumentType>("general");
 
   const [activeSection, setActiveSection] = useSubTabRouter<KnowledgeSection>(KNOWLEDGE_SECTION_ROUTES, "documents");
-  const [pendingFaqCount, setPendingFaqCount] = useState(0);
+  const [pageChatToolbarContainer, setPageChatToolbarContainer] = useState<HTMLDivElement | null>(null);
 
   // State cho RAG Search Simulator
   const [testQuery, setTestQuery] = useState("");
@@ -291,16 +293,14 @@ export default function CompanyKnowledgePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextHealth, nextDocuments, integrations, faqRes] = await Promise.all([
+      const [nextHealth, nextDocuments, integrations] = await Promise.all([
         companyKnowledgeService.health(),
         companyKnowledgeService.listDocuments(),
         socialIntegrationService.getAccounts("company-knowledge", "Facebook").catch(() => []),
-        companyKnowledgeService.listFaqCandidates("pending").catch(() => ({ stats: { pending: 0 } })),
       ]);
       setHealth(nextHealth);
       setDocuments(nextDocuments);
       setFacebookPages(integrations.filter((item) => item.isConnected && item.username));
-      setPendingFaqCount((faqRes as FaqCandidatesResponse)?.stats?.pending || 0);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -475,84 +475,139 @@ export default function CompanyKnowledgePage() {
   }
 
   return (
-    <div className="marketing-workspace h-full overflow-y-auto pb-8 pr-2">
-      <div className="mx-auto w-full max-w-5xl rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-5">
+    <div className="marketing-workspace h-full min-w-0 overflow-y-auto bg-surface-container-lowest pb-8">
+      <div className="min-h-full w-full bg-surface-container-lowest px-4 pb-4 sm:px-5 sm:pb-5">
 
         {/* Sub-Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-outline-variant pb-3">
-          <button
-            type="button"
-            onClick={() => setActiveSection("documents")}
-            aria-current={activeSection === "documents" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "documents"
-                ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-          >
-            <BookOpenCheck className="h-4 w-4" />
-            <span>Tài liệu & Tệp Kho Tri Thức</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${activeSection === "documents"
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 text-slate-600"
-                }`}
-            >
-              {health?.documentsCount || 0}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSection("faq_learning")}
-            aria-current={activeSection === "faq_learning" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "faq_learning"
-                ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-          >
-            <Sparkles
-              className={`h-4 w-4 ${activeSection === "faq_learning"
-                  ? "text-amber-300"
-                  : "text-amber-500"
-                }`}
-            />
-            <span>Đề xuất FAQ từ Hội thoại</span>
-            {pendingFaqCount > 0 ? (
-              <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold text-slate-900 animate-pulse">
-                {pendingFaqCount} mới
-              </span>
-            ) : (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${activeSection === "faq_learning"
-                    ? "bg-white/20 text-white"
-                    : "bg-amber-100 text-amber-800"
-                  }`}
+        <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
+          <div className="flex min-h-14 flex-col items-stretch xl:flex-row xl:items-center xl:gap-3">
+            <div className="grid w-full max-w-lg grid-cols-2 xl:self-stretch xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
+              <button
+                type="button"
+                onClick={() => setActiveSection("documents")}
+                aria-current={activeSection === "documents" ? "page" : undefined}
+                className={cn(
+                  "flex min-w-0 items-center justify-center gap-2 border-b-2 border-transparent px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                  activeSection === "documents"
+                    ? "border-primary text-primary"
+                    : "text-on-surface-variant hover:text-on-surface",
+                )}
               >
-                AI Learning
-              </span>
-            )}
-          </button>
+                <span className="whitespace-nowrap">
+                  <span className="sm:hidden">Kho tài liệu</span>
+                  <span className="hidden sm:inline">Tài liệu &amp; Tệp Kho Tri Thức</span>
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    activeSection === "documents"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-surface-container text-on-surface-variant",
+                  )}
+                >
+                  {health?.documentsCount || 0}
+                </span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSection("test_search")}
-            aria-current={activeSection === "test_search" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "test_search"
-                ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-          >
-            <Search className="h-4 w-4" />
-            <span>Thử nghiệm Tìm kiếm (RAG)</span>
-          </button>
-          <button type="button" onClick={() => setActiveSection("page_chat")}
-            aria-current={activeSection === "page_chat" ? "page" : undefined}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary ${activeSection === "page_chat" ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface"}`}>
-            <MessageSquare className="size-4" aria-hidden="true" /> Mô phỏng chat Page
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveSection("page_chat")}
+                aria-current={activeSection === "page_chat" ? "page" : undefined}
+                className={cn(
+                  "flex min-w-0 items-center justify-center gap-2 border-b-2 border-transparent px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                  activeSection === "page_chat"
+                    ? "border-primary text-primary"
+                    : "text-on-surface-variant hover:text-on-surface",
+                )}
+              >
+                <span className="whitespace-nowrap">Mô phỏng chat Page</span>
+              </button>
+            </div>
+
+            {activeSection === "page_chat" && (
+              <div ref={setPageChatToolbarContainer} className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-2 py-1 xl:flex-1" />
+            )}
+
+            {activeSection === "documents" && (
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-2 xl:flex-1">
+                <div className="flex shrink-0 gap-2">
+                  {([['all', 'Tất cả tài liệu'], ['other', 'Tài liệu khác']] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={selectedKnowledgeSection === id}
+                      onClick={() => setSelectedKnowledgeSection(id)}
+                      className={cn(
+                        "rounded-lg px-3 py-2 text-sm font-normal",
+                        selectedKnowledgeSection === id
+                          ? "bg-slate-800 text-white"
+                          : "bg-slate-100 text-slate-600",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {canManage && (
+                  <>
+                    <div className="flex min-w-0 items-center gap-2 xl:flex-none">
+                      <span className="shrink-0 text-sm font-normal text-on-surface-variant">Mục lưu tài liệu</span>
+                      <KnowledgeDocumentTypeSelect
+                        value={documentType}
+                        disabled={busy}
+                        className="w-44"
+                        compact
+                        onChange={(type) => {
+                          setDocumentType(type);
+                          setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
+                        }}
+                        groups={[
+                          { options: KNOWLEDGE_SECTIONS.map((section) => ({ id: section.id, label: section.label })) },
+                          { label: "Các loại tài liệu khác", options: DOCUMENT_TYPES.filter((type) => !KNOWLEDGE_SECTIONS.some((section) => section.id === type.id)) },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="grid w-52 shrink-0 grid-cols-2 gap-1 rounded-xl border border-slate-100 bg-slate-50/80 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setImportMethod("file")}
+                        aria-pressed={importMethod === "file"}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-sm font-normal leading-4 transition select-none",
+                          importMethod === "file"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
+                        )}
+                      >
+                        <Upload className={cn("size-3.5", importMethod === "file" ? "text-white" : "text-slate-500")} aria-hidden="true" />
+                        Tải file
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImportMethod("drive")}
+                        aria-pressed={importMethod === "drive"}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-sm font-normal leading-4 transition select-none",
+                          importMethod === "drive"
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
+                        )}
+                      >
+                        <Link2 className={cn("size-3.5", importMethod === "drive" ? "text-white" : "text-slate-500")} aria-hidden="true" />
+                        Google Drive
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {activeSection === "page_chat" && <PageChatSimulator />}
+        {activeSection === "page_chat" && <PageChatSimulator toolbarContainer={pageChatToolbarContainer} />}
         {activeSection === "faq_learning" && (
           <div className="mt-5">
             <FaqLearningSuggestionsPanel onKnowledgeUpdated={() => void loadData()} />
@@ -699,10 +754,7 @@ export default function CompanyKnowledgePage() {
         {activeSection === "documents" && (
           <>
             <section className="mt-5" aria-label="Các mục kho tri thức">
-              <p className="mb-3 text-sm text-slate-600">
-                Chọn mục để xem và tải tài liệu. AI ưu tiên nội dung liên quan trong các mục này khi tư vấn khách hàng.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-x-2.5 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
                 {KNOWLEDGE_SECTIONS.map((section) => (
                   <button
                     key={section.id}
@@ -710,22 +762,23 @@ export default function CompanyKnowledgePage() {
                     disabled={busy}
                     aria-pressed={selectedKnowledgeSection === section.id}
                     onClick={() => { setSelectedKnowledgeSection(section.id); setDocumentType(section.id); }}
-                    className={`rounded-2xl border p-4 text-left transition disabled:opacity-50 ${selectedKnowledgeSection === section.id ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-blue-300"}`}
+                    className={cn(
+                      "rounded-md border p-4 text-left transition disabled:opacity-50",
+                      selectedKnowledgeSection === section.id
+                        ? "border-primary bg-primary-container/30"
+                        : "border-outline-variant bg-surface-container-lowest hover:border-primary/60",
+                    )}
                   >
-                    <span className="block text-sm font-bold text-slate-900">{section.label}</span>
-                    <span className="mt-1 block text-xs text-slate-500">{section.description}</span>
-                    <span className="mt-3 block text-xs font-semibold text-blue-650">
+                    <span className="flex items-center gap-3">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-container text-on-primary-container">
+                        <section.icon className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="text-sm font-semibold text-on-surface">{section.label}</span>
+                    </span>
+                    <span className="mt-2 block text-xs text-on-surface-variant">{section.description}</span>
+                    <span className="mt-3 block text-xs font-semibold text-primary">
                       {documents.filter((document) => section.types.includes(document.documentType)).length} tài liệu
                     </span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3 flex gap-2">
-                {([['all', 'Tất cả tài liệu'], ['other', 'Tài liệu khác']] as const).map(([id, label]) => (
-                  <button key={id} type="button" disabled={busy} aria-pressed={selectedKnowledgeSection === id}
-                    onClick={() => setSelectedKnowledgeSection(id)}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold ${selectedKnowledgeSection === id ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"}`}>
-                    {label}
                   </button>
                 ))}
               </div>
@@ -739,61 +792,10 @@ export default function CompanyKnowledgePage() {
             )}
 
             {canManage && (
-              <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+              <section className="mt-5">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Nhập tài liệu
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Chọn mục lưu tài liệu và một trong hai cách nhập dưới đây. Mặc định tài liệu dùng cho toàn hệ thống.
-                  </p>
-                </div>
-
-                <div className="mt-4 text-xs font-medium text-slate-700">
-                  <span>Mục lưu tài liệu</span>
-                  <KnowledgeDocumentTypeSelect
-                    value={documentType}
-                    disabled={busy}
-                    className="mt-2 max-w-sm"
-                    onChange={(type) => {
-                      setDocumentType(type);
-                      setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
-                    }}
-                    groups={[
-                      { options: KNOWLEDGE_SECTIONS.map((section) => ({ id: section.id, label: section.label })) },
-                      { label: "Các loại tài liệu khác", options: DOCUMENT_TYPES.filter((type) => !KNOWLEDGE_SECTIONS.some((section) => section.id === type.id)) },
-                    ]}
-                  />
-                </div>
-
-                <div className="mt-4">
-                  <div className="grid max-w-md grid-cols-2 gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setImportMethod("file")}
-                      className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition select-none ${importMethod === "file"
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
-                        }`}
-                    >
-                      <Upload className={`h-4 w-4 ${importMethod === "file" ? "text-white" : "text-slate-500"}`} />
-                      Tải file
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImportMethod("drive")}
-                      className={`inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition select-none ${importMethod === "drive"
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
-                        }`}
-                    >
-                      <Link2 className={`h-4 w-4 ${importMethod === "drive" ? "text-white" : "text-slate-500"}`} />
-                      Google Drive
-                    </button>
-                  </div>
-
                   {importMethod === "file" ? (
-                    <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 px-4 py-4 hover:border-blue-400 hover:bg-blue-50">
+                    <label className="mt-3 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-blue-200 bg-blue-50/40 px-4 py-4 text-center hover:border-blue-400 hover:bg-blue-50">
                       {busy ? (
                         <LoaderCircle className="h-5 w-5 animate-spin text-blue-650" />
                       ) : (
@@ -820,7 +822,7 @@ export default function CompanyKnowledgePage() {
                       />
                     </label>
                   ) : (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mt-3">
                       <label className="block text-xs font-semibold text-slate-700">
                         Link Google Drive, Google Doc hoặc Google Sheet
                         <div className="mt-2 flex gap-2">
@@ -865,7 +867,7 @@ export default function CompanyKnowledgePage() {
                     <ChevronDown className="h-4 w-4" />
                     Tùy chọn phạm vi sử dụng
                   </summary>
-                  <div className="mt-4 grid gap-4 rounded-xl bg-slate-50 p-4 md:grid-cols-2">
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <ScopePicker
                       label="Nghiệp vụ"
                       options={PURPOSES}
@@ -1000,7 +1002,7 @@ export default function CompanyKnowledgePage() {
               </div>
             )}
 
-            <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <section className="mt-5">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">

@@ -29,7 +29,7 @@ export interface Customer {
   updatedAt?: string;
 }
 
-export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "customerKind" | "contactName" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "source">>;
+export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "customerKind" | "contactName" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "source">> & { allowSharedPhone?: boolean };
 export type CustomerListQuery = {
   companyCode?: string;
   q?: string;

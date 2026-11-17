@@ -12,15 +12,15 @@ const project: AssistantProject = {
 };
 
 describe("AssistantProjectWorkspace", () => {
-  it("starts a real conversation from the project prompt", () => {
+  it("opens a linked conversation using the parent callback", () => {
     const onProjectsChange = vi.fn();
-    const onStartConversation = vi.fn();
-    render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} onStartConversation={onStartConversation} />);
+    const onOpenConversation = vi.fn();
+    const withConversation: AssistantProject = { ...project, conversations: [{ id: "link-1", title: "Kế hoạch tuần này", preview: "Kế hoạch tuần này", createdAt: project.createdAt, sourceConversationId: "00000000-0000-4000-8000-000000000001", sourceMode: "qa" }] };
+    render(<AssistantProjectWorkspace projects={[withConversation]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} onOpenConversation={onOpenConversation} />);
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Hỏi trong dự án" }), { target: { value: "Kế hoạch tuần này?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Thêm cuộc hội thoại vào dự án" }));
+    fireEvent.click(screen.getByRole("button", { name: /Kế hoạch tuần này/ }));
 
-    expect(onStartConversation).toHaveBeenCalledWith(project.id, "Kế hoạch tuần này?");
+    expect(onOpenConversation).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000001");
     expect(onProjectsChange).not.toHaveBeenCalled();
   });
 
@@ -29,7 +29,8 @@ describe("AssistantProjectWorkspace", () => {
     const withConversation: AssistantProject = { ...project, conversations: [{ id: "link-1", title: "Kế hoạch", preview: "Kế hoạch", createdAt: project.createdAt, sourceConversationId: "00000000-0000-4000-8000-000000000001", sourceMode: "qa" }] };
     render(<AssistantProjectWorkspace projects={[withConversation]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Bỏ Kế hoạch khỏi dự án" }));
+    fireEvent.click(screen.getByLabelText("Tùy chọn cuộc trò chuyện Kế hoạch"));
+    fireEvent.click(screen.getByRole("button", { name: 'Xóa khỏi "Marketing"' }));
 
     expect(onProjectsChange).toHaveBeenCalledWith([expect.objectContaining({ conversations: [] })]);
   });
@@ -49,12 +50,13 @@ describe("AssistantProjectWorkspace", () => {
     render(<AssistantProjectWorkspace projects={[project]} onProjectsChange={onProjectsChange} selectedId={project.id} onSelect={() => undefined} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Thiết lập chỉ dẫn" }));
-    expect(screen.getByLabelText("Mô hình mặc định")).toHaveProperty("value", "iGenAI");
+    expect(screen.getByLabelText("Mô hình iGenAI").textContent).toContain("iGenAI");
     fireEvent.change(screen.getByLabelText("Chỉ dẫn cho dự án"), { target: { value: "Trả lời ngắn gọn" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
     expect(onProjectsChange).toHaveBeenCalledWith([expect.objectContaining({ instructions: "Trả lời ngắn gọn" })]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Thêm tệp vào dự án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tệp đính kèm" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thêm tệp đầu tiên" }));
     expect(screen.getByText("Chọn tệp từ máy tính")).toBeTruthy();
     expect(screen.queryByText(/Google Drive/i)).toBeNull();
   });

@@ -84,10 +84,14 @@ describe("HR department API", () => {
     const created = await request("POST", "/hr/departments", { companyCode: "A", name: "Kinh doanh", code: "KD", description: "Bán hàng", managerUid: String(manager._id), sortOrder: 2, isActive: true });
     expect(created.status).toBe(201);
     expect(created.body.data).toMatchObject({ code: "KD", description: "Bán hàng", managerName: "Trưởng phòng", sortOrder: 2, isActive: true });
+    const metadataOnly = await request("PATCH", `/hr/departments/${created.body.data.id}?companyCode=A`, { companyCode: "A", code: "SALES" });
+    expect(metadataOnly.status).toBe(200);
+    expect(metadataOnly.body.data).toMatchObject({ name: "Kinh doanh", code: "SALES" });
+    expect((await request("PATCH", `/hr/departments/${created.body.data.id}?companyCode=A`, { companyCode: "A" })).status).toBe(400);
     const legacyRename = await request("PATCH", `/hr/departments/${created.body.data.id}?companyCode=A`, { companyCode: "A", name: "Kinh doanh mới" });
     expect(legacyRename.status).toBe(200);
-    expect(legacyRename.body.data).toMatchObject({ code: "KD", description: "Bán hàng", managerName: "Trưởng phòng", sortOrder: 2, isActive: true });
-    expect((await request("POST", "/hr/departments", { companyCode: "A", name: "Khác", code: "KD" })).status).toBe(409);
+    expect(legacyRename.body.data).toMatchObject({ code: "SALES", description: "Bán hàng", managerName: "Trưởng phòng", sortOrder: 2, isActive: true });
+    expect((await request("POST", "/hr/departments", { companyCode: "A", name: "Khác", code: "SALES" })).status).toBe(409);
     expect((await request("POST", "/hr/departments", { companyCode: "A", name: "Sai quản lý", managerUid: String(outsider._id) })).status).toBe(400);
     const changed = await request("PATCH", `/hr/departments/${created.body.data.id}?companyCode=A`, { companyCode: "A", name: "Kinh doanh", code: "SALES", description: "Kinh doanh bán lẻ", managerUid: "", sortOrder: 1, isActive: false });
     expect(changed.status).toBe(200);

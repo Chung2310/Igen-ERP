@@ -12,7 +12,9 @@ import { documentFileName, documentMimeTypes, renderAssistantDocument, validateD
 import { DOCUMENT_RULES_VERSION, documentCreationRules } from "./document-rules";
 import { verifyAssistantExport } from "./document-preflight";
 import { isVietnamesePhoneNormalizationRequest, normalizeUploadedVietnamesePhones } from "./vietnamese-phone-normalization";
-import { createAssistantVisualIllustration, recommendAssistantVisualCreation } from "./assistant-visual-creation";
+import { createAssistantVisualIllustration, createAssistantVisualIllustrations, recommendAssistantVisualCreation } from "./assistant-visual-creation";
+import { enhanceStudioImagePrompt } from "./studio-images";
+import { getAssistantImageGenerationRequest } from "../../src/shared/assistant-image-generation";
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
 const formatPattern = /\b(?:xlsx|xls|excel|csv|docx|word|pdf|txt|markdown|md|json)\b/;
@@ -137,6 +139,35 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
   const hasSourceDocument = previous.length > 0 || Boolean(input.documentContext);
   if (input.pendingDocumentRequest && /^(?:(?:huy|thoi|khong can|cancel|stop)\b|dung (?:tao|xuat|lam|sua|luu)\b)/.test(normalize(input.question))) {
     return { status: "cancelled", reply: "Mình đã hủy yêu cầu tạo tài liệu.", pendingDocumentRequest: null };
+  }
+  const imageRequest = getAssistantImageGenerationRequest(input.question);
+  if (imageRequest) {
+    if (imageRequest.prompt.length > 2000) {
+      return { status: "failed", reply: "Mô tả hình ảnh hiện giới hạn 2.000 ký tự. Hãy rút gọn yêu cầu rồi gửi lại nhé.", pendingDocumentRequest: null };
+    }
+    let interpretedPrompt = imageRequest.prompt;
+    try {
+      interpretedPrompt = (await enhanceStudioImagePrompt(imageRequest.prompt, input.messages, imageRequest.count)).prompt;
+    } catch {
+      // Keep the user's wording if prompt interpretation is temporarily unavailable.
+    }
+    const illustrations = await createAssistantVisualIllustrations({
+      shouldGenerate: true,
+      prompt: interpretedPrompt,
+      alt: input.question.trim().slice(0, 240),
+      aspectRatio: imageRequest.aspectRatio,
+    }, input.visualAttachments?.[0]?.dataUrl, imageRequest.count);
+    const reply = illustrations.length < imageRequest.count
+      ? `Mình đã tạo được ${illustrations.length}/${imageRequest.count} ảnh. Một số ảnh chưa tạo thành công.`
+      : imageRequest.count === 1
+        ? "Mình đã tạo hình ảnh theo yêu cầu."
+        : `Mình đã tạo ${illustrations.length} ảnh theo yêu cầu.`;
+    return {
+      status: "completed",
+      reply: imageRequest.countLimited ? `Mỗi lượt tạo tối đa 4 ảnh. ${reply}` : reply,
+      illustrations,
+      pendingDocumentRequest: null,
+    };
   }
   const pendingQuestion = input.pendingDocumentRequest && !isAssistantDocumentRequest(input.question, hasSourceDocument)
     ? `${input.pendingDocumentRequest}\nThông tin bổ sung: ${input.question}`.slice(-12_000) : input.question;

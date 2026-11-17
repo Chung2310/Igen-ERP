@@ -13,8 +13,12 @@ vi.mock("motion/react", () => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => children,
   motion: new Proxy({}, { get: (_target, tag) => tag }),
 }));
-vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
+vi.mock("../lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/api")>();
+  return { ...actual, apiFetch: vi.fn() };
+});
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { role: "admin" } }) }));
+vi.mock("../../../context/BranchContext", () => ({ useBranch: () => ({ activeBranchId: "branch-1", branches: [], loading: false, error: "", setActiveBranchId: vi.fn(), retry: vi.fn() }) }));
 vi.mock("../../../services/authService", () => ({ authService: { getAllUsers: vi.fn(async () => []), getUsersByCompany: vi.fn(async () => []) } }));
 vi.mock("../hooks/useCourses", () => ({ useCourses: vi.fn() }));
 vi.mock("../hooks/useCourseCategories", () => ({ useCourseCategories: vi.fn() }));
@@ -62,6 +66,12 @@ function render(node: ReactNode) {
   return { container, rerender(next: ReactNode) { act(() => root.render(next)); } };
 }
 
+function getDialogForm(expectedText: string) {
+  const form = Array.from(document.body.querySelectorAll("form")).find((item) => item.textContent?.includes(expectedText));
+  if (!form) throw new Error(`Dialog form not found (${expectedText}). Body: ${document.body.textContent}`);
+  return form;
+}
+
 function change(element: HTMLInputElement, value: string) {
   if (!element) throw new Error(`Missing input. Body: ${document.body.textContent}`);
   act(() => {
@@ -105,7 +115,9 @@ beforeEach(() => {
   mockedCourses.mockReturnValue({ courses: [course], loading: false, error: '', refetch: vi.fn() });
   mockedCategories.mockReturnValue({ categories: [{ id: "cat-1", name: "General" }], loading: false, error: '', refetch: vi.fn() });
   mockedBatches.mockReturnValue({ batches: [batch], loading: false, error: '', refetch: vi.fn() });
-  mockedApiFetch.mockResolvedValue({ success: true, data: { _id: "created" } });
+  mockedApiFetch.mockImplementation(async (path: string) => path.startsWith("/student-management/standard-fields/")
+    ? { success: true, data: [] }
+    : { success: true, data: { _id: "created" } });
 });
 
 afterEach(() => {
@@ -118,14 +130,14 @@ describe("course, batch and exam custom-field integration", () => {
   it("renders recruitment-project copy for workers and preserves education copy for students", () => {
     currentEntityPreset = "worker";
     const workerView = render(<CoursesPage />);
-    expect(workerView.container.textContent).toContain("Danh sách dự án tuyển dụng");
+    expect(workerView.container.textContent).toContain("Quản lý nhóm dự án");
     expect(workerView.container.textContent).toContain("Thêm dự án mới");
     expect(workerView.container.textContent).toContain("Chỉ tiêu: 20 lao động");
     expect(workerView.container.textContent).not.toContain("Khóa học");
     expect(workerView.container.textContent).not.toContain("Học phí");
     const addProject = Array.from(workerView.container.querySelectorAll("button")).find((button) => button.textContent?.includes("Thêm dự án mới"));
     act(() => addProject?.click());
-    const projectForm = workerView.container.querySelector("form")!;
+    const projectForm = getDialogForm("Tên dự án tuyển dụng");
     expect(projectForm.textContent).toContain("Mã dự án");
     expect(projectForm.textContent).toContain("Tên dự án tuyển dụng");
     expect(projectForm.textContent).toContain("Nhóm dự án");
@@ -147,12 +159,12 @@ describe("course, batch and exam custom-field integration", () => {
     const view = render(<CoursesPage />);
     const add = Array.from(view.container.querySelectorAll("button")).find((button) => button.textContent?.includes("Thêm khóa học mới"));
     act(() => add?.click());
-    const form = view.container.querySelector("form")!;
-    const text = Array.from(form.querySelectorAll<HTMLInputElement>('input[type="text"]'));
-    change(text[0], "c02"); change(text[1], "New course"); change(text[2], "2 months"); change(text[3], "200");
-    change(form.querySelector('[aria-label="custom-courses"]')!, "course-dirty");
+    const form = getDialogForm("Tên chương trình đào tạo");
+    const inputs = Array.from(form.querySelectorAll<HTMLInputElement>("input"));
+    change(inputs[0], "c02"); change(inputs[1], "New course"); change(inputs[2], "2"); change(inputs[3], "200");
+    change(document.body.querySelector('[aria-label="custom-courses"]')!, "course-dirty");
     view.rerender(<CoursesPage />);
-    expect((view.container.querySelector('[aria-label="custom-courses"]') as HTMLInputElement).value).toBe("course-dirty");
+    expect((document.body.querySelector('[aria-label="custom-courses"]') as HTMLInputElement).value).toBe("course-dirty");
     await submit(form);
     await waitFor(() => expect(mockedApiFetch).toHaveBeenCalledWith("/courses", expect.objectContaining({ method: "POST" })));
     const body = JSON.parse(String(mockedApiFetch.mock.calls.find(([path]) => path === "/courses")?.[1]?.body));
@@ -160,19 +172,21 @@ describe("course, batch and exam custom-field integration", () => {
 
     const edit = Array.from(view.container.querySelectorAll("button")).find((button) => button.title.includes("Chỉnh sửa khóa học"));
     act(() => edit?.click());
-    await waitFor(() => expect((view.container.querySelector('[aria-label="custom-courses"]') as HTMLInputElement).value).toBe("course-existing"));
+    await waitFor(() => expect((document.body.querySelector('[aria-label="custom-courses"]') as HTMLInputElement).value).toBe("course-existing"));
   });
 
   it("uses the batches module, sends create values, and hydrates edit", async () => {
     const view = render(<BatchesPage />);
     const add = Array.from(view.container.querySelectorAll("button")).find((button) => button.textContent?.includes("Mở lớp mới"));
     act(() => add?.click());
-    const form = view.container.querySelector("form")!;
+    const form = getDialogForm("Ngày khai giảng");
     change(form.querySelector('input[type="text"]')!, "b02");
-    const dates = form.querySelectorAll<HTMLInputElement>('input[type="date"]');
-    change(dates[0], "2026-09-01"); change(dates[1], "2026-10-01");
+    const startDate = form.querySelector<HTMLInputElement>('input[aria-label="Ngày khai giảng"]')!;
+    const endDate = form.querySelector<HTMLInputElement>('input[aria-label="Ngày bế giảng dự kiến"]')!;
+    change(startDate, "01/09/2026"); act(() => startDate.blur());
+    change(endDate, "01/10/2026"); act(() => endDate.blur());
     act(() => Array.from(form.querySelectorAll("button")).find((button) => button.textContent === "T2")?.click());
-    change(form.querySelector('[aria-label="custom-batches"]')!, "batch-dirty");
+    change(document.body.querySelector('[aria-label="custom-batches"]')!, "batch-dirty");
     await submit(form);
     await waitFor(() => expect(mockedApiFetch).toHaveBeenCalledWith("/batches", expect.objectContaining({ method: "POST" })));
     const body = JSON.parse(String(mockedApiFetch.mock.calls.find(([path]) => path === "/batches")?.[1]?.body));
@@ -180,29 +194,41 @@ describe("course, batch and exam custom-field integration", () => {
 
     const edit = Array.from(view.container.querySelectorAll("button")).find((button) => button.title.includes("Chỉnh sửa lớp"));
     act(() => edit?.click());
-    expect((view.container.querySelector('[aria-label="custom-batches"]') as HTMLInputElement).value).toBe("batch-existing");
+    expect((document.body.querySelector('[aria-label="custom-batches"]') as HTMLInputElement).value).toBe("batch-existing");
   });
 
   it("uses the exams module, preserves errors and dirty values, hydrates edit, and renders existing details", async () => {
     const onClose = vi.fn();
+    mockedBatches.mockReturnValue({ batches: [{ ...batch, status: "Đang học" }], loading: false, error: '', refetch: vi.fn() });
     const view = render(<AddExamModal isOpen onClose={onClose} onSuccess={vi.fn()} />);
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     const form = view.container.querySelector("form")!;
     change(form.querySelector('[name="name"]')!, "New exam");
-    change(form.querySelector('[name="tentativeDate"]')!, "2026-07-30");
+    const batchPicker = Array.from(form.querySelectorAll("button")).find((button) => button.textContent?.includes("Chọn lớp học"))!;
+    act(() => batchPicker.click());
+    const batchOption = Array.from(document.body.querySelectorAll("div")).find((item) => item.textContent?.trim() === "B01 - Course")!;
+    act(() => (batchOption as HTMLElement).click());
+    const datePicker = document.body.querySelector<HTMLButtonElement>('button[aria-label="Chọn ngày thi dự kiến"]')!;
+    act(() => datePicker.click());
+    const todayButton = Array.from(document.body.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Hôm nay")!;
+    act(() => (todayButton as HTMLButtonElement).click());
     change(form.querySelector('[name="location"]')!, "Room 2");
-    change(form.querySelector('[aria-label="custom-exams"]')!, "exam-dirty");
-    mockedApiFetch.mockRejectedValueOnce(new Error("server validation"));
+    change(document.body.querySelector('[aria-label="custom-exams"]')!, "exam-dirty");
+    mockedApiFetch.mockImplementation(async (path: string) => {
+      if (path.startsWith("/student-management/standard-fields/")) return { success: true, data: [] };
+      if (path === "/exams") throw new Error("server validation");
+      return { success: true, data: { _id: "created" } };
+    });
     const expectedError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     await submit(form);
     await waitFor(() => expect(mockedApiFetch).toHaveBeenCalledWith("/exams", expect.objectContaining({ method: "POST" })));
-    expect((view.container.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-dirty");
+    expect((document.body.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-dirty");
     expect(onClose).not.toHaveBeenCalled();
     expect(expectedError).toHaveBeenCalled();
     expect(JSON.parse(String(mockedApiFetch.mock.calls[0][1]?.body)).customFields).toEqual({ extra: "exam-dirty" });
 
     view.rerender(<AddExamModal isOpen onClose={onClose} onSuccess={vi.fn()} initialData={exam} />);
-    await waitFor(() => expect((view.container.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-existing"));
+    await waitFor(() => expect((document.body.querySelector('[aria-label="custom-exams"]') as HTMLInputElement).value).toBe("exam-existing"));
 
     const card = render(<ExamCard exam={exam} assignedStudents={[]} onDelete={vi.fn()} onEdit={vi.fn()} onAssignClick={vi.fn()} />);
     act(() => Array.from(card.container.querySelectorAll("button")).find((button) => button.title === "Xem học viên")?.click());

@@ -188,6 +188,49 @@ export class StudentController {
     }
   }
 
+  static async getInstallments(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const installments = await StudentService.getStudentInstallments(ownerId, req.params.id, req.user!.branchId);
+      if (!installments) return res.status(404).json({ success: false, error: "Không tìm thấy học viên." });
+      res.json({ success: true, data: installments });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createInstallment(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const installment = await StudentService.createStudentInstallment(ownerId, req.params.id, req.body, req.user!.branchId);
+      if (!installment) return res.status(404).json({ success: false, error: "Không tìm thấy học viên." });
+      res.status(201).json({ success: true, data: installment });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Lỗi không xác định.";
+      const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 400;
+      res.status(status).json({ success: false, error: message });
+    }
+  }
+
+  static async updateInstallment(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const installment = await StudentService.updateStudentInstallment(
+        ownerId,
+        req.params.id,
+        Number(req.params.no),
+        req.body,
+        req.user!.branchId,
+      );
+      if (!installment) return res.status(404).json({ success: false, error: "Không tìm thấy học viên." });
+      res.json({ success: true, data: installment });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Lỗi không xác định.";
+      const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 400;
+      res.status(status).json({ success: false, error: message });
+    }
+  }
+
   static async delete(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

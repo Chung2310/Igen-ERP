@@ -66,13 +66,16 @@ export function getChatImageUrls(messages: ImageMessage[]): string[] {
     .map(attachment => attachment.url || "")))];
 }
 
-export async function downloadChatImage(url: string): Promise<string> {
-  const parsed = new URL(url);
+export function isTrustedChatImageUrl(url: string): boolean {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return false; }
   const trustedHosts = ["fbcdn.net", "fbsbx.com", "zaloapp.com", "zadn.vn", "res.cloudinary.com"];
-  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port
-    || !trustedHosts.some(host => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`))) {
-    throw new Error("Unsupported chat image host");
-  }
+  return parsed.protocol === "https:" && !parsed.username && !parsed.password && !parsed.port
+    && trustedHosts.some(host => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`));
+}
+
+export async function downloadChatImage(url: string): Promise<string> {
+  if (!isTrustedChatImageUrl(url)) throw new Error("Unsupported chat image host");
   const response = await fetch(url, { signal: AbortSignal.timeout(25_000), redirect: "error" });
   const mime = (response.headers.get("content-type") || "").split(";")[0].trim();
   const limit = 8 * 1024 * 1024;

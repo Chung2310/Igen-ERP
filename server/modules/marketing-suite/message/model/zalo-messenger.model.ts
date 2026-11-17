@@ -18,7 +18,8 @@ export interface IZaloConversation extends Document {
   lastAssistantMessageAt?: Date;
   lastAssistantMessageId?: string;
   followUpCount?: number;
-  followUpStatus?: "idle" | "pending" | "sent" | "responded";
+  followUpStatus?: "idle" | "pending" | "sending" | "sent" | "failed" | "responded";
+  followUpDeliveryStartedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,7 +61,8 @@ const ZaloConversationSchema: Schema = new Schema(
     lastAssistantMessageAt: { type: Date, default: null },
     lastAssistantMessageId: { type: String },
     followUpCount: { type: Number, default: 0 },
-    followUpStatus: { type: String, enum: ["idle", "pending", "sent", "responded"], default: "idle" },
+    followUpStatus: { type: String, enum: ["idle", "pending", "sending", "sent", "failed", "responded"], default: "idle" },
+    followUpDeliveryStartedAt: { type: Date },
   },
   { timestamps: true }
 );

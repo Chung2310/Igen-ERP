@@ -312,6 +312,24 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   const createLabel = { patients: "Thêm bệnh nhân", visits: "Ghi lượt khám", appointments: "Đặt lịch hẹn", care: "Tạo việc chăm sóc", settings: "Thêm danh mục" };
   const listHeaders = sectionHeaders[tab];
   const showCreate = canManage && (tab !== "patients" || !patientId);
+  const pageActions = (
+    <div ref={heading} tabIndex={-1} className="flex flex-wrap items-center justify-end gap-2">
+      {tab === "patients" && !patientId && canManage && selectedPatientIds.length > 0 && <>
+        <span className="rounded-lg bg-surface-container px-2.5 py-1.5 text-xs font-medium text-on-surface-variant">Đã chọn {selectedPatientIds.length}</span>
+        <IconActionButton label={`Xóa hàng loạt (${selectedPatientIds.length})`} icon={Trash2} tone="danger" ariaHaspopup
+          disabled={previewingPatientDelete || deletingPatients}
+          onClick={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; void previewPatientDeletion(selectedPatientIds); }} />
+      </>}
+      {currentImportKind && canViewImports && <IconActionButton label={canImport ? "Nhập Excel" : "Mẫu Excel và lịch sử"} icon={Upload} ariaHaspopup
+        onClick={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setImportKind(currentImportKind); }} />}
+      <IconActionButton label={activeQuery.refreshing || directory?.refreshing ? "Đang làm mới" : "Làm mới"} icon={RefreshCw}
+        disabled={activeQuery.refreshing || directory?.refreshing} onClick={() => {
+        activeQuery.refresh();
+        if (!editor) directory?.refresh();
+      }} />
+      {showCreate && <IconActionButton label={createLabel[tab]} icon={Plus} ariaHaspopup disabled={Boolean(patientId && !patient.data)} onClick={openNew} />}
+    </div>
+  );
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
     <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
@@ -374,27 +392,11 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className="min-w-0 space-y-3" aria-label={pageTitle}>
-        <div className="flex flex-wrap items-center justify-between gap-3" ref={heading} tabIndex={-1}>
-          <h3 id="healthcare-section-title" data-typography="section-title" className="text-balance text-lg font-semibold">{pageTitle}</h3>
-          <div className="flex items-center gap-2">
-            {tab === "patients" && !patientId && canManage && selectedPatientIds.length > 0 && <>
-              <span className="rounded-lg bg-surface-container px-2.5 py-1.5 text-xs font-medium text-on-surface-variant">Đã chọn {selectedPatientIds.length}</span>
-              <IconActionButton label={`Xóa hàng loạt (${selectedPatientIds.length})`} icon={Trash2} tone="danger" ariaHaspopup
-                disabled={previewingPatientDelete || deletingPatients}
-                onClick={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; void previewPatientDeletion(selectedPatientIds); }} />
-            </>}
-            {currentImportKind && canViewImports && <IconActionButton label={canImport ? "Nhập Excel" : "Mẫu Excel và lịch sử"} icon={Upload} ariaHaspopup
-              onClick={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setImportKind(currentImportKind); }} />}
-            <IconActionButton label={activeQuery.refreshing || directory?.refreshing ? "Đang làm mới" : "Làm mới"} icon={RefreshCw}
-              disabled={activeQuery.refreshing || directory?.refreshing} onClick={() => {
-              activeQuery.refresh();
-              if (!editor) directory?.refresh();
-            }} />
-            {showCreate && <IconActionButton label={createLabel[tab]} icon={Plus} ariaHaspopup disabled={Boolean(patientId && !patient.data)} onClick={openNew} />}
-          </div>
-        </div>
+      <section className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
+        {!hasTable && <div className="flex justify-end">{pageActions}</div>}
         {hasTable && <TableFilterToolbar
+          appearance="plain"
+          actions={pageActions}
           search={{ value: search, onChange: value => { setSearch(value.slice(0, 100)); setPage(1); },
             placeholder: searchHints[tab], ariaLabel: searchHints[tab], className: "min-w-0" }}
           dateFilter={tab !== "settings" ? { label: dateLabels[tab], value: datePeriod, onChange: value => { setDatePeriod(value); setPage(1); }, compact: true } : undefined}
@@ -558,7 +560,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
               </div></Cell>
             </tr>)}
             {tab === "settings" && (tableRows as CatalogItem[]).map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
-              <Cell className="min-w-0 align-middle"><span className="line-clamp-1 font-medium" title={row.name}>{row.name}</span></Cell>
+              <Cell className="min-w-0 align-middle"><span className="line-clamp-1 font-medium">{row.name}</span></Cell>
               <Cell align="center" className="align-middle whitespace-nowrap"><span className="inline-flex rounded bg-surface-container px-2 py-0.5 text-xs font-medium">{row.code}</span></Cell>
               <Cell align="center" className="align-middle whitespace-nowrap"><span className="inline-flex rounded bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">{catalogLabels[row.kind]}</span></Cell>
               <Cell align="center" className="align-middle whitespace-nowrap"><StatusBadge status={row.active ? "completed" : "inactive"} label={row.active ? "Đang sử dụng" : "Ngừng sử dụng"} /></Cell>

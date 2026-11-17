@@ -41,34 +41,34 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 6px;
-  border: 1px solid #dbe4ef;
-  border-radius: 14px;
-  background: #f3f7fb;
-  width: fit-content;
+  padding: 0;
+  border-bottom: 1px solid var(--color-outline-variant);
+  background: transparent;
+  width: 100%;
   max-width: 100%;
 }
 
 .quotation-module .qt-category-tabs button {
   border: 0;
-  border-radius: 10px;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: var(--color-on-surface-variant);
   cursor: pointer;
   font: inherit;
   font-size: 14px;
-  font-weight: 650;
-  padding: 10px 17px;
+  font-weight: 400;
+  padding: 10px 12px 9px;
+  margin-bottom: -1px;
 }
 
 .quotation-module .qt-category-tabs button.active {
-  color: #0869ad;
-  background: var(--color-surface-container-lowest);
-  box-shadow: 0 1px 5px #0f172a1c;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 .quotation-module .qt-category-tabs button:focus-visible {
-  outline: 2px solid #0878c7;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1159,7 +1159,7 @@
 }
 
 .quotation-module .app-shell .qt-search-input {
-  height: 44px;
+  height: 40px;
   border-color: #d9e5f1;
   border-radius: 11px;
   font-size: 13px;

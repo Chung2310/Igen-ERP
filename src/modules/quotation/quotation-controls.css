@@ -7,6 +7,32 @@
   box-shadow: none;
 }
 
+/* Keep quotation search controls the same compact height as their filters. */
+.quotation-module .app-shell .quote-search-wrapper,
+.quotation-module .app-shell :is(.bp-search-box, .cq-search-box, .qt-search-box, .price-list-search-box) {
+  box-sizing: border-box;
+  height: 36px;
+}
+
+.quotation-module .app-shell :is(.quote-search-input, .bp-search-input, .cq-search-input, .qt-search-input, .price-list-search-input) {
+  box-sizing: border-box;
+  height: 36px;
+}
+
+.quotation-module .app-shell .quote-search-input {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.quotation-module .app-shell .estimate-from-quote-field input[type="search"] {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
 /* Keep the price list heading actions aligned and reuse the POS Excel color. */
 .quotation-module .app-shell .price-list-heading {
   align-items: center;
@@ -46,7 +72,7 @@
 
 /* Quotation forms use the same compact dialog and field treatment as ERP forms. */
 .quotation-module .app-shell .price-list-product-card .price-list-search-box {
-  height: 40px;
+  height: 36px;
   max-width: 600px;
   border-radius: 12px;
   border: 1px solid var(--color-outline-variant) !important;

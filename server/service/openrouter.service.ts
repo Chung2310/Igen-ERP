@@ -7,8 +7,9 @@
  * (OPENROUTER_FALLBACK_MODEL / OPENROUTER_FALLBACK_IMAGE_MODEL).
  */
 
-import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, META_MUSE_IMAGE_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -79,6 +80,8 @@ export type OpenRouterContentPart =
 
 export interface OpenRouterChatParams {
   model: string;
+  /** Disable switching to fallback models or the self-hosted FreeLLM provider. */
+  allowFallback?: boolean;
   /** Model dự phòng riêng cho tác vụ này khi model chính lỗi hoặc hết lượt. */
   fallbackModel?: string;
   messages: OpenRouterMessage[];
@@ -115,6 +118,9 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   const apiKey = getApiKey();
   const freeLlm = getFreeLlmConfig();
 
+  if (params.allowFallback === false && !apiKey) {
+    throw new Error("[OpenRouter] OPENROUTER_API_KEY is required when model fallback is disabled.");
+  }
   if (!apiKey && !freeLlm) {
     throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
   }
@@ -151,7 +157,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
       lastError = error;
       const fallbackModel = params.fallbackModel ? mapModelName(params.fallbackModel) : getFallbackModel();
 
-      if (!isNonFallbackableError(error) && fallbackModel !== mappedModel) {
+      if (params.allowFallback !== false && !isNonFallbackableError(error) && fallbackModel !== mappedModel) {
         console.warn(
           `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
         );
@@ -165,7 +171,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   }
 
   // Tầng 3: FreeLLM server tự host
-  if (freeLlm) {
+  if (freeLlm && params.allowFallback !== false) {
     console.warn(
       `[OpenRouter] Fallback tầng 3 → FreeLLM server ${freeLlm.baseUrl} | model=${freeLlm.model}. Lỗi trước đó: ${lastError?.message || lastError || "OpenRouter chưa cấu hình"}`
     );
@@ -229,7 +235,7 @@ async function chatWithRetries(
 
       if (!response.ok) {
         const errText = await response.text();
-        const err = new Error(`OpenRouter API lỗi ${response.status}: ${errText}`) as any;
+        const err = new Error(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `OpenRouter API lỗi ${response.status}: ${errText}`) as any;
         err.status = response.status;
         throw err;
       }
@@ -308,6 +314,8 @@ async function chatWithRetries(
 export interface OpenRouterImageParams {
   prompt: string;
   model?: string;
+  /** Keep this exact model instead of applying shared image/edit model routing. */
+  exactModel?: boolean;
   aspectRatio?: string;
   resolution?: string;
   quality?: "low" | "medium" | "high" | "auto";
@@ -320,7 +328,7 @@ export interface OpenRouterImageParams {
 }
 
 /**
- * Recraft tạo ảnh mới qua Images API; các model hỗ trợ ảnh tham chiếu dùng chat completions.
+ * Image API models generate/edit through Images API; other image models use chat completions.
  * Model chính lỗi thì có thể dùng model dự phòng nếu luồng cho phép.
  */
 export async function openrouterGenerateImage(params: OpenRouterImageParams): Promise<{ url: string }> {
@@ -335,10 +343,12 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
-  const model = params.background === "transparent"
+  const model = params.exactModel
+    ? configuredModel
+    : params.background === "transparent"
     ? configuredModel
     : params.referenceImages?.length
-    ? IMAGE_EDIT_MODEL
+    ? configuredModel === META_MUSE_IMAGE_MODEL ? configuredModel : IMAGE_EDIT_MODEL
     : (configuredModel === RECRAFT_IMAGE_MODEL && !RECRAFT_ASPECT_RATIOS.has(ratioKey))
       ? IMAGE_EDIT_MODEL
       : configuredModel;
@@ -372,12 +382,17 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
         },
       );
     }
+    if (model === META_MUSE_IMAGE_MODEL) {
+      return await generateImageViaImagesApi(apiKey, model, finalPrompt, undefined, undefined, {
+        inputReferences: params.referenceImages,
+      });
+    }
     if (!params.referenceImages?.length && model === DEFAULT_IMAGE_MODEL) return await generateImageViaImagesApi(apiKey, model, params.prompt, ratioKey, "low");
     if (!params.referenceImages?.length && model === RECRAFT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
     return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
-    if ((!params.referenceImages?.length && (model === DEFAULT_IMAGE_MODEL || model === RECRAFT_IMAGE_MODEL)) || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
+    if (model === META_MUSE_IMAGE_MODEL || (!params.referenceImages?.length && (model === DEFAULT_IMAGE_MODEL || model === RECRAFT_IMAGE_MODEL)) || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
 
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`

@@ -9,7 +9,7 @@ import RepairReportsPanel from "../modules/repair/RepairReportsPanel";
 
 const TABS = [
   { key: "warranty", label: "Tra cứu bảo hành", icon: ShieldCheck },
-  { key: "repair", label: "Phiếu sửa chữa & Bảo hành", icon: Wrench },
+  { key: "repair", label: "Sửa chữa & Bảo hành", icon: Wrench },
   { key: "reports", label: "Báo cáo doanh thu & KTV", icon: BarChart3 },
 ] as const;
 type RepairView = (typeof TABS)[number]["key"];

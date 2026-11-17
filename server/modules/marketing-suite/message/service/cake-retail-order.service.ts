@@ -93,7 +93,7 @@ export async function saveCakeOrderToRetail(order: any): Promise<string> {
     throw error("Module Bán hàng chưa được bật cho doanh nghiệp.");
   }
   if (!moduleState.modules.includes("customer")) throw error("Cần bật module Khách hàng để lưu thông tin người mua từ Page.");
-  const existing = await RetailOrderModel.findOne({ companyCode, salesChannel: "facebook-page", externalOrderId: order.orderId }).select("_id").lean();
+  const existing = await RetailOrderModel.findOne({ companyCode, salesChannel: "facebook-page", externalShopId: order.pageId, externalOrderId: order.orderId }).select("_id").lean();
   if (existing) return String(existing._id);
 
   const branches = await BranchModel.find({ companyCode, isActive: true }).select("_id code name address").lean();
@@ -122,24 +122,29 @@ export async function saveCakeOrderToRetail(order: any): Promise<string> {
   const scopeKey = businessDate.replace("-", "").slice(0, 6);
   const counter = await RetailOrderCounterModel.findOneAndUpdate({ ...scope, scope: scopeKey }, { $inc: { seq: 1 } }, { returnDocument: "after", upsert: true });
   const total = retailItems.reduce((sum, item) => sum + item.lineTotal, 0);
-  const conversation = await FBConversationModel.findById(order.conversationId).select("recipientId").lean();
+  const conversation = await FBConversationModel.findOne({ _id: order.conversationId, pageId: order.pageId }).select("recipientId").lean();
   const buyer = conversation?.recipientId ? await CakeCustomerMemoryModel.findOne({ companyCode, pageId: order.pageId,
     recipientId: conversation.recipientId }).select("buyerName buyerPhone").lean() : null;
   const customerName = String(buyer?.buyerName || order.customerName || "").trim();
   const phone = normalizePhone(buyer?.buyerPhone || order.customerPhone);
   if (!/^0\d{9}$/.test(phone)) throw error("Cần số điện thoại hợp lệ để lưu hồ sơ khách hàng.");
-  let customer = await CustomerModel.findOne({ companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } }).select("_id").lean();
-  if (!customer) {
+  let customerId: string | undefined;
+  const knownOrder = conversation?.recipientId && await RetailOrderModel.findOne({
+    companyCode, salesChannel: "facebook-page", externalShopId: order.pageId,
+    externalBuyerId: conversation.recipientId, isSimulation: { $ne: true }, customerId: { $type: "string" },
+  }).sort({ createdAt: -1 }).select("customerId").lean();
+  if (knownOrder && knownOrder.customerId && await CustomerModel.exists({ companyCode, _id: knownOrder.customerId })) {
+    customerId = knownOrder.customerId;
+  } else if (!await CustomerModel.exists({ companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } })) {
     try {
-      customer = await CustomerService.create({ companyCode }, { name: customerName || `Khách Page ${phone.slice(-4)}`,
+      const created = await CustomerService.create({ companyCode }, { name: customerName || `Khách Page ${phone.slice(-4)}`,
         phone, source: "page", notes: `Facebook Page ${order.pageId}; hội thoại ${order.conversationId}${order.isSimulation ? "; dữ liệu chạy thử" : ""}` },
-      { id: "page-chatbot", name: "Chatbot Page" }) as any;
+      { id: "page-chatbot", name: "Chatbot Page" });
+      customerId = String(created._id);
     } catch (problem) {
       if ((problem as { code?: string }).code !== "CUSTOMER_PHONE_EXISTS") throw problem;
-      customer = await CustomerModel.findOne({ companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } }).select("_id").lean();
     }
   }
-  if (!customer) throw error("Không lưu được hồ sơ khách hàng vào module Khách hàng.");
 
   const depositNote = order.depositRequired
     ? `Chờ thu cọc ${Number(order.depositAmount || 0).toLocaleString("vi-VN")}đ (${Number(order.depositPercent || 30)}%). SePay chưa được dùng.`
@@ -156,15 +161,16 @@ export async function saveCakeOrderToRetail(order: any): Promise<string> {
       payments: [], refunds: [], paidAmount: 0, refundedAmount: 0, dueAmount: total + Number(order.shippingFee || 0),
       paymentStatus: "unpaid", status: "draft", businessDate, salespersonId: "page-chatbot", salespersonName: "Chatbot Page",
       createdBy: "page-chatbot", createdByName: "Chatbot Page", stockApplied: false, version: 0,
-      customerId: String(customer._id), customerName: customerName || order.customerName, customerPhone: phone,
-      customerSnapshot: { customerId: String(customer._id), name: customerName || order.customerName, phone },
+      customerName: customerName || order.customerName, customerPhone: phone,
+      ...(customerId ? { customerId, customerSnapshot: { customerId, name: customerName || order.customerName, phone } } : {}),
       isSimulation: order.isSimulation === true,
       note: `${order.isSimulation ? "Đơn thử chat Page, chưa gửi khách/thu tiền. " : ""}${stockCheckNote} Đơn từ Facebook Page ${order.pageId} / ${order.orderId}. ${orderDetails} ${depositNote} ${order.customerNote || ""}`.slice(0, 2000),
-      salesChannel: "facebook-page", externalShopId: order.pageId, externalOrderId: order.orderId });
+      salesChannel: "facebook-page", externalShopId: order.pageId, externalOrderId: order.orderId,
+      ...(conversation?.recipientId ? { externalBuyerId: conversation.recipientId } : {}) });
     return String(saved._id);
   } catch (problem) {
     if ((problem as { code?: number }).code !== 11000) throw problem;
-    const duplicate = await RetailOrderModel.findOne({ companyCode, salesChannel: "facebook-page", externalOrderId: order.orderId }).select("_id").lean();
+    const duplicate = await RetailOrderModel.findOne({ companyCode, salesChannel: "facebook-page", externalShopId: order.pageId, externalOrderId: order.orderId }).select("_id").lean();
     if (duplicate) return String(duplicate._id);
     throw problem;
   }

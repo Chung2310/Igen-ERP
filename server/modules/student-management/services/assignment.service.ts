@@ -28,6 +28,10 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function buildBranchQuery(branchId?: string): Record<string, unknown> {
+  return branchId ? { branchId } : {};
+}
+
 async function resolveCompanyCodeForOwner(ownerId: string): Promise<string> {
   let companyCode = "";
   let ownerEmail = "";
@@ -82,9 +86,10 @@ export class AssignmentService {
     instructorId: string,
     ownerId: string,
     ownerScope: OwnerScope = ownerId,
-    smtpCompanyCode?: string
+    smtpCompanyCode?: string,
+    branchId?: string,
   ): Promise<IAssignment> {
-    const batch = await Batch.findOne({ _id: data.batchId, ...buildOwnerQuery(ownerScope) });
+    const batch = await Batch.findOne({ _id: data.batchId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId) });
     if (!batch) throw new Error("Lớp học không tồn tại.");
 
     const assignmentOwnerId = String(batch.ownerId);
@@ -112,14 +117,14 @@ export class AssignmentService {
     return assignment;
   }
 
-  static async getAssignments(ownerScope: OwnerScope, batchId: string, search?: string): Promise<any[]> {
-    const query: Record<string, unknown> = { batchId, ...buildOwnerQuery(ownerScope) };
+  static async getAssignments(ownerScope: OwnerScope, batchId: string, branchId?: string, search?: string): Promise<any[]> {
+    const query: Record<string, unknown> = { batchId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId) };
     if (search?.trim()) query.title = { $regex: escapeRegex(search.trim().slice(0, 120)), $options: "i" };
     return AssignmentModel.find(query).sort({ createdAt: -1 });
   }
 
-  static async getSubmissions(ownerScope: OwnerScope, assignmentId: string): Promise<any[]> {
-    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
+  static async getSubmissions(ownerScope: OwnerScope, assignmentId: string, branchId?: string): Promise<any[]> {
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId) });
     if (!assignment) throw new Error("Assignment not found.");
     const submissions = await SubmissionModel.find({ assignmentId }).sort({ submittedAt: -1 });
     const studentIds = [...new Set(submissions.map((submission) => submission.studentId))];
@@ -341,10 +346,10 @@ export class AssignmentService {
   }
 
   /** Nhân viên/giáo viên nhập minh chứng trực tiếp khi học viên không có email hoặc không tự nộp được. */
-  static async staffSubmitProof(assignmentId: string, studentId: string, data: { attachments: IAttachment[]; studentNotes?: string }, actorId: string, ownerScope: OwnerScope) {
-    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
+  static async staffSubmitProof(assignmentId: string, studentId: string, data: { attachments: IAttachment[]; studentNotes?: string }, actorId: string, ownerScope: OwnerScope, branchId?: string) {
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId) });
     if (!assignment) throw new Error("Bài tập không tồn tại.");
-    const batch = await Batch.findOne({ _id: assignment.batchId, ...buildOwnerQuery(ownerScope), learnerIds: studentId }).select("_id");
+    const batch = await Batch.findOne({ _id: assignment.batchId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId), learnerIds: studentId }).select("_id");
     if (!batch) throw new Error("Học viên không thuộc lớp nhận bài tập này.");
     const status = assignment.dueDate && new Date() > new Date(assignment.dueDate) ? "late" : "submitted";
     const submission = await SubmissionModel.findOneAndUpdate(
@@ -352,7 +357,7 @@ export class AssignmentService {
       { $set: { attachments: data.attachments, studentNotes: data.studentNotes || "", status, submittedAt: new Date(), submissionSource: "staff", submittedByUserId: actorId } },
       { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
     );
-    const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId }).select("_id fullName");
+    const student = await Student.findOne({ _id: studentId, ownerId: assignment.ownerId, ...buildBranchQuery(branchId) }).select("_id fullName");
     if (!student) throw new Error("Học viên không tồn tại.");
     // Resource indexing is auxiliary; an indexing error must not reject a saved staff submission.
     try {
@@ -372,9 +377,10 @@ export class AssignmentService {
     studentId: string,
     data: any,
     instructorId: string,
-    ownerScope: OwnerScope = instructorId
+    ownerScope: OwnerScope = instructorId,
+    branchId?: string,
   ): Promise<any> {
-    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope) });
+    const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId) });
     if (!assignment) throw new Error("Bài tập không tồn tại.");
     // Route permission and owner scope above authorize staff who may manage this class.
     const maxScore = assignment.maxScore || 10;

@@ -1,4 +1,7 @@
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
+
 export const DEFAULT_IMAGE_MODEL = "google/gemini-3.1-flash-lite-image";
+export const META_MUSE_IMAGE_MODEL = "meta/muse-image";
 export const RECRAFT_IMAGE_MODEL = "recraft/recraft-v4.1-flash";
 export const IMAGE_EDIT_MODEL = "google/gemini-3.1-flash-image";
 export const TRANSPARENT_IMAGE_EDIT_MODEL = "openai/gpt-image-2.6-flare";
@@ -42,7 +45,7 @@ export async function generateImageViaImagesApi(
   });
   if (!response.ok) {
     const detail = await response.text();
-    const error = new Error(`OpenRouter Images API lỗi ${response.status}: ${detail}`) as Error & { status?: number };
+    const error = new Error(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `OpenRouter Images API lỗi ${response.status}: ${detail}`) as Error & { status?: number };
     error.status = response.status;
     throw error;
   }

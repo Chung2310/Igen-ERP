@@ -2,12 +2,13 @@ import type { TabType } from "../types";
 
 /** Name of the parent area shown beneath the ERP wordmark. */
 export const HEADER_MODULE_LABELS: Record<TabType, string> = {
+  "TRỢ LÝ KIẾN TRÚC": "KIẾN TRÚC",
   "BÁO GIÁ": "BÁO GIÁ",
   "QUẢN LÝ Y TẾ": "QUẢN LÝ Y TẾ",
   "TỔNG QUAN": "TỔNG QUAN",
   "NHÂN SỰ": "NHÂN SỰ",
   "QUẢN LÝ HỌC VIÊN": "HỌC VIÊN",
-  "ĐỐI TÁC": "HỌC VIÊN",
+  "ĐỐI TÁC": "ĐỐI TÁC",
   "QUẢN LÝ LAO ĐỘNG": "LAO ĐỘNG",
   "ĐỐI TÁC LAO ĐỘNG": "LAO ĐỘNG",
   "QUẢN LÝ KHÁCH HÀNG": "KHÁCH HÀNG",

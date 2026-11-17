@@ -48,3 +48,38 @@ it("uses an environment output cap when the request does not set one", async () 
 
   expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).max_tokens).toBe(3072);
 });
+
+it("keeps the requested OpenRouter model when fallback is disabled", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  vi.stubEnv("OPENROUTER_FALLBACK_MODEL", "qwen/qwen3.6-flash");
+  vi.stubEnv("FREELLM_API_URL", "https://freellm.example.test/v1");
+  vi.stubEnv("FREELLM_API_KEY", "local-key");
+  const fetchMock = vi.fn().mockResolvedValue(new Response("unavailable", { status: 503 }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(openrouterChat({
+    model: "openai/gpt-6-luna",
+    allowFallback: false,
+    maxRetries: 1,
+    messages: [{ role: "user", content: "Return a floor plan" }],
+  })).rejects.toThrow();
+
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).model).toBe("openai/gpt-6-luna");
+});
+
+it("requires an OpenRouter key instead of switching to FreeLLM when fallback is disabled", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "");
+  vi.stubEnv("FREELLM_API_URL", "https://freellm.example.test/v1");
+  vi.stubEnv("FREELLM_API_KEY", "local-key");
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(openrouterChat({
+    model: "openai/gpt-6-luna",
+    allowFallback: false,
+    messages: [{ role: "user", content: "Return a floor plan" }],
+  })).rejects.toThrow("OPENROUTER_API_KEY is required");
+
+  expect(fetchMock).not.toHaveBeenCalled();
+});

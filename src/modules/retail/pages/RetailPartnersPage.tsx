@@ -184,20 +184,11 @@ export default function RetailPartnersPage() {
 
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+      <h1 className="sr-only">Đối tác bán lẻ</h1>
       {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
         {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
       </ModuleNavigation>}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-xs sm:p-4">
-        <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-primary" />
-            <div>
-              <h1 className="text-balance text-lg font-semibold text-on-surface">Đối tác bán lẻ</h1>
-            </div>
-          </div>
-          {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-9 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
-        </header>
-
         {canManage && <dialog
           ref={formDialogRef}
           aria-labelledby="retail-partner-form-title"
@@ -254,13 +245,16 @@ export default function RetailPartnersPage() {
         {canRead && tab === "products" && (canManagePolicies ? <RetailProductCommissionsPanel companyCode={companyCode} /> : <ErpCard className="border-outline-variant p-5 text-pretty text-sm text-on-surface-variant">Tài khoản của bạn chưa có quyền cấu hình hoa hồng sản phẩm. Vui lòng liên hệ quản trị viên.</ErpCard>)}
 
         {!error && tab === "partners" && <section aria-label="Danh sách đối tác" className="space-y-4">
-          {canRead && <div className="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-center">
-            <label className="relative flex-1 max-w-md">
+          {canRead && <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <label className="relative min-w-0 flex-1 max-w-md">
               <span className="sr-only">Tìm đối tác</span>
               <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <input type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Tìm đối tác theo mã, tên, số điện thoại hoặc email..." className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-normal text-slate-800 shadow-xs outline-none transition-all placeholder:text-slate-400 focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/10" />
-            </label>
-            <div role="group" aria-label="Lọc theo trạng thái" className="flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-slate-100/70 p-1">
+              </label>
+              {canManage && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-9 shrink-0 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
+            </div>
+            <div role="group" aria-label="Lọc theo trạng thái" className="flex min-w-0 shrink-0 gap-1 overflow-x-auto rounded-xl bg-slate-100/70 p-1">
               {([ ["all", "Tất cả"], ["active", "Đang hoạt động"], ["inactive", "Ngừng hoạt động"] ] as const).map(([value, label]) => {
                 const active = statusFilter === value;
                 return <button key={value} type="button" aria-pressed={active} onClick={() => setStatusFilter(value)} className={cn("cursor-pointer whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary", active ? "bg-[#00ADFC] font-semibold text-white shadow-xs" : "font-medium text-slate-600 hover:bg-white/80 hover:text-slate-900")}>{label}</button>;
@@ -271,7 +265,6 @@ export default function RetailPartnersPage() {
           <ErpCard className="overflow-hidden border border-slate-200/80">
             {loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải danh sách đối tác..." /></div> : visible.length === 0 ? <>
               <ErpEmptyState illustration={filter || statusFilter !== "all" ? "generic" : "partner"} title={filter || statusFilter !== "all" ? "Không tìm thấy đối tác nào" : "Chưa có đối tác bán lẻ"} subtitle={filter || statusFilter !== "all" ? "Không có đối tác khớp với nội dung tìm kiếm hoặc trạng thái đã chọn." : "Khai báo đối tác để quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ."} />
-              {canManage && !(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><ErpPrimaryButton type="button" onClick={startCreate} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton></div>}
               {(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><button type="button" onClick={() => { setFilter(""); setStatusFilter("all"); }} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</button></div>}
             </> : <>
               <ul className="flex flex-col gap-3 bg-slate-50/50 p-4 md:hidden">

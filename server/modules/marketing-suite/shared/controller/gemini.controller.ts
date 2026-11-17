@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../../../src/shared/ai-provider-error";
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { geminiService } from "../service/gemini.service.ts";
@@ -33,7 +34,7 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   if (status === 402) {
     return res.status(503).json({
       status: "error",
-      message: "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng thử lại sau.",
+      message: AI_PROVIDER_TEMPORARY_ERROR,
     });
   }
 

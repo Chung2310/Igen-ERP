@@ -23,10 +23,14 @@ export interface ChatbotUser {
   companyCode?: string;
 }
 
+export function chatbotModel(): string {
+  return process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
+}
+
 export class ChatbotService {
   static async getResponse(user: ChatbotUser, messages: ChatbotMessage[]): Promise<string> {
     const companyCode = user.companyCode;
-    const model = process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
+    const model = chatbotModel();
 
     if (!companyCode) {
       // Không có doanh nghiệp gắn với tài khoản → trả lời chung chung, không có dữ liệu nội bộ

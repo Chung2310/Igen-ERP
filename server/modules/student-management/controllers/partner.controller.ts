@@ -28,7 +28,7 @@ export class PartnerController {
         moduleKey: "partners",
         actorRole: req.user!.role,
         actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
-      });
+      }, req.user!.role === "superadmin" ? ownerId : await getAllowedOwnerIds(req.user!));
       res.status(201).json({ success: true, data: partner });
     } catch (error: unknown) {
       next(error);
@@ -49,6 +49,9 @@ export class PartnerController {
         }
         resourceCompanyCode = companyCode.trim().toUpperCase();
         targetOwnerId = await resolveCreateOwnerId(req.user!, companyCode);
+      } else if (req.user!.role === "admin" || req.user!.role === "manager") {
+        // Keep spreadsheet imports under the same branch owner as manual creates.
+        targetOwnerId = await resolveCreateOwnerId(req.user!);
       }
 
       const partners = req.body.partners;

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { MessengerBackgroundJobModel, type MessengerBackgroundJobKind } from "../model/messenger-background-job.model";
+import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { startQueueRecovery } from "../../shared/queue-recovery";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
 import type { ChatOrderFlowInput } from "./chat-ordering/core/types";
@@ -66,6 +67,43 @@ async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
   });
 }
 
+async function clearFailedZaloInbound(payload: ZaloWebhookPayload) {
+  const { oa_id: oaId, sender, message } = payload;
+  if (!oaId || !sender?.id || !message?.msg_id) return;
+  const pendingId = message.msg_id;
+  const conversations = await ZaloConversationModel.find({
+    recipientId: sender.id, pendingInboundMessageIds: pendingId,
+    // The Zalo developer console uses a placeholder OA which the webhook resolves later.
+    ...(oaId === "579745863508352884" ? {} : { oaId }),
+  }).select("_id").lean();
+  for (const conversation of conversations) {
+    const persisted = await ZaloMessageModel.exists({ conversationId: conversation._id, messageId: pendingId, direction: "inbound" });
+    const filter = { _id: conversation._id, pendingInboundMessageIds: pendingId };
+    if (persisted) {
+      await ZaloConversationModel.updateOne(filter, { $pull: { pendingInboundMessageIds: pendingId } });
+    } else {
+      await ZaloConversationModel.updateOne(filter, [{ $set: {
+        pendingInboundMessageIds: { $filter: {
+          input: "$pendingInboundMessageIds", cond: { $ne: ["$$this", { $literal: pendingId }] },
+        } },
+        unreadCount: { $max: [0, { $subtract: [{ $ifNull: ["$unreadCount", 0] }, 1] }] },
+      } }], { updatePipeline: true });
+    }
+  }
+}
+
+async function recoverFailedZaloInboundMarkers() {
+  const jobs = await MessengerBackgroundJobModel.find({
+    kind: "zalo-webhook", status: "failed", inboundCleanupAt: { $exists: false }, payload: { $exists: true },
+  }).limit(20).lean();
+  for (const job of jobs) {
+    await clearFailedZaloInbound(job.payload as ZaloWebhookPayload);
+    await MessengerBackgroundJobModel.updateOne({ _id: job._id, status: "failed" }, {
+      $set: { inboundCleanupAt: new Date() },
+    });
+  }
+}
+
 async function runJobs(kind: MessengerBackgroundJobKind) {
   for (let index = 0; index < 20; index++) {
     const now = new Date();
@@ -98,8 +136,14 @@ async function runJobs(kind: MessengerBackgroundJobKind) {
       const dueAt = new Date(Date.now() + Math.min(5_000 * 2 ** (job.attempts - 1), 300_000));
       console.error("[Messenger jobs] Processing failed", { kind, jobId: job._id, attempt: job.attempts, failed,
         error: error instanceof Error ? error.name : typeof error });
+      if (failed && kind === "zalo-webhook" && job.payload) {
+        // Keep the job recoverable if MongoDB also fails during marker cleanup.
+        await clearFailedZaloInbound(job.payload as ZaloWebhookPayload);
+      }
       await MessengerBackgroundJobModel.updateOne(lease, {
-        $set: failed ? { status: "failed", completedAt: new Date() } : { status: "pending", dueAt },
+        $set: failed ? { status: "failed", completedAt: new Date(),
+          ...(kind === "zalo-webhook" ? { inboundCleanupAt: new Date() } : {}),
+        } : { status: "pending", dueAt },
         $unset: { leaseToken: 1, leaseUntil: 1 },
       });
     } finally {
@@ -115,6 +159,7 @@ export function startMessengerBackgroundWorkers() {
       const { recoverZaloAutoReplyJobs } = await import("./ai-auto-reply.service");
       await recoverZaloAutoReplyJobs();
     }, 5_000),
+    startQueueRecovery(recoverFailedZaloInboundMarkers, 10_000),
     startQueueRecovery(() => runJobs("lead-intake"), 3_000),
   ];
   return () => timers.forEach(clearInterval);

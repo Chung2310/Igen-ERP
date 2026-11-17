@@ -1,18 +1,18 @@
-:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source) {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card, .assistant-meeting-source) {
   position: relative;
   isolation: isolate;
   overflow: hidden;
 }
 
-:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::before,
-:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::after {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card, .assistant-meeting-source)::before,
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card, .assistant-meeting-source)::after {
   position: absolute;
   content: "";
   pointer-events: none;
   opacity: 0;
 }
 
-:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::before {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card, .assistant-meeting-source)::before {
   z-index: 0;
   top: 50%;
   left: 50%;
@@ -22,7 +22,7 @@
   transform: translate(-50%, -50%) rotate(0turn);
 }
 
-:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::after {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card, .assistant-meeting-source)::after {
   z-index: 1;
   inset: 1.5px;
   border-radius: calc(0.75rem - 1.5px);
@@ -30,17 +30,17 @@
   transition: background 200ms ease;
 }
 
-:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source) > * {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card, .assistant-meeting-source) > * {
   position: relative;
   z-index: 2;
 }
 
-:is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::before {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::before {
   opacity: 1;
   animation: assistant-rainbow-rotate 2.8s linear infinite;
 }
 
-:is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::after {
+:is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::after {
   opacity: 1;
   --assistant-rainbow-fill: linear-gradient(
     135deg,
@@ -50,7 +50,7 @@
   );
 }
 
-:is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:active, .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:active)::after {
+.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:active::after {
   --assistant-rainbow-fill: linear-gradient(
     135deg,
     color-mix(in srgb, #00adfc 18%, var(--color-surface-container-lowest)) 0%,
@@ -76,7 +76,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::before {
+  :is(.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::before {
     animation: none;
   }
 }

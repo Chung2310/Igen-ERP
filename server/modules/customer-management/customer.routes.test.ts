@@ -20,6 +20,7 @@ test("customer routes expose reads before the parameterized detail route", () =>
   ]);
   assert.ok(entries.every((entry) => {
     if (entry.path === "/settings" && entry.method === "patch") return entry.handlers === 3;
+    if (entry.path === "/:id/purchase-history") return entry.handlers === 4;
     return entry.handlers === 2;
   }), "every route must include appropriate middleware stack");
   assert.ok(entries.findIndex((entry) => entry.path === "/search") < entries.findIndex((entry) => entry.path === "/:id"));

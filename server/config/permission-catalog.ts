@@ -27,6 +27,8 @@ const feature = (feature: string, label: string, group: string): PermissionFeatu
 });
 
 export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
+  feature("architect-assistant", "Trợ lý kiến trúc", "Kiến trúc"),
+  feature("architect-ai", "AI kiến trúc", "Kiến trúc"),
   feature("quotation", "Báo giá và dự toán", "Báo giá"),
   feature("quotation-approval", "Duyệt báo giá", "Báo giá"),
   feature("quotation-price-book", "Bảng giá báo giá", "Báo giá"),

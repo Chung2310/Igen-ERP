@@ -100,11 +100,8 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
 
   return <section aria-labelledby="retail-policies-heading" className="space-y-4">
     <ErpCard className="border-outline-variant p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 id="retail-policies-heading" className="text-balance text-lg font-semibold text-on-surface">Chính sách hoa hồng</h2>
-          <p className="mt-1 text-pretty text-sm text-on-surface-variant">Tạo phiên bản mức chung toàn công ty hoặc mức riêng cho cộng tác viên bán lẻ.</p>
-        </div>
+      <h2 id="retail-policies-heading" className="sr-only">Chính sách hoa hồng</h2>
+      <div className="flex justify-end">
         <ErpPrimaryButton type="button" icon={Plus} onClick={() => open()} className="min-h-9 justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Tạo mới</ErpPrimaryButton>
       </div>
       {message && <p role="status" className="mt-4 text-sm text-on-surface-variant">{message}</p>}

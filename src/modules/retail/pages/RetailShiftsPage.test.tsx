@@ -87,8 +87,12 @@ describe("RetailShiftsPage POS sessions", () => {
   it("forwards the selected date range to session history", async () => {
     render(<RetailShiftsPage />);
     await screen.findByText("Thu ngân");
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-08-12" } });
-    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-08-13" } });
+    const from = screen.getByLabelText("Từ ngày");
+    const to = screen.getByLabelText("Đến ngày");
+    await userEvent.type(from, "12/08/2026");
+    await userEvent.click(to);
+    await userEvent.type(to, "13/08/2026");
+    await userEvent.tab();
     await waitFor(() => expect(retailShiftsApi.list).toHaveBeenLastCalledWith(
       { companyCode: "ACME", branchId: "B1" }, expect.objectContaining({ from: "2026-08-12", to: "2026-08-13", page: 1, limit: 20 }),
     ));

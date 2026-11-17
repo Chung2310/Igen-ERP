@@ -1,4 +1,5 @@
 import { AssistantError } from "./policy";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 import { defaultAssistantSpeechVoice, isAssistantSpeechVoice, type AssistantSpeechVoice } from "../../src/shared/assistant-speech-voices";
 import type { AssistantSpeechControls } from "../../src/shared/assistant-speech";
 
@@ -53,7 +54,7 @@ export async function synthesizeVietnameseSpeech(text: string, signal?: AbortSig
 
   if (!response.ok) {
     console.error("[assistant speech] OpenRouter returned HTTP", response.status);
-    if (response.status === 402) throw new AssistantError("Tài khoản OpenRouter không đủ số dư để tạo giọng nói.", 402);
+    if (response.status === 402) throw new AssistantError(AI_PROVIDER_TEMPORARY_ERROR, 503);
     if (response.status === 429) throw new AssistantError("Dịch vụ tạo giọng nói đang quá tải. Hãy thử lại sau.", 429);
     throw new AssistantError("OpenRouter không tạo được giọng nói. Hãy kiểm tra khóa API và giọng đã chọn.", 503);
   }

@@ -276,7 +276,8 @@ export const fbMessengerService = {
       ) {
         console.log(
           `[FB Service syncMessages] 🚀 TRIGGER AI từ Sync: Phát hiện tin nhắn inbound mới ` +
-          `cho conversationId=${refreshedConversation._id.toString()}, pageId=${pageId}, textLength=${latestInboundMsg.text.length}`
+          `cho conversationId=${refreshedConversation._id.toString()}, pageId=${pageId}, messageId=${latestInboundMsg.messageId}, ` +
+          `messageAgeMs=${Date.now() - new Date(latestInboundMsg.timestamp).getTime()}, textLength=${latestInboundMsg.text.length}`
         );
         aiAutoReplyService.triggerAutoReply(
           "facebook",
@@ -401,7 +402,12 @@ export const fbMessengerService = {
 
     for (const entry of entries) {
       const { canProcessMessengerWebhook } = await import("../webhook-access");
-      if (!await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) continue;
+      if (!await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) {
+        console.warn("[Facebook Webhook Event] Skipped Page entry", {
+          pageId: String(entry.id || ""), reason: "page_access_denied", messageEvents: entry.messaging?.length ?? 0,
+        });
+        continue;
+      }
       // 1. Xử lý sự kiện tin nhắn (Messenger)
       const messagingEvents = entry.messaging || [];
       if (messagingEvents.length > 0) {
@@ -761,7 +767,10 @@ export const fbMessengerService = {
     }
 
     console.log(`[FB Service processIncomingMessage] 💾 CONVERSATION UPDATE: Đã cập nhật hội thoại _id=${conversation._id.toString()}, unreadCount=${conversation.unreadCount}`);
-    console.log(`[FB Service processIncomingMessage] 💾 MSG SAVE: Đã lưu tin nhắn inbound thành công (messageId=${messageId})`);
+    console.log("[FB Service][INBOUND_SAVED]", JSON.stringify({
+      source: "webhook", pageId: resolvedPageId, conversationId: String(conversation._id), messageId,
+      messageAgeMs: Date.now() - timestamp.getTime(),
+    }));
 
     // Realtime update via Socket.IO
     emitToMessengerAccount("facebook", resolvedPageId, "new_message", {
@@ -855,7 +864,7 @@ export const fbMessengerService = {
 
       console.log(
         `[FB Service processIncomingMessage] TRIGGER AI: conversationId=${conversationId}, ` +
-        `pageId=${resolvedPageId}, textLength=${text.length}`
+        `pageId=${resolvedPageId}, messageId=${messageId}, textLength=${text.length}`
       );
       await aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversationId, text, messageId, { propagateError: true });
     };
@@ -1053,7 +1062,7 @@ export const fbMessengerService = {
       const data = await response.json();
       console.log(
         `[FB Service sendReply] Send API thành công: conversationId=${conversationId}, ` +
-        `facebookMessageId=${data.message_id || "n/a"}, recipientId=${recipientPsid}, graphMs=${Date.now() - graphStartedAt}`
+        `facebookMessageId=${data.message_id || "n/a"}, senderType=${senderType}, graphMs=${Date.now() - graphStartedAt}`
       );
 
       conversation.lastMessageText = text;

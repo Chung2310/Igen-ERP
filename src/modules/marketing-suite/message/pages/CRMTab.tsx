@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Zap, MessageSquare, Settings2, Users } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
 import { toast } from "../../../../pages/Toast";
-import { crmService, ExtendedLeadCard } from "../services/crmService";
+import { crmService, type CreateLeadInput, type ExtendedLeadCard } from "../services/crmService";
 import { useAuth } from "../../shared/context/AuthContext";
 import { useBranchOptional } from "../../../../context/BranchContext";
 import { fbMessengerService } from "../services/fbMessengerService";
@@ -17,16 +17,14 @@ import { getAccessToken } from "../../shared/services/authService";
 import { socketService, type MessengerScope } from "../../../../services/socketService";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
-import { CurrencyInput } from "../../../../components/common/CurrencyInput";
 import { ErpModal } from "../../../../components/common/ErpModal";
 import { StyledSelect } from "../../../../components/common/StyledSelect";
-import { DateInput24 } from "../../../../components/common/TimeInput24";
 import { primaryCreateButtonClass } from "../../../../components/common/primaryCreateButton";
 import { socialIntegrationService, SocialIntegration } from "../../shared/services/socialIntegrationService";
 import { resolveAiReplyScope } from "../../shared/utils/aiReplyScope";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
-import type { LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
-import { isNameField, parseMultiSelectValue } from "../components/crm/leadSheetUtils";
+import type { LeadSheetColumn, LeadSocialPlatform } from "../components/crm/leadSheetUtils";
+import { CreateLeadModal } from "../components/crm/CreateLeadModal";
 import { SocialPlatformIcon } from "../components/crm/SocialPlatformIcon";
 
 function getCustomerInitials(customerName: string) {
@@ -96,18 +94,12 @@ export default function CRMTab() {
     };
   }, [subTab]);
 
-  const [newLeadName, setNewLeadName] = useState("");
-  const [newLeadPhone, setNewLeadPhone] = useState("");
-  const [newLeadEmail, setNewLeadEmail] = useState("");
-  const [newLeadCompany, setNewLeadCompany] = useState("");
-  const [newLeadAnswers, setNewLeadAnswers] = useState<Record<string, string>>({});
-  const [activeLeadSheetFields, setActiveLeadSheetFields] = useState<LeadIntakeField[]>([]);
-
   const [leadSearchQuery, setLeadSearchQuery] = useState("");
 
-  // Modals state
-  const [showCreateLeadModal, setShowCreateLeadModal] = useState(false);
-  const [selectedInboxCustId, setSelectedInboxCustId] = useState("");
+  const [createLeadForm, setCreateLeadForm] = useState<{
+    columns: LeadSheetColumn[];
+    scope?: { platform: LeadSocialPlatform; accountId?: string };
+  } | null>(null);
 
   // 2. Omni-Inbox States
   const { userProfile, hasPermission, updateAiAutoReplyConfig } = useAuth();
@@ -1200,77 +1192,11 @@ export default function CRMTab() {
     }
   };
 
-  const resetNewLeadForm = () => {
-    setNewLeadName("");
-    setNewLeadPhone("");
-    setNewLeadEmail("");
-    setNewLeadCompany("");
-    setNewLeadAnswers({});
-    setSelectedInboxCustId("");
-  };
-
-  const handleCreateLead = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const cleanedAnswers = Object.fromEntries(
-      Object.entries(newLeadAnswers)
-        .map(([k, v]) => [k, v.trim()])
-        .filter(([, v]) => Boolean(v)),
-    );
-    const customNameField = activeLeadSheetFields.find(isNameField);
-    const resolvedName = (
-      (customNameField ? cleanedAnswers[customNameField.key] : "")
-      || newLeadName.trim()
-      || Object.values(cleanedAnswers)[0]
-      || ""
-    ).trim();
-    if (!resolvedName) {
-      toast.error("Hãy nhập thông tin khách hàng.");
-      return;
-    }
-    const selectedCustomer = inboxCustomers.find(customer => getInboxIdentityKey(customer) === selectedInboxCustId);
-    const sourcePlatform = selectedCustomer?.channel || (activeChannel !== "all" ? activeChannel : "facebook");
-    const platformName = sourcePlatform === "zalo" ? "Zalo" : sourcePlatform === "tiktok" ? "TikTok" : "Facebook";
-    const personalUsername = sourcePlatform === "facebook"
-      ? userProfile?.facebookIntegration?.isConnected ? userProfile.facebookIntegration.pageId : undefined
-      : sourcePlatform === "zalo"
-        ? userProfile?.zaloIntegration?.isConnected ? userProfile.zaloIntegration.oaId : undefined
-        : userProfile?.tiktokIntegration?.isConnected ? userProfile.tiktokIntegration.username : undefined;
-    const sourceAccountIsManaged = Boolean(
-      selectedCustomer?.accountId
-      && (
-        companySocialIntegrations.some(item => item.platform === platformName && item.username === selectedCustomer.accountId)
-        || (personalUsername && personalUsername === selectedCustomer.accountId)
-      ),
-    );
-    const scopedFallback = !selectedCustomer && activeChannel !== "all" && leadAccountId
-      ? { sourcePlatform: activeChannel, sourceAccountId: leadAccountId }
-      : {};
-    const newLead: Omit<ExtendedLeadCard, "id"> = {
-      customerName: resolvedName,
-      company: newLeadCompany.trim(),
-      value: 0,
-      phone: newLeadPhone.trim(),
-      avatar: getCustomerInitials(selectedCustomer?.name || resolvedName),
-      email: newLeadEmail.trim(),
-      productOfChoice: "",
-      status: "cold",
-      lastInteraction: "Tạo Lead thủ công",
-      lastInteractionTime: "Vừa xong",
-      answers: cleanedAnswers,
-      ...(activeLeadSheetFields.length > 0 ? { intakeFields: activeLeadSheetFields } : {}),
-      ...(selectedCustomer && sourceAccountIsManaged
-        ? { sourcePlatform, sourceAccountId: selectedCustomer.accountId, sourceConversationId: selectedCustomer.id }
-        : scopedFallback),
-    };
-    try {
-      await crmService.createLead(newLead);
-      setLeadSheetRefreshToken(count => count + 1);
-      resetNewLeadForm();
-      setShowCreateLeadModal(false);
-      toast.success("Đã thêm Lead vào bảng.");
-    } catch {
-      toast.error("Không thể tạo Lead trên hệ thống.");
-    }
+  const handleCreateLead = async (lead: CreateLeadInput) => {
+    await crmService.createLead({ ...lead, avatar: getCustomerInitials(lead.customerName) });
+    setLeadSheetRefreshToken(count => count + 1);
+    setCreateLeadForm(null);
+    toast.success("Đã thêm Lead vào bảng.");
   };
 
   const handleCreateLeadFromChat = async (customer: CustomerInbox) => {
@@ -1305,8 +1231,8 @@ export default function CRMTab() {
       await crmService.createLead(newLead);
       setLeadSheetRefreshToken(count => count + 1);
       toast.success(`Đã thêm ${customer.name} vào Lead.`);
-    } catch {
-      toast.error("Không thể tạo Lead trên hệ thống.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể tạo Lead trên hệ thống.");
     }
   };
 
@@ -1703,7 +1629,10 @@ export default function CRMTab() {
             <LeadTable
               searchQuery={leadSearchQuery}
               setSearchQuery={setLeadSearchQuery}
-              setShowCreateLeadModal={setShowCreateLeadModal}
+              onCreateLead={columns => setCreateLeadForm({
+                columns,
+                scope: activeChannel === "all" ? undefined : { platform: activeChannel, accountId: leadAccountId },
+              })}
               deleteLead={deleteLead}
               handleGoToChat={handleGoToChat}
               activeChannel={activeChannel}
@@ -1713,7 +1642,6 @@ export default function CRMTab() {
               enabledModules={userProfile?.enabledModules}
               accounts={leadSheetAccounts}
               onSelectAccountScope={handleSelectLeadAccountScope}
-              onActiveFieldsChange={setActiveLeadSheetFields}
               refreshToken={leadSheetRefreshToken}
             />
           )}
@@ -1781,148 +1709,13 @@ export default function CRMTab() {
         />
       </Suspense>}
 
-      <ErpModal isOpen={showCreateLeadModal} title="Thêm Lead" maxWidth="max-w-xl" onClose={() => { resetNewLeadForm(); setShowCreateLeadModal(false); }}>
-        <form onSubmit={handleCreateLead} className="space-y-4">
-          <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-on-surface">Liên kết hội thoại <span className="font-normal text-on-surface-variant">(tùy chọn)</span></span>
-            <StyledSelect
-              ariaLabel="Liên kết hội thoại"
-              value={selectedInboxCustId}
-              options={[
-                { value: "", label: "Chọn hội thoại nếu có" },
-                ...inboxCustomers.map(customer => ({
-                  value: getInboxIdentityKey(customer),
-                  label: `${customer.name} · ${customer.channel}`,
-                })),
-              ]}
-              onChange={(value) => {
-                setSelectedInboxCustId(value);
-                const customer = inboxCustomers.find(item => getInboxIdentityKey(item) === value);
-                if (customer) {
-                  setNewLeadName(customer.name);
-                  const customNameField = activeLeadSheetFields.find(isNameField);
-                  if (customNameField) {
-                    setNewLeadAnswers(current => ({ ...current, [customNameField.key]: customer.name }));
-                  }
-                } else {
-                  setNewLeadName("");
-                  setNewLeadCompany("");
-                }
-              }}
-              className="h-9 rounded-xl"
-            />
-          </div>
-          {(!activeLeadSheetFields.some(isNameField)) && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className={activeLeadSheetFields.length > 0 ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
-                <label htmlFor="lead-name" className="text-sm font-medium text-on-surface">Họ tên <span className="text-error">*</span></label>
-                <input id="lead-name" autoFocus placeholder="Nhập tên khách hàng" value={newLeadName} onChange={event => setNewLeadName(event.target.value)} className="min-h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary" />
-              </div>
-              {activeLeadSheetFields.length === 0 && (
-                <div className="space-y-1.5">
-                  <label htmlFor="lead-phone" className="text-sm font-medium text-on-surface">Số điện thoại</label>
-                  <input id="lead-phone" type="tel" placeholder="Nhập số điện thoại" value={newLeadPhone} onChange={event => setNewLeadPhone(event.target.value)} className="min-h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary" />
-                </div>
-              )}
-            </div>
-          )}
-          {activeLeadSheetFields.length > 0 && (
-            <div className="space-y-3">
-              <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                {activeLeadSheetFields.map(field => {
-                  const val = newLeadAnswers[field.key] || "";
-                  const type = field.type || "text";
-                  const inputId = `new-lead-field-${field.key}`;
-                  return (
-                    <div key={field.key} className="space-y-1">
-                      <label htmlFor={inputId} className="block text-xs font-medium text-on-surface">
-                        {field.label}
-                      </label>
-                      {type === "long_text" ? (
-                        <textarea
-                          id={inputId}
-                          rows={2}
-                          value={val}
-                          onChange={event => setNewLeadAnswers(current => ({ ...current, [field.key]: event.target.value }))}
-                          className="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary"
-                        />
-                      ) : type === "single_select" ? (
-                        <StyledSelect
-                          ariaLabel={field.label}
-                          value={val}
-                          options={[{ value: "", label: "Chọn một mục" }, ...(field.options || []).map(opt => ({ value: opt, label: opt }))]}
-                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal }))}
-                          className="h-9 rounded-xl"
-                        />
-                      ) : type === "multi_select" ? (
-                        <div className="flex flex-wrap gap-1.5" role="group" aria-label={field.label}>
-                          {(field.options || []).map(opt => {
-                            const selected = new Set(parseMultiSelectValue(val));
-                            const checked = selected.has(opt);
-                            return (
-                              <label key={opt} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-outline-variant px-2.5 py-1 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={event => {
-                                    const next = new Set(parseMultiSelectValue(val));
-                                    if (event.target.checked) next.add(opt);
-                                    else next.delete(opt);
-                                    setNewLeadAnswers(current => ({ ...current, [field.key]: [...next].join(", ") }));
-                                  }}
-                                  className="size-3.5 accent-primary"
-                                />
-                                <span>{opt}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      ) : type === "checkbox" ? (
-                        <StyledSelect
-                          ariaLabel={field.label}
-                          value={val}
-                          options={[{ value: "", label: "Chưa chọn" }, { value: "Có", label: "Có" }, { value: "Không", label: "Không" }]}
-                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal }))}
-                          className="h-9 rounded-xl"
-                        />
-                      ) : type === "currency" ? (
-                        <CurrencyInput
-                          id={inputId}
-                          aria-label={field.label}
-                          allowEmpty
-                          value={val}
-                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal ? String(nextVal) : "" }))}
-                          className="h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm tabular-nums text-on-surface outline-none focus:border-primary"
-                        />
-                      ) : type === "date" ? (
-                        <DateInput24
-                          ariaLabel={field.label}
-                          value={/^\d{4}-\d{2}-\d{2}$/.test(val) ? val : ""}
-                          onChange={nextVal => setNewLeadAnswers(current => ({ ...current, [field.key]: nextVal }))}
-                          className="min-h-9 rounded-xl"
-                        />
-                      ) : (
-                        <input
-                          id={inputId}
-                          type={type === "email" ? "email" : type === "phone" ? "tel" : "text"}
-                          inputMode={type === "number" ? "decimal" : undefined}
-                          value={val}
-                          onChange={event => setNewLeadAnswers(current => ({ ...current, [field.key]: event.target.value }))}
-                          className="h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary"
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div className="flex justify-end gap-2 border-t border-outline-variant pt-3">
-            <button type="button" onClick={() => { resetNewLeadForm(); setShowCreateLeadModal(false); }} className="min-h-10 rounded-md border border-outline-variant px-4 text-sm text-on-surface hover:bg-surface-container-low">Hủy</button>
-            <button type="submit" className={primaryCreateButtonClass}>Lưu Lead</button>
-          </div>
-        </form>
-      </ErpModal>
+      {createLeadForm && <CreateLeadModal
+        {...createLeadForm}
+        accounts={leadSheetAccounts}
+        conversations={inboxCustomers}
+        onClose={() => setCreateLeadForm(null)}
+        onSave={handleCreateLead}
+      />}
     </div>
   );
 }

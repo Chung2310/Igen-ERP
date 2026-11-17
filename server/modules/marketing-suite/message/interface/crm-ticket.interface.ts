@@ -1,5 +1,7 @@
 import { Document } from "mongoose";
-import type { LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadNeed, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
+import type { TelecomInvoicePlatform } from "../../../../../shared/marketing-suite/telecom-invoice";
 
 export interface ILeadProductSelection {
   productId: string;
@@ -45,5 +47,12 @@ export interface ICRMTicket extends Document {
   lastIntakeMessageAt?: Date;
   collectionStatus?: "collecting" | "complete" | "needs_human";
   lastInteractionAt?: Date;
+  customerId?: string;
+  telecomSubscriberCode?: string;
+  telecomConversationId?: string;
+  telecomPageId?: string;
+  telecomPlatform?: TelecomInvoicePlatform;
+  customerTransfer?: LeadCustomerTransfer<Date>;
+  needs?: LeadNeed[];
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: Date; syncedBy: string };
 }

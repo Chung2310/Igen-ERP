@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requirePermission } from "../../middleware/auth";
+import { requireModule } from "../../middleware/require-module";
 import { validateRequest } from "../../middleware/validation";
 import { customerController } from "./customer.controller";
 import { customerSettingsController } from "./controllers/customer-settings.controller";
@@ -11,6 +12,7 @@ export const customerRouter = Router();
 const read = requirePermission("customer:read") as any;
 const manage = requirePermission("customer:manage") as any;
 const posCustomerSearch = requirePermission(["customer:read", "pos:manage", "repair:manage"]) as any;
+const readRetailHistory = requirePermission(["retail:read", "retail:manage"]) as any;
 const posCustomerCreate = requirePermission(["customer:manage", "pos:manage"]) as any;
 
 customerRouter.get("/settings", read, customerSettingsController.get as any);
@@ -20,7 +22,7 @@ customerRouter.get("/", read, customerController.list as any);
 customerRouter.get("/search", posCustomerSearch, customerController.search as any);
 customerRouter.post("/", posCustomerCreate, customerController.create as any);
 customerRouter.post("/quick", manage, customerController.quickCreate as any);
-customerRouter.get("/:id/purchase-history", read, customerController.purchaseHistory as any);
+customerRouter.get("/:id/purchase-history", read, requireModule("retail"), readRetailHistory, customerController.purchaseHistory as any);
 customerRouter.use(customerRepairsRouter);
 customerRouter.use(customerTransactionsRouter);
 customerRouter.get("/:id", read, customerController.detail as any);

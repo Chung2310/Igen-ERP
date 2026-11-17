@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { SpeechTranscriptionProvider } from "../../../../../shared/marketing-suite/video-caption.contract.ts";
 import { VideoCaptionError } from "./video-caption-error";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../../../src/shared/ai-provider-error";
 import { resolveMediaBinary } from "./media-binary.service.ts";
 import { billAiCall, withAiUsage } from "./ai-subscription.service";
 
@@ -183,7 +184,7 @@ class OpenRouterSpeechTranscriptionProvider implements SpeechTranscriptionProvid
       const isAuthentication = response.status === 401 || response.status === 403;
       const isBudget = response.status === 402;
       const isTransient = response.status === 429 || response.status >= 500;
-      throw new VideoCaptionError(errorDetail || `OpenRouter STT trả về HTTP ${response.status}.`, `OPENROUTER_STT_${response.status}`, isAuthentication ? "authentication" : isBudget ? "budget" : isTransient ? "transient" : "provider", isTransient, response.status === 429 ? 429 : isBudget ? 402 : 502);
+      throw new VideoCaptionError(isBudget ? AI_PROVIDER_TEMPORARY_ERROR : errorDetail || `OpenRouter STT trả về HTTP ${response.status}.`, isBudget ? "VIDEO_CAPTION_TEMPORARY_ERROR" : `OPENROUTER_STT_${response.status}`, isAuthentication ? "authentication" : isBudget ? "budget" : isTransient ? "transient" : "provider", isTransient, response.status === 429 ? 429 : isBudget ? 503 : 502);
     }
     const transcription = normalizeOpenRouterTranscript(payload);
     if (

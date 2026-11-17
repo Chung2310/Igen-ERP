@@ -17,8 +17,6 @@ import { cakeCustomerMemory, CUSTOMER_SESSION_MS, type CakeSessionContext } from
 import { CakeConsultationSessionModel } from "../../../../model/cake-customer-memory.model.ts";
 import type { ChatOrderFlowInput, ChatOrderFlowPreview } from "../../core/types";
 import { saveCakeOrderToRetail } from "../../../cake-retail-order.service";
-import { CustomerModel } from "../../../../../../customer-management/models/customer.model";
-import { normalizePhone, phoneLookupVariants } from "../../../../../../customer-management/customer-normalization";
 import { cakeIntakeQuestion, cakeSizeClarification, isAffirmativeSizeReply, resolveCakeRecipientName } from "./cake-checkout-conversation";
 import { checkCakeStockAtLocation } from "../../../cake-stock-availability";
 import { resolveCakeDepositPolicy } from "./cake-checkout-policy";
@@ -1007,9 +1005,7 @@ export const cakeCheckoutService = {
           await draft.save();
           return reply(draft.replyText);
         }
-        const normalizedCustomerPhone = normalizePhone(d.customerPhone);
-        const returningCustomer = input.session?.returningCustomer === true || Boolean(normalizedCustomerPhone && await CustomerModel.exists({ companyCode,
-          normalizedPhone: { $in: phoneLookupVariants(normalizedCustomerPhone) } }));
+        const returningCustomer = input.session?.returningCustomer === true;
         const customerRequestedWaiver = draft.noDepositRequested === true;
         const canRequireDeposit = config.depositEnabled;
         const configuredPercent = Number(config.depositPercent || 30);

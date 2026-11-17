@@ -66,9 +66,11 @@ function FileArtwork({ kind, accent }: { kind: FileKind; accent: string }) {
   return null;
 }
 
-export function AssistantFileTypeIcon({ fileName, className = "size-8 shrink-0" }: { fileName: string; className?: string }) {
+export function AssistantFileTypeIcon({ fileName, className = "size-8 shrink-0", tone = "default" }: { fileName: string; className?: string; tone?: "default" | "primary" }) {
   const kind = getFileKind(fileName);
-  const colors = fileKinds[kind];
+  const colors = tone === "primary"
+    ? { paper: "color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-container-lowest))", accent: "var(--color-primary)", fold: "var(--color-primary)" }
+    : fileKinds[kind];
 
   return <svg className={className} viewBox="0 0 36 42" fill="none" aria-hidden="true" focusable="false">
     <path d="M8 1.5h14l9 9v27a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-33a3 3 0 0 1 3-3Z" fill={colors.paper} />

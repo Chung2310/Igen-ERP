@@ -4,6 +4,7 @@ import { openrouterChat } from "../service/openrouter.service";
 import { billAiCall, withAiUsage } from "../modules/marketing-suite/shared/service/ai-subscription.service";
 import { assistantSlideFontFamilies, assistantSlideLayouts, assistantSlideThemeIds, type AssistantSlideAnalysis, type AssistantSlideCanvasObject, type AssistantSlideContent, type AssistantSlideDeck, type AssistantSlideHistoryItem, type AssistantSlideStyle, type AssistantSlideTextStyle } from "../../src/shared/assistant-slide";
 import { AssistantError } from "./policy";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 import { resolveStudioMindmapSource } from "./studio-mindmap-source";
 
 const slideStyles: AssistantSlideStyle[] = ["rewrite", "preserve", "shorten"];
@@ -215,7 +216,7 @@ export async function createStudioSlideDeck(input: {
     if (error instanceof AssistantError) throw error;
     const status = (error as { status?: number; statusCode?: number })?.statusCode || (error as { status?: number })?.status;
     if (status === 401) throw new AssistantError("Khóa OpenRouter không hợp lệ.", 502);
-    if (status === 402) throw new AssistantError("Tài khoản hoặc gói AI không đủ hạn mức để tạo slide.", 402);
+    if (status === 402) throw new AssistantError(AI_PROVIDER_TEMPORARY_ERROR, 503);
     if (status === 429) throw new AssistantError("Model đang giới hạn yêu cầu. Vui lòng thử lại sau.", 429);
     throw new AssistantError("Không thể tạo slide lúc này. Vui lòng thử lại.", 502);
   }

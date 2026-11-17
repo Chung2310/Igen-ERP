@@ -31,12 +31,14 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
+import { useDebouncedValue } from "../../../../../hooks/useDebouncedValue";
 import {
   LEAD_INTAKE_FIELD_TYPES,
   type LeadCollectionStatus,
   type LeadIntakeField,
   type LeadIntakeFieldType,
 } from "../../../../../../shared/marketing-suite/lead-intake";
+import { getCompletedLeadModule } from "../../../../../../shared/marketing-suite/lead-customer-transfer";
 import { ConfirmDialog } from "../../../../../components/common/ConfirmDialog";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import { ErpRefreshButton } from "../../../../../components/common/ErpRefreshButton";
@@ -85,7 +87,7 @@ import {
 interface LeadTableProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  setShowCreateLeadModal: (show: boolean) => void;
+  onCreateLead: (columns: LeadSheetColumn[]) => void;
   deleteLead: (id: string) => Promise<void> | void;
   handleGoToChat: (customerName: string, conversationId?: string, channel?: string, accountId?: string) => void;
   activeChannel: "all" | LeadSocialPlatform;
@@ -95,7 +97,6 @@ interface LeadTableProps {
   enabledModules?: string[];
   accounts?: LeadAccountOption[];
   onSelectAccountScope?: (channel: "all" | LeadSocialPlatform, accountId?: string) => void;
-  onActiveFieldsChange?: (fields: LeadIntakeField[]) => void;
   refreshToken?: number;
 }
 
@@ -186,7 +187,7 @@ function readCellValue(lead: ExtendedLeadCard, col: LeadSheetColumn): string {
 export const LeadTable: React.FC<LeadTableProps> = ({
   searchQuery,
   setSearchQuery,
-  setShowCreateLeadModal,
+  onCreateLead,
   deleteLead,
   handleGoToChat,
   activeChannel,
@@ -196,7 +197,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   enabledModules,
   accounts = [],
   onSelectAccountScope,
-  onActiveFieldsChange,
   refreshToken = 0,
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
@@ -228,6 +228,14 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [deleteColumnTarget, setDeleteColumnTarget] = useState<LeadSheetColumn | null>(null);
   const [deletingColumn, setDeletingColumn] = useState(false);
   const [detailLead, setDetailLead] = useState<ExtendedLeadCard | null>(null);
+  const closeDetailLead = useCallback(() => setDetailLead(null), []);
+  const openLeadConversation = (lead: ExtendedLeadCard) => {
+    if (!lead.sourceConversationId && lead.telecomConversationId) {
+      handleGoToChat(lead.customerName, lead.telecomConversationId, lead.telecomPlatform ?? "facebook", lead.telecomPageId);
+      return;
+    }
+    handleGoToChat(lead.customerName, lead.sourceConversationId, lead.sourcePlatform, lead.sourceAccountId);
+  };
   const [syncLead, setSyncLead] = useState<ExtendedLeadCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExtendedLeadCard | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -406,10 +414,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     }
     return profiles.find(profile => profile.platform === activeChannel && profile.accountId === "default") || companyProfile;
   }, [profiles, activeChannel, accountId, companyProfile]);
-
-  useEffect(() => {
-    onActiveFieldsChange?.(scopedProfile?.fields || []);
-  }, [scopedProfile, onActiveFieldsChange]);
 
   const allColumns = useMemo<LeadSheetColumn[]>(() => {
     const isScopedAccount = activeChannel !== "all" && Boolean(accountId);
@@ -628,9 +632,16 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const hasCustomSort = effectiveSortParam !== "updatedAt:desc";
   const hasActiveFilters = Boolean(searchQuery.trim() || effectiveFieldFilters.length > 0 || hasCustomSort);
 
+  const trimmedSearch = searchQuery.trim();
+  const queryFilters = useMemo(() => ({
+    scope: effectiveScopeKey, search: trimmedSearch, fieldFilters: effectiveFieldFilters,
+  }), [effectiveScopeKey, trimmedSearch, effectiveFieldFilters]);
+  const delayedFilters = useDebouncedValue(queryFilters, 1_000);
+  const { search, fieldFilters } = delayedFilters.scope === effectiveScopeKey ? delayedFilters : queryFilters;
+
   const filterSignature = useMemo(
-    () => `${effectiveScopeKey}|${searchQuery}|${JSON.stringify(effectiveFieldFilters)}|${effectiveSortParam}`,
-    [effectiveScopeKey, searchQuery, effectiveFieldFilters, effectiveSortParam],
+    () => JSON.stringify([effectiveScopeKey, search, fieldFilters, effectiveSortParam]),
+    [effectiveScopeKey, search, fieldFilters, effectiveSortParam],
   );
   const [pageState, setPageState] = useState<{ sig: string; value: number }>({ sig: "", value: 1 });
   const page = pageState.sig === filterSignature ? pageState.value : 1;
@@ -652,8 +663,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       const result = await crmService.getLeadPage({
         channel: activeChannel,
         accountId,
-        search: searchQuery,
-        ...(effectiveFieldFilters.length > 0 ? { fieldFilters: effectiveFieldFilters } : {}),
+        search,
+        ...(fieldFilters.length > 0 ? { fieldFilters } : {}),
         sort: effectiveSortParam,
         page,
         limit: pageSize,
@@ -667,7 +678,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeChannel, accountId, searchQuery, effectiveFieldFilters, effectiveSortParam, page, pageSize]);
+  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -682,7 +693,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     void Promise.resolve().then(() => {
       if (!cancelled) void loadLeads();
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      requestSeqRef.current += 1;
+    };
   }, [loadLeads, refreshToken]);
 
   const syncGridScrollState = useCallback(() => {
@@ -721,7 +735,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   }
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-
   function getColumnWidth(col: LeadSheetColumn): number {
     const saved = layoutPrefs.widths[col.key];
     return typeof saved === "number" && saved >= MIN_COL_WIDTH && saved <= MAX_COL_WIDTH ? saved : col.defaultWidth;
@@ -1124,7 +1137,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
             {exporting ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : <Download aria-hidden="true" className="size-3.5" />}
             Xuất Excel
           </button>
-          <button type="button" onClick={() => setShowCreateLeadModal(true)} className={primaryCreateButtonClass}>
+          <button type="button" onClick={() => onCreateLead(visibleColumns)} className={primaryCreateButtonClass}>
             <Plus aria-hidden="true" className="size-4" />
             Thêm Lead
           </button>
@@ -1701,6 +1714,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               <tbody className="text-sm font-normal">
                 {leads.map((lead, rowIndex) => {
                   const rowNumber = (page - 1) * pageSize + rowIndex + 1;
+                  const syncedModule = lead.moduleSync?.targetModule ?? getCompletedLeadModule(lead.customerTransfer);
                   return (
                     <tr key={lead.id} className="group/row transition-colors hover:bg-surface-container-low/65">
                       <td style={{ width: 48, minWidth: 48, maxWidth: 48 }} className="sticky left-0 z-10 w-12 border-b border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-xs tabular-nums text-on-surface-variant group-hover/row:bg-surface-container-low">
@@ -1837,12 +1851,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           >
                             <PanelRightOpen aria-hidden="true" className="size-3.5" />
                           </button>
-                          {lead.sourceConversationId && (
+                          {(lead.sourceConversationId || lead.telecomConversationId) && (
                             <button
                               type="button"
                               aria-label={`Mở hội thoại với ${lead.customerName}`}
                               title="Mở hội thoại Omni-Inbox"
-                              onClick={() => handleGoToChat(lead.customerName, lead.sourceConversationId, lead.sourcePlatform, lead.sourceAccountId)}
+                              onClick={() => openLeadConversation(lead)}
                               className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-1 focus-visible:outline-primary"
                             >
                               <MessageCircle aria-hidden="true" className="size-3.5" />
@@ -1850,9 +1864,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           )}
                           <button
                             type="button"
-                            aria-label={lead.moduleSync ? `${lead.customerName} đã đồng bộ module` : `Đồng bộ ${lead.customerName} sang module`}
-                            title={lead.moduleSync ? `Đã chuyển sang ${lead.moduleSync.targetModule}` : "Đồng bộ sang module khác"}
-                            disabled={Boolean(lead.moduleSync)}
+                            aria-label={syncedModule ? `${lead.customerName} đã đồng bộ module` : `Đồng bộ ${lead.customerName} sang module`}
+                            title={syncedModule ? `Đã chuyển sang ${syncedModule}` : "Đồng bộ sang module khác"}
+                            disabled={Boolean(syncedModule)}
                             onClick={() => setSyncLead(lead)}
                             className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-1 focus-visible:outline-primary disabled:opacity-40"
                           >
@@ -1898,7 +1912,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               </p>
               <button
                 type="button"
-                onClick={() => (hasActiveFilters ? handleResetAllFilters() : setShowCreateLeadModal(true))}
+                onClick={() => (hasActiveFilters ? handleResetAllFilters() : onCreateLead(visibleColumns))}
                 className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary hover:text-on-primary focus-visible:outline-1 focus-visible:outline-primary"
               >
                 {hasActiveFilters ? "Đặt lại bộ lọc" : "Tạo Lead mới"}
@@ -2060,16 +2074,16 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
       {/* Side Drawer for Full Lead Editing */}
       <LeadDetailDrawer
-        lead={detailLead}
+        lead={leads.find(lead => lead.id === detailLead?.id) ?? detailLead}
         configuredFields={scopedProfile?.fields || []}
-        onClose={() => setDetailLead(null)}
+        onClose={closeDetailLead}
         onUpdated={(updated) => {
           setLeads(current => current.map(item => (item.id === updated.id ? updated : item)));
           toast.success("Đã lưu thay đổi Lead.");
         }}
         onOpenChat={(lead) => {
           setDetailLead(null);
-          handleGoToChat(lead.customerName, lead.sourceConversationId, lead.sourcePlatform, lead.sourceAccountId);
+          openLeadConversation(lead);
         }}
         onOpenModuleSync={(lead) => {
           setDetailLead(null);

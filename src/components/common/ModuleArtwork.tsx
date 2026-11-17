@@ -62,7 +62,7 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
     case "TRÒ CHUYỆN":
       art = <><path d="M6 9h31a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5H20L9 43v-6H6a4 4 0 0 1-4-4V13a4 4 0 0 1 4-4" fill={a.blue}/><circle cx="14" cy="23" r="3" fill={a.white}/><circle cx="24" cy="23" r="3" fill={a.gold}/><circle cx="34" cy="23" r="3" fill={a.mint}/></>; break;
     case "ĐỐI TÁC":
-      art = <><path d="M5 18 24 9l19 9-19 9z" fill={a.blue}/><path d="M9 27c6-2 11-1 15 3v11c-4-4-9-5-15-3z" fill={a.gold}/><path d="M39 27c-6-2-11-1-15 3v11c4-4 9-5 15-3z" fill={a.mint}/><path d="M24 30v11M14 31l6 2m14-2-6 2" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><circle cx="24" cy="17" r="3.5" fill={a.coral}/></>; break;
+      art = <><circle cx="12" cy="17" r="5" fill={a.gold}/><circle cx="36" cy="17" r="5" fill={a.mint}/><path d="M3 34c0-7 4-11 9-11s9 4 9 11v4H3z" fill={a.gold}/><path d="M27 34c0-7 4-11 9-11s9 4 9 11v4H27z" fill={a.mint}/><circle cx="24" cy="13" r="6" fill={a.blue}/><path d="M12 36c0-9 5-15 12-15s12 6 12 15v5H12z" fill={a.blue}/></>; break;
     case "ĐỐI TÁC LAO ĐỘNG":
       art = <><path d="M9 19c0-8 6-13 15-13s15 5 15 13z" fill={a.gold}/><path d="M6 19h36v5H6z" fill={a.blue}/><path d="M17 8v8m14-8v8" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><circle cx="15" cy="30" r="5" fill={a.blue}/><circle cx="33" cy="30" r="5" fill={a.mint}/><path d="M5 42c0-5 4-8 10-8s10 3 10 8zm18 0c0-5 4-8 10-8s10 3 10 8z" fill={a.blue}/><path d="M23 42c0-5 4-8 10-8s10 3 10 8z" fill={a.mint}/><path d="m20 34 4 3 4-3" fill="none" stroke={a.gold} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></>; break;
     case "ĐỐI TÁC BÁN LẺ":

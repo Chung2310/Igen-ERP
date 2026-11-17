@@ -4,8 +4,14 @@ import mongoose from "mongoose";
 import { SocialIntegrationModel } from "./model/social-integration.model";
 import { MarketingContentModel } from "../campaign/model/marketing-content.model";
 import { CRMTicketModel } from "../message/model/crm-ticket.model";
+import { TelecomInvoiceModel } from "../message/model/telecom-invoice.model";
+import { FBMessageModel } from "../message/model/fb-messenger.model";
+import { ZaloMessageModel } from "../message/model/zalo-messenger.model";
+import type { TelecomInvoicePlatform } from "../../../../shared/marketing-suite/telecom-invoice";
+import { isTrustedChatImageUrl } from "../message/service/chat-image-context";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { requirePermission } from "../../../middleware/auth";
+import { getCompletedLeadModule } from "../../../../shared/marketing-suite/lead-customer-transfer";
 import { Schema } from "mongoose";
 import { AIReplyLogModel } from "../message/model/ai-reply-log.model";
 import { assertMarketingAccountOwnership } from "./account-ownership";
@@ -246,7 +252,7 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
   if (typeof req.query.search === "string" && req.query.search.trim()) {
     const expression = escapeLeadRegex(req.query.search.trim().slice(0, 100));
     andClauses.push({
-      $or: ["customerName", "phone", "email", "company", "productOfChoice", "sourceAccountId", "intakeSearchText"]
+      $or: ["customerName", "phone", "email", "company", "productOfChoice", "sourceAccountId", "intakeSearchText", "telecomSubscriberCode"]
         .map(key => ({ [key]: { $regex: expression, $options: "i" } })),
     });
   }
@@ -267,6 +273,42 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
     CRMTicketModel.countDocuments(filter),
   ]);
   return res.json({ status: "success", data: items.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
+}));
+
+suiteDataRouter.get("/omni-inbox/leads/:id/telecom-invoices", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
+  const companyCode = req.user!.companyCode;
+  const lead = await CRMTicketModel.findOne({ companyCode, _id: req.params.id }).select("telecomSubscriberCode").lean();
+  if (!lead) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
+  const cursor = typeof req.query.before === "string" && mongoose.isValidObjectId(req.query.before) ? req.query.before : undefined;
+  const limit = 20;
+  const invoices = lead.telecomSubscriberCode ? await TelecomInvoiceModel.find({ companyCode, subscriberCode: lead.telecomSubscriberCode, status: "confirmed",
+    ...(cursor ? { _id: { $lt: cursor } } : {}),
+  }).sort({ _id: -1 }).limit(limit + 1).select("values leadFields subscriberFieldKey invoiceKey platform pageId conversationId confirmedAt sourceMessageId sourceIndex").lean() : [];
+  const items = invoices.slice(0, limit);
+  const sourcesFor = (platform: TelecomInvoicePlatform) => items
+    .filter(item => (item.platform ?? "facebook") === platform && mongoose.isValidObjectId(item.conversationId))
+    .map(({ sourceMessageId, conversationId, pageId }) => ({ messageId: sourceMessageId, conversationId, recipientId: pageId }));
+  const facebookSources = sourcesFor("facebook");
+  const zaloSources = sourcesFor("zalo");
+  const sourceFields = "messageId conversationId recipientId attachments";
+  const [facebookMessages, zaloMessages] = await Promise.all([
+    facebookSources.length ? FBMessageModel.find({ direction: "inbound", $or: facebookSources }).select(sourceFields).lean() : [],
+    zaloSources.length ? ZaloMessageModel.find({ direction: "inbound", $or: zaloSources }).select(sourceFields).lean() : [],
+  ]);
+  const originals = new Map([
+    ...facebookMessages.map(message => [`facebook:${message.conversationId}:${message.recipientId}:${message.messageId}`, message.attachments] as const),
+    ...zaloMessages.map(message => [`zalo:${message.conversationId}:${message.recipientId}:${message.messageId}`, message.attachments] as const),
+  ]);
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ status: "success", data: {
+    items: items.map(({ _id, values, leadFields, subscriberFieldKey, invoiceKey, platform = "facebook", pageId, conversationId, confirmedAt, sourceMessageId, sourceIndex }) => {
+      const attachment = originals.get(`${platform}:${conversationId}:${pageId}:${sourceMessageId}`)?.[sourceIndex];
+      const imageUrl = (attachment?.type === "image" || attachment?.type?.startsWith("image/")) && attachment.url && isTrustedChatImageUrl(attachment.url) ? attachment.url : undefined;
+      return { id: String(_id), values, leadFields, subscriberFieldKey, invoiceNumber: invoiceKey ?? values.invoiceNumber, platform, pageId, conversationId, confirmedAt, imageUrl };
+    }),
+    ...(invoices.length > limit ? { before: String(items[limit - 1]._id) } : {}),
+  } });
 }));
 
 suiteDataRouter.post("/omni-inbox/leads/export-google-sheets", requirePermission("omni-inbox:manage"), run(async (req, res) => {
@@ -305,16 +347,29 @@ suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
     answers: data.answers === undefined ? {} : leadAnswers(data.answers),
   };
   input.intakeSearchText = Object.values(input.answers as Record<string, string>).join(" ").slice(0, 100000);
-  if (data.intakeFields !== undefined) input.intakeFields = leadFieldSnapshot(data.intakeFields);
+  if (data.intakeFields !== undefined) {
+    const fields = leadFieldSnapshot(data.intakeFields);
+    input.intakeFields = fields;
+    const standard = mapIntakeStandardFields(fields, input.answers as Record<string, string>);
+    if (!input.phone && standard.phone) input.phone = standard.phone.slice(0, 40);
+    if (!input.email && standard.email) input.email = standard.email.slice(0, 254);
+    if (!input.company && standard.company) input.company = standard.company.slice(0, 200);
+    if (!input.productOfChoice && standard.productOfChoice) input.productOfChoice = standard.productOfChoice.slice(0, 200);
+    if (data.value === undefined && standard.value) {
+      const amount = parseLeadIntakeAmount(standard.value);
+      if (amount !== undefined) input.value = amount;
+    }
+  }
   if (data.collectionStatus !== undefined) {
     if (typeof data.collectionStatus !== "string" || !intakeStatusValues.has(data.collectionStatus)) return res.status(400).json({ status: "error", message: "Trạng thái thu thập Lead không hợp lệ." });
     input.collectionStatus = data.collectionStatus;
   }
   const sourcePlatform = data.sourcePlatform;
-  if (sourcePlatform !== undefined) {
+  if (sourcePlatform !== undefined || data.sourceAccountId !== undefined || data.sourceConversationId !== undefined) {
     if (typeof sourcePlatform !== "string" || !["facebook", "zalo", "tiktok"].includes(sourcePlatform)
       || typeof data.sourceAccountId !== "string" || !data.sourceAccountId.trim()
-      || typeof data.sourceConversationId !== "string" || !data.sourceConversationId.trim()) {
+      || (data.sourceConversationId !== undefined
+        && (typeof data.sourceConversationId !== "string" || !data.sourceConversationId.trim()))) {
       return res.status(400).json({ status: "error", message: "Thông tin nguồn hội thoại của Lead không hợp lệ." });
     }
     const platformName = sourcePlatform === "facebook" ? "Facebook" : sourcePlatform === "zalo" ? "Zalo" : "TikTok";
@@ -330,28 +385,20 @@ suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
     if (!ownedCompanyAccount && !ownedPersonalAccount) return res.status(404).json({ status: "error", message: "Không tìm thấy tài khoản nguồn của Lead." });
     input.sourcePlatform = sourcePlatform;
     input.sourceAccountId = data.sourceAccountId;
-    input.sourceConversationId = data.sourceConversationId;
+    if (typeof data.sourceConversationId === "string") input.sourceConversationId = data.sourceConversationId.trim();
     input.lastInteractionAt = new Date();
   } else {
     input.lastInteractionAt = new Date();
   }
-  let item;
-  if (input.sourcePlatform && input.sourceAccountId && input.sourceConversationId) {
-    const identity = {
-      companyCode: req.user!.companyCode, sourcePlatform: input.sourcePlatform,
-      sourceAccountId: input.sourceAccountId, sourceConversationId: input.sourceConversationId
-    };
-    try {
-      item = await CRMTicketModel.findOneAndUpdate(identity, { $setOnInsert: input }, { upsert: true, new: true, runValidators: true });
-    } catch (error) {
-      if ((error as { code?: number }).code !== 11000) throw error;
-      item = await CRMTicketModel.findOne(identity);
-    }
-  } else {
-    item = await CRMTicketModel.create(input);
+  try {
+    const item = await CRMTicketModel.create(input);
+    return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), false) });
+  } catch (error) {
+    if (!input.sourceConversationId || (error as { code?: number }).code !== 11000) throw error;
+    return res.status(409).json({
+      status: "error", message: "Hội thoại đã có Lead. Mở dòng đó trong bảng Lead để cập nhật thông tin.",
+    });
   }
-  if (!item) throw new Error("Không thể lưu Lead vào hệ thống.");
-  return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), false) });
 }));
 
 suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
@@ -382,7 +429,7 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
   const scope = { _id: req.params.id, companyCode: req.user!.companyCode };
   const staffFields = Object.keys(updates).filter(key => ["customerName", "company", "phone", "email", "productOfChoice", "value"].includes(key));
   const existing = nextAnswers !== undefined
-    ? await CRMTicketModel.findOne(scope).select("answers intakeRevision intakeFields sourcePlatform sourceAccountId sourceConversationId collectionStatus").lean()
+    ? await CRMTicketModel.findOne(scope).select("answers needs intakeRevision intakeFields sourcePlatform sourceAccountId sourceConversationId collectionStatus").lean()
     : null;
   if (nextAnswers !== undefined && !existing) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
 
@@ -393,6 +440,7 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
       staffFields.push(`answers.${key}`);
       staffAnswerChanges[key] = nextAnswers[key];
     }
+    updates.intakeSearchText = [...Object.values(nextAnswers), ...(existing.needs || []).flatMap(need => [need.title, need.groupLabel, ...Object.values(need.answers || {})])].filter(Boolean).join(" ").slice(0, 100000);
     const fields = existing.intakeFields || [];
     if (fields.length > 0) {
       const standard = mapIntakeStandardFields(fields, nextAnswers);
@@ -460,12 +508,15 @@ suiteDataRouter.post("/omni-inbox/leads/:id/module-sync", requirePermission("omn
     return res.status(400).json({ status: "error", message: "Thông tin module đích không hợp lệ." });
   }
   const scope = { _id: req.params.id, companyCode: req.user!.companyCode };
-  const existing = await CRMTicketModel.findOne(scope).select("moduleSync").lean();
+  const existing = await CRMTicketModel.findOne(scope).select("moduleSync customerTransfer").lean();
   if (!existing) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
   if (existing.moduleSync) {
     const isSameRecord = existing.moduleSync.targetModule === targetModule && existing.moduleSync.targetRecordId === targetRecordId;
     if (isSameRecord) return res.json({ status: "success", data: existing.moduleSync, alreadyLinked: true });
     return res.status(409).json({ status: "error", message: "Lead này đã được đồng bộ vào module khác hoặc hồ sơ khác." });
+  }
+  if (getCompletedLeadModule(existing.customerTransfer)) {
+    return res.status(409).json({ status: "error", message: "Lead này đã có hồ sơ nghiệp vụ được đồng bộ trước đó." });
   }
   const moduleSync = { targetModule, targetRecordId, syncedAt: new Date(), syncedBy: req.user!.id };
   const item = await CRMTicketModel.findOneAndUpdate({ ...scope, moduleSync: { $exists: false } }, { $set: { moduleSync } }, { new: true }).lean();

@@ -13,6 +13,7 @@ import { interpretWorkflowText } from "./workflow-text";
 import { getSettings, saveSettings } from "./settings";
 import { synthesizeVietnameseSpeech } from "./speech";
 import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices";
+import { maxAssistantImageCount } from "../../src/shared/assistant-image-generation";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, updateAssistantMemory } from "./memory";
 import { enhanceStudioImagePrompt, generateStudioImages, studioImageRatios } from "./studio-images";
@@ -23,7 +24,7 @@ import { extractSpeechDocument } from "./studio-speech-document";
 import { createStudioChart, deleteStudioChart, editStudioChart, getStudioChart, listStudioCharts, studioChartEditSchema, studioChartRequestSchema } from "./studio-charts";
 import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studioSlideDeckUpdateSchema, studioSlideRequestSchema, updateStudioSlideDeck } from "./studio-slides";
 import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
-import { listAssistantProjects, saveAssistantProjectCollection } from "./projects";
+import { getAssistantProjectFile, listAssistantProjects, saveAssistantProjectCollection, saveAssistantProjectFile } from "./projects";
 import { assistantConversationFileFilter } from "./conversation-file";
 
 export const assistantRouter = Router();
@@ -55,12 +56,38 @@ const assistantProjectSchema = Joi.object({
   model: Joi.string().valid("iGenAI").required(), createdAt: Joi.string().isoDate().required(),
   conversations: Joi.array().max(500).items(Joi.object({
     id, title: Joi.string().max(100).allow("").required(), preview: Joi.string().max(6000).allow("").required(),
-    createdAt: Joi.string().isoDate().required(), sourceConversationId: id.optional(), sourceMode: Joi.string().valid("work", "qa"),
+    createdAt: Joi.string().isoDate().required(), updatedAt: Joi.string().isoDate().optional(), sourceConversationId: id.optional(), sourceMode: Joi.string().valid("work", "qa"),
   })).required(),
   files: Joi.array().max(100).items(Joi.object({ id, name: Joi.string().max(255).required(), size: Joi.number().integer().min(0).max(15 * 1024 * 1024).required(), updatedAt: Joi.string().isoDate().required() })).required(),
 });
 assistantRouter.get("/projects", wrap(listAssistantProjects));
 assistantRouter.put("/projects", validateRequest({ body: Joi.object({ projects: Joi.array().max(100).items(assistantProjectSchema).required() }) }), wrap(req => saveAssistantProjectCollection(req, req.body.projects)));
+const assistantProjectFileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => /\.(pdf|docx|txt)$/i.test(file.originalname)
+    ? callback(null, true)
+    : callback(new Error("Unsupported project file")),
+});
+assistantRouter.post("/projects/:projectId/files", validateRequest({ params: Joi.object({ projectId: id }) }), expensiveApiRateLimiter,
+  (req, res, next) => assistantProjectFileUpload.single("file")(req, res, error => error
+    ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: error.code === "LIMIT_FILE_SIZE" ? "Mỗi tệp dự án không được vượt quá 15 MB." : "Chỉ hỗ trợ tệp PDF, Word (.docx) và văn bản (.txt)." })
+    : next()),
+  wrap(req => saveAssistantProjectFile(req, req.params.projectId, req.file)));
+assistantRouter.get("/projects/:projectId/files/:fileId", validateRequest({ params: Joi.object({ projectId: id, fileId: id }) }), async (req: any, res: any) => {
+  try {
+    const file = await getAssistantProjectFile(req, req.params.projectId, req.params.fileId);
+    const encodedName = encodeURIComponent(file.fileName).replace(/['()*]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="document"; filename*=UTF-8''${encodedName}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.send(file.bytes);
+  } catch (error) {
+    if (!(error instanceof AssistantError)) console.error("[assistant project file]", error);
+    return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể tải tệp dự án lúc này." });
+  }
+});
 assistantRouter.get("/prompt-templates", wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem thư viện câu lệnh.", 403);
   return listAssistantPromptTemplates({ companyCode: req.user.companyCode, userId: req.user.id });
@@ -76,7 +103,7 @@ assistantRouter.patch("/prompt-templates/:templateId/favorite", validateRequest(
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để cập nhật yêu thích.", 403);
   return setAssistantPromptTemplateFavorite({ companyCode: req.user.companyCode, userId: req.user.id }, req.params.templateId, req.body.favorite);
 }));
-const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.originalname)) });
+const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac|webm)$/i.test(file.originalname)) });
 const studioChartUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|xlsx|xls|docx|csv)$/i.test(file.originalname)) });
 const studioMindmapUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|pptx|txt)$/i.test(file.originalname)) });
 const studioSlideUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => /\.(pdf|docx|pptx|txt)$/i.test(file.originalname) ? callback(null, true) : callback(new Error("Unsupported slide source")) });
@@ -107,7 +134,7 @@ assistantRouter.post("/speech/document", expensiveApiRateLimiter, (req, res, nex
 }));
 assistantRouter.post("/studio/transcriptions", expensiveApiRateLimiter, (req, res, next) => studioAudioUpload.single("audio")(req, res, (error) => error ? res.status(413).json({ success: false, message: "Tệp âm thanh vượt giới hạn 50 MB hoặc không hợp lệ." }) : next()), wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu bản chép lời.", 403);
-  if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG hoặc FLAC.", 400);
+  if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG, FLAC hoặc WEBM.", 400);
   return transcribeStudioAudio({ buffer: req.file.buffer, fileName: req.file.originalname.slice(0, 255), companyCode: req.user.companyCode, userId: req.user.id });
 }));
 assistantRouter.get("/studio/transcriptions", wrap(req => {
@@ -148,7 +175,7 @@ assistantRouter.post("/studio/images/edit", expensiveApiRateLimiter, validateReq
 assistantRouter.post("/studio/images", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
   prompt: Joi.string().trim().min(3).max(2000).required(),
   aspectRatio: Joi.string().valid(...studioImageRatios).required(),
-  count: Joi.number().integer().min(1).max(4).required(),
+  count: Joi.number().integer().min(1).max(maxAssistantImageCount).required(),
   referenceImage: Joi.string().max(5_600_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/),
 }) }), wrap(req => generateStudioImages(req.body)));
 assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), speechVoice: Joi.string().valid(...assistantSpeechVoices), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));

@@ -67,6 +67,32 @@ it("understands that bổ sung thông tin for a customer edits the existing prof
   expect(selectedWorkflows).not.toContain("customer.create");
 });
 
+it("classifies a clear ERP request outside the available workflows as unsupported without returning executable values", async () => {
+  provider.mockResolvedValueOnce({ text: JSON.stringify({
+    intentType: "unsupported", actionId: null, values: { customerName: "La Văn Sến" }, unsupportedModule: "customer",
+  }) });
+  const workflows = ASSISTANT_OPERATIONS.filter(operation => operation.module === "customer").map(defaultWorkflow);
+
+  const result = await interpretRequest("Phân tích doanh thu theo nhóm khách hàng", workflows, null, []);
+
+  expect(result).toMatchObject({ actionId: null, values: {}, intentType: "unsupported", unsupportedModule: "customer" });
+  const prompt = provider.mock.calls.at(-1)?.[0].messages[0].content as string;
+  expect(prompt).toContain("intentType=unsupported");
+  expect(prompt).toContain('"customer"');
+});
+
+it("ignores an unsupported module outside the user's available module list", async () => {
+  provider.mockResolvedValueOnce({ text: JSON.stringify({
+    intentType: "unsupported", actionId: null, values: {}, unsupportedModule: "finance",
+  }) });
+  const workflows = ASSISTANT_OPERATIONS.filter(operation => operation.module === "customer").map(defaultWorkflow);
+
+  const result = await interpretRequest("Phân tích doanh thu theo nhóm khách hàng", workflows, null, []);
+
+  expect(result).toMatchObject({ actionId: null, intentType: "unsupported" });
+  expect(result.unsupportedModule).toBeUndefined();
+});
+
 it.each([
   ["social-marketing", "Xem thông tin nội dung marketing đã lưu", "marketing.content.detail"],
   ["finance", "Xem thông tin tài sản cố định", "finance.asset.detail"],
@@ -191,22 +217,46 @@ it("assigns each partner workflow to the module that protects its API route", ()
 
 it("offers inventory receipt references as selectable chat choices", async () => {
   const operation = operationById("inventory.receipt.create")!;
-  const response = await missingReferencePrompts(
-    { user: { role: "user", companyCode: "TEST", branchId: "branch-1" } } as never,
+  const req = { user: { role: "user", companyCode: "TEST", branchId: "branch-1" } } as never;
+  const suggest = async (_req: unknown, _operation: unknown, field: { reference?: string }) => field.reference === "branch.list"
+    ? ["Chi nhánh Hà Nội"]
+    : field.reference === "inventory.supplier.list" ? ["Công ty Thiết bị ABC"]
+      : field.reference === "inventory.warehouse.locations.list" ? ["Kho trung tâm"]
+        : field.reference === "product.list" ? ["Máy chiếu 001"]
+          : field.reference === "inventory.product.detail" ? ["MAYCHIEU001"] : [];
+  const initial = await missingReferencePrompts(
+    req,
     operation,
     defaultWorkflow(operation),
     {},
     "Tạo phiếu nhập kho",
     new Set(),
-    async (_req, _operation, field) => field.reference === "branch.list"
-      ? ["Chi nhánh Hà Nội"]
-      : field.reference === "inventory.supplier.list" ? ["Công ty Thiết bị ABC"] : ["Kho trung tâm"],
+    suggest,
   );
-  expect(response.referenceSelections).toEqual(expect.arrayContaining([
+  expect(initial.referenceSelections).toEqual(expect.arrayContaining([
     expect.objectContaining({ key: "targetBranch", options: [{ label: "Chi nhánh Hà Nội", value: "Chi nhánh Hà Nội" }] }),
     expect.objectContaining({ key: "supplierId", options: [{ label: "Công ty Thiết bị ABC", value: "Công ty Thiết bị ABC" }] }),
-    expect.objectContaining({ key: "warehouseId", required: false, options: [{ label: "Kho trung tâm", value: "Kho trung tâm" }] }),
   ]));
+  expect(initial.referenceSelections.some(selection => selection.key === "warehouseId")).toBe(false);
+
+  const response = await missingReferencePrompts(
+    req,
+    operation,
+    defaultWorkflow(operation),
+    { targetBranch: "branch-1", supplierId: "supplier-1" },
+    "Tạo phiếu nhập kho",
+    new Set(),
+    suggest,
+  );
+  expect(response.referenceSelections).toContainEqual(expect.objectContaining({
+    key: "warehouseId",
+    required: false,
+    options: [{ label: "Kho trung tâm", value: "Kho trung tâm" }],
+  }));
+  expect(response.referenceSelections).toContainEqual(expect.objectContaining({
+    key: "items[1].productId",
+    options: [{ label: "Máy chiếu 001", value: "Máy chiếu 001" }],
+  }));
 });
 
 it("asks the user to select a connected account before retrying Google Sheets lead sync", async () => {

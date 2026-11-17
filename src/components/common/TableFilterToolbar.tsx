@@ -2,6 +2,7 @@ import React from "react";
 import { Search, X } from "lucide-react";
 import { DatePeriodFilter } from "./DatePeriodFilter";
 import type { DatePeriodFilterValue } from "../../utils/datePeriodFilter";
+import { cn } from "../../modules/student-management/lib/utils";
 
 export type TableFilterToolbarProps = {
   search?: {
@@ -28,6 +29,7 @@ export type TableFilterToolbarProps = {
   onResetFilters?: () => void;
   resetLabel?: string;
   className?: string;
+  appearance?: "card" | "plain";
 };
 
 export function TableFilterToolbar({
@@ -42,10 +44,15 @@ export function TableFilterToolbar({
   onResetFilters,
   resetLabel = "Xóa bộ lọc",
   className = "",
+  appearance = "card",
 }: TableFilterToolbarProps) {
   return (
     <div
-      className={`rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 sm:p-4 shadow-2xs space-y-3 ${className}`}
+      className={cn(
+        "space-y-3",
+        appearance === "card" && "rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-2xs sm:p-4",
+        className,
+      )}
     >
       {/* ── Hàng 1: Tìm kiếm + Bộ lọc mở rộng + Đếm kết quả & Nút xóa lọc ── */}
       <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
@@ -85,7 +92,7 @@ export function TableFilterToolbar({
         </div>
 
         {/* Số đếm & Hành động xóa lọc / Nút thao tác */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 text-xs text-on-surface-variant">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant sm:justify-end">
           {actions}
 
           {totalCount !== undefined && (

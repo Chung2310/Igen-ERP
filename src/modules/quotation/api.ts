@@ -119,18 +119,26 @@ async function generatedExportRequest<T>(scope: Scope, deadline: number, message
     throw error;
   }
 }
+async function enqueueGeneratedExport(url: string, scope: Scope, deadline: number): Promise<{ jobId: string }> {
+  const result = await generatedExportRequest(scope, deadline, "Máy chủ không phản hồi khi bắt đầu tạo file. Dữ liệu đã được lưu; hãy mở lại chứng từ để kiểm tra hoặc tạo lại file.", async (signal) => {
+    const response = await quotationFetch(url, { signal });
+    if (!response.ok) throw await parseApiErrorResponse(response);
+    return { status: response.status, body: await response.json() };
+  });
+  if (result.status !== 202 || !result.body?.jobId) throw new ApiError("Máy chủ chưa trả tác vụ xuất tài liệu.", result.status);
+  return { jobId: String(result.body.jobId) };
+}
+/** Queue saved documents without waiting for AI to finish filling the selected template. */
+export async function queueGeneratedExport(url: string): Promise<{ jobId: string }> {
+  const scope = currentScope();
+  return enqueueGeneratedExport(url, scope, Date.now() + generatedExportRequestTimeoutMs);
+}
 export async function createGeneratedExport(url: string, timeoutMs = 15 * 60_000): Promise<GeneratedFileRef> {
   const scope = currentScope();
   const deadline = Date.now() + timeoutMs;
   const task = aiProgress.begin({ ...exportTaskDescription(quotationEndpoint(url).replace(/^\/api\/v1\/quotation/, "/api")), detail: "Đang chuẩn bị nội dung và mẫu tài liệu…" });
   try {
-  const queuedResult = await generatedExportRequest(scope, deadline, "Máy chủ không phản hồi khi bắt đầu tạo file. Dữ liệu đã được lưu; hãy mở lại chứng từ để kiểm tra hoặc tạo lại file.", async (signal) => {
-    const response = await quotationFetch(url, { signal });
-    if (!response.ok) throw await parseApiErrorResponse(response);
-    return { status: response.status, body: await response.json() };
-  });
-  const queued = queuedResult.body;
-  if (queuedResult.status !== 202 || !queued?.jobId) throw new ApiError("Máy chủ chưa trả tác vụ xuất tài liệu.", queuedResult.status);
+  const queued = await enqueueGeneratedExport(url, scope, deadline);
   task.update(12, "Yêu cầu đã được tiếp nhận, đang chuẩn bị tạo file…");
   while (Date.now() < deadline) {
     await new Promise<void>((resolve, reject) => {

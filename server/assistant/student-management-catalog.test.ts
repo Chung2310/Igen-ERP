@@ -19,6 +19,7 @@ const requiredOperations = [
   "student.quality.assessment.update", "student.quality.mini-test.create", "student.quality.mini-test.update", "student.quality.mini-test.delete", "student.quality.assignment.grade",
   "student.list", "student.detail", "student.learning-history", "student.create", "student.update", "student.bulk.delete.preview", "student.bulk.delete",
   "student.payment.list", "student.payment.create", "student.payment.update", "student.payment.delete",
+  "student.installments.list", "student.installment.create", "student.installment.update",
   "student.exam.list", "student.exam.create", "student.exam.update", "student.exam.delete", "student.exam.assign", "student.exam.unassign", "student.exam.grade-results.update", "student.exam.result.update",
   "student.resource.list", "student.resource.create", "student.resource.update", "student.resource.delete", "student.resource.category.list", "student.resource.category.create", "student.resource.category.delete", "student.resource.bookings.list", "student.resource.booking.create", "student.resource.booking.delete",
   "student.notification.list", "student.notification.create", "student.notification.update", "student.notification.delete",
@@ -50,6 +51,7 @@ describe("student-management assistant catalog", () => {
     ["Danh s\u00E1ch k\u1EF3 thi", "student.exam.list", {}],
     ["Danh s\u00E1ch th\u00F4ng b\u00E1o h\u1ECDc vi\u00EAn", "student.notification.list", {}],
     ["Danh s\u00E1ch ph\u00F2ng h\u1ECDc", "student.resource.list", {}],
+    ["Danh sách thiết bị", "student.resource.list", { query_excludeType: "Phòng học" }],
     ["Danh s\u00E1ch l\u1ECBch h\u1ECDc", "student.schedule.list", {}],
     ["Danh s\u00E1ch b\u00E0i t\u1EADp", "student.assignment.list", {}],
     ["Danh s\u00E1ch t\u00ECnh tr\u1EA1ng n\u1ED9p b\u00E0i", "student.assignment.submissions.list", {}],
@@ -153,6 +155,9 @@ describe("student-management assistant catalog", () => {
   it.each([
     ["Sửa ghi chú giao dịch học phí của Nguyễn An", "student.payment.update"],
     ["Xóa phòng học P101", "student.resource.delete"],
+    ["Tạo thiết bị máy chiếu MC01", "student.resource.create"],
+    ["Cập nhật thiết bị máy chiếu MC01", "student.resource.update"],
+    ["Xóa thiết bị máy chiếu MC01", "student.resource.delete"],
     ["Cập nhật đánh giá học viên trong lớp K01", "student.quality.assessment.update"],
   ])("routes a Vietnamese request to the intended student workflow: %s", async (prompt, operationId) => {
     const workflow = defaultWorkflow(operationById(operationId)!);
@@ -175,6 +180,23 @@ describe("student-management assistant catalog", () => {
     const result = await interpretRequest(prompt, workflows, null, []);
 
     expect(result).toMatchObject({ actionId: operationId, values: expectedValues });
+  });
+
+  it.each([
+    ["Thêm học phí cho học viên ABC 5 triệu", "student.installment.create", { path_id: "ABC", amountDue: 5_000_000 }],
+    ["Sửa đợt học phí số 2 của học viên ABC thành 4 triệu", "student.installment.update", { path_id: "ABC", path_no: "2", amountDue: 4_000_000 }],
+    ["Cập nhật tổng học phí dự kiến của học viên ABC thành 5 triệu", "student.update", { path_id: "ABC", fee: "5000000" }],
+  ])("routes a tuition mutation to the matching write workflow: %s", async (prompt, actionId, values) => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId, values }) });
+    const workflows = ASSISTANT_OPERATIONS.filter(operation => operation.module === "student").map(defaultWorkflow);
+
+    const result = await interpretRequest(prompt, workflows, null, []);
+
+    expect(result).toMatchObject({ actionId, values });
+    expect(provider).toHaveBeenCalledOnce();
+    const systemMessage = String(provider.mock.calls[0]?.[0]?.messages?.[0]?.content || "");
+    expect(systemMessage).toContain(operationById(actionId!)!.title);
+    expect(systemMessage).not.toContain('"title":"Tra cứu học viên"');
   });
 
   it.each([

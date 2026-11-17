@@ -784,3 +784,129 @@
     padding: 8px !important;
   }
 }
+
+/* Keep list actions in the same control row as their search fields. */
+.quotation-module .app-shell :is(.bp-toolbar, .cq-toolbar, .qt-toolbar) {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.quotation-module .app-shell :is(.bp-search-box, .cq-search-box, .qt-search-box) {
+  flex: 1 1 260px;
+  max-width: none;
+  min-width: 220px;
+}
+
+.quotation-module .app-shell :is(.bp-filter-pills, .cq-filter-pills, .qt-filter-pills) {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.quotation-module .app-shell :is(.bp-toolbar, .cq-toolbar, .qt-toolbar) > :is(.bp-create-btn, .cq-create-btn, .qt-create-btn) {
+  flex: 0 0 auto;
+}
+
+.quotation-module .app-shell .quote-toolbar-top {
+  flex-wrap: nowrap;
+}
+
+.quotation-module .app-shell .quote-search-wrapper {
+  flex: 1 1 260px;
+  max-width: none;
+  min-width: 220px;
+}
+
+.quotation-module .app-shell .quote-toolbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quotation-module .app-shell .price-list-search-row {
+  flex-wrap: nowrap;
+}
+
+.quotation-module .app-shell .price-list-search-box {
+  flex: 1 1 280px;
+  max-width: none;
+  min-width: 220px;
+}
+
+.quotation-module .app-shell .price-list-header-actions {
+  flex: 0 0 auto;
+}
+
+.quotation-module .app-shell .workflow-list-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1200px) {
+  .quotation-module .app-shell :is(.bp-toolbar, .cq-toolbar, .qt-toolbar) {
+    flex-wrap: wrap;
+  }
+
+  .quotation-module .app-shell :is(.bp-search-box, .cq-search-box, .qt-search-box) {
+    flex-basis: 100%;
+  }
+
+  .quotation-module .app-shell .quote-toolbar-top {
+    flex-wrap: wrap;
+  }
+
+  .quotation-module .app-shell .quote-search-wrapper {
+    flex-basis: 100%;
+  }
+
+  .quotation-module .app-shell .price-list-search-row {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .quotation-module .app-shell :is(.bp-toolbar, .cq-toolbar, .qt-toolbar) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quotation-module .app-shell :is(.bp-search-box, .cq-search-box, .qt-search-box),
+  .quotation-module .app-shell :is(.bp-filter-pills, .cq-filter-pills, .qt-filter-pills) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .quotation-module .app-shell :is(.bp-toolbar, .cq-toolbar, .qt-toolbar) > :is(.bp-create-btn, .cq-create-btn, .qt-create-btn) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .quotation-module .app-shell .quote-toolbar-top {
+    align-items: stretch;
+  }
+
+  .quotation-module .app-shell .quote-toolbar-actions {
+    width: 100%;
+  }
+
+  .quotation-module .app-shell .quote-toolbar-actions .button {
+    flex: 1 1 140px;
+  }
+
+  .quotation-module .app-shell .price-list-search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quotation-module .app-shell .price-list-search-box,
+  .quotation-module .app-shell .price-list-header-actions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .quotation-module .app-shell .price-list-header-actions .button {
+    flex: 1 1 120px;
+  }
+}

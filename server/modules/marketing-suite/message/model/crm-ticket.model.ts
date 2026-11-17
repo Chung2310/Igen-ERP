@@ -1,5 +1,6 @@
 import { Schema, model } from "mongoose";
 import { ICRMTicket } from "../interface/crm-ticket.interface.ts";
+import { leadCustomerDestinations } from "../../../../../shared/marketing-suite/lead-customer-transfer";
 
 const LeadIntakeFieldSnapshotSchema = new Schema({
   key: { type: String, required: true },
@@ -35,7 +36,7 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   intakeFields: { type: [LeadIntakeFieldSnapshotSchema], default: [] },
   sourcePlatform: { type: String, enum: ["facebook", "zalo", "tiktok"], index: true },
   sourceAccountId: { type: String, default: "", index: true },
-  sourceConversationId: { type: String, default: "", index: true },
+  sourceConversationId: { type: String, index: true },
   intakeProfileId: { type: String, default: "" },
   intakeProfileVersion: { type: Number },
   intakeRevision: { type: Number },
@@ -44,6 +45,21 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   lastIntakeMessageAt: { type: Date },
   collectionStatus: { type: String, enum: ["collecting", "complete", "needs_human"], index: true },
   lastInteractionAt: { type: Date, index: true },
+  customerId: { type: String },
+  telecomSubscriberCode: { type: String },
+  telecomConversationId: { type: String },
+  telecomPageId: { type: String },
+  telecomPlatform: { type: String, enum: ["facebook", "zalo"] },
+  customerTransfer: {
+    type: new Schema({
+      destination: { type: String, enum: leadCustomerDestinations, required: true },
+      branchId: String,
+      targetRecordId: String,
+      completedAt: Date,
+    }, { _id: false }),
+    default: undefined,
+  },
+  needs: { type: [{ _id: false, id: String, groupKey: String, groupLabel: String, title: String, answers: Schema.Types.Mixed }], default: undefined },
   moduleSync: {
     targetModule: { type: String, enum: ["students", "healthcare", "workers"] },
     targetRecordId: { type: String, maxlength: 100 },
@@ -61,5 +77,9 @@ CRMTicketSchema.index({ companyCode: 1, sourcePlatform: 1, sourceAccountId: 1, s
   },
 });
 CRMTicketSchema.index({ companyCode: 1, lastInteractionAt: -1, _id: -1 });
+CRMTicketSchema.index({ companyCode: 1, telecomSubscriberCode: 1 }, {
+  unique: true, partialFilterExpression: { telecomSubscriberCode: { $type: "string" } },
+});
+CRMTicketSchema.index({ companyCode: 1, customerId: 1, lastInteractionAt: -1 });
 
 export const CRMTicketModel = model<ICRMTicket>("CRMTicket", CRMTicketSchema);

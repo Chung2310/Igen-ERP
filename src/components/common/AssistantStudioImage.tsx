@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { ChevronRight, Download, LoaderCircle, Plus, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { StyledSelect } from "./StyledSelect";
@@ -8,6 +8,9 @@ import { listAssistantStudioCreationHistory, saveAssistantStudioCreationHistory,
 import { AssistantStudioBreadcrumb } from "./AssistantStudioBreadcrumb";
 import { AssistantStudioHistoryAction, AssistantStudioHistoryDrawer, AssistantStudioHistoryKindIcon } from "./AssistantStudioHistoryDrawer";
 import { assistantStudioTitleAccentClass, assistantStudioTitleClass } from "./assistantStudioTitleStyles";
+import { useAssistantStudioStyleFavorites } from "./useAssistantStudioStyleFavorites";
+import { extraImageSamples } from "./assistantStudioExtraImageSamples";
+import { AssistantStudioImageLibrary } from "./AssistantStudioImageLibrary";
 
 const fieldClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface focus:border-primary focus:outline-none";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -21,11 +24,14 @@ const ratioDescriptions: Record<StudioImageRequest["aspectRatio"], string> = {
   "2:3": "Dọc",
 };
 
-interface StudioStyleSample {
+export interface StudioStyleSample {
   id: string;
   label: string;
+  accessibleLabel?: string;
   imageUrl: string;
   aspectRatio: StudioImageRequest["aspectRatio"];
+  previewRatio?: string;
+  requiresReference?: boolean;
   prompt: string;
 }
 
@@ -136,6 +142,8 @@ Dùng bố cục hai vùng. Bên trái là nền xanh ngọc nhạt và tiêu đ
   },
 ];
 
+export const allStyleSamples: StudioStyleSample[] = [...extraImageSamples, ...studioStyleSamples];
+
 function AspectRatioIcon({ ratio }: { ratio: StudioImageRequest["aspectRatio"] }) {
   const [widthRatio, heightRatio] = ratio.split(":").map(Number);
   const width = widthRatio >= heightRatio ? 18 : 18 * widthRatio / heightRatio;
@@ -151,10 +159,13 @@ const aspectRatioOptions = studioImageRatios.map(ratio => ({
   icon: <AspectRatioIcon ratio={ratio} />,
 }));
 
-export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null }) {
-  const [aspectRatio, setAspectRatio] = useState<StudioImageRequest["aspectRatio"]>("1:1");
+export function AssistantStudioImage({ onBack, historyItem, initialStyleId }: { onBack: () => void; historyItem?: AssistantStudioCreationRecord | null; initialStyleId?: string | null }) {
+  const initialStyle = initialStyleId ? allStyleSamples.find(sample => sample.id === initialStyleId) : undefined;
+  const { favoriteIds, toggleFavorite } = useAssistantStudioStyleFavorites("create-image");
+  const [aspectRatio, setAspectRatio] = useState<StudioImageRequest["aspectRatio"]>(initialStyle?.aspectRatio ?? "1:1");
   const [count, setCount] = useState(1);
-  const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? "");
+  const [prompt, setPrompt] = useState(() => historyItem?.prompt ?? initialStyle?.prompt ?? "");
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(initialStyle?.id ?? null);
   const [referenceImage, setReferenceImage] = useState("");
   const [referenceName, setReferenceName] = useState("");
   const [result, setResult] = useState<StudioImageResponse | null>(() => historyItem?.kind === "create-image" ? historyItem.payload as StudioImageResponse : null);
@@ -164,6 +175,8 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
   const [history, setHistory] = useState<AssistantStudioCreationRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+
+  const selectedStyleRequiresReference = allStyleSamples.some(sample => sample.id === selectedStyleId && sample.requiresReference);
 
   async function openHistory() {
     if (showHistory) {
@@ -218,6 +231,10 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
   async function createImages(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading || !prompt.trim()) return;
+    if (selectedStyleRequiresReference && !referenceImage) {
+      setError("Mẫu này cần ảnh gốc. Hãy thêm ảnh tham chiếu trước khi tạo ảnh.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -248,10 +265,10 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
           <div><span className="mb-1 block text-sm font-medium">Tỷ lệ khung hình</span><StyledSelect appearance="erp" ariaLabel="Tỷ lệ khung hình" value={aspectRatio} onChange={value => setAspectRatio(value as StudioImageRequest["aspectRatio"])} disabled={loading} options={aspectRatioOptions} className="h-10 rounded-md" menuClassName="rounded-md [&_[role=option]]:rounded-sm" /></div>
           <div>
             <label htmlFor="studio-image-prompt" className="mb-1 block text-sm font-medium">Mô tả hình ảnh</label>
-            <textarea id="studio-image-prompt" required minLength={3} maxLength={2000} rows={6} value={prompt} onChange={event => setPrompt(event.target.value)} disabled={loading} aria-describedby="studio-image-prompt-count" placeholder="Mô tả chủ thể, bối cảnh, ánh sáng, màu sắc và các chi tiết bạn muốn xuất hiện…" className={cn(fieldClass, "min-h-32 resize-none")} />
+            <textarea id="studio-image-prompt" required minLength={3} maxLength={2000} rows={6} value={prompt} onChange={event => { setPrompt(event.target.value); setSelectedStyleId(null); }} disabled={loading} aria-describedby="studio-image-prompt-count" placeholder="Mô tả chủ thể, bối cảnh, ánh sáng, màu sắc và các chi tiết bạn muốn xuất hiện…" className={cn(fieldClass, "min-h-32 resize-none")} />
             <div className="mt-1 flex justify-end text-xs text-on-surface-variant"><span id="studio-image-prompt-count" className="shrink-0 tabular-nums">{prompt.length}/2.000</span></div>
           </div>
-          <div><span className="mb-1 block text-sm font-medium">Ảnh tham chiếu <span className="font-normal text-on-surface-variant">(không bắt buộc)</span></span>{referenceImage ? <div className="flex items-center gap-2 rounded-lg border border-outline-variant p-1"><img src={referenceImage} alt="Ảnh tham chiếu đã chọn" className="size-10 rounded-md object-cover" /><span className="min-w-0 flex-1 truncate text-sm">{referenceName}</span><button type="button" onClick={() => { setReferenceImage(""); setReferenceName(""); }} aria-label="Xóa ảnh tham chiếu" disabled={loading} className={cn("rounded-md p-2 hover:bg-surface-container-low", focusClass)}><X className="size-4" aria-hidden="true" /></button></div> : <div className="flex items-center gap-2"><label className="inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low text-on-surface-variant focus-within:border-primary"><Plus className="size-5" aria-hidden="true" /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseReference} disabled={loading} className="sr-only" aria-label="Thêm ảnh tham chiếu" /></label><span className="text-pretty text-xs text-on-surface-variant">PNG, JPG, WebP · tối đa 4 MB</span></div>}</div>
+          <div><span className="mb-1 block text-sm font-medium">Ảnh tham chiếu <span className="font-normal text-on-surface-variant">{selectedStyleRequiresReference ? "(cần ảnh gốc)" : "(không bắt buộc)"}</span></span>{referenceImage ? <div className="flex items-center gap-2 rounded-lg border border-outline-variant p-1"><img src={referenceImage} alt="Ảnh tham chiếu đã chọn" className="size-10 rounded-md object-cover" /><span className="min-w-0 flex-1 truncate text-sm">{referenceName}</span><button type="button" onClick={() => { setReferenceImage(""); setReferenceName(""); }} aria-label="Xóa ảnh tham chiếu" disabled={loading} className={cn("rounded-md p-2 hover:bg-surface-container-low", focusClass)}><X className="size-4" aria-hidden="true" /></button></div> : <div className="flex items-center gap-2"><label className="inline-flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low text-on-surface-variant focus-within:border-primary"><Plus className="size-5" aria-hidden="true" /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseReference} disabled={loading} className="sr-only" aria-label="Thêm ảnh tham chiếu" /></label><span className="text-pretty text-xs text-on-surface-variant">PNG, JPG, WebP · tối đa 4 MB</span></div>}</div>
           <div><span className="mb-1 block text-sm font-medium">Số lượng hình ảnh</span><StyledSelect appearance="erp" ariaLabel="Số lượng hình ảnh" value={String(count)} onChange={value => setCount(Number(value))} disabled={loading} options={[1, 2, 3, 4].map(value => ({ value: String(value), label: `${value} ảnh` }))} className="h-10 rounded-md" menuClassName="rounded-md [&_[role=option]]:rounded-sm" /></div>
         </div>
         <div className="shrink-0 border-t border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
@@ -274,49 +291,7 @@ export function AssistantStudioImage({ onBack, historyItem }: { onBack: () => vo
               <div className="my-5 flex w-full justify-center">
                 <img src="/ai-studio-image-hero.png" alt="Minh họa bãi biển, bình hoa và đồ uống được tạo bằng AI" width="1536" height="1024" className="h-auto max-h-[38dvh] w-full max-w-2xl object-contain drop-shadow-xs" />
               </div>
-              <section aria-label="Thư viện mẫu" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
-                <h3 className="px-1 text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>
-                <div className="grid grid-cols-4 gap-2.5">
-                  {studioStyleSamples.map((sample) => {
-                    const isSelected = prompt === sample.prompt;
-                    return (
-                      <button
-                        key={sample.id}
-                        type="button"
-                        onClick={() => {
-                          setPrompt(sample.prompt);
-                          setAspectRatio(sample.aspectRatio);
-                          setError("");
-                        }}
-                        disabled={loading}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          "group relative overflow-hidden rounded-xl border border-outline-variant transition-all hover:border-primary hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                          isSelected && "border-primary ring-2 ring-primary/30"
-                        )}
-                      >
-                        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-container-low">
-                          <img
-                            src={sample.imageUrl}
-                            alt={`Mẫu phong cách ${sample.label}`}
-                            loading="lazy"
-                            width={320}
-                            height={180}
-                            className="size-full object-cover transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none"
-                          />
-                          <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                          <span className={cn(
-                            "absolute bottom-1.5 left-2 right-2 truncate text-left text-xs font-semibold text-white drop-shadow-sm",
-                            isSelected && "text-primary-container"
-                          )}>
-                            {sample.label}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
+              <AssistantStudioImageLibrary samples={allStyleSamples} favoriteIds={favoriteIds} onToggleFavorite={toggleFavorite} selectedPrompt={prompt} disabled={loading} onSelect={sample => { setPrompt(sample.prompt); setSelectedStyleId(sample.id); setAspectRatio(sample.aspectRatio); setError(""); }} />
             </div>}
       </section>
       <AssistantStudioHistoryDrawer open={showHistory} title="Lịch sử tạo ảnh" onClose={() => setShowHistory(false)}>

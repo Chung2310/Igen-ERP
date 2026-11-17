@@ -87,6 +87,7 @@ export const DELETION_SEO: SeoMeta = {
 };
 
 export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, SeoMeta> = {
+  "TRỢ LÝ KIẾN TRÚC": { title: "Trợ lý kiến trúc", description: "Tư vấn và hỗ trợ nghiệp vụ kiến trúc", keywords: "", path: "/tro-ly-kien-truc", robots: "noindex, nofollow" },
   "BÁO GIÁ": { title: "Báo giá", description: "Báo giá, dự toán và chứng từ thương mại", keywords: "", path: "/bao-gia", robots: "noindex, nofollow" },
   "QUẢN LÝ Y TẾ": { title: "Quản lý y tế", description: "Bệnh nhân, lượt khám, lịch hẹn và chăm sóc", keywords: "", path: "/quan-ly-y-te", robots: "noindex, nofollow" },
   "GÓI AI & LƯỢT SỬ DỤNG": { title: "Gói AI & lượt sử dụng", description: "Gói AI và hạn mức sử dụng chung của doanh nghiệp", keywords: "", path: "/goi-ai", robots: "noindex, nofollow" },
