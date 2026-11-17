@@ -1,11 +1,11 @@
 import React, { useEffect, useId, useRef, useState } from "react";
-import { ArrowRightLeft, Loader2, MessageCircle, Trash2, UserRound, X } from "lucide-react";
+import { ArrowRightLeft, Loader2, MessageCircle, Trash2, X } from "lucide-react";
 import type { LeadCollectionStatus, LeadIntakeField } from "../../../../../../shared/marketing-suite/lead-intake";
+import { getCompletedLeadModule } from "../../../../../../shared/marketing-suite/lead-customer-transfer";
 import { CurrencyInput } from "../../../../../components/common/CurrencyInput";
 import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { DateInput24 } from "../../../../../components/common/TimeInput24";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
-import { customerDetailHref } from "../../../../customer-management/navigation";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
 import { COLLECTION_STATUS_META, LEAD_STATUS_META, parseMultiSelectValue, PLATFORM_LABELS, type LeadSocialPlatform } from "./leadSheetUtils";
 
@@ -17,8 +17,6 @@ interface LeadDetailDrawerProps {
   onOpenChat: (lead: ExtendedLeadCard) => void;
   onOpenModuleSync: (lead: ExtendedLeadCard) => void;
   onRequestDelete: (lead: ExtendedLeadCard) => void;
-  canViewCustomer?: boolean;
-  onSaveCustomer?: (lead: ExtendedLeadCard, trigger: HTMLButtonElement) => void;
 }
 
 const fieldInputClass =
@@ -50,9 +48,8 @@ function LeadDetailDrawerPanel({
   onOpenChat,
   onOpenModuleSync,
   onRequestDelete,
-  canViewCustomer,
-  onSaveCustomer,
 }: LeadDetailDrawerProps & { lead: ExtendedLeadCard }) {
+  const syncedModule = lead.moduleSync?.targetModule ?? getCompletedLeadModule(lead.customerTransfer);
   const titleId = useId();
   const baseId = useId();
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -161,25 +158,19 @@ function LeadDetailDrawerPanel({
         </header>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant bg-surface-container-low px-4 py-2.5 sm:px-5">
-          {lead.customerId && canViewCustomer && <a id={`lead-customer-${lead.id}-drawer`} href={customerDetailHref(lead.customerId, "lead-needs")} className={secondaryBtnClass}>
-            <UserRound aria-hidden="true" className="size-3.5 text-primary" />Mở hồ sơ Khách hàng
-          </a>}
-          {!lead.customerId && onSaveCustomer && <button type="button" className={secondaryBtnClass} onClick={event => onSaveCustomer(lead, event.currentTarget)}>
-            <UserRound aria-hidden="true" className="size-3.5 text-primary" />Lưu vào Khách hàng
-          </button>}
           <button type="button" onClick={() => onOpenChat(lead)} className={secondaryBtnClass}>
             <MessageCircle aria-hidden="true" className="size-3.5 text-primary" />
             Mở hội thoại
           </button>
           <button
             type="button"
-            disabled={Boolean(lead.moduleSync)}
+            disabled={Boolean(syncedModule)}
             onClick={() => onOpenModuleSync(lead)}
             className={`${secondaryBtnClass} disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <ArrowRightLeft aria-hidden="true" className="size-3.5" />
-            {lead.moduleSync
-              ? `Đã chuyển sang ${lead.moduleSync.targetModule === "students" ? "Học viên" : lead.moduleSync.targetModule === "healthcare" ? "Bệnh nhân" : "Lao động"}`
+            {syncedModule
+              ? `Đã chuyển sang ${syncedModule === "students" ? "Học viên" : syncedModule === "healthcare" ? "Bệnh nhân" : "Lao động"}`
               : "Đồng bộ module"}
           </button>
           <button

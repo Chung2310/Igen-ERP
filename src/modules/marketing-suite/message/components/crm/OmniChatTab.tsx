@@ -9,6 +9,7 @@ import { AiAssistantConfigPanel } from "./AiAssistantConfigPanel";
 import { resolveAiReplyScope } from "../../../shared/utils/aiReplyScope";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
 import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
+import { leadCustomerDestinationLabels } from "../../../../../../shared/marketing-suite/lead-customer-transfer";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
@@ -903,7 +904,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                             <span className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface-variant">
                               Lead · {linkedLead.collectionStatus === "complete" ? "Đủ thông tin" : linkedLead.collectionStatus === "needs_human" ? "Chờ nhân viên" : "Đang thu thập"}
                             </span>
-                            {linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                            {linkedLead.customerTransfer?.completedAt ? <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                              Đã chuyển · {leadCustomerDestinationLabels[linkedLead.customerTransfer.destination]}
+                            </span> : linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
                               Đã chuyển vào {linkedLead.moduleSync.targetModule === "students" ? "Học viên" : linkedLead.moduleSync.targetModule === "healthcare" ? "Y tế" : "Lao động"}
                             </span>}
                           </div>

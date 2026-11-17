@@ -1,5 +1,6 @@
 import { Schema, model } from "mongoose";
 import { ICRMTicket } from "../interface/crm-ticket.interface.ts";
+import { leadCustomerDestinations } from "../../../../../shared/marketing-suite/lead-customer-transfer";
 
 const LeadIntakeFieldSnapshotSchema = new Schema({
   key: { type: String, required: true },
@@ -45,6 +46,15 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   collectionStatus: { type: String, enum: ["collecting", "complete", "needs_human"], index: true },
   lastInteractionAt: { type: Date, index: true },
   customerId: { type: String },
+  customerTransfer: {
+    type: new Schema({
+      destination: { type: String, enum: leadCustomerDestinations, required: true },
+      branchId: String,
+      targetRecordId: String,
+      completedAt: Date,
+    }, { _id: false }),
+    default: undefined,
+  },
   needs: { type: [{ _id: false, id: String, groupKey: String, groupLabel: String, title: String, answers: Schema.Types.Mixed }], default: undefined },
   moduleSync: {
     targetModule: { type: String, enum: ["students", "healthcare", "workers"] },

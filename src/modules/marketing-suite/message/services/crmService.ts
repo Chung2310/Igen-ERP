@@ -2,6 +2,7 @@ import { apiFetch } from "../../../shared/lib/apiFetch";
 import { getAccessToken } from "../../shared/services/authService";
 import { LeadCard } from "../../shared/types/index";
 import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
 
 export interface LeadProductSelection {
   productId: string;
@@ -25,6 +26,7 @@ export interface ExtendedLeadCard extends LeadCard {
   collectionStatus?: LeadCollectionStatus;
   lastInteractionAt?: string;
   customerId?: string;
+  customerTransfer?: LeadCustomerTransfer;
   needs?: LeadNeed[];
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: string; syncedBy: string };
 }
@@ -335,13 +337,6 @@ export const crmService = {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.message || "Không thể xuất Lead sang Google Sheets.");
     return result.data as { queued: number; skipped: number };
-  },
-
-  async saveLeadCustomer(id: string, input: { customerId: string } | { create: true; name: string; phone: string; email: string; allowSharedPhone: boolean }) {
-    const response = await apiFetch<{ data: { customerId: string; customerCode: string } }>(`/omni-inbox/leads/${encodeURIComponent(id)}/customer`, {
-      method: "POST", body: JSON.stringify(input),
-    });
-    return response.data;
   },
 
   async markLeadModuleSynced(id: string, target: { targetModule: LeadTargetModule; targetRecordId: string }) {

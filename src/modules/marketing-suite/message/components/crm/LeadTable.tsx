@@ -28,7 +28,6 @@ import {
   Table2,
   Trash2,
   Type,
-  UserRound,
   X,
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
@@ -39,6 +38,7 @@ import {
   type LeadIntakeField,
   type LeadIntakeFieldType,
 } from "../../../../../../shared/marketing-suite/lead-intake";
+import { getCompletedLeadModule } from "../../../../../../shared/marketing-suite/lead-customer-transfer";
 import { ConfirmDialog } from "../../../../../components/common/ConfirmDialog";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import { ErpRefreshButton } from "../../../../../components/common/ErpRefreshButton";
@@ -50,8 +50,6 @@ import { primaryCreateButtonClass } from "../../../../../components/common/prima
 import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
 import { HrPageTitle } from "../../../../../components/hr/HrPageTitle";
 import { cn } from "../../../../student-management/lib/utils";
-import { customerDetailHref } from "../../../../customer-management/navigation";
-import { isModuleEnabled } from "../../../../../config/modules";
 import {
   crmService,
   type ActiveLeadIntakeProfile,
@@ -60,7 +58,6 @@ import {
 } from "../../services/crmService";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
 import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
-import { LeadCustomerDialog } from "./LeadCustomerDialog";
 import { LeadModuleSyncModal } from "./LeadModuleSyncModal";
 import { LeadSheetCell, type CellDirection } from "./LeadSheetCell";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
@@ -98,8 +95,6 @@ interface LeadTableProps {
   companyCode: string;
   branchId: string;
   enabledModules?: string[];
-  canViewCustomers?: boolean;
-  canSaveCustomer?: boolean;
   accounts?: LeadAccountOption[];
   onSelectAccountScope?: (channel: "all" | LeadSocialPlatform, accountId?: string) => void;
   refreshToken?: number;
@@ -200,8 +195,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   companyCode,
   branchId,
   enabledModules,
-  canViewCustomers = false,
-  canSaveCustomer = false,
   accounts = [],
   onSelectAccountScope,
   refreshToken = 0,
@@ -236,9 +229,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [deletingColumn, setDeletingColumn] = useState(false);
   const [detailLead, setDetailLead] = useState<ExtendedLeadCard | null>(null);
   const closeDetailLead = useCallback(() => setDetailLead(null), []);
-  const [customerLead, setCustomerLead] = useState<ExtendedLeadCard | null>(null);
-  const customerDialogTrigger = useRef<HTMLElement | null>(null);
-  const customerModuleEnabled = isModuleEnabled(enabledModules, "customer");
   const [syncLead, setSyncLead] = useState<ExtendedLeadCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExtendedLeadCard | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -738,7 +728,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   }
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-
   function getColumnWidth(col: LeadSheetColumn): number {
     const saved = layoutPrefs.widths[col.key];
     return typeof saved === "number" && saved >= MIN_COL_WIDTH && saved <= MAX_COL_WIDTH ? saved : col.defaultWidth;
@@ -1718,6 +1707,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               <tbody className="text-sm font-normal">
                 {leads.map((lead, rowIndex) => {
                   const rowNumber = (page - 1) * pageSize + rowIndex + 1;
+                  const syncedModule = lead.moduleSync?.targetModule ?? getCompletedLeadModule(lead.customerTransfer);
                   return (
                     <tr key={lead.id} className="group/row transition-colors hover:bg-surface-container-low/65">
                       <td style={{ width: 48, minWidth: 48, maxWidth: 48 }} className="sticky left-0 z-10 w-12 border-b border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-xs tabular-nums text-on-surface-variant group-hover/row:bg-surface-container-low">
@@ -1865,29 +1855,11 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                               <MessageCircle aria-hidden="true" className="size-3.5" />
                             </button>
                           )}
-                          {customerModuleEnabled && lead.customerId && canViewCustomers && <a
-                            id={`lead-customer-${lead.id}-row`}
-                            href={customerDetailHref(lead.customerId, "lead-needs")}
-                            aria-label={`Mở hồ sơ Khách hàng của ${lead.customerName}`}
-                            title="Mở hồ sơ Khách hàng"
-                            className="inline-flex size-7 items-center justify-center rounded-md text-primary hover:bg-primary/10 focus-visible:outline-1 focus-visible:outline-primary"
-                          >
-                            <UserRound aria-hidden="true" className="size-3.5" />
-                          </a>}
-                          {customerModuleEnabled && !lead.customerId && canSaveCustomer && <button
-                            type="button"
-                            aria-label={`Lưu ${lead.customerName} vào Khách hàng`}
-                            title="Lưu vào Khách hàng"
-                            onClick={event => { customerDialogTrigger.current = event.currentTarget; setCustomerLead(lead); }}
-                            className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-1 focus-visible:outline-primary"
-                          >
-                            <UserRound aria-hidden="true" className="size-3.5" />
-                          </button>}
                           <button
                             type="button"
-                            aria-label={lead.moduleSync ? `${lead.customerName} đã đồng bộ module` : `Đồng bộ ${lead.customerName} sang module`}
-                            title={lead.moduleSync ? `Đã chuyển sang ${lead.moduleSync.targetModule}` : "Đồng bộ sang module khác"}
-                            disabled={Boolean(lead.moduleSync)}
+                            aria-label={syncedModule ? `${lead.customerName} đã đồng bộ module` : `Đồng bộ ${lead.customerName} sang module`}
+                            title={syncedModule ? `Đã chuyển sang ${syncedModule}` : "Đồng bộ sang module khác"}
+                            disabled={Boolean(syncedModule)}
                             onClick={() => setSyncLead(lead)}
                             className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-1 focus-visible:outline-primary disabled:opacity-40"
                           >
@@ -2097,11 +2069,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       <LeadDetailDrawer
         lead={leads.find(lead => lead.id === detailLead?.id) ?? detailLead}
         configuredFields={scopedProfile?.fields || []}
-        canViewCustomer={customerModuleEnabled && canViewCustomers}
-        onSaveCustomer={customerModuleEnabled && canSaveCustomer ? (lead, trigger) => {
-          customerDialogTrigger.current = trigger;
-          setCustomerLead(lead);
-        } : undefined}
         onClose={closeDetailLead}
         onUpdated={(updated) => {
           setLeads(current => current.map(item => (item.id === updated.id ? updated : item)));
@@ -2119,22 +2086,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           setDeleteTarget(lead);
         }}
       />
-
-      {customerLead && <LeadCustomerDialog key={customerLead.id}
-        lead={customerLead}
-        companyCode={companyCode}
-        onClose={() => { setCustomerLead(null); requestAnimationFrame(() => customerDialogTrigger.current?.focus()); }}
-        onSaved={customerId => {
-          setLeads(current => current.map(item => item.id === customerLead.id ? { ...item, customerId } : item));
-          setCustomerLead(null);
-          toast.success("Đã lưu Lead vào Khách hàng.");
-          requestAnimationFrame(() => {
-            const trigger = customerDialogTrigger.current;
-            if (trigger?.isConnected) trigger.focus();
-            else document.getElementById(`lead-customer-${customerLead.id}-${detailLead ? "drawer" : "row"}`)?.focus();
-          });
-        }}
-      />}
 
       {/* Sync Lead to Education / Healthcare / Workers Module */}
       {syncLead && (
