@@ -52,7 +52,7 @@ it("lists only payments in the authenticated branch when owners overlap", async 
     sort: () => ({ skip: () => ({ limit: async () => [] }) }),
   }));
 
-  await PaymentService.getPayments(ownerScope, {}, branchA);
+  await PaymentService.getPayments(ownerScope, { startDate: "2026-07-01", endDate: "2026-07-31" }, branchA);
 
   for (const rawQuery of [countDocuments.mock.calls[0]?.[0], find.mock.calls[0]?.[0]]) {
     const query = rawQuery as Record<string, unknown>;

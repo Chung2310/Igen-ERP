@@ -34,7 +34,8 @@ describe("PaymentDialog", () => {
     render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} onClose={vi.fn()} onSubmit={onSubmit} />);
     expect((screen.getByRole("textbox", { name: "Số tiền thu" }) as HTMLInputElement).value).toBe("200.000");
     expect(screen.queryByRole("button", { name: "Thanh toán đủ" })).toBeNull();
-    await userEvent.type(screen.getByLabelText("Hạn đối tác thanh toán"), "2026-09-30");
+    await userEvent.type(screen.getByLabelText("Hạn đối tác thanh toán"), "30/09/2026");
+    await userEvent.tab();
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([{ method: "cash", amount: 200_000, tenderedAmount: 200_000 }], "2026-09-30"));
   });
@@ -44,7 +45,8 @@ describe("PaymentDialog", () => {
     render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} onClose={vi.fn()} onSubmit={onSubmit} />);
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Phương thức thanh toán" }), "transfer");
     expect(screen.getByText("Khoản đối tác tài trợ")).toBeTruthy();
-    await userEvent.type(screen.getByLabelText("Hạn đối tác thanh toán"), "2026-09-30");
+    await userEvent.type(screen.getByLabelText("Hạn đối tác thanh toán"), "30/09/2026");
+    await userEvent.tab();
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([expect.objectContaining({ method: "transfer", amount: 200_000 })], "2026-09-30"));
   });
@@ -59,7 +61,8 @@ describe("PaymentDialog", () => {
     await userEvent.clear(screen.getByRole("textbox", { name: "Tiền khách đưa" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Tiền khách đưa" }), "200000");
     expect((screen.getByRole("textbox", { name: "Số tiền thu" }) as HTMLInputElement).value).toBe("200.000");
-    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "2026-09-30");
+    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "30/09/2026");
+    await userEvent.tab();
     expect(screen.getByText("Ngày khách hàng cần thanh toán phần công nợ còn lại.")).toBeTruthy();
     expect(screen.getByText("300.000 ₫")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
@@ -80,7 +83,8 @@ describe("PaymentDialog", () => {
     render(<PaymentDialog total={500_000} busy={false} customerId="c1" onClose={vi.fn()} onSubmit={onSubmit} />);
     await userEvent.click(screen.getByRole("button", { name: "Ghi nợ toàn bộ" }));
     expect(screen.queryByRole("textbox", { name: "Số tiền thu" })).toBeNull();
-    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "2026-09-30");
+    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "30/09/2026");
+    await userEvent.tab();
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([], "2026-09-30"));
   });

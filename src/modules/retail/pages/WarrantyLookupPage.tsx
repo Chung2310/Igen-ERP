@@ -250,6 +250,9 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
     <div className="space-y-5 w-full">
       {/* Main Search Hero Box */}
       <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs">
+        <h1 className="mb-3 text-balance text-lg font-semibold text-on-surface" data-typography="page-title">
+          Tra cứu bảo hành thiết bị
+        </h1>
         {/* Search Mode Tabs: IMEI/Serial vs SDT */}
         <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit text-xs font-semibold text-slate-600" role="tablist" aria-label="Phương thức tra cứu">
           <button

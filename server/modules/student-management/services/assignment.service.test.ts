@@ -136,6 +136,9 @@ test("AssignmentService implementation flows", async (t) => {
     if (modelName === "Submission" && op === "findOne") {
       return mockSubmission;
     }
+    if (modelName === "ResourceItem" && op === "updateMany") {
+      return { acknowledged: true, matchedCount: 0, modifiedCount: 0 };
+    }
     return null;
   };
 

@@ -14,10 +14,7 @@ it("scopes batch code and referenced courses to the authenticated branch", () =>
   const source = readFileSync(new URL("./batch.service.ts", import.meta.url), "utf8");
   assert.match(source, /Batch\.findOne\(\{\s*ownerId,\s*branchId:\s*actor\.branchId,\s*code:/);
   assert.match(source, /Course\.findOne\(\{\s*_id:\s*writeData\.courseId,\s*ownerId,\s*branchId:\s*actor\.branchId\s*\}\)/);
-  assert.match(
-    source,
-    /Batch\.findOne\(\{\s*ownerId:\s*batch\.ownerId,\s*branchId:\s*batch\.branchId,\s*code:/,
-  );
+  assert.match(source, /Không được đổi mã lớp sau khi tạo/);
   assert.match(
     source,
     /Course\.findOne\(\{\s*_id:\s*writeData\.courseId,\s*ownerId:\s*batch\.ownerId,\s*branchId:\s*batch\.branchId\s*\}\)/,
