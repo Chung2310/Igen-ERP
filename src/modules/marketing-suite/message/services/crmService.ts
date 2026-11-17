@@ -42,6 +42,9 @@ export interface ExtendedLeadCard extends LeadCard {
 export type CreateLeadInput = Omit<ExtendedLeadCard, "id" | "value"> & { value?: number };
 
 export type ConversationLead = Pick<ExtendedLeadCard, "collectionStatus" | "moduleSync" | "customerTransfer">;
+export type LeadBulkAction =
+  | { action: "update"; status?: ExtendedLeadCard["status"]; collectionStatus?: LeadCollectionStatus }
+  | { action: "delete" };
 
 export interface LeadPageResult {
   data: ExtendedLeadCard[];
@@ -72,6 +75,7 @@ export interface LeadPageQueryOptions {
 
 export interface ActiveLeadIntakeProfile {
   id: string;
+  applyToAllAccounts?: boolean;
   platform?: "facebook" | "zalo" | "tiktok";
   accountId?: string;
   version?: number;
@@ -80,10 +84,12 @@ export interface ActiveLeadIntakeProfile {
   completionMessage?: string;
   sourceDocumentIds?: string[];
   fields: LeadIntakeField[];
+  needGroups?: LeadNeedGroup[];
 }
 
 export interface LeadIntakeProfileVersion {
   _id?: string;
+  applyToAllAccounts?: boolean;
   platform?: "facebook" | "zalo" | "tiktok";
   accountId?: string;
   version: number;
@@ -97,7 +103,7 @@ export interface LeadIntakeProfileVersion {
 
 type CrmLeadRecord = ExtendedLeadCard & { _id?: string };
 
-type LeadIntakeProfileInput = Pick<LeadIntakeProfileVersion, "platform" | "accountId" | "goal" | "completionMessage" | "fields" | "sourceDocumentIds" | "needGroups">;
+type LeadIntakeProfileInput = Pick<LeadIntakeProfileVersion, "platform" | "accountId" | "applyToAllAccounts" | "goal" | "completionMessage" | "fields" | "sourceDocumentIds" | "needGroups">;
 
 function leadIntakeScopePayload(input: Pick<LeadIntakeProfileInput, "platform" | "accountId">) {
   return input.platform && input.accountId ? { platform: input.platform, pageId: input.accountId } : {};
@@ -146,6 +152,14 @@ export function subscribeCrmLeadChanges(refresh: () => Promise<void> | void, ini
 }
 
 export const crmService = {
+  async applyLeadBulkAction(ids: string[], action: LeadBulkAction) {
+    const { data } = await apiFetch<{ data: { affected: number; skipped: number } }>("/omni-inbox/leads/bulk", {
+      method: "POST", body: JSON.stringify({ ...action, ids }),
+    });
+    notifyLocalLeadChange();
+    return data;
+  },
+
   getLeads(): Promise<ExtendedLeadCard[]> {
     if (activeGetLeadsPromise) {
       return activeGetLeadsPromise;
@@ -280,6 +294,8 @@ export const crmService = {
         completionMessage: profile.completionMessage,
         sourceDocumentIds: profile.sourceDocumentIds,
         fields: profile.fields || [],
+        needGroups: profile.needGroups,
+        applyToAllAccounts: profile.applyToAllAccounts === true,
       });
     }
     return normalized;
@@ -330,6 +346,7 @@ export const crmService = {
         goal: input.goal,
         completionMessage: input.completionMessage,
         fields: input.fields,
+        ...(input.applyToAllAccounts ? { applyToAllAccounts: true } : {}),
         ...(input.needGroups ? { needGroups: input.needGroups } : {}),
         sourceDocumentIds: input.sourceDocumentIds,
       }),

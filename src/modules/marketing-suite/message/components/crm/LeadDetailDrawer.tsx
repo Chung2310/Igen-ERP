@@ -14,6 +14,7 @@ import { COLLECTION_STATUS_META, LEAD_STATUS_META, parseMultiSelectValue, PLATFO
 interface LeadDetailDrawerProps {
   lead: ExtendedLeadCard | null;
   configuredFields?: LeadIntakeField[];
+  sharedFields?: LeadIntakeField[];
   onClose: () => void;
   onUpdated: (updated: ExtendedLeadCard) => void;
   onOpenChat: (lead: ExtendedLeadCard) => void;
@@ -45,6 +46,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, ...res
 function LeadDetailDrawerPanel({
   lead,
   configuredFields = [],
+  sharedFields,
   onClose,
   onUpdated,
   onOpenChat,
@@ -88,7 +90,11 @@ function LeadDetailDrawerPanel({
 
   if (!lead) return null;
 
-  const fieldList = (lead.intakeFields && lead.intakeFields.length > 0) ? lead.intakeFields : configuredFields;
+  const snapshotFields = lead.intakeFields || [];
+  const sharedKeys = new Set(sharedFields?.map(field => field.key));
+  const fieldList = sharedFields
+    ? [...sharedFields, ...snapshotFields.filter(field => !sharedKeys.has(field.key))]
+    : snapshotFields.length > 0 ? snapshotFields : configuredFields;
   const fieldKeySet = new Set(fieldList.map(field => field.key));
   const extraAnswerKeys = Object.keys(answers).filter(key => !key.startsWith("__") && !fieldKeySet.has(key) && Boolean(answers[key]?.trim()));
 

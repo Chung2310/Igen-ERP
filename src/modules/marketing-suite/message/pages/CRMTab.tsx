@@ -1616,6 +1616,7 @@ export default function CRMTab() {
               onSelectAccountScope={handleSelectLeadAccountScope}
               refreshToken={leadSheetRefreshToken}
               canReconcileContracts={hasPermission("omni-inbox:manage")}
+              canManageLeads={hasPermission("omni-inbox:manage")}
             />
           )}
 

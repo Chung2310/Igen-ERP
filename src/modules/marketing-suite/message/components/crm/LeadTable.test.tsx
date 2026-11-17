@@ -6,7 +6,12 @@ import { LeadTable } from "./LeadTable";
 import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
 import { CreateLeadModal } from "./CreateLeadModal";
 import { crmService, type ActiveLeadIntakeProfile, type ExtendedLeadCard } from "../../services/crmService";
-import { DEFAULT_HIDDEN_SYSTEM_COLUMNS, saveSheetLayout, type LeadAccountOption } from "./leadSheetUtils";
+import { DEFAULT_HIDDEN_SYSTEM_COLUMNS, downloadLeadsExcel, saveSheetLayout, type LeadAccountOption } from "./leadSheetUtils";
+
+vi.mock("./leadSheetUtils", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./leadSheetUtils")>(),
+  downloadLeadsExcel: vi.fn(),
+}));
 
 vi.mock("../../../../../pages/Toast", () => ({
   toast: {
@@ -21,6 +26,7 @@ vi.mock("../../services/crmService", () => ({
     getActiveLeadIntakeProfiles: vi.fn(),
     getLeadPage: vi.fn(),
     getAllLeadRows: vi.fn(),
+    applyLeadBulkAction: vi.fn(),
     updateLead: vi.fn(),
     createLead: vi.fn(),
     getLeadIntakeProfilesForAccount: vi.fn(),
@@ -107,6 +113,66 @@ afterEach(() => {
 });
 
 describe("LeadTable", () => {
+  it("updates only the selected page in one batch", async () => {
+    vi.mocked(crmService.getLeadPage).mockResolvedValue({
+      data: [sampleLead, { ...sampleLead, id: "lead-2", customerName: "Khách thứ hai" }],
+      total: 28, page: 1, limit: 25, totalPages: 2,
+    });
+    vi.mocked(crmService.applyLeadBulkAction).mockResolvedValue({ affected: 2, skipped: 0 });
+    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()}
+      deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main"
+      canManageLeads />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: `Chọn ${sampleLead.customerName}, dòng 1` }));
+    const selectPage = screen.getByRole("checkbox", { name: "Chọn tất cả Lead trên trang này" });
+    expect(selectPage).toHaveProperty("indeterminate", true);
+    fireEvent.click(selectPage);
+    expect(selectPage).toHaveProperty("checked", true);
+    const actions = within(screen.getByRole("group", { name: "Thao tác hàng loạt Lead" }));
+    expect(actions.getByText("Đã chọn 2 Lead")).toBeTruthy();
+    fireEvent.click(actions.getByRole("button", { name: "Trạng thái chốt hàng loạt" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: "Đã chốt" }));
+    fireEvent.click(actions.getByRole("button", { name: "Áp dụng" }));
+
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Thao tác hàng loạt Lead" })).toBeNull());
+    expect(crmService.applyLeadBulkAction).toHaveBeenCalledExactlyOnceWith(["lead-1", "lead-2"], {
+      action: "update", status: "won",
+    });
+    expect(crmService.updateLead).not.toHaveBeenCalled();
+  });
+
+  it("confirms the selected IDs before deleting leads", async () => {
+    vi.mocked(crmService.applyLeadBulkAction).mockResolvedValue({ affected: 1, skipped: 0 });
+    render(<LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()}
+      deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main"
+      canManageLeads />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: `Chọn ${sampleLead.customerName}, dòng 1` }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa đã chọn" }));
+    expect(crmService.applyLeadBulkAction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Xóa các Lead đã chọn" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(crmService.applyLeadBulkAction).toHaveBeenCalledExactlyOnceWith(["lead-1"], { action: "delete" });
+  });
+
+  it("lets readers export just the selected rows and clears selection when search changes", async () => {
+    const props = {
+      setSearchQuery: vi.fn(), onCreateLead: vi.fn(), deleteLead: vi.fn(), handleGoToChat: vi.fn(),
+      activeChannel: "all" as const, companyCode: "SPA01", branchId: "main",
+    };
+    const { rerender } = render(<LeadTable {...props} searchQuery="" />);
+    fireEvent.click(await screen.findByRole("checkbox", { name: `Chọn ${sampleLead.customerName}, dòng 1` }));
+    const actions = within(screen.getByRole("group", { name: "Thao tác hàng loạt Lead" }));
+    expect(actions.queryByRole("button", { name: "Áp dụng" })).toBeNull();
+    expect(actions.queryByRole("button", { name: "Xóa đã chọn" })).toBeNull();
+    fireEvent.click(actions.getByRole("button", { name: "Xuất Excel đã chọn" }));
+    await waitFor(() => expect(downloadLeadsExcel).toHaveBeenCalledExactlyOnceWith([sampleLead], expect.any(Array)));
+    expect(crmService.getAllLeadRows).not.toHaveBeenCalled();
+
+    rerender(<LeadTable {...props} searchQuery="Khách khác" />);
+    expect(screen.queryByRole("group", { name: "Thao tác hàng loạt Lead" })).toBeNull();
+  });
+
   it("keeps direct module sync available while protecting leads already transferred to a native module", async () => {
     vi.mocked(crmService.getLeadPage).mockResolvedValue({
       data: [sampleLead, {
@@ -199,6 +265,44 @@ describe("LeadTable", () => {
         expect.objectContaining({ key: "so_dien_thoai", type: "phone", required: false }),
         expect.objectContaining({ key: "nhu_cau", required: true })],
     })));
+  });
+
+  it("publishes the fields already configured on a Page as one company profile", async () => {
+    const onSaved = vi.fn();
+    render(<LeadIntakeBuilderModal isOpen accounts={accounts} initialAccountKey="facebook:page_spa_01"
+      onClose={vi.fn()} onSaved={onSaved} />);
+    const dialog = within(screen.getByRole("dialog", { name: "Thiết lập thu thập Lead" }));
+    await dialog.findByDisplayValue("Dịch vụ quan tâm");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Dùng bộ trường này cho mọi Page/OA" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Lưu & áp dụng" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledExactlyOnceWith(null, true));
+    expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      applyToAllAccounts: true, fields: activeProfiles[0].fields,
+    }));
+    expect(vi.mocked(crmService.saveAndActivateLeadIntakeProfile).mock.calls[0][0]).not.toHaveProperty("platform");
+  });
+
+  it("shows the same shared columns on all worksheets, including existing leads without those fields", async () => {
+    vi.mocked(crmService.getActiveLeadIntakeProfiles).mockResolvedValue([...activeProfiles, {
+      id: "company", applyToAllAccounts: true,
+      fields: [{ key: "ma_khach", label: "Mã khách chung", question: "Mã khách của mình?", type: "text" }],
+    }]);
+    const props = {
+      searchQuery: "", setSearchQuery: vi.fn(), onCreateLead: vi.fn(), deleteLead: vi.fn(), handleGoToChat: vi.fn(),
+      companyCode: "SPA01", branchId: "main", accounts,
+    };
+    const { rerender } = render(<LeadTable {...props} activeChannel="all" />);
+
+    expect(await screen.findByRole("button", { name: "Mã khách chung" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Dịch vụ quan tâm" })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Chi tiết Nguyễn Minh Anh" }));
+    expect(screen.getByLabelText("Mã khách chung")).toBeTruthy();
+    expect(screen.getByLabelText("Dịch vụ quan tâm")).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("dialog")).getByText("Đóng"));
+    rerender(<LeadTable {...props} activeChannel="facebook" accountId="page_spa_01" />);
+    expect(screen.getByRole("button", { name: "Mã khách chung" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Dịch vụ quan tâm" })).toBeNull();
   });
 
   it("adds AI suggestions without replacing existing Lead columns", async () => {

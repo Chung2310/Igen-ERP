@@ -355,6 +355,44 @@ suiteDataRouter.post("/omni-inbox/leads/export-google-sheets", requirePermission
   return res.json({ status: "success", data: { queued, skipped: ids.length - queued } });
 }));
 
+suiteDataRouter.post("/omni-inbox/leads/bulk", requirePermission("omni-inbox:manage"), run(async (req, res) => {
+  const data = payload(req.body);
+  const rawIds = data.ids;
+  if (!Array.isArray(rawIds) || rawIds.length < 1 || rawIds.length > 100
+    || rawIds.some(id => typeof id !== "string" || !mongoose.isValidObjectId(id))) {
+    return res.status(400).json({ status: "error", message: "Chọn từ 1 đến 100 Lead hợp lệ." });
+  }
+
+  const ids = [...new Set((rawIds as string[]).map(id => id.toLowerCase()))];
+  const companyCode = req.user!.companyCode;
+  const scope = { companyCode, _id: { $in: ids } };
+  let affected = 0;
+  if (data.action === "delete") {
+    affected = (await CRMTicketModel.deleteMany(scope)).deletedCount;
+  } else if (data.action === "update") {
+    const { status, collectionStatus } = data;
+    if ((status === undefined && collectionStatus === undefined)
+      || (status !== undefined && (typeof status !== "string" || !leadStatusValues.has(status)))
+      || (collectionStatus !== undefined && (typeof collectionStatus !== "string" || !intakeStatusValues.has(collectionStatus)))) {
+      return res.status(400).json({ status: "error", message: "Chọn trạng thái Lead hoặc tình trạng Bot hợp lệ." });
+    }
+    const fields = {
+      ...(typeof status === "string" ? { status } : {}),
+      ...(typeof collectionStatus === "string" ? { collectionStatus } : {}),
+    };
+    const shouldChange = Object.entries(fields).map(([key, value]) => ({ [key]: { $ne: value } }));
+    affected = (await CRMTicketModel.updateMany({ ...scope, $or: shouldChange }, {
+      $set: { ...fields, lastInteractionAt: new Date() },
+      $inc: { intakeRevision: 1 },
+    }, { runValidators: true })).modifiedCount;
+  } else {
+    return res.status(400).json({ status: "error", message: "Thao tác hàng loạt không hợp lệ." });
+  }
+
+  if (affected) broadcastEvent("crm_leads_changed", { companyCode });
+  return res.json({ status: "success", data: { affected, skipped: ids.length - affected } });
+}));
+
 suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
   const data = payload(req.body);
   const customerName = typeof data.customerName === "string" ? data.customerName.trim().slice(0, 200) : "";
