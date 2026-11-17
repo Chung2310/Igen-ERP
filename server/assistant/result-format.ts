@@ -1008,6 +1008,25 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const countValue = (value: unknown) => Number.isSafeInteger(Number(value)) && Number(value) >= 0
     ? new Intl.NumberFormat("vi-VN").format(Number(value))
     : "0";
+  if (operation.id === "hr.contract.missing.list") {
+    const employees = Array.isArray(dataResult.withoutContractEmployees) ? dataResult.withoutContractEmployees : [];
+    const total = Number.isSafeInteger(Number(dataResult.withoutContractCount)) && Number(dataResult.withoutContractCount) >= 0
+      ? Number(dataResult.withoutContractCount)
+      : employees.length;
+    if (total === 0) return `${operation.title}\nKhông có nhân sự nào đang thiếu hợp đồng hiệu lực trong phạm vi hiện tại.`;
+    const rows = employees.slice(0, 8).flatMap((value: unknown) => {
+      const employee = recordOf(value);
+      return typeof employee?.name === "string" && employee.name.trim()
+        ? [{ "Nhân sự": employee.name.trim().slice(0, 160) }]
+        : [];
+    });
+    if (!rows.length) return `${operation.title}\nCó ${countValue(total)} nhân sự chưa có hợp đồng hiệu lực trong phạm vi hiện tại.`;
+    return formatAssistantResultTable(
+      `Mình tìm thấy ${countValue(total)} nhân sự chưa có hợp đồng hiệu lực.`,
+      rows,
+      total > rows.length ? [`Còn ${countValue(total - rows.length)} nhân sự chưa hiển thị.`] : [],
+    );
+  }
   if (["student.bulk.preview", "student.bulk.create"].includes(operation.id)) {
     const errors = Array.isArray(dataResult.errors) ? dataResult.errors : [];
     const importedCount = Number.isSafeInteger(Number(dataResult.importedCount)) ? Math.max(0, Number(dataResult.importedCount)) : 0;

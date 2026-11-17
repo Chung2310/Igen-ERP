@@ -3006,6 +3006,13 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
+  if (op.id === "hr.contract.missing.list") {
+    const employees = Array.isArray(responseData?.withoutContractEmployees) ? responseData.withoutContractEmployees : [];
+    const names = employees.flatMap((employee: any) => typeof employee?.name === "string" && employee.name.trim()
+      ? [{ name: employee.name.trim().slice(0, 160) }]
+      : []);
+    return [{ withoutContractCount: employees.length, withoutContractEmployees: names }];
+  }
   if (["student.batch.progress-colors.list", "student.batch.progress-colors.update"].includes(op.id)) {
     const colors: AssistantRecord = {};
     for (const key of ["green", "yellow", "red", "black"]) if (typeof responseData?.[key] === "string") colors[key] = responseData[key];

@@ -1356,12 +1356,26 @@ operations.push({
   resultFields: ["range", "invoiceCount", "issuedCount", "voidCount", "issuedAmount", "voidAmount", "paidAmount", "dueAmount"],
 });
 
+const hrContractLookup = operations.find(op => op.id === "api.get.0c557a74cbc907f9");
+if (hrContractLookup) operations.push({
+  ...hrContractLookup,
+  id: "hr.contract.missing.list",
+  title: "Báo cáo nhân sự chưa có hợp đồng hiệu lực",
+  description: "Liệt kê nhân sự trong phạm vi công ty hoặc chi nhánh hiện tại chưa có hợp đồng đang hiệu lực. Báo cáo này không xác minh hồ sơ có thiếu chữ ký, tệp đính kèm hay trường dữ liệu hay không.",
+  fields: [],
+  resultFields: ["withoutContractCount", "withoutContractEmployees"],
+  resultChildFields: { withoutContractEmployees: ["name"] },
+  readOnly: true,
+});
+
 operations.push(...HEALTHCARE_OPERATIONS);
 operations.push(...QUOTATION_OPERATIONS);
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
-  const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : ["retail.report.summary", "retail.invoice.summary"].includes(op.id)
+  const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : op.id === "hr.contract.missing.list"
+    ? "Báo cáo số nhân sự chưa có hợp đồng đang hiệu lực và liệt kê tên trong phạm vi API trả về. Không diễn giải kết quả thành thiếu chữ ký, tệp hoặc trường thông tin hợp đồng vì nguồn dữ liệu không kiểm tra các mục đó. Chỉ dùng các trường kết quả đã được cho phép."
+    : ["retail.report.summary", "retail.invoice.summary"].includes(op.id)
     ? "Nếu đã gắn chi nhánh, dùng chi nhánh đó; nếu là quản trị viên chưa gắn chi nhánh, hỏi người dùng chọn chi nhánh theo tên trước khi tổng hợp. Không tự đoán khoảng ngày: mặc định hôm nay; khi người dùng nói 7 ngày hoặc 30 ngày gần đây, chọn preset tương ứng; nếu nêu ngày bắt đầu/kết thúc thì điền from và to, không đồng thời dùng preset. Chỉ trình bày số liệu tổng hợp cần thiết bằng tiếng Việt, không hiển thị JSON hoặc mã nội bộ."
     : op.id === "customer.create" || (op.method === "PATCH" && op.path === "/customers/:id")
     ? "Điền thông tin khách hàng vào trường tương ứng khi có. Thông tin khách tự cung cấp không có trường riêng như ngân sách, nhu cầu, sở thích hoặc thời gian liên hệ phải được giữ trong notes (Ghi chú), mỗi dữ kiện một dòng có nhãn rõ ràng. Không bỏ thông tin bổ sung, không suy đoán và không đưa chỉ dẫn thao tác, thông tin hệ thống hoặc dữ liệu đăng nhập vào ghi chú. Khi bổ sung ghi chú, giữ những dữ kiện đã thu thập trong yêu cầu đang xử lý; hệ thống sẽ nối ghi chú mới vào hồ sơ đã có."
