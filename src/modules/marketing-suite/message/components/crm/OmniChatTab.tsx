@@ -4,7 +4,7 @@ import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, Chevro
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../../shared/types/index";
 import { toast } from "../../../../../pages/Toast";
 import { geminiApi } from "../../../shared/api/gemini";
-import { ExtendedLeadCard } from "../../services/crmService";
+import type { ConversationLead } from "../../services/crmService";
 import { AiAssistantConfigPanel } from "./AiAssistantConfigPanel";
 import { resolveAiReplyScope } from "../../../shared/utils/aiReplyScope";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
@@ -24,7 +24,7 @@ type OmniChatTabProps = {
   handleSelectCustomer: (cust: CustomerInbox) => void;
   handleSendChatMessage: (e: React.FormEvent) => void;
   handleLoadOlderMessages: () => void;
-  leads: ExtendedLeadCard[];
+  linkedLead: ConversationLead | null;
   onCreateLeadFromChat: (customer: CustomerInbox) => void;
   facebookPages: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }>;
   selectedFacebookPageId: string;
@@ -57,7 +57,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   handleSelectCustomer,
   handleSendChatMessage,
   handleLoadOlderMessages,
-  leads,
+  linkedLead,
   onCreateLeadFromChat,
   facebookPages,
   selectedFacebookPageId,
@@ -876,55 +876,44 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           <>
             {/* Active Customer Info Top Header */}
             <div className="p-4 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
-              {(() => {
-                const linkedLead = leads.find(l => l.sourceConversationId === activeCustomer.id
-                  && l.sourcePlatform === (activeCustomer.channel || "facebook")
-                  && l.sourceAccountId === activeCustomer.accountId)
-                  || (() => {
-                    const sameName = leads.filter(lead => lead.customerName.toLowerCase() === activeCustomer.name.toLowerCase());
-                    return sameName.length === 1 ? sameName[0] : undefined;
-                  })();
-                return (
-                  <div className="flex items-center gap-3 text-left">
-                    <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
-                      {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-extrabold text-slate-800 text-sm font-sans">
-                          {activeCustomer.name}
-                        </h4>
-                        {activeCustomer.isVip && (
-                          <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
-                        )}
+              <div className="flex items-center gap-3 text-left">
+                <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
+                  {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
+                </span>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-slate-800 text-sm font-sans">
+                      {activeCustomer.name}
+                    </h4>
+                    {activeCustomer.isVip && (
+                      <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
+                    )}
 
-                        {/* Lead status reflects data collection, not a sales stage. */}
-                        {linkedLead ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface-variant">
-                              Lead · {linkedLead.collectionStatus === "complete" ? "Đủ thông tin" : linkedLead.collectionStatus === "needs_human" ? "Chờ nhân viên" : "Đang thu thập"}
-                            </span>
-                            {linkedLead.customerTransfer?.completedAt ? <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
-                              Đã chuyển · {leadCustomerDestinationLabels[linkedLead.customerTransfer.destination]}
-                            </span> : linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
-                              Đã chuyển vào {linkedLead.moduleSync.targetModule === "students" ? "Học viên" : linkedLead.moduleSync.targetModule === "healthcare" ? "Y tế" : "Lao động"}
-                            </span>}
-                          </div>
-                        ) : (
-                          <button type="button" onClick={() => onCreateLeadFromChat(activeCustomer)}
-                            className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary">
-                            <Plus aria-hidden="true" className="mr-1 inline size-3" />Tạo Lead
-                          </button>
-                        )}
+                    {/* Lead status reflects data collection, not a sales stage. */}
+                    {linkedLead ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface-variant">
+                          Lead · {linkedLead.collectionStatus === "complete" ? "Đủ thông tin" : linkedLead.collectionStatus === "needs_human" ? "Chờ nhân viên" : "Đang thu thập"}
+                        </span>
+                        {linkedLead.customerTransfer?.completedAt ? <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                          Đã chuyển · {leadCustomerDestinationLabels[linkedLead.customerTransfer.destination]}
+                        </span> : linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                          Đã chuyển vào {linkedLead.moduleSync.targetModule === "students" ? "Học viên" : linkedLead.moduleSync.targetModule === "healthcare" ? "Y tế" : "Lao động"}
+                        </span>}
                       </div>
-                      <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : activeCustomer.channel === "tiktok" ? "bg-black animate-pulse" : "bg-blue-500"}`} />
-                        {activeCustomer.channel === "zalo" ? "Khách Zalo " : activeCustomer.channel === "tiktok" ? "Khách TikTok " : "Khách Facebook  "}
-                      </p>
-                    </div>
+                    ) : (
+                      <button type="button" onClick={() => onCreateLeadFromChat(activeCustomer)}
+                        className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary">
+                        <Plus aria-hidden="true" className="mr-1 inline size-3" />Tạo Lead
+                      </button>
+                    )}
                   </div>
-                );
-              })()}
+                  <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : activeCustomer.channel === "tiktok" ? "bg-black animate-pulse" : "bg-blue-500"}`} />
+                    {activeCustomer.channel === "zalo" ? "Khách Zalo " : activeCustomer.channel === "tiktok" ? "Khách TikTok " : "Khách Facebook  "}
+                  </p>
+                </div>
+              </div>
 
               {/* Header Actions: Collapsible config and channel badge */}
               <div className="flex items-center gap-2">

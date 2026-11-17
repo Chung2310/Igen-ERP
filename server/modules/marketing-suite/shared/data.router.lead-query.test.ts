@@ -10,16 +10,18 @@ const state = vi.hoisted(() => ({
   permissions: ["omni-inbox:read"],
   rows: [] as Array<Record<string, unknown>>,
   create: vi.fn(),
+  findOne: vi.fn(),
 }));
 
 vi.mock("../../../middleware/auth", () => ({
-  requirePermission: (permission: string) => (_req: Request, res: Response, next: NextFunction) =>
-    state.permissions.includes(permission) ? next() : res.status(403).json({ status: "error" }),
+  requirePermission: (permission: string | string[]) => (_req: Request, res: Response, next: NextFunction) =>
+    [permission].flat().some(value => state.permissions.includes(value)) ? next() : res.status(403).json({ status: "error" }),
 }));
 
 vi.mock("../message/model/crm-ticket.model", () => ({
   CRMTicketModel: {
     create: state.create,
+    findOne: state.findOne,
     find: (filter: Record<string, unknown>) => {
       state.findFilter = filter;
       return {
@@ -41,9 +43,9 @@ vi.mock("../message/model/crm-ticket.model", () => ({
 
 type RuntimeRoute = IRoute & { methods: Record<string, boolean> };
 
-function requestLeads(method: "get" | "post", query: Record<string, string>, body: Record<string, unknown> = {}) {
+function requestLeads(method: "get" | "post", query: Record<string, string>, body: Record<string, unknown> = {}, path = "/omni-inbox/leads") {
   const route = suiteDataRouter.stack.find(
-    layer => layer.route?.path === "/omni-inbox/leads" && (layer.route as RuntimeRoute).methods[method],
+    layer => layer.route?.path === path && (layer.route as RuntimeRoute).methods[method],
   )!.route;
 
   return new Promise<{ status: number; body: unknown }>((resolve, reject) => {
@@ -80,6 +82,24 @@ function requestLeads(method: "get" | "post", query: Record<string, string>, bod
 }
 
 const queryLeads = (query: Record<string, string>) => requestLeads("get", query);
+
+it("reads only the linked Lead summary for the current company, account and conversation", async () => {
+  state.permissions = ["omni-inbox:read"];
+  const companyAccount = vi.spyOn(SocialIntegrationModel, "exists").mockResolvedValue(null);
+  const personalAccount = vi.spyOn(UserModel, "exists").mockResolvedValue(null);
+  const select = vi.fn(() => ({ lean: async () => ({ collectionStatus: "complete" }) }));
+  state.findOne.mockReturnValueOnce({ select });
+  try {
+    const result = await requestLeads("get", { channel: "zalo", accountId: "OA", conversationId: "CONV" }, {}, "/omni-inbox/leads/by-conversation");
+    expect(result).toEqual({ status: 200, body: { status: "success", data: { collectionStatus: "complete" } } });
+    expect(state.findOne).toHaveBeenCalledWith({ companyCode: "SPA01", sourcePlatform: "zalo", sourceAccountId: "OA", sourceConversationId: "CONV" });
+    expect(select).toHaveBeenCalledWith("collectionStatus moduleSync.targetModule customerTransfer.completedAt customerTransfer.destination");
+  } finally {
+    companyAccount.mockRestore();
+    personalAccount.mockRestore();
+    state.findOne.mockReset();
+  }
+});
 
 it("creates a manual Lead in an owned account worksheet without a conversation", async () => {
   const owned = vi.spyOn(SocialIntegrationModel, "exists").mockResolvedValue({ _id: "oa" } as never);

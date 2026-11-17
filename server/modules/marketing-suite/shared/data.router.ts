@@ -21,6 +21,7 @@ import { createMarketingContentDraft, deleteMarketingContentDraft, updateMarketi
 import { queueLeadSheet } from "../message/service/lead-sheet.service";
 import { PageChatFlowStateModel } from "../message/model/page-chat-flow.model";
 import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/service/lead-intake.service";
+import { broadcastEvent } from "./socket";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
 type AsyncHandler = (req: AuthenticatedRequest, res: Response) => Promise<unknown>;
@@ -275,6 +276,21 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
   return res.json({ status: "success", data: items.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
 }));
 
+suiteDataRouter.get("/omni-inbox/leads/by-conversation", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
+  const { channel, accountId, conversationId } = req.query;
+  if ((channel !== "facebook" && channel !== "zalo" && channel !== "tiktok") || typeof accountId !== "string" || typeof conversationId !== "string"
+    || !accountId.trim() || !conversationId.trim() || accountId.length > 200 || conversationId.length > 200) {
+    return res.status(400).json({ status: "error", message: "Hội thoại hoặc tài khoản không hợp lệ." });
+  }
+  const platform = channel === "facebook" ? "Facebook" : channel === "zalo" ? "Zalo" : "TikTok";
+  const companyCode = req.user!.companyCode;
+  await assertMarketingAccountOwnership(companyCode, platform, accountId.trim());
+  const lead = await CRMTicketModel.findOne({
+    companyCode, sourcePlatform: channel, sourceAccountId: accountId.trim(), sourceConversationId: conversationId.trim(),
+  }).select("collectionStatus moduleSync.targetModule customerTransfer.completedAt customerTransfer.destination").lean();
+  return res.json({ status: "success", data: lead });
+}));
+
 suiteDataRouter.get("/omni-inbox/leads/:id/telecom-invoices", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
   const companyCode = req.user!.companyCode;
@@ -392,6 +408,7 @@ suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
   }
   try {
     const item = await CRMTicketModel.create(input);
+    broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
     return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), false) });
   } catch (error) {
     if (!input.sourceConversationId || (error as { code?: number }).code !== 11000) throw error;
@@ -495,6 +512,7 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
     }
   }
 
+  broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
   return res.json({ status: "success", data: publicRecord(item, false) });
 }));
 
@@ -521,12 +539,14 @@ suiteDataRouter.post("/omni-inbox/leads/:id/module-sync", requirePermission("omn
   const moduleSync = { targetModule, targetRecordId, syncedAt: new Date(), syncedBy: req.user!.id };
   const item = await CRMTicketModel.findOneAndUpdate({ ...scope, moduleSync: { $exists: false } }, { $set: { moduleSync } }, { new: true }).lean();
   if (!item) return res.status(409).json({ status: "error", message: "Lead vừa được đồng bộ bởi người khác. Tải lại để kiểm tra." });
+  broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
   return res.json({ status: "success", data: item.moduleSync });
 }));
 
 suiteDataRouter.delete("/omni-inbox/leads/:id", run(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
   const item = await CRMTicketModel.findOneAndDelete({ _id: req.params.id, companyCode: req.user!.companyCode });
+  if (item) broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
   return item ? res.json({ status: "success", message: "Đã xóa Lead." }) : res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
 }));
 

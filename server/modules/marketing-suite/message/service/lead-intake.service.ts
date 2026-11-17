@@ -3,6 +3,7 @@ import { CRMTicketModel } from "../model/crm-ticket.model";
 import type { ILeadIntakeFieldSnapshot } from "../interface/crm-ticket.interface";
 import type { LeadCollectionStatus, LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-suite/lead-intake";
 import { parseIntakeNumber } from "./intake-number";
+import { broadcastEvent } from "../../shared/socket";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
 
@@ -190,7 +191,10 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
         },
         { upsert: !current, new: true, runValidators: true },
       ).lean();
-      if (result) return result;
+      if (result) {
+        broadcastEvent("crm_leads_changed", { companyCode: identity.companyCode });
+        return result;
+      }
     } catch (error) {
       // Another worker or a staff edit may have created or advanced this Lead.
       if ((error as { code?: number }).code !== 11000) throw error;
