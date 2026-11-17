@@ -18,6 +18,7 @@ import { employeeDocumentResourceService } from "../service/employee-document-re
 import { resourceIndexingService } from "../service/resource-indexing.service";
 import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 import { toAttendanceRosterProfile } from "../utils/attendance-roster";
+import { matchesDepartmentName } from "../utils/department-name";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -517,9 +518,13 @@ export const authController = {
       }
       const filter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers, String(req.query.search || ""));
       const users = await authService.getUsers(filter);
+      const departmentQuery = String(req.query.department || "").trim();
+      const departmentUsers = departmentQuery
+        ? users.filter(user => matchesDepartmentName(user.department, departmentQuery))
+        : users;
       const permissions = await getEffectivePermissions(req.user?.id || "", req.user?.role || "user", companyCode);
       const canViewFullRoster = hasAnyPermission(permissions, ["access:read", "hr:read"]);
-      const data = canViewFullRoster ? users : users.map(toAttendanceRosterProfile);
+      const data = canViewFullRoster ? departmentUsers : departmentUsers.map(toAttendanceRosterProfile);
 
       return res.status(200).json({
         status: "success",
@@ -532,6 +537,38 @@ export const authController = {
         message: "Không thể lấy danh sách nhân sự",
         details: error.message,
       });
+    }
+  },
+
+  async countUsers(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.role === "superadmin"
+        ? String(req.query.companyCode || "").trim()
+        : String(req.user?.companyCode || "").trim();
+      if (!companyCode) return res.status(400).json({ status: "error", message: "Vui lòng chọn doanh nghiệp để thống kê nhân sự." });
+
+      const requestedBranchId = String(req.user?.branchId || req.query.branchId || "").trim();
+      let branch: { code?: string; name?: string } | null = null;
+      let includeUnassignedBranchUsers = false;
+      if (requestedBranchId) {
+        const foundBranch = await BranchModel.findOne({ _id: requestedBranchId, companyCode }).select("_id code name").lean();
+        if (!foundBranch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty." });
+        branch = foundBranch;
+        includeUnassignedBranchUsers = String(foundBranch.code || "").toUpperCase() === "MAIN";
+      }
+
+      const count = await UserModel.countDocuments(buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers));
+      return res.status(200).json({
+        status: "success",
+        data: {
+          count,
+          ...(branch?.name ? { branchName: branch.name } : {}),
+          ...(branch?.code ? { branchCode: branch.code } : {}),
+        },
+      });
+    } catch (error: any) {
+      console.error("[authController.countUsers] Error:", error);
+      return res.status(500).json({ status: "error", message: "Không thể thống kê số lượng nhân sự." });
     }
   },
 

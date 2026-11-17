@@ -72,7 +72,7 @@ export default function ArchitectAssistantHome({
   onOpenProjects: () => void;
 }) {
   return <div className="architect-assistant-source min-h-full overflow-auto bg-surface">
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/40 bg-white/60 px-4 py-3 shadow-sm shadow-slate-900/5 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-outline-variant/40 bg-surface-container-lowest/80 px-4 py-3 shadow-sm backdrop-blur-xl sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <img src={logo} alt="iGen" className="h-10 shrink-0 object-contain sm:h-12" referrerPolicy="no-referrer" />
         <span className="truncate text-sm font-semibold text-on-surface">- Trợ lý AI cho Kiến trúc sư</span>

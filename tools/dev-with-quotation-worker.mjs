@@ -6,7 +6,9 @@ const require = createRequire(import.meta.url);
 const tsxCli = require.resolve("tsx/cli");
 const env = {
   ...process.env,
+  NODE_ENV: "development",
   QUOTATION_WORKERS_ENABLED: "true",
+  QUOTATION_QUEUE_MODE: "local",
   QUOTATION_QUEUE_PREFIX: process.env.QUOTATION_QUEUE_PREFIX?.trim() || "igen-local-quotation",
 };
 const commands = [

@@ -48,5 +48,6 @@
   { "method": "POST", "path": "/healthcare/imports/:id/commit", "operationId": "healthcare.import.commit" },
   { "method": "POST", "path": "/healthcare/imports/:id/retry", "operationId": "healthcare.import.retry" },
   { "method": "POST", "path": "/healthcare/imports/preview/:kind", "operationId": "healthcare.import.preview" },
-  { "method": "GET", "path": "/healthcare/imports/template/:kind", "operationId": "healthcare.import.template" }
+  { "method": "GET", "path": "/healthcare/imports/template/:kind", "operationId": "healthcare.import.template" },
+  { "method": "PATCH", "path": "/timekeeping/records/adjust", "operationId": "timekeeping.record.update", "file": "server/router/timekeeping.router.ts", "line": 147 }
 ]

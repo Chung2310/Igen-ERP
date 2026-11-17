@@ -36,13 +36,13 @@ Import giá dùng chung validation và transaction; SKU đã xóa bị chặn tr
 
 ## Worker và xuất tài liệu
 
-API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION_QUEUE_PREFIX`. Prefix phải riêng cho từng môi trường. MongoDB cần hỗ trợ transaction cho ledger AI ERP hiện có (replica set khi chạy cục bộ). Worker chạy cùng tiến trình API khi `QUOTATION_WORKERS_ENABLED=true`; Docker Compose bật cờ này trong container `igen-erp`, không tạo container riêng.
+API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION_QUEUE_PREFIX`. Prefix phải riêng cho từng môi trường. MongoDB cần hỗ trợ transaction cho ledger AI ERP hiện có (replica set khi chạy cục bộ). Worker chạy cùng tiến trình API khi `QUOTATION_WORKERS_ENABLED=true`; Docker Compose bật cờ này trong container `igen-erp`, không tạo container riêng. Khi chạy `yarn dev`, worker dùng hàng đợi local lưu trong MongoDB nên không cần Redis.
 
 ```sh
 npm run dev
 ```
 
-Production và Docker: cấu hình `QUOTATION_QUEUE_PREFIX` riêng cho môi trường trong `.env`; Compose tự dùng `${CONTAINER_NAME}-quotation` nếu thiếu. `docker compose up -d igen-erp` chạy API và worker trong cùng container. Nếu chạy ngoài Docker, đặt `QUOTATION_WORKERS_ENABLED=true` cho tiến trình API. Các biến còn lại được mô tả trong `.env.example`.
+`yarn dev` tự bật worker và đặt `QUOTATION_QUEUE_MODE=local`; job được lưu trong MongoDB rồi worker trong API xử lý, không khởi tạo BullMQ/Redis. Chế độ này chỉ hoạt động ngoài production. Production và Docker tiếp tục dùng BullMQ/Redis: cấu hình `QUOTATION_QUEUE_PREFIX` riêng cho môi trường trong `.env`; Compose tự dùng `${CONTAINER_NAME}-quotation` nếu thiếu. `docker compose up -d igen-erp` chạy API và worker trong cùng container. Nếu chạy ngoài Docker, đặt `QUOTATION_WORKERS_ENABLED=true` cho tiến trình API. Các biến còn lại được mô tả trong `.env.example`.
 
 `QUOTATION_DOCUMENT_EDIT_MODE=direct` giữ cơ chế OpenRouter sửa file trực tiếp của QUOS mới. `mapping` giữ đường dựng file cục bộ của ERP khi cần kiểm thử hoặc vận hành. Toàn bộ luồng AI Báo giá dùng cố định `openai/gpt-6-luna`, giống bản nguồn; các biến model cũ không ghi đè lựa chọn này.
 
