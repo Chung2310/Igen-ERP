@@ -9,6 +9,8 @@ import { UserModel, AiAutoReplyConfigSchema } from "../../../model/user.model";
 import { authController } from "./controller/auth.controller";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { requirePermission } from "../../../middleware/auth";
+import { TelecomInvoiceSettingsModel } from "../message/model/telecom-invoice.model";
+import { findSubscriberField, readActiveInvoiceLeadFields } from "../message/service/telecom-invoice-profile";
 
 export const marketingSettingsRouter = Router();
 marketingSettingsRouter.get("/authors/:id", async (request, res, next) => {
@@ -52,6 +54,51 @@ function profileScope(companyCode: string, pageId: string, platform: IntakePlatf
 async function hasIntakeAccount(companyCode: string, pageId: string, platform: IntakePlatform) {
   return SocialIntegrationModel.exists({ companyCode, platform: platformNames[platform], username: pageId, isConnected: true });
 }
+
+const telecomSettings: RequestHandler = async (request, res, next) => {
+  try {
+    const req = request as AuthenticatedRequest;
+    const companyCode = req.user!.companyCode;
+    const pageId = typeof req.params.pageId === "string" ? req.params.pageId.trim() : "";
+    const platform = req.params.platform ?? "facebook";
+    if (!companyCode || !pageId || pageId.length > 200 || (platform !== "facebook" && platform !== "zalo")) {
+      return res.status(400).json({ status: "error", message: "Cần chọn Facebook Page hoặc Zalo OA hợp lệ." });
+    }
+    const personalAccount = platform === "zalo"
+      ? { "zaloIntegration.isConnected": true, "zaloIntegration.oaId": pageId }
+      : { "facebookIntegration.isConnected": true, "facebookIntegration.pageId": pageId };
+    const connected = await hasIntakeAccount(companyCode, pageId, platform) || await UserModel.exists({
+      _id: req.user!.id, companyCode, ...personalAccount,
+    });
+    if (!connected) return res.status(404).json({ status: "error", message: "Tài khoản chưa được kết nối với doanh nghiệp." });
+    const scope = { companyCode, pageId };
+    const fields = await readActiveInvoiceLeadFields({ ...scope, platform });
+    const leadFields = fields.map(({ key, label }) => ({ key, label }));
+    if (req.method === "GET" || req.method === "HEAD") {
+      const stored = await TelecomInvoiceSettingsModel.findOne(scope).select("enabled subscriberFieldKey zalo -_id").lean();
+      const config = platform === "zalo" ? stored?.zalo : stored;
+      return res.json({ status: "success", data: { enabled: config?.enabled === true,
+        subscriberFieldKey: findSubscriberField(fields, config?.subscriberFieldKey)?.key, leadFields,
+      } });
+    }
+    const enabled: unknown = req.body?.enabled;
+    const selectedKey: unknown = req.body?.subscriberFieldKey;
+    if (typeof enabled !== "boolean" || (selectedKey !== undefined && typeof selectedKey !== "string")) {
+      return res.status(400).json({ status: "error", message: "Cấu hình đọc hóa đơn chưa hợp lệ." });
+    }
+    const subscriberFieldKey = findSubscriberField(fields, selectedKey as string | undefined)?.key;
+    if (enabled && !subscriberFieldKey) {
+      return res.status(400).json({ status: "error", message: "Lưu bộ trường Lead và chọn cột Mã thuê bao trước khi bật đọc hóa đơn." });
+    }
+    const config = { enabled, subscriberFieldKey: subscriberFieldKey ?? null };
+    await TelecomInvoiceSettingsModel.updateOne(scope, { $set: platform === "zalo" ? { zalo: config } : config }, { upsert: true, runValidators: true });
+    return res.json({ status: "success", data: { enabled, subscriberFieldKey, leadFields } });
+  } catch (error) { next(error); }
+};
+const telecomSettingsPaths = ["/telecom-invoices/:platform/:pageId", "/telecom-invoices/:pageId"];
+marketingSettingsRouter.get(telecomSettingsPaths, requirePermission(["omni-inbox:read", "omni-inbox:manage"]) as RequestHandler, telecomSettings);
+marketingSettingsRouter.put(telecomSettingsPaths, requirePermission("omni-inbox:manage") as RequestHandler, telecomSettings);
+
 marketingSettingsRouter.get("/lead-intake-profiles", requirePermission(["omni-inbox:read", "omni-inbox:manage"]) as RequestHandler, async (request, res, next) => {
   try {
     const req = request as AuthenticatedRequest;

@@ -28,6 +28,8 @@ import { enqueueLeadIntakeRetry } from "./messenger-background-jobs";
 import { facebookMessageOrder, loadMessengerReplyMessages, olderThanMessage } from "./messenger-reply-messages";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { splitHistoryAndPendingInboundMessages, type ChatImageObservation } from "./chat-image-context";
+import { markTelecomInvoiceReplyDelivered, processTelecomInvoiceTurn, splitTelecomInvoiceReply } from "./telecom-invoice-flow";
+import { enabledTelecomInvoiceAccount, TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { isStickerOnlyMessage } from "./chat-context";
 import { prepareChatReplyContext, commitChatVisualContext, buildChatConversationInstructions,
   describeChatVisualContext, type ChatSourceMessage } from "./chat-reply-context.service.ts";
@@ -1158,8 +1160,20 @@ export const aiAutoReplyService = {
           {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
+            const invoiceAccount = channel === "facebook" || channel === "zalo"
+              ? { companyCode, pageId: resolvedPlatformId, platform: channel } : undefined;
             const aiTrace = channel === "facebook" || aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
-            const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
+            const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, invoiceReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
+              const invoiceReply = invoiceAccount && await processTelecomInvoiceTurn({
+                ...invoiceAccount, conversationId, messageId: latestDbMessage.messageId,
+                messageAt: new Date(latestDbMessage.timestamp), messages: visualSourceMessages,
+              });
+              if (invoiceReply) return {
+                invoiceReply, aiResponse: { text: invoiceReply.text },
+                effectiveRagContext: { contextText: "", scenarioContextText: "", matches: 0 },
+                orderFlow: undefined, customerSession: undefined, preparedReplyContext: undefined,
+                visualContext: undefined, checkoutReply: undefined,
+              };
               const intakePlatform = channel === "facebook" || channel === "zalo" || channel === "tiktok" ? channel : undefined;
               const stickerOnly = channel === "zalo" && !pendingImageUrls.length && isStickerOnlyMessage(groupedCustomerMessage);
               const orderFlow = intakePlatform && !stickerOnly
@@ -1296,7 +1310,7 @@ export const aiAutoReplyService = {
                 && orderFlow?.preservesReplyFacts && !orderFlow.preservesReplyFacts(checkoutReply.text, aiResponse.text)) {
                 throw new Error("AI reply changed verified payment or order facts.");
               }
-              return { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse };
+              return { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, invoiceReply: undefined, aiResponse };
             })).finally(() => {
               if (aiTrace) console.log("[AI AutoReply][AI_TRACE]", JSON.stringify({
                 channel, conversationId, messageId: incomingMessageId, attempts: claimedAttempts,
@@ -1359,7 +1373,7 @@ export const aiAutoReplyService = {
                 facebookTiming.firstReplyMs ??= Date.now() - turnStartedAt;
                 facebookTiming.outboundMessageId ??= outboundMessageId;
               };
-              const replyBubbles = checkoutReply
+              const replyBubbles = invoiceReply && invoiceAccount ? splitTelecomInvoiceReply(aiResponse.text, invoiceAccount.platform) : checkoutReply
                 ? orderFlow?.splitReply?.(aiResponse.text) || splitReplyIntoMessageBubbles(aiResponse.text)
                 : splitReplyIntoMessageBubbles(aiResponse.text);
               const fallbackReply = aiResponse.text.trim();
@@ -1374,6 +1388,8 @@ export const aiAutoReplyService = {
                   .sort({ timestamp: -1, createdAt: -1, _id: -1 }).lean();
                 let stopReason: string | undefined;
                 if (owner.companyCode !== targetCompanyCode || owner.source === "module_disabled" || owner.aiConfig?.enabled === false) {
+                  stopReason = "page_config_changed";
+                } else if (invoiceReply && invoiceAccount && !await TelecomInvoiceSettingsModel.exists(enabledTelecomInvoiceAccount(invoiceAccount))) {
                   stopReason = "page_config_changed";
                 } else if (!conversation || conversation.status === "closed") {
                   stopReason = conversation ? "conversation_closed" : "conversation_missing";
@@ -1447,6 +1463,9 @@ export const aiAutoReplyService = {
                     if (owner.companyCode !== targetCompanyCode || owner.source === "module_disabled" || !owner.aiConfig?.enabled) {
                       throw new ZaloReplyCancelledError();
                     }
+                    if (invoiceReply && invoiceAccount && !await TelecomInvoiceSettingsModel.exists(enabledTelecomInvoiceAccount(invoiceAccount))) {
+                      throw new ZaloReplyCancelledError();
+                    }
                     await assertZaloDeliveryCurrent(conversationId, resolvedPlatformId, lastZaloReply?.messageId || latestDbMessage?.messageId);
                     if (queueLeaseToken && incomingMessageId) {
                       if (!await markMessengerReplySending(conversationId, incomingMessageId, queueLeaseToken, "zalo")) {
@@ -1471,6 +1490,14 @@ export const aiAutoReplyService = {
                 }
               }
 
+              if (invoiceReply?.presentations.length) {
+                if (lastZaloReply) {
+                  await markTelecomInvoiceReplyDelivered(invoiceReply, lastZaloReply.messageId, lastZaloReply.sentAt);
+                } else if (lastFacebookReplyMessageId) {
+                  const sent = await FBMessageModel.findOne({ conversationId, messageId: lastFacebookReplyMessageId, direction: "outbound" }).select("timestamp").lean();
+                  if (sent?.timestamp) await markTelecomInvoiceReplyDelivered(invoiceReply, lastFacebookReplyMessageId, sent.timestamp);
+                }
+              }
               if (checkoutReply) {
                 if (channel === "facebook") {
                   const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort(facebookMessageOrder);
@@ -1488,7 +1515,7 @@ export const aiAutoReplyService = {
                 await orderFlow?.markDelivered(checkoutReply);
               }
 
-              if (aiConfig.imageReplyEnabled === true) {
+              if (preparedReplyContext && aiConfig.imageReplyEnabled === true) {
                 const latestVisualMessage = channel === "facebook"
                   ? await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort(facebookMessageOrder).lean()
                   : channel === "zalo" ? await ZaloMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 }).lean()
@@ -1504,13 +1531,13 @@ export const aiAutoReplyService = {
                 companyCode,
                 channel,
                 conversationId,
-                customerMessage: groupedCustomerMessage?.trim() || (pendingImageUrls.length ? "[Khách gửi ảnh]" : "[Tin nhắn không có nội dung văn bản]"),
-                aiResponse: aiResponse.text,
+                customerMessage: invoiceReply ? "[Hóa đơn nhà mạng]" : groupedCustomerMessage?.trim() || (pendingImageUrls.length ? "[Khách gửi ảnh]" : "[Tin nhắn không có nội dung văn bản]"),
+                aiResponse: invoiceReply ? "[Đã gửi phản hồi về hóa đơn]" : aiResponse.text,
                 contextText: [effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
                 contextMatches: effectiveRagContext.matches,
                 latencyMs: Date.now() - startedAt,
                 status: "sent",
-                visualDiagnostics: { ...describeChatVisualContext(preparedReplyContext), ...(aiTrace ? describeChatAiTrace(aiTrace) : {}) },
+                visualDiagnostics: preparedReplyContext ? { ...describeChatVisualContext(preparedReplyContext), ...(aiTrace ? describeChatAiTrace(aiTrace) : {}) } : undefined,
               }).catch((logError) => {
                 console.error(`[AI AutoReply] Tin đã gửi thành công nhưng không lưu được log: conversationId=${conversationId}`, logError);
               });
@@ -1555,8 +1582,8 @@ export const aiAutoReplyService = {
                 companyCode,
                 channel,
                 conversationId,
-                customerMessage: normalizedIncomingText,
-                aiResponse: `[SEND_FAILED] ${aiResponse.text}\n\nError: ${sendErr?.message || sendErr}`,
+                customerMessage: invoiceReply ? "[Hóa đơn nhà mạng]" : normalizedIncomingText,
+                aiResponse: `[SEND_FAILED] ${invoiceReply ? "Phản hồi về hóa đơn" : aiResponse.text}\n\nError: ${sendErr?.message || sendErr}`,
                 contextText: [effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
                 contextMatches: effectiveRagContext.matches,
                 latencyMs: Date.now() - startedAt,

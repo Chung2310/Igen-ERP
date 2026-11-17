@@ -7,6 +7,7 @@ import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { DateInput24 } from "../../../../../components/common/TimeInput24";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
+import { LeadTelecomInvoices } from "./LeadTelecomInvoices";
 import { COLLECTION_STATUS_META, LEAD_STATUS_META, parseMultiSelectValue, PLATFORM_LABELS, type LeadSocialPlatform } from "./leadSheetUtils";
 
 interface LeadDetailDrawerProps {
@@ -187,6 +188,8 @@ function LeadDetailDrawerPanel({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {error && <p role="alert" className="rounded-xl border border-error/30 bg-error-container px-3 py-2 text-xs text-on-error-container">{error}</p>}
 
+            {lead.telecomSubscriberCode && <LeadTelecomInvoices leadId={lead.id} subscriberCode={lead.telecomSubscriberCode}
+              onOpenSource={invoice => onOpenChat({ ...lead, sourceConversationId: invoice.conversationId, sourceAccountId: invoice.pageId, sourcePlatform: invoice.platform })} />}
             {Boolean(lead.needs?.length) && <section aria-label="Nhu cầu đã ghi nhận" className="space-y-2">
               <h4 className="text-sm font-semibold">Nhu cầu đã ghi nhận</h4>
               <ul className="space-y-2">{lead.needs?.map(need => <li key={need.id} className="rounded-md border border-outline-variant p-3 text-sm">

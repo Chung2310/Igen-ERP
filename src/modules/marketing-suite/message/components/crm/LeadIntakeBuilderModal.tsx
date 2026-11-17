@@ -5,6 +5,7 @@ import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { LEAD_INTAKE_FIELD_TYPES, type LeadIntakeField, type LeadIntakeFieldType, type LeadNeedGroup } from "../../../../../../shared/marketing-suite/lead-intake";
 import { crmService } from "../../services/crmService";
+import { TelecomInvoiceSettingsPanel } from "./TelecomInvoiceSettings";
 import { FIELD_TYPE_META, PLATFORM_LABELS, toIntakeFieldKey, type LeadAccountOption } from "./leadSheetUtils";
 
 type EditableField = LeadIntakeField & {
@@ -402,6 +403,8 @@ function LeadIntakeBuilderModalBody({
             />
           </div> : <p className="text-sm text-on-surface">Mặc định doanh nghiệp</p>}
         </div>
+        {!initialAddColumn && (selectedAccount?.platform === "zalo" || selectedAccount?.platform === "facebook") &&
+          <TelecomInvoiceSettingsPanel key={`${selectedAccount.platform}:${selectedAccount.accountId}`} platform={selectedAccount.platform} accountId={selectedAccount.accountId} />}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-sm font-medium text-on-surface">Thông tin cần thu</h4>

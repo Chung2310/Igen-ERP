@@ -3,6 +3,7 @@ import { getAccessToken } from "../../shared/services/authService";
 import { LeadCard } from "../../shared/types/index";
 import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
 import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
+import type { ConfirmedTelecomInvoice, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
 
 export interface LeadProductSelection {
   productId: string;
@@ -27,6 +28,10 @@ export interface ExtendedLeadCard extends LeadCard {
   lastInteractionAt?: string;
   customerId?: string;
   customerTransfer?: LeadCustomerTransfer;
+  telecomSubscriberCode?: string;
+  telecomConversationId?: string;
+  telecomPageId?: string;
+  telecomPlatform?: TelecomInvoicePlatform;
   needs?: LeadNeed[];
   moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: string; syncedBy: string };
 }
@@ -203,6 +208,25 @@ export const crmService = {
       limit: Number(json.limit) || options.limit || 50,
       totalPages: Number(json.totalPages) || 0,
     };
+  },
+
+  async getTelecomInvoiceSettings(platform: TelecomInvoicePlatform, accountId: string, signal?: AbortSignal) {
+    const result = await apiFetch<{ data: TelecomInvoiceSettings }>(`/marketing-settings/telecom-invoices/${platform}/${encodeURIComponent(accountId)}`, { signal });
+    return result.data;
+  },
+
+  async saveTelecomInvoiceSettings(platform: TelecomInvoicePlatform, accountId: string, settings: TelecomInvoiceSettingsInput) {
+    const result = await apiFetch<{ data: TelecomInvoiceSettings }>(`/marketing-settings/telecom-invoices/${platform}/${encodeURIComponent(accountId)}`, {
+      method: "PUT", body: JSON.stringify(settings),
+    });
+    return result.data;
+  },
+
+  async getLeadTelecomInvoices(leadId: string, before?: string, signal?: AbortSignal) {
+    const result = await apiFetch<{ data: { items: ConfirmedTelecomInvoice[]; before?: string } }>(
+      `/omni-inbox/leads/${encodeURIComponent(leadId)}/telecom-invoices`, { params: { before }, signal },
+    );
+    return result.data;
   },
 
   async getActiveLeadIntakeProfiles(): Promise<ActiveLeadIntakeProfile[]> {

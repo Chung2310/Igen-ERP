@@ -4,6 +4,11 @@ import mongoose from "mongoose";
 import { SocialIntegrationModel } from "./model/social-integration.model";
 import { MarketingContentModel } from "../campaign/model/marketing-content.model";
 import { CRMTicketModel } from "../message/model/crm-ticket.model";
+import { TelecomInvoiceModel } from "../message/model/telecom-invoice.model";
+import { FBMessageModel } from "../message/model/fb-messenger.model";
+import { ZaloMessageModel } from "../message/model/zalo-messenger.model";
+import type { TelecomInvoicePlatform } from "../../../../shared/marketing-suite/telecom-invoice";
+import { isTrustedChatImageUrl } from "../message/service/chat-image-context";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { requirePermission } from "../../../middleware/auth";
 import { getCompletedLeadModule } from "../../../../shared/marketing-suite/lead-customer-transfer";
@@ -247,7 +252,7 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
   if (typeof req.query.search === "string" && req.query.search.trim()) {
     const expression = escapeLeadRegex(req.query.search.trim().slice(0, 100));
     andClauses.push({
-      $or: ["customerName", "phone", "email", "company", "productOfChoice", "sourceAccountId", "intakeSearchText"]
+      $or: ["customerName", "phone", "email", "company", "productOfChoice", "sourceAccountId", "intakeSearchText", "telecomSubscriberCode"]
         .map(key => ({ [key]: { $regex: expression, $options: "i" } })),
     });
   }
@@ -268,6 +273,42 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
     CRMTicketModel.countDocuments(filter),
   ]);
   return res.json({ status: "success", data: items.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
+}));
+
+suiteDataRouter.get("/omni-inbox/leads/:id/telecom-invoices", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
+  const companyCode = req.user!.companyCode;
+  const lead = await CRMTicketModel.findOne({ companyCode, _id: req.params.id }).select("telecomSubscriberCode").lean();
+  if (!lead) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
+  const cursor = typeof req.query.before === "string" && mongoose.isValidObjectId(req.query.before) ? req.query.before : undefined;
+  const limit = 20;
+  const invoices = lead.telecomSubscriberCode ? await TelecomInvoiceModel.find({ companyCode, subscriberCode: lead.telecomSubscriberCode, status: "confirmed",
+    ...(cursor ? { _id: { $lt: cursor } } : {}),
+  }).sort({ _id: -1 }).limit(limit + 1).select("values leadFields subscriberFieldKey invoiceKey platform pageId conversationId confirmedAt sourceMessageId sourceIndex").lean() : [];
+  const items = invoices.slice(0, limit);
+  const sourcesFor = (platform: TelecomInvoicePlatform) => items
+    .filter(item => (item.platform ?? "facebook") === platform && mongoose.isValidObjectId(item.conversationId))
+    .map(({ sourceMessageId, conversationId, pageId }) => ({ messageId: sourceMessageId, conversationId, recipientId: pageId }));
+  const facebookSources = sourcesFor("facebook");
+  const zaloSources = sourcesFor("zalo");
+  const sourceFields = "messageId conversationId recipientId attachments";
+  const [facebookMessages, zaloMessages] = await Promise.all([
+    facebookSources.length ? FBMessageModel.find({ direction: "inbound", $or: facebookSources }).select(sourceFields).lean() : [],
+    zaloSources.length ? ZaloMessageModel.find({ direction: "inbound", $or: zaloSources }).select(sourceFields).lean() : [],
+  ]);
+  const originals = new Map([
+    ...facebookMessages.map(message => [`facebook:${message.conversationId}:${message.recipientId}:${message.messageId}`, message.attachments] as const),
+    ...zaloMessages.map(message => [`zalo:${message.conversationId}:${message.recipientId}:${message.messageId}`, message.attachments] as const),
+  ]);
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ status: "success", data: {
+    items: items.map(({ _id, values, leadFields, subscriberFieldKey, invoiceKey, platform = "facebook", pageId, conversationId, confirmedAt, sourceMessageId, sourceIndex }) => {
+      const attachment = originals.get(`${platform}:${conversationId}:${pageId}:${sourceMessageId}`)?.[sourceIndex];
+      const imageUrl = (attachment?.type === "image" || attachment?.type?.startsWith("image/")) && attachment.url && isTrustedChatImageUrl(attachment.url) ? attachment.url : undefined;
+      return { id: String(_id), values, leadFields, subscriberFieldKey, invoiceNumber: invoiceKey ?? values.invoiceNumber, platform, pageId, conversationId, confirmedAt, imageUrl };
+    }),
+    ...(invoices.length > limit ? { before: String(items[limit - 1]._id) } : {}),
+  } });
 }));
 
 suiteDataRouter.post("/omni-inbox/leads/export-google-sheets", requirePermission("omni-inbox:manage"), run(async (req, res) => {

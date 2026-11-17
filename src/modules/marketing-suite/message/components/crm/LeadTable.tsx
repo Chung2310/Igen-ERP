@@ -229,6 +229,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [deletingColumn, setDeletingColumn] = useState(false);
   const [detailLead, setDetailLead] = useState<ExtendedLeadCard | null>(null);
   const closeDetailLead = useCallback(() => setDetailLead(null), []);
+  const openLeadConversation = (lead: ExtendedLeadCard) => {
+    if (!lead.sourceConversationId && lead.telecomConversationId) {
+      handleGoToChat(lead.customerName, lead.telecomConversationId, lead.telecomPlatform ?? "facebook", lead.telecomPageId);
+      return;
+    }
+    handleGoToChat(lead.customerName, lead.sourceConversationId, lead.sourcePlatform, lead.sourceAccountId);
+  };
   const [syncLead, setSyncLead] = useState<ExtendedLeadCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExtendedLeadCard | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -1844,12 +1851,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           >
                             <PanelRightOpen aria-hidden="true" className="size-3.5" />
                           </button>
-                          {lead.sourceConversationId && (
+                          {(lead.sourceConversationId || lead.telecomConversationId) && (
                             <button
                               type="button"
                               aria-label={`Mở hội thoại với ${lead.customerName}`}
                               title="Mở hội thoại Omni-Inbox"
-                              onClick={() => handleGoToChat(lead.customerName, lead.sourceConversationId, lead.sourcePlatform, lead.sourceAccountId)}
+                              onClick={() => openLeadConversation(lead)}
                               className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-1 focus-visible:outline-primary"
                             >
                               <MessageCircle aria-hidden="true" className="size-3.5" />
@@ -2076,7 +2083,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         }}
         onOpenChat={(lead) => {
           setDetailLead(null);
-          handleGoToChat(lead.customerName, lead.sourceConversationId, lead.sourcePlatform, lead.sourceAccountId);
+          openLeadConversation(lead);
         }}
         onOpenModuleSync={(lead) => {
           setDetailLead(null);
