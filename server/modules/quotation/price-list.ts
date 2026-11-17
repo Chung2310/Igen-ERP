@@ -120,7 +120,8 @@ export async function extractAttachedRequest(requestText: string, fileParts: Rec
     send: (retryMessages) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${config.openRouterApiKey}`, "Content-Type": "application/json", "HTTP-Referer": config.openRouterSiteUrl, "X-Title": config.openRouterAppName },
-      body: JSON.stringify({ model: config.openRouterFileModel, ...chatSamplingParameters(config.openRouterFileModel), max_tokens: 1200,
+      body: JSON.stringify({ model: config.openRouterFileModel, ...chatSamplingParameters(config.openRouterFileModel),
+        ...(/^openai\/gpt-6(?:[.-]|$)/.test(config.openRouterFileModel) ? { reasoning: { effort: "none" } } : {}), max_tokens: 1200,
         messages: retryMessages,
         response_format: { type: "json_schema", json_schema: { name: "customer_request_extract", strict: true, schema } },
         provider: { require_parameters: true },

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const client = vi.hoisted(() => ({ exportFile: vi.fn(), latest: vi.fn(), api: vi.fn(), allowed: true }));
-vi.mock("./api", () => ({ createGeneratedExport: client.exportFile, getLatestGeneratedFile: client.latest, api: client.api, hasQuotationCapability: () => client.allowed }));
+vi.mock("./api", () => ({ queueGeneratedExport: client.exportFile, getLatestGeneratedFile: client.latest, api: client.api, hasQuotationCapability: () => client.allowed }));
 import { createSavedDraftEstimateFile } from "./draft-export";
 
 describe("draft persistence when file generation fails", () => {
@@ -17,6 +17,10 @@ describe("draft persistence when file generation fails", () => {
   });
   it("recognizes a file that completed after the client lost its response", async () => {
     client.exportFile.mockRejectedValueOnce(new Error("Timeout")); client.latest.mockResolvedValueOnce({ file: { id: "file-id" } });
+    expect(await createSavedDraftEstimateFile("quote-id", vi.fn())).toBeNull();
+  });
+  it("recognizes a queued file job after the enqueue response was lost", async () => {
+    client.exportFile.mockRejectedValueOnce(new Error("Timeout")); client.latest.mockResolvedValueOnce({ file: null, job: { status: "running" } });
     expect(await createSavedDraftEstimateFile("quote-id", vi.fn())).toBeNull();
   });
   it("keeps the draft available without attempting AI when the actor lacks permission", async () => {

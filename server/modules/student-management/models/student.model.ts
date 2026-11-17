@@ -62,6 +62,7 @@ const installmentStatusSchema = new Schema({
   installmentNo: { type: Number, required: true },     // Số thứ tự đợt
   percent: { type: Number, required: true },           // % học phí gốc
   amountDue: { type: Number, required: true },         // Số tiền phải đóng
+  originalAmountDue: { type: Number, default: undefined },
   status: {
     type: String,
     enum: ["Đã gửi", "Đã thu", "Chưa gửi"],

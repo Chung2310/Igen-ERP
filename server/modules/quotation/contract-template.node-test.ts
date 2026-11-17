@@ -59,7 +59,7 @@ test("Successful acceptance AI fill uses the selected template without fallback"
   process.env.OPENROUTER_API_KEY = String("test-key");
   t.after(() => { process.env.OPENROUTER_API_KEY = String(previousKey); });
   const template = { extension: "docx", originalFilename: "acceptance.docx", data: new Binary(wordFixture("Mẫu riêng: OLD_DATA").generate({ type: "nodebuffer" })) } as QuoteTemplate;
-  const plan = { edits: [{ part: "word/document.xml", find: "OLD_DATA", replace: "[[acceptanceNumber]] [[customerName]] [[result]] [[settlementAmountFormatted]]" }], pdfEdits: [] };
+  const plan = { edits: [{ part: "word/document.xml", paragraph: 0, find: "OLD_DATA", replace: "[[acceptanceNumber]] [[customerName]] [[result]] [[settlementAmountFormatted]]" }], tables: [] };
   t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(plan) } }] }), { status: 200 }));
   const file = await renderAcceptanceFile({} as Db, template, contract, acceptance);
   assert.notEqual(file.fallback, true);
@@ -174,10 +174,10 @@ test("AI maps an unmarked Word contract to current data while preserving XML lay
   const template = { extension: "docx", originalFilename: "mau-khac.docx", data: new Binary(zip.generate({ type: "nodebuffer" })) } as QuoteTemplate;
   assert.equal(contractTemplateMode(template), "docx-ai");
   const plan = { edits: [
-    { part: "word/document.xml", find: "<w:t>Số cũ</w:t>", replace: "<w:t>[[contractNumber]]</w:t>" },
-    { part: "word/document.xml", find: "<w:t>Khách mẫu</w:t>", replace: "<w:t>[[customerName]]</w:t>" },
-    { part: "word/document.xml", find: "<w:t>Giá 100</w:t>", replace: "<w:t>[[total]]</w:t>" },
-  ], pdfEdits: [] };
+    { part: "word/document.xml", paragraph: 0, find: "Số cũ", replace: "[[contractNumber]]" },
+    { part: "word/document.xml", paragraph: 1, find: "Khách mẫu", replace: "[[customerName]]" },
+    { part: "word/document.xml", paragraph: 2, find: "Giá 100", replace: "[[total]]" },
+  ], tables: [] };
   t.mock.method(globalThis, "fetch", async (_url: string | URL | Request, init?: RequestInit) => {
     const request = JSON.parse(String(init?.body));
     assert.match(request.messages[0].content, /hợp đồng/);

@@ -24,6 +24,7 @@ export type AppRoute = {
 };
 
 export const APP_ROUTES: AppRoute[] = [
+  { tab: "TRỢ LÝ KIẾN TRÚC", component: lazy(() => import("../modules/architect-assistant/ArchitectureAssistantPage")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "architect-assistant:read", "architect-assistant:manage"].includes(code))) },
   { tab: "BÁO GIÁ", component: lazy(() => import("../modules/quotation/QuotationTab")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "quotation:read", "quotation:manage"].includes(code))) },
   { tab: "QUẢN LÝ Y TẾ", component: lazy(() => import("../modules/healthcare/HealthcarePage")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "healthcare:read", "healthcare:manage"].includes(code))) },
   { tab: "OMNI INBOX", component: lazy(() => import("../modules/marketing-suite/message/pages/CRMTab")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "omni-inbox:read", "omni-inbox:manage"].includes(value))) },

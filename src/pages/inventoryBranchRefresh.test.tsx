@@ -1,18 +1,20 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   activeBranchId: "branch-a",
+  user: { uid: "admin-1" },
+  userProfile: { role: "admin" },
   subscribeCategories: vi.fn(() => vi.fn()),
   subscribeProducts: vi.fn(() => vi.fn()),
   subscribeStockLogs: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { uid: "admin-1" }, userProfile: { role: "admin" } }),
+  useAuth: () => ({ user: mocks.user, userProfile: mocks.userProfile }),
 }));
 
 vi.mock("../context/BranchContext", () => ({
@@ -35,6 +37,10 @@ vi.mock("../services/inventoryStockLogService", () => ({
   inventoryStockLogService: { subscribe: mocks.subscribeStockLogs },
 }));
 
+vi.mock("../services/productCatalogService", () => ({
+  productCatalogService: { getWorkspace: vi.fn().mockResolvedValue({ mode: "products", hasSerial: true }) },
+}));
+
 import InventoryTab from "./InventoryTab";
 
 describe("InventoryTab branch refresh", () => {
@@ -43,18 +49,23 @@ describe("InventoryTab branch refresh", () => {
     vi.clearAllMocks();
   });
 
-  it("replaces inventory subscriptions immediately when the active branch changes", () => {
+  it("refreshes branch-scoped inventory data while keeping category requests company-wide", async () => {
     const view = render(<InventoryTab />);
 
-    expect(mocks.subscribeCategories).toHaveBeenCalledWith("branch-a", expect.any(Function), expect.any(Function));
-    expect(mocks.subscribeProducts).toHaveBeenCalledWith("branch-a", expect.any(Function), expect.any(Function));
-    expect(mocks.subscribeStockLogs).toHaveBeenCalledWith("branch-a", expect.any(Function), expect.any(Function));
+    await waitFor(() => {
+      expect(mocks.subscribeCategories).toHaveBeenCalledWith(expect.any(Function), expect.any(Function));
+      expect(mocks.subscribeProducts).toHaveBeenCalledWith("branch-a", expect.any(Function), expect.any(Function));
+      expect(mocks.subscribeStockLogs).toHaveBeenCalledWith("branch-a", expect.any(Function), expect.any(Function));
+    });
+    expect(mocks.subscribeCategories.mock.calls[0]).toHaveLength(2);
 
     mocks.activeBranchId = "branch-b";
     view.rerender(<InventoryTab />);
 
-    expect(mocks.subscribeCategories).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
-    expect(mocks.subscribeProducts).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
-    expect(mocks.subscribeStockLogs).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
+    await waitFor(() => {
+      expect(mocks.subscribeProducts).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
+      expect(mocks.subscribeStockLogs).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
+    });
+    expect(mocks.subscribeCategories.mock.calls.at(-1)).toHaveLength(2);
   });
 });

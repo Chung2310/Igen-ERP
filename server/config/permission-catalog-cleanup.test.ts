@@ -9,7 +9,7 @@ import {
 } from "./permission-catalog";
 
 const EXPECTED_FEATURES = [
-  "access", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet",
+  "access", "architect-ai", "architect-assistant", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet",
   "healthcare", "healthcare-appointments", "healthcare-care", "healthcare-import", "healthcare-settings", "healthcare-visits",
   "hr", "inventory", "inventory-count-approval", "labor-partner", "labor-partner-payout", "labor-partner-policy",
   "labor-partner-settlement", "marketing", "omni-inbox", "payroll-payment", "payroll-period", "payroll-policy",

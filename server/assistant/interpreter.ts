@@ -693,7 +693,7 @@ function directEntityListRequest(text: string, workflows: AssistantWorkflow[], p
     "recruitment.job.list": [["tin", "tuyen", "dung"]],
     "student.payment.list": [["hoc", "phi"], ["giao", "dich", "hoc", "phi"]],
     "student.notification.list": [["thong", "bao"]],
-    "student.resource.list": [["phong", "hoc"], ["tai", "nguyen"]],
+    "student.resource.list": [["phong", "hoc"], ["tai", "nguyen"], ["thiet", "bi"]],
     "student.schedule.list": [["lich", "hoc"], ["lich", "lop"], ["thoi", "khoa", "bieu"]],
     "student.batch.enrollments.list": [["hoc", "vien", "trong", "lop"], ["ghi", "danh", "trong", "lop"]],
     "student.assignment.list": [["bai", "tap"]],
@@ -733,7 +733,13 @@ function directEntityListRequest(text: string, workflows: AssistantWorkflow[], p
     if (ranked.length > 1 && ranked[0].rank[0] === ranked[1].rank[0] && ranked[0].rank[1] === ranked[1].rank[1]) return null;
     winner = [ranked[0]];
   }
-  return { actionId: winner[0].workflow.actionId, values: {}, ...(pending ? { newRequest: true } : {}) };
+  const selectedWorkflow = winner[0].workflow;
+  const values: Record<string, unknown> = {};
+  if (selectedWorkflow.actionId === "student.resource.list" && /\bthiet bi\b/.test(intent)) {
+    const excludeTypeField = selectedWorkflow.fields.find(field => field.source === "query" && field.apiKey === "excludeType");
+    if (excludeTypeField) values[excludeTypeField.key] = "Phòng học";
+  }
+  return { actionId: selectedWorkflow.actionId, values, ...(pending ? { newRequest: true } : {}) };
 }
 function directCustomerLookupRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
   const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
@@ -906,6 +912,19 @@ export function directStudentBatchActionId(text: string, workflows: AssistantWor
   return operation && workflows.some(workflow => workflow.actionId === operation.id) ? operation.id : null;
 }
 
+function directStudentResourceActionId(text: string, workflows: AssistantWorkflow[]): string | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
+  if (!/\b(?:phong hoc|tai nguyen|thiet bi)\b/.test(intent)) return null;
+  if (/\b(?:loai|phan loai)\b/.test(intent) || /\b(?:lich dat|dat lich|dat phong|dat thiet bi)\b/.test(intent)) return null;
+  const method = /\b(?:tao|them|lap|khai bao)\b/.test(intent) ? "POST"
+    : /\b(?:cap nhat|sua|chinh sua|doi|thay doi)\b/.test(intent) ? "PATCH"
+      : /\b(?:xoa|huy)\b/.test(intent) ? "DELETE" : "";
+  if (!method) return null;
+  const path = method === "POST" ? "/student-resources" : "/student-resources/:id";
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "student" && candidate.method === method && candidate.path === path);
+  return operation && workflows.some(workflow => workflow.actionId === operation.id) ? operation.id : null;
+}
+
 export function directStudentRecordActionId(text: string, workflows: AssistantWorkflow[]): string | null {
   const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
   if (!/\b(?:hoc vien|nguoi hoc|hoc sinh)\b/.test(intent)) return null;
@@ -1027,6 +1046,21 @@ function directStudentLookupRequest(text: string, workflows: AssistantWorkflow[]
     intentType: "workflow",
     ...(pending ? { newRequest: true } : {}),
   };
+}
+function directStudentTuitionActionId(text: string, workflows: AssistantWorkflow[]): string | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
+  if (!/\b(?:hoc vien|nguoi hoc|hoc sinh)\b/.test(intent) || !/\b(?:hoc phi|tien hoc)\b/.test(intent)) return null;
+  if (/\b(?:giao dich|khoan thu|da thu|da dong|nop tien|thanh toan|thu hoc phi|dong hoc phi)\b/.test(intent)) return null;
+  if (/\b(?:ho so|tai khoan)\s+hoc vien\b/.test(intent)) return null;
+
+  const creates = /\b(?:tao|them|lap|bo sung|phat sinh)\b/.test(intent);
+  const updates = /\b(?:cap nhat|sua|chinh sua|doi|thay doi|dieu chinh)\b/.test(intent);
+  if (!creates && !updates) return null;
+
+  const actionId = updates && /\b(?:tong hoc phi|muc hoc phi|hoc phi du kien)\b/.test(intent)
+    ? "student.update"
+    : updates ? "student.installment.update" : "student.installment.create";
+  return workflows.some(workflow => workflow.actionId === actionId) ? actionId : null;
 }
 function directStudentDetailsRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
   const intent = normalizeIntentText(text);
@@ -1349,7 +1383,7 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   if (healthcareRequest && ASSISTANT_OPERATIONS.find(operation => operation.id === healthcareRequest.actionId)?.readOnly) return healthcareRequest;
   const unitCreateActionId = categoryCreateActionId || directPartnerActionId || healthcareCatalogCreate ? "" : contextualInventoryUnitCreateActionId(text, workflows);
   const directCatalogActionId = directPartnerActionId || categoryCreateActionId || healthcareCatalogCreate?.actionId || healthcareRequest?.actionId || unitCreateActionId;
-  const directStudentActionId = directCatalogActionId ? null : directStudentRecordActionId(text, workflows);
+  const directStudentActionId = directCatalogActionId ? null : directStudentTuitionActionId(text, workflows) || directStudentResourceActionId(text, workflows) || directStudentRecordActionId(text, workflows);
   const directWorkerSpecialized = directCatalogActionId || directStudentActionId ? null : directWorkerSpecializedRequest(text, workflows, pending);
   const directWorkerActionId = directCatalogActionId || directStudentActionId || directWorkerSpecialized ? null : directWorkerRecordActionId(text, workflows);
   const directPayrollAction = directCatalogActionId || directStudentActionId || directWorkerActionId ? null : directPayrollActionId(text, workflows);

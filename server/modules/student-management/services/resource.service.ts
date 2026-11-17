@@ -14,6 +14,7 @@ interface ResourceFilters {
   page?: number | string;
   limit?: number | string;
   type?: string;
+  excludeType?: string;
   status?: string;
   search?: string;
 }
@@ -57,6 +58,7 @@ export class ResourceService {
 
     const query: Record<string, unknown> = { ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) };
     if (filters.type) query.type = filters.type;
+    else if (filters.excludeType) query.type = { $ne: filters.excludeType };
     if (filters.status) query.status = filters.status;
     if (filters.search) {
       query.$or = [

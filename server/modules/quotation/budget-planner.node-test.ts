@@ -57,13 +57,21 @@ test("rejects generic or already priced missing products", () => {
 
 test("calculates estimated quantities using catalog prices and records assumptions", () => {
   const result = buildBudgetPlan({ description: "Xây tòa nhà với ngân sách 8 tỷ", budget: 8_000_000_000 }, [tile],
-    { assumedArea: 100, assumedFloors: 4, items: [{ sku: tile.sku, basis: "estimated", quantity: 420, quantityNote: "400 m² sàn và 5% hao hụt vật tư" }] }, []);
+    { assumedArea: 100, assumedFloors: 4, items: [{ sku: tile.sku, basis: "estimated", quantity: 420, quantityNote: "Ước tính theo 400 m² sàn qua 4 tầng" }] }, []);
   assert.equal(result.lines[0]?.quantity, 420);
   assert.equal(result.lines[0]?.lineTotal, 84_000_000);
   assert.equal(result.total, 84_000_000);
   assert.equal(result.provisional, true);
   assert.deepEqual(result.scenario, { area: 100, floors: 4 });
   assert.match(result.assumptions[0] ?? "", /100 m²/);
+});
+
+test("does not turn a waste allowance into a confirmed quantity", () => {
+  const result = buildBudgetPlan({ description: "Xây tòa nhà với ngân sách 8 tỷ", budget: 8_000_000_000 }, [tile],
+    { items: [{ sku: tile.sku, basis: "estimated", quantity: 420, quantityNote: "400 m² sàn và 5% hao hụt vật tư" }] }, []);
+  assert.equal(result.lines[0]?.quantity, null);
+  assert.equal(result.lines[0]?.lineTotal, null);
+  assert.ok(result.questions?.some((question) => question.includes("không cộng hao hụt")));
 });
 
 test("rejects ungrounded estimates and conflicting area inputs", () => {

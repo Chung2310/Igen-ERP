@@ -24,7 +24,6 @@ describe("inventory subscriptions", () => {
 
   it.each([
     ["products", inventoryProductService.subscribe],
-    ["categories", inventoryCategoryService.subscribe],
     ["stock logs", inventoryStockLogService.subscribe],
   ])("loads %s for the explicit branch and aborts on cleanup", async (_name, subscribe) => {
     const cleanup = subscribe("branch-b", vi.fn());
@@ -33,6 +32,23 @@ describe("inventory subscriptions", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     const [, init] = vi.mocked(fetch).mock.calls[0];
     expect(new Headers(init?.headers).get("x-branch-id")).toBe("branch-b");
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(init?.signal?.aborted).toBe(false);
+
+    cleanup();
+
+    expect(init?.signal?.aborted).toBe(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads company-wide categories without a branch header and aborts on cleanup", async () => {
+    const cleanup = inventoryCategoryService.subscribe(() => undefined, () => undefined);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/crud/categories?sort=-_id");
+    expect(new Headers(init?.headers).get("x-branch-id")).toBeNull();
     expect(init?.signal).toBeInstanceOf(AbortSignal);
     expect(init?.signal?.aborted).toBe(false);
 

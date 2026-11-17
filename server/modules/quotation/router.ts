@@ -735,23 +735,17 @@ app.get("/generated-export-files/latest", async (request, response) => {
   if (!sourceId || !allowedKinds.has(kind)) return fail(response, "Loại hoặc mã hồ sơ xuất file không hợp lệ.");
   const user = userOf(request);
   const db = await connectDatabase();
-  const latestCustomerJob = kind === "customer_quote" ? await db.collection<GeneratedExportJob>("generatedExportJobs").findOne({
+  const latestJob = await db.collection<GeneratedExportJob>("generatedExportJobs").findOne({
     companyId: user.companyId,
     sourceId: sourceId.toHexString(),
     kind,
-  }, { sort: { createdAt: -1 } }) : null;
-  const job = kind === "customer_quote" ? latestCustomerJob : await db.collection<GeneratedExportJob>("generatedExportJobs").findOne({
-    companyId: user.companyId,
-    sourceId: sourceId.toHexString(),
-    kind,
-    status: "completed",
-    fileId: { $exists: true },
-  }, { sort: { updatedAt: -1 } });
-  const fileId = job?.status === "completed" && job.fileId ? asId(job.fileId) : null;
+  }, { sort: { createdAt: -1 } });
+  const fileId = latestJob?.status === "completed" && latestJob.fileId ? asId(latestJob.fileId) : null;
   let file = fileId
     ? await db.collection<CompanyFile>("companyFiles").findOne({ _id: fileId, companyId: user.companyId })
     : null;
-  if (!file && (kind !== "customer_quote" || !latestCustomerJob)) {
+  const jobPending = latestJob?.status === "queued" || latestJob?.status === "running";
+  if (!file && !jobPending && (kind !== "customer_quote" || !latestJob)) {
     const filenameCandidates: string[] = [];
     if (kind === "budget") {
       filenameCandidates.push(`phuong-an-${sourceId.toHexString()}.xlsx`);
@@ -814,13 +808,13 @@ app.get("/generated-export-files/latest", async (request, response) => {
     filename: file.originalFilename,
     mimeType: file.mimeType,
     createdAt: file.createdAt,
-  } : null, job: latestCustomerJob ? {
-    id: latestCustomerJob._id?.toHexString(),
-    status: latestCustomerJob.status,
-    error: latestCustomerJob.error,
-    filename: latestCustomerJob.filename,
-    createdAt: latestCustomerJob.createdAt,
-    updatedAt: latestCustomerJob.updatedAt,
+  } : null, job: latestJob ? {
+    id: latestJob._id?.toHexString(),
+    status: latestJob.status,
+    error: latestJob.error,
+    filename: latestJob.filename,
+    createdAt: latestJob.createdAt,
+    updatedAt: latestJob.updatedAt,
   } : null });
 });
 

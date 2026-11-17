@@ -16,6 +16,13 @@ test("shows the healthcare workspace only for companies that enable it", () => {
   assert.equal(resolveEnabledTab("QUẢN LÝ Y TẾ", ["healthcare"]), "QUẢN LÝ Y TẾ");
 });
 
+test("shows the architecture workspace only when the tenant enables it", () => {
+  assert.equal(MODULE_TAB_MAP["architect-assistant"], "TRỢ LÝ KIẾN TRÚC");
+  assert.deepEqual(MODULE_READ_PERMISSIONS["TRỢ LÝ KIẾN TRÚC"], ["architect-assistant:read", "architect-assistant:manage"]);
+  assert.equal(resolveEnabledTab("TRỢ LÝ KIẾN TRÚC", undefined), "TỔNG QUAN");
+  assert.equal(resolveEnabledTab("TRỢ LÝ KIẾN TRÚC", ["architect-assistant"]), "TRỢ LÝ KIẾN TRÚC");
+});
+
 const tabs: TabType[] = [
   "TỔNG QUAN",
   "NHÂN SỰ",
