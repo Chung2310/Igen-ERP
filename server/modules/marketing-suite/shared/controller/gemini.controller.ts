@@ -28,6 +28,9 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const details = rawMessage || String(error);
   const status = error.status || error.statusCode;
 
+  if (error.code === "CHAT_MESSAGE_OPENROUTER_KEY_MISSING") {
+    return res.status(503).json({ status: "error", code: error.code, message: rawMessage });
+  }
   if (isSubscriptionLimit) {
     return res.status(status || 402).json({ status: "error", code: error.code, message: rawMessage });
   }
@@ -100,15 +103,12 @@ function isGeminiModelNotFound(error: any): boolean {
 }
 
 async function extractPdfTextWithModelFallback(pdfBase64: string): Promise<string> {
-  if (!process.env.OPENROUTER_API_KEY) {
-    throw new Error("OPENROUTER_API_KEY is not configured");
-  }
-
   const model = DRIVE_PDF_PRIMARY_MODEL;
   console.log(`[AI AutoReply] Dang goi OpenRouter trich xuat van ban tu PDF (model: ${model})...`);
 
   const result = await openrouterChat({
     model,
+    keyScope: "chat-message",
     messages: [
       {
         role: "user",
@@ -402,9 +402,6 @@ async function parseUploadedDocument(base64Data: string, mimeType: string, fileN
     /\.(png|jpe?g|webp)$/i.test(fileName);
 
   if (isPdf || isImage || isPptx) {
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
-    }
     const model = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
     console.log(`[AI AutoReply] Đang gọi OpenRouter trích xuất văn bản từ file upload (${fileName})...`);
@@ -417,6 +414,7 @@ async function parseUploadedDocument(base64Data: string, mimeType: string, fileN
 
     const result = await openrouterChat({
       model,
+      keyScope: "chat-message",
       messages: [
         {
           role: "user",
@@ -522,6 +520,7 @@ async function fetchDriveFileContent(fileId: string): Promise<{ text: string; ti
       }
     }
   } catch (e) {
+    if ((e as { code?: string })?.code === "CHAT_MESSAGE_OPENROUTER_KEY_MISSING") throw e;
     console.warn(`Direct download failed for ${fileId}:`, e);
   }
 

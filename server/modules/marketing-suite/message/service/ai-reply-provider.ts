@@ -2,9 +2,9 @@ import { AI_REPLY_PRIMARY_MODEL, AI_REPLY_FALLBACK_MODEL } from "../../../../../
 import { openrouterChat, type OpenRouterChatParams } from "../../shared/service/openrouter.service.ts";
 
 /** Saved account models cannot override the customer-reply model policy. */
-export async function generateReplyCompletion(params: Omit<OpenRouterChatParams, "model">) {
+export async function generateReplyCompletion(params: Omit<OpenRouterChatParams, "model" | "keyScope">) {
   const generate = async (model: string) => {
-    const response = await openrouterChat({ ...params, model });
+    const response = await openrouterChat({ ...params, model, keyScope: "chat-message" });
     if (params.jsonMode || params.responseSchema) JSON.parse(response.text);
     return response;
   };
