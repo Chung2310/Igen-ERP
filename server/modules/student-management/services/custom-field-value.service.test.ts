@@ -342,7 +342,7 @@ test("all six create and update Joi schemas accept customFields but reject unrel
     [createStudentSchema, { fullName: "A", phone: "0900000000", email: "student@example.com", registrationDate: "2026-07-18", customFields: { nickname: "A" } }],
     [createCourseSchema, { code: "C1", title: "Course", category: "General", duration: "3 months", customFields: { level: "a" } }],
     [createBatchSchema, { code: "B1", courseId: "course", daysOfWeek: [1], startTime: "08:00", endTime: "09:00", startDate: "2026-07-18", endDate: "2026-08-18", customFields: { room: "A" } }],
-    [createExamSchema, { name: "Exam", status: "Sắp diễn ra", tentativeDate: "2026-07-18", location: "HCM", customFields: { note: "A" } }],
+    [createExamSchema, { name: "Exam", batchId: "507f1f77bcf86cd799439011", status: "Sắp diễn ra", tentativeDate: "2026-07-18", location: "HCM", customFields: { note: "A" } }],
     [createResourceSchema, { name: "Room", type: "ROOM", identifier: "R1", capacity: "20", customFields: { floor: 2 } }],
     [createPartnerSchema, { name: "Partner", phone: "0900000000", customFields: { area: "south" } }],
   ] as const;

@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeError } from "../../../errors/normalize-error";
-import { assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, shiftScheduleRejectionMessage, calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, parseOpeningFloat, resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason } from "./cashier-shift.service";
+import { setRateLimitRedisClientForTesting } from "../../../infrastructure/rate-limit-redis";
+
+setRateLimitRedisClientForTesting({ eval: async () => [1, 60_000], decr: async () => 0, del: async () => 0 } as any);
+const {
+  assertRetailShiftOperational, buildRetailShiftScheduleSnapshot, shiftScheduleRejectionMessage,
+  calculateExpectedCash, isRetailShiftOperational, missingVarianceReasonError, parseOpeningFloat,
+  resolveRetailShiftSchedule, retailShiftOperationalEndsAt, serializeCashierShift, varianceNeedsReason,
+} = await import("./cashier-shift.service");
 
 test("expected cash uses actual cash flows only", () => {
   assert.equal(calculateExpectedCash({ openingFloat: 500_000, cashCollected: 1_200_000, cashRefunded: 100_000, movementsIn: 50_000, movementsOut: 200_000 }), 1_450_000);

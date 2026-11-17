@@ -77,6 +77,7 @@ const baseMenuItems: MenuItem[] = [
   { label: "TRỢ LÝ KIẾN TRÚC", title: "Trợ lý kiến trúc", icon: Ruler, group: "operations" },
   { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
   { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: StethoscopeIcon, group: "operations" },
+  { label: "VĂN BẢN PHÁP LUẬT", title: "Văn bản pháp luật", icon: FileTextIcon, group: "tools" },
   { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {

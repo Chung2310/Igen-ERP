@@ -171,7 +171,13 @@ export const hrContractController = {
         (async () => {
           const company = await CompanyModel.findOne({ code: companyCode }).select("contractConfig").lean();
           const configuredAlertDays = Number(req.query.alertDays) || company?.contractConfig?.expiryAlertDays || 20;
-          const alerts = await hrContractService.listExpiryAlerts({ companyCode, branchId, employeeId: employeeFilter || undefined, days: configuredAlertDays });
+          const alerts = await hrContractService.listExpiryAlerts({
+            companyCode,
+            branchId,
+            employeeId: employeeFilter || undefined,
+            days: configuredAlertDays,
+            contractType: typeof req.query.contractType === "string" ? req.query.contractType : undefined,
+          });
           return { alerts, configuredAlertDays };
         })(),
         HRContractModel.distinct("employeeId", {

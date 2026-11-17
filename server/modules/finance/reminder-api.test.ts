@@ -7,8 +7,10 @@ test("reminder routes expose history, detail, manual run, and retry with exact p
   assert.deepEqual(FINANCE_REMINDER_ROUTE_PERMISSIONS, {
     "GET /runs": "finance-receivable:read",
     "GET /runs/:id": "finance-receivable:read",
+    "GET /deliveries/retryable": "finance-receivable:manage",
     "POST /runs": "finance-receivable:manage",
     "POST /deliveries/:id/retry": "finance-receivable:manage",
+    "POST /deliveries/:id/retry-in-app": "finance-receivable:manage",
   });
   const routes = financeReminderRoutes.stack
     .filter((layer: any) => layer.route)
@@ -44,7 +46,7 @@ test("controller scopes history and forwards dependency errors", async () => {
     retry: async () => ({}),
   });
   const response = { json(value: any) { return value; } } as any;
-  const request: any = { user: { role: "superadmin" }, query: { companyCode: "acme", branchId: "B1", limit: "20" }, params: {}, body: {} };
+  const request: any = { user: { role: "user", companyCode: "ACME", branchId: "B1" }, query: { companyCode: "acme", branchId: "B1", limit: "20" }, params: {}, body: {} };
   await controller.list(request, response, assert.fail);
   assert.deepEqual(calls[0], [{ companyCode: "ACME", branchId: "B1" }, request.query]);
   let forwarded: unknown;

@@ -52,6 +52,10 @@ test("BatchService teacher assignment notification email flow", async (t) => {
       // Return null for duplicate code checks during creation
       return null;
     }
+    if (modelName === "Batch" && op === "find") {
+      // No overlapping batch occupies the requested room/time.
+      return [];
+    }
     if (modelName === "Course" && op === "findOne") {
       return mockCourse;
     }
@@ -66,6 +70,10 @@ test("BatchService teacher assignment notification email flow", async (t) => {
     }
     if (modelName === "User" && op === "find") {
       return [mockInstructor];
+    }
+    if (modelName === "Company" && op === "findOne") {
+      // No company-specific SMTP settings are configured in this notification test.
+      return null;
     }
 
     return originalQueryExec.apply(this);

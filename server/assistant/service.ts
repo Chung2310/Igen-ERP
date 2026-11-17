@@ -27,6 +27,7 @@ import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
 import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
+import { extractAssistantAttachmentValues } from "./attachment-values";
 export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
 export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
@@ -2512,6 +2513,19 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
       const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory, knownModules);
+      if (conversationFile?.visualAttachments?.length && interpreted.actionId) {
+        const selectedOperation = operationById(interpreted.actionId);
+        if (selectedOperation) {
+          const imageValues = await extractAssistantAttachmentValues({
+            requestText: input.text || effectiveInputText,
+            operation: selectedOperation,
+            attachments: conversationFile.visualAttachments,
+          });
+          for (const [key, value] of Object.entries(imageValues)) {
+            if (isBlank(interpreted.values[key])) interpreted.values[key] = value;
+          }
+        }
+      }
       if (input.attachment && !interpreted.actionId && !interpreted.cancel) {
         const combinedText = `${input.text || ""} ${attachmentIntentHint}`.trim();
         const fallbackActionId = directStudentRecordActionId(combinedText, workflows)

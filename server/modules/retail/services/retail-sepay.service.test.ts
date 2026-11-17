@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canonicalPaymentCode, extractPaymentCode, parseSePayTransactionDate, retailQrAmount, sePayTransactionKey } from "./retail-sepay.service";
+import { setRateLimitRedisClientForTesting } from "../../../infrastructure/rate-limit-redis";
+
+setRateLimitRedisClientForTesting({ eval: async () => [1, 60_000], decr: async () => 0, del: async () => 0 } as any);
+const {
+  canonicalPaymentCode, extractPaymentCode, parseSePayTransactionDate, retailQrAmount, sePayTransactionKey,
+} = await import("./retail-sepay.service");
 
 test("installment QR requests only the pending upfront transfer", () => {
   assert.equal(retailQrAmount({ dueAmount: 900_000, pendingTransferAmount: 100_000 }), 100_000);

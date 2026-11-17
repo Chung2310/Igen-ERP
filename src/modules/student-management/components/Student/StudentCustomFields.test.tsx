@@ -278,6 +278,7 @@ describe("student custom-field integration", () => {
     fireEvent.change(screen.getByName("fullName"), { target: { value: "Trần Văn A" } });
     fireEvent.change(screen.getByName("phone"), { target: { value: "0901234567" } });
     fireEvent.change(screen.getByName("email"), { target: { value: "tran.van.a@example.com" } });
+    fireEvent.change(screen.getByName("email"), { target: { value: "tran.van.a@example.com" } });
     fireEvent.click(getSubmitButton());
 
     await waitFor(() => expect(mockedApiFetch).toHaveBeenCalledWith("/students", expect.objectContaining({ method: "POST" })));

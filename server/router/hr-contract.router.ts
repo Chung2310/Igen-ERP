@@ -21,6 +21,7 @@ const listQuerySchema = Joi.object({
   }),
   companyCode: Joi.string().trim().optional(),
   search: Joi.string().trim().allow("").optional(),
+  contractType: Joi.string().trim().max(100).optional(),
   alertDays: Joi.number().integer().min(1).max(365).optional().messages({
     "number.base": "Số ngày cảnh báo phải là số.",
     "number.min": "Số ngày cảnh báo tối thiểu là 1.",

@@ -10,7 +10,7 @@ import { billAiCall, withAiUsage, aiSubscriptionService } from "../../service/ai
 import { openrouterChat, openrouterGenerateImage } from "../../service/openrouter.service";
 import { config } from "../quotation/config.js";
 import { architectureScope, type ArchitectureActor } from "./scope";
-import { downloadArchitectureImage, storeArchitectureImage, storeArchitectureVideo, type StoredArchitectureAsset } from "./storage";
+import { deleteArchitectureAsset, downloadArchitectureImage, storeArchitectureImage, storeArchitectureVideo, type StoredArchitectureAsset } from "./storage";
 import { downloadArchitectureVideo, getArchitectureVideoStatus, startArchitectureVideo } from "./openrouter-video.service";
 import { ARCHITECT_ASSISTANT_MODELS } from "./models";
 
@@ -52,7 +52,7 @@ function publicProject(project: StoredProject): ArchitectureProject {
   const { companyCode: _companyCode, branchId: _branchId, createdBy: _createdBy, updatedBy: _updatedBy, ...visible } = project;
   return {
     ...visible,
-    renders: (project.renders || []).map(({ storageAssetId: _storageAssetId, ...asset }) => asset),
+    renders: (project.renders || []).map(({ storageAssetId: _storageAssetId, storageResourceType: _storageResourceType, ...asset }) => asset),
     videoJobs: (project.videoJobs || []).map(({ providerJobId: _providerJobId, ...job }) => job),
   };
 }
@@ -111,19 +111,62 @@ const openingSchema = Joi.object({
   width: Joi.number().greater(0).max(100).required(),
 }).unknown(false);
 
+const outlinePointSchema = Joi.object({
+  x: Joi.number().min(0).max(100).required(),
+  y: Joi.number().min(0).max(100).required(),
+}).unknown(false);
+
 const planSchema = Joi.object({
   rooms: Joi.array().items(roomSchema).min(1).max(40).required(),
   notes: Joi.string().max(1200).allow("").required(),
   furniture: Joi.array().items(furnitureSchema).max(400).default([]),
   openings: Joi.array().items(openingSchema).max(200).default([]),
+  outline: Joi.array().items(outlinePointSchema).min(3).max(30),
 }).unknown(false);
+
+const generatePlanSchema = Joi.object({
+  instructions: Joi.string().trim().max(1200).allow("").default(""),
+  outline: Joi.array().items(outlinePointSchema).min(3).max(30),
+}).unknown(false);
+
+function pointInsideOutline(point: { x: number; y: number }, outline: Array<{ x: number; y: number }>) {
+  let inside = false;
+  for (let index = 0, previous = outline.length - 1; index < outline.length; previous = index++) {
+    const a = outline[index]; const b = outline[previous];
+    const cross = (point.y - a.y) * (b.x - a.x) - (point.x - a.x) * (b.y - a.y);
+    if (Math.abs(cross) < 1e-7 && point.x >= Math.min(a.x, b.x) - 1e-7 && point.x <= Math.max(a.x, b.x) + 1e-7 && point.y >= Math.min(a.y, b.y) - 1e-7 && point.y <= Math.max(a.y, b.y) + 1e-7) return true;
+    const crosses = (a.y > point.y) !== (b.y > point.y) && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function roomFitsOutline(room: ArchitecturePlan["rooms"][number], outline: Array<{ x: number; y: number }>) {
+  const corners = [
+    { x: room.x, y: room.y }, { x: room.x + room.width, y: room.y },
+    { x: room.x + room.width, y: room.y + room.height }, { x: room.x, y: room.y + room.height },
+    { x: room.x + room.width / 2, y: room.y + room.height / 2 },
+  ];
+  if (corners.some(point => !pointInsideOutline(point, outline))) return false;
+  return !outline.some(point => point.x > room.x + 0.01 && point.x < room.x + room.width - 0.01 && point.y > room.y + 0.01 && point.y < room.y + room.height - 0.01);
+}
+
+function roomsOverlap(left: ArchitecturePlan["rooms"][number], right: ArchitecturePlan["rooms"][number]) {
+  return left.floor === right.floor && left.x < right.x + right.width - 0.01 && left.x + left.width > right.x + 0.01 && left.y < right.y + right.height - 0.01 && left.y + left.height > right.y + 0.01;
+}
 
 function parsePlan(value: unknown, floors = 12): ArchitecturePlan {
   const plan = parseBody<ArchitecturePlan>(planSchema, value);
-  for (const room of plan.rooms) {
+  for (const [index, room] of plan.rooms.entries()) {
     if (room.floor > floors) throw new ValidationError("VALIDATION_FAILED", `Phòng “${room.name}” đang nằm ngoài số tầng của dự án.`);
     if (room.x + room.width > 100.01 || room.y + room.height > 100.01) {
       throw new ValidationError("VALIDATION_FAILED", "Một phòng nằm ngoài đường bao mặt bằng.");
+    }
+    if (plan.outline && !roomFitsOutline(room, plan.outline)) {
+      throw new ValidationError("VALIDATION_FAILED", `Phòng “${room.name}” nằm ngoài hình dạng đường bao đã chọn.`);
+    }
+    if (plan.rooms.slice(0, index).some(previous => roomsOverlap(room, previous))) {
+      throw new ValidationError("VALIDATION_FAILED", `Phòng “${room.name}” đang chồng lấn một phòng khác.`);
     }
   }
   const roomIds = new Set(plan.rooms.map(room => room.id));
@@ -152,19 +195,26 @@ const updateProjectSchema = Joi.object({
 const renderSchema = Joi.object({
   planImage: Joi.string().pattern(/^data:image\/png;base64,/i).max(5_000_000).required(),
   floor: Joi.number().integer().min(1).max(12).default(1),
-  aspectRatio: Joi.string().valid("1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3").default("4:3"),
+  resolution: Joi.string().valid("1K", "2K", "4K").default("1K"),
+  aspectRatio: Joi.string().valid("1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9").default("4:3"),
   prompt: Joi.string().trim().max(1200).allow("").default(""),
 }).unknown(false);
 
 const imageToolSchema = Joi.object({
-  kind: Joi.string().valid("render", "staging", "visual", "texture", "human", "enhance", "upscale").required(),
-  prompt: Joi.string().trim().min(3).max(1200).required(),
-  aspectRatio: Joi.string().valid("1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3").default("4:3"),
-  referenceImage: Joi.string().pattern(/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i).max(5_000_000),
+  kind: Joi.string().valid("render", "edit", "staging", "visual", "texture", "human", "enhance", "upscale", "sync", "canvas", "utilities").required(),
+  prompt: Joi.string().trim().min(3).max(5000).required(),
+  aspectRatio: Joi.string().valid("1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9").default("4:3"),
+  resolution: Joi.string().valid("1K", "2K", "4K").default("1K"),
+  referenceImages: Joi.array().items(Joi.string().pattern(/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i).max(2_100_000)).max(10),
+}).unknown(false);
+
+const analyzeSyncSchema = Joi.object({
+  image: Joi.string().pattern(/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i).max(2_100_000).required(),
+  style: Joi.string().trim().max(100).allow("").default(""),
 }).unknown(false);
 
 const optimizePromptSchema = Joi.object({
-  tool: Joi.string().valid("render", "staging", "visual", "texture", "human", "enhance", "upscale", "video").required(),
+  tool: Joi.string().valid("render", "edit", "staging", "visual", "texture", "human", "enhance", "upscale", "sync", "canvas", "utilities", "video").required(),
   prompt: Joi.string().trim().min(3).max(1200).required(),
   style: Joi.string().trim().max(100).allow("").default(""),
 }).unknown(false);
@@ -287,6 +337,8 @@ architectAssistantRouter.delete("/projects/:projectId", manage, route(async (req
 
 architectAssistantRouter.post("/projects/:projectId/generate-plan", manage, aiManage, route(async (request, response, db, actor) => {
   const project = await findProject(db, actor, request.params.projectId);
+  const value = parseBody<{ instructions: string; outline?: Array<{ x: number; y: number }> }>(generatePlanSchema, request.body);
+  const outline = value.outline || project.plan?.outline;
   const model = ARCHITECT_ASSISTANT_MODELS.floorPlan;
   const generated = await billAi(actor, "architect.floorplan.generate", model, () => openrouterChat({
     model,
@@ -310,18 +362,18 @@ architectAssistantRouter.post("/projects/:projectId/generate-plan", manage, aiMa
       },
     },
     messages: [
-      { role: "system", content: "Bạn là kiến trúc sư nhà ở. Trả lời bằng sơ đồ mặt bằng 2D nhìn từ trên xuống, chỉ JSON theo schema. Tọa độ x,y,width,height là phần trăm trong đường bao 100x100. Các phòng phải nằm trọn trong đường bao, không chồng lấn, có lối giao thông nối với nhau; tổng diện tích phòng không vượt quá diện tích sàn. Bố trí khu sinh hoạt chung gần cửa vào, phòng ngủ riêng tư hơn, khu vệ sinh gần trục kỹ thuật. Giữ đúng số tầng, diện tích và yêu cầu người dùng; không thêm ghi chú pháp lý hoặc khẳng định bản vẽ thi công." },
-      { role: "user", content: JSON.stringify({ name: project.name, areaM2: project.areaM2, floors: project.floors, style: project.style, requirements: project.requirements }) },
+      { role: "system", content: "Bạn là kiến trúc sư nhà ở. Trả lời bằng sơ đồ mặt bằng 2D nhìn từ trên xuống, chỉ JSON theo schema. Tọa độ x,y,width,height là phần trăm trong đường bao 100x100. Nếu người dùng cung cấp đa giác outline, tất cả phòng phải nằm trọn bên trong đa giác đó và tránh các vùng khuyết. Các phòng không chồng lấn, có lối giao thông nối với nhau; tổng diện tích phòng không vượt quá diện tích sàn. Bố trí khu sinh hoạt chung gần cửa vào, phòng ngủ riêng tư hơn, khu vệ sinh gần trục kỹ thuật. Giữ đúng số tầng, diện tích và yêu cầu người dùng; không thêm ghi chú pháp lý hoặc khẳng định bản vẽ thi công." },
+      { role: "user", content: JSON.stringify({ name: project.name, areaM2: project.areaM2, floors: project.floors, style: project.style, requirements: project.requirements, instructions: value.instructions, outline }) },
     ],
   }));
   const parsed = parseGeneratedJson(generated.text) as { rooms?: unknown; notes?: unknown };
-  const normalized = parsePlan({ rooms: Array.isArray(parsed.rooms) ? parsed.rooms.map(room => ({ ...(room as object), id: randomUUID() })) : [], notes: typeof parsed.notes === "string" ? parsed.notes : "" }, project.floors);
+  const normalized = parsePlan({ rooms: Array.isArray(parsed.rooms) ? parsed.rooms.map(room => ({ ...(room as object), id: randomUUID() })) : [], notes: typeof parsed.notes === "string" ? parsed.notes : "", outline }, project.floors);
   response.json({ project: await updateProject(db, actor, project, project.revision, { plan: normalized }) });
 }));
 
 architectAssistantRouter.post("/projects/:projectId/render", manage, aiManage, route(async (request, response, db, actor) => {
   const project = await findProject(db, actor, request.params.projectId);
-  const value = parseBody<{ planImage: string; aspectRatio: string; prompt: string; floor: number }>(renderSchema, request.body);
+  const value = parseBody<{ planImage: string; aspectRatio: string; resolution: string; prompt: string; floor: number }>(renderSchema, request.body);
   if (value.floor > project.floors) throw new ValidationError("VALIDATION_FAILED", "Tầng phối cảnh nằm ngoài số tầng của dự án.");
   if (!project.plan?.rooms.some(room => room.floor === value.floor)) throw new ConflictError("CONFLICT", "Hãy tạo hoặc lưu mặt bằng cho tầng này trước khi tạo phối cảnh.");
   if (!config.cloudinaryConfigured) throw new ConflictError("CONFLICT", "ERP chưa cấu hình kho ảnh Cloudinary để lưu phối cảnh.");
@@ -329,8 +381,9 @@ architectAssistantRouter.post("/projects/:projectId/render", manage, aiManage, r
   const image = await billAi(actor, "architect.render.generate", model, () => openrouterGenerateImage({
     model,
     exactModel: true,
+    useImagesApi: true,
     aspectRatio: value.aspectRatio,
-    quality: "medium",
+    resolution: value.resolution,
     allowFallback: false,
     referenceImages: [value.planImage],
     prompt: [
@@ -342,23 +395,27 @@ architectAssistantRouter.post("/projects/:projectId/render", manage, aiManage, r
       "Do not add labels, dimensions, text, watermarks or additional rooms.",
     ].filter(Boolean).join("\n"),
   }));
-  const asset = await storeArchitectureImage(image.url, actor, model, "render", value.prompt);
+  const asset = await storeArchitectureImage(image.url, actor, model, "render", value.prompt, value.resolution as ArchitectureProject["renders"][number]["resolution"]);
   const updated = await updateProject(db, actor, project, project.revision, { renders: [...(project.renders || []), asset].slice(-60) });
   response.status(201).json({ project: updated, render: updated.renders[updated.renders.length - 1] });
 }));
 
 architectAssistantRouter.post("/projects/:projectId/generate-image", manage, aiManage, route(async (request, response, db, actor) => {
   const project = await findProject(db, actor, request.params.projectId);
-  const value = parseBody<{ kind: NonNullable<ArchitectureProject["renders"][number]["kind"]>; prompt: string; aspectRatio: string; referenceImage?: string }>(imageToolSchema, request.body);
+  const value = parseBody<{ kind: NonNullable<ArchitectureProject["renders"][number]["kind"]>; prompt: string; aspectRatio: string; resolution: string; referenceImages?: string[] }>(imageToolSchema, request.body);
+  if ((value.referenceImages || []).reduce((total, image) => total + image.length, 0) > 21_000_000) {
+    throw new ValidationError("VALIDATION_FAILED", "Tổng dung lượng ảnh tham chiếu vượt quá giới hạn. Hãy chọn tối đa 10 ảnh đã thu nhỏ.");
+  }
   if (!config.cloudinaryConfigured) throw new ConflictError("CONFLICT", "ERP chÆ°a cáº¥u hÃ¬nh kho áº£nh Cloudinary Ä‘á»ƒ lÆ°u áº£nh.");
   const model = ARCHITECT_ASSISTANT_MODELS.render;
   const image = await billAi(actor, `architect.${value.kind}.generate`, model, () => openrouterGenerateImage({
     model,
     exactModel: true,
+    useImagesApi: true,
     allowFallback: false,
     aspectRatio: value.aspectRatio,
-    quality: "medium",
-    referenceImages: value.referenceImage ? [value.referenceImage] : undefined,
+    resolution: value.resolution,
+    referenceImages: value.referenceImages,
     prompt: [
       `Create one high-quality architecture design image for the ${value.kind} workflow.`,
       `Project style: ${project.style}. Floor area: ${project.areaM2} square meters. Floors: ${project.floors}.`,
@@ -367,9 +424,55 @@ architectAssistantRouter.post("/projects/:projectId/generate-image", manage, aiM
       "Keep the result realistic and useful for an architectural presentation. Do not add labels, dimensions, logos, watermarks, or unrelated objects.",
     ].filter(Boolean).join("\n"),
   }));
-  const asset = await storeArchitectureImage(image.url, actor, model, value.kind, value.prompt);
+  const asset = await storeArchitectureImage(image.url, actor, model, value.kind, value.prompt, value.resolution as ArchitectureProject["renders"][number]["resolution"]);
   const updated = await updateProject(db, actor, project, project.revision, { renders: [...(project.renders || []), asset].slice(-60) });
   response.status(201).json({ project: updated, asset: updated.renders[updated.renders.length - 1] });
+}));
+
+architectAssistantRouter.post("/projects/:projectId/analyze-sync", manage, aiManage, route(async (request, response, db, actor) => {
+  const project = await findProject(db, actor, request.params.projectId);
+  const value = parseBody<{ image: string; style: string }>(analyzeSyncSchema, request.body);
+  const model = ARCHITECT_ASSISTANT_MODELS.vision;
+  const analysis = await billAi(actor, "architect.sync.analyze", model, () => openrouterChat({
+    model,
+    allowFallback: false,
+    temperature: 0.35,
+    maxTokens: 1600,
+    jsonMode: true,
+    responseSchema: {
+      type: "object", additionalProperties: false, required: ["categories"],
+      properties: { categories: { type: "array", minItems: 3, maxItems: 5, items: {
+        type: "object", additionalProperties: false, required: ["name", "suggestions"],
+        properties: { name: { type: "string" }, suggestions: { type: "array", minItems: 2, maxItems: 4, items: {
+          type: "object", additionalProperties: false, required: ["title", "text"],
+          properties: { title: { type: "string" }, text: { type: "string" } },
+        } } },
+      } } },
+    },
+    messages: [
+      { role: "system", content: "Bạn là chuyên gia phân tích ảnh kiến trúc. Phân tích ảnh công trình người dùng gửi, sau đó đề xuất góc nhìn và cách khai thác ảnh theo 3 đến 5 nhóm như phối cảnh ngoại thất, không gian nội thất, chi tiết vật liệu, ánh sáng và bối cảnh. Mỗi nhóm có 2 đến 4 phương án. Tiêu đề ngắn, prompt tiếng Việt cụ thể, giữ nhận diện công trình, hình khối, bảng màu và vật liệu trong ảnh. Chỉ trả JSON theo schema; không tự khẳng định chi tiết không nhìn thấy." },
+      { role: "user", content: [
+        { type: "text", text: JSON.stringify({ project: project.name, style: value.style || project.style, areaM2: project.areaM2, floors: project.floors, task: "Phân tích ảnh và tạo các lựa chọn prompt cho những ảnh đồng bộ tiếp theo." }) },
+        { type: "image_url", image_url: { url: value.image } },
+      ] },
+    ],
+  }));
+  const parsed = parseGeneratedJson(analysis.text) as { categories?: unknown };
+  const categories = Array.isArray(parsed.categories) ? parsed.categories.slice(0, 5).flatMap((category, categoryIndex) => {
+    if (!category || typeof category !== "object") return [];
+    const item = category as { name?: unknown; suggestions?: unknown };
+    const name = typeof item.name === "string" ? item.name.trim().slice(0, 100) : "";
+    const suggestions = Array.isArray(item.suggestions) ? item.suggestions.slice(0, 4).flatMap((suggestion, suggestionIndex) => {
+      if (!suggestion || typeof suggestion !== "object") return [];
+      const entry = suggestion as { title?: unknown; text?: unknown };
+      const title = typeof entry.title === "string" ? entry.title.trim().slice(0, 100) : "";
+      const text = typeof entry.text === "string" ? entry.text.trim().slice(0, 1200) : "";
+      return title && text ? [{ id: `${categoryIndex}-${suggestionIndex}`, title, text }] : [];
+    }) : [];
+    return name && suggestions.length ? [{ name, suggestions }] : [];
+  }) : [];
+  if (categories.length < 3) throw new ValidationError("VALIDATION_FAILED", "AI chưa tạo đủ nhóm gợi ý đồng bộ. Hãy thử phân tích lại.");
+  response.json({ categories });
 }));
 
 architectAssistantRouter.post("/projects/:projectId/optimize-prompt", manage, aiManage, route(async (request, response, db, actor) => {
@@ -451,4 +554,16 @@ architectAssistantRouter.get("/projects/:projectId/assets/:assetId", route(async
   const bytes = await downloadArchitectureImage(asset);
   response.set({ "Cache-Control": "private, no-store", "Content-Type": asset.mimeType, "Content-Length": String(bytes.length) });
   response.send(bytes);
+}));
+
+architectAssistantRouter.delete("/projects/:projectId/assets/:assetId", manage, route(async (request, response, db, actor) => {
+  const project = await findProject(db, actor, request.params.projectId);
+  const asset = project.renders.find(item => item.id === request.params.assetId);
+  if (!asset) throw new NotFoundError("RESOURCE_NOT_FOUND", "Không tìm thấy kết quả trong thư viện dự án.");
+  const updated = await updateProject(db, actor, project, project.revision, {
+    renders: project.renders.filter(item => item.id !== asset.id),
+  });
+  let storageDeleted = false;
+  try { storageDeleted = await deleteArchitectureAsset(asset); } catch { /* the project no longer exposes the asset; report storage cleanup status */ }
+  response.json({ project: updated, storageDeleted });
 }));

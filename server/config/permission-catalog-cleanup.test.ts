@@ -12,7 +12,7 @@ const EXPECTED_FEATURES = [
   "access", "architect-ai", "architect-assistant", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet",
   "healthcare", "healthcare-appointments", "healthcare-care", "healthcare-import", "healthcare-settings", "healthcare-visits",
   "hr", "inventory", "inventory-count-approval", "labor-partner", "labor-partner-payout", "labor-partner-policy",
-  "labor-partner-settlement", "marketing", "omni-inbox", "payroll-payment", "payroll-period", "payroll-policy",
+  "labor-partner-settlement", "legal-reference", "marketing", "omni-inbox", "payroll-payment", "payroll-period", "payroll-policy",
   "people", "pos", "quotation", "quotation-acceptance", "quotation-ai", "quotation-approval", "quotation-contract",
   "quotation-price-book", "quotation-template", "recruitment", "relationship", "repair", "resource", "retail",
   "retail-coupon", "retail-partner", "retail-partner-payout", "retail-partner-policy", "retail-partner-self",

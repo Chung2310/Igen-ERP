@@ -59,15 +59,15 @@ test("all six create controllers pass the authenticated tenant and exact module 
   t.mock.method(User as any, "find", () => ({ select: async () => [] }));
 
   const cases = [
-    [StudentController, StudentService, "createStudent", "students", 2],
-    [CourseController, CourseService, "createCourse", "courses", 1],
-    [BatchController, BatchService, "createBatch", "batches", 2],
-    [ExamController, ExamService, "createExam", "exams", 1],
-    [ResourceController, ResourceService, "createResource", "resources", 1],
-    [PartnerController, PartnerService, "createPartner", "partners", 1],
+    [StudentController, StudentService, "createStudent", "students", 2, 3],
+    [CourseController, CourseService, "createCourse", "courses", 1, 2],
+    [BatchController, BatchService, "createBatch", "batches", 2, 3],
+    [ExamController, ExamService, "createExam", "exams", 1, 2],
+    [ResourceController, ResourceService, "createResource", "resources", 1, 2],
+    [PartnerController, PartnerService, "createPartner", "partners", 1, 2],
   ] as const;
 
-  for (const [controller, service, method, moduleKey, dataIndex] of cases) {
+  for (const [controller, service, method, moduleKey, dataIndex, contextIndex] of cases) {
     const calls: unknown[][] = [];
     t.mock.method(service as any, method, async (...args: unknown[]) => {
       calls.push(args);
@@ -96,12 +96,13 @@ test("all six create controllers pass the authenticated tenant and exact module 
 
     assert.equal(forwarded, undefined, moduleKey);
     assert.equal(res.statusCode, 201, moduleKey);
-    assert.deepEqual(calls[0]?.at(-1), { tenantId: "tenant-a", moduleKey, actorRole: "user" }, moduleKey);
+    const context = calls[0]?.[contextIndex >= 0 ? contextIndex : calls[0].length - 1] as Record<string, unknown>;
+    assert.deepEqual({ tenantId: context?.tenantId, moduleKey: context?.moduleKey, actorRole: context?.actorRole }, { tenantId: "tenant-a", moduleKey, actorRole: "user" }, moduleKey);
     assert.equal((calls[0]?.[dataIndex] as { branchId?: string })?.branchId, "branch-a", moduleKey);
   }
 });
 
-test("public student registration stays on the legacy create path without dynamic required fields", async (t) => {
+test("public student registration keeps the create-service path when required fields are supplied", async (t) => {
   t.mock.method(AuthService as any, "getUserProfile", async () => ({
     uid: "teacher-a",
     role: "user",
@@ -110,7 +111,10 @@ test("public student registration stays on the legacy create path without dynami
     branchId: "branch-a",
     isActive: true,
   }));
+  t.mock.method(User as any, "findOne", () => ({ select: async () => ({ companyCode: "tenant-a" }) }));
   t.mock.method(User as any, "find", () => ({ select: async () => [] }));
+  t.mock.method(StandardFieldConfig as any, "find", () => ({ lean: async () => [] }));
+  t.mock.method(ModuleSettingsService.prototype, "get", async () => ({ tenantId: "tenant-a", entityPreset: "student" as const }));
   const calls: unknown[][] = [];
   t.mock.method(StudentService as any, "createStudent", async (...args: unknown[]) => {
     calls.push(args);
@@ -119,20 +123,24 @@ test("public student registration stays on the legacy create path without dynami
   const res = responseCapture();
 
   await StudentController.publicRegister({
-    body: { teacherId: "teacher-a", fullName: "Public", phone: "0900000000" },
+    body: { teacherId: "teacher-a", fullName: "Public", phone: "0900000000", email: "public@example.com" },
   } as any, res as unknown as Response);
 
   assert.equal(res.statusCode, 201);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].length, 3);
+  assert.equal(calls[0].length, 5);
   assert.equal(calls[0][0], "teacher-a");
   assert.equal((calls[0][2] as { branchId?: string }).branchId, "branch-a");
+  assert.equal(calls[0][3], undefined);
+  assert.deepEqual(calls[0][4], { uid: "teacher-a", name: "" });
 });
 
 test("public registration creates a worker for a labor tenant", async (t) => {
   t.mock.method(AuthService as any, "getUserProfile", async () => ({
     uid: "teacher-a", role: "user", companyCode: "tenant-a", centerId: "tenant-a", branchId: "branch-a", isActive: true,
   }));
+  t.mock.method(User as any, "findOne", () => ({ select: async () => ({ companyCode: "tenant-a" }) }));
+  t.mock.method(StandardFieldConfig as any, "find", () => ({ lean: async () => [] }));
   t.mock.method(ModuleSettingsService.prototype, "get", async () => ({ tenantId: "tenant-a", entityPreset: "worker" as const }));
   const workerCalls: unknown[][] = [];
   t.mock.method(WorkerService as any, "create", async (...args: unknown[]) => {
@@ -145,7 +153,7 @@ test("public registration creates a worker for a labor tenant", async (t) => {
   const res = responseCapture();
 
   await StudentController.publicRegister({
-    body: { teacherId: "teacher-a", fullName: "Public worker", phone: "0900000000" },
+    body: { teacherId: "teacher-a", fullName: "Public worker", phone: "0900000000", email: "worker@example.com" },
   } as any, res as unknown as Response);
 
   assert.equal(res.statusCode, 201);

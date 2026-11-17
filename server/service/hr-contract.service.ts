@@ -61,7 +61,7 @@ export const hrContractService = {
     };
   },
 
-  async listExpiryAlerts(params: { companyCode: string; branchId?: string; employeeId?: string; now?: Date; days?: number }) {
+  async listExpiryAlerts(params: { companyCode: string; branchId?: string; employeeId?: string; now?: Date; days?: number; contractType?: string }) {
     const now = params.now || new Date();
     const start = startOfVietnamDay(now);
     const alertDays = Math.max(1, Math.min(365, Number(params.days) || 20));
@@ -72,6 +72,8 @@ export const hrContractService = {
     };
     if (params.branchId) query.branchId = params.branchId;
     if (params.employeeId) query.employeeId = params.employeeId;
+    const contractType = String(params.contractType || "").trim();
+    if (contractType) query.contractType = { $regex: contractType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     const [contracts, total] = await Promise.all([
       HRContractModel.find(query).select("_id contractType employeeId employeeName endDate").sort({ endDate: 1 }).limit(20).lean(),
       HRContractModel.countDocuments(query),

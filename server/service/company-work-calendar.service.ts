@@ -15,6 +15,13 @@ export class CalendarConflictError extends Error {}
 export class CalendarNotFoundError extends Error {}
 
 type CalendarRule = { dayType: CompanyWorkCalendarDayType; isApplied: boolean; name?: string };
+type CalendarDayFilter = {
+  companyCode: string;
+  sourceYear: number;
+  isApplied?: boolean;
+  dayType?: { $in: CompanyWorkCalendarDayType[] };
+  date?: { $gte: string; $lte: string };
+};
 
 function assertLocalDate(value: string): void {
   if (!LOCAL_DATE_PATTERN.test(value)) throw new CalendarValidationError("Ngày phải đúng định dạng YYYY-MM-DD.");
@@ -110,9 +117,28 @@ export async function getDayContext(companyCode: string, date: string) {
   return { date, isWorkingDay: working, label: preferred?.name, dayType: preferred?.dayType };
 }
 
-export async function listCalendarDays(companyCode: string, year: number, appliedOnly = false) {
+export function buildCalendarDayFilter(companyCode: string, year: number, options: { appliedOnly?: boolean; month?: number; holidaysOnly?: boolean } = {}): CalendarDayFilter {
   if (!Number.isInteger(year) || year < 2000 || year > 2200) throw new CalendarValidationError("Năm không hợp lệ.");
-  return CompanyWorkCalendarDayModel.find({ companyCode, sourceYear: year, ...(appliedOnly ? { isApplied: true } : {}) }).sort({ date: 1, name: 1 }).lean();
+  if (options.month !== undefined && (!Number.isInteger(options.month) || options.month < 1 || options.month > 12)) {
+    throw new CalendarValidationError("Tháng không hợp lệ.");
+  }
+  const filter: CalendarDayFilter = { companyCode, sourceYear: year };
+  if (options.appliedOnly || options.holidaysOnly) filter.isApplied = true;
+  if (options.holidaysOnly) filter.dayType = { $in: ["holiday", "substitute_holiday"] };
+  if (options.month !== undefined) {
+    const month = String(options.month).padStart(2, "0");
+    filter.date = {
+      $gte: `${year}-${month}-01`,
+      $lte: `${year}-${month}-${String(new Date(Date.UTC(year, options.month, 0)).getUTCDate()).padStart(2, "0")}`,
+    };
+  }
+  return filter;
+}
+
+export async function listCalendarDays(companyCode: string, year: number, options: boolean | { appliedOnly?: boolean; month?: number; holidaysOnly?: boolean } = false) {
+  const normalizedOptions = typeof options === "boolean" ? { appliedOnly: options } : options;
+  const filter = buildCalendarDayFilter(companyCode, year, normalizedOptions);
+  return CompanyWorkCalendarDayModel.find(filter).sort({ date: 1, name: 1 }).lean();
 }
 
 async function assertNoConflict(companyCode: string, date: string, dayType: CompanyWorkCalendarDayType, excludeId?: string) {

@@ -9,8 +9,9 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 it.each(["aging","reminders","debt"] as const)("settled supplier debt stays only in history (%s)",async mode=>{
  vi.mocked(financeManagement).mockResolvedValue({receivables:[],unregisteredReceipts:[],payables:[{_id:"paid",supplierId:"S",supplierName:"Supplier paid",balance:0,originalAmount:100,paidAmount:100,daysUntil:-5,aging:"1-7",dueDate:"2026-09-01"}]});
  render(<DebtManagementPanel mode={mode} permissions={["*"]} onOpen={()=>{}}/>);
- await screen.findByText(/Số dư công nợ hiện tại/);
+ await screen.findByText("Không có dữ liệu trong phạm vi đã chọn.");
  fireEvent.click(screen.getByText("Phải trả nhà cung cấp"));
+ if (mode === "debt") await screen.findByText("Supplier paid");
  expect(Boolean(screen.queryByText("Supplier paid"))).toBe(mode==="debt");
 });
 
@@ -32,8 +33,9 @@ it.each(["debt", "aging", "reminders"] as const)("filters overdue entries throug
 it("warns on overpayment without sending a voucher and allows correcting to the exact balance", async () => {
  vi.mocked(financeManagement).mockResolvedValue({receivables:[],unregisteredReceipts:[],payables:[{_id:"debt",supplierId:"S",supplierName:"Supplier",balance:40000000,originalAmount:50000000,paidAmount:10000000,daysUntil:-4,aging:"1-7",dueDate:"2026-09-24"}]});
  render(<DebtManagementPanel mode="debt" permissions={["*"]} onOpen={()=>{}}/>);
- await screen.findByText(/Số dư công nợ hiện tại/);
+ await screen.findByText("Không có dữ liệu trong phạm vi đã chọn.");
  fireEvent.click(screen.getByText("Phải trả nhà cung cấp"));
+ await screen.findByText("Supplier");
  fireEvent.click(screen.getByRole("button", { name: "Trả nợ" }));
  const amount = screen.getByLabelText("Số tiền (VND)");
  fireEvent.change(amount, {target:{value:"40000001"}});

@@ -66,6 +66,50 @@ it.each([
   expect(result.actionId).toBe(actionId);
 });
 
+it.each([
+  ["Báo cáo tình hình nhân sự hôm nay", "timekeeping.records.overview", {}],
+  ["Kiểm tra xem hôm nay có những nhân sự nào đi muộn", "timekeeping.records.late", {}],
+  ["Tình hình chấm công hôm nay", "timekeeping.records.overview", {}],
+  ["Ai ( nhân sự nào ) còn thiếu hợp đồng", "hr.contract.missing.list", {}],
+  ["Hôm nay nhân sự nào vắng", "timekeeping.records.absent", {}],
+  ["Hôm nay nhân sự nào chưa chấm công", "timekeeping.records.unrecorded", {}],
+  ["Hôm nay có ai nghỉ phép không", "timekeeping.records.leave", {}],
+  ["Sửa lại dữ liệu chấm công cho Nam Văn Tú checkin lúc 7 giờ 59 phút và checkout lúc 18 giờ", "timekeeping.record.update", {
+    query_uid: "Nam Văn Tú", checkInTime: "07:59", checkOutTime: "18:00",
+  }],
+  ["Nhân sự nào sắp hết hợp đồng", "hr.contract.expiring.list", {}],
+  ["Tạo hợp đồng cho nhân sự Nam Văn Tú", "hr.contract.create", { employeeId: "Nam Văn Tú" }],
+  ["Xóa nhân sự Nam Văn Tú vì đã nghỉ việc", "employee.delete", { id: "Nam Văn Tú" }],
+  ["phòng tài chính có bao nhiêu nhân sự", "department.lookup", { query_department: "Phòng tài chính" }],
+  ["ai là quản lý phòng tài chính ?", "department.lookup", { query_department: "Phòng tài chính" }],
+  ["thêm phòng kế toán", "department.create", { name: "kế toán" }],
+  ["sửa phòng tài chính thành kế toán tài chính", "department.update", { id: "phòng tài chính", name: "kế toán tài chính" }],
+  ["bổ sung số điện thoại cho nhân sự Nam Văn tú 0988373736", "employee.update", { id: "Nam Văn tú", phone: "0988373736" }],
+  ["chuyển nhân sự Nguyễn Anh sang phòng Marketing", "employee.update", { id: "Nguyễn Anh", department: "Phòng Marketing" }],
+  ["điều chuyển Nguyễn Văn Phúc xuống dưới quyền quản lý của Trần quốc bảo", "employee.update", { id: "Nguyễn Văn Phúc", parentId: "Trần quốc bảo" }],
+  ["Lọc danh sách các nhân sự chuẩn bị hết hạn hợp đồng thử việc trong 10 ngày tới", "hr.contract.expiring.list", { query_alertDays: 10, query_contractType: "thử việc" }],
+  ["Đây là CCCD của nhân sự mới, dựa vào thông tin này tạo nhân sự này trên hệ thống giúp tôi", "employee.create", {}],
+  ["Liệt kê danh sách nhân sự có sinh nhật trong tháng tới", "employee.birthday.next-month", {}],
+  ["Kiểm tra ai chưa hoàn thành các bài học trong đào tạo nội bộ", "hr.training.incomplete.list", { page: 1, limit: 1000 }],
+  ["Kiểm tra hôm nay có đơn nghỉ phép nào không", "timekeeping.records.leave", {}],
+  ["Đặt nhân sự Nguyễn Anh làm trưởng nhóm", "employee.update", { id: "Nguyễn Anh", jobTitle: "trưởng nhóm" }],
+  ["Đưa nhân sự Nguyễn Anh làm quản lí phòng tài chính", "department.update", { id: "Phòng tài chính", managerUid: "Nguyễn Anh" }],
+  ["Sửa lương cho Nam Văn Tú thành 12 triệu", "employee.update", { id: "Nam Văn Tú", monthlySalary: 12000000 }],
+  ["đổi chức danh cho Nguyễn Anh thành giám đốc tài chính", "employee.update", { id: "Nguyễn Anh", jobTitle: "giám đốc tài chính" }],
+  ["hủy chức vụ trưởng nhóm của Nguyễn Anh", "employee.update", { id: "Nguyễn Anh", jobTitle: "" }],
+])("understands a previously failed sheet request: %s", async (text, actionId, values) => {
+  const result = await interpretRequest(text, hrWorkflows, null, []);
+  expect(result.actionId).toBe(actionId);
+  expect(result.values).toMatchObject(values);
+});
+
+it("routes a contract extension to the selected contract and defaults its recorded date to today", async () => {
+  const result = await interpretRequest("gia hạn hợp đồng cho nhân sự Nguyễn Anh thành 30/4/2027", hrWorkflows, null, []);
+  expect(result.actionId).toBe("hr.contract.extend");
+  expect(result.values).toMatchObject({ path_id: "Nguyễn Anh", newEndDate: "2027-04-30" });
+  expect(result.values.extensionDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+});
+
 it("does not expose salary in assistant employee search results", () => {
   const employeeList = ASSISTANT_OPERATIONS.find(operation => operation.id === "employee.list");
   expect(employeeList?.resultFields).not.toContain("monthlySalary");
@@ -77,4 +121,30 @@ it("offers employee deletion only through a confirmed selection", () => {
   expect(deletion).toMatchObject({ method: "DELETE", path: "/auth/users/:id", confirmation: true });
   expect(deletion?.fields.find(field => field.key === "id")?.reference).toBe("employee.list");
   expect(deletion?.description).toContain("Cần chọn đúng người và xác nhận");
+});
+
+it("routes HR spreadsheet requests 32 through 40 to monthly reports and leave balances", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-17T08:00:00.000Z"));
+  try {
+    const cases: Array<[string, string, Record<string, unknown>]> = [
+      ["tổng hợp dữ liệu chấm công tháng 10", "timekeeping.records.monthly.overview", { year: 2026, month: 10 }],
+      ["tháng vừa rồi ai không đủ 26 công", "timekeeping.records.monthly.under-26", { year: 2026, month: 10 }],
+      ["ai nghỉ nhiều nhất tháng trước", "timekeeping.records.monthly.most-absent", { year: 2026, month: 10 }],
+      ["tháng này ai nghỉ nhiều nhất", "timekeeping.records.monthly.most-absent", { year: 2026, month: 11 }],
+      ["ai thường xuyên đi làm trễ tháng này", "timekeeping.records.monthly.most-late", { year: 2026, month: 11 }],
+      ["danh sách nhân sự còn đủ 12 phép", "leave.balances.at-least-12", { year: 2026 }],
+      ["ai đã hết lượt nghỉ phép năm", "leave.balances.exhausted", { year: 2026 }],
+      ["thống kê lượt nghỉ phép còn lại của các nhân sự", "leave.balances.list", { year: 2026 }],
+      ["tháng này có những ngày nào được nghỉ", "timekeeping.work-calendar.month-holidays", { year: 2026, month: 11, appliedOnly: "true", holidaysOnly: "true" }],
+    ];
+
+    for (const [text, actionId, values] of cases) {
+      const result = await interpretRequest(text, hrWorkflows, null, []);
+      expect(result.actionId, text).toBe(actionId);
+      expect(result.values, text).toMatchObject(values);
+    }
+  } finally {
+    vi.useRealTimers();
+  }
 });

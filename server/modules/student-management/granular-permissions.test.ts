@@ -39,8 +39,9 @@ test("entity preset is writable by superadmin only", () => {
   const router = source("server/modules/student-management/router.ts");
   assert.doesNotMatch(router, /areaRead\("student-settings"\)/);
 
-  // Role admin không còn được cấp mặc định quyền sửa cấu hình này
+  // Admin cần settings:manage cho cấu hình theo tenant; entityPreset vẫn bị
+  // chặn riêng bằng requireRoles("superadmin") ở endpoint trên.
   const auth = source("server/middleware/auth.ts");
   const adminBlock = auth.slice(auth.indexOf("admin: ["), auth.indexOf("branch_owner: ["));
-  assert.doesNotMatch(adminBlock, /"settings:manage"/);
+  assert.match(adminBlock, /"settings:manage"/);
 });

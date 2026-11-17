@@ -58,7 +58,7 @@ function entity(config: { id: string; title: string; module: ModuleKey; permissi
   if (config.remove) operations.push({ ...base, id: `${config.id}.delete`, title: `Xóa ${config.title}`, description: `Xóa ${config.title} đã xác định; luôn cần xác nhận.`, method: "DELETE", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`)] });
 }
 entity({ id: "employee", title: "nhân sự", module: "hr", permissions: ["access:manage"], readPermissions: ["access:read", "hr:read"], path: "/auth/users", createPath: "/auth/register-user", link: "/nhan-su", update: true, remove: true,
-  fields: [text("displayName", "Họ và tên", true), { ...date("birthDate", "Ngày sinh"), required: true }, { ...email, systemRequired: true, required: true }, phone, { ...ref("department", "Phòng ban", "department.list", false), referenceValueKey: "name" }, text("division", "Bộ phận"), number("monthlySalary", "Lương tháng", 0), text("qualification", "Trình độ chuyên môn")],
+  fields: [text("displayName", "Họ và tên", true), { ...date("birthDate", "Ngày sinh"), required: true }, { ...email, systemRequired: true, required: true }, phone, { ...ref("department", "Phòng ban", "department.list", false), referenceValueKey: "name" }, text("division", "Bộ phận"), text("jobTitle", "Chức danh"), number("monthlySalary", "Lương tháng", 0), text("qualification", "Trình độ chuyên môn")],
   resultFields: ["displayName", "email", "birthDate", "phone", "department", "division", "monthlySalary", "qualification"],
 });
 const employeeList = operations.find(op => op.id === "employee.list");
@@ -69,6 +69,16 @@ if (employeeList) {
     queryField(ref("targetBranch", "Chi nhánh nhân sự", "branch.list", false), "branchId"),
   ];
 }
+if (employeeList) operations.push({
+  ...employeeList,
+  id: "employee.birthday.next-month",
+  title: "Báo cáo sinh nhật nhân sự tháng tới",
+  description: "Liệt kê nhân sự có ngày sinh trong tháng dương lịch kế tiếp, theo phạm vi chi nhánh của tài khoản nếu có. Không hiển thị năm sinh.",
+  fields: employeeList.fields.filter(field => field.apiKey === "branchId"),
+  resultFields: ["birthdays", "total", "month"],
+  resultChildFields: { birthdays: ["displayName", "birthday"] },
+  readOnly: true,
+});
 const employeeDelete = operations.find(op => op.id === "employee.delete");
 if (employeeDelete) {
   employeeDelete.title = "Xóa tài khoản nhân sự";
@@ -97,6 +107,15 @@ if (departmentList) {
   departmentList.permissionGroups = [["hr:read", "access:read", "hr:manage", "access:manage"]];
   departmentList.description = "Tra cứu danh sách phòng ban theo tên; hiển thị trưởng phòng, trạng thái, thứ tự và số nhân sự. Không trả mã người quản lý hoặc công ty.";
 }
+if (departmentList) operations.push({
+  ...departmentList,
+  id: "department.lookup",
+  title: "Tra cứu thông tin phòng ban",
+  description: "Tra cứu số nhân sự và trưởng phòng theo tên phòng ban trong phạm vi công ty hiện tại.",
+  fields: [queryField({ ...text("query_department", "Tên phòng ban", true), max: 100 }, "search")],
+  assistantOnlyFields: ["query_department"],
+  resultFields: ["name", "managerName", "employeeCount"],
+});
 const departmentUpdate = operations.find(op => op.id === "department.update");
 if (departmentUpdate) departmentUpdate.description = "Cập nhật phòng ban theo tên; tên hiện tại được giữ nguyên nếu chỉ sửa mã, mô tả, trưởng phòng, thứ tự hoặc trạng thái. Trưởng phòng được chọn theo tên nhân sự cùng công ty.";
 const departmentDelete = operations.find(op => op.id === "department.delete");
@@ -242,7 +261,12 @@ const employeeCreate = operations.find(op => op.id === "employee.create")!;
 employeeCreate.confirmation = true;
 employeeCreate.description = "Tạo hồ sơ và tài khoản nhân viên. Mật khẩu phải nhập riêng ở bản xem trước, không cung cấp trong tin nhắn.";
 const employeeUpdate = operations.find(op => op.id === "employee.update");
-if (employeeUpdate) employeeUpdate.fields = employeeUpdate.fields.filter(field => field.key !== "email");
+if (employeeUpdate) {
+  employeeUpdate.fields = employeeUpdate.fields.filter(field => field.key !== "email");
+  if (!employeeUpdate.fields.some(field => field.key === "parentId")) {
+    employeeUpdate.fields.push({ ...ref("parentId", "Quản lý trực tiếp", "employee.list", false), referenceValueKey: "id" });
+  }
+}
 const treasuryBranch = () => queryField(ref("targetBranch", "Chi nhánh tài chính", "branch.list"), "branchId");
 const treasuryReadPermissions = ["finance-wallet:read", "finance-wallet:manage"];
 operations.push(
@@ -1356,12 +1380,205 @@ operations.push({
   resultFields: ["range", "invoiceCount", "issuedCount", "voidCount", "issuedAmount", "voidAmount", "paidAmount", "dueAmount"],
 });
 
+const hrContractLookup = operations.find(op => op.id === "api.get.0c557a74cbc907f9");
+if (hrContractLookup) operations.push({
+  ...hrContractLookup,
+  id: "hr.contract.missing.list",
+  title: "Báo cáo nhân sự chưa có hợp đồng hiệu lực",
+  description: "Liệt kê nhân sự trong phạm vi công ty hoặc chi nhánh hiện tại chưa có hợp đồng đang hiệu lực. Báo cáo này không xác minh hồ sơ có thiếu chữ ký, tệp đính kèm hay trường dữ liệu hay không.",
+  fields: [],
+  resultFields: ["withoutContractCount", "withoutContractEmployees"],
+  resultChildFields: { withoutContractEmployees: ["name"] },
+  readOnly: true,
+});
+
+const attendanceRecordsLookup = operations.find(op => op.id === "timekeeping.records.list");
+if (attendanceRecordsLookup) {
+  operations.push(
+    { ...attendanceRecordsLookup, id: "timekeeping.records.overview", title: "Báo cáo tổng quan chấm công hôm nay" },
+    { ...attendanceRecordsLookup, id: "timekeeping.records.late", title: "Báo cáo nhân sự đi muộn hôm nay" },
+    { ...attendanceRecordsLookup, id: "timekeeping.records.absent", title: "Báo cáo nhân sự vắng hôm nay" },
+    { ...attendanceRecordsLookup, id: "timekeeping.records.unrecorded", title: "Báo cáo nhân sự chưa chấm công hôm nay" },
+    { ...attendanceRecordsLookup, id: "timekeeping.records.leave", title: "Báo cáo nhân sự nghỉ phép hôm nay" },
+  );
+  const monthlyFields = [
+    queryField({ ...number("month", "Tháng"), min: 1, max: 12, integer: true }),
+    queryField({ ...number("year", "Năm"), min: 2000, max: 2200, integer: true }),
+  ];
+  const monthlyReport = {
+    ...attendanceRecordsLookup,
+    path: "/timekeeping/monthly-report",
+    fields: monthlyFields,
+    resultFields: ["year", "month", "records"],
+    resultChildFields: { records: ["employeeName", "workedDays", "absentDays", "leaveDays", "daysOff", "lateDays", "leftEarlyDays"] },
+    readOnly: true,
+  };
+  operations.push(
+    { ...monthlyReport, id: "timekeeping.records.monthly.overview", title: "Tổng hợp chấm công theo tháng", description: "Tổng hợp công đã làm, ngày vắng, ngày nghỉ phép và lượt đi muộn/về sớm theo tháng. Phạm vi công ty và chi nhánh luôn lấy từ tài khoản đang đăng nhập." },
+    { ...monthlyReport, id: "timekeeping.records.monthly.under-26", title: "Nhân sự chưa đủ 26 công trong tháng", description: "Liệt kê nhân sự có số công đã làm dưới 26 trong tháng được hỏi. Công nửa ngày tính 0,5; ngày nghỉ phép được tách riêng khỏi công đã làm." },
+    { ...monthlyReport, id: "timekeeping.records.monthly.most-absent", title: "Nhân sự nghỉ nhiều nhất trong tháng", description: "Tìm nhân sự có tổng ngày vắng và nghỉ phép được ghi nhận cao nhất trong tháng; hiển thị riêng ngày vắng và ngày nghỉ phép." },
+    { ...monthlyReport, id: "timekeeping.records.monthly.most-late", title: "Thống kê lượt đi làm trễ trong tháng", description: "Liệt kê nhân sự có ít nhất một ngày đi muộn trong tháng, sắp xếp theo số lượt đi muộn giảm dần." },
+  );
+}
+
+const reportYearField = () => queryField({ ...number("year", "Năm"), min: 2000, max: 2200, integer: true });
+const leaveBalanceReport = {
+  id: "leave.balances.list",
+  title: "Thống kê số phép năm còn lại của nhân sự",
+  description: "Xem số phép năm được hưởng, đã dùng, đang chờ duyệt và còn lại của nhân sự trong phạm vi công ty hoặc chi nhánh được cấp quyền.",
+  module: "hr" as ModuleKey,
+  adapter: "contract" as const,
+  permissions: ["hr:read", "access:read", "timekeeping:read"],
+  permissionGroups: [["hr:read"], ["access:read"], ["timekeeping:read"]],
+  method: "GET" as const,
+  path: "/leave/balances",
+  link: "/nhan-su",
+  fields: [reportYearField()],
+  resultFields: ["year", "balances"],
+  resultChildFields: { balances: ["employeeName", "department", "entitlement", "used", "pending", "unexcused", "remaining"] },
+  readOnly: true,
+};
+operations.push(
+  leaveBalanceReport,
+  { ...leaveBalanceReport, id: "leave.balances.at-least-12", title: "Nhân sự còn ít nhất 12 ngày phép", description: "Liệt kê nhân sự còn từ 12 ngày phép năm trở lên trong phạm vi công ty hoặc chi nhánh được cấp quyền." },
+  { ...leaveBalanceReport, id: "leave.balances.exhausted", title: "Nhân sự đã hết phép năm", description: "Liệt kê nhân sự có phép năm được hưởng nhưng số ngày còn lại bằng không trong phạm vi công ty hoặc chi nhánh được cấp quyền." },
+);
+
+const workCalendarLookup = operations.find(op => op.id === "timekeeping.work-calendar.list");
+if (workCalendarLookup) operations.push({
+  ...workCalendarLookup,
+  id: "timekeeping.work-calendar.month-holidays",
+  title: "Ngày nghỉ trong tháng",
+  description: "Liệt kê ngày lễ và ngày nghỉ bù đã áp dụng trong tháng được hỏi; không trả cả lịch của năm.",
+  fields: [
+    queryField({ ...number("year", "Năm"), min: 2000, max: 2200, integer: true }),
+    queryField({ ...number("month", "Tháng"), min: 1, max: 12, integer: true }),
+    queryField(choice("appliedOnly", "Chỉ ngày đang áp dụng", ["true", "false"])),
+    queryField(choice("holidaysOnly", "Chỉ ngày lễ/nghỉ bù", ["true", "false"])),
+  ],
+  resultFields: ["date", "name", "dayTypeLabel", "isApplied"],
+  readOnly: true,
+});
+
+const hrContractExpiringLookup = operations.find(op => op.id === "api.get.0c557a74cbc907f9");
+if (hrContractExpiringLookup) operations.push({
+  ...hrContractExpiringLookup,
+  id: "hr.contract.expiring.list",
+  title: "Báo cáo hợp đồng nhân sự sắp hết hạn",
+  description: "Liệt kê hợp đồng nhân sự sắp hết hạn trong số ngày cảnh báo đã cài cho công ty hoặc khoảng ngày được yêu cầu. Chỉ hiển thị tên nhân sự, loại hợp đồng và ngày hết hạn.",
+  resultFields: ["expiryAlerts", "expiryAlertTotal", "expiryAlertDays"],
+  fields: [...hrContractExpiringLookup.fields, queryField({ ...text("query_contractType", "Loại hợp đồng cần lọc"), max: 100 }, "contractType")],
+  readOnly: true,
+});
+
+const hrContractList = operations.find(op => op.id === "api.get.0c557a74cbc907f9");
+if (hrContractList) operations.push({
+  ...hrContractList,
+  id: "hr.contract.list",
+  title: "Tra cứu hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+  description: "Tìm hợp đồng theo tên nhân sự để chọn đúng hợp đồng cần gia hạn. Chỉ hiển thị tên nhân sự, loại hợp đồng, ngày bắt đầu, ngày hết hạn và trạng thái.",
+  resultFields: ["contracts"],
+  resultChildFields: { contracts: ["employeeName", "contractType", "startDate", "endDate", "status"] },
+  readOnly: true,
+});
+
+const hrContractExtend = operations.find(op => op.id === "api.post.8dad6fff5226b63c");
+if (hrContractExtend) operations.push({
+  ...hrContractExtend,
+  id: "hr.contract.extend",
+  title: "Gia hạn hợp đồng nhân sự",
+  description: "Gia hạn hợp đồng của đúng nhân sự đã chọn tới ngày kết thúc mới. Ngày ghi nhận gia hạn mặc định là hôm nay; luôn xem trước và xác nhận trước khi lưu.",
+  fields: hrContractExtend.fields.map(field => field.key === "path_id"
+    ? { ...field, label: "Hợp đồng của nhân sự", reference: "hr.contract.list" }
+    : field),
+  confirmation: true,
+  resultFields: ["employeeName", "previousEndDate", "newEndDate", "extensionDate"],
+});
+
+operations.push({
+  id: "hr.training.incomplete.list",
+  title: "Báo cáo tiến độ đào tạo nội bộ chưa hoàn thành",
+  description: "Liệt kê nhân sự và khóa đào tạo có tiến độ chưa hoàn thành. Chỉ quản trị viên, quản lý và nhân sự được hệ thống xác định là cấp giám sát mới được xem tiến độ của người khác.",
+  module: "hr",
+  permissions: ["hr:read"],
+  permissionGroups: [["hr:read"]],
+  roles: ["superadmin", "admin", "manager"],
+  method: "GET",
+  path: "/crud/training-enrollments",
+  link: "/nhan-su",
+  fields: [queryField({ ...number("page", "Trang", 1), min: 1, max: 10000, integer: true }), queryField({ ...number("limit", "Số kết quả", 1000), min: 1, max: 1000, integer: true })],
+  resultFields: ["incompleteEnrollments", "incompleteTotal", "fetchedTotal", "overallTotal", "truncated"],
+  resultChildFields: { incompleteEnrollments: ["employeeName", "courseTitle", "progress", "status"] },
+  readOnly: true,
+});
+
+const hrContractCreate = operations.find(op => op.id === "api.post.564251c483731a91");
+if (hrContractCreate) operations.push({
+  ...hrContractCreate,
+  id: "hr.contract.create",
+  title: "Tạo hợp đồng nhân sự",
+  description: "Tạo hợp đồng cho nhân sự đã chọn. Cần loại hợp đồng và ngày bắt đầu, ngày kết thúc; nếu chưa nêu trạng thái thì lưu ở trạng thái bản nháp. Cần xác nhận trước khi lưu.",
+  fields: hrContractCreate.fields.map(field => field.key === "employeeId"
+    ? { ...field, label: "Nhân sự", reference: "employee.list" }
+    : field.key === "status"
+      ? { ...field, defaultValue: "draft" }
+      : field),
+  resultFields: ["employeeName", "contractType", "startDate", "endDate", "status"],
+});
+
+const timekeepingLogLookup: AssistantOperation = {
+  id: "timekeeping.record.list",
+  title: "Tra cứu bản ghi chấm công để điều chỉnh",
+  description: "Tìm bản ghi chấm công theo nhân sự và ngày trong phạm vi được cấp quyền.",
+  module: "hr",
+  permissions: ["timekeeping:read", "timekeeping:manage", "payroll-period:manage"],
+  permissionGroups: [["timekeeping:read"], ["timekeeping:manage"], ["payroll-period:manage"]],
+  method: "GET",
+  path: "/crud/timekeeping-logs",
+  link: "/nhan-su",
+  adapter: "contract",
+  fields: [
+    queryField(ref("query_uid", "Nhân sự", "employee.list"), "uid"),
+    queryField({ ...date("query_date", "Ngày chấm công", true), pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, "date"),
+  ],
+  resultFields: ["employeeName", "date", "checkInTime", "checkOutTime", "status"],
+  readOnly: true,
+};
+operations.push(timekeepingLogLookup);
+operations.push({
+  id: "timekeeping.record.update",
+  title: "Điều chỉnh dữ liệu chấm công",
+  description: "Sửa giờ vào hoặc giờ ra của đúng nhân sự và ngày đã chọn. Hệ thống lưu lý do, người sửa và lịch sử chỉnh sửa; không thể sửa khi kỳ công đã khóa hoặc đã tính lương. Cần xác nhận trước khi lưu.",
+  module: "hr",
+  permissions: ["timekeeping:manage", "payroll-period:manage"],
+  permissionGroups: [["timekeeping:manage"], ["payroll-period:manage"]],
+  method: "PATCH",
+  path: "/crud/timekeeping-logs/:id",
+  link: "/nhan-su",
+  adapter: "contract",
+  confirmation: true,
+  mergeBodyWithReference: true,
+  fields: [
+    queryField(ref("query_uid", "Nhân sự", "employee.list"), "uid"),
+    queryField({ ...date("query_date", "Ngày chấm công", true), pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, "date"),
+    { ...ref("path_id", "Bản ghi chấm công của nhân sự trong ngày", "timekeeping.record.list"), source: "path", apiKey: "id" },
+    { ...text("checkInTime", "Giờ vào mới (HH:MM)"), source: "body", apiKey: "checkInTime", pattern: "^(?:[01]?\\d|2[0-3]):[0-5]\\d$" },
+    { ...text("checkOutTime", "Giờ ra mới (HH:MM)"), source: "body", apiKey: "checkOutTime", pattern: "^(?:[01]?\\d|2[0-3]):[0-5]\\d$" },
+    { ...text("editReason", "Lý do điều chỉnh", true), source: "body", apiKey: "editReason", max: 500 },
+  ],
+  resultFields: ["date", "status", "checkInTime", "checkOutTime", "manuallyAdjusted", "adjustmentReason"],
+});
+
 operations.push(...HEALTHCARE_OPERATIONS);
 operations.push(...QUOTATION_OPERATIONS);
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
-  const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : ["retail.report.summary", "retail.invoice.summary"].includes(op.id)
+  const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : op.id === "hr.contract.create"
+    ? "Khi lập hợp đồng, chọn nhân sự theo tên và thu thập loại hợp đồng, ngày bắt đầu, ngày kết thúc. Nếu người dùng chưa nêu trạng thái, lưu Bản nháp theo mặc định. Luôn xác nhận trước khi tạo. Sau khi tạo, hỏi một lần về ghi chú tùy chọn còn thiếu; cho phép bỏ qua."
+    : op.id === "hr.contract.missing.list"
+    ? "Báo cáo số nhân sự chưa có hợp đồng đang hiệu lực và liệt kê tên trong phạm vi API trả về. Không diễn giải kết quả thành thiếu chữ ký, tệp hoặc trường thông tin hợp đồng vì nguồn dữ liệu không kiểm tra các mục đó. Chỉ dùng các trường kết quả đã được cho phép."
+    : ["retail.report.summary", "retail.invoice.summary"].includes(op.id)
     ? "Nếu đã gắn chi nhánh, dùng chi nhánh đó; nếu là quản trị viên chưa gắn chi nhánh, hỏi người dùng chọn chi nhánh theo tên trước khi tổng hợp. Không tự đoán khoảng ngày: mặc định hôm nay; khi người dùng nói 7 ngày hoặc 30 ngày gần đây, chọn preset tương ứng; nếu nêu ngày bắt đầu/kết thúc thì điền from và to, không đồng thời dùng preset. Chỉ trình bày số liệu tổng hợp cần thiết bằng tiếng Việt, không hiển thị JSON hoặc mã nội bộ."
     : op.id === "customer.create" || (op.method === "PATCH" && op.path === "/customers/:id")
     ? "Điền thông tin khách hàng vào trường tương ứng khi có. Thông tin khách tự cung cấp không có trường riêng như ngân sách, nhu cầu, sở thích hoặc thời gian liên hệ phải được giữ trong notes (Ghi chú), mỗi dữ kiện một dòng có nhãn rõ ràng. Không bỏ thông tin bổ sung, không suy đoán và không đưa chỉ dẫn thao tác, thông tin hệ thống hoặc dữ liệu đăng nhập vào ghi chú. Khi bổ sung ghi chú, giữ những dữ kiện đã thu thập trong yêu cầu đang xử lý; hệ thống sẽ nối ghi chú mới vào hồ sơ đã có."

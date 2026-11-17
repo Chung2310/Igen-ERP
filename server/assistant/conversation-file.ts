@@ -11,6 +11,7 @@ import { extractSpeechDocument } from "./studio-speech-document";
 import { transcribeAudioToText } from "./studio-transcription";
 
 const MAX_TEXT_FILE_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_VIDEO_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_VIDEO_SECONDS = 60;
 const MAX_VIDEO_FRAMES = 4;
@@ -24,6 +25,11 @@ export interface AssistantConversationFileContext {
 
 export function isAssistantConversationFileName(fileName: string): boolean {
   return /\.(?:pdf|docx|txt|png|jpe?g|webp|mp4|mov|webm|m4v)$/i.test(fileName);
+}
+
+export function isAssistantConversationFileAllowedForMode(fileName: string, mode: "work" | "qa" | undefined): boolean {
+  if (mode === "qa") return isAssistantConversationFileName(fileName);
+  return mode === "work" && /\.(?:png|jpe?g|webp)$/i.test(fileName);
 }
 
 export function assistantConversationFileFilter(fileName: string, callback: (error: Error | null, acceptFile?: boolean) => void): void {
@@ -110,6 +116,7 @@ function splitJpegFrames(buffer: Buffer): Buffer[] {
 }
 
 async function readImage(input: { buffer: Buffer; fileName: string }): Promise<AssistantConversationFileContext> {
+  if (input.buffer.length > MAX_IMAGE_FILE_BYTES) throw new AssistantError("áº¢nh Ä‘Ã­nh kÃ¨m khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 20 MB.", 413);
   let image: Buffer;
   try {
     const metadata = await sharp(input.buffer, { failOn: "error" }).metadata();
