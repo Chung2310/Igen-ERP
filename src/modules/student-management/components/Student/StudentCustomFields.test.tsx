@@ -139,7 +139,7 @@ const student = {
   id: "student-1",
   fullName: "Nguyễn An",
   phone: "0900000000",
-  email: "nguyen-an@example.com",
+  email: "nguyen.an@example.com",
   birthday: "",
   idCard: "",
   registrationDate: "18/07/2026",
@@ -205,7 +205,7 @@ describe("student custom-field integration", () => {
     const { rerender } = render(<AddStudentModal {...props} />);
     fireEvent.change(screen.getByName("fullName"), { target: { value: "Nguyễn Bình" } });
     fireEvent.change(screen.getByName("phone"), { target: { value: "0911111111" } });
-    fireEvent.change(screen.getByName("email"), { target: { value: "nguyen-binh@example.com" } });
+    fireEvent.change(screen.getByName("email"), { target: { value: "nguyen.binh@example.com" } });
     fireEvent.change(screen.getByRole("textbox", { name: /màu yêu thích/i }), { target: { value: "Đỏ" } });
 
     mockedCustomFields.mockReturnValue(customFieldsResult([
@@ -277,7 +277,7 @@ describe("student custom-field integration", () => {
     fireEvent.change(projectSelect, { target: { value: "batch-1" } });
     fireEvent.change(screen.getByName("fullName"), { target: { value: "Trần Văn A" } });
     fireEvent.change(screen.getByName("phone"), { target: { value: "0901234567" } });
-    fireEvent.change(screen.getByName("email"), { target: { value: "tran-van-a@example.com" } });
+    fireEvent.change(screen.getByName("email"), { target: { value: "tran.van.a@example.com" } });
     fireEvent.click(getSubmitButton());
 
     await waitFor(() => expect(mockedApiFetch).toHaveBeenCalledWith("/students", expect.objectContaining({ method: "POST" })));

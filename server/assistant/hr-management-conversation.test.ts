@@ -51,6 +51,7 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 const employeeId = "507f1f77bcf86cd799439022";
 const applicantId = "507f1f77bcf86cd799439032";
 const jobId = "507f1f77bcf86cd799439033";
+const departmentName = "Phòng kinh doanh";
 const branchId = "507f1f77bcf86cd799439012";
 const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", companyCode: "TEST", branchId: "507f1f77bcf86cd799439012", role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
 const turn = (input: any) => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input });
@@ -61,6 +62,9 @@ beforeEach(() => {
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     if (path === "/api/v1/auth/users" && (init?.method || "GET") === "GET") return json([{ _id: employeeId, id: employeeId, displayName: "La Văn Sến", email: "sen@example.com", monthlySalary: 35000000 }]);
+    if (path === "/api/v1/hr/departments" && (init?.method || "GET") === "GET") return json({ data: [{ id: "507f1f77bcf86cd799439042", name: departmentName, code: "KD", isActive: true }] });
+    if (path === "/api/v1/hr/departments/507f1f77bcf86cd799439042" && init?.method === "PATCH") return json({ data: { id: "507f1f77bcf86cd799439042", name: departmentName, code: "SALES", isActive: true, ...JSON.parse(String(init.body)) } });
+    if (path === "/api/v1/auth/register-user" && init?.method === "POST") return json({ status: "success", data: { _id: employeeId, ...JSON.parse(String(init.body)) } });
     if (path === "/api/v1/recruitment/applicants" && (init?.method || "GET") === "GET") return json([{ _id: applicantId, id: applicantId, fullName: "Nguyễn Thị Mai", email: "mai@example.com", jobTitle: "Kế toán" }]);
     if (path === "/api/v1/recruitment/jobs" && (init?.method || "GET") === "GET") return json([{ _id: jobId, id: jobId, title: "Kế toán", code: "JOB-001", status: "open" }]);
     if (path === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE") return json({ status: "success", message: "Xóa nhân sự thành công" });
@@ -69,6 +73,54 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it("creates an employee by choosing a department and keeps the initial password out of the preview", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.create", values: {
+    displayName: "Trần Thu An", email: "an@example.com", birthDate: "1992-03-04", phone: "0901234567",
+  }, intentType: "workflow", newRequest: true });
+
+  const selectionPrompt = await turn({ text: "Thêm nhân sự Trần Thu An, email an@example.com" });
+  expect(selectionPrompt.status).toBe("collecting");
+  const department = selectionPrompt.referenceSelections?.find(group => group.key === "department");
+  expect(department?.required).toBe(false);
+  expect(department?.options.some(option => option.label.startsWith(departmentName))).toBe(true);
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname === "/api/v1/auth/register-user" && init?.method === "POST")).toBe(false);
+
+  const preview = await turn({ referenceSelections: { department: [department!.options[0].value] } });
+  expect(preview.status).toBe("confirmation");
+  expect(preview.action?.requiresPassword).toBe(true);
+  expect(JSON.stringify(preview)).toContain(departmentName);
+  expect(JSON.stringify(preview)).not.toContain("initial-secret-123");
+
+  const created = await turn({ decision: { id: preview.action!.id, confirmed: true, password: "initial-secret-123" } });
+  const createCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === "/api/v1/auth/register-user" && init?.method === "POST");
+  expect(created.status).toBe("completed");
+  expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
+    displayName: "Trần Thu An", email: "an@example.com", birthDate: "1992-03-04", phone: "0901234567",
+    department: departmentName, password: "initial-secret-123", role: "user", companyCode: "TEST", branchId,
+  });
+  expect(JSON.stringify(created)).not.toContain("initial-secret-123");
+});
+
+it("updates a department field by selecting its name and preserves that name", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "department.update", values: { code: "SALES" }, intentType: "workflow", newRequest: true });
+
+  const selectionPrompt = await turn({ text: "Đổi mã phòng kinh doanh thành SALES" });
+  expect(selectionPrompt.status).toBe("collecting");
+  expect(selectionPrompt.referenceSelections?.some(group => group.key === "managerUid")).toBe(false);
+  const selection = selectionPrompt.referenceSelections?.find(group => group.key === "id");
+  expect(selection?.options.some(option => option.label.startsWith(departmentName))).toBe(true);
+
+  const preview = await turn({ referenceSelections: { id: [selection!.options[0].value] } });
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain(departmentName);
+  expect(JSON.stringify(preview)).toContain("SALES");
+
+  const updated = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  const updateCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === "/api/v1/hr/departments/507f1f77bcf86cd799439042" && init?.method === "PATCH");
+  expect(updated.status).toBe("completed");
+  expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ name: departmentName, code: "SALES" });
+});
 
 it("lets a beginner choose the employee by name and confirms before deleting", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "employee.delete", values: {}, intentType: "workflow", newRequest: true });

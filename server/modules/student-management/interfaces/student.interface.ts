@@ -8,6 +8,7 @@ export interface IInstallmentStatus {
   installmentNo: number;     // Số thứ tự đợt (1, 2, 3...)
   percent: number;           // % học phí gốc của đợt này
   amountDue: number;         // Số tiền phải đóng (tính tại lúc gửi TB)
+  originalAmountDue?: number; // Số tiền ban đầu để chặn sửa sau khi đã thu một phần
   status: 'Đã gửi' | 'Đã thu' | 'Chưa gửi';
   sentAt?: string;           // ISO date string khi gửi TB
   dueAt?: Date | string;     // Ngày đến hạn thực tế

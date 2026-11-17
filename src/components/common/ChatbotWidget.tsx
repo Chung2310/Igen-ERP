@@ -2139,7 +2139,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                       {lastReply.action.values.some(item => !item.defaulted) && <dl className={cn("grid grid-cols-1 gap-2 p-3", (!headerPanel || fullscreen) && "sm:grid-cols-2")}>
                         {formatActionPreviewValues(lastReply.action.values).map(item => <div key={item.label} className={cn("min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5", (!headerPanel || fullscreen) && item.fullWidth && "sm:col-span-2")}>
                           <dt className="text-xs text-on-surface/70">{item.label}</dt>
-                          <dd className="mt-1 break-words font-medium tabular-nums">
+                          <dd className="mt-1 whitespace-pre-line break-words text-pretty font-medium tabular-nums">
                             {item.productTable
                               ? <AssistantActionProductTable label={item.label} table={item.productTable} />
                               : String(item.value)}
