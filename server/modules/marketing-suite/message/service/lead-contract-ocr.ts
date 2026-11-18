@@ -1,8 +1,8 @@
 import { normalizeLeadContractCode } from "../../../../../shared/marketing-suite/telecom-invoice";
 import type { LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
 import { LeadContractPhotoModel } from "../model/lead-contract.model";
-import { FBMessageModel } from "../model/fb-messenger.model";
-import { ZaloMessageModel } from "../model/zalo-messenger.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
+import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { enabledLeadContractAccount, TelecomInvoiceSettingsModel, type TelecomInvoiceAccount } from "../model/telecom-invoice.model";
 import { canProcessMessengerWebhook } from "../webhook-access";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
@@ -138,6 +138,9 @@ export async function processLeadContractMessage(job: LeadContractMessageJob) {
   const provider = config?.contractProvider;
   if (!provider || !config.contractFieldKey
     || !await canProcessMessengerWebhook(platform === "zalo" ? "Zalo" : "Facebook", pageId, companyCode)) return;
+  const conversation = platform === "zalo" ? await ZaloConversationModel.exists({ _id: conversationId, oaId: pageId })
+    : await FBConversationModel.exists({ _id: conversationId, pageId });
+  if (!conversation) return;
   const query = { conversationId, messageId, recipientId: pageId, direction: "inbound" as const };
   const fields = "attachments timestamp";
   const message = platform === "zalo" ? await ZaloMessageModel.findOne(query).select(fields).lean()
