@@ -22,6 +22,7 @@ import { queueLeadSheet } from "../message/service/lead-sheet.service";
 import { PageChatFlowStateModel } from "../message/model/page-chat-flow.model";
 import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/service/lead-intake.service";
 import { leadContractRouter } from "../message/router/lead-contract.router";
+import { chatTestRouter } from "../message/router/chat-test.router";
 import { resetCompanyChat } from "../message/service/company-chat-reset.service";
 import { withLeadZaloIdentities } from "../message/service/lead-zalo-identity.service";
 import { broadcastEvent } from "./socket";
@@ -74,6 +75,7 @@ function leadFieldSnapshot(value: unknown) {
 
 export const suiteDataRouter = Router();
 suiteDataRouter.use("/omni-inbox", leadContractRouter);
+suiteDataRouter.use("/omni-inbox/chat-test", chatTestRouter);
 const ALLOWED_LEAD_SORT_KEYS = new Set([
   "customerName",
   "phone",

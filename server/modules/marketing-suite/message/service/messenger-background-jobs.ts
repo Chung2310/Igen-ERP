@@ -74,6 +74,11 @@ export async function enqueueLeadContractOcr(input: Omit<LeadContractMessageJob,
 }
 
 async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
+  if (kind === "chat-test") {
+    const { processChatTestMessage } = await import("./chat-test.service");
+    await processChatTestMessage(payload as { sessionId: string; messageId: string });
+    return;
+  }
   if (kind === "zalo-webhook") {
     const { zaloMessengerService } = await import("./zalo-messenger.service");
     await zaloMessengerService.handleWebhookEvent(payload, { resumeDispatch: true });
@@ -168,13 +173,17 @@ async function runJobs(kind: MessengerBackgroundJobKind) {
         $unset: { leaseToken: 1, leaseUntil: 1, payload: 1 },
       });
     } catch (error) {
-      const failed = job.attempts >= MAX_ATTEMPTS;
+      const failed = job.attempts >= (kind === "chat-test" ? 2 : MAX_ATTEMPTS);
       const dueAt = new Date(Date.now() + Math.min(5_000 * 2 ** (job.attempts - 1), 300_000));
       console.error("[Messenger jobs] Processing failed", { kind, jobId: job._id, attempt: job.attempts, failed,
         error: error instanceof Error ? error.name : typeof error });
       if (failed && kind === "zalo-webhook" && job.payload) {
         // Keep the job recoverable if MongoDB also fails during marker cleanup.
         await clearFailedZaloInbound(job.payload as ZaloWebhookPayload);
+      }
+      if (failed && kind === "chat-test") {
+        const { failChatTestMessage } = await import("./chat-test.service");
+        await failChatTestMessage(job.payload as { sessionId: string; messageId: string }, error);
       }
       await MessengerBackgroundJobModel.updateOne(lease, {
         $set: failed ? { status: "failed", completedAt: new Date(),
@@ -198,6 +207,7 @@ export function startMessengerBackgroundWorkers() {
     startQueueRecovery(recoverFailedZaloInboundMarkers, 10_000),
     startQueueRecovery(() => runJobs("lead-intake"), 3_000),
     startQueueRecovery(() => runJobs("lead-contract-ocr"), 3_000),
+    startQueueRecovery(() => runJobs("chat-test"), 1_000),
   ];
   return () => timers.forEach(clearInterval);
 }

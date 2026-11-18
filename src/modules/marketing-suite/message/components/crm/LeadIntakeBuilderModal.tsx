@@ -23,6 +23,7 @@ interface LeadIntakeBuilderModalProps {
   initialAccountKey?: string;
   initialAddColumn?: boolean;
   focusFieldKey?: string;
+  hideOcrSettings?: boolean;
   onClose: () => void;
   onSaved: (account: LeadAccountOption | null, applyToAllAccounts?: boolean) => void;
 }
@@ -97,6 +98,7 @@ function LeadIntakeBuilderModalBody({
   initialAccountKey,
   initialAddColumn = false,
   focusFieldKey,
+  hideOcrSettings = false,
   onClose,
   onSaved,
 }: Omit<LeadIntakeBuilderModalProps, "isOpen">) {
@@ -431,7 +433,7 @@ function LeadIntakeBuilderModalBody({
             </div>
           )
         )}
-        {!initialAddColumn && (selectedAccount?.platform === "zalo" || selectedAccount?.platform === "facebook") &&
+        {!hideOcrSettings && !initialAddColumn && (selectedAccount?.platform === "zalo" || selectedAccount?.platform === "facebook") &&
           <TelecomInvoiceSettingsPanel key={`${selectedAccount.platform}:${selectedAccount.accountId}`} platform={selectedAccount.platform} accountId={selectedAccount.accountId} />}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>

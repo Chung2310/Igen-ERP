@@ -5,6 +5,7 @@ import type { LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-
 import { parseIntakeNumber } from "./intake-number";
 import { broadcastEvent } from "../../shared/socket";
 import { getIntakeStandardField, normalizeIntakeText } from "./normalize-intake-fields";
+import { isTelecomStaffField } from "./telecom-invoice-profile";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
 
@@ -34,9 +35,14 @@ type LeadIntakeIdentity = {
   platform: IntakePlatform;
   accountId: string;
   conversationId: string;
+  subscriberIdentity?: { fieldKey: string; code: string };
 };
 
 function intakeIdentity(input: LeadIntakeIdentity) {
+  if (input.subscriberIdentity) return {
+    companyCode: input.companyCode.trim().toUpperCase(),
+    telecomSubscriberCode: input.subscriberIdentity.code,
+  };
   return {
     companyCode: input.companyCode.trim().toUpperCase(),
     sourcePlatform: input.platform,
@@ -45,10 +51,18 @@ function intakeIdentity(input: LeadIntakeIdentity) {
   };
 }
 
-export function findLeadForIntake(input: LeadIntakeIdentity) {
-  return CRMTicketModel.findOne(intakeIdentity(input))
-    .select("customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus")
-    .lean();
+export async function findLeadForIntake(input: LeadIntakeIdentity) {
+  const selection = "customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus telecomSubscriberCode telecomConversationId telecomPageId telecomPlatform";
+  const current = await CRMTicketModel.findOne(intakeIdentity(input)).select(selection).lean();
+  if (current || !input.subscriberIdentity) return current;
+  const { fieldKey, code } = input.subscriberIdentity;
+  if (!/^[a-z][a-z0-9_]{0,39}$/.test(fieldKey)) throw new Error("Cột thuê bao không hợp lệ.");
+  const exactCode = new RegExp(`^\\s*${code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
+  const candidates = await CRMTicketModel.find({ companyCode: input.companyCode.trim().toUpperCase(),
+    telecomSubscriberCode: { $exists: false }, [`answers.${fieldKey}`]: exactCode,
+  }).select(selection).limit(2).lean();
+  if (candidates.length > 1) throw new Error("Có nhiều Lead cùng mã thuê bao. Cần kiểm tra trước khi ghi dữ liệu.");
+  return candidates[0] || null;
 }
 
 export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
@@ -117,13 +131,18 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       } else continue;
       needsChanged = true;
     }
-    if (!Object.keys(changedAnswers).length && !needsChanged) return current;
+    const subscriberChanged = input.subscriberIdentity && (current?.telecomSubscriberCode !== input.subscriberIdentity.code
+      || current?.telecomConversationId !== input.conversationId || current?.telecomPageId !== input.accountId);
+    if (!Object.keys(changedAnswers).length && !needsChanged && !subscriberChanged) return current;
 
-    const standard = mapIntakeStandardFields(input.fields, changedAnswers);
+    const customerFields = input.subscriberIdentity ? input.fields.filter(field => !isTelecomStaffField(field)) : input.fields;
+    const standard = mapIntakeStandardFields(customerFields, changedAnswers);
     const complete = input.fields.every(field => field.required === false || Boolean(answers[field.key]?.trim()));
     const collectionStatus = current?.collectionStatus === "needs_human" ? "needs_human" : complete ? "complete" : "collecting";
     const changedAnswerPaths = Object.fromEntries(Object.entries(changedAnswers).map(([key, value]) => [`answers.${key}`, value]));
     const update: Record<string, unknown> = {
+      ...(input.subscriberIdentity ? { telecomSubscriberCode: input.subscriberIdentity.code,
+        telecomConversationId: input.conversationId, telecomPageId: input.accountId, telecomPlatform: input.platform } : {}),
       ...(current ? changedAnswerPaths : { answers }),
       ...(needsChanged ? { needs } : {}),
       intakeSearchText: [...Object.values(answers), ...needs.flatMap(need => [need.title, need.groupLabel, ...Object.values(need.answers || {})])].join(" ").slice(0, 100000),
@@ -137,7 +156,8 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
         ...(input.messageAt ? { lastIntakeMessageAt: input.messageAt } : {}) } : {}),
     };
 
-    const fallbackName = `Khách ${identity.sourceConversationId.slice(-6) || "mới"}`;
+    const fallbackName = input.subscriberIdentity ? `Thuê bao ${input.subscriberIdentity.code}`
+      : `Khách ${input.conversationId.slice(-6) || "mới"}`;
     const canUpdate = (field: "customerName" | "phone" | "email" | "company" | "productOfChoice" | "value") => {
       const currentValue = current?.[field];
       const missing = currentValue == null || currentValue === "" ||
@@ -164,12 +184,14 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       // The answer changes and the message that produced them commit together.
       const result = await CRMTicketModel.findOneAndUpdate(
         current
-          ? { ...identity, _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
+          ? { ...(!input.subscriberIdentity ? identity : { companyCode: identity.companyCode }), _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
           : { ...identity, intakeRevision: { $exists: false } },
         {
           $set: update,
           $inc: { intakeRevision: 1 },
-          ...(!current ? { $setOnInsert: { ...identity, status: "cold" as const, selectedProducts: [] } } : {}),
+          ...(!current ? { $setOnInsert: { ...(!input.subscriberIdentity ? identity : {
+            companyCode: identity.companyCode, sourcePlatform: input.platform, sourceAccountId: input.accountId,
+          }), status: "cold" as const, selectedProducts: [] } } : {}),
         },
         { upsert: !current, new: true, runValidators: true },
       ).lean();
