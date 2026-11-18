@@ -23,6 +23,7 @@ import { PageChatFlowStateModel } from "../message/model/page-chat-flow.model";
 import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/service/lead-intake.service";
 import { leadContractRouter } from "../message/router/lead-contract.router";
 import { resetCompanyChat } from "../message/service/company-chat-reset.service";
+import { withLeadZaloIdentities } from "../message/service/lead-zalo-identity.service";
 import { broadcastEvent } from "./socket";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
@@ -276,7 +277,8 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
     CRMTicketModel.find(filter).sort(`${sortKey} -_id`).skip((page - 1) * limit).limit(limit).lean(),
     CRMTicketModel.countDocuments(filter),
   ]);
-  return res.json({ status: "success", data: items.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
+  const rows = req.query.includeZaloUid === "true" ? await withLeadZaloIdentities(req.user!.companyCode!, items) : items;
+  return res.json({ status: "success", data: rows.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
 }));
 
 suiteDataRouter.get("/omni-inbox/leads/by-conversation", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {

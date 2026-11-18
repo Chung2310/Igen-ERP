@@ -107,6 +107,41 @@ afterEach(() => {
 });
 
 describe("LeadTable", () => {
+  it("keeps the Zalo UID column hidden on saved worksheets until enabled, then shows the UID with its OA", async () => {
+    localStorage.setItem("crm_lead_sheet_v2_layout_all", JSON.stringify({ widths: {}, hiddenKeys: ["email"] }));
+    const zaloLead = { ...sampleLead, sourcePlatform: "zalo" as const, sourceAccountId: "zalo_01" };
+    const uid = "0012345678901234567";
+    const getLeadPage = vi.mocked(crmService.getLeadPage);
+    getLeadPage.mockImplementation(async options => ({
+      data: [options?.includeZaloUid ? { ...zaloLead, zaloIdentity: { uid, oaId: "zalo_01" } } : zaloLead],
+      total: 1, page: 1, limit: 25, totalPages: 1,
+    }));
+    const worksheet = <LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()}
+      deleteLead={vi.fn()} handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main" accounts={accounts} />;
+
+    const view = render(worksheet);
+    await screen.findByText(sampleLead.customerName);
+    expect(screen.queryByRole("columnheader", { name: "UID Zalo" })).toBeNull();
+    expect(getLeadPage.mock.lastCall?.[0]).not.toHaveProperty("includeZaloUid");
+
+    fireEvent.click(screen.getByRole("button", { name: /Cột hiển thị/ }));
+    const option = screen.getByRole<HTMLInputElement>("checkbox", { name: "UID Zalo" });
+    expect(option.checked).toBe(false);
+    fireEvent.click(option);
+
+    const uidLabel = await screen.findByText(`UID ${uid}`);
+    expect(uidLabel.closest("td")).toBe(screen.getByText("OA zalo_01").closest("td"));
+    expect(getLeadPage.mock.lastCall?.[0]).toMatchObject({ includeZaloUid: true });
+    view.unmount();
+
+    render(worksheet);
+    expect(await screen.findByText(`UID ${uid}`)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Cột hiển thị/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "UID Zalo" }));
+    await waitFor(() => expect(getLeadPage.mock.lastCall?.[0]).not.toHaveProperty("includeZaloUid"));
+    expect(screen.queryByText(`UID ${uid}`)).toBeNull();
+  });
+
   it("keeps direct module sync available while protecting leads already transferred to a native module", async () => {
     vi.mocked(crmService.getLeadPage).mockResolvedValue({
       data: [sampleLead, {

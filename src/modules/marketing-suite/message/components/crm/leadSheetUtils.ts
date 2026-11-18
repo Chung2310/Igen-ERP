@@ -184,6 +184,9 @@ export async function downloadLeadsExcel(leads: ExtendedLeadCard[], fields: Lead
   XLSX.writeFile(book, `leads-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+export const ZALO_UID_COLUMN_KEY = "zaloUid";
+const SHEET_LAYOUT_VERSION = 3;
+
 export const DEFAULT_HIDDEN_SYSTEM_COLUMNS = [
   "phone",
   "sourceChannel",
@@ -193,6 +196,7 @@ export const DEFAULT_HIDDEN_SYSTEM_COLUMNS = [
   "email",
   "company",
   "updatedAt",
+  ZALO_UID_COLUMN_KEY,
 ];
 
 const NAME_FIELD_ALIASES = new Set([
@@ -231,12 +235,16 @@ export function loadSheetLayout(scopeKey: string): SheetLayoutPrefs {
   try {
     const raw = localStorage.getItem(`crm_lead_sheet_v2_layout_${scopeKey}`);
     if (!raw) return { widths: {}, hiddenKeys: [...DEFAULT_HIDDEN_SYSTEM_COLUMNS] };
-    const parsed = JSON.parse(raw) as Partial<SheetLayoutPrefs>;
+    const parsed = JSON.parse(raw) as Partial<SheetLayoutPrefs> & { version?: number };
+    const hiddenKeys = Array.isArray(parsed.hiddenKeys)
+      ? parsed.hiddenKeys.filter((key): key is string => typeof key === "string")
+      : [...DEFAULT_HIDDEN_SYSTEM_COLUMNS];
+    if (parsed.version !== SHEET_LAYOUT_VERSION && !hiddenKeys.includes(ZALO_UID_COLUMN_KEY)) {
+      hiddenKeys.push(ZALO_UID_COLUMN_KEY);
+    }
     return {
       widths: parsed.widths && typeof parsed.widths === "object" ? parsed.widths : {},
-      hiddenKeys: Array.isArray(parsed.hiddenKeys)
-        ? parsed.hiddenKeys.filter((k): k is string => typeof k === "string")
-        : [...DEFAULT_HIDDEN_SYSTEM_COLUMNS],
+      hiddenKeys,
     };
   } catch {
     return { widths: {}, hiddenKeys: [...DEFAULT_HIDDEN_SYSTEM_COLUMNS] };
@@ -245,7 +253,7 @@ export function loadSheetLayout(scopeKey: string): SheetLayoutPrefs {
 
 export function saveSheetLayout(scopeKey: string, layout: SheetLayoutPrefs) {
   try {
-    localStorage.setItem(`crm_lead_sheet_v2_layout_${scopeKey}`, JSON.stringify(layout));
+    localStorage.setItem(`crm_lead_sheet_v2_layout_${scopeKey}`, JSON.stringify({ ...layout, version: SHEET_LAYOUT_VERSION }));
   } catch {
     // Ignore storage quota errors in restricted browsers.
   }
