@@ -9,6 +9,7 @@ import { getIntakeStandardField, normalizeIntakeText, normalizeIntakeValue } fro
 import { hasLeadContactEvidence, isLeadContactField, isLeadGreeting, isLeadName, leadMessageParts, readStandaloneContact, type LeadContactField } from "../../lead-intake-contact";
 import { readLeadIntakeProfiles } from "../../read-lead-intake-profiles";
 import type { LeadIntakeField, LeadNeed, LeadNeedGroup } from "../../../../../../../shared/marketing-suite/lead-intake";
+import { createHash } from "node:crypto";
 
 type Field = LeadIntakeField;
 const LEAD_INTENT_KEY = "__lead_intent";
@@ -17,6 +18,9 @@ export { normalizeIntakeValue };
 
 async function extractValues(input: ChatOrderFlowInput, fields: Field[], known: Record<string, string>, groups: LeadNeedGroup[] = [], previousNeeds: LeadNeed[] = []) {
   const latestParts = leadMessageParts(input.message);
+  if (Object.keys(input.verifiedImageValues || {}).length && (!input.message.trim() || input.message === "[Ảnh]")) {
+    return { values: { ...known }, needs: [], hasLeadIntent: true };
+  }
   if (latestParts.length && latestParts.every(isLeadGreeting) && !input.imageUrls.length) {
     return { values: { ...known }, needs: [], hasLeadIntent: false };
   }
@@ -129,20 +133,28 @@ export const pageIntakeFlow: ChatOrderFlow = {
   prepareSession: async () => ({ sessionId: "page-intake", resetDraft: false }),
   process: async input => {
     const platform = input.platform || "facebook";
-    const { account, company } = await readLeadIntakeProfiles(input.companyCode, platform, input.pageId);
+    const { account, company } = input.intakeProfile ? { account: input.intakeProfile, company: undefined }
+      : await readLeadIntakeProfiles(input.companyCode, platform, input.pageId);
     const selectedProfile = company?.applyToAllAccounts ? company : account;
     const pageProfile = selectedProfile ? null : await PageChatFlowModel.findOne({ companyCode: input.companyCode, pageId: input.pageId, status: "active",
       ...(platform === "facebook" ? { $or: [{ platform }, { platform: { $exists: false } }] } : { platform }) }).lean();
     const flow = selectedProfile || pageProfile || company;
     if (!flow) return undefined;
-    const stateKey = { companyCode: input.companyCode, pageId: input.pageId, conversationId: input.conversationId,
+    const stateConversationId = input.subscriberIdentity
+      ? `${input.conversationId}:subscriber:${createHash("sha256").update(input.subscriberIdentity.code).digest("hex")}` : input.conversationId;
+    const stateKey = { companyCode: input.companyCode, pageId: input.pageId, conversationId: stateConversationId,
       ...(platform === "facebook" ? {} : { platform }) };
-    const identity = { companyCode: input.companyCode, platform, accountId: input.pageId, conversationId: input.conversationId };
+    const identity = { companyCode: input.companyCode, platform, accountId: input.pageId, conversationId: input.conversationId,
+      ...(input.subscriberIdentity ? { subscriberIdentity: input.subscriberIdentity } : {}) };
     const allFields = flow.fields as Field[];
     const groups = ("needGroups" in flow ? flow.needGroups : []) as LeadNeedGroup[] | undefined;
     const groupedFieldKeys = new Set(groups?.flatMap(group => group.fieldKeys));
     const fields = allFields.map(field => groupedFieldKeys.has(field.key) && !isLeadContactField(getIntakeStandardField(field))
       ? { ...field, required: false } : field);
+    const imageValues = Object.fromEntries(fields.flatMap(field => {
+      const value = normalizeIntakeValue(field, input.verifiedImageValues?.[field.key]);
+      return value && (getIntakeStandardField(field) !== "name" || isLeadName(value)) ? [[field.key, value]] : [];
+    }));
     const [existing, currentLead] = await Promise.all([
       PageChatFlowStateModel.findOne(stateKey).lean(),
       findLeadForIntake(identity),
@@ -168,7 +180,9 @@ export const pageIntakeFlow: ChatOrderFlow = {
       if (ignoreStoredName(field, known[field.key])) delete known[field.key];
     }
     if (input.simulationMode) {
-      const extracted = await extractValues(input, fields, known, groups, currentLead?.needs);
+      const extracted = await extractValues(input, fields, { ...known, ...imageValues }, groups, currentLead?.needs);
+      Object.assign(extracted.values, imageValues);
+      if (input.subscriberIdentity) extracted.values[input.subscriberIdentity.fieldKey] = input.subscriberIdentity.code;
       for (const field of fields) {
         if (!protectedFields.has(`answers.${field.key}`)) continue;
         if (known[field.key]) extracted.values[field.key] = known[field.key];
@@ -191,8 +205,11 @@ export const pageIntakeFlow: ChatOrderFlow = {
     }
     const alreadySaved = currentLead?.lastIntakeMessageId === input.messageId;
     const extracted = alreadySaved ? { values: { ...known }, needs: [], hasLeadIntent: true }
-      : await extractValues(input, fields, known, groups, currentLead?.needs);
-    const hasLeadIntent = Boolean(currentLead || (!existing?.leadId && existing?.hasLeadIntent) || extracted.hasLeadIntent);
+      : await extractValues(input, fields, { ...known, ...imageValues }, groups, currentLead?.needs);
+    // A later language-model extraction cannot reassign a document to another subscriber.
+    Object.assign(extracted.values, imageValues);
+    if (input.subscriberIdentity) extracted.values[input.subscriberIdentity.fieldKey] = input.subscriberIdentity.code;
+    const hasLeadIntent = Boolean(currentLead || (!existing?.leadId && existing?.hasLeadIntent) || extracted.hasLeadIntent || Object.keys(imageValues).length);
     const values = isLate ? { ...extracted.values, ...known } : extracted.values;
     for (const field of fields) {
       if (!protectedFields.has(`answers.${field.key}`)) continue;

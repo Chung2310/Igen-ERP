@@ -6,8 +6,18 @@ vi.mock("../model/crm-ticket.model", () => ({
 }));
 
 import { mapIntakeStandardFields, parseLeadIntakeAmount, upsertLeadFromIntake } from "./lead-intake.service";
+import { isTelecomStaffField } from "./telecom-invoice-profile";
 
 describe("lead-intake.service helpers", () => {
+  it("keeps technician names and phone numbers in their own columns instead of replacing the customer contact", () => {
+    expect(mapIntakeStandardFields([
+      { key: "name", label: "Tên khách hàng", type: "text" },
+      { key: "phone", label: "Số điện thoại", type: "phone" },
+      { key: "technician", label: "Người xử lý", type: "text" },
+      { key: "technician_phone", label: "Số điện thoại người xử lý", type: "phone" },
+    ].filter(field => !isTelecomStaffField(field)), { name: "Khách Duy", phone: "0358294461", technician: "Nhân viên A", technician_phone: "0969928992" }))
+      .toEqual({ name: "Khách Duy", phone: "0358294461" });
+  });
   it("parses formatted VND budget strings into non-negative numeric amounts", () => {
     expect(parseLeadIntakeAmount("15,000,000")).toBe(15000000);
     expect(parseLeadIntakeAmount("500.000")).toBe(500000);

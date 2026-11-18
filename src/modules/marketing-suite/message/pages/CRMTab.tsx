@@ -2,10 +2,11 @@ import "../../shared/marketing-workspace.css";
 import "../crm-workspace.css";
 import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
-import { Zap, MessageSquare, Settings2, Users } from "lucide-react";
+import { Zap, MessageSquare, Settings2, Users, FlaskConical } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
 import { toast } from "../../../../pages/Toast";
 import { crmService, subscribeCrmLeadChanges, type ConversationLead, type CreateLeadInput, type ExtendedLeadCard } from "../services/crmService";
+import { chatTestService } from "../services/chatTestService";
 import { useAuth } from "../../shared/context/AuthContext";
 import { useBranchOptional } from "../../../../context/BranchContext";
 import { fbMessengerService } from "../services/fbMessengerService";
@@ -59,6 +60,9 @@ const LeadTable = lazy(() =>
 const LeadIntakeBuilderModal = lazy(() =>
   import("../components/crm/LeadIntakeBuilderModal").then(module => ({ default: module.LeadIntakeBuilderModal }))
 );
+const ChatTestTab = lazy(() =>
+  import("../components/crm/ChatTestTab").then(module => ({ default: module.ChatTestTab }))
+);
 const OmniChatTab = lazy(() =>
   import("../components/crm/OmniChatTab").then((module) => ({
     default: module.OmniChatTab,
@@ -74,6 +78,7 @@ const CRM_SUB_TAB_ROUTES = [
   { slug: "lead", value: "LEAD" as CRMSubTabType },
   { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
   { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
+  { slug: "chat-test", value: "CHAT TEST" as CRMSubTabType },
 ] as const;
 
 export default function CRMTab() {
@@ -82,6 +87,7 @@ export default function CRMTab() {
 
   const [leadSheetRefreshToken, setLeadSheetRefreshToken] = useState(0);
   const [inboxLeadSettingsScope, setInboxLeadSettingsScope] = useState<string | null>(null);
+  const [directConversationId, setDirectConversationId] = useState<string>();
 
   useEffect(() => {
     if (subTab !== "LEAD") return;
@@ -1345,6 +1351,11 @@ export default function CRMTab() {
   };
 
   const handleGoToChat = (customerName: string, conversationId?: string, channel?: string, accountId?: string) => {
+    if (conversationId && accountId?.startsWith("chat-test:")) {
+      setDirectConversationId(conversationId);
+      setSubTab("CHAT TEST");
+      return;
+    }
     const identityMatch = conversationId ? inboxCustomers.find(c => c.id === conversationId
       && c.channel === channel && (!accountId || c.accountId === accountId)) : undefined;
     const sameName = inboxCustomers.filter(c => c.name.toLowerCase() === customerName.toLowerCase());
@@ -1356,6 +1367,11 @@ export default function CRMTab() {
       toast.info(`Đã mở cuộc trò chuyện với ${customerName}`);
     } else if (!conversationId && sameName.length > 1) {
       toast.warning("Có nhiều khách trùng tên. Hãy mở hội thoại từ đúng tài khoản trong hộp thư.");
+    } else if (conversationId) {
+      void chatTestService.read(conversationId).then(() => {
+        setDirectConversationId(conversationId);
+        setSubTab("CHAT TEST");
+      }).catch(() => toast.warning("Chưa tìm thấy hội thoại nguồn của Lead trong hộp thư."));
     } else {
       toast.warning("Chưa tìm thấy hội thoại nguồn của Lead trong hộp thư.");
     }
@@ -1424,7 +1440,7 @@ export default function CRMTab() {
     },
     [],
   );
-  const hasSelectableChannels = facebookPages.length > 0 || zaloAccounts.length > 0 || tiktokAccounts.length > 0;
+  const hasSelectableChannels = subTab !== "CHAT TEST" && (facebookPages.length > 0 || zaloAccounts.length > 0 || tiktokAccounts.length > 0);
   const canConfigureInboxLead = subTab === "OMNI-INBOX CHAT" && hasPermission("omni-inbox:manage");
 
   const openInboxLeadSettings = () => {
@@ -1596,11 +1612,16 @@ export default function CRMTab() {
           { key: "LEAD" as CRMSubTabType, label: "Lead", icon: Users },
           { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại ", icon: MessageSquare },
           { key: "AI COMMENT AUTO-REPLY" as CRMSubTabType, label: "AI phản hồi bình luận", icon: Zap },
+          ...(hasPermission("omni-inbox:manage") ? [{ key: "CHAT TEST" as CRMSubTabType, label: "Thử nghiệm chat", icon: FlaskConical }] : []),
         ].map(({ key, label, icon: Icon }) => <ModuleNavigationButton key={key} active={subTab === key} icon={<Icon />} onClick={() => setSubTab(key)}>{label}</ModuleNavigationButton>)}
       </ModuleNavigation>
 
       <div className="min-h-0 flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>
+          {subTab === "CHAT TEST" && (hasPermission("omni-inbox:manage")
+            ? <ChatTestTab key={`${userProfile?.companyCode}:${userProfile?.uid}`} accounts={leadSheetAccounts}
+                onConfigureLead={setInboxLeadSettingsScope} settingsRevision={leadSheetRefreshToken} initialConversationId={directConversationId} />
+            : <p role="alert" className="p-4 text-sm text-error">Bạn cần quyền quản lý hội thoại để thử nghiệm chatbot.</p>)}
           {subTab === "LEAD" && (
             <LeadTable
               searchQuery={leadSearchQuery}
@@ -1679,6 +1700,7 @@ export default function CRMTab() {
           isOpen
           accounts={leadSheetAccounts}
           initialAccountKey={inboxLeadSettingsScope}
+          hideOcrSettings={subTab === "CHAT TEST"}
           onClose={() => setInboxLeadSettingsScope(null)}
           onSaved={() => {
             setLeadSheetRefreshToken(current => current + 1);
