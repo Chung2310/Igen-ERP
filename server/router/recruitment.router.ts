@@ -4,7 +4,7 @@ import { recruitmentController as controller, type RecruitmentRequest } from "..
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
 import { resolveRecruitmentScope } from "../utils/recruitment-scope";
-import { applicantBodySchema, applicantUpdateBodySchema, interviewBodySchema, interviewUpdateBodySchema, jobBodySchema, jobUpdateBodySchema, pipelineBodySchema, statusBodySchema, transitionBodySchema, validateBody, versionBodySchema } from "../validation/recruitment.validation";
+import { applicantBodySchema, applicantUpdateBodySchema, interviewBodySchema, interviewUpdateBodySchema, jobBodySchema, jobUpdateBodySchema, statusBodySchema, transitionBodySchema, validateBody, versionBodySchema } from "../validation/recruitment.validation";
 
 export const recruitmentRouter = Router();
 const readPermission = requirePermission("recruitment:read");
@@ -29,7 +29,6 @@ recruitmentRouter.post("/jobs/:id/status", managePermissionGuard as any, validat
 recruitmentRouter.post("/jobs/:id/delete", managePermissionGuard as any, validateBody(versionBodySchema), controller.deleteJob);
 recruitmentRouter.post("/jobs/:id/restore", managePermissionGuard as any, validateBody(versionBodySchema), controller.restoreJob);
 recruitmentRouter.get("/pipeline", readPermissionGuard as any, controller.getPipeline);
-recruitmentRouter.put("/pipeline", managePermissionGuard as any, validateBody(pipelineBodySchema), controller.savePipeline);
 recruitmentRouter.get("/applicants", readPermissionGuard as any, controller.listApplicants);
 recruitmentRouter.post("/applicants", managePermissionGuard as any, validateBody(applicantBodySchema), controller.createApplicant);
 recruitmentRouter.get("/applicants/:id", readPermissionGuard as any, controller.getApplicant);

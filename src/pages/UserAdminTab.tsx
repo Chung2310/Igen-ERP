@@ -276,10 +276,13 @@ export default function UserAdminTab() {
   };
 
   useEffect(() => {
+    const refreshUsersAfterMutation = () => { void fetchUsers(); };
+    window.addEventListener("user-mutation", refreshUsersAfterMutation);
     fetchUsers();
     fetchCompanies();
     fetchRolePermissions();
     fetchSystemPermissions();
+    return () => window.removeEventListener("user-mutation", refreshUsersAfterMutation);
   }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode, userProfile?.branchId, selectedCompanyCode, activeBranchId]);
 
 

@@ -7,6 +7,7 @@ import { appendCustomerNotes } from "../../../../../customer-management/customer
 import { findLeadForIntake, upsertLeadFromIntake } from "../../lead-intake.service";
 import { getIntakeStandardField, normalizeIntakeText, normalizeIntakeValue } from "../../normalize-intake-fields";
 import { hasLeadContactEvidence, isLeadContactField, isLeadGreeting, isLeadName, leadMessageParts, readStandaloneContact, type LeadContactField } from "../../lead-intake-contact";
+import { readLeadIntakeProfiles } from "../../read-lead-intake-profiles";
 import type { LeadIntakeField, LeadNeed, LeadNeedGroup } from "../../../../../../../shared/marketing-suite/lead-intake";
 
 type Field = LeadIntakeField;
@@ -128,11 +129,11 @@ export const pageIntakeFlow: ChatOrderFlow = {
   prepareSession: async () => ({ sessionId: "page-intake", resetDraft: false }),
   process: async input => {
     const platform = input.platform || "facebook";
-    const accountProfile = await LeadIntakeProfileModel.findOne({ companyCode: input.companyCode, platform, accountId: input.pageId, status: "active" }).sort({ version: -1 }).lean();
-    const pageProfile = accountProfile ? null : await PageChatFlowModel.findOne({ companyCode: input.companyCode, pageId: input.pageId, status: "active",
+    const { account, company } = await readLeadIntakeProfiles(input.companyCode, platform, input.pageId);
+    const selectedProfile = company?.applyToAllAccounts ? company : account;
+    const pageProfile = selectedProfile ? null : await PageChatFlowModel.findOne({ companyCode: input.companyCode, pageId: input.pageId, status: "active",
       ...(platform === "facebook" ? { $or: [{ platform }, { platform: { $exists: false } }] } : { platform }) }).lean();
-    const companyProfile = accountProfile || pageProfile ? null : await LeadIntakeProfileModel.findOne({ companyCode: input.companyCode, status: "active", platform: { $exists: false } }).sort({ version: -1 }).lean();
-    const flow = accountProfile || pageProfile || companyProfile;
+    const flow = selectedProfile || pageProfile || company;
     if (!flow) return undefined;
     const stateKey = { companyCode: input.companyCode, pageId: input.pageId, conversationId: input.conversationId,
       ...(platform === "facebook" ? {} : { platform }) };

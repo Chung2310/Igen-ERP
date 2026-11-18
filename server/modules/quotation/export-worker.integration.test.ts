@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-vi.mock("bullmq", () => ({ Queue: class { on() {} async getJob() { return null; } async add() { return {}; } }, Worker: class {} }));
+vi.mock("bullmq", () => ({
+  Queue: class { constructor() { if (process.env.QUOTATION_QUEUE_MODE === "local") throw new Error("Local quotation mode must not connect to Redis."); } on() {} async getJob() { return null; } async add() { return {}; } },
+  Worker: class { constructor() { if (process.env.QUOTATION_QUEUE_MODE === "local") throw new Error("Local quotation mode must not create a BullMQ worker."); } },
+}));
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { ObjectId } from "mongodb";
@@ -12,7 +15,7 @@ import { AiSubscriptionPeriodModel } from "../marketing-suite/shared/model/ai-su
 import { quotationContexts, quotationScopeId } from "./context";
 import { resolveQuotationJobContext } from "./access";
 import { ensureQuotationIndexes, ensureQuotationSettings, connectDatabase, quotationCollectionName } from "./db";
-import { processQuotationJob, queueQuotationExport } from "./jobs";
+import { processQuotationJob, queueQuotationExport, startQuotationWorker } from "./jobs";
 
 describe("quotation export worker with isolated provider responses", () => {
   let mongo: MongoMemoryReplSet;
@@ -127,5 +130,27 @@ describe("quotation export worker with isolated provider responses", () => {
       expect(await db.collection(quotationCollectionName("auditLogs")).findOne({ action: "ai_sandbox_cleanup", succeeded: false })).toMatchObject({ companyCode, branchId });
       expect(await AiSubscriptionPeriodModel.findOne({ companyCode }).lean()).toMatchObject({ used: before!.used + 1, reserved: 0 });
     } finally { failCleanup = false; warning.mockRestore(); }
+  }, 60_000);
+  it("processes queued exports locally without constructing a Redis queue or worker", async () => {
+    vi.stubEnv("QUOTATION_QUEUE_MODE", "local");
+    vi.stubEnv("QUOTATION_QUEUE_PREFIX", "igen-local-quotation-test");
+    await AiSubscriptionPeriodModel.updateOne({ companyCode }, { $set: { aiLimit: 100 } });
+    const runtime = await startQuotationWorker();
+    try {
+      const job = await queueDraft("BG-LOCAL-QUEUE-QA");
+      expect(job.status).toBe("queued");
+      const jobs = mongoose.connection.db!.collection<unknown>(quotationCollectionName("generatedExportJobs"));
+      const deadline = Date.now() + 30_000;
+      let stored: any;
+      while (Date.now() < deadline) {
+        stored = await jobs.findOne({ _id: new ObjectId(job.jobId) });
+        if (stored?.status === "completed" || stored?.status === "failed") break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      expect(stored?.status, stored?.error).toBe("completed");
+      expect(stored?.filename).toBe("BG-LOCAL-QUEUE-QA-nhap.xlsx");
+    } finally {
+      await runtime.close();
+    }
   }, 60_000);
 });

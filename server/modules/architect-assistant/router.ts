@@ -100,6 +100,9 @@ const furnitureSchema = Joi.object({
   width: Joi.number().greater(0).max(100).required(),
   height: Joi.number().greater(0).max(100).required(),
   rotation: Joi.number().valid(0, 90, 180, 270).required(),
+  style: Joi.string().trim().max(80),
+  material: Joi.string().trim().max(80),
+  color: Joi.string().pattern(/^#[0-9a-f]{6}$/i),
 }).unknown(false);
 
 const openingSchema = Joi.object({

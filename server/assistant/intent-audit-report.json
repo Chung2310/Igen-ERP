@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-14T22:46:46.880Z",
-  "operationCount": 932,
-  "crudFunctionCount": 722,
-  "phraseCount": 5776,
+  "generatedAt": "2026-11-17T06:50:39.773Z",
+  "operationCount": 971,
+  "crudFunctionCount": 758,
+  "phraseCount": 6064,
   "unclassified": [
     {
       "id": "omni-inbox.leads.link-student",
@@ -1493,6 +1493,30 @@
       "title": "Gửi thông báo lao động"
     },
     {
+      "id": "timekeeping.records.leave",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "title": "Báo cáo nhân sự nghỉ phép hôm nay"
+    },
+    {
+      "id": "timekeeping.records.monthly.most-leave",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Nhân sự nghỉ phép nhiều nhất trong tháng"
+    },
+    {
+      "id": "hr.contract.extend",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "method": "POST",
+      "path": "/hr-contracts/:id/extensions",
+      "title": "Gia hạn hợp đồng nhân sự"
+    },
+    {
       "id": "healthcare.import.commit",
       "module": "healthcare",
       "tab": "/quan-ly-y-te",
@@ -1767,14 +1791,14 @@
     {
       "module": "hr",
       "tab": "/nhan-su",
-      "allOperationCount": 137,
-      "functions": 100,
-      "phrases": 800,
+      "allOperationCount": 170,
+      "functions": 130,
+      "phrases": 1040,
       "byAction": {
-        "view": 53,
-        "create": 15,
-        "update": 24,
-        "delete": 8
+        "view": 79,
+        "create": 17,
+        "update": 25,
+        "delete": 9
       }
     },
     {
@@ -1806,11 +1830,11 @@
     {
       "module": "hr",
       "tab": "/nhan-su?sub=phong-ban",
-      "allOperationCount": 4,
-      "functions": 4,
-      "phrases": 32,
+      "allOperationCount": 6,
+      "functions": 6,
+      "phrases": 48,
       "byAction": {
-        "view": 1,
+        "view": 3,
         "create": 1,
         "update": 1,
         "delete": 1
@@ -1858,11 +1882,11 @@
     {
       "module": "omni-inbox",
       "tab": "/omni-inbox",
-      "allOperationCount": 36,
-      "functions": 19,
-      "phrases": 152,
+      "allOperationCount": 37,
+      "functions": 20,
+      "phrases": 160,
       "byAction": {
-        "view": 11,
+        "view": 12,
         "create": 1,
         "update": 7,
         "delete": 0
@@ -1949,13 +1973,13 @@
     {
       "module": "student",
       "tab": "/quan-ly-hoc-vien",
-      "allOperationCount": 104,
-      "functions": 91,
-      "phrases": 728,
+      "allOperationCount": 107,
+      "functions": 94,
+      "phrases": 752,
       "byAction": {
-        "view": 38,
-        "create": 16,
-        "update": 22,
+        "view": 39,
+        "create": 17,
+        "update": 23,
         "delete": 15
       }
     },
@@ -2068,6 +2092,46 @@
       ]
     },
     {
+      "id": "employee.birthday.next-month",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/auth/users",
+      "title": "Báo cáo sinh nhật nhân sự tháng tới",
+      "entity": "sinh nhật nhân sự tháng tới",
+      "variants": [
+        "Tổng hợp số liệu sinh nhật nhân sự tháng tới",
+        "Báo cáo sinh nhật nhân sự tháng tới",
+        "Thống kê sinh nhật nhân sự tháng tới",
+        "Cho tôi xem báo cáo sinh nhật nhân sự tháng tới",
+        "Tong hop so lieu sinh nhat nhan su thang toi",
+        "Bao cao sinh nhat nhan su thang toi",
+        "Thong ke sinh nhat nhan su thang toi",
+        "Cho toi xem bao cao sinh nhat nhan su thang toi"
+      ]
+    },
+    {
+      "id": "employee.count",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/auth/users/count",
+      "title": "Đếm số nhân sự trong công ty hoặc chi nhánh",
+      "entity": "Đếm số nhân sự trong công ty hoặc chi nhánh",
+      "variants": [
+        "Danh sách Đếm số nhân sự trong công ty hoặc chi nhánh",
+        "Liệt kê Đếm số nhân sự trong công ty hoặc chi nhánh",
+        "Xem danh sách Đếm số nhân sự trong công ty hoặc chi nhánh",
+        "Cho tôi xem danh sách Đếm số nhân sự trong công ty hoặc chi nhánh",
+        "Danh sach Dem so nhan su trong cong ty hoac chi nhanh",
+        "Liet ke Dem so nhan su trong cong ty hoac chi nhanh",
+        "Xem danh sach Dem so nhan su trong cong ty hoac chi nhanh",
+        "Cho toi xem danh sach Dem so nhan su trong cong ty hoac chi nhanh"
+      ]
+    },
+    {
       "id": "employee.detail",
       "module": "hr",
       "tab": "/nhan-su",
@@ -2165,6 +2229,46 @@
         "Xoa giup toi phong ban",
         "Xoa bo phong ban",
         "Vui long xoa phong ban"
+      ]
+    },
+    {
+      "id": "department.lookup",
+      "module": "hr",
+      "tab": "/nhan-su?sub=phong-ban",
+      "action": "view",
+      "method": "GET",
+      "path": "/hr/departments",
+      "title": "Tra cứu thông tin phòng ban",
+      "entity": "phòng ban",
+      "variants": [
+        "Xem chi tiết phòng ban",
+        "Thông tin chi tiết phòng ban",
+        "Xem thông tin phòng ban",
+        "Cho tôi xem chi tiết phòng ban",
+        "Xem chi tiet phong ban",
+        "Thong tin chi tiet phong ban",
+        "Xem thong tin phong ban",
+        "Cho toi xem chi tiet phong ban"
+      ]
+    },
+    {
+      "id": "department.unmanaged.list",
+      "module": "hr",
+      "tab": "/nhan-su?sub=phong-ban",
+      "action": "view",
+      "method": "GET",
+      "path": "/hr/departments",
+      "title": "Danh sách phòng ban chưa có quản lý",
+      "entity": "phòng ban chưa có quản lý",
+      "variants": [
+        "Danh sách phòng ban chưa có quản lý",
+        "Liệt kê phòng ban chưa có quản lý",
+        "Xem danh sách phòng ban chưa có quản lý",
+        "Cho tôi xem danh sách phòng ban chưa có quản lý",
+        "Danh sach phong ban chua co quan ly",
+        "Liet ke phong ban chua co quan ly",
+        "Xem danh sach phong ban chua co quan ly",
+        "Cho toi xem danh sach phong ban chua co quan ly"
       ]
     },
     {
@@ -2568,6 +2672,26 @@
       ]
     },
     {
+      "id": "training.delete",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "delete",
+      "method": "DELETE",
+      "path": "/crud/training-courses/:id",
+      "title": "Xóa khóa đào tạo nội bộ",
+      "entity": "khóa đào tạo nội bộ",
+      "variants": [
+        "Xóa khóa đào tạo nội bộ",
+        "Xóa giúp tôi khóa đào tạo nội bộ",
+        "Xóa bỏ khóa đào tạo nội bộ",
+        "Vui lòng xóa khóa đào tạo nội bộ",
+        "Xoa khoa dao tao noi bo",
+        "Xoa giup toi khoa dao tao noi bo",
+        "Xoa bo khoa dao tao noi bo",
+        "Vui long xoa khoa dao tao noi bo"
+      ]
+    },
+    {
       "id": "product.list",
       "module": "inventory",
       "tab": "/kho-san-pham",
@@ -2885,6 +3009,26 @@
         "Sua khach tiem nang",
         "Chinh sua khach tiem nang",
         "Thay doi thong tin khach tiem nang"
+      ]
+    },
+    {
+      "id": "api.get.d3b0949a7f9b099b",
+      "module": "omni-inbox",
+      "tab": "/omni-inbox",
+      "action": "view",
+      "method": "GET",
+      "path": "/omni-inbox/leads/:id/telecom-invoices",
+      "title": "Xem đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+      "entity": "đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+      "variants": [
+        "Danh sách đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+        "Liệt kê đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+        "Xem danh sách đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+        "Cho tôi xem danh sách đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+        "Danh sach da kenh hop thu khach hang tiem nang telecom hoa don",
+        "Liet ke da kenh hop thu khach hang tiem nang telecom hoa don",
+        "Xem danh sach da kenh hop thu khach hang tiem nang telecom hoa don",
+        "Cho toi xem danh sach da kenh hop thu khach hang tiem nang telecom hoa don"
       ]
     },
     {
@@ -5748,6 +5892,26 @@
       ]
     },
     {
+      "id": "timekeeping.records.monthly.report",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Tổng hợp chấm công theo tháng",
+      "entity": "chấm công theo tháng",
+      "variants": [
+        "Tổng hợp số liệu chấm công theo tháng",
+        "Báo cáo chấm công theo tháng",
+        "Thống kê chấm công theo tháng",
+        "Cho tôi xem báo cáo chấm công theo tháng",
+        "Tong hop so lieu cham cong theo thang",
+        "Bao cao cham cong theo thang",
+        "Thong ke cham cong theo thang",
+        "Cho toi xem bao cao cham cong theo thang"
+      ]
+    },
+    {
       "id": "api.get.d2e63aaeb8682c88",
       "module": "hr",
       "tab": "/nhan-su",
@@ -6748,6 +6912,26 @@
       ]
     },
     {
+      "id": "leave.balances.report",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/leave/balances",
+      "title": "Thống kê số dư phép năm nhân sự",
+      "entity": "Thống kê số dư phép năm nhân sự",
+      "variants": [
+        "Tổng hợp số liệu Thống kê số dư phép năm nhân sự",
+        "Báo cáo Thống kê số dư phép năm nhân sự",
+        "Thống kê Thống kê số dư phép năm nhân sự",
+        "Cho tôi xem báo cáo Thống kê số dư phép năm nhân sự",
+        "Tong hop so lieu Thong ke so du phep nam nhan su",
+        "Bao cao Thong ke so du phep nam nhan su",
+        "Thong ke Thong ke so du phep nam nhan su",
+        "Cho toi xem bao cao Thong ke so du phep nam nhan su"
+      ]
+    },
+    {
       "id": "api.get.0c557a74cbc907f9",
       "module": "hr",
       "tab": "/nhan-su",
@@ -7105,26 +7289,6 @@
         "Liet ke cac buoc tuyen dung",
         "Xem danh sach cac buoc tuyen dung",
         "Cho toi xem danh sach cac buoc tuyen dung"
-      ]
-    },
-    {
-      "id": "recruitment.pipeline.update",
-      "module": "hr",
-      "tab": "/nhan-su",
-      "action": "update",
-      "method": "PUT",
-      "path": "/recruitment/pipeline",
-      "title": "Cập nhật các bước tuyển dụng",
-      "entity": "các bước tuyển dụng",
-      "variants": [
-        "Cập nhật các bước tuyển dụng",
-        "Sửa các bước tuyển dụng",
-        "Chỉnh sửa các bước tuyển dụng",
-        "Thay đổi thông tin các bước tuyển dụng",
-        "Cap nhat cac buoc tuyen dung",
-        "Sua cac buoc tuyen dung",
-        "Chinh sua cac buoc tuyen dung",
-        "Thay doi thong tin cac buoc tuyen dung"
       ]
     },
     {
@@ -8108,6 +8272,66 @@
       ]
     },
     {
+      "id": "student.installments.list",
+      "module": "student",
+      "tab": "/quan-ly-hoc-vien",
+      "action": "view",
+      "method": "GET",
+      "path": "/students/:id/installments",
+      "title": "Tra cứu các đợt học phí của học viên",
+      "entity": "các đợt học phí của học viên",
+      "variants": [
+        "Danh sách các đợt học phí của học viên",
+        "Liệt kê các đợt học phí của học viên",
+        "Xem danh sách các đợt học phí của học viên",
+        "Cho tôi xem danh sách các đợt học phí của học viên",
+        "Danh sach cac dot hoc phi cua hoc vien",
+        "Liet ke cac dot hoc phi cua hoc vien",
+        "Xem danh sach cac dot hoc phi cua hoc vien",
+        "Cho toi xem danh sach cac dot hoc phi cua hoc vien"
+      ]
+    },
+    {
+      "id": "student.installment.create",
+      "module": "student",
+      "tab": "/quan-ly-hoc-vien",
+      "action": "create",
+      "method": "POST",
+      "path": "/students/:id/installments",
+      "title": "Tạo đợt học phí cho học viên",
+      "entity": "đợt học phí cho học viên",
+      "variants": [
+        "Tạo đợt học phí cho học viên",
+        "Thêm đợt học phí cho học viên",
+        "Tôi muốn tạo đợt học phí cho học viên",
+        "Cho tôi thêm đợt học phí cho học viên",
+        "Tao dot hoc phi cho hoc vien",
+        "Them dot hoc phi cho hoc vien",
+        "Toi muon tao dot hoc phi cho hoc vien",
+        "Cho toi them dot hoc phi cho hoc vien"
+      ]
+    },
+    {
+      "id": "student.installment.update",
+      "module": "student",
+      "tab": "/quan-ly-hoc-vien",
+      "action": "update",
+      "method": "PATCH",
+      "path": "/students/:id/installments/:no",
+      "title": "Cập nhật đợt học phí của học viên",
+      "entity": "đợt học phí của học viên",
+      "variants": [
+        "Cập nhật đợt học phí của học viên",
+        "Sửa đợt học phí của học viên",
+        "Chỉnh sửa đợt học phí của học viên",
+        "Thay đổi thông tin đợt học phí của học viên",
+        "Cap nhat dot hoc phi cua hoc vien",
+        "Sua dot hoc phi cua hoc vien",
+        "Chinh sua dot hoc phi cua hoc vien",
+        "Thay doi thong tin dot hoc phi cua hoc vien"
+      ]
+    },
+    {
       "id": "student.detail",
       "module": "student",
       "tab": "/quan-ly-hoc-vien",
@@ -8694,17 +8918,17 @@
       "action": "view",
       "method": "GET",
       "path": "/student-resources/categories",
-      "title": "Tra cứu loại phòng học và tài nguyên",
-      "entity": "loại phòng học và tài nguyên",
+      "title": "Tra cứu loại phòng học, thiết bị và tài nguyên",
+      "entity": "loại phòng học, thiết bị và tài nguyên",
       "variants": [
-        "Danh sách loại phòng học và tài nguyên",
-        "Liệt kê loại phòng học và tài nguyên",
-        "Xem danh sách loại phòng học và tài nguyên",
-        "Cho tôi xem danh sách loại phòng học và tài nguyên",
-        "Danh sach loai phong hoc va tai nguyen",
-        "Liet ke loai phong hoc va tai nguyen",
-        "Xem danh sach loai phong hoc va tai nguyen",
-        "Cho toi xem danh sach loai phong hoc va tai nguyen"
+        "Danh sách loại phòng học, thiết bị và tài nguyên",
+        "Liệt kê loại phòng học, thiết bị và tài nguyên",
+        "Xem danh sách loại phòng học, thiết bị và tài nguyên",
+        "Cho tôi xem danh sách loại phòng học, thiết bị và tài nguyên",
+        "Danh sach loai phong hoc, thiet bi va tai nguyen",
+        "Liet ke loai phong hoc, thiet bi va tai nguyen",
+        "Xem danh sach loai phong hoc, thiet bi va tai nguyen",
+        "Cho toi xem danh sach loai phong hoc, thiet bi va tai nguyen"
       ]
     },
     {
@@ -8714,17 +8938,17 @@
       "action": "create",
       "method": "POST",
       "path": "/student-resources/categories",
-      "title": "Thêm loại phòng học hoặc tài nguyên",
-      "entity": "loại phòng học hoặc tài nguyên",
+      "title": "Thêm loại phòng học, thiết bị hoặc tài nguyên",
+      "entity": "loại phòng học, thiết bị hoặc tài nguyên",
       "variants": [
-        "Tạo loại phòng học hoặc tài nguyên",
-        "Thêm loại phòng học hoặc tài nguyên",
-        "Tôi muốn tạo loại phòng học hoặc tài nguyên",
-        "Cho tôi thêm loại phòng học hoặc tài nguyên",
-        "Tao loai phong hoc hoac tai nguyen",
-        "Them loai phong hoc hoac tai nguyen",
-        "Toi muon tao loai phong hoc hoac tai nguyen",
-        "Cho toi them loai phong hoc hoac tai nguyen"
+        "Tạo loại phòng học, thiết bị hoặc tài nguyên",
+        "Thêm loại phòng học, thiết bị hoặc tài nguyên",
+        "Tôi muốn tạo loại phòng học, thiết bị hoặc tài nguyên",
+        "Cho tôi thêm loại phòng học, thiết bị hoặc tài nguyên",
+        "Tao loai phong hoc, thiet bi hoac tai nguyen",
+        "Them loai phong hoc, thiet bi hoac tai nguyen",
+        "Toi muon tao loai phong hoc, thiet bi hoac tai nguyen",
+        "Cho toi them loai phong hoc, thiet bi hoac tai nguyen"
       ]
     },
     {
@@ -8734,17 +8958,17 @@
       "action": "delete",
       "method": "DELETE",
       "path": "/student-resources/categories/:id",
-      "title": "Xóa loại phòng học hoặc tài nguyên",
-      "entity": "loại phòng học hoặc tài nguyên",
+      "title": "Xóa loại phòng học, thiết bị hoặc tài nguyên",
+      "entity": "loại phòng học, thiết bị hoặc tài nguyên",
       "variants": [
-        "Xóa loại phòng học hoặc tài nguyên",
-        "Xóa giúp tôi loại phòng học hoặc tài nguyên",
-        "Xóa bỏ loại phòng học hoặc tài nguyên",
-        "Vui lòng xóa loại phòng học hoặc tài nguyên",
-        "Xoa loai phong hoc hoac tai nguyen",
-        "Xoa giup toi loai phong hoc hoac tai nguyen",
-        "Xoa bo loai phong hoc hoac tai nguyen",
-        "Vui long xoa loai phong hoc hoac tai nguyen"
+        "Xóa loại phòng học, thiết bị hoặc tài nguyên",
+        "Xóa giúp tôi loại phòng học, thiết bị hoặc tài nguyên",
+        "Xóa bỏ loại phòng học, thiết bị hoặc tài nguyên",
+        "Vui lòng xóa loại phòng học, thiết bị hoặc tài nguyên",
+        "Xoa loai phong hoc, thiet bi hoac tai nguyen",
+        "Xoa giup toi loai phong hoc, thiet bi hoac tai nguyen",
+        "Xoa bo loai phong hoc, thiet bi hoac tai nguyen",
+        "Vui long xoa loai phong hoc, thiet bi hoac tai nguyen"
       ]
     },
     {
@@ -8754,17 +8978,17 @@
       "action": "create",
       "method": "POST",
       "path": "/student-resources",
-      "title": "Thêm phòng học hoặc tài nguyên",
-      "entity": "phòng học hoặc tài nguyên",
+      "title": "Thêm phòng học hoặc thiết bị",
+      "entity": "phòng học hoặc thiết bị",
       "variants": [
-        "Tạo phòng học hoặc tài nguyên",
-        "Thêm phòng học hoặc tài nguyên",
-        "Tôi muốn tạo phòng học hoặc tài nguyên",
-        "Cho tôi thêm phòng học hoặc tài nguyên",
-        "Tao phong hoc hoac tai nguyen",
-        "Them phong hoc hoac tai nguyen",
-        "Toi muon tao phong hoc hoac tai nguyen",
-        "Cho toi them phong hoc hoac tai nguyen"
+        "Tạo phòng học hoặc thiết bị",
+        "Thêm phòng học hoặc thiết bị",
+        "Tôi muốn tạo phòng học hoặc thiết bị",
+        "Cho tôi thêm phòng học hoặc thiết bị",
+        "Tao phong hoc hoac thiet bi",
+        "Them phong hoc hoac thiet bi",
+        "Toi muon tao phong hoc hoac thiet bi",
+        "Cho toi them phong hoc hoac thiet bi"
       ]
     },
     {
@@ -8774,17 +8998,17 @@
       "action": "view",
       "method": "GET",
       "path": "/student-resources",
-      "title": "Tra cứu phòng học và tài nguyên",
-      "entity": "phòng học và tài nguyên",
+      "title": "Tra cứu phòng học, thiết bị và tài nguyên",
+      "entity": "phòng học, thiết bị và tài nguyên",
       "variants": [
-        "Danh sách phòng học và tài nguyên",
-        "Liệt kê phòng học và tài nguyên",
-        "Xem danh sách phòng học và tài nguyên",
-        "Cho tôi xem danh sách phòng học và tài nguyên",
-        "Danh sach phong hoc va tai nguyen",
-        "Liet ke phong hoc va tai nguyen",
-        "Xem danh sach phong hoc va tai nguyen",
-        "Cho toi xem danh sach phong hoc va tai nguyen"
+        "Danh sách phòng học, thiết bị và tài nguyên",
+        "Liệt kê phòng học, thiết bị và tài nguyên",
+        "Xem danh sách phòng học, thiết bị và tài nguyên",
+        "Cho tôi xem danh sách phòng học, thiết bị và tài nguyên",
+        "Danh sach phong hoc, thiet bi va tai nguyen",
+        "Liet ke phong hoc, thiet bi va tai nguyen",
+        "Xem danh sach phong hoc, thiet bi va tai nguyen",
+        "Cho toi xem danh sach phong hoc, thiet bi va tai nguyen"
       ]
     },
     {
@@ -8794,17 +9018,17 @@
       "action": "view",
       "method": "GET",
       "path": "/student-resources/:id",
-      "title": "Xem chi tiết phòng học hoặc tài nguyên",
-      "entity": "phòng học hoặc tài nguyên",
+      "title": "Xem chi tiết phòng học hoặc thiết bị",
+      "entity": "phòng học hoặc thiết bị",
       "variants": [
-        "Xem chi tiết phòng học hoặc tài nguyên",
-        "Thông tin chi tiết phòng học hoặc tài nguyên",
-        "Xem thông tin phòng học hoặc tài nguyên",
-        "Cho tôi xem chi tiết phòng học hoặc tài nguyên",
-        "Xem chi tiet phong hoc hoac tai nguyen",
-        "Thong tin chi tiet phong hoc hoac tai nguyen",
-        "Xem thong tin phong hoc hoac tai nguyen",
-        "Cho toi xem chi tiet phong hoc hoac tai nguyen"
+        "Xem chi tiết phòng học hoặc thiết bị",
+        "Thông tin chi tiết phòng học hoặc thiết bị",
+        "Xem thông tin phòng học hoặc thiết bị",
+        "Cho tôi xem chi tiết phòng học hoặc thiết bị",
+        "Xem chi tiet phong hoc hoac thiet bi",
+        "Thong tin chi tiet phong hoc hoac thiet bi",
+        "Xem thong tin phong hoc hoac thiet bi",
+        "Cho toi xem chi tiet phong hoc hoac thiet bi"
       ]
     },
     {
@@ -8814,17 +9038,17 @@
       "action": "update",
       "method": "PATCH",
       "path": "/student-resources/:id",
-      "title": "Sửa phòng học hoặc tài nguyên",
-      "entity": "phòng học hoặc tài nguyên",
+      "title": "Sửa phòng học hoặc thiết bị",
+      "entity": "phòng học hoặc thiết bị",
       "variants": [
-        "Cập nhật phòng học hoặc tài nguyên",
-        "Sửa phòng học hoặc tài nguyên",
-        "Chỉnh sửa phòng học hoặc tài nguyên",
-        "Thay đổi thông tin phòng học hoặc tài nguyên",
-        "Cap nhat phong hoc hoac tai nguyen",
-        "Sua phong hoc hoac tai nguyen",
-        "Chinh sua phong hoc hoac tai nguyen",
-        "Thay doi thong tin phong hoc hoac tai nguyen"
+        "Cập nhật phòng học hoặc thiết bị",
+        "Sửa phòng học hoặc thiết bị",
+        "Chỉnh sửa phòng học hoặc thiết bị",
+        "Thay đổi thông tin phòng học hoặc thiết bị",
+        "Cap nhat phong hoc hoac thiet bi",
+        "Sua phong hoc hoac thiet bi",
+        "Chinh sua phong hoc hoac thiet bi",
+        "Thay doi thong tin phong hoc hoac thiet bi"
       ]
     },
     {
@@ -8834,17 +9058,17 @@
       "action": "delete",
       "method": "DELETE",
       "path": "/student-resources/:id",
-      "title": "Xóa phòng học hoặc tài nguyên",
-      "entity": "phòng học hoặc tài nguyên",
+      "title": "Xóa phòng học hoặc thiết bị",
+      "entity": "phòng học hoặc thiết bị",
       "variants": [
-        "Xóa phòng học hoặc tài nguyên",
-        "Xóa giúp tôi phòng học hoặc tài nguyên",
-        "Xóa bỏ phòng học hoặc tài nguyên",
-        "Vui lòng xóa phòng học hoặc tài nguyên",
-        "Xoa phong hoc hoac tai nguyen",
-        "Xoa giup toi phong hoc hoac tai nguyen",
-        "Xoa bo phong hoc hoac tai nguyen",
-        "Vui long xoa phong hoc hoac tai nguyen"
+        "Xóa phòng học hoặc thiết bị",
+        "Xóa giúp tôi phòng học hoặc thiết bị",
+        "Xóa bỏ phòng học hoặc thiết bị",
+        "Vui lòng xóa phòng học hoặc thiết bị",
+        "Xoa phong hoc hoac thiet bi",
+        "Xoa giup toi phong hoc hoac thiet bi",
+        "Xoa bo phong hoc hoac thiet bi",
+        "Vui long xoa phong hoc hoac thiet bi"
       ]
     },
     {
@@ -8854,17 +9078,17 @@
       "action": "create",
       "method": "POST",
       "path": "/student-resources/:id/bookings",
-      "title": "Đặt lịch phòng học hoặc tài nguyên",
-      "entity": "Đặt lịch phòng học hoặc tài nguyên",
+      "title": "Đặt lịch phòng học hoặc thiết bị",
+      "entity": "Đặt lịch phòng học hoặc thiết bị",
       "variants": [
-        "Tạo Đặt lịch phòng học hoặc tài nguyên",
-        "Thêm Đặt lịch phòng học hoặc tài nguyên",
-        "Tôi muốn tạo Đặt lịch phòng học hoặc tài nguyên",
-        "Cho tôi thêm Đặt lịch phòng học hoặc tài nguyên",
-        "Tao Dat lich phong hoc hoac tai nguyen",
-        "Them Dat lich phong hoc hoac tai nguyen",
-        "Toi muon tao Dat lich phong hoc hoac tai nguyen",
-        "Cho toi them Dat lich phong hoc hoac tai nguyen"
+        "Tạo Đặt lịch phòng học hoặc thiết bị",
+        "Thêm Đặt lịch phòng học hoặc thiết bị",
+        "Tôi muốn tạo Đặt lịch phòng học hoặc thiết bị",
+        "Cho tôi thêm Đặt lịch phòng học hoặc thiết bị",
+        "Tao Dat lich phong hoc hoac thiet bi",
+        "Them Dat lich phong hoc hoac thiet bi",
+        "Toi muon tao Dat lich phong hoc hoac thiet bi",
+        "Cho toi them Dat lich phong hoc hoac thiet bi"
       ]
     },
     {
@@ -8874,17 +9098,17 @@
       "action": "delete",
       "method": "DELETE",
       "path": "/student-resources/:id/bookings/:bookingId",
-      "title": "Hủy lịch đặt phòng học hoặc tài nguyên",
-      "entity": "lịch đặt phòng học hoặc tài nguyên",
+      "title": "Hủy lịch đặt phòng học hoặc thiết bị",
+      "entity": "lịch đặt phòng học hoặc thiết bị",
       "variants": [
-        "Xóa lịch đặt phòng học hoặc tài nguyên",
-        "Xóa giúp tôi lịch đặt phòng học hoặc tài nguyên",
-        "Xóa bỏ lịch đặt phòng học hoặc tài nguyên",
-        "Vui lòng xóa lịch đặt phòng học hoặc tài nguyên",
-        "Xoa lich dat phong hoc hoac tai nguyen",
-        "Xoa giup toi lich dat phong hoc hoac tai nguyen",
-        "Xoa bo lich dat phong hoc hoac tai nguyen",
-        "Vui long xoa lich dat phong hoc hoac tai nguyen"
+        "Xóa lịch đặt phòng học hoặc thiết bị",
+        "Xóa giúp tôi lịch đặt phòng học hoặc thiết bị",
+        "Xóa bỏ lịch đặt phòng học hoặc thiết bị",
+        "Vui lòng xóa lịch đặt phòng học hoặc thiết bị",
+        "Xoa lich dat phong hoc hoac thiet bi",
+        "Xoa giup toi lich dat phong hoc hoac thiet bi",
+        "Xoa bo lich dat phong hoc hoac thiet bi",
+        "Vui long xoa lich dat phong hoc hoac thiet bi"
       ]
     },
     {
@@ -15148,6 +15372,526 @@
       ]
     },
     {
+      "id": "hr.contract.missing.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/hr-contracts",
+      "title": "Báo cáo nhân sự chưa có hợp đồng hiệu lực",
+      "entity": "nhân sự chưa có hợp đồng hiệu lực",
+      "variants": [
+        "Tổng hợp số liệu nhân sự chưa có hợp đồng hiệu lực",
+        "Báo cáo nhân sự chưa có hợp đồng hiệu lực",
+        "Thống kê nhân sự chưa có hợp đồng hiệu lực",
+        "Cho tôi xem báo cáo nhân sự chưa có hợp đồng hiệu lực",
+        "Tong hop so lieu nhan su chua co hop dong hieu luc",
+        "Bao cao nhan su chua co hop dong hieu luc",
+        "Thong ke nhan su chua co hop dong hieu luc",
+        "Cho toi xem bao cao nhan su chua co hop dong hieu luc"
+      ]
+    },
+    {
+      "id": "timekeeping.records.overview",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "title": "Báo cáo tổng quan chấm công hôm nay",
+      "entity": "tổng quan chấm công hôm nay",
+      "variants": [
+        "Tổng hợp số liệu tổng quan chấm công hôm nay",
+        "Báo cáo tổng quan chấm công hôm nay",
+        "Thống kê tổng quan chấm công hôm nay",
+        "Cho tôi xem báo cáo tổng quan chấm công hôm nay",
+        "Tong hop so lieu tong quan cham cong hom nay",
+        "Bao cao tong quan cham cong hom nay",
+        "Thong ke tong quan cham cong hom nay",
+        "Cho toi xem bao cao tong quan cham cong hom nay"
+      ]
+    },
+    {
+      "id": "timekeeping.records.late",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "title": "Báo cáo nhân sự đi muộn hôm nay",
+      "entity": "nhân sự đi muộn hôm nay",
+      "variants": [
+        "Tổng hợp số liệu nhân sự đi muộn hôm nay",
+        "Báo cáo nhân sự đi muộn hôm nay",
+        "Thống kê nhân sự đi muộn hôm nay",
+        "Cho tôi xem báo cáo nhân sự đi muộn hôm nay",
+        "Tong hop so lieu nhan su di muon hom nay",
+        "Bao cao nhan su di muon hom nay",
+        "Thong ke nhan su di muon hom nay",
+        "Cho toi xem bao cao nhan su di muon hom nay"
+      ]
+    },
+    {
+      "id": "timekeeping.records.absent",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "title": "Báo cáo nhân sự vắng hôm nay",
+      "entity": "nhân sự vắng hôm nay",
+      "variants": [
+        "Tổng hợp số liệu nhân sự vắng hôm nay",
+        "Báo cáo nhân sự vắng hôm nay",
+        "Thống kê nhân sự vắng hôm nay",
+        "Cho tôi xem báo cáo nhân sự vắng hôm nay",
+        "Tong hop so lieu nhan su vang hom nay",
+        "Bao cao nhan su vang hom nay",
+        "Thong ke nhan su vang hom nay",
+        "Cho toi xem bao cao nhan su vang hom nay"
+      ]
+    },
+    {
+      "id": "timekeeping.records.unrecorded",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "title": "Báo cáo nhân sự chưa chấm công hôm nay",
+      "entity": "nhân sự chưa chấm công hôm nay",
+      "variants": [
+        "Tổng hợp số liệu nhân sự chưa chấm công hôm nay",
+        "Báo cáo nhân sự chưa chấm công hôm nay",
+        "Thống kê nhân sự chưa chấm công hôm nay",
+        "Cho tôi xem báo cáo nhân sự chưa chấm công hôm nay",
+        "Tong hop so lieu nhan su chua cham cong hom nay",
+        "Bao cao nhan su chua cham cong hom nay",
+        "Thong ke nhan su chua cham cong hom nay",
+        "Cho toi xem bao cao nhan su chua cham cong hom nay"
+      ]
+    },
+    {
+      "id": "timekeeping.records.monthly.overview",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Tổng hợp chấm công theo tháng",
+      "entity": "chấm công theo tháng",
+      "variants": [
+        "Tổng hợp số liệu chấm công theo tháng",
+        "Báo cáo chấm công theo tháng",
+        "Thống kê chấm công theo tháng",
+        "Cho tôi xem báo cáo chấm công theo tháng",
+        "Tong hop so lieu cham cong theo thang",
+        "Bao cao cham cong theo thang",
+        "Thong ke cham cong theo thang",
+        "Cho toi xem bao cao cham cong theo thang"
+      ]
+    },
+    {
+      "id": "timekeeping.records.monthly.under-threshold",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Nhân sự chưa đủ ngưỡng công trong tháng",
+      "entity": "Nhân sự chưa đủ ngưỡng công trong tháng",
+      "variants": [
+        "Danh sách Nhân sự chưa đủ ngưỡng công trong tháng",
+        "Liệt kê Nhân sự chưa đủ ngưỡng công trong tháng",
+        "Xem danh sách Nhân sự chưa đủ ngưỡng công trong tháng",
+        "Cho tôi xem danh sách Nhân sự chưa đủ ngưỡng công trong tháng",
+        "Danh sach Nhan su chua du nguong cong trong thang",
+        "Liet ke Nhan su chua du nguong cong trong thang",
+        "Xem danh sach Nhan su chua du nguong cong trong thang",
+        "Cho toi xem danh sach Nhan su chua du nguong cong trong thang"
+      ]
+    },
+    {
+      "id": "timekeeping.records.monthly.most-absent",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Nhân sự nghỉ nhiều nhất trong tháng",
+      "entity": "Nhân sự nghỉ nhiều nhất trong tháng",
+      "variants": [
+        "Danh sách Nhân sự nghỉ nhiều nhất trong tháng",
+        "Liệt kê Nhân sự nghỉ nhiều nhất trong tháng",
+        "Xem danh sách Nhân sự nghỉ nhiều nhất trong tháng",
+        "Cho tôi xem danh sách Nhân sự nghỉ nhiều nhất trong tháng",
+        "Danh sach Nhan su nghi nhieu nhat trong thang",
+        "Liet ke Nhan su nghi nhieu nhat trong thang",
+        "Xem danh sach Nhan su nghi nhieu nhat trong thang",
+        "Cho toi xem danh sach Nhan su nghi nhieu nhat trong thang"
+      ]
+    },
+    {
+      "id": "timekeeping.records.monthly.most-late",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Thống kê lượt đi làm trễ trong tháng",
+      "entity": "Thống kê lượt đi làm trễ trong tháng",
+      "variants": [
+        "Danh sách Thống kê lượt đi làm trễ trong tháng",
+        "Liệt kê Thống kê lượt đi làm trễ trong tháng",
+        "Xem danh sách Thống kê lượt đi làm trễ trong tháng",
+        "Cho tôi xem danh sách Thống kê lượt đi làm trễ trong tháng",
+        "Danh sach Thong ke luot di lam tre trong thang",
+        "Liet ke Thong ke luot di lam tre trong thang",
+        "Xem danh sach Thong ke luot di lam tre trong thang",
+        "Cho toi xem danh sach Thong ke luot di lam tre trong thang"
+      ]
+    },
+    {
+      "id": "timekeeping.records.monthly.unrecorded",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/monthly-report",
+      "title": "Nhân sự chưa chấm công trong tháng",
+      "entity": "Nhân sự chưa chấm công trong tháng",
+      "variants": [
+        "Danh sách Nhân sự chưa chấm công trong tháng",
+        "Liệt kê Nhân sự chưa chấm công trong tháng",
+        "Xem danh sách Nhân sự chưa chấm công trong tháng",
+        "Cho tôi xem danh sách Nhân sự chưa chấm công trong tháng",
+        "Danh sach Nhan su chua cham cong trong thang",
+        "Liet ke Nhan su chua cham cong trong thang",
+        "Xem danh sach Nhan su chua cham cong trong thang",
+        "Cho toi xem danh sach Nhan su chua cham cong trong thang"
+      ]
+    },
+    {
+      "id": "task.kpi.monthly",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/kanban/kpi/monthly",
+      "title": "Báo cáo KPI công việc theo tháng",
+      "entity": "KPI công việc theo tháng",
+      "variants": [
+        "Tổng hợp số liệu KPI công việc theo tháng",
+        "Báo cáo KPI công việc theo tháng",
+        "Thống kê KPI công việc theo tháng",
+        "Cho tôi xem báo cáo KPI công việc theo tháng",
+        "Tong hop so lieu KPI cong viec theo thang",
+        "Bao cao KPI cong viec theo thang",
+        "Thong ke KPI cong viec theo thang",
+        "Cho toi xem bao cao KPI cong viec theo thang"
+      ]
+    },
+    {
+      "id": "hr.leave.applications.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/crud/hr-leave-applications",
+      "title": "Tra cứu đơn nghỉ phép và làm việc từ xa",
+      "entity": "đơn nghỉ phép và làm việc từ xa",
+      "variants": [
+        "Danh sách đơn nghỉ phép và làm việc từ xa",
+        "Liệt kê đơn nghỉ phép và làm việc từ xa",
+        "Xem danh sách đơn nghỉ phép và làm việc từ xa",
+        "Cho tôi xem danh sách đơn nghỉ phép và làm việc từ xa",
+        "Danh sach don nghi phep va lam viec tu xa",
+        "Liet ke don nghi phep va lam viec tu xa",
+        "Xem danh sach don nghi phep va lam viec tu xa",
+        "Cho toi xem danh sach don nghi phep va lam viec tu xa"
+      ]
+    },
+    {
+      "id": "hr.calendar.events.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/crud/hr-calendar-events",
+      "title": "Tra cứu sự kiện nội bộ và lịch hôm nay",
+      "entity": "sự kiện nội bộ và lịch hôm nay",
+      "variants": [
+        "Danh sách sự kiện nội bộ và lịch hôm nay",
+        "Liệt kê sự kiện nội bộ và lịch hôm nay",
+        "Xem danh sách sự kiện nội bộ và lịch hôm nay",
+        "Cho tôi xem danh sách sự kiện nội bộ và lịch hôm nay",
+        "Danh sach su kien noi bo va lich hom nay",
+        "Liet ke su kien noi bo va lich hom nay",
+        "Xem danh sach su kien noi bo va lich hom nay",
+        "Cho toi xem danh sach su kien noi bo va lich hom nay"
+      ]
+    },
+    {
+      "id": "hr.calendar.event.create",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "create",
+      "method": "POST",
+      "path": "/crud/hr-calendar-events",
+      "title": "Tạo sự kiện nội bộ",
+      "entity": "sự kiện nội bộ",
+      "variants": [
+        "Tạo sự kiện nội bộ",
+        "Thêm sự kiện nội bộ",
+        "Tôi muốn tạo sự kiện nội bộ",
+        "Cho tôi thêm sự kiện nội bộ",
+        "Tao su kien noi bo",
+        "Them su kien noi bo",
+        "Toi muon tao su kien noi bo",
+        "Cho toi them su kien noi bo"
+      ]
+    },
+    {
+      "id": "hr.calendar.event.update",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "update",
+      "method": "PATCH",
+      "path": "/crud/hr-calendar-events/:id",
+      "title": "Cập nhật sự kiện nội bộ",
+      "entity": "sự kiện nội bộ",
+      "variants": [
+        "Cập nhật sự kiện nội bộ",
+        "Sửa sự kiện nội bộ",
+        "Chỉnh sửa sự kiện nội bộ",
+        "Thay đổi thông tin sự kiện nội bộ",
+        "Cap nhat su kien noi bo",
+        "Sua su kien noi bo",
+        "Chinh sua su kien noi bo",
+        "Thay doi thong tin su kien noi bo"
+      ]
+    },
+    {
+      "id": "leave.balances.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/leave/balances",
+      "title": "Thống kê số phép năm còn lại của nhân sự",
+      "entity": "Thống kê số phép năm còn lại của nhân sự",
+      "variants": [
+        "Danh sách Thống kê số phép năm còn lại của nhân sự",
+        "Liệt kê Thống kê số phép năm còn lại của nhân sự",
+        "Xem danh sách Thống kê số phép năm còn lại của nhân sự",
+        "Cho tôi xem danh sách Thống kê số phép năm còn lại của nhân sự",
+        "Danh sach Thong ke so phep nam con lai cua nhan su",
+        "Liet ke Thong ke so phep nam con lai cua nhan su",
+        "Xem danh sach Thong ke so phep nam con lai cua nhan su",
+        "Cho toi xem danh sach Thong ke so phep nam con lai cua nhan su"
+      ]
+    },
+    {
+      "id": "leave.balances.minimum",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/leave/balances",
+      "title": "Nhân sự còn ít nhất số ngày phép được yêu cầu",
+      "entity": "Nhân sự còn ít nhất số ngày phép được yêu cầu",
+      "variants": [
+        "Danh sách Nhân sự còn ít nhất số ngày phép được yêu cầu",
+        "Liệt kê Nhân sự còn ít nhất số ngày phép được yêu cầu",
+        "Xem danh sách Nhân sự còn ít nhất số ngày phép được yêu cầu",
+        "Cho tôi xem danh sách Nhân sự còn ít nhất số ngày phép được yêu cầu",
+        "Danh sach Nhan su con it nhat so ngay phep duoc yeu cau",
+        "Liet ke Nhan su con it nhat so ngay phep duoc yeu cau",
+        "Xem danh sach Nhan su con it nhat so ngay phep duoc yeu cau",
+        "Cho toi xem danh sach Nhan su con it nhat so ngay phep duoc yeu cau"
+      ]
+    },
+    {
+      "id": "leave.balances.exhausted",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/leave/balances",
+      "title": "Nhân sự đã hết phép năm",
+      "entity": "Nhân sự đã hết phép năm",
+      "variants": [
+        "Danh sách Nhân sự đã hết phép năm",
+        "Liệt kê Nhân sự đã hết phép năm",
+        "Xem danh sách Nhân sự đã hết phép năm",
+        "Cho tôi xem danh sách Nhân sự đã hết phép năm",
+        "Danh sach Nhan su da het phep nam",
+        "Liet ke Nhan su da het phep nam",
+        "Xem danh sach Nhan su da het phep nam",
+        "Cho toi xem danh sach Nhan su da het phep nam"
+      ]
+    },
+    {
+      "id": "timekeeping.work-calendar.month-holidays",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/work-calendar",
+      "title": "Ngày nghỉ trong tháng",
+      "entity": "Ngày nghỉ trong tháng",
+      "variants": [
+        "Danh sách Ngày nghỉ trong tháng",
+        "Liệt kê Ngày nghỉ trong tháng",
+        "Xem danh sách Ngày nghỉ trong tháng",
+        "Cho tôi xem danh sách Ngày nghỉ trong tháng",
+        "Danh sach Ngay nghi trong thang",
+        "Liet ke Ngay nghi trong thang",
+        "Xem danh sach Ngay nghi trong thang",
+        "Cho toi xem danh sach Ngay nghi trong thang"
+      ]
+    },
+    {
+      "id": "timekeeping.work-calendar.named-holiday",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/timekeeping/work-calendar",
+      "title": "Tra cứu ngày nghỉ theo tên",
+      "entity": "ngày nghỉ theo tên",
+      "variants": [
+        "Danh sách ngày nghỉ theo tên",
+        "Liệt kê ngày nghỉ theo tên",
+        "Xem danh sách ngày nghỉ theo tên",
+        "Cho tôi xem danh sách ngày nghỉ theo tên",
+        "Danh sach ngay nghi theo ten",
+        "Liet ke ngay nghi theo ten",
+        "Xem danh sach ngay nghi theo ten",
+        "Cho toi xem danh sach ngay nghi theo ten"
+      ]
+    },
+    {
+      "id": "hr.contract.expiring.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/hr-contracts",
+      "title": "Báo cáo hợp đồng nhân sự sắp hết hạn",
+      "entity": "hợp đồng nhân sự sắp hết hạn",
+      "variants": [
+        "Tổng hợp số liệu hợp đồng nhân sự sắp hết hạn",
+        "Báo cáo hợp đồng nhân sự sắp hết hạn",
+        "Thống kê hợp đồng nhân sự sắp hết hạn",
+        "Cho tôi xem báo cáo hợp đồng nhân sự sắp hết hạn",
+        "Tong hop so lieu hop dong nhan su sap het han",
+        "Bao cao hop dong nhan su sap het han",
+        "Thong ke hop dong nhan su sap het han",
+        "Cho toi xem bao cao hop dong nhan su sap het han"
+      ]
+    },
+    {
+      "id": "hr.contract.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/hr-contracts",
+      "title": "Tra cứu hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+      "entity": "hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+      "variants": [
+        "Danh sách hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+        "Liệt kê hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+        "Xem danh sách hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+        "Cho tôi xem danh sách hợp đồng nhân sự để chọn hợp đồng cần gia hạn",
+        "Danh sach hop dong nhan su de chon hop dong can gia han",
+        "Liet ke hop dong nhan su de chon hop dong can gia han",
+        "Xem danh sach hop dong nhan su de chon hop dong can gia han",
+        "Cho toi xem danh sach hop dong nhan su de chon hop dong can gia han"
+      ]
+    },
+    {
+      "id": "hr.training.incomplete.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/crud/training-enrollments",
+      "title": "Báo cáo tiến độ đào tạo nội bộ chưa hoàn thành",
+      "entity": "tiến độ đào tạo nội bộ chưa hoàn thành",
+      "variants": [
+        "Tổng hợp số liệu tiến độ đào tạo nội bộ chưa hoàn thành",
+        "Báo cáo tiến độ đào tạo nội bộ chưa hoàn thành",
+        "Thống kê tiến độ đào tạo nội bộ chưa hoàn thành",
+        "Cho tôi xem báo cáo tiến độ đào tạo nội bộ chưa hoàn thành",
+        "Tong hop so lieu tien do dao tao noi bo chua hoan thanh",
+        "Bao cao tien do dao tao noi bo chua hoan thanh",
+        "Thong ke tien do dao tao noi bo chua hoan thanh",
+        "Cho toi xem bao cao tien do dao tao noi bo chua hoan thanh"
+      ]
+    },
+    {
+      "id": "hr.contract.create",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "create",
+      "method": "POST",
+      "path": "/hr-contracts",
+      "title": "Tạo hợp đồng nhân sự",
+      "entity": "hợp đồng nhân sự",
+      "variants": [
+        "Tạo hợp đồng nhân sự",
+        "Thêm hợp đồng nhân sự",
+        "Tôi muốn tạo hợp đồng nhân sự",
+        "Cho tôi thêm hợp đồng nhân sự",
+        "Tao hop dong nhan su",
+        "Them hop dong nhan su",
+        "Toi muon tao hop dong nhan su",
+        "Cho toi them hop dong nhan su"
+      ]
+    },
+    {
+      "id": "timekeeping.record.list",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "view",
+      "method": "GET",
+      "path": "/crud/timekeeping-logs",
+      "title": "Tra cứu bản ghi chấm công để điều chỉnh",
+      "entity": "bản ghi chấm công để điều chỉnh",
+      "variants": [
+        "Danh sách bản ghi chấm công để điều chỉnh",
+        "Liệt kê bản ghi chấm công để điều chỉnh",
+        "Xem danh sách bản ghi chấm công để điều chỉnh",
+        "Cho tôi xem danh sách bản ghi chấm công để điều chỉnh",
+        "Danh sach ban ghi cham cong de dieu chinh",
+        "Liet ke ban ghi cham cong de dieu chinh",
+        "Xem danh sach ban ghi cham cong de dieu chinh",
+        "Cho toi xem danh sach ban ghi cham cong de dieu chinh"
+      ]
+    },
+    {
+      "id": "timekeeping.record.update",
+      "module": "hr",
+      "tab": "/nhan-su",
+      "action": "update",
+      "method": "PATCH",
+      "path": "/crud/timekeeping-logs/:id",
+      "title": "Điều chỉnh dữ liệu chấm công",
+      "entity": "Điều chỉnh dữ liệu chấm công",
+      "variants": [
+        "Cập nhật Điều chỉnh dữ liệu chấm công",
+        "Sửa Điều chỉnh dữ liệu chấm công",
+        "Chỉnh sửa Điều chỉnh dữ liệu chấm công",
+        "Thay đổi thông tin Điều chỉnh dữ liệu chấm công",
+        "Cap nhat Dieu chinh du lieu cham cong",
+        "Sua Dieu chinh du lieu cham cong",
+        "Chinh sua Dieu chinh du lieu cham cong",
+        "Thay doi thong tin Dieu chinh du lieu cham cong"
+      ]
+    },
+    {
       "id": "healthcare.overview",
       "module": "healthcare",
       "tab": "/quan-ly-y-te",
@@ -16809,7 +17553,7 @@
   "batchSize": 40,
   "modelEvaluation": {
     "status": "incomplete_api_limit",
-    "requestedCases": 5750,
+    "requestedCases": 6022,
     "evaluatedCases": 40,
     "matched": 40,
     "mismatches": 0,

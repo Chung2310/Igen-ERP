@@ -79,6 +79,16 @@ if (employeeList) operations.push({
   resultChildFields: { birthdays: ["displayName", "birthday"] },
   readOnly: true,
 });
+if (employeeList) operations.push({
+  ...employeeList,
+  id: "employee.count",
+  title: "Đếm số nhân sự trong công ty hoặc chi nhánh",
+  description: "Chỉ trả tổng số hồ sơ nhân sự trong phạm vi công ty hoặc chi nhánh được cấp quyền; không tải hay hiển thị thông tin cá nhân từng người.",
+  path: "/auth/users/count",
+  fields: employeeList.fields.filter(field => field.apiKey === "branchId"),
+  resultFields: ["count", "branchName", "branchCode"],
+  readOnly: true,
+});
 const employeeDelete = operations.find(op => op.id === "employee.delete");
 if (employeeDelete) {
   employeeDelete.title = "Xóa tài khoản nhân sự";
@@ -116,6 +126,33 @@ if (departmentList) operations.push({
   assistantOnlyFields: ["query_department"],
   resultFields: ["name", "managerName", "employeeCount"],
 });
+operations.push({
+  id: "department.employees.list",
+  title: "Danh sách nhân sự theo phòng ban",
+  description: "Liệt kê nhân sự thuộc phòng ban được nêu trong phạm vi công ty và chi nhánh được cấp quyền.",
+  module: "hr",
+  permissions: ["access:read", "hr:read"],
+  permissionGroups: [["access:read", "hr:read"]],
+  method: "GET",
+  path: "/auth/users",
+  link: "/nhan-su?sub=phong-ban",
+  adapter: "contract",
+  fields: [
+    queryField({ ...text("query_department", "Tên phòng ban", true), max: 100 }, "department"),
+    queryField(ref("targetBranch", "Chi nhánh nhân sự", "branch.list", false), "branchId"),
+  ],
+  resultFields: ["displayName", "jobTitle", "department"],
+  readOnly: true,
+});
+if (departmentList) operations.push({
+  ...departmentList,
+  id: "department.unmanaged.list",
+  title: "Danh sách phòng ban chưa có quản lý",
+  description: "Liệt kê tên các phòng ban chưa được gán người quản lý trong công ty hiện tại.",
+  fields: [],
+  resultFields: ["name"],
+  readOnly: true,
+});
 const departmentUpdate = operations.find(op => op.id === "department.update");
 if (departmentUpdate) departmentUpdate.description = "Cập nhật phòng ban theo tên; tên hiện tại được giữ nguyên nếu chỉ sửa mã, mô tả, trưởng phòng, thứ tự hoặc trạng thái. Trưởng phòng được chọn theo tên nhân sự cùng công ty.";
 const departmentDelete = operations.find(op => op.id === "department.delete");
@@ -141,21 +178,6 @@ if (projectListOperation) {
 entity({ id: "task", title: "công việc", module: "hr", permissions: ["work:manage"], readPermissions: ["work:read"], path: "/kanban/tasks", link: "/nhan-su?sub=kanban", update: true, remove: true,
   fields: [text("title", "Tên công việc", true), ref("assigneeUid", "Người được giao", "employee.list"), date("dueDate", "Hạn hoàn thành", true), choice("priority", "Độ ưu tiên", ["High", "Medium", "Low"], "Medium"), choice("status", "Trạng thái", ["Not Started", "In Progress", "Review/Testing", "Done", "Archived"], "Not Started"), { ...text("category", "Danh mục công việc"), defaultValue: "Onboarding" }, { ...number("salesKpiTarget", "Chỉ tiêu doanh số (VND)"), min: 1, requiredWhen: { field: "category", equals: "Bán hàng" } }, ref("projectId", "Dự án", "project.list", false), { ...date("startTime", "Thời gian bắt đầu"), type: "datetime" }, number("estTime", "Số giờ dự tính"), number("actualTime", "Số giờ thực tế"), text("linkNote", "Ghi chú kết quả")],
   resultFields: ["title", "assignee", "dueDate", "priority", "status", "category", "salesKpiTarget", "startTime", "estTime", "progress"] });
-const taskListOperation = operations.find(op => op.id === "task.list");
-if (taskListOperation) {
-  taskListOperation.description = "Xem công việc trong phạm vi được cấp quyền. Có thể chọn chi nhánh theo tên; quản trị viên không gắn chi nhánh có thể xem danh sách toàn công ty nếu không lọc chi nhánh.";
-  taskListOperation.description += " Có thể lọc theo tên công việc, trạng thái, độ ưu tiên, người được giao, dự án và hạn hoàn thành.";
-  taskListOperation.fields = [
-    queryField(ref("targetBranch", "Chi nhánh công việc", "branch.list", false), "branchId"),
-    queryField({ ...text("search", "Tên hoặc nội dung công việc"), max: 100 }),
-    queryField(choice("status", "Trạng thái", ["Not Started", "In Progress", "Review/Testing", "Done", "Archived"])),
-    queryField(choice("priority", "Độ ưu tiên", ["High", "Medium", "Low"])),
-    queryField({ ...ref("assigneeUid", "Người được giao", "employee.list", false), referenceValueKey: "id" }),
-    queryField({ ...ref("projectId", "Dự án", "project.list", false), referenceValueKey: "id" }),
-    queryField(date("dueFrom", "Hạn hoàn thành từ ngày")),
-    queryField(date("dueTo", "Hạn hoàn thành đến ngày")),
-  ];
-}
 entity({ id: "customer", title: "khách hàng", module: "customer", permissions: ["customer:manage"], readPermissions: ["customer:read"], path: "/customers", link: "/quan-ly-khach-hang",
   fields: [text("name", "Tên khách hàng", true), { ...phone, systemRequired: true, required: true }, email, choice("type", "Phân loại hồ sơ", ["regular", "vat"], "regular"), choice("customerKind", "Loại khách hàng", ["individual", "business"]), text("contactName", "Người liên hệ"), date("dateOfBirth", "Ngày sinh"), choice("gender", "Giới tính", ["male", "female", "other"]), choice("status", "Trạng thái", ["active", "inactive"], "active"), text("address", "Địa chỉ"), text("notes", "Ghi chú")], resultFields: ["customerCode", "name", "phone", "status"] });
 const customerList = operations.find(op => op.id === "customer.list");
@@ -185,7 +207,7 @@ if (categoryListOperation) categoryListOperation.fields = [queryField(text("sear
 for (const categoryOperation of operations.filter(op => op.id.startsWith("category."))) {
   categoryOperation.description = `${categoryOperation.description} Danh mục áp dụng chung cho toàn doanh nghiệp, không cần chọn chi nhánh.`;
 }
-entity({ id: "training", title: "khóa đào tạo", module: "hr", permissions: ["hr:manage"], readPermissions: ["hr:read"], path: "/crud/training-courses", link: "/nhan-su", update: true,
+entity({ id: "training", title: "khóa đào tạo", module: "hr", permissions: ["hr:manage"], readPermissions: ["hr:read", "hr:manage"], path: "/crud/training-courses", link: "/nhan-su", update: true, remove: true,
   fields: [
     text("title", "Tên khóa học", true),
     description,
@@ -228,6 +250,12 @@ const trainingCreateOperation = operations.find(op => op.id === "training.create
 if (trainingCreateOperation) trainingCreateOperation.description = "Tạo khóa đào tạo trong phân hệ nhân sự. Giảng viên mặc định là người tạo. Khi được hỏi, thu thập bài giảng theo tên và đường dẫn hoặc nội dung; thu thập câu hỏi trắc nghiệm theo nội dung, các phương án và đáp án đúng. Nếu người dùng bỏ qua một danh sách, để danh sách đó rỗng.";
 for (const trainingOperation of operations.filter(op => op.id === "training.create" || op.id === "training.update")) {
   trainingOperation.resultFields = ["title", "category", "duration", "instructor"];
+}
+const trainingDeleteOperation = operations.find(op => op.id === "training.delete");
+if (trainingDeleteOperation) {
+  trainingDeleteOperation.title = "Xóa khóa đào tạo nội bộ";
+  trainingDeleteOperation.description = "Xóa khóa đào tạo nội bộ đã được chọn. Luôn hiển thị đúng tên khóa và yêu cầu xác nhận trước khi xóa.";
+  trainingDeleteOperation.resultFields = ["title", "category"];
 }
 entity({ id: "product", title: "sản phẩm", module: "inventory", permissions: ["inventory:read"], path: "/inventory/catalog/products", link: "/kho-san-pham", fields: [], create: false, resultFields: ["name", "productCode", "categoryCode", "productType", "status"] });
 const productListOperation = operations.find(op => op.id === "product.list");
@@ -1047,6 +1075,31 @@ operations.push(...expandedOperations.map(op => {
           : partnerCreate || partnerDetail ? partnerResultFields : op.resultFields,
   };
 }));
+const taskListOperation = operations.find(op => op.id === "task.list");
+if (taskListOperation) {
+  taskListOperation.description = "Xem công việc trong phạm vi được cấp quyền. Có thể chọn chi nhánh theo tên; quản trị viên không gắn chi nhánh có thể xem danh sách toàn công ty nếu không lọc chi nhánh.";
+  taskListOperation.description += " Có thể lọc theo tên công việc, trạng thái, độ ưu tiên, người được giao, dự án và hạn hoàn thành.";
+  taskListOperation.fields = [
+    queryField(ref("targetBranch", "Chi nhánh công việc", "branch.list", false), "branchId"),
+    queryField({ ...text("search", "Tên hoặc nội dung công việc"), max: 100 }),
+    queryField(choice("status", "Trạng thái", ["Not Started", "In Progress", "Review/Testing", "Done", "Archived"])),
+    queryField(choice("priority", "Độ ưu tiên", ["High", "Medium", "Low"])),
+    queryField({ ...ref("assigneeUid", "Người được giao", "employee.list", false), referenceValueKey: "id" }),
+    queryField({ ...ref("projectId", "Dự án", "project.list", false), referenceValueKey: "id" }),
+    queryField(date("dueFrom", "Hạn hoàn thành từ ngày")),
+    queryField(date("dueTo", "Hạn hoàn thành đến ngày")),
+    queryField({ key: "overdue", label: "Chỉ công việc quá hạn", type: "boolean" }),
+  ];
+}
+const taskActivityUpdateOperation = operations.find(op => op.id === "task.activity.update");
+if (taskActivityUpdateOperation) {
+  taskActivityUpdateOperation.fields = taskActivityUpdateOperation.fields.map(field => {
+    if (field.key !== "note") return field;
+    const { requiredWhen: _requiredWhen, ...optionalNote } = field;
+    return { ...optionalNote, required: false, systemRequired: false };
+  });
+  taskActivityUpdateOperation.description = "Báo cáo tiến độ theo tên công việc; có thể kèm ghi chú. Phiên bản hiện tại được lấy tự động và API vẫn kiểm tra quyền cập nhật. Cần xác nhận trước khi ghi.";
+}
 operations.push({
   id: "inventory.stock-log.list",
   title: "Tra cứu phiếu nhập xuất kho",
@@ -1291,8 +1344,28 @@ operations.push({
       source: "body",
       apiKey: "steps",
     },
+    { ...text("workflowAction", "Thao tác quy trình"), source: "query", apiKey: "workflowAction" },
+    { ...text("workflowTarget", "Bước hiện có"), source: "query", apiKey: "workflowTarget" },
+    { ...text("workflowValue", "Tên bước hoặc giai đoạn con"), source: "query", apiKey: "workflowValue" },
   ],
+  assistantOnlyFields: ["workflowAction", "workflowTarget", "workflowValue"],
   resultFields: ["name", "category", "description"],
+});
+operations.push({
+  id: "hr.workflow.delete",
+  title: "Xóa quy trình làm việc",
+  description: "Xóa quy trình làm việc đã chọn trong phân hệ Nhân sự. Chọn đúng tên quy trình và xác nhận trước khi xóa.",
+  module: "hr",
+  permissions: ["hr:manage"],
+  method: "DELETE",
+  path: "/crud/workflows/:id",
+  adapter: "contract",
+  link: "/nhan-su",
+  confirmation: true,
+  fields: [
+    { ...ref("path_id", "Tên hoặc mã quy trình làm việc cần xóa", "hr.workflow.list"), source: "path", apiKey: "id" },
+  ],
+  resultFields: ["name"],
 });
 const retailInvoiceListOperation = operations.find(op => op.method === "GET" && op.path === "/retail/invoices");
 if (retailInvoiceListOperation) Object.assign(retailInvoiceListOperation, {
@@ -1410,16 +1483,149 @@ if (attendanceRecordsLookup) {
     path: "/timekeeping/monthly-report",
     fields: monthlyFields,
     resultFields: ["year", "month", "records"],
-    resultChildFields: { records: ["employeeName", "workedDays", "absentDays", "leaveDays", "daysOff", "lateDays", "leftEarlyDays"] },
+    resultChildFields: { records: ["employeeName", "workedDays", "absentDays", "leaveDays", "daysOff", "lateDays", "leftEarlyDays", "unrecordedDays"] },
     readOnly: true,
   };
   operations.push(
     { ...monthlyReport, id: "timekeeping.records.monthly.overview", title: "Tổng hợp chấm công theo tháng", description: "Tổng hợp công đã làm, ngày vắng, ngày nghỉ phép và lượt đi muộn/về sớm theo tháng. Phạm vi công ty và chi nhánh luôn lấy từ tài khoản đang đăng nhập." },
-    { ...monthlyReport, id: "timekeeping.records.monthly.under-26", title: "Nhân sự chưa đủ 26 công trong tháng", description: "Liệt kê nhân sự có số công đã làm dưới 26 trong tháng được hỏi. Công nửa ngày tính 0,5; ngày nghỉ phép được tách riêng khỏi công đã làm." },
+    {
+      ...monthlyReport,
+      id: "timekeeping.records.monthly.under-threshold",
+      title: "Nhân sự chưa đủ ngưỡng công trong tháng",
+      description: "Liệt kê nhân sự có số công đã làm thấp hơn ngưỡng được hỏi trong tháng. Công nửa ngày tính 0,5; ngày nghỉ phép được tách riêng khỏi công đã làm.",
+      fields: [...monthlyFields, queryField({ ...number("thresholdDays", "Ngưỡng ngày công"), max: 31, required: true, systemRequired: true })],
+      assistantOnlyFields: ["thresholdDays"],
+      resultFields: ["year", "month", "records", "thresholdDays"],
+    },
     { ...monthlyReport, id: "timekeeping.records.monthly.most-absent", title: "Nhân sự nghỉ nhiều nhất trong tháng", description: "Tìm nhân sự có tổng ngày vắng và nghỉ phép được ghi nhận cao nhất trong tháng; hiển thị riêng ngày vắng và ngày nghỉ phép." },
     { ...monthlyReport, id: "timekeeping.records.monthly.most-late", title: "Thống kê lượt đi làm trễ trong tháng", description: "Liệt kê nhân sự có ít nhất một ngày đi muộn trong tháng, sắp xếp theo số lượt đi muộn giảm dần." },
+    { ...monthlyReport, id: "timekeeping.records.monthly.most-leave", title: "Nhân sự nghỉ phép nhiều nhất trong tháng", description: "Tìm nhân sự có số ngày nghỉ phép được ghi nhận cao nhất trong tháng." },
+    { ...monthlyReport, id: "timekeeping.records.monthly.unrecorded", title: "Nhân sự chưa chấm công trong tháng", description: "Liệt kê nhân sự có ngày làm việc theo lịch công ty nhưng chưa có bản ghi chấm công trong tháng; chỉ tính đến ngày hiện tại đối với tháng đang diễn ra." },
   );
 }
+
+const monthlyKpiLookup = operations.find(op => op.method === "GET" && op.path === "/kanban/kpi/monthly");
+if (monthlyKpiLookup) operations.push({
+  ...monthlyKpiLookup,
+  id: "task.kpi.monthly",
+  title: "Báo cáo KPI công việc theo tháng",
+  description: "Tổng hợp tỷ lệ hoàn thành KPI theo nhân sự trong tháng được chọn; có thể lọc người dưới 100% hoặc đúng 100%.",
+  fields: [
+    queryField({ ...text("period", "Tháng KPI theo định dạng YYYY-MM"), max: 7 }),
+    queryField(choice("completionFilter", "Lọc theo tỷ lệ hoàn thành", ["below-100", "exactly-100"])),
+  ],
+  assistantOnlyFields: ["completionFilter"],
+  resultFields: ["periodKey", "periodStatus", "rows"],
+  resultChildFields: { rows: ["employeeName", "totalTasks", "completedTasks", "pendingTasks", "percent"] },
+  readOnly: true,
+});
+
+operations.push({
+  id: "hr.leave.applications.list",
+  title: "Tra cứu đơn nghỉ phép và làm việc từ xa",
+  description: "Tra cứu đơn nhân sự giao với khoảng ngày được chọn. Nhân viên chỉ xem được đơn thuộc tài khoản của mình; quyền xem toàn bộ vẫn do API kiểm soát.",
+  module: "hr",
+  permissions: ["hr:read", "timekeeping:read"],
+  permissionGroups: [["hr:read"], ["timekeeping:read"]],
+  method: "GET",
+  path: "/crud/hr-leave-applications",
+  adapter: "contract",
+  link: "/nhan-su",
+  fields: [
+    queryField(date("rangeStart", "Từ ngày"), "rangeStart"),
+    queryField(date("rangeEnd", "Đến ngày"), "rangeEnd"),
+    queryField(choice("requestKind", "Loại yêu cầu", ["leave", "wfh", "event", "exception"])),
+    queryField(choice("status", "Trạng thái đơn", ["pending", "approved", "rejected"])),
+    queryField(choice("reportKind", "Kiểu báo cáo", ["requests", "leave-summary", "leave-most", "wfh-most"])),
+    queryField(text("employeeName", "Tên nhân sự")),
+    queryField({ ...number("page", "Trang", 1), min: 1 }),
+    queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100 }),
+  ],
+  assistantOnlyFields: ["reportKind"],
+  resultFields: ["reportKind", "requests", "maximumDays", "leaders"],
+  resultChildFields: {
+    requests: ["employeeName", "type", "requestKind", "startDate", "endDate", "reason", "status", "chargeableDays"],
+    leaders: ["employeeName", "days", "requests"],
+  },
+  readOnly: true,
+});
+
+operations.push({
+  id: "hr.calendar.events.list",
+  title: "Tra cứu sự kiện nội bộ và lịch hôm nay",
+  description: "Tra cứu sự kiện, cuộc họp và nhắc việc giao với khoảng ngày được chọn trong phạm vi công ty và chi nhánh hiện tại.",
+  module: "hr",
+  permissions: ["hr:read", "timekeeping:read"],
+  permissionGroups: [["hr:read"], ["timekeeping:read"]],
+  method: "GET",
+  path: "/crud/hr-calendar-events",
+  adapter: "contract",
+  link: "/nhan-su",
+  fields: [
+    queryRef("branchId", "Chi nhánh lịch", "branch.list", false),
+    queryField(date("rangeStart", "Từ ngày"), "rangeStart"),
+    queryField(date("rangeEnd", "Đến ngày"), "rangeEnd"),
+    queryField(choice("type", "Loại lịch", ["event", "meeting", "reminder"])),
+    queryField({ ...number("page", "Trang", 1), min: 1 }),
+    queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100 }),
+  ],
+  resultFields: ["title", "type", "startDate", "endDate", "status", "location", "description", "participantNames"],
+  readOnly: true,
+});
+
+operations.push({
+  id: "hr.calendar.event.create",
+  title: "Tạo sự kiện nội bộ",
+  description: "Tạo sự kiện, cuộc họp hoặc nhắc việc trong lịch nhân sự. Cần tiêu đề và thời gian; luôn xem trước và xin xác nhận trước khi lưu.",
+  module: "hr",
+  permissions: ["hr:manage", "timekeeping:manage"],
+  permissionGroups: [["hr:manage"], ["timekeeping:manage"]],
+  method: "POST",
+  path: "/crud/hr-calendar-events",
+  adapter: "contract",
+  link: "/nhan-su",
+  confirmation: true,
+  fixedBodyValues: { status: "approved" },
+  systemBodyFields: ["creatorId"],
+  fields: [
+    queryRef("branchId", "Chi nhánh lịch", "branch.list", false),
+    { ...text("title", "Tiêu đề sự kiện", true), max: 200, source: "body", apiKey: "title" },
+    { ...choice("type", "Loại lịch", ["event", "meeting", "reminder"], "event"), source: "body", apiKey: "type" },
+    { ...text("startDate", "Bắt đầu", true), type: "datetime", source: "body", apiKey: "startDate" },
+    { ...text("endDate", "Kết thúc", true), type: "datetime", source: "body", apiKey: "endDate" },
+    { ...text("description", "Mô tả"), max: 2000, source: "body", apiKey: "description" },
+    { ...text("location", "Địa điểm"), max: 300, source: "body", apiKey: "location" },
+    { ...text("meetingLink", "Liên kết họp"), max: 1000, source: "body", apiKey: "meetingLink" },
+  ],
+  resultFields: ["title", "type", "startDate", "endDate", "status", "location"],
+  completionUpdateId: "hr.calendar.event.update",
+});
+
+operations.push({
+  id: "hr.calendar.event.update",
+  title: "Cập nhật sự kiện nội bộ",
+  description: "Cập nhật thông tin của sự kiện đã chọn; API kiểm tra quyền của người tạo hoặc quản lý. Cần xác nhận trước khi lưu.",
+  module: "hr",
+  permissions: ["hr:manage", "timekeeping:manage"],
+  permissionGroups: [["hr:manage"], ["timekeeping:manage"]],
+  method: "PATCH",
+  path: "/crud/hr-calendar-events/:id",
+  adapter: "contract",
+  link: "/nhan-su",
+  confirmation: true,
+  fields: [
+    queryRef("branchId", "Chi nhánh lịch", "branch.list", false),
+    { ...ref("id", "Sự kiện cần cập nhật", "hr.calendar.events.list"), source: "path", apiKey: "id" },
+    { ...text("title", "Tiêu đề sự kiện"), max: 200, source: "body", apiKey: "title" },
+    { ...choice("type", "Loại lịch", ["event", "meeting", "reminder"]), source: "body", apiKey: "type" },
+    { ...text("startDate", "Bắt đầu"), type: "datetime", source: "body", apiKey: "startDate" },
+    { ...text("endDate", "Kết thúc"), type: "datetime", source: "body", apiKey: "endDate" },
+    { ...text("description", "Mô tả"), max: 2000, source: "body", apiKey: "description" },
+    { ...text("location", "Địa điểm"), max: 300, source: "body", apiKey: "location" },
+    { ...text("meetingLink", "Liên kết họp"), max: 1000, source: "body", apiKey: "meetingLink" },
+  ],
+  resultFields: ["title", "type", "startDate", "endDate", "status", "location"],
+});
 
 const reportYearField = () => queryField({ ...number("year", "Năm"), min: 2000, max: 2200, integer: true });
 const leaveBalanceReport = {
@@ -1440,7 +1646,15 @@ const leaveBalanceReport = {
 };
 operations.push(
   leaveBalanceReport,
-  { ...leaveBalanceReport, id: "leave.balances.at-least-12", title: "Nhân sự còn ít nhất 12 ngày phép", description: "Liệt kê nhân sự còn từ 12 ngày phép năm trở lên trong phạm vi công ty hoặc chi nhánh được cấp quyền." },
+  {
+    ...leaveBalanceReport,
+    id: "leave.balances.minimum",
+    title: "Nhân sự còn ít nhất số ngày phép được yêu cầu",
+    description: "Liệt kê nhân sự có số phép năm còn lại bằng hoặc cao hơn ngưỡng được yêu cầu trong phạm vi được cấp quyền.",
+    fields: [...leaveBalanceReport.fields, queryField({ ...number("thresholdDays", "Ngưỡng ngày phép"), max: 365, required: true, systemRequired: true })],
+    assistantOnlyFields: ["thresholdDays"],
+    resultFields: ["year", "balances", "thresholdDays"],
+  },
   { ...leaveBalanceReport, id: "leave.balances.exhausted", title: "Nhân sự đã hết phép năm", description: "Liệt kê nhân sự có phép năm được hưởng nhưng số ngày còn lại bằng không trong phạm vi công ty hoặc chi nhánh được cấp quyền." },
 );
 
@@ -1455,6 +1669,18 @@ if (workCalendarLookup) operations.push({
     queryField({ ...number("month", "Tháng"), min: 1, max: 12, integer: true }),
     queryField(choice("appliedOnly", "Chỉ ngày đang áp dụng", ["true", "false"])),
     queryField(choice("holidaysOnly", "Chỉ ngày lễ/nghỉ bù", ["true", "false"])),
+  ],
+  resultFields: ["date", "name", "dayTypeLabel", "isApplied"],
+  readOnly: true,
+});
+if (workCalendarLookup) operations.push({
+  ...workCalendarLookup,
+  id: "timekeeping.work-calendar.named-holiday",
+  title: "Tra cứu ngày nghỉ theo tên",
+  description: "Tìm ngày nghỉ hoặc ngày đặc biệt theo tên trong lịch làm việc của công ty; chỉ hiển thị những mục đã được lưu trong lịch công ty.",
+  fields: [
+    queryField({ ...number("year", "Năm"), min: 2000, max: 2200, integer: true }),
+    queryField({ ...text("eventName", "Tên ngày nghỉ cần tra cứu"), max: 200 }),
   ],
   resultFields: ["date", "name", "dayTypeLabel", "isApplied"],
   readOnly: true,
@@ -1506,8 +1732,8 @@ operations.push({
   method: "GET",
   path: "/crud/training-enrollments",
   link: "/nhan-su",
-  fields: [queryField({ ...number("page", "Trang", 1), min: 1, max: 10000, integer: true }), queryField({ ...number("limit", "Số kết quả", 1000), min: 1, max: 1000, integer: true })],
-  resultFields: ["incompleteEnrollments", "incompleteTotal", "fetchedTotal", "overallTotal", "truncated"],
+  fields: [queryField({ ...number("page", "Trang", 1), min: 1, max: 10000, integer: true }), queryField({ ...number("limit", "Số kết quả", 1000), min: 1, max: 1000, integer: true }), queryField({ ...text("courseName", "Tên khóa đào tạo cần lọc"), max: 160 })],
+  resultFields: ["incompleteEnrollments", "incompleteTotal", "fetchedTotal", "overallTotal", "truncated", "courseName"],
   resultChildFields: { incompleteEnrollments: ["employeeName", "courseTitle", "progress", "status"] },
   readOnly: true,
 });
@@ -1526,42 +1752,21 @@ if (hrContractCreate) operations.push({
   resultFields: ["employeeName", "contractType", "startDate", "endDate", "status"],
 });
 
-const timekeepingLogLookup: AssistantOperation = {
-  id: "timekeeping.record.list",
-  title: "Tra cứu bản ghi chấm công để điều chỉnh",
-  description: "Tìm bản ghi chấm công theo nhân sự và ngày trong phạm vi được cấp quyền.",
-  module: "hr",
-  permissions: ["timekeeping:read", "timekeeping:manage", "payroll-period:manage"],
-  permissionGroups: [["timekeeping:read"], ["timekeeping:manage"], ["payroll-period:manage"]],
-  method: "GET",
-  path: "/crud/timekeeping-logs",
-  link: "/nhan-su",
-  adapter: "contract",
-  fields: [
-    queryField(ref("query_uid", "Nhân sự", "employee.list"), "uid"),
-    queryField({ ...date("query_date", "Ngày chấm công", true), pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, "date"),
-  ],
-  resultFields: ["employeeName", "date", "checkInTime", "checkOutTime", "status"],
-  readOnly: true,
-};
-operations.push(timekeepingLogLookup);
 operations.push({
   id: "timekeeping.record.update",
   title: "Điều chỉnh dữ liệu chấm công",
-  description: "Sửa giờ vào hoặc giờ ra của đúng nhân sự và ngày đã chọn. Hệ thống lưu lý do, người sửa và lịch sử chỉnh sửa; không thể sửa khi kỳ công đã khóa hoặc đã tính lương. Cần xác nhận trước khi lưu.",
+  description: "Điều chỉnh giờ chấm công cho đúng nhân sự và ngày đã chọn. Nếu chưa có bản ghi trong ngày, hệ thống sẽ tạo một bản ghi điều chỉnh. Hệ thống lưu lý do, người sửa và lịch sử chỉnh sửa; không thể sửa khi kỳ công đã khóa hoặc đã tính lương. Cần xác nhận trước khi lưu.",
   module: "hr",
   permissions: ["timekeeping:manage", "payroll-period:manage"],
   permissionGroups: [["timekeeping:manage"], ["payroll-period:manage"]],
   method: "PATCH",
-  path: "/crud/timekeeping-logs/:id",
+  path: "/timekeeping/records/adjust",
   link: "/nhan-su",
   adapter: "contract",
   confirmation: true,
-  mergeBodyWithReference: true,
   fields: [
-    queryField(ref("query_uid", "Nhân sự", "employee.list"), "uid"),
-    queryField({ ...date("query_date", "Ngày chấm công", true), pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, "date"),
-    { ...ref("path_id", "Bản ghi chấm công của nhân sự trong ngày", "timekeeping.record.list"), source: "path", apiKey: "id" },
+    { ...ref("employeeId", "Nhân sự", "employee.list"), source: "body", apiKey: "employeeId" },
+    { ...date("date", "Ngày chấm công", true), source: "body", apiKey: "date", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
     { ...text("checkInTime", "Giờ vào mới (HH:MM)"), source: "body", apiKey: "checkInTime", pattern: "^(?:[01]?\\d|2[0-3]):[0-5]\\d$" },
     { ...text("checkOutTime", "Giờ ra mới (HH:MM)"), source: "body", apiKey: "checkOutTime", pattern: "^(?:[01]?\\d|2[0-3]):[0-5]\\d$" },
     { ...text("editReason", "Lý do điều chỉnh", true), source: "body", apiKey: "editReason", max: 500 },

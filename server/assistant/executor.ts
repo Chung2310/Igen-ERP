@@ -6,6 +6,7 @@ import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { actorScope, assertOperation } from "./workflows";
 import { validateStructuredField } from "./structured-data";
+import { applyWorkWorkflowMutation } from "./workflow-mutations";
 import { AssistantError } from "./policy";
 import { callHealthcareOperation, HealthcareUncertainExecutionError, lookupHealthcareRecords, projectHealthcareRecords, resolveHealthcareReferences, suggestHealthcareReferences } from "./healthcare-executor";
 import { callQuotationOperation, lookupQuotationRecords, projectQuotationRecords, QuotationUncertainExecutionError, resolveQuotationReferences, suggestQuotationReferences } from "./quotation-executor";
@@ -607,12 +608,11 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     }
   }
   if (!strictPayrollRunList && !rejectsImplicitScopeQuery) url.searchParams.set("companyCode", companyCode);
-  if (["employee.list", "employee.detail", "employee.birthday.next-month"].includes(op.id)) {
+  if (["employee.list", "employee.detail", "employee.birthday.next-month", "employee.count", "department.employees.list"].includes(op.id)) {
     const employeeBranchId = req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
     if (employeeBranchId) url.searchParams.set("branchId", employeeBranchId);
   }
-  if (op.id === "hr.training.incomplete.list" && req.user?.branchId) url.searchParams.set("branchId", req.user.branchId);
-  if (op.adapter !== "contract" && op.method === "GET" && !["employee.list", "employee.detail", "employee.birthday.next-month", "department.list"].includes(op.id)) {
+  if (op.adapter !== "contract" && op.method === "GET" && !["employee.list", "employee.detail", "employee.birthday.next-month", "employee.count", "department.list", "department.unmanaged.list"].includes(op.id)) {
     if (!url.searchParams.has("limit")) url.searchParams.set("limit", "100");
     if (!url.searchParams.has("page")) url.searchParams.set("page", "1");
   }
@@ -692,6 +692,11 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     body.aiAutoReplyConfig = config;
   }
   if (op.adapter === "contract" && op.fixedBodyValues) Object.assign(body, op.fixedBodyValues);
+  if (op.id === "hr.calendar.event.create") {
+    const creatorId = String(req.user?.id || "");
+    if (!/^[a-f\d]{24}$/i.test(creatorId)) throw new AssistantError("Không xác định được tài khoản tạo sự kiện.", 403);
+    body.creatorId = creatorId;
+  }
   if (op.id === "marketing.ai.image.edit") {
     const sourceMediaId = String(input.sourceMediaId || "");
     let sourceRecords: AssistantRecord[];
@@ -732,39 +737,6 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
         : {};
       body.contextLinks = { ...existingLinks, ...body.contextLinks };
     }
-  }
-  if (op.id === "timekeeping.record.update") {
-    if (!body.checkInTime && !body.checkOutTime) throw new AssistantError("Hãy nêu giờ vào hoặc giờ ra cần điều chỉnh.");
-    const date = String(input.query_date || "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AssistantError("Hãy cho biết ngày chấm công cần điều chỉnh.");
-    let existing: Record<string, any>;
-    try {
-      const parsed = JSON.parse(String(input.__assistantExistingRecord || ""));
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid attendance record");
-      existing = parsed;
-    } catch { throw new AssistantError("Không đọc được bản ghi chấm công hiện tại; chưa thể điều chỉnh an toàn."); }
-    const time = (value: unknown) => {
-      if (typeof value !== "string" || !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(value)) throw new AssistantError("Giờ chấm công cần theo định dạng HH:MM.");
-      return value.length === 4 ? `0${value}` : value;
-    };
-    const detail = (previous: any, clock: string, nextDay = false) => {
-      const at = new Date(`${date}T${time(clock)}:00+07:00`);
-      if (Number.isNaN(at.valueOf())) throw new AssistantError("Ngày chấm công không hợp lệ.");
-      if (nextDay) at.setUTCDate(at.getUTCDate() + 1);
-      return {
-        ...(previous && typeof previous === "object" ? previous : { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual attendance adjustment", ipAddress: "" }),
-        time: at.toISOString(),
-      };
-    };
-    const checkInTime = body.checkInTime ? time(body.checkInTime) : "";
-    const checkOutTime = body.checkOutTime ? time(body.checkOutTime) : "";
-    if (checkInTime) body.checkIn = detail(existing.checkIn, checkInTime);
-    if (checkOutTime) {
-      const compareIn = checkInTime || (existing.checkIn?.time ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(existing.checkIn.time)) : "");
-      body.checkOut = detail(existing.checkOut, checkOutTime, Boolean(compareIn && checkOutTime < compareIn));
-    }
-    delete body.checkInTime;
-    delete body.checkOutTime;
   }
   if (op.id === "student.standard-fields.update") {
     const changeKeys = ["label", "placeholder", "isRequired", "isVisible", "isArchived"];
@@ -1034,6 +1006,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       };
     });
   }
+  if (op.id === "hr.workflow.update") applyWorkWorkflowMutation(body, input);
   if (op.id === "hr.workflow.update" && body.steps !== undefined) {
     let existing: Record<string, any>;
     try {
@@ -1488,7 +1461,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const companyCode = actorScope(req).companyCode;
     const templates = Array.isArray(result?.data) ? result.data.filter((template: any) => !template?.companyCode || template.companyCode === companyCode) : [];
     return { status: "success", data: templates.slice(0, 100).map((template: any) => {
-      const safe: Record<string, unknown> = {};
+      const safe: AssistantRecord = {};
       for (const key of op.resultFields) {
         const value = template?.[key];
         if (["string", "number", "boolean"].includes(typeof value)) safe[key] = value;
@@ -1505,7 +1478,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const templates = Array.isArray(result?.data) ? result.data : [];
     return { status: "success", data: templates.slice(0, 60).flatMap((template: any) => {
       if (!template || typeof template !== "object" || template.visibility !== "public" || template.status !== "active") return [];
-      const safe: Record<string, unknown> = {};
+      const safe: AssistantRecord = {};
       for (const key of op.resultFields) {
         const value = template[key];
         if (["string", "number", "boolean"].includes(typeof value)) safe[key] = value;
@@ -2821,7 +2794,14 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const departments = Array.isArray(result?.data) ? result.data : [];
     const query = normalize(String(input.query_department || ""));
     const exact = departments.filter((department: any) => normalize(String(department?.name || "")) === query);
-    const matches = exact.length ? exact : departments.filter((department: any) => normalize(String(department?.name || "")).includes(query));
+    const withoutDepartmentPrefix = (value: string) => normalize(value).replace(/^phong(?:\s+ban)?\s+/, "").trim();
+    const comparableQuery = withoutDepartmentPrefix(query);
+    const prefixNormalizedExact = departments.filter((department: any) => withoutDepartmentPrefix(String(department?.name || "")) === comparableQuery);
+    const matches = exact.length
+      ? exact
+      : prefixNormalizedExact.length
+        ? prefixNormalizedExact
+        : departments.filter((department: any) => withoutDepartmentPrefix(String(department?.name || "")).includes(comparableQuery));
     return { ...result, data: matches };
   }
   if (op.id === "hr.contract.extend" && result?.data && typeof result.data === "object") {
@@ -3012,15 +2992,38 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       officialDate: user?.officialDate ?? user?.workHoursConfig?.officialDate,
     } };
   }
-  if (["timekeeping.work-calendar.list", "timekeeping.work-calendar.month-holidays"].includes(op.id) && Array.isArray(result?.data)) {
+  if (op.id === "employee.count" && result?.data && typeof result.data === "object") {
+    const count = Number(result.data.count ?? result.total ?? 0);
+    return { ...result, data: {
+      count: Number.isFinite(count) && count >= 0 ? Math.trunc(count) : 0,
+      ...(typeof result.data.branchName === "string" ? { branchName: result.data.branchName } : {}),
+      ...(typeof result.data.branchCode === "string" ? { branchCode: result.data.branchCode } : {}),
+    } };
+  }
+  if (op.id === "department.unmanaged.list" && Array.isArray(result?.data)) {
+    return { ...result, data: result.data
+      .filter((department: any) => department?.isActive !== false)
+      .filter((department: any) => !String(department?.managerUid || department?.managerName || "").trim())
+      .map((department: any) => ({ name: typeof department?.name === "string" ? department.name : "" })) };
+  }
+  const workCalendarRows = Array.isArray(result) ? result : Array.isArray(result?.data) ? result.data : null;
+  if (["timekeeping.work-calendar.list", "timekeeping.work-calendar.month-holidays", "timekeeping.work-calendar.named-holiday"].includes(op.id) && workCalendarRows) {
     const dayTypes: Record<string, string> = { holiday: "Ngày nghỉ lễ", substitute_holiday: "Nghỉ bù", working_override: "Ngày làm việc bù" };
-    return { ...result, data: result.data.map((day: any) => ({
+    const normalizedEventName = String(input.eventName || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const days = op.id === "timekeeping.work-calendar.named-holiday"
+      ? workCalendarRows.filter((day: any) => {
+        const normalizedDayName = String(day?.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        return normalizedEventName.length >= 2 && normalizedDayName.includes(normalizedEventName);
+      })
+      : workCalendarRows;
+    const normalizedDays = days.map((day: any) => ({
       __assistantRef: { id: String(day._id || day.id || ""), source: day.source },
       date: day.date,
       name: day.name,
       dayTypeLabel: dayTypes[day.dayType] || "Ngày đặc biệt",
       isApplied: day.isApplied,
-    })) };
+    }));
+    return Array.isArray(result) ? normalizedDays : { ...result, data: normalizedDays };
   }
   if (op.id === "timekeeping.work-calendar.sync" && Array.isArray(result?.data)) {
     return { ...result, data: { calendarDaysCount: result.data.length } };
@@ -3070,7 +3073,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   return result;
 }
-export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest): AssistantRecord[] {
+export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest, input: Record<string, AssistantValue> = {}): AssistantRecord[] {
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
@@ -3087,11 +3090,111 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     birthdays.sort((a, b) => a.birthday.localeCompare(b.birthday) || a.displayName.localeCompare(b.displayName, "vi"));
     return [{ birthdays, total: birthdays.length, month: targetMonth } as unknown as AssistantRecord];
   }
+  if (["timekeeping.records.monthly.under-threshold", "timekeeping.records.monthly.overview", "timekeeping.records.monthly.most-absent", "timekeeping.records.monthly.most-late", "timekeeping.records.monthly.most-leave", "timekeeping.records.monthly.unrecorded"].includes(op.id)) {
+    const thresholdDays = Number(input.thresholdDays);
+    const records = Array.isArray(responseData?.records) ? responseData.records.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim() ? [{
+      employeeName: record.employeeName.trim().slice(0, 160),
+      workedDays: Number(record.workedDays) || 0,
+      absentDays: Number(record.absentDays) || 0,
+      leaveDays: Number(record.leaveDays) || 0,
+      daysOff: Number(record.daysOff) || 0,
+      lateDays: Number(record.lateDays) || 0,
+      leftEarlyDays: Number(record.leftEarlyDays) || 0,
+      ...(Number.isFinite(Number(record.unrecordedDays)) ? { unrecordedDays: Number(record.unrecordedDays) } : {}),
+    }] : []) : [];
+    return [{ year: Number(responseData?.year), month: Number(responseData?.month), ...(op.id === "timekeeping.records.monthly.under-threshold" ? { thresholdDays } : {}), records } as unknown as AssistantRecord];
+  }
+  if (op.id === "task.kpi.monthly") {
+    const periodKey = typeof responseData?.periodKey === "string" ? responseData.periodKey.slice(0, 7) : String(input.period || "");
+    const completionFilter = String(input.completionFilter || "below-100");
+    const rows = Array.isArray(responseData?.rows) ? responseData.rows.flatMap((row: any) => {
+      if (typeof row?.employeeName !== "string" || !row.employeeName.trim()) return [];
+      if (row.percent === null || row.percent === undefined || row.percent === "") return [];
+      const percent = Number(row.percent);
+      if (!Number.isFinite(percent)) return [];
+      if (completionFilter === "exactly-100" ? percent !== 100 : percent >= 100) return [];
+      return [{ employeeName: row.employeeName.trim().slice(0, 160), totalTasks: Number(row.totalTasks) || 0,
+        completedTasks: Number(row.completedTasks) || 0, pendingTasks: Number(row.pendingTasks) || 0, percent }];
+    }) : [];
+    return [{ periodKey, periodStatus: typeof responseData?.periodStatus === "string" ? responseData.periodStatus : "", completionFilter, rows } as unknown as AssistantRecord];
+  }
+  if (op.id === "hr.leave.applications.list" || op.id === "hr.calendar.events.list") {
+    const rows = rawRecords(responseData).flatMap((record: any) => {
+      if (op.id === "hr.leave.applications.list") {
+        const requestedKind = String(input.requestKind || "");
+        const recordKind = String(record?.requestKind || record?.type || "");
+        const requestedStatus = String(input.status || "");
+        if (requestedKind && recordKind !== requestedKind) return [];
+        if (requestedStatus && String(record?.status || "") !== requestedStatus) return [];
+      }
+      const name = String(record?.employeeName || record?.userName || "").trim();
+      const title = String(record?.title || "").trim();
+      const safe: AssistantRecord = {};
+      if (op.id === "hr.leave.applications.list" && !name) return [];
+      if (op.id === "hr.calendar.events.list" && !title) return [];
+      if (name) safe.employeeName = name.slice(0, 160);
+      for (const key of ["type", "requestKind", "reason", "status", "location", "description"]) {
+        if (typeof record?.[key] === "string") safe[key] = record[key].slice(0, key === "description" ? 500 : 200);
+      }
+      for (const key of ["startDate", "endDate"]) {
+        const value = record?.[key];
+        if (value instanceof Date && Number.isFinite(value.valueOf())) safe[key] = value.toISOString();
+        else if (typeof value === "string" && value.length <= 40) safe[key] = value;
+      }
+      if (typeof record?.chargeableDays === "number" && Number.isFinite(record.chargeableDays)) safe.chargeableDays = record.chargeableDays;
+      if (typeof record?.chargeableDays === "string" && Number.isFinite(Number(record.chargeableDays))) safe.chargeableDays = Number(record.chargeableDays);
+      if (title) safe.title = title.slice(0, 200);
+      if (Array.isArray(record?.participantNames)) safe.participantNames = record.participantNames.filter((value: unknown) => typeof value === "string").slice(0, 30).map((value: string) => value.slice(0, 120));
+      if (op.id === "hr.calendar.events.list") {
+        const id = String(record?._id || record?.id || "");
+        if (/^[a-f\d]{24}$/i.test(id)) safe.id = id;
+      }
+      if (op.id === "hr.leave.applications.list") Object.defineProperty(safe, "__assistantGroupKey", { value: String(record?.employeeId || record?.uid || name), enumerable: false });
+      return [safe];
+    });
+    if (op.id === "hr.leave.applications.list") {
+      const reportKind = String(input.reportKind || "requests");
+      if (["leave-most", "wfh-most"].includes(reportKind)) {
+        const aggregates = new Map<string, { employeeName: string; days: number; requests: number }>();
+        for (const row of rows) {
+          const start = typeof row.startDate === "string" ? Date.parse(row.startDate) : NaN;
+          const end = typeof row.endDate === "string" ? Date.parse(row.endDate) : NaN;
+          const rangeDays = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.floor((end - start) / 86_400_000) + 1) : 0;
+          const days = reportKind === "leave-most" && Number.isFinite(Number(row.chargeableDays)) ? Number(row.chargeableDays) : rangeDays;
+          const key = String((row as any).__assistantGroupKey || normalize(String(row.employeeName)));
+          const aggregate = aggregates.get(key) || { employeeName: String(row.employeeName), days: 0, requests: 0 };
+          aggregate.days += days;
+          aggregate.requests += 1;
+          aggregates.set(key, aggregate);
+        }
+        const values = [...aggregates.values()];
+        const maximum = values.reduce((max, row) => Math.max(max, row.days), 0);
+        const leaders = maximum > 0 ? values.filter(row => row.days === maximum) : [];
+        return [{ reportKind, maximumDays: maximum, leaders } as unknown as AssistantRecord];
+      }
+      return [{ reportKind, requests: rows } as unknown as AssistantRecord];
+    }
+    return rows;
+  }
+  if (op.id === "leave.balances.minimum") {
+    const balances = Array.isArray(responseData?.balances) ? responseData.balances.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim() ? [{
+      employeeName: record.employeeName.trim().slice(0, 160),
+      ...(typeof record.department === "string" ? { department: record.department.slice(0, 100) } : {}),
+      entitlement: Number(record.entitlement) || 0,
+      used: Number(record.used) || 0,
+      pending: Number(record.pending) || 0,
+      unexcused: Number(record.unexcused) || 0,
+      remaining: Number(record.remaining) || 0,
+    }] : []) : [];
+    return [{ year: Number(responseData?.year), thresholdDays: Number(input.thresholdDays), balances } as unknown as AssistantRecord];
+  }
   if (op.id === "hr.training.incomplete.list") {
     const enrollments = rawRecords(responseData);
+    const courseName = typeof input.courseName === "string" ? input.courseName.trim().slice(0, 160) : "";
     const incomplete = enrollments.flatMap((enrollment: any) => {
       const status = String(enrollment?.status || "").toLowerCase();
       if (status === "completed" || typeof enrollment?.userName !== "string" || !enrollment.userName.trim()) return [];
+      if (courseName && (typeof enrollment?.courseTitle !== "string" || !normalize(enrollment.courseTitle).includes(normalize(courseName)))) return [];
       return [{
         employeeName: enrollment.userName.trim().slice(0, 160),
         ...(typeof enrollment.courseTitle === "string" && enrollment.courseTitle.trim() ? { courseTitle: enrollment.courseTitle.trim().slice(0, 160) } : {}),
@@ -3102,7 +3205,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     const fetchedTotal = enrollments.length;
     const totalValue = responseData?.total ?? response?.total;
     const overallTotal = Number.isSafeInteger(Number(totalValue)) && Number(totalValue) >= 0 ? Number(totalValue) : fetchedTotal;
-    return [{ incompleteEnrollments: incomplete, incompleteTotal: incomplete.length, fetchedTotal, overallTotal, truncated: overallTotal > fetchedTotal } as unknown as AssistantRecord];
+    return [{ incompleteEnrollments: incomplete, incompleteTotal: incomplete.length, fetchedTotal, overallTotal, truncated: overallTotal > fetchedTotal, ...(courseName ? { courseName } : {}) } as unknown as AssistantRecord];
   }
   if (op.id === "hr.contract.list") {
     return rawRecords(responseData).flatMap((contract: any) => {
@@ -3897,45 +4000,14 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
     else if (field.required && field.defaultValue !== undefined) input[field.key] = field.defaultValue;
   }
   let result = await callOperation(req, op, input);
-  let records = projectRecords(op, result, req);
-  if (operationId === "timekeeping.record.list") {
-    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
-    const employees = await lookupRecords(req, "employee.list");
-    const employeeNames = new Map(employees.map(employee => [String(employee.id || ""), String(employee.displayName || "") ]));
-    records = records.flatMap(record => {
-      const source = sourceById.get(String(record.id || ""));
-      if (!source) return [];
-      const checkInTime = source.checkIn?.time instanceof Date ? source.checkIn.time.toISOString()
-        : typeof source.checkIn?.time === "string" ? source.checkIn.time : undefined;
-      const checkOutTime = source.checkOut?.time instanceof Date ? source.checkOut.time.toISOString()
-        : typeof source.checkOut?.time === "string" ? source.checkOut.time : undefined;
-      const safe: AssistantRecord = {
-        ...record,
-        employeeName: employeeNames.get(String(source.uid || "")) || "Nhân sự chưa xác định",
-        ...(checkInTime ? { checkInTime } : {}),
-        ...(checkOutTime ? { checkOutTime } : {}),
-      };
-      Object.defineProperty(safe, "__assistantExistingRecord", {
-        value: {
-          date: source.date,
-          checkIn: source.checkIn,
-          checkOut: source.checkOut,
-          status: source.status,
-          note: source.note,
-          branchId: source.branchId,
-        },
-        enumerable: false,
-      });
-      return [safe];
-    });
-  }
+  let records = projectRecords(op, result, req, input);
   if (operationId === "inventory.serial.list" && !records.length && search) {
     const barcodeField = op.fields.find(field => field.source === "query" && field.apiKey === "barcodes");
     const serialField = op.fields.find(field => field.source === "query" && field.apiKey === "serial");
     if (barcodeField) {
       const barcodeInput = { ...input, ...(serialField ? { [serialField.key]: undefined } : {}), [barcodeField.key]: search };
       result = await callOperation(req, op, barcodeInput);
-      records = projectRecords(op, result, req);
+      records = projectRecords(op, result, req, barcodeInput);
     }
   }
   const selectedLabel = String(search || "");
@@ -3943,7 +4015,7 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
   if (!records.length && searchField && namePrefix && namePrefix !== selectedLabel) {
     const retryInput = { ...input, search: namePrefix, [searchField.key]: namePrefix };
     result = await callOperation(req, op, retryInput);
-    records = projectRecords(op, result, req);
+    records = projectRecords(op, result, req, retryInput);
   }
   if (operationId === "product.list" && search && !searchByInternalId) {
     for (const record of records) {
@@ -4193,6 +4265,11 @@ async function lookupReferenceCandidates(
   if (field.reference === "product.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
     const unfiltered = await lookupRecords(req, field.reference, "", context);
     if (unfiltered.some(row => matchesReference(row, search))) candidates = unfiltered;
+  }
+  if (field.reference === "training.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
+    const unfiltered = await lookupRecords(req, field.reference, "", context);
+    const nameMatches = unfiltered.filter(row => matchesReference(row, search));
+    if (nameMatches.length) candidates = nameMatches;
   }
   return candidates;
 }
@@ -5263,11 +5340,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     const branchValues = branchField && resolved[branchField.key] !== undefined ? { [branchField.key]: resolved[branchField.key] as AssistantValue } : {};
     try {
       let current: any;
-      if (op.id === "recruitment.pipeline.update") {
-        const pipeline = operationById("recruitment.pipeline.get");
-        if (!pipeline) throw new Error("missing pipeline read");
-        current = (await callOperation(req, pipeline, branchValues))?.data;
-      } else if (op.id.endsWith(".restore")) {
+      if (op.id.endsWith(".restore")) {
         const list = operationById(op.id.startsWith("recruitment.job.") ? "recruitment.job.list" : op.id.startsWith("recruitment.applicant.") ? "recruitment.applicant.list" : "recruitment.interview.list");
         if (!list) throw new Error("missing list");
         const deletedField = list.fields.find(field => field.source === "query" && field.apiKey === "deleted");

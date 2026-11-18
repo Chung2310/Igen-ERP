@@ -12,6 +12,7 @@ import { requirePermission } from "../../../middleware/auth";
 import { TelecomInvoiceSettingsModel } from "../message/model/telecom-invoice.model";
 import { findContractField, findSubscriberField, readActiveInvoiceLeadFields } from "../message/service/telecom-invoice-profile";
 import { normalizeLeadContractProvider } from "../../../../shared/marketing-suite/telecom-invoice";
+import { broadcastEvent } from "./socket";
 
 export const marketingSettingsRouter = Router();
 marketingSettingsRouter.get("/authors/:id", async (request, res, next) => {
@@ -140,6 +141,11 @@ marketingSettingsRouter.post("/lead-intake-profiles/draft", requirePermission("o
     if (Boolean(platform) !== Boolean(accountId)) {
       return res.status(400).json({ status: "error", message: "Cần truyền đủ nền tảng và mã tài khoản, hoặc bỏ trống cả hai để cấu hình chung cho doanh nghiệp." });
     }
+    const applyToAllAccounts = req.body?.applyToAllAccounts;
+    if ((applyToAllAccounts !== undefined && typeof applyToAllAccounts !== "boolean")
+      || (applyToAllAccounts === true && (req.body?.platform !== undefined || accountId))) {
+      return res.status(400).json({ status: "error", message: "Chỉ bộ trường của doanh nghiệp mới có thể dùng chung cho mọi Page/OA." });
+    }
     const fields = normalizeIntakeFields(req.body?.fields);
     const valid = fields && typeof req.body?.goal === "string" && req.body.goal.trim().length > 0 && req.body.goal.length <= 300
       && typeof req.body?.completionMessage === "string" && req.body.completionMessage.trim().length > 0 && req.body.completionMessage.length <= 500;
@@ -160,6 +166,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/draft", requirePermission("o
     const profile = await LeadIntakeProfileModel.create({
       companyCode: req.user!.companyCode,
       ...(platform && accountId ? { platform, accountId } : {}),
+      ...(applyToAllAccounts === true ? { applyToAllAccounts } : {}),
       version: (latest?.version || 0) + 1,
       status: "draft",
       goal: req.body.goal.trim(),
@@ -190,6 +197,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/:version/activate", requireP
     profile.status = "active";
     await profile.save();
     await LeadIntakeProfileModel.updateMany({ ...scopeFilter, status: "active", _id: { $ne: profile._id } }, { $set: { status: "archived" } });
+    broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
     return res.json({ status: "success", data: profile });
   } catch (error) { next(error); }
 });
@@ -206,6 +214,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/archive-active", requirePerm
       ? { companyCode: req.user!.companyCode, platform, accountId }
       : { companyCode: req.user!.companyCode, platform: { $exists: false } };
     const result = await LeadIntakeProfileModel.updateMany({ ...scopeFilter, status: "active" }, { $set: { status: "archived" } });
+    if (result.modifiedCount) broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
     return res.json({ status: "success", data: { archived: result.modifiedCount } });
   } catch (error) { next(error); }
 });

@@ -43,6 +43,15 @@ export const attendanceRecordsQuerySchema = {
     branchId: Joi.string().optional(),
   }).unknown(false),
 };
+export const attendanceAdjustmentSchema = {
+  body: Joi.object({
+    employeeId: Joi.string().hex().length(24).required(),
+    date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+    checkInTime: Joi.string().pattern(/^(?:[01]?\d|2[0-3]):[0-5]\d$/).optional(),
+    checkOutTime: Joi.string().pattern(/^(?:[01]?\d|2[0-3]):[0-5]\d$/).optional(),
+    editReason: Joi.string().trim().min(3).max(500).required(),
+  }).or("checkInTime", "checkOutTime"),
+};
 
 const monthlyAttendanceReportQuerySchema = {
   query: Joi.object({
@@ -135,6 +144,13 @@ const updateWorkHoursSchema = {
 // Get today's checkin/checkout log for the current user
 timekeepingRouter.get("/today", requireAuth as any, timekeepingController.getTodayStatus as any);
 timekeepingRouter.get("/records", requireAuth as any, requirePermission("timekeeping:read") as any, validateRequest(attendanceRecordsQuerySchema), timekeepingController.listAttendanceRecords as any);
+timekeepingRouter.patch(
+  "/records/adjust",
+  requireAuth as any,
+  requirePermission(["timekeeping:manage", "payroll-period:manage"]) as any,
+  validateRequest(attendanceAdjustmentSchema),
+  timekeepingController.adjustAttendanceRecord as any,
+);
 timekeepingRouter.get("/monthly-report", requireAuth as any, requirePermission("timekeeping:read") as any, validateRequest(monthlyAttendanceReportQuerySchema), timekeepingController.listMonthlyAttendanceReport as any);
 timekeepingRouter.get("/attempts", requireAuth as any, requirePermission("timekeeping:manage") as any, attendanceAttemptController.list as any);
 

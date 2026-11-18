@@ -47,6 +47,16 @@ export function buildKanbanTaskListFilter(
   const priority = String(query.priority || "").trim();
   if (["High", "Medium", "Low"].includes(priority)) filter.priority = priority;
 
+  if (query.overdue === true || String(query.overdue || "").toLowerCase() === "true") {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find(value => value.type === type)?.value || "";
+    const today = `${part("year")}-${part("month")}-${part("day")}`;
+    filter.dueDate = { $lt: `${today}T00:00:00.000Z` };
+    clauses.push({ status: { $nin: ["Done", "Archived"] } });
+  }
+
   for (const [key, field] of [["assigneeUid", "assigneeUid"], ["projectId", "projectId"]]) {
     const value = String(query[key] || "").trim();
     if (value && value.length <= 100) filter[field] = value;

@@ -23,6 +23,16 @@ describe("quotation catalog dialogs", () => {
     expect(client.api.mock.calls[0][0]).toBe("/api/catalog");
     expect(client.api.mock.calls[0][1].headers["Idempotency-Key"]).toBe(client.api.mock.calls[1][1].headers["Idempotency-Key"]);
   });
+  it("uses a new request key when the product changes after a failed save", async () => {
+    client.api.mockRejectedValueOnce(new Error("Mã yêu cầu đã được dùng cho nội dung khác.")).mockResolvedValueOnce({ item });
+    render(<CatalogProductDialog item={item} mode="create" onClose={vi.fn()} onSaved={vi.fn()} onToast={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Tạo sản phẩm" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Mã yêu cầu đã được dùng cho nội dung khác.");
+    fireEvent.change(screen.getByLabelText("Tên sản phẩm"), { target: { value: "Sản phẩm đã chỉnh sửa" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo sản phẩm" }));
+    await waitFor(() => expect(client.api).toHaveBeenCalledTimes(2));
+    expect(client.api.mock.calls[0][1].headers["Idempotency-Key"]).not.toBe(client.api.mock.calls[1][1].headers["Idempotency-Key"]);
+  });
   it("submits the chosen new SKU and the source revision for a duplicate", async () => {
     client.api.mockResolvedValue({ item: { ...item, sku: "COPY" } });
     render(<CatalogProductDialog item={{ ...item, sku: "", active: false }} mode="duplicate" onClose={vi.fn()} onSaved={vi.fn()} onToast={vi.fn()} />);
@@ -44,6 +54,23 @@ describe("quotation catalog dialogs", () => {
     expect(client.api.mock.calls[0][0]).toBe("/api/catalog/bulk/preview");
     fireEvent.change(screen.getByLabelText("Mức điều chỉnh"), { target: { value: "20" } });
     expect(confirm.disabled).toBe(true); expect(client.api).toHaveBeenCalledTimes(1);
+  });
+  it("uses a new request key when a bulk change is edited after an interrupted apply", async () => {
+    const preview = (previewHash: string) => ({ previewHash, rows: [{ id: item._id, sku: item.sku, name: item.name, currency: "VND", before: { price: 101, active: true, deleted: false }, after: { price: 111, active: true, deleted: false } }] });
+    client.api.mockResolvedValueOnce(preview("preview-1")).mockRejectedValueOnce(new Error("Mất kết nối")).mockResolvedValueOnce(preview("preview-2")).mockResolvedValueOnce({ items: [item] });
+    render(<CatalogBulkDialog action="price" items={[item]} onClose={vi.fn()} onApplied={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Mức điều chỉnh"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xem trước thay đổi" }));
+    const confirm = screen.getByRole("button", { name: "Xác nhận 1 sản phẩm" });
+    await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(confirm);
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Mất kết nối");
+    fireEvent.change(screen.getByLabelText("Mức điều chỉnh"), { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xem trước thay đổi" }));
+    await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(confirm);
+    await waitFor(() => expect(client.api).toHaveBeenCalledTimes(4));
+    expect(client.api.mock.calls[1][1].headers["Idempotency-Key"]).not.toBe(client.api.mock.calls[3][1].headers["Idempotency-Key"]);
   });
   it("requires explicit confirmation before deleting and sends exact selected revisions", async () => {
     client.api.mockResolvedValueOnce({ previewHash: "delete-preview", rows: [{ id: item._id, sku: item.sku, name: item.name, currency: "VND", before: { price: 101, active: true, deleted: false }, after: { price: 101, active: true, deleted: true } }] }).mockResolvedValueOnce({ items: [{ ...item, deletedAt: "2026-11-06T01:00:00Z" }] });

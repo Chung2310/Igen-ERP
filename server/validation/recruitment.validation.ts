@@ -18,10 +18,6 @@ export const applicantBodySchema = Joi.object({
   source: Joi.string().allow(""), notes: Joi.string().allow(""), recruiterId: Joi.string().allow(null, ""), confirmDuplicate: Joi.boolean(),
   cvUrl: Joi.string().uri().allow(""), cvPublicId: Joi.string().allow(""),
 }).unknown(false);
-export const pipelineBodySchema = Joi.object({ version, stages: Joi.array().min(1).items(Joi.object({
-  id: Joi.string().trim(), name: Joi.string().trim().required(), color: Joi.string().trim().required(), position: Joi.number().integer().min(0),
-  isActive: Joi.boolean(), terminalOutcome: Joi.string().valid("hired", "rejected", "withdrawn").allow(null),
-}).unknown(false)).required() }).unknown(false);
 export const interviewBodySchema = Joi.object({
   applicantId: id, jobId: id, scheduledStart: Joi.date().iso().required(), scheduledEnd: Joi.date().iso().required(),
   format: Joi.string().valid("onsite", "online", "phone").required(), location: Joi.string().allow(""), meetingLink: Joi.string().uri().allow(""),

@@ -104,7 +104,8 @@ function contextualTimekeepingActionIds(text: string, workflows: AssistantWorkfl
   const mentionsEmployeeGroup = /\b(?:nhan su|nhan vien|toan bo|tat ca|cong ty|chi nhanh)\b/.test(intent);
   const asksLate = /\b(?:di muon|den muon|tre gio)\b/.test(intent);
   const asksAbsent = /\b(?:vang mat|vang)\b/.test(intent);
-  const asksUnrecorded = /\b(?:chua cham cong|chua ghi nhan cham cong|chua ghi nhan)\b/.test(intent);
+  const asksUnrecorded = /\b(?:quen|chua|khong)\b.{0,24}\b(?:cham cong|ghi cong)\b/.test(intent)
+    || /\b(?:chua ghi nhan cham cong|chua ghi nhan)\b/.test(intent);
   const asksLeave = /\b(?:nghi phep|xin phep|phep hom nay)\b/.test(intent);
   const mentionsSelf = /\b(?:cua toi|cua minh|cho toi|cua ban than)\b/.test(intent);
   const asksOverview = /\b(?:bao cao|tong quan|thong ke|tong hop|tinh hinh)\b/.test(intent);
@@ -152,7 +153,19 @@ function directDepartmentRequest(text: string, workflows: AssistantWorkflow[], p
   const tokens = text.normalize("NFC").match(/[\p{L}\p{N}@.+-]+/gu) || [];
   const words = tokens.map(normalizeIntentText);
   const available = (actionId: string) => workflows.some(workflow => workflow.actionId === actionId);
+  const departmentIntent = words.join(" ");
+  const asksUnmanagedDepartments = /\b(?:phong ban|don vi)\b/.test(departmentIntent)
+    && /\b(?:chua co|khong co|thieu|chua duoc gan)\b/.test(departmentIntent)
+    && /\b(?:quan ly|truong phong)\b/.test(departmentIntent);
+  if (asksUnmanagedDepartments && available("department.unmanaged.list")) return {
+    actionId: "department.unmanaged.list",
+    values: {},
+    intentType: "workflow",
+    ...(pending ? { newRequest: true } : {}),
+  };
   const asksCount = /\b(?:bao nhieu|so luong)\b/.test(words.join(" ")) && /\b(?:nhan su|nhan vien)\b/.test(words.join(" "));
+  const asksDepartmentEmployees = /\b(?:danh sach|liet ke|xem|tra cuu)\b/.test(departmentIntent)
+    && /\b(?:nhan su|nhan vien)\b/.test(departmentIntent);
   const makesManager = /\b(?:dua|dat|bo nhiem|phan cong)\b/.test(words.join(" "))
     && /\b(?:quan (?:ly|li)|truong phong)\b/.test(words.join(" "))
     && words.some((word, index) => word === "nhan" && ["su", "vien"].includes(words[index + 1] || ""));
@@ -175,6 +188,18 @@ function directDepartmentRequest(text: string, workflows: AssistantWorkflow[], p
   }
   const asksManager = !makesManager && /\b(?:ai la quan ly|quan (?:ly|li)|truong phong)\b/.test(words.join(" "));
   const roomIndexes = words.map((word, index) => word === "phong" ? index : -1).filter(index => index >= 0);
+  if (asksDepartmentEmployees && roomIndexes.length && available("department.employees.list")) {
+    const roomIndex = roomIndexes.at(-1)!;
+    let nameStart = roomIndex + 1;
+    if (words[nameStart] === "ban") nameStart += 1;
+    const departmentName = tokens.slice(nameStart).join(" ").replace(/\s+(?:nhe|nha|giup|voi|gium)$/i, "").trim();
+    if (departmentName) return {
+      actionId: "department.employees.list",
+      values: { query_department: departmentName },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
   if ((asksCount || asksManager) && roomIndexes.length && available("department.lookup")) {
     const roomIndex = asksManager
       ? [...roomIndexes].reverse().find(index => words.slice(0, index).includes("quan") || words.slice(0, index).includes("truong")) ?? roomIndexes.at(-1)!
@@ -188,7 +213,7 @@ function directDepartmentRequest(text: string, workflows: AssistantWorkflow[], p
     const departmentName = tokens.slice(nameStart, nameEnd).join(" ").trim();
     if (departmentName) return {
       actionId: "department.lookup",
-      values: { query_department: `Phòng ${departmentName}` },
+      values: { query_department: departmentName },
       intentType: "workflow",
       ...(pending ? { newRequest: true } : {}),
     };
@@ -224,6 +249,14 @@ function directDepartmentRequest(text: string, workflows: AssistantWorkflow[], p
 
 function directEmployeePhoneUpdateRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
   const intent = normalizeIntentText(text);
+  const pendingRequest = typeof pending === "object" && pending !== null ? pending as { actionId?: unknown; intent?: unknown } : null;
+  const pendingIntent = normalizeIntentText(String(pendingRequest?.intent || ""));
+  const waitingForPhone = pendingRequest?.actionId === "employee.update"
+    && /\b(?:so dien thoai|dien thoai|sdt)\b/.test(pendingIntent);
+  if (waitingForPhone) {
+    const phone = text.normalize("NFC").match(/(?:^|\s)((?:0\d{9}|\+?84\d{9,10}))(?:$|\s)/)?.[1];
+    if (phone) return { actionId: "employee.update", values: { phone }, intentType: "workflow" };
+  }
   if (!/\b(?:cap nhat|sua|chinh sua|doi|thay doi|bo sung|them)\b/.test(intent)
     || !/\b(?:so dien thoai|dien thoai|sdt)\b/.test(intent)
     || !workflows.some(workflow => workflow.actionId === "employee.update")) return null;
@@ -232,12 +265,13 @@ function directEmployeePhoneUpdateRequest(text: string, workflows: AssistantWork
   const phoneIndex = words.findIndex(word => /^(?:0\d{9}|\+?84\d{9,10})$/.test(word));
   const employeeIndex = words.findIndex((word, index) => word === "nhan" && ["su", "vien"].includes(words[index + 1] || "")
     || word === "can" && words[index + 1] === "bo");
-  if (phoneIndex < 0 || employeeIndex < 0 || phoneIndex <= employeeIndex + 2) return null;
-  const employeeName = tokens.slice(employeeIndex + 2, phoneIndex).join(" ").trim();
+  if (employeeIndex < 0 || (phoneIndex >= 0 && phoneIndex <= employeeIndex + 2)) return null;
+  const employeeName = tokens.slice(employeeIndex + 2, phoneIndex >= 0 ? phoneIndex : undefined)
+    .join(" ").replace(/\s+(?:nhe|nha|giup|giup minh|giup toi|voi)$/i, "").trim();
   if (!employeeName) return null;
   return {
     actionId: "employee.update",
-    values: { id: employeeName, phone: tokens[phoneIndex] },
+    values: { id: employeeName, ...(phoneIndex >= 0 ? { phone: tokens[phoneIndex] } : {}) },
     intentType: "workflow",
     ...(pending ? { newRequest: true } : {}),
   };
@@ -345,16 +379,28 @@ function directTimekeepingAdjustmentRequest(text: string, workflows: AssistantWo
   if (!workflows.some(workflow => workflow.actionId === actionId)) return null;
   const employee = namedEmployeeFromRequest(text);
   const values: Record<string, unknown> = {
-    ...(employee ? { query_uid: employee } : {}),
+    ...(employee ? { employeeId: employee } : {}),
     ...(vietnameseClockTime(intent, "in") ? { checkInTime: vietnameseClockTime(intent, "in") } : {}),
     ...(vietnameseClockTime(intent, "out") ? { checkOutTime: vietnameseClockTime(intent, "out") } : {}),
   };
   const date = intent.match(/\b(\d{4}-\d{2}-\d{2})\b/)?.[1];
-  if (date) values.query_date = date;
-  else if (/\b(?:hom nay|ngay hom nay)\b/.test(intent)) {
+  if (date) values.date = date;
+  else {
+    const dayMonth = intent.match(/\bngay\s+(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?\b/);
+    if (dayMonth) {
+      const year = Number(dayMonth[3]) || Number(new Intl.DateTimeFormat("en", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric" }).format(new Date()));
+      const month = Number(dayMonth[2]);
+      const day = Number(dayMonth[1]);
+      const candidate = new Date(Date.UTC(year, month - 1, day));
+      if (month >= 1 && month <= 12 && day >= 1 && candidate.getUTCMonth() === month - 1 && candidate.getUTCDate() === day) {
+        values.date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      }
+    }
+  }
+  if (values.date === undefined && /\b(?:hom nay|ngay hom nay)\b/.test(intent)) {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
     const part = (type: string) => parts.find(value => value.type === type)?.value || "";
-    values.query_date = `${part("year")}-${part("month")}-${part("day")}`;
+    values.date = `${part("year")}-${part("month")}-${part("day")}`;
   }
   return { actionId, values, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
 }
@@ -400,6 +446,93 @@ function directHrReportRequest(text: string, workflows: AssistantWorkflow[], pen
     }
     return current;
   };
+  const selectedMonthRange = () => {
+    const { year, month } = requestedMonth();
+    return {
+      rangeStart: `${year}-${String(month).padStart(2, "0")}-01`,
+      rangeEnd: `${year}-${String(month).padStart(2, "0")}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`,
+    };
+  };
+  const today = () => new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+
+  const namedCalendarDay = intent.match(/\bngay(?:\s+(?:nghi|le))?\s+(.+?)(?:\s+cua cong ty)?\s+(?:dien ra(?:\s+vao)?|la|roi vao|duoc to chuc)\s+(?:ngay nao|hom nao|khi nao)\b/);
+  if (namedCalendarDay && available("timekeeping.work-calendar.named-holiday")) {
+    return {
+      actionId: "timekeeping.work-calendar.named-holiday",
+      values: { year: vietnamYearMonth().year, eventName: namedCalendarDay[1].trim() },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+
+  const asksLeaveApplication = /\b(?:don xin nghi|don nghi phep|don nghi|xin nghi phep|nghi phep)\b/.test(intent);
+  const asksWfhRanking = /\b(?:lam online|lam viec online|work from home|wfh)\b/.test(intent)
+    && /\b(?:nhieu nhat|nhieu hon|nhat)\b/.test(intent);
+  const asksLeaveRanking = /\b(?:xin nghi|nghi phep)\b/.test(intent) && /\b(?:nhieu nhat|nhieu hon|nhat)\b/.test(intent);
+  const asksMonthlyLeaveSummary = /\b(?:tong hop|liet ke|bao cao|danh sach)\b/.test(intent)
+    && /\b(?:nhan su|nhan vien|ai|nhung ai)\b/.test(intent) && /\bnghi phep\b/.test(intent)
+    && /\bthang\b/.test(intent);
+  if (asksWfhRanking && available("hr.leave.applications.list")) {
+    return {
+      actionId: "hr.leave.applications.list",
+      values: { ...selectedMonthRange(), requestKind: "wfh", status: "approved", reportKind: "wfh-most" },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+  if (asksLeaveRanking && available("hr.leave.applications.list")) {
+    return {
+      actionId: "hr.leave.applications.list",
+      values: { ...selectedMonthRange(), requestKind: "leave", status: "approved", reportKind: "leave-most" },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+  if (asksMonthlyLeaveSummary && available("hr.leave.applications.list")) {
+    return {
+      actionId: "hr.leave.applications.list",
+      values: { ...selectedMonthRange(), requestKind: "leave", status: "approved", reportKind: "leave-summary" },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+  if (asksLeaveApplication && ( /\b(?:hom nay|ngay hom nay)\b/.test(intent) || /\b(?:kiem tra|xem|danh sach|tong hop|co)\b/.test(intent))
+    && available("hr.leave.applications.list")) {
+    const range = /\bthang\b/.test(intent) ? selectedMonthRange() : { rangeStart: today(), rangeEnd: today() };
+    return {
+      actionId: "hr.leave.applications.list",
+      values: { ...range, requestKind: "leave", reportKind: "requests" },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+
+  const asksCalendarRead = /\b(?:su kien noi bo|lich gi|co lich|lich hom nay|lich trong ngay)\b/.test(intent)
+    || /\bbao cao\b/.test(intent) && /\bsu kien\b/.test(intent);
+  if (asksCalendarRead && available("hr.calendar.events.list")) {
+    const range = /\bthang\b/.test(intent) ? selectedMonthRange() : { rangeStart: today(), rangeEnd: today() };
+    return {
+      actionId: "hr.calendar.events.list",
+      values: { ...range, ...( /\bsu kien noi bo\b/.test(intent) ? { type: "event" } : {}) },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+
+  const asksHeadcount = /\b(?:tong so|bao nhieu|so luong|dem)\b/.test(intent)
+    && /\b(?:nhan su|nhan vien|lao dong)\b/.test(intent);
+  if (asksHeadcount && available("employee.count")) {
+    const branchMatch = text.normalize("NFC").match(/(?:chi\s+nhánh|chi\s+nhanh|cơ\s+sở|co\s+so)\s+(.+?)(?=\s+(?:là|la|có|co|bao\s+nhiêu|bao nhieu)\b|[,.?!]|$)/iu);
+    const targetBranch = branchMatch?.[1]?.trim();
+    return {
+      actionId: "employee.count",
+      values: targetBranch ? { targetBranch } : {},
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
 
   if (/\b(?:ngay nao|nhung ngay nao|lich nghi)\b/.test(intent) && /\b(?:nghi|duoc nghi|duoc nghi bu|ngay le)\b/.test(intent)
     && /\b(?:thang nay|thang hien tai)\b/.test(intent) && available("timekeeping.work-calendar.month-holidays")) {
@@ -412,30 +545,48 @@ function directHrReportRequest(text: string, workflows: AssistantWorkflow[], pen
     };
   }
 
-  const asksAnnualLeaveBalance = /\b(?:phep nam|nghi phep nam|luot nghi phep|ngay phep con lai|phep con lai|\d+ phep)\b/.test(intent)
+  const requestedLeaveThreshold = intent.match(/\b(?:con du|it nhat|toi thieu|tu)\s+(\d{1,3}(?:[.,]\d+)?)\s+(?:ngay\s+)?phep\b/);
+  const asksAnnualLeaveBalance = /\b(?:phep nam|nghi phep nam|luot nghi phep|ngay phep con lai|phep con lai|\d+\s+(?:ngay\s+)?phep)\b/.test(intent)
     && /\b(?:nhan su|nhan vien|nhung ai|ai|thong ke|danh sach|con du|het|con lai)\b/.test(intent);
   if (asksAnnualLeaveBalance) {
     const year = vietnamYearMonth().year;
-    const actionId = /\b(?:con du|it nhat)\s+(?:12|muoi hai)\s+(?:ngay\s+)?phep\b/.test(intent)
-      ? "leave.balances.at-least-12"
+    const thresholdDays = requestedLeaveThreshold ? Number(requestedLeaveThreshold[1].replace(",", ".")) : NaN;
+    const actionId = Number.isFinite(thresholdDays) && thresholdDays >= 0 && thresholdDays <= 365
+      ? "leave.balances.minimum"
       : /\b(?:het|het luot|da het)\b/.test(intent)
         ? "leave.balances.exhausted"
         : "leave.balances.list";
-    if (available(actionId)) return { actionId, values: { year }, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
+    if (available(actionId)) return {
+      actionId,
+      values: { year, ...(actionId === "leave.balances.minimum" ? { thresholdDays } : {}) },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
   }
 
   const asksMonthlyAttendance = /\b(?:cham cong|cong|di tre|di muon|di lam tre|vang mat|nghi nhieu nhat)\b/.test(intent)
     && /\bthang\b/.test(intent);
   if (asksMonthlyAttendance) {
     const { year, month } = requestedMonth();
-    const actionId = /\b(?:khong du|chua du|duoi)\s+26\s+cong\b/.test(intent)
-      ? "timekeeping.records.monthly.under-26"
+    const asksUnrecorded = /\b(?:quen|chua|khong)\b.{0,24}\b(?:cham cong|ghi cong)\b/.test(intent)
+      && available("timekeeping.records.monthly.unrecorded");
+    const requestedWorkThreshold = intent.match(/\b(?:khong du|chua du|duoi|it hon)\s+(\d{1,2}(?:[.,]\d+)?)\s+(?:ngay\s+)?cong\b/);
+    const thresholdDays = requestedWorkThreshold ? Number(requestedWorkThreshold[1].replace(",", ".")) : NaN;
+    const actionId = asksUnrecorded
+      ? "timekeeping.records.monthly.unrecorded"
+      : Number.isFinite(thresholdDays) && thresholdDays >= 0 && thresholdDays <= 31
+      ? "timekeeping.records.monthly.under-threshold"
       : /\b(?:di lam tre|di muon|di tre)\b/.test(intent)
         ? "timekeeping.records.monthly.most-late"
         : /\b(?:nghi nhieu nhat|vang nhieu nhat)\b/.test(intent)
           ? "timekeeping.records.monthly.most-absent"
           : "timekeeping.records.monthly.overview";
-    if (available(actionId)) return { actionId, values: { year, month }, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
+    if (available(actionId)) return {
+      actionId,
+      values: { year, month, ...(actionId === "timekeeping.records.monthly.under-threshold" ? { thresholdDays } : {}) },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
   }
 
   if (/\b(?:sinh nhat|ngay sinh)\b/.test(intent) && /\b(?:nhan su|nhan vien|can bo)\b/.test(intent)
@@ -446,7 +597,25 @@ function directHrReportRequest(text: string, workflows: AssistantWorkflow[], pen
     && /\b(?:dao tao|khoa hoc|bai hoc|training)\b/.test(intent)
     && /\b(?:nhan su|nhan vien|ai|nhung ai|danh sach|kiem tra|liet ke)\b/.test(intent);
   if (asksIncompleteTraining && available("hr.training.incomplete.list")) {
-    return { actionId: "hr.training.incomplete.list", values: { page: 1, limit: 1000 }, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
+    const courseTokens = text.normalize("NFC").match(/[\p{L}\p{N}@.+-]+/gu) || [];
+    const courseWords = courseTokens.map(normalizeIntentText);
+    const courseCue = courseWords.findIndex((word, index) => word === "khoa" && ["hoc", "dao"].includes(courseWords[index + 1] || ""));
+    const courseNameStart = courseCue < 0 ? -1 : courseCue + (courseWords[courseCue + 1] === "dao" ? 3 : 2);
+    let courseNameEnd = courseTokens.length;
+    if (courseNameStart >= 0) {
+      for (let index = courseNameStart; index < courseWords.length; index += 1) {
+        if (["chua", "trong"].includes(courseWords[index])) { courseNameEnd = index; break; }
+      }
+    }
+    const courseName = courseNameStart >= 0 ? courseTokens.slice(courseNameStart, courseNameEnd).join(" ").trim() : "";
+    const normalizedCourseName = normalizeIntentText(courseName);
+    const namedCourseIsPlaceholder = /^(?:nao|gi|bat ky|tung khoa|cac khoa|nhung khoa|noi bo)$/i.test(normalizedCourseName);
+    return {
+      actionId: "hr.training.incomplete.list",
+      values: { page: 1, limit: 1000, ...(courseName && !namedCourseIsPlaceholder ? { courseName } : {}) },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
   }
   const expiringAction = directExpiringEmployeeContractReportActionId(text, workflows);
   if (expiringAction) {
@@ -457,6 +626,134 @@ function directHrReportRequest(text: string, workflows: AssistantWorkflow[], pen
     return { actionId: expiringAction, values, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
   }
   return null;
+}
+
+function directTaskRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
+  const available = (actionId: string) => workflows.some(workflow => workflow.enabled && workflow.actionId === actionId);
+  const asksMonthlyKpi = /\bkpi\b/.test(intent) && /\bthang\b/.test(intent)
+    && /\b(?:nhan su|nhan vien|cong viec|nhiem vu)\b/.test(intent);
+  if (!/\b(?:cong viec|giao viec|nhiem vu|kpi cong viec)\b/.test(intent) && !asksMonthlyKpi) return null;
+  const pendingActionId = pending && typeof pending === "object" && "actionId" in pending
+    ? String((pending as { actionId?: unknown }).actionId || "") : "";
+  const startsAnotherTaskRequest = /\b(?:tao|them|lap|giao|bao cao|cap nhat|liet ke|danh sach|xem|tra cuu|tim)\b/.test(intent);
+  if (["task.create", "task.activity.update"].includes(pendingActionId) && !startsAnotherTaskRequest) return null;
+
+  if (/\bkpi\b/.test(intent) && /\bthang\b/.test(intent) && available("task.kpi.monthly")) {
+    const current = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit" }).format(new Date());
+    const [currentYear, currentMonth] = current.split("-").map(Number);
+    let year = currentYear;
+    let month = currentMonth;
+    const explicit = intent.match(/\bthang\s+(0?[1-9]|1[0-2])\b/);
+    if (explicit) month = Number(explicit[1]);
+    else if (/\b(?:thang truoc|thang vua roi|thang qua)\b/.test(intent)) {
+      const previous = new Date(Date.UTC(year, month - 2, 1));
+      year = previous.getUTCFullYear();
+      month = previous.getUTCMonth() + 1;
+    }
+    return {
+      actionId: "task.kpi.monthly",
+      values: { period: `${year}-${String(month).padStart(2, "0")}`, completionFilter: /\b100\s*%/.test(intent) ? "exactly-100" : "below-100" },
+      intentType: "workflow",
+      ...(pending ? { newRequest: true } : {}),
+    };
+  }
+
+  const asksAboutExistingTask = /\b(?:dang duoc giao cho ai|giao cho ai|da hoan thanh chua|hoan thanh chua)\b/.test(intent);
+  const createTask = !asksAboutExistingTask && /\b(?:tao|them|lap|giao)\b/.test(intent) && /\b(?:giao viec|cong viec|nhiem vu)\b/.test(intent);
+  if (createTask && available("task.create")) {
+    const assignee = namedEmployeeFromRequest(text);
+    return { actionId: "task.create", values: assignee ? { assigneeUid: assignee } : {}, intentType: "workflow", ...(pending ? { newRequest: false } : { newRequest: true }) };
+  }
+
+  const progress = intent.match(/\b(?:hoan thanh|tien do)\b.{0,48}?(\d{1,3})\s*%/)
+    || intent.match(/\b(\d{1,3})\s*%(?!\d)/);
+  const taskCue = intent.match(/\b(?:bao cao|cap nhat)\b.{0,24}\btien do\b.{0,24}\bcong viec\b/)
+    || intent.match(/\btien do\b.{0,16}\bcong viec\b/);
+  if (progress && taskCue && available("task.activity.update")) {
+    const rawTokens = text.normalize("NFC").match(/[\p{L}\p{N}@.+-]+/gu) || [];
+    const words = rawTokens.map(normalizeIntentText);
+    const taskIndex = words.findIndex((word, index) => word === "cong" && words[index + 1] === "viec");
+    const endIndex = words.findIndex((word, index) => index > taskIndex + 1
+      && ((word === "hoan" && words[index + 1] === "thanh") || (word === "tien" && words[index + 1] === "do")));
+    const rawTitle = text.normalize("NFC").match(/(?:công\s+việc|nhiệm\s+vụ)\s+(.+?)\s+(?:hoàn\s+thành(?:\s+được)?|tiến\s+độ)\s+\d{1,3}\s*%/iu)?.[1]?.trim();
+    const title = (rawTitle || rawTokens.slice(taskIndex + 2, endIndex < 0 ? rawTokens.length : endIndex).join(" ")).replace(/[,:;.!?]+$/g, "").trim();
+    const value = Number(progress[1]);
+    if (title && Number.isInteger(value) && value >= 0 && value <= 100) return {
+      actionId: "task.activity.update", values: { path_id: title, action: "progress", progress: value },
+      intentType: "workflow", ...(pending ? { newRequest: true } : {}),
+    };
+  }
+
+  if (!available("task.list")) return null;
+  const values: Record<string, unknown> = {};
+  const employeeCue = intent.match(/\bnhan su\s+(.+?)\s+(?:dang|hien dang)\s+(?:dam nhiem|phu trach|duoc giao)\b/);
+  if (employeeCue) values.assigneeUid = employeeCue[1].trim();
+  if (/\b(?:bi tre|qua han|tre deadline|tre han)\b/.test(intent)) values.overdue = true;
+  if (/\b(?:chua bat dau|chua lam|chua thuc hien)\b/.test(intent)) values.status = "Not Started";
+  else if (/\b(?:dang lam chua xong|chua xong|chua hoan thanh|dang thuc hien)\b/.test(intent)) values.status = "In Progress";
+  if (/\b(?:uu tien cao|muc uu tien cao|can uu tien)\b/.test(intent)) values.priority = "High";
+
+  const rawTokens = text.normalize("NFC").match(/[\p{L}\p{N}@.+-]+/gu) || [];
+  const words = rawTokens.map(normalizeIntentText);
+  const taskIndex = words.findIndex((word, index) => word === "cong" && words[index + 1] === "viec");
+  if (taskIndex >= 0) {
+    const titleEnd = words.findIndex((word, index) => index > taskIndex + 1 && ["dang", "da", "la", "co", "nao", "bi"].includes(word));
+    const title = rawTokens.slice(taskIndex + 2, titleEnd < 0 ? rawTokens.length : titleEnd).join(" ").trim();
+    if (title && !/^(?:nao|gi)$/i.test(normalizeIntentText(title))) values.search = title;
+  }
+  const specific = asksAboutExistingTask;
+  const collection = /\b(?:danh sach|nhung|cac|nhan su|nhan vien|ai|cong viec|nhiem vu)\b/.test(intent);
+  if (!specific && !collection) return null;
+  return { actionId: "task.list", values, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
+}
+
+function directCalendarEventCreateRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
+  const intent = normalizeIntentText(text);
+  const pendingActionId = pending && typeof pending === "object" && "actionId" in pending
+    ? String((pending as { actionId?: unknown }).actionId || "") : "";
+  if (pendingActionId === "hr.calendar.event.create" && !/\b(?:tao|them|lap|dat lich)\b/.test(intent)) return null;
+  if (!/\b(?:tao|them|lap|dat lich)\b/.test(intent) || !/\b(?:su kien|cuoc hop|lich hop|nhac viec)\b/.test(intent)
+    || !workflows.some(workflow => workflow.enabled && workflow.actionId === "hr.calendar.event.create")) return null;
+  const tokens = text.normalize("NFC").match(/[\p{L}\p{N}@.+-]+/gu) || [];
+  const words = tokens.map(normalizeIntentText);
+  const eventCue = words.findIndex((word, index) => word === "su" && words[index + 1] === "kien"
+    || word === "cuoc" && words[index + 1] === "hop"
+    || word === "nhac" && words[index + 1] === "viec");
+  const titleStart = eventCue < 0 ? -1 : eventCue + 2;
+  const titleEnd = words.findIndex((word, index) => index > titleStart && ["vao", "ngay", "thu", "luc"].includes(word));
+  const title = titleStart >= 0 ? tokens.slice(titleStart, titleEnd < 0 ? tokens.length : titleEnd).join(" ").replace(/[,:;.!?]+$/g, "").trim() : "";
+
+  const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const todayString = `${todayParts.find(part => part.type === "year")?.value}-${todayParts.find(part => part.type === "month")?.value}-${todayParts.find(part => part.type === "day")?.value}`;
+  const todayDate = new Date(`${todayString}T00:00:00.000Z`);
+  let eventDay = "";
+  const numericDate = text.match(/(?<!\d)(\d{1,2})[./-](\d{1,2})(?:[./-](\d{4}))?(?!\d)/);
+  if (numericDate) {
+    const year = Number(numericDate[3] || todayString.slice(0, 4));
+    const date = new Date(Date.UTC(year, Number(numericDate[2]) - 1, Number(numericDate[1])));
+    if (date.getUTCFullYear() === year && date.getUTCMonth() + 1 === Number(numericDate[2]) && date.getUTCDate() === Number(numericDate[1])) eventDay = date.toISOString().slice(0, 10);
+  }
+  if (!eventDay && /\b(?:hom nay|ngay hom nay)\b/.test(intent)) eventDay = todayString;
+  if (!eventDay && /\b(?:ngay mai|hom sau)\b/.test(intent)) { const date = new Date(todayDate); date.setUTCDate(date.getUTCDate() + 1); eventDay = date.toISOString().slice(0, 10); }
+  if (!eventDay) {
+    const weekday = words.findIndex((word, index) => index > 0 && word === "thu" && /^(?:2|3|4|5|6|7|cn)$/.test(words[index + 1] || ""));
+    if (weekday >= 0) {
+      const requested = words[weekday + 1] === "cn" ? 0 : Number(words[weekday + 1]) === 7 ? 6 : Number(words[weekday + 1]) - 1;
+      const delta = (requested - todayDate.getUTCDay() + 7) % 7;
+      todayDate.setUTCDate(todayDate.getUTCDate() + delta);
+      eventDay = todayDate.toISOString().slice(0, 10);
+    }
+  }
+  const toLocalIso = (day: string, time: string) => new Date(`${day}T${time}+07:00`).toISOString();
+  const type = /\b(?:cuoc hop|lich hop)\b/.test(intent) ? "meeting" : /\bnhac viec\b/.test(intent) ? "reminder" : "event";
+  return {
+    actionId: "hr.calendar.event.create",
+    values: { ...(title ? { title } : {}), type,
+      ...(eventDay ? { startDate: toLocalIso(eventDay, "00:00:00"), endDate: toLocalIso(eventDay, "23:59:59") } : {}) },
+    intentType: "workflow",
+    ...(pending ? { newRequest: false } : { newRequest: true }),
+  };
 }
 
 function directHrContractExtensionRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
@@ -713,8 +1010,9 @@ function contextualCourseCreate(text: string, workflows: AssistantWorkflow[]): C
   const trainingWorkflow = workflows.find(workflow => workflow.actionId === "training.create");
   const studentCourseOperation = ASSISTANT_OPERATIONS.find(operation => operation.method === "POST" && operation.path === "/courses");
   const studentCourseWorkflow = studentCourseOperation && workflows.find(workflow => workflow.actionId === studentCourseOperation.id);
-  const explicitTraining = /\b(?:khoa dao tao|dao tao|training)\b/.test(intent);
-  const explicitStudentCourse = /\b(?:hoc vien|mo lop|lop hoc|hoc phi)\b/.test(intent)
+  const explicitTraining = /\b(?:khoa dao tao|dao tao|training)\b/.test(intent)
+    || /\bkhoa hoc\b.{0,32}\b(?:noi bo|nhan su|nhan vien)\b/.test(intent);
+  const explicitStudentCourse = /\b(?:hoc vien|hoc sinh|mo lop|lop hoc|hoc phi)\b/.test(intent)
     || /\bma\b.{0,24}\b(?:la|khoa hoc)?\s*[a-z0-9]/.test(intent);
 
   if (explicitTraining) {
@@ -724,6 +1022,32 @@ function contextualCourseCreate(text: string, workflows: AssistantWorkflow[]): C
   if (explicitStudentCourse) {
     if (!studentCourseWorkflow) throw new AssistantError("Workflow tạo khóa học cho học viên chưa được bật hoặc tài khoản chưa có quyền.", 403);
     return { actionId: studentCourseWorkflow.actionId };
+  }
+
+  const available = [trainingWorkflow, studentCourseWorkflow].filter((workflow): workflow is AssistantWorkflow => Boolean(workflow));
+  if (available.length === 1) return { actionId: available[0].actionId };
+  if (available.length > 1) return { suggestedActionIds: available.map(workflow => workflow.actionId) };
+  return null;
+}
+type CourseDeleteResolution = { actionId: string } | { suggestedActionIds: string[] } | null;
+function contextualCourseDelete(text: string, workflows: AssistantWorkflow[]): CourseDeleteResolution {
+  const intent = normalizeIntentText(text);
+  if (!/\b(?:xoa|huy|go bo)\b/.test(intent)
+    || !/\b(?:khoa hoc|khoa dao tao|dao tao|training)\b/.test(intent)) return null;
+
+  const trainingWorkflow = workflows.find(workflow => workflow.actionId === "training.delete");
+  const studentCourseWorkflow = workflows.find(workflow => workflow.actionId === "course.delete");
+  const explicitTraining = /\b(?:khoa dao tao|dao tao|training)\b/.test(intent)
+    || /\bkhoa hoc\b.{0,32}\b(?:noi bo|nhan su|nhan vien)\b/.test(intent);
+  const explicitStudentCourse = /\b(?:hoc vien|hoc sinh|mo lop|lop hoc|hoc phi)\b/.test(intent);
+
+  if (explicitTraining && !explicitStudentCourse) {
+    if (trainingWorkflow) return { actionId: trainingWorkflow.actionId };
+    throw new AssistantError("Workflow xóa khóa đào tạo chưa được bật hoặc tài khoản chưa có quyền.", 403);
+  }
+  if (explicitStudentCourse && !explicitTraining) {
+    if (studentCourseWorkflow) return { actionId: studentCourseWorkflow.actionId };
+    throw new AssistantError("Workflow xóa khóa học cho học viên chưa được bật hoặc tài khoản chưa có quyền.", 403);
   }
 
   const available = [trainingWorkflow, studentCourseWorkflow].filter((workflow): workflow is AssistantWorkflow => Boolean(workflow));
@@ -1529,9 +1853,70 @@ function directWorkWorkflowCreateRequest(text: string, workflows: AssistantWorkf
   if (!workflows.some(workflow => workflow.actionId === actionId)) return null;
   return { actionId, values: {}, ...(pending ? { newRequest: true } : {}) };
 }
+function directWorkWorkflowMutationRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!/\bquy trinh\b/.test(intent)) return null;
+  const source = text.normalize("NFC").trim();
+  const clean = (value: string) => value
+    .replace(/^[\s"“”']+|[\s"“”']+$/gu, "")
+    .replace(/[,:;.!?]+$/gu, "")
+    .replace(/\s+(?:nhé|nhe|nha|giúp mình|giúp tôi)$/iu, "")
+    .trim();
+  const available = (actionId: string) => workflows.some(workflow => workflow.enabled && workflow.actionId === actionId);
+  const withPending = (actionId: string, values: Record<string, unknown>): AssistantInterpretation => ({
+    actionId, values, intentType: "workflow", ...(pending ? { newRequest: true } : {}),
+  });
+
+  const deleteMatch = source.match(/(?:xóa|hủy|gỡ bỏ)\s+quy trình(?:\s+làm việc)?\s+(.+?)\s*$/iu);
+  if (deleteMatch) {
+    if (!available("hr.workflow.delete")) return null;
+    const workflowName = clean(deleteMatch[1]);
+    return workflowName ? withPending("hr.workflow.delete", { path_id: workflowName }) : null;
+  }
+
+  const childMatch = source.match(/(?:thêm|bổ sung)\s+(?:quy trình con|giai đoạn con|công việc con)\s+["“]?(.+?)["”]?\s+vào\s+bước\s+(.+?)\s+(?:trong|của)\s+quy trình(?:\s+làm việc)?\s+(.+?)\s*$/iu);
+  if (childMatch && available("hr.workflow.update")) {
+    const childName = clean(String(childMatch[1] || ""));
+    const parentStep = clean(String(childMatch[2] || ""));
+    const workflowName = clean(String(childMatch[3] || ""));
+    if (childName && parentStep && workflowName) return withPending("hr.workflow.update", {
+      path_id: workflowName, workflowAction: "Thêm giai đoạn con", workflowTarget: parentStep, workflowValue: childName,
+    });
+  }
+
+  const addStepMatch = source.match(/(?:thêm|bổ sung|chèn)\s+(?:các\s+)?bước\s+(.+?)\s+(?:vào|trong)\s+quy\s+trình(?:\s+làm việc)?\s+(.+?)\s*$/iu);
+  if (addStepMatch && available("hr.workflow.update")) {
+    const stepName = clean(String(addStepMatch[1] || ""));
+    const workflowName = clean(String(addStepMatch[2] || ""));
+    if (stepName && workflowName) return withPending("hr.workflow.update", {
+      path_id: workflowName, workflowAction: "Thêm bước", workflowValue: stepName,
+    });
+  }
+
+  const removeStepMatch = source.match(/(?:bỏ|xóa|gỡ)\s+(?:các\s+)?bước\s+(.+?)\s+(?:khỏi|ra\s+khỏi)\s+quy\s+trình(?:\s+làm việc)?\s+(.+?)\s*$/iu);
+  if (removeStepMatch && available("hr.workflow.update")) {
+    const stepName = clean(String(removeStepMatch[1] || ""));
+    const workflowName = clean(String(removeStepMatch[2] || ""));
+    if (stepName && workflowName) return withPending("hr.workflow.update", {
+      path_id: workflowName, workflowAction: "Gỡ bước", workflowTarget: stepName,
+    });
+  }
+
+  const createMatch = source.match(/(?:tạo|lập|thêm)\s+(?:mới\s+)?quy trình(?:\s+làm việc)?\s+(.+?)(?=\s*[:;]\s*(?:các\s+)?bước\b|\s+(?:gồm|với)\s+(?:các\s+)?bước\b|$)/iu);
+  if (createMatch && available("hr.workflow.create")) {
+    const workflowName = clean(String(createMatch[1] || ""));
+    if (!workflowName || /^(?:mới|new)$/iu.test(workflowName)) return null;
+    const stepPattern = /bước(?:\s+\d+)?\s*[:.)-]?\s*(.+?)(?=\s+bước(?:\s+\d+)?\s*[:.)-]?|$)/giu;
+    const steps = [...source.matchAll(stepPattern)]
+      .map(match => clean(String(match[1] || "")))
+      .filter(title => title.length > 0 && title.length <= 120)
+      .map(title => ({ title }));
+    return withPending("hr.workflow.create", { name: workflowName, ...(steps.length ? { steps } : {}) });
+  }
+  return null;
+}
 function directWorkWorkflowUpdateRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
   const intent = normalizeIntentText(text).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-  if (/\btuyen dung\b/.test(intent)) return null;
   const match = intent.match(/^(?:(?:toi muon|giup toi|giup minh|cho toi)\s+)?(?:sua|cap nhat|chinh sua|dieu chinh)\s+quy trinh(?:\s+lam viec)?(?:\s+(.+))?$/);
   if (!match) return null;
   const suffix = String(match[1] || "").trim();
@@ -1741,6 +2126,12 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
     && !/\b(?:nhan su|nhan vien|can bo|hoc vien|hoc sinh|lop hoc|khoa hoc|khoa dao tao|dao tao|tuyen dung|ung vien|phong van|cham cong|bang luong|luong|lao dong|cong nhan|doi tac|cong tac vien|ban le|pos|ca thu ngan|phieu thu|phieu chi|so quy|nhap kho|xuat kho|ton kho|imei|serial|y te|benh nhan|luot kham|lich hen|bac si|phong kham)\b/.test(normalizedQuotationReply)) {
     workflows = workflows.filter(w => w.enabled && w.module === "quotation");
   }
+  const directTask = directTaskRequest(text, workflows, pending);
+  if (directTask) return directTask;
+  const directWorkWorkflowMutation = directWorkWorkflowMutationRequest(text, workflows, pending);
+  if (directWorkWorkflowMutation) return directWorkWorkflowMutation;
+  const directCalendarEvent = directCalendarEventCreateRequest(text, workflows, pending);
+  if (directCalendarEvent) return directCalendarEvent;
   const directWorkWorkflowUpdate = directWorkWorkflowUpdateRequest(text, workflows, pending);
   if (directWorkWorkflowUpdate) return directWorkWorkflowUpdate;
   const directWorkWorkflowCreate = directWorkWorkflowCreateRequest(text, workflows, pending);
@@ -1760,6 +2151,11 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
     return { actionId: null, values: {}, intentType: "ambiguous", suggestedActionIds: directCourseCreate.suggestedActionIds };
   }
   const directCourseActionId = directCourseCategoryCreateActionId || (directCourseCreate && "actionId" in directCourseCreate ? directCourseCreate.actionId : "");
+  const directCourseDelete = contextualCourseDelete(text, workflows);
+  if (directCourseDelete && "suggestedActionIds" in directCourseDelete) {
+    return { actionId: null, values: {}, intentType: "ambiguous", suggestedActionIds: directCourseDelete.suggestedActionIds };
+  }
+  const directCourseDeleteActionId = directCourseDelete && "actionId" in directCourseDelete ? directCourseDelete.actionId : "";
   const directLaborPartnerPolicyCreateActionId = contextualLaborPartnerPolicyCreateActionId(text, workflows);
   const directPartnerCreate = directLaborPartnerPolicyCreateActionId ? null : contextualPartnerCreate(text, workflows, messages);
   if (directPartnerCreate && "suggestedActionIds" in directPartnerCreate) {
@@ -1806,7 +2202,7 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
     ? "" : directFinanceVoucherCreateActionId(text, workflows);
   const inventoryReceiptCreateActionId = directCatalogActionId || directStudentActionId || directWorkerActionId ? "" : contextualInventoryReceiptCreateActionId(text, workflows);
   const retailShiftOpenActionId = directCatalogActionId || directStudentActionId || directWorkerActionId ? "" : contextualRetailShiftOpenActionId(text, workflows);
-  const directOperationActionId = quotation.actionId || directReportActionId || directStudentBatchAction || directCourseActionId || directLaborPartnerPolicyCreateActionId || directCatalogActionId || directStudentActionId || directAttendanceAdjustment?.actionId || directHrContractCreate?.actionId || directHrContractExtension?.actionId || directWorkerSpecialized?.actionId || directWorkerActionId || directPayrollAction || directEmployeeActionId || directDepartmentAction?.actionId || directCustomerActionId || directHrMutationActionId || directFinanceActionId || inventoryReceiptCreateActionId || retailShiftOpenActionId;
+  const directOperationActionId = quotation.actionId || directReportActionId || directStudentBatchAction || directCourseActionId || directCourseDeleteActionId || directLaborPartnerPolicyCreateActionId || directCatalogActionId || directStudentActionId || directAttendanceAdjustment?.actionId || directHrContractCreate?.actionId || directHrContractExtension?.actionId || directWorkerSpecialized?.actionId || directWorkerActionId || directPayrollAction || directEmployeeActionId || directDepartmentAction?.actionId || directCustomerActionId || directHrMutationActionId || directFinanceActionId || inventoryReceiptCreateActionId || retailShiftOpenActionId;
   if (directOperationActionId) workflows = workflows.filter(workflow => workflow.actionId === directOperationActionId);
   if (directAttendanceAdjustment) return directAttendanceAdjustment;
   if (directHrContractExtension) return directHrContractExtension;

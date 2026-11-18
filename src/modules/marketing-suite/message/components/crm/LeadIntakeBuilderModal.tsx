@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, Loader2, Plus, Settings2, Sparkles, Trash2 } from "lucide-react";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import { StyledSelect } from "../../../../../components/common/StyledSelect";
@@ -24,7 +24,7 @@ interface LeadIntakeBuilderModalProps {
   initialAddColumn?: boolean;
   focusFieldKey?: string;
   onClose: () => void;
-  onSaved: (account: LeadAccountOption | null) => void;
+  onSaved: (account: LeadAccountOption | null, applyToAllAccounts?: boolean) => void;
 }
 
 const fieldInputClass =
@@ -118,6 +118,9 @@ function LeadIntakeBuilderModalBody({
   const [fields, setFields] = useState<EditableField[]>([]);
   const [needGroups, setNeedGroups] = useState<LeadNeedGroup[]>([]);
   const [hasOwnProfile, setHasOwnProfile] = useState(false);
+  const [applyToAllAccounts, setApplyToAllAccounts] = useState(false);
+  const [inheritsSharedProfile, setInheritsSharedProfile] = useState(false);
+  const sharedProfileHintId = useId();
   const [sourceDocumentIds, setSourceDocumentIds] = useState<string[]>([]);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -135,7 +138,7 @@ function LeadIntakeBuilderModalBody({
 
   const scopeOptions = useMemo(
     () => [
-      { value: "company", label: "Mặc định doanh nghiệp" },
+      { value: "company", label: "Bộ trường chung của doanh nghiệp" },
       ...accounts.map(acc => ({
         value: `${acc.platform}:${acc.accountId}`,
         label: `${PLATFORM_LABELS[acc.platform]} · ${acc.displayName}`,
@@ -161,10 +164,11 @@ function LeadIntakeBuilderModalBody({
         const active = profiles.find(profile => profile.status === "active");
         const draft = profiles.find(profile => profile.status === "draft" && profile.version > (active?.version || 0));
         const fallback = selectedAccount ? fallbackProfiles.find(profile => profile.status === "active") : undefined;
-        const base = draft || active || fallback;
+        const inheritsShared = fallback?.applyToAllAccounts === true;
+        const base = inheritsShared ? fallback : draft || active || fallback;
 
         const baseFields = normalizeEditableFields(base?.fields ?? starterFields);
-        if (initialAddColumn && baseFields.length < 30) {
+        if (initialAddColumn && !inheritsShared && baseFields.length < 30) {
           pendingFocusNewRowRef.current = true;
           baseFields.push(emptyField());
         } else if (focusFieldKey) {
@@ -176,7 +180,9 @@ function LeadIntakeBuilderModalBody({
         setFields(baseFields);
         setNeedGroups(base?.needGroups || []);
         setHasOwnProfile(Boolean(active || draft));
-        setProfileStatus(draft ? "Bản nháp" : active ? "Đang áp dụng" : fallback ? "Dùng mặc định" : "Chưa thiết lập");
+        setApplyToAllAccounts(!selectedAccount && base?.applyToAllAccounts === true);
+        setInheritsSharedProfile(inheritsShared);
+        setProfileStatus(inheritsShared ? "Dùng bộ trường chung" : draft ? "Bản nháp" : active ? "Đang áp dụng" : fallback ? "Dùng mặc định" : "Chưa thiết lập");
         setExpandedFieldId(undefined);
       } catch (cause) {
         if (!cancelled) {
@@ -272,12 +278,12 @@ function LeadIntakeBuilderModalBody({
   }
 
   async function handleSave(draftOnly = false) {
-    if (loading || loadFailed || busy) return;
+    if (cannotEdit) return;
     setError("");
     setNotice("");
 
     if (fields.length === 0) {
-      if (draftOnly || !hasOwnProfile) return;
+      if (draftOnly || !hasOwnProfile || applyToAllAccounts) return;
       setBusy("save");
       try {
         await crmService.archiveLeadIntakeProfile(
@@ -346,8 +352,10 @@ function LeadIntakeBuilderModalBody({
     }
     setBusy(draftOnly ? "draft" : "save");
     try {
+      const target = applyToAllAccounts ? null : selectedAccount;
       const input = {
-        ...(selectedAccount ? { platform: selectedAccount.platform, accountId: selectedAccount.accountId } : {}),
+        ...(target ? { platform: target.platform, accountId: target.accountId } : {}),
+        ...(applyToAllAccounts ? { applyToAllAccounts: true } : {}),
         goal: (goal.trim() || "Thu thập thông tin khách hàng tiềm năng").slice(0, 300),
         completionMessage: (completionMessage.trim() || "Cảm ơn anh/chị đã cung cấp thông tin, bên em sẽ tư vấn ngay ạ.").slice(0, 500),
         fields: prepared,
@@ -361,7 +369,8 @@ function LeadIntakeBuilderModalBody({
         return;
       }
       await crmService.saveAndActivateLeadIntakeProfile(input);
-      onSaved(selectedAccount);
+      if (applyToAllAccounts) onSaved(null, true);
+      else onSaved(selectedAccount);
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể lưu cấu hình cột Lead.");
@@ -370,7 +379,7 @@ function LeadIntakeBuilderModalBody({
     }
   }
 
-  const cannotEdit = Boolean(busy) || loading || loadFailed;
+  const cannotEdit = Boolean(busy) || loading || loadFailed || inheritsSharedProfile;
   const columnLayout = "sm:grid-cols-[minmax(0,1fr)_5rem_4.5rem]";
 
   return (
@@ -385,12 +394,12 @@ function LeadIntakeBuilderModalBody({
       <form onSubmit={event => { event.preventDefault(); void handleSave(); }} className="space-y-3">
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-on-surface">Tài khoản áp dụng</span>
+            <span className="text-xs font-medium text-on-surface">Phạm vi áp dụng</span>
             {!loading && !loadFailed && <span className="text-xs text-on-surface-variant">{profileStatus}</span>}
           </div>
           {accounts.length > 0 ? <div className="max-w-sm">
             <StyledSelect
-              ariaLabel="Tài khoản áp dụng"
+              ariaLabel="Phạm vi áp dụng"
               value={selectedAccountKey}
               disabled={Boolean(busy) || loading}
               options={scopeOptions}
@@ -401,8 +410,27 @@ function LeadIntakeBuilderModalBody({
               }}
               className="h-9 rounded-xl text-xs"
             />
-          </div> : <p className="text-sm text-on-surface">Mặc định doanh nghiệp</p>}
+          </div> : <p className="text-sm text-on-surface">Bộ trường chung của doanh nghiệp</p>}
         </div>
+        {!loading && !loadFailed && (
+          inheritsSharedProfile ? (
+            <p className="text-pretty rounded-xl bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
+              Chọn “Bộ trường chung của doanh nghiệp” ở trên để chỉnh các cột cho mọi kênh.
+            </p>
+          ) : (
+            <div className="space-y-1 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-on-surface">
+                <input type="checkbox" checked={applyToAllAccounts} disabled={cannotEdit}
+                  aria-describedby={sharedProfileHintId} onChange={event => setApplyToAllAccounts(event.target.checked)}
+                  className="size-4 accent-primary focus-visible:outline-1 focus-visible:outline-primary" />
+                Dùng bộ trường này cho mọi Page/OA
+              </label>
+              <p id={sharedProfileHintId} className="pl-6 text-pretty text-xs text-on-surface-variant">
+                Bật và lưu để dùng chung các cột trên bảng Lead và trong Bot thu thập Lead. Khi tắt, các Page/OA có bộ trường riêng sẽ dùng lại bộ đó.
+              </p>
+            </div>
+          )
+        )}
         {!initialAddColumn && (selectedAccount?.platform === "zalo" || selectedAccount?.platform === "facebook") &&
           <TelecomInvoiceSettingsPanel key={`${selectedAccount.platform}:${selectedAccount.accountId}`} platform={selectedAccount.platform} accountId={selectedAccount.accountId} />}
         <div className="flex flex-wrap items-center justify-between gap-2">
