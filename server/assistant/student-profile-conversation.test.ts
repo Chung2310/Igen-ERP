@@ -247,7 +247,7 @@ it("guides manual handling when a recognized workflow is blocked by permissions"
 
   expect(result.status).toBe("unsupported");
   expect(result.reply).toContain("Chưa thực hiện thay đổi dữ liệu");
-  expect(result.reply).toContain("tab QUẢN LÝ HỌC VIÊN");
+  expect(result.reply).toContain("Mở Quản lý học viên → Học viên.");
   expect(result.reply).toContain("Chỉ tiếp tục sau khi được cấp quyền");
   expect(result.link).toBeUndefined();
   expect(fetcher).not.toHaveBeenCalled();
@@ -280,6 +280,7 @@ it("creates one student, asks about missing optional fields, supplements that re
   }, intentType: "workflow", newRequest: false });
   const preview = await turn({ text: "Thêm hồ sơ học viên Nguyễn An, số điện thoại 0900000000, email an@example.com, ngày đăng ký 14/11/2026" });
   expect(preview.status).toBe("confirmation");
+  expect(preview.reply).toBe("Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.");
   expect(students).toHaveLength(0);
 
   const created = await confirm(preview);

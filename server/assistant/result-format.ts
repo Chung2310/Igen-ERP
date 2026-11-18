@@ -1183,7 +1183,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         "Trạng thái": status,
       }];
     });
-    const incompleteNote = dataResult.truncated === true ? "Danh sách đăng ký đào tạo vượt quá giới hạn đọc 1.000 dòng; kết quả có thể chưa bao gồm toàn bộ nhân sự." : "";
+    const incompleteNote = dataResult.truncated === true ? "Danh sách đăng ký đào tạo vượt quá giới hạn đọc 1.000 dòng. Kết quả có thể chưa bao gồm toàn bộ nhân sự." : "";
     if (!total) return incompleteNote || (courseName
       ? `Không có lượt học nào chưa hoàn thành khóa học ${courseName} trong phạm vi hiện tại.`
       : "Không có đăng ký đào tạo nội bộ nào chưa hoàn thành trong phạm vi hiện tại.");
@@ -1271,12 +1271,12 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         const highestUnrecorded = filtered.reduce((max, record) => Math.max(max, Number(record.unrecordedDays) || 0), 0);
         filtered = highestUnrecorded > 0 ? filtered.filter(record => Number(record.unrecordedDays) === highestUnrecorded) : [];
         summary = filtered.length
-          ? `Không có ngày vắng hoặc nghỉ phép được ghi nhận trong ${period}. Nhân sự thiếu bản ghi chấm công nhiều nhất có ${dayValue(highestUnrecorded)} ngày; chưa thể xác nhận đây là ngày nghỉ.`
+          ? `Không có ngày vắng hoặc nghỉ phép được ghi nhận trong ${period}. Nhân sự thiếu bản ghi chấm công nhiều nhất có ${dayValue(highestUnrecorded)} ngày. Chưa thể xác nhận đây là ngày nghỉ.`
           : `Không có ngày vắng hoặc nghỉ phép được ghi nhận trong ${period}.`;
       }
     } else if (operation.id === "timekeeping.records.monthly.most-late") {
       filtered = filtered.filter(record => Number(record.lateDays) > 0).sort((left, right) => Number(right.lateDays) - Number(left.lateDays));
-      summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự đi muộn trong ${period}; danh sách xếp theo số lượt giảm dần.` : `Không ghi nhận lượt đi muộn trong ${period}.`;
+      summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự đi muộn trong ${period}. Danh sách xếp theo số lượt giảm dần.` : `Không ghi nhận lượt đi muộn trong ${period}.`;
     } else if (operation.id === "timekeeping.records.monthly.most-leave") {
       const highest = filtered.reduce((max, record) => Math.max(max, Number(record.leaveDays) || 0), 0);
       filtered = highest > 0 ? filtered.filter(record => Number(record.leaveDays) === highest) : [];
@@ -1452,7 +1452,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     });
     const summary = operation.id === "student.bulk.preview"
       ? rows.length ? `Có ${errors.length} dòng cần sửa trước khi nhập.` : "Danh sách học viên chưa có dòng nào cần sửa."
-      : `Đã nhập ${countValue(importedCount)} học viên; bỏ qua ${countValue(skippedCount)} dòng.`;
+      : `Đã nhập ${countValue(importedCount)} học viên. Bỏ qua ${countValue(skippedCount)} dòng.`;
     const after = errors.length > rows.length ? [`Còn ${errors.length - rows.length} dòng lỗi chưa hiển thị.`] : [];
     return rows.length ? formatAssistantResultTable(summary, rows, after) : summary;
   }
@@ -1860,7 +1860,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       `Bỏ qua (chưa đăng ký khuôn mặt): ${count("skippedNotRegistered")}`,
       `Bỏ qua (chưa có email): ${count("skippedNoEmail")}`,
       `Lỗi gửi: ${count("failed")}`,
-      "Mã chỉ có hiệu lực 5 phút; không hiển thị mã hoặc địa chỉ email.",
+      "Mã chỉ có hiệu lực 5 phút. Không hiển thị mã hoặc địa chỉ email.",
     ].join("\n");
   }
   if (operation.id === "retail.debt-reminders.runs.list" || operation.id === "retail.debt-reminders.runs.detail") {
@@ -2005,7 +2005,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const result = recordOf(safeResult) || {};
     const answer = typeof result.simulatedAnswer === "string" ? result.simulatedAnswer.trim() : "";
     const safeAnswer = /^\[(?:lỗi|loi) sinh câu trả lời\]/i.test(answer)
-      ? "Chưa tạo được câu trả lời mô phỏng; hãy kiểm tra cấu hình AI rồi thử lại."
+      ? "Chưa tạo được câu trả lời mô phỏng. Hãy kiểm tra cấu hình AI rồi thử lại."
       : answer.slice(0, 1200);
     const items = Array.isArray(result.items) ? result.items : [];
     const sources = items.slice(0, 3).map((item: unknown) => {
@@ -2032,7 +2032,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       text ? `Câu trả lời thử: ${text}` : "Chưa tạo được câu trả lời thử.",
       ...(mode ? [`Nguồn: ${mode}`] : []),
       ...(Number.isSafeInteger(matches) && matches >= 0 ? [`Số đoạn tham khảo: ${matches}`] : []),
-      ...(result.dryRun === true ? ["Chỉ xem trước; không gửi tin cho khách."] : []),
+      ...(result.dryRun === true ? ["Chỉ xem trước. Không gửi tin cho khách."] : []),
     ].join("\n");
   }
   if (operation.id === "company-knowledge.page-chat.simulate") {

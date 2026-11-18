@@ -52,7 +52,7 @@ describe("student bulk result formatting", () => {
       errors: [{ row: 2, name: "Nguyễn Văn An", phone: "SĐT giả lập 001", reason: "Số điện thoại không hợp lệ." }],
     });
 
-    expect(reply).toContain("Đã nhập 0 học viên; bỏ qua 1 dòng · 1 kết quả:");
+    expect(reply).toContain("Đã nhập 0 học viên. Bỏ qua 1 dòng · 1 kết quả:");
     expect(reply).not.toContain("đã tạo nhiều hồ sơ học viên");
     expect(parseAssistantResultTable(reply)?.rows[0]?.values["Học viên"]).toBe("Nguyễn Văn An");
   });
@@ -185,7 +185,7 @@ describe("HR reports", () => {
 
     const table = parseAssistantResultTable(reply);
     expect(table?.rows[0]?.values).toMatchObject({ "Nhân sự": "Nguyễn Anh", "Khóa đào tạo": "An toàn lao động", "Tiến độ": "35%", "Trạng thái": "Đang học" });
-    expect(reply).toContain("kết quả có thể chưa bao gồm toàn bộ nhân sự");
+    expect(reply).toContain("Kết quả có thể chưa bao gồm toàn bộ nhân sự");
     expect(reply).not.toContain("private-id");
   });
 

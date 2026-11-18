@@ -1,7 +1,8 @@
 import type { AssistantReply } from "../../src/shared/assistant-workflow";
 import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 
-export const assistantReplyPresentationRule = "Chỉ nói về yêu cầu, thông tin còn thiếu, xác nhận và kết quả nghiệp vụ. Không kể tên hay giải thích workflow đang dùng. Không liệt kê các trường được tự điền bằng giá trị mặc định. Giữ thông tin người dùng chủ động nhập, câu hỏi cần bổ sung và yêu cầu xác nhận.";
+export const assistantNaturalLanguageRule = "Viết tiếng Việt như đang trao đổi trực tiếp, xưng mình–bạn, dùng câu ngắn và nói thẳng điều người dùng cần biết. Không dùng dấu chấm phẩy trong lời dẫn, giải thích hoặc câu hỏi do bạn viết. Tách các ý thành câu riêng hoặc xuống dòng. Không nối nhiều ý bằng dấu phẩy, không thêm dấu chấm sau dấu hỏi hoặc dấu chấm than. Tránh lời dẫn khuôn mẫu như ‘Mình đã chuẩn bị xong’ hay ‘Mình đã hiểu yêu cầu’. Không lặp ‘nhé’ ở mỗi câu. Giữ nguyên dấu câu trong dữ liệu, tên, ghi chú, trích dẫn, bảng, URL và mã nguồn. Không thay dấu câu bằng cách sửa hàng loạt nội dung người dùng.";
+export const assistantReplyPresentationRule = `Chỉ nói về yêu cầu, thông tin còn thiếu, xác nhận và kết quả nghiệp vụ. Không kể tên hay giải thích workflow đang dùng. Không liệt kê các trường được tự điền bằng giá trị mặc định. Giữ thông tin người dùng chủ động nhập, câu hỏi cần bổ sung và yêu cầu xác nhận. ${assistantNaturalLanguageRule}`;
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().trim();
 const fieldLine = /^([^:\r\n]{1,100}):\s*(.*)$/;

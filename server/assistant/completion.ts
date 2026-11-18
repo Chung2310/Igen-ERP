@@ -90,6 +90,6 @@ export async function completeAssistantOperation(
     }
     const shown = missing.slice(0, 6);
     const more = missing.length > shown.length ? ` và ${missing.length - shown.length} mục khác` : "";
-    return { ...reply, reply: `${reply.reply}\n\nMình thấy các thông tin tùy chọn còn trống: ${shown.join(", ")}${more}. Bạn có muốn bổ sung không? Nếu có, gửi giúp mình mục và nội dung cần thêm nhé.` };
+    return { ...reply, reply: `${reply.reply}\n\nBạn có muốn bổ sung không? Các mục còn trống gồm ${shown.join(", ")}${more}. Bạn có thể gửi thông tin cần thêm hoặc nói “bỏ qua”.` };
   } catch { return reply; }
 }

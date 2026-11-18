@@ -121,14 +121,14 @@ function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operatio
 }
 async function previewStudentDeletion(req: AuthenticatedRequest, values: Record<string, AssistantValue>) {
   const previewOperation = operationById("student.bulk.delete.preview");
-  if (!previewOperation) throw new AssistantError("Chưa bật bước xem trước ảnh hưởng khi xóa học viên; chưa có hồ sơ nào bị xóa.");
+  if (!previewOperation) throw new AssistantError("Chưa bật bước xem trước ảnh hưởng khi xóa học viên. Chưa có hồ sơ nào bị xóa.");
   let ids: unknown = values.ids;
   try { if (typeof ids === "string") ids = JSON.parse(ids); } catch { ids = null; }
   if (!Array.isArray(ids) || ids.length < 1 || ids.length > 20) throw new AssistantError("Chọn từ 1 đến 20 học viên trước khi xem ảnh hưởng xóa.");
   await assertOperation(req, previewOperation.id);
   let result: any;
   try { result = await callOperation(req, previewOperation, values); }
-  catch { throw new AssistantError("Chưa đọc được ảnh hưởng khi xóa học viên; chưa có hồ sơ nào bị xóa. Hãy thử lại để xem trước."); }
+  catch { throw new AssistantError("Chưa đọc được ảnh hưởng khi xóa học viên. Chưa có hồ sơ nào bị xóa. Hãy thử lại để xem trước."); }
   const data = result?.data && typeof result.data === "object" ? result.data : result;
   const deletableCount = Number(data?.deletableCount);
   const blockedCount = Number(data?.blockedCount);
@@ -270,7 +270,7 @@ function friendlyFailure(error: unknown) {
   if (error instanceof AssistantApiRejection && [400, 409, 422].includes(error.status)) {
     return `Dữ liệu chưa được chấp nhận: ${error.message}\nBạn sửa thông tin được nêu rồi gửi lại nhé.`;
   }
-  if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công; bạn thử lại sau giúp mình nhé.";
+  if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.";
   const message = error.message || "";
   if (message === AI_PROVIDER_TEMPORARY_ERROR || isAiProviderBillingError(message)) return AI_PROVIDER_TEMPORARY_ERROR;
   if (/dữ liệu yêu cầu không hợp lệ/i.test(message)) {
@@ -316,8 +316,8 @@ export function inventoryReceiptFollowUpQuestion(
   if (needsQuantity) return "Bạn muốn nhập số lượng bao nhiêu cho SKU này?";
   return "Bạn cho mình biết giá nhập của SKU này nhé. Ví dụ: 25.000đ.";
 }
-const processingReply = (): AssistantReply => ({ status: "processing", reply: "Mình đang xử lý yêu cầu trước. Bạn chờ mình một chút nhé; chưa cần gửi lại yêu cầu." });
-const uncertainReply = (): AssistantReply => ({ status: "uncertain", reply: "Mình chưa xác nhận được yêu cầu trước đã hoàn tất hay chưa. Bạn kiểm tra dữ liệu trong phân hệ giúp mình trước khi thử lại nhé; mình không tự chạy lại để tránh tạo trùng." });
+const processingReply = (): AssistantReply => ({ status: "processing", reply: "Mình đang xử lý yêu cầu trước. Bạn chờ mình một chút nhé. Chưa cần gửi lại yêu cầu." });
+const uncertainReply = (): AssistantReply => ({ status: "uncertain", reply: "Mình chưa xác nhận được yêu cầu trước đã hoàn tất hay chưa. Bạn kiểm tra dữ liệu trong phân hệ giúp mình trước khi thử lại nhé. Mình không tự chạy lại để tránh tạo trùng." });
 function updateDetailsQuestion(op: AssistantOperation, intent: string, values: Record<string, unknown>) {
   if (op.id === "employee.update" && /\b(?:so dien thoai|dien thoai|sdt)\b/.test(normalizeAssistantText(intent))) {
     return "Bạn gửi giúp mình số điện thoại mới của nhân sự này nhé.";
@@ -326,7 +326,7 @@ function updateDetailsQuestion(op: AssistantOperation, intent: string, values: R
     return "Bạn gửi thông tin muốn bổ sung cho bệnh nhân vừa tạo nhé: số điện thoại, ngày sinh, địa chỉ hoặc ghi chú. Bạn có thể chỉ bổ sung những mục đang có thông tin.";
   }
   if (op.id === "student.batch.update" && isBatchTitleRenameRequest(intent)) {
-    return "Bạn muốn sửa thông tin nào của lớp đã chọn? Tên và mã lớp không thể đổi sau khi tạo. Tiêu đề hiển thị lấy từ khóa học; nếu muốn đổi khóa học gắn với riêng lớp này, hãy cho biết khóa học muốn chọn. Bạn cũng có thể sửa lịch học, giờ, ngày, giảng viên, địa điểm hoặc lộ trình.";
+    return "Bạn muốn sửa thông tin nào của lớp đã chọn? Tên và mã lớp không thể đổi sau khi tạo. Tiêu đề hiển thị lấy từ khóa học. Nếu muốn đổi khóa học gắn với riêng lớp này, hãy cho biết khóa học muốn chọn. Bạn cũng có thể sửa lịch học, giờ, ngày, giảng viên, địa điểm hoặc lộ trình.";
   }
   if (op.id === "student.batch.update") {
     return "Bạn muốn sửa thông tin nào của lớp đã chọn? Có thể cập nhật lịch học, giờ, ngày, giảng viên, địa điểm, khóa học hoặc lộ trình.";
@@ -346,7 +346,7 @@ function updateDetailsQuestion(op: AssistantOperation, intent: string, values: R
         : `Bạn muốn thêm bước con vào bước nào của quy trình “${processName}”, và tên bước con là gì?`;
     }
     const currentSteps = stepTitles.length
-      ? ` Hiện có các bước: ${stepTitles.map((title, index) => `${index + 1}. ${title}`).join("; ")}. Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn giữ; mình sẽ giữ thông tin của bước trùng tên.`
+      ? ` Hiện có các bước: ${stepTitles.map((title, index) => `${index + 1}. ${title}`).join("; ")}. Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn giữ. Mình sẽ giữ thông tin của bước trùng tên.`
       : " Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn có nhé.";
     return `Bạn muốn mình cập nhật thông tin nào của quy trình “${processName}” — tên, nhóm, mô tả hay các bước?${currentSteps}`;
   }
@@ -570,8 +570,8 @@ export function trainingContentFollowUpQuestion(op: AssistantOperation, missingL
   const asksLessons = Boolean(missingLessons && missingLabels.includes(missingLessons));
   const asksQuizzes = Boolean(missingQuizzes && missingLabels.includes(missingQuizzes));
   return [
-    ...(asksLessons ? ["Bạn muốn gắn bài giảng nào? Gửi tên bài kèm đường dẫn hoặc nội dung; nếu chưa có, nói ‘bỏ qua bài giảng’ nhé."] : []),
-    ...(asksQuizzes ? ["Bạn muốn thêm câu hỏi trắc nghiệm nào? Gửi câu hỏi, các phương án và đáp án đúng; nếu chưa có, nói ‘bỏ qua câu hỏi’ nhé."] : []),
+    ...(asksLessons ? ["Bạn muốn gắn bài giảng nào? Gửi tên bài kèm đường dẫn hoặc nội dung. Nếu chưa có, nói ‘bỏ qua bài giảng’ nhé."] : []),
+    ...(asksQuizzes ? ["Bạn muốn thêm câu hỏi trắc nghiệm nào? Gửi câu hỏi, các phương án và đáp án đúng. Nếu chưa có, nói ‘bỏ qua câu hỏi’ nhé."] : []),
   ].join("\n");
 }
 function trainingContentSkipFields(text: string): Array<"lessons" | "quizzes"> {
@@ -702,8 +702,8 @@ async function workerMissingInfoReply(req: AuthenticatedRequest, conversationId:
   return {
     status: "completed",
     reply: missing.length
-      ? `Mình đã xem hồ sơ của ${worker.fullName}. Các mục còn đang để trống là: ${missing.join(", ")}. Đây là những thông tin có thể bổ sung; bạn muốn cập nhật mục nào trước?`
-      : `Mình đã xem hồ sơ của ${worker.fullName}; các trường thông tin cơ bản hiện đều đã có. Bạn muốn mình kiểm tra thêm nội dung nào không?`,
+      ? `Mình đã xem hồ sơ của ${worker.fullName}. Các mục còn đang để trống là: ${missing.join(", ")}. Đây là những thông tin có thể bổ sung. Bạn muốn cập nhật mục nào trước?`
+      : `Mình đã xem hồ sơ của ${worker.fullName}. Các trường thông tin cơ bản hiện đều đã có. Bạn muốn mình kiểm tra thêm nội dung nào không?`,
     link: listOperation.link,
   };
 }
@@ -803,7 +803,7 @@ async function laborPartnerMissingInfoReply(req: AuthenticatedRequest, text: str
     status: "completed",
     reply: missing.length
       ? `Mình đã xem hồ sơ đối tác lao động ${partner.name}. Các mục tùy chọn còn để trống là: ${missing.join(", ")}. Bạn muốn bổ sung mục nào trước?`
-      : `Mình đã xem hồ sơ đối tác lao động ${partner.name}; các mục thông tin tùy chọn hiện đã có dữ liệu. Bạn muốn kiểm tra thêm nội dung nào không?`,
+      : `Mình đã xem hồ sơ đối tác lao động ${partner.name}. Các mục thông tin tùy chọn hiện đã có dữ liệu. Bạn muốn kiểm tra thêm nội dung nào không?`,
     link: listOperation.link,
   };
 }
@@ -895,8 +895,8 @@ function unavailableReferencePrompt(op: AssistantOperation, field: AssistantFiel
   }
   if (op.method === "POST" && op.path === "/courses" && field.apiKey === "category") {
     return lookupFailed
-      ? "Mình chưa tải được danh sách danh mục khóa học để bạn chọn. Khóa học chưa được tạo; bạn thử lại giúp mình nhé."
-      : "Hiện chưa có danh mục khóa học trong phạm vi đang chọn để đưa ra lựa chọn. Khóa học chưa được tạo; bạn kiểm tra chi nhánh đang chọn hoặc nhờ quản trị viên kiểm tra danh mục giúp mình nhé.";
+      ? "Mình chưa tải được danh sách danh mục khóa học để bạn chọn. Khóa học chưa được tạo. Bạn thử lại giúp mình nhé."
+      : "Hiện chưa có danh mục khóa học trong phạm vi đang chọn để đưa ra lựa chọn. Khóa học chưa được tạo. Bạn kiểm tra chi nhánh đang chọn hoặc nhờ quản trị viên kiểm tra danh mục giúp mình nhé.";
   }
   if (op.method === "POST" && op.path === "/inventory/catalog/resources/:kind" && field.apiKey === "parentCode") {
     return "Mình chưa tìm thấy thể loại / thư mục cha nào đang hoạt động. Bạn hãy tạo một mục gốc trước, rồi mình có thể tạo các mục con bên dưới nhé.";
@@ -911,8 +911,8 @@ function unavailableReferencePrompt(op: AssistantOperation, field: AssistantFiel
   }
   if (op.id === "inventory.receipt.create" && field.reference === "inventory.product.detail") {
     return lookupFailed
-      ? "Mình chưa đọc được danh sách SKU của sản phẩm đã chọn. Phiếu nhập chưa được tạo; nhà cung cấp và kho bạn chọn vẫn được giữ. Bạn thử lại sau hoặc gửi mã SKU nếu đã biết nhé."
-      : "Mình chưa tìm thấy SKU nào cho sản phẩm đã chọn. Phiếu nhập kho cần một SKU cụ thể; nếu sản phẩm chưa có SKU, hãy thêm SKU cho sản phẩm rồi gửi lại yêu cầu nhập kho nhé. Nhà cung cấp và kho bạn chọn vẫn được giữ. Bản ghi chưa được tạo."
+      ? "Mình chưa đọc được danh sách SKU của sản phẩm đã chọn. Phiếu nhập chưa được tạo. Nhà cung cấp và kho bạn chọn vẫn được giữ. Bạn thử lại sau hoặc gửi mã SKU nếu đã biết nhé."
+      : "Mình chưa tìm thấy SKU nào cho sản phẩm đã chọn. Phiếu nhập kho cần một SKU cụ thể. Nếu sản phẩm chưa có SKU, hãy thêm SKU cho sản phẩm rồi gửi lại yêu cầu nhập kho nhé. Nhà cung cấp và kho bạn chọn vẫn được giữ. Bản ghi chưa được tạo."
   }
   return `Chưa có lựa chọn khả dụng cho ${label}.${skipHint}`;
 }
@@ -1964,7 +1964,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       const expectedImpact = pending?.confirmationDetails?.studentDeleteImpact || [];
       const currentImpact = await previewStudentDeletion(req, checked.values);
       if (!expectedImpact.length || JSON.stringify(expectedImpact) !== JSON.stringify(currentImpact)) {
-        throw new AssistantError("Dữ liệu liên quan đã thay đổi kể từ lúc xem trước. Chưa xóa học viên; hãy gửi lại yêu cầu để xem trước thông tin mới.", 409);
+        throw new AssistantError("Dữ liệu liên quan đã thay đổi kể từ lúc xem trước. Chưa xóa học viên. Hãy gửi lại yêu cầu để xem trước thông tin mới.", 409);
       }
     }
     if (input.decision?.confirmed && op.id === "hr.workflow.update") {
@@ -1973,9 +1973,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       try {
         previewSnapshot = JSON.stringify(JSON.parse(String(values.__assistantExistingRecord || "")));
         currentSnapshot = JSON.stringify(JSON.parse(String(checked.values.__assistantExistingRecord || "")));
-      } catch { throw new AssistantError("Không đọc được phiên bản quy trình trong bản xem trước; chưa lưu thay đổi.", 409); }
+      } catch { throw new AssistantError("Không đọc được phiên bản quy trình trong bản xem trước. Chưa lưu thay đổi.", 409); }
       if (!previewSnapshot || previewSnapshot !== currentSnapshot) {
-        throw new AssistantError("Quy trình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu; hãy gửi lại yêu cầu để kiểm tra thông tin mới.", 409);
+        throw new AssistantError("Quy trình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Hãy gửi lại yêu cầu để kiểm tra thông tin mới.", 409);
       }
     }
     if (input.decision?.confirmed && op.confirmationDetails) {
@@ -1983,7 +1983,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         const expectedDetails = pending?.confirmationDetails?.[key] || [];
         const currentDetails = checked.confirmationDetails?.[key] || [];
         if (JSON.stringify(expectedDetails) !== JSON.stringify(currentDetails)) {
-          throw new AssistantError("Thông tin người nhận hoặc nội dung đã thay đổi kể từ bản xem trước. Chưa thực hiện; vui lòng kiểm tra và xác nhận lại.", 409);
+          throw new AssistantError("Thông tin người nhận hoặc nội dung đã thay đổi kể từ bản xem trước. Chưa thực hiện. Vui lòng kiểm tra và xác nhận lại.", 409);
         }
       }
     }
@@ -2019,7 +2019,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
           files: [{ ...metadata, documentId, conversationId: input.conversationId, version: 1 }], link: op.link };
       }
       if (["healthcare.import.preview", "healthcare.import.commit", "healthcare.import.retry"].includes(op.id) && ["queued", "running"].includes(result.status)) {
-        return { status: "completed", reply: `Đã xếp hàng ${op.id === "healthcare.import.preview" ? "kiểm tra" : "xử lý"} tệp ${result.filename || "Excel y tế"}. Dữ liệu đang được xử lý; bạn có thể yêu cầu xem tiến độ đợt nhập để kiểm tra kết quả.`, link: op.link };
+        return { status: "completed", reply: `Đã xếp hàng ${op.id === "healthcare.import.preview" ? "kiểm tra" : "xử lý"} tệp ${result.filename || "Excel y tế"}. Dữ liệu đang được xử lý. Bạn có thể yêu cầu xem tiến độ đợt nhập để kiểm tra kết quả.`, link: op.link };
       }
       const rendered = op.id === "healthcare.overview" || op.id === "healthcare.visit.report"
         ? result : await decorateHealthcareResult(req, op, result, checked.values);
@@ -2288,7 +2288,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (typeof suppliedVariant === "string") {
         try { hasSku = Boolean(JSON.parse(suppliedVariant)?.sku); } catch { /* structured validation reports malformed input below */ }
       }
-      if (!hasSku) previewValues.push({ label: "SKU đầu tiên", value: "Mã tự sinh; tên và đơn vị theo sản phẩm; chế độ kho theo thể loại; thông số tùy chọn để trống", defaulted: true });
+      if (!hasSku) previewValues.push({ label: "SKU đầu tiên", value: "Mã tự sinh. Tên và đơn vị theo sản phẩm. Chế độ kho theo thể loại. Thông số tùy chọn để trống", defaulted: true });
     }
     const preview = { id, requiresPassword: op.id === "employee.create", title: workflow.title, values: previewValues };
     if (op.id === "access.role-permissions.save" && typeof references.labels.permissions === "string") {
@@ -2413,7 +2413,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       const lines = [
         ...(op.id === "payroll.reconciliation.schedule.update" && !collected.values.recurrence
           ? ["Lịch phát hành tự động hiện lặp hằng tháng, chưa hỗ trợ hẹn một lần vào ngày/tháng cụ thể. Bạn chọn Hằng tháng nếu muốn lặp vào ngày và giờ đã nêu nhé."] : []),
-        ...(missingWithoutReferenceLabels.length ? [`Mình đã hiểu yêu cầu ${workflow.title.toLocaleLowerCase("vi")}; mình còn thiếu ${missingWithoutReferenceLabels.join(", ")}. Bạn gửi giúp mình nhé.`] : []),
+        ...(missingWithoutReferenceLabels.length ? [`Bạn bổ sung giúp mình các thông tin sau nhé:\n${missingWithoutReferenceLabels.map(label => `- ${label}`).join("\n")}`] : []),
         ...(customerQuoteQuestion ? [customerQuoteQuestion] : []),
         ...(receiptQuestion ? [receiptQuestion] : []),
         ...(customWorkHoursQuestion ? [customWorkHoursQuestion] : []),
@@ -2461,16 +2461,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (typeof suppliedVariant === "string") {
         try { hasSku = Boolean(JSON.parse(suppliedVariant)?.sku); } catch { /* structured validation reports malformed input below */ }
       }
-      if (!hasSku) preview.values.push({ label: "SKU đầu tiên", value: "Mã tự sinh; tên và đơn vị theo sản phẩm; chế độ kho theo thể loại; thông số tùy chọn để trống", defaulted: true });
+      if (!hasSku) preview.values.push({ label: "SKU đầu tiên", value: "Mã tự sinh. Tên và đơn vị theo sản phẩm. Chế độ kho theo thể loại. Thông số tùy chọn để trống", defaulted: true });
     }
     if (op.optionalPathFields?.includes("id") && references.labels.path_id) preview.values.push({ label: "Ca POS", value: references.labels.path_id, defaulted: false });
     if (((await getSettings(req)).alwaysConfirm && op.method !== "GET" && !op.readOnly) || workflow.requireConfirmation || forceConfirmation || op.id === "employee.create") return { status: "confirmation", reply: op.id === "employee.create"
-      ? "Thông tin nhân sự đã đủ rồi. Bạn nhập mật khẩu khởi tạo vào ô bảo mật trong bản xem trước nhé; đừng gửi mật khẩu trong tin nhắn."
+      ? "Thông tin nhân sự đã đủ rồi. Bạn nhập mật khẩu khởi tạo vào ô bảo mật trong bản xem trước nhé. Đừng gửi mật khẩu trong tin nhắn."
       : op.id === "access.role-permissions.save"
         ? "Thao tác này sẽ thay toàn bộ quyền của vai trò và áp dụng cho mọi tài khoản đang dùng vai trò đó. Bạn kiểm tra lại danh sách quyền trong bản xem trước rồi xác nhận giúp mình nhé."
         : op.id === "healthcare.patient.bulk-delete"
           ? "Thao tác này sẽ xóa các bệnh nhân đã chọn cùng toàn bộ lượt khám, lịch hẹn và công việc chăm sóc liên quan. Bạn kiểm tra từng hồ sơ và số dữ liệu sẽ xóa trong bản xem trước, rồi xác nhận để thực hiện nhé."
-        : "Mình đã chuẩn bị xong. Bạn xem lại thông tin trong bản xem trước; nếu mọi thứ chính xác, hãy xác nhận để mình thực hiện nhé.", action: preview,
+        : "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.", action: preview,
       ...(op.id === "quotation.acceptance.create" && acceptanceForm?.lines.every(line => typeof line.acceptedQuantity === "number")
         ? { quotationAcceptanceForm: acceptanceForm }
         : {}),
@@ -2595,7 +2595,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       const followUp = declined ? null : await createdRecordFollowUp(req, input.conversationId);
       reply = declined ? { status: "completed", reply: "Được nhé, mình giữ nguyên thông tin vừa tạo." }
         : followUp ? await prepare(followUp.actionId, followUp.values, false, "Bổ sung thông tin vừa tạo")
-        : { status: "collecting", reply: "Được nhé. Bạn gửi giúp mình mục muốn bổ sung và nội dung cụ thể; mình sẽ chuẩn bị bản cập nhật để bạn kiểm tra trước khi lưu." };
+        : { status: "collecting", reply: "Được nhé. Bạn gửi giúp mình mục muốn bổ sung và nội dung cụ thể. Mình sẽ chuẩn bị bản cập nhật để bạn kiểm tra trước khi lưu." };
     } else {
       availableWorkflows = await listWorkflows(req);
       const workflows = availableWorkflows.filter(w => w.enabled);
@@ -2784,7 +2784,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         } else if (interpreted.intentType === "unsupported") {
           reply = unsupportedReply(input.text || "", interpreted.unsupportedModule);
         } else if (!pending && !input.attachment && interpreted.intentType === "general_question") {
-          reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé; tab Thao tác dành cho tra cứu và cập nhật dữ liệu." };
+          reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé. Tab Thao tác dành cho tra cứu và cập nhật dữ liệu." };
         } else {
           needsIntentClarification = true;
           const clarification = input.attachment

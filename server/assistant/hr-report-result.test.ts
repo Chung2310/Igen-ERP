@@ -65,7 +65,7 @@ describe("HR assistant report results", () => {
       ] },
     });
 
-    expect(reply).toContain("chưa thể xác nhận đây là ngày nghỉ");
+    expect(reply).toContain("Chưa thể xác nhận đây là ngày nghỉ");
     expect(reply).toContain("Nguyễn An");
     expect(reply).toContain("Ngày thiếu chấm công");
     expect(reply).not.toContain("Trần Bình");
