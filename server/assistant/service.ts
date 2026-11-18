@@ -21,7 +21,8 @@ import { appendAssistantFallback, type FallbackReason } from "./fallback-guidanc
 import { autoSaveAssistantMemories } from "./auto-memory";
 import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
 import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
-import { mapAssistantTableAttachment } from "./table-import";
+import { assistantTablePreview, mapAssistantTableAttachment } from "./table-import";
+import { exportBusinessList, isBusinessExcelRequest } from "./business-export";
 import { normalizeAssistantReply } from "./general-answer";
 import { answerAssistantConversation } from "./documents";
 import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
@@ -1960,6 +1961,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
     const checked = await resolveReferences(req, operationForRequest(op, requestIntent), input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
+    if (isBusinessExcelRequest(requestIntent)) {
+      return exportBusinessList(req, op, checked.values, dispatch, {
+        conversationId: input.conversationId, requestId: input.requestId, requestText: requestIntent,
+      });
+    }
     if (input.decision?.confirmed && op.id === "student.bulk.delete") {
       const expectedImpact = pending?.confirmationDetails?.studentDeleteImpact || [];
       const currentImpact = await previewStudentDeletion(req, checked.values);
@@ -2151,6 +2157,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   };
 
   const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
+    if (isBusinessExcelRequest(intent) && operationById(actionId)?.method !== "GET") {
+      throw new AssistantError("Bạn cho mình biết danh sách và bộ lọc cần xuất Excel nhé. Chưa thực hiện thay đổi dữ liệu nào.", 422);
+    }
+    if ((input.attachment || input.conversationUpload) && operationById(actionId)?.method !== "GET") forceConfirmation = true;
     if (input.attachment) {
       const targetOp = operationById(actionId);
       if (targetOp?.method === "POST" && targetOp.path === "/students") {
@@ -2185,6 +2195,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     const requestWorkflow = workflowForRequest(op, workflow, intent);
     const requestOperation = operationForRequest(op, intent);
     const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
+    forceConfirmation ||= Boolean(previousPending?.confirmationDetails?.attachmentReview);
     const explicitReferenceKeys = new Set(pending?.actionId === actionId ? pending.explicitReferenceKeys || [] : []);
     for (const key of selectedReferenceKeys) explicitReferenceKeys.add(key);
     const contextualValues = normalizeStructuredAssistantValues(op, provided, previousPending?.provided);
@@ -2214,9 +2225,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (isBlank(contextualValues[key])) contextualValues[key] = input.text.trim();
     }
     let attachmentSummary = previousPending?.attachmentSummary;
+    let ignoredAttachmentColumns: string[] = [];
     if (input.attachment) {
       try {
         const mapped = op.id === "healthcare.import.preview" ? healthcareAttachment(input.attachment) : mapAssistantTableAttachment(op, input.attachment);
+        ignoredAttachmentColumns = "ignoredColumns" in mapped ? mapped.ignoredColumns || [] : [];
         if (!mapped.rowCount) return { status: "unsupported", reply: `Tệp ${input.attachment.fileName} chưa có dòng dữ liệu để nhập. Chưa có dữ liệu nào thay đổi.` };
         contextualValues[mapped.fieldKey] = JSON.stringify(mapped.rows);
         if (op.id === "healthcare.import.preview") contextualValues.filename = input.attachment.fileName;
@@ -2298,6 +2311,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       } catch { /* structured validation will keep malformed values from reaching the route */ }
     }
     const confirmationDetails = references.confirmationDetails || {};
+    if (attachmentSummary) {
+      confirmationDetails.attachmentRows = assistantTablePreview(op, attachmentSummary.fieldKey, references.values[attachmentSummary.fieldKey]);
+      const previousIgnored = previousPending?.confirmationDetails?.ignoredAttachmentColumns;
+      if (ignoredAttachmentColumns.length) confirmationDetails.ignoredAttachmentColumns = [{ label: "Cột chưa nhập", value: ignoredAttachmentColumns.join(", ") }];
+      else if (previousIgnored) confirmationDetails.ignoredAttachmentColumns = previousIgnored;
+    }
+    if ((input.attachment || input.conversationUpload || previousPending?.confirmationDetails?.attachmentReview) && op.method !== "GET" && !op.readOnly) {
+      confirmationDetails.attachmentReview = [{ label: "Dữ liệu từ tệp", value: "Bạn kiểm tra nội dung đã đọc từ tệp trước khi xác nhận nhé." }];
+    }
     const acceptanceFinancialDetails = op.id === "quotation.acceptance.create"
       ? quotationAcceptanceFinancialDetails(references.values)
       : [];
@@ -2612,7 +2634,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       const workerMissingInfo = isWorkerMissingInfoIntent(input.text || "")
         || Boolean(missingInfoQuestion && previousAction?.actionId && workerCreateActionIds.has(previousAction.actionId) && !isLaborPartnerMissingInfoIntent(input.text || ""));
       const attachmentIntentHint = input.attachment
-        ? `Thêm danh sách từ tệp excel ${input.attachment.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")}`
+        ? `Tệp bảng đính kèm: ${input.attachment.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")}`
         : "";
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
@@ -2621,13 +2643,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (interpreted.cancel || interpreted.newRequest) remainingRequests = [];
       if (interpreted.actionId || interpreted.newRequest) pendingMemoryProposal = "";
       if (interpreted.actionId && interpreted.remainingRequests && (!pending || interpreted.newRequest)) remainingRequests = interpreted.remainingRequests;
-      if (conversationFile?.visualAttachments?.length && interpreted.actionId) {
-        const selectedOperation = operationById(interpreted.actionId);
+      if (conversationFile && interpreted.actionId) {
+        const selectedOperation = await assertOperation(req, interpreted.actionId);
         if (selectedOperation) {
           const imageValues = await extractAssistantAttachmentValues({
             requestText: input.text || effectiveInputText,
             operation: selectedOperation,
-            attachments: conversationFile.visualAttachments,
+            attachments: conversationFile.visualAttachments || [],
+            ...(!conversationFile.visualAttachments?.length ? { documentContext: conversationFile.documentContext } : {}),
           });
           for (const [key, value] of Object.entries(imageValues)) {
             if (isBlank(interpreted.values[key])) interpreted.values[key] = value;

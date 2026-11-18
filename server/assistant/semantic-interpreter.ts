@@ -19,7 +19,7 @@ async function boundedInterpretation<T>(work: Promise<T>, timeout = 90000): Prom
 export async function interpretRequest(text: string, workflows: AssistantWorkflow[], pending: unknown, messages: {role: string; content: string}[], instructions = "", memories: string[] = [], sessionMemory = "", knownModules: string[] = [], expanded = false): Promise<AssistantInterpretation> {
   workflows = workflows.filter(workflow => workflow.enabled);
   const allWorkflows = workflows;
-  instructions = [instructions, JSON.stringify(memories)].join("\n");
+  instructions = [instructions, JSON.stringify(memories), "Khi người dùng yêu cầu xuất danh sách ERP ra Excel, chọn thao tác GET lấy danh sách tương ứng và giữ đầy đủ bộ lọc. Hệ thống sẽ tạo file từ kết quả API, không chọn thao tác tạo hay nhập dữ liệu. Khi tạo hàng loạt từ tệp hoặc ảnh, chọn thao tác hàng loạt có trường danh sách nếu có. Nếu chỉ có tệp mà chưa rõ yêu cầu, hỏi người dùng muốn làm gì, không tự suy ra thao tác ghi từ tên tệp."].join("\n");
   if (workflows.length > 120 && !expanded) {
     const allowedModules = [...new Set(workflows.map(workflow => workflow.module))];
     // Discovery only narrows an already-authorized catalog. A bad routing hint must

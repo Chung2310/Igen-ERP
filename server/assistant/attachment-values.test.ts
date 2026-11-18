@@ -9,6 +9,18 @@ import { extractAssistantAttachmentValues } from "./attachment-values";
 describe("assistant image field extraction", () => {
   beforeEach(() => state.openrouterChat.mockReset());
 
+  it("extracts document data without inventing image content", async () => {
+    state.openrouterChat.mockResolvedValueOnce({ text: JSON.stringify({ displayName: "Nguyễn An", password: "discard" }) });
+    const values = await extractAssistantAttachmentValues({ requestText: "Tạo nhân sự theo tài liệu", operation: operationById("employee.create")!, attachments: [], documentContext: { title: "Hồ sơ", content: "Nguyễn An" } });
+    expect(values).toEqual({ displayName: "Nguyễn An" });
+    expect(state.openrouterChat.mock.calls[0][0].messages[1].content).toHaveLength(1);
+  });
+
+  it("rejects oversized documents before spending provider credits or truncating rows", async () => {
+    await expect(extractAssistantAttachmentValues({ requestText: "Tạo hồ sơ", operation: operationById("employee.create")!, attachments: [], documentContext: { title: "Hồ sơ", content: "a".repeat(40001) } })).rejects.toThrow("quá dài");
+    expect(state.openrouterChat).not.toHaveBeenCalled();
+  });
+
   it("extracts only allowed employee values from a request image", async () => {
     state.openrouterChat.mockResolvedValueOnce({ text: JSON.stringify({
       displayName: "Nguyễn An",

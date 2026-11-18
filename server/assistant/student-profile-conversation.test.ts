@@ -55,6 +55,7 @@ vi.mock("./documents", () => ({ answerAssistantConversation: vi.fn() }));
 vi.mock("./session-memory", () => ({ SESSION_MEMORY_LIMIT: 2400, summarizeAssistantSession: async () => null }));
 
 import { conversationState, processTurn } from "./service";
+import { AssistantDocumentModel } from "./models";
 import { AssistantError } from "./policy";
 import { operationById } from "./catalog";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
@@ -88,6 +89,33 @@ let placedWaitlist: any;
 let fetcher: ReturnType<typeof vi.fn>;
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
 const normalizeSearch = (value: unknown) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
+
+it("exports a filtered ERP list through the conversation and restores its file in history", async () => {
+  students = [{ _id: studentId, fullName: "Nguyễn An", phone: "0900000000" }, { _id: secondStudentId, fullName: "Trần Bình", phone: "0900000001" }];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.list", values: { search: "Nguyễn An" }, intentType: "workflow", newRequest: true });
+  const reply = await turn({ mode: "work", text: "Xuất danh sách học viên Nguyễn An ra Excel" });
+  expect(reply.status).toBe("completed");
+  expect(reply.files).toHaveLength(1);
+  expect(state.session.messages.at(-1).files).toEqual(reply.files);
+  const saved = vi.mocked(AssistantDocumentModel.create).mock.calls.at(-1)?.[0] as any;
+  expect(JSON.stringify(saved.content)).toContain("Nguyễn An");
+  expect(JSON.stringify(saved.content)).not.toContain("Trần Bình");
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
+
+it("reads a text document, honors explicit user values, confirms and creates exactly one student", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: { phone: "0909999999" }, intentType: "workflow", newRequest: true });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ fullName: "Nguyễn An", phone: "0900000000", email: "an@example.com", registrationDate: "2026-11-14" }) });
+  const preview = await turn({ mode: "work", text: "Tạo học viên theo hồ sơ, dùng số điện thoại 0909999999", conversationUpload: { fileName: "ho-so.txt", buffer: Buffer.from("Nguyễn An, 0900000000, an@example.com, đăng ký 14/11/2026") } });
+  expect(preview.status).toBe("confirmation");
+  expect(students).toHaveLength(0);
+  const created = await confirm(preview);
+  expect(created.status).toBe("completed");
+  expect(students).toHaveLength(1);
+  expect(students[0].phone).toBe("0909999999");
+  expect(parseAssistantResultTable(created.reply)).not.toBeNull();
+  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+});
 
 beforeEach(() => {
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset(); state.assertOperation.mockReset().mockImplementation(async (_req: unknown, id: string) => operationById(id)); students = []; courses = []; batches = []; payments = []; exams = []; eligibleExamStudents = []; resources = []; notifications = []; assignments = []; roadmaps = []; waitlistEntries = []; qualityRows = []; placedWaitlist = undefined;

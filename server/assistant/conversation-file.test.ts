@@ -11,10 +11,10 @@ describe("assistant conversation file readers", () => {
     expect(isAssistantConversationFileName("ma-doc.exe")).toBe(false);
   });
 
-  it("allows work-mode image context while keeping documents and videos in chat mode", () => {
+  it("allows work-mode image context while documents while keeping videos in chat mode", () => {
     expect(isAssistantConversationFileAllowedForMode("cccd.jpg", "work")).toBe(true);
     expect(isAssistantConversationFileAllowedForMode("ho-so.webp", "work")).toBe(true);
-    expect(isAssistantConversationFileAllowedForMode("hop-dong.pdf", "work")).toBe(false);
+    expect(isAssistantConversationFileAllowedForMode("hop-dong.pdf", "work")).toBe(true);
     expect(isAssistantConversationFileAllowedForMode("hop.mp4", "work")).toBe(false);
     expect(isAssistantConversationFileAllowedForMode("hop-dong.pdf", "qa")).toBe(true);
     expect(isAssistantConversationFileAllowedForMode("hop.mp4", "qa")).toBe(true);
