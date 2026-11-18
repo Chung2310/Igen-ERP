@@ -106,9 +106,10 @@ describe("Direct CRM chat", () => {
     await screen.findByAltText("Ảnh sắp gửi");
     const rejected = new File(["file"], invalid === "type" ? "file.pdf" : "other.png", { type: invalid === "type" ? "application/pdf" : "image/png" });
     if (invalid === "size") Object.defineProperty(rejected, "size", { value: 9 * 1024 * 1024 });
-    fireEvent.drop(area, { dataTransfer: { types: ["Files"], files: invalid === "multiple" ? [original, rejected] : [rejected] } });
+    fireEvent.drop(area, { dataTransfer: { types: ["Files"], files: invalid === "multiple" ? [original, rejected,
+      new File(["three"], "three.png", { type: "image/png" }), new File(["four"], "four.png", { type: "image/png" })] : [rejected] } });
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", invalid === "multiple"
-      ? "Mỗi lượt gửi một ảnh. Bạn chọn hoặc thả từng ảnh nhé." : "Chọn ảnh JPEG, PNG, WebP hoặc GIF tối đa 8 MB.");
+      ? "Mỗi lượt gửi tối đa 3 ảnh." : "Chọn ảnh JPEG, PNG, WebP hoặc GIF tối đa 8 MB.");
     fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
     await waitFor(() => expect(chatTestService.send).toHaveBeenCalledWith("session-1", expect.any(String), "", original));
   });
@@ -123,6 +124,38 @@ describe("Direct CRM chat", () => {
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Chờ hội thoại sẵn sàng và chatbot trả lời xong trước khi thêm ảnh.");
     expect(screen.queryByAltText("Ảnh sắp gửi")).toBeNull();
     expect(chatTestService.send).not.toHaveBeenCalled();
+  });
+
+  it("accumulates dropped and pasted images, removes one preview, and retries the same batch", async () => {
+    const { area, textbox } = await renderReadyChat();
+    const images = ["one", "two", "three"].map(name => new File([name], `${name}.png`, { type: "image/png" }));
+    expect(screen.getByLabelText("Chọn ảnh gửi cho chatbot")).toHaveProperty("multiple", true);
+    fireEvent.drop(area, { dataTransfer: { types: ["Files"], files: images.slice(0, 2) } });
+    fireEvent.paste(textbox, { clipboardData: { items: [], files: [images[2]] } });
+    await screen.findByAltText("Ảnh sắp gửi 3");
+    fireEvent.click(screen.getByRole("button", { name: "Bỏ ảnh 2" }));
+    await waitFor(() => expect(screen.queryByAltText("Ảnh sắp gửi 3")).toBeNull());
+    vi.mocked(chatTestService.send).mockRejectedValueOnce(new Error("Mất kết nối"));
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await screen.findByText("Mất kết nối");
+    expect(screen.getByAltText("Ảnh sắp gửi 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await waitFor(() => expect(chatTestService.send).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(chatTestService.send).mock.calls[0]).toEqual(vi.mocked(chatTestService.send).mock.calls[1]);
+    expect(chatTestService.send).toHaveBeenLastCalledWith("session-1", expect.any(String), "", [images[0], images[2]]);
+  });
+
+  it("restores every image in an existing multi-image message using authenticated indexed downloads", async () => {
+    vi.mocked(URL.createObjectURL).mockReturnValueOnce("blob:first").mockReturnValueOnce("blob:second");
+    vi.mocked(chatTestService.image).mockResolvedValue(new Blob(["image"], { type: "image/png" }));
+    vi.mocked(chatTestService.read).mockResolvedValue({ session, aiConfig, leads: [], messages: [{
+      id: "multi-image", text: "", reply: "", status: "completed", hasImage: true, imageCount: 2, createdAt: session.createdAt,
+    }] });
+    await renderReadyChat();
+    await waitFor(() => expect(chatTestService.image).toHaveBeenCalledTimes(2));
+    expect(chatTestService.image).toHaveBeenCalledWith("session-1", "multi-image", expect.any(AbortSignal), 0);
+    expect(chatTestService.image).toHaveBeenCalledWith("session-1", "multi-image", expect.any(AbortSignal), 1);
+    await waitFor(() => expect(document.querySelectorAll('img[src="blob:first"], img[src="blob:second"]').length).toBe(2));
   });
   it("uses the inbox conversation UI to send an inbound message without connecting a Page", async () => {
     vi.mocked(chatTestService.list).mockResolvedValue([]);

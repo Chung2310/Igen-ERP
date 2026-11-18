@@ -6,7 +6,7 @@ import { primaryCreateButtonClass } from "../../../../../components/common/prima
 import { OmniChatTab } from "./OmniChatTab";
 import { chatTestService, type ChatTestState } from "../../services/chatTestService";
 import type { AIChatConfig, ChatMessage, CustomerInbox } from "../../types/crm";
-import type { ChatTestSession } from "../../../../../../shared/marketing-suite/chat-test";
+import { CHAT_TEST_MAX_IMAGES, CHAT_TEST_MAX_IMAGE_BYTES, type ChatTestSession } from "../../../../../../shared/marketing-suite/chat-test";
 import type { LeadAccountOption } from "./leadSheetUtils";
 
 const buttonClass = "inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
@@ -102,8 +102,8 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
 }) {
   const [data, setData] = useState<ChatTestState>();
   const [draft, setDraft] = useState("");
-  const [file, setFile] = useState<File>();
-  const [preview, setPreview] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [draggingImage, setDraggingImage] = useState(false);
   const [error, setError] = useState("");
@@ -114,7 +114,7 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
   const upload = useRef<HTMLInputElement>(null);
   const attachmentHintId = useId();
   const dragDepth = useRef(0);
-  const pendingSend = useRef<{ key: string; text: string; file?: File }>(null);
+  const pendingSend = useRef<{ key: string; text: string; files: File[] }>(null);
   useEffect(() => {
     if (!id) return;
     const controller = new AbortController();
@@ -132,59 +132,64 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
     void load();
     return () => { controller.abort(); clearTimeout(timer); };
   }, [id, refresh, settingsRevision]);
-  const imageKey = data?.messages.filter(message => message.hasImage).map(message => message.id).join(",") || "";
+  const imageKey = data?.messages.flatMap(message => Array.from({ length: message.imageCount ?? (message.hasImage ? 1 : 0) }, (_, index) => `${message.id}:${index}`)).join(",") || "";
   useEffect(() => {
     const controller = new AbortController();
-    for (const messageId of imageKey.split(",").filter(Boolean)) {
-      if (imageUrls.current[messageId]) continue;
-      void chatTestService.image(id, messageId, controller.signal).then(blob => {
+    for (const key of imageKey.split(",").filter(Boolean)) {
+      if (imageUrls.current[key]) continue;
+      const [messageId, index] = key.split(":");
+      void chatTestService.image(id, messageId, controller.signal, Number(index)).then(blob => {
         if (controller.signal.aborted) return;
         const url = URL.createObjectURL(blob);
-        imageUrls.current[messageId] = url;
-        setImages(current => ({ ...current, [messageId]: url }));
+        imageUrls.current[key] = url;
+        setImages(current => ({ ...current, [key]: url }));
       }).catch(() => { if (!controller.signal.aborted) setError("Không tải được ảnh trong hội thoại."); });
     }
     return () => controller.abort();
   }, [id, imageKey]);
   useEffect(() => () => { Object.values(imageUrls.current).forEach(URL.revokeObjectURL); }, []);
   useEffect(() => {
-    if (!file) { setPreview(""); return; }
-    const url = URL.createObjectURL(file); setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    const urls = files.map(file => URL.createObjectURL(file));
+    setPreviews(urls);
+    return () => urls.forEach(URL.revokeObjectURL);
+  }, [files]);
   const pending = data?.session.pending === true;
   const last = data?.messages.at(-1);
   const history: ChatMessage[] = data?.messages.flatMap(message => [
     { id: message.id, sender: "user" as const, text: message.text, timestamp: new Date(message.createdAt),
-      ...(images[message.id] ? { attachments: [{ type: "image", url: images[message.id] }] } : {}) },
+      attachments: Array.from({ length: message.imageCount ?? (message.hasImage ? 1 : 0) }, (_, index) => images[`${message.id}:${index}`])
+        .flatMap(url => url ? [{ type: "image", url }] : []) },
     ...(message.reply ? [{ id: message.id + "-reply", sender: "ai" as const, text: message.reply, timestamp: new Date(message.createdAt) }] : []),
   ]) || [];
-  function choose(files: File[]) {
-    if (!files.length) return;
+  function choose(incoming: File[]) {
+    if (!incoming.length) return;
     if (!id || !data || sending || pending) {
       setError("Chờ hội thoại sẵn sàng và chatbot trả lời xong trước khi thêm ảnh."); return;
     }
-    if (files.length !== 1) {
-      setError("Mỗi lượt gửi một ảnh. Bạn chọn hoặc thả từng ảnh nhé."); return;
+    const next = [...new Set([...files, ...incoming])];
+    if (next.length > CHAT_TEST_MAX_IMAGES) {
+      setError("Mỗi lượt gửi tối đa 3 ảnh."); return;
     }
-    const file = files[0];
-    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 8 * 1024 * 1024) {
+    if (next.some(file => !/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > CHAT_TEST_MAX_IMAGE_BYTES)) {
       setError("Chọn ảnh JPEG, PNG, WebP hoặc GIF tối đa 8 MB."); return;
     }
-    setFile(file); setError("");
+    if (next.reduce((sum, file) => sum + file.size, 0) > CHAT_TEST_MAX_IMAGE_BYTES) {
+      setError("Tổng dung lượng ảnh mỗi lượt tối đa 8 MB."); return;
+    }
+    setFiles(next); setError("");
   }
   function hasDraggedFiles(transfer: DataTransfer) {
     return Array.from(transfer.types).includes("Files") || transfer.files.length > 0;
   }
   async function send(event: FormEvent) {
     event.preventDefault();
-    if (!id || sending || pending || (!draft.trim() && !file)) return;
-    const request = pendingSend.current?.text === draft && pendingSend.current.file === file
-      ? pendingSend.current : { key: crypto.randomUUID(), text: draft, file };
+    if (!id || sending || pending || (!draft.trim() && !files.length)) return;
+    const request = pendingSend.current?.text === draft && pendingSend.current.files === files
+      ? pendingSend.current : { key: crypto.randomUUID(), text: draft, files };
     pendingSend.current = request; setSending(true); setError("");
     try {
-      await chatTestService.send(id, request.key, draft.trim(), file);
-      pendingSend.current = null; setDraft(""); setFile(undefined);
+      await chatTestService.send(id, request.key, draft.trim(), files.length === 1 ? files[0] : files.length ? files : undefined);
+      pendingSend.current = null; setDraft(""); setFiles([]);
       if (upload.current) upload.current.value = "";
       setRefresh(value => value + 1);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không gửi được tin nhắn."); }
@@ -211,7 +216,7 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
       setSelectedFacebookPageId={() => {}} activeChannel={channel} setActiveChannel={setChannel}
       isFbConnected isZaloConnected isInboxLoading={loading || Boolean(id && !data)}
       directChat={{
-        scopeKey: id || "internal", hasAttachment: Boolean(file),
+        scopeKey: id || "internal", hasAttachment: files.length > 0,
         configScopeLabel: data?.session.sourceAccountId
           ? `Lưu thay đổi vào cấu hình ${data.session.channel === "zalo" ? "Zalo OA" : "Facebook Page"} ${data.session.sourceAccountId}.`
           : "Lưu thay đổi vào cấu hình AI cá nhân của bạn.",
@@ -257,15 +262,19 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
           Thả ảnh để đính kèm vào tin nhắn
         </div>,
         composer: <div className="mb-2 flex flex-wrap items-center gap-2">
-          <input type="file" ref={upload} className="sr-only" tabIndex={-1} accept="image/jpeg,image/png,image/webp,image/gif"
+          <input type="file" multiple ref={upload} className="sr-only" tabIndex={-1} accept="image/jpeg,image/png,image/webp,image/gif"
             aria-label="Chọn ảnh gửi cho chatbot" aria-describedby={attachmentHintId} disabled={sending || pending} onChange={event => choose(Array.from(event.target.files || []))} />
           <button type="button" className={buttonClass} aria-describedby={attachmentHintId} disabled={sending || pending} onClick={() => upload.current?.click()}>
             <ImagePlus className="size-4" aria-hidden="true" /> Gửi ảnh
           </button>
-          <p id={attachmentHintId} className="text-pretty text-xs text-on-surface-variant">Kéo thả ảnh vào hội thoại hoặc Ctrl+V để dán ảnh · Tối đa 8 MB/ảnh</p>
-          {preview && <><img src={preview} alt="Ảnh sắp gửi" className="size-14 rounded object-contain" />
-            <button type="button" className={buttonClass} disabled={sending || pending} aria-label="Bỏ ảnh đã chọn"
-              onClick={() => { setFile(undefined); if (upload.current) upload.current.value = ""; }}><X className="size-4" aria-hidden="true" /></button></>}
+          <p id={attachmentHintId} className="text-pretty text-xs text-on-surface-variant">Kéo thả hoặc Ctrl+V để thêm ảnh · Tối đa 3 ảnh, tổng 8 MB mỗi lượt</p>
+          {previews.map((preview, index) => <div key={index} className="flex items-center gap-1">
+            <img src={preview} alt={index === 0 ? "Ảnh sắp gửi" : `Ảnh sắp gửi ${index + 1}`} className="size-14 rounded object-contain" />
+            <button type="button" className={buttonClass} disabled={sending || pending} aria-label={`Bỏ ảnh ${index + 1}`}
+              onClick={() => { setFiles(current => current.filter((_, position) => position !== index)); if (upload.current) upload.current.value = ""; }}>
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          </div>)}
         </div>,
         status: <div className="mb-2 space-y-1 text-xs">
           {error && <p role="alert" className="text-pretty text-error">{error}</p>}

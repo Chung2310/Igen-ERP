@@ -91,6 +91,68 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it("reads three images as one turn, merges the same subscriber, separates others and reuses OCR on retry", async () => {
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: [...fields.slice(0, 2),
+      { key: "account", label: "Account", question: "Mã?", type: "text", required: true },
+      { key: "address", label: "Địa chỉ", question: "Địa chỉ?", type: "text", required: false },
+    ] } });
+    const imageFiles = await Promise.all(["red", "green", "blue"].map(async (color, index) => ({
+      data: `data:image/png;base64,${(await sharp({ create: { width: 3, height: 3, channels: 3, background: color } }).png().toBuffer()).toString("base64")}`,
+      fileName: `image-${index}.png`,
+    })));
+    const rows = [
+      { account: "subscriber_a", name: "Nguyễn An", phone: "0901234567" },
+      { account: "SUBSCRIBER_A", address: "Địa chỉ của An" },
+      { account: "subscriber_b", name: "Trần Bình", phone: "0907654321" },
+    ];
+    vi.mocked(generateReplyCompletion).mockImplementation(async input => ({ text: JSON.stringify(input.operation === "lead_document_ocr"
+      ? { kind: "document", fields: Object.fromEntries(Object.entries(rows.shift()!).map(([key, text]) => [key, { status: "readable", text }])) }
+      : { __lead_intent: false }) }) as never);
+    const session = await start(false, "telecom");
+    const messageId = await addChatTestMessage({ companyCode, userId, sessionId: session.id, text: "", clientMessageId: "three-photos-one-turn", imageFiles });
+    vi.mocked(geminiService.chat).mockRejectedValueOnce(new Error("Temporary reply failure"));
+    await expect(processChatTestMessage({ sessionId: session.id, messageId })).rejects.toThrow("Temporary reply failure");
+    await failChatTestMessage({ sessionId: session.id, messageId });
+    await retryChatTestMessage(companyCode, userId, session.id, messageId);
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const result = await readChatTestState(companyCode, userId, session.id);
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({ imageCount: 3, hasImage: true, status: "completed" });
+    expect(result.messages[0]).not.toHaveProperty("imageFiles");
+    expect(result.leads).toHaveLength(2);
+    expect(await CRMTicketModel.findOne({ companyCode, telecomSubscriberCode: "SUBSCRIBER_A" }).lean()).toMatchObject({
+      customerName: "Nguyễn An", phone: "0901234567", answers: { address: "Địa chỉ của An" },
+    });
+    expect(await CRMTicketModel.findOne({ companyCode, telecomSubscriberCode: "SUBSCRIBER_B" }).lean()).toMatchObject({
+      customerName: "Trần Bình", phone: "0907654321",
+    });
+    expect(vi.mocked(generateReplyCompletion).mock.calls.filter(([input]) => input.operation === "lead_document_ocr")).toHaveLength(3);
+    expect((await ChatTestMessageModel.findById(messageId).lean())?.imageFiles).toBeUndefined();
+    expect((await ChatTestMessageModel.findById(messageId).select("+imageFiles").lean())?.imageFiles).toHaveLength(3);
+  });
+
+  it("does not assign a third unidentified image to either subscriber in a multi-image turn", async () => {
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: [...fields.slice(0, 2),
+      { key: "account", label: "Account", question: "Mã?", type: "text", required: true },
+      { key: "terminal", label: "Mã kết cuối", question: "Mã?", type: "text", required: false },
+    ] } });
+    const imageFiles = await Promise.all(["red", "green", "blue"].map(async color => ({
+      data: `data:image/png;base64,${(await sharp({ create: { width: 3, height: 3, channels: 3, background: color } }).png().toBuffer()).toString("base64")}`,
+    })));
+    const rows = [{ account: "subscriber_a", name: "An" }, { account: "subscriber_b", name: "Bình" }, { terminal: "TRAM-01" }];
+    vi.mocked(generateReplyCompletion).mockImplementation(async () => ({ text: JSON.stringify({ kind: "document",
+      fields: Object.fromEntries(Object.entries(rows.shift()!).map(([key, text]) => [key, { status: "readable", text }])),
+    }) }) as never);
+    const session = await start(false, "telecom");
+    const messageId = await addChatTestMessage({ companyCode, userId, sessionId: session.id, text: "", clientMessageId: "different-customers-images", imageFiles });
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const result = await readChatTestState(companyCode, userId, session.id);
+    expect(result.leads).toHaveLength(2);
+    expect(result.leads.every(lead => !lead.answers?.terminal)).toBe(true);
+    expect(result.messages[0].ocr?.issue).toContain("ảnh 3");
+    expect((await ChatTestMessageModel.findById(messageId).lean())?.leadSubscriberCode).toBeUndefined();
+  });
+
   it("chats across turns and writes the normal company Lead table", async () => {
     const session = await start();
     expect(prepareChatPreview).toHaveBeenCalledWith(expect.objectContaining({ userId, companyCode, platformId: undefined }), expect.any(Function));

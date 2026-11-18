@@ -1,5 +1,8 @@
 import type { LeadIntakeField } from "./lead-intake";
 
+export const CHAT_TEST_MAX_IMAGES = 3;
+export const CHAT_TEST_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
 export interface ChatTestSession {
   id: string;
   label: string;
@@ -20,6 +23,7 @@ export interface ChatTestMessage {
   reply: string;
   status: "pending" | "processing" | "completed" | "failed";
   hasImage: boolean;
+  imageCount?: number;
   fileName?: string;
   createdAt: string;
   latencyMs?: number;

@@ -29,11 +29,11 @@ export const chatTestService = {
     return request<ChatTestSession>("", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   },
   read(id: string, signal?: AbortSignal) { return request<ChatTestState>(`/${id}`, { signal }); },
-  send(id: string, clientMessageId: string, text: string, file?: File) {
+  send(id: string, clientMessageId: string, text: string, file?: File | File[]) {
     const body = new FormData();
     body.set("clientMessageId", clientMessageId);
     body.set("text", text);
-    if (file) body.set("image", file);
+    for (const image of Array.isArray(file) ? file : file ? [file] : []) body.append("image", image);
     return request<{ id: string }>(`/${id}/messages`, { method: "POST", body });
   },
   remove(id: string) { return request<void>(`/${id}`, { method: "DELETE" }); },
@@ -46,8 +46,8 @@ export const chatTestService = {
     return request<{ text: string; isMock: boolean; mode: string; contextMatches: number }>(`/${id}/preview`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, images }) });
   },
-  async image(sessionId: string, messageId: string, signal: AbortSignal) {
-    const response = await fetch(`${root}/${sessionId}/messages/${messageId}/image`, {
+  async image(sessionId: string, messageId: string, signal: AbortSignal, index = 0) {
+    const response = await fetch(`${root}/${sessionId}/messages/${messageId}/image${index ? `?index=${index}` : ""}`, {
       signal, headers: { Authorization: `Bearer ${getAccessToken()}` },
     });
     if (!response.ok) throw new Error("Không tải được ảnh thử nghiệm.");
