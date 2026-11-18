@@ -1,33 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import type { ILeadIntakeFieldSnapshot } from "../interface/crm-ticket.interface";
-import type { LeadCollectionStatus, LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-suite/lead-intake";
 import { parseIntakeNumber } from "./intake-number";
 import { broadcastEvent } from "../../shared/socket";
+import { getIntakeStandardField, normalizeIntakeText } from "./normalize-intake-fields";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
 
-function normalized(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-const fieldAliases = new Map<string, string>([
-  ["name", "name"], ["full name", "name"], ["customer name", "name"], ["ho ten", "name"], ["ho va ten", "name"], ["ten khach hang", "name"], ["ten lien he", "name"], ["khach hang", "name"], ["ten", "name"],
-  ["phone", "phone"], ["phone number", "phone"], ["mobile", "phone"], ["so dien thoai", "phone"], ["dien thoai", "phone"], ["sdt", "phone"],
-  ["email", "email"], ["customer email", "email"], ["thu dien tu", "email"],
-  ["company", "company"], ["company name", "company"], ["business", "company"], ["ten cong ty", "company"], ["cong ty", "company"],
-  ["product", "productOfChoice"], ["product of choice", "productOfChoice"], ["san pham", "productOfChoice"], ["dich vu", "productOfChoice"], ["nhu cau", "productOfChoice"],
-  ["budget", "value"], ["estimated budget", "value"], ["ngan sach", "value"], ["gia tri du kien", "value"],
-]);
-
 function initials(value: string) {
   return value.trim().split(/\s+/).slice(-2).map(part => part[0]?.toUpperCase()).join("") || "KH";
-}
-
-function standardField(field: { key: string; label: string; type?: string }) {
-  return fieldAliases.get(normalized(field.key))
-    || fieldAliases.get(normalized(field.label))
-    || (field.type === "phone" ? "phone" : field.type === "email" ? "email" : undefined);
 }
 
 export function parseLeadIntakeAmount(value: string) {
@@ -41,7 +23,7 @@ export function mapIntakeStandardFields(
   const standard: Record<string, string> = {};
   for (const field of fields) {
     const answer = answers[field.key]?.trim();
-    const target = standardField(field);
+    const target = getIntakeStandardField(field);
     if (answer && target) standard[target] = answer;
   }
   return standard;
@@ -129,7 +111,7 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       if (previous && JSON.stringify(previous) === JSON.stringify(next)) continue;
       if (index >= 0) needs[index] = next;
       else if (needs.length < 50 && !needs.some(need => need.groupKey === next.groupKey
-        && normalized(need.title) === normalized(next.title) && Object.keys(need.answers || {}).length === Object.keys(next.answers).length
+        && normalizeIntakeText(need.title) === normalizeIntakeText(next.title) && Object.keys(need.answers || {}).length === Object.keys(next.answers).length
         && Object.entries(next.answers).every(([key, answer]) => need.answers?.[key] === answer))) {
         needs.push(next);
       } else continue;
@@ -171,7 +153,7 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
     if (standard.email && canUpdate("email")) update.email = standard.email.slice(0, 254);
     if (standard.company && canUpdate("company")) update.company = standard.company.slice(0, 200);
     if (standard.productOfChoice && canUpdate("productOfChoice")) update.productOfChoice = standard.productOfChoice.slice(0, 200);
-    const budgetField = [...input.fields].reverse().find(field => standardField(field) === "value" && changedAnswers[field.key]);
+    const budgetField = [...input.fields].reverse().find(field => getIntakeStandardField(field) === "value" && changedAnswers[field.key]);
     const canonicalBudget = (budgetField?.type === "currency" || budgetField?.type === "number") && /^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/.test(standard.value || "");
     // The typed extractor already stored a canonical decimal string.
     const amount = standard.value ? (canonicalBudget ? parseIntakeNumber(Number(standard.value))

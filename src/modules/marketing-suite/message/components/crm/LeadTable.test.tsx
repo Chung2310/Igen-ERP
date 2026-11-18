@@ -185,18 +185,21 @@ describe("LeadTable", () => {
     })));
     expect(onSave.mock.calls[0][0]).not.toHaveProperty("sourceConversationId");
   });
-  it("activates the starter columns without requiring field details", async () => {
+  it("prefills and activates the required contact columns without opening field details", async () => {
     vi.mocked(crmService.getLeadIntakeProfilesForAccount).mockResolvedValue({ profiles: [], fallbackProfiles: [] });
     render(<LeadIntakeBuilderModal isOpen accounts={accounts} initialAccountKey="zalo:zalo_01"
       onClose={vi.fn()} onSaved={vi.fn()} />);
     const dialog = within(screen.getByRole("dialog", { name: "Thiết lập thu thập Lead" }));
-    fireEvent.click(await dialog.findByRole("button", { name: "Dùng bộ cơ bản" }));
+    const name = await dialog.findByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Họ và tên" });
+    const phone = dialog.getByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Số điện thoại" });
+    expect(name.checked).toBe(true);
+    expect(phone.checked).toBe(true);
     expect(dialog.queryByLabelText("Kiểu dữ liệu cột 2")).toBeNull();
     fireEvent.click(dialog.getByRole("button", { name: "Lưu & áp dụng" }));
     await waitFor(() => expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledWith(expect.objectContaining({
       platform: "zalo", accountId: "zalo_01",
-      fields: [expect.objectContaining({ key: "ho_va_ten", required: false }),
-        expect.objectContaining({ key: "so_dien_thoai", type: "phone", required: false }),
+      fields: [expect.objectContaining({ key: "ho_va_ten", required: true }),
+        expect.objectContaining({ key: "so_dien_thoai", type: "phone", required: true }),
         expect.objectContaining({ key: "nhu_cau", required: true })],
     })));
   });
@@ -211,6 +214,7 @@ describe("LeadTable", () => {
       onClose={vi.fn()} onSaved={vi.fn()} />);
     const dialog = within(screen.getByRole("dialog", { name: "Thiết lập thu thập Lead" }));
     await dialog.findByDisplayValue("Dịch vụ quan tâm");
+    expect(dialog.getByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Ngân sách dự kiến" }).checked).toBe(false);
     fireEvent.click(dialog.getByRole("button", { name: "AI gợi ý" }));
     fireEvent.click(dialog.getByRole("button", { name: "Gợi ý cột" }));
     expect(await dialog.findByDisplayValue("Email")).toBeTruthy();

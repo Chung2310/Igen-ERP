@@ -3,6 +3,26 @@ import { parseIntakeNumber } from "./intake-number";
 
 const fieldTypes = new Set(["text", "long_text", "number", "currency", "date", "phone", "email", "single_select", "multi_select", "checkbox"]);
 
+export function normalizeIntakeText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+type StandardIntakeField = "name" | "phone" | "email" | "company" | "productOfChoice" | "value";
+const standardFields = new Map<string, StandardIntakeField>([
+  ["name", "name"], ["full name", "name"], ["customer name", "name"], ["ho ten", "name"], ["ho va ten", "name"], ["ten khach hang", "name"], ["ten lien he", "name"], ["khach hang", "name"], ["ten", "name"],
+  ["phone", "phone"], ["phone number", "phone"], ["mobile", "phone"], ["so dien thoai", "phone"], ["dien thoai", "phone"], ["sdt", "phone"],
+  ["email", "email"], ["customer email", "email"], ["thu dien tu", "email"],
+  ["company", "company"], ["company name", "company"], ["business", "company"], ["ten cong ty", "company"], ["cong ty", "company"],
+  ["product", "productOfChoice"], ["product of choice", "productOfChoice"], ["san pham", "productOfChoice"], ["dich vu", "productOfChoice"], ["nhu cau", "productOfChoice"],
+  ["budget", "value"], ["estimated budget", "value"], ["ngan sach", "value"], ["gia tri du kien", "value"],
+]);
+
+export function getIntakeStandardField(field: { key: string; label: string; type?: string }): StandardIntakeField | undefined {
+  return standardFields.get(normalizeIntakeText(field.key))
+    || standardFields.get(normalizeIntakeText(field.label))
+    || (field.type === "phone" || field.type === "email" ? field.type : undefined);
+}
+
 function generatedKey(label: string, index: number, used: Set<string>) {
   const base = label.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || `field_${index + 1}`;
