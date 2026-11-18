@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { MessengerBackgroundJobModel, type MessengerBackgroundJobKind } from "../model/messenger-background-job.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { enabledLeadContractAccount, TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { startQueueRecovery } from "../../shared/queue-recovery";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
@@ -73,6 +74,11 @@ export async function enqueueLeadContractOcr(input: Omit<LeadContractMessageJob,
 }
 
 async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
+  if (kind === "chat-test") {
+    const { processChatTestMessage } = await import("./chat-test.service");
+    await processChatTestMessage(payload as { sessionId: string; messageId: string });
+    return;
+  }
   if (kind === "zalo-webhook") {
     const { zaloMessengerService } = await import("./zalo-messenger.service");
     await zaloMessengerService.handleWebhookEvent(payload, { resumeDispatch: true });
@@ -87,6 +93,14 @@ async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
   const { chatOrderFlowRegistry } = await import("./chat-ordering/registry");
   const input = payload as ChatOrderFlowInput;
   if (!await canProcessMessengerWebhook(input.platform === "zalo" ? "Zalo" : "Facebook", input.pageId, input.companyCode)) return;
+  if (input.platform !== "tiktok") {
+    const conversationScope = { _id: input.conversationId, ...(input.platform === "zalo" ? { oaId: input.pageId } : { pageId: input.pageId }) };
+    const messageScope = { conversationId: input.conversationId, messageId: input.messageId, recipientId: input.pageId, direction: "inbound" as const };
+    const [conversation, message] = await Promise.all(input.platform === "zalo"
+      ? [ZaloConversationModel.exists(conversationScope), ZaloMessageModel.exists(messageScope)]
+      : [FBConversationModel.exists(conversationScope), FBMessageModel.exists(messageScope)]);
+    if (!conversation || !message) return;
+  }
   const flow = await chatOrderFlowRegistry.resolveForCompanyPage(input.companyCode, input.pageId, input.platform);
   if (flow?.key !== "page-intake") return;
   await withAiUsage({ companyCode: input.companyCode }, async () => {
@@ -159,13 +173,17 @@ async function runJobs(kind: MessengerBackgroundJobKind) {
         $unset: { leaseToken: 1, leaseUntil: 1, payload: 1 },
       });
     } catch (error) {
-      const failed = job.attempts >= MAX_ATTEMPTS;
+      const failed = job.attempts >= (kind === "chat-test" ? 2 : MAX_ATTEMPTS);
       const dueAt = new Date(Date.now() + Math.min(5_000 * 2 ** (job.attempts - 1), 300_000));
       console.error("[Messenger jobs] Processing failed", { kind, jobId: job._id, attempt: job.attempts, failed,
         error: error instanceof Error ? error.name : typeof error });
       if (failed && kind === "zalo-webhook" && job.payload) {
         // Keep the job recoverable if MongoDB also fails during marker cleanup.
         await clearFailedZaloInbound(job.payload as ZaloWebhookPayload);
+      }
+      if (failed && kind === "chat-test") {
+        const { failChatTestMessage } = await import("./chat-test.service");
+        await failChatTestMessage(job.payload as { sessionId: string; messageId: string }, error);
       }
       await MessengerBackgroundJobModel.updateOne(lease, {
         $set: failed ? { status: "failed", completedAt: new Date(),
@@ -189,6 +207,7 @@ export function startMessengerBackgroundWorkers() {
     startQueueRecovery(recoverFailedZaloInboundMarkers, 10_000),
     startQueueRecovery(() => runJobs("lead-intake"), 3_000),
     startQueueRecovery(() => runJobs("lead-contract-ocr"), 3_000),
+    startQueueRecovery(() => runJobs("chat-test"), 1_000),
   ];
   return () => timers.forEach(clearInterval);
 }

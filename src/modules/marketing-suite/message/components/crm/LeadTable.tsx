@@ -55,6 +55,7 @@ import {
   crmService,
   type ActiveLeadIntakeProfile,
   type ExtendedLeadCard,
+  type LeadBulkAction,
   type LeadFieldFilter,
 } from "../../services/crmService";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
@@ -81,6 +82,7 @@ import {
   resolveFilterValueLabel,
   saveSheetLayout,
   toIntakeFieldKey,
+  ZALO_UID_COLUMN_KEY,
   type LeadAccountOption,
   type LeadSheetColumn,
   type LeadSocialPlatform,
@@ -101,6 +103,7 @@ interface LeadTableProps {
   onSelectAccountScope?: (channel: "all" | LeadSocialPlatform, accountId?: string) => void;
   refreshToken?: number;
   canReconcileContracts?: boolean;
+  canManageLeads?: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -121,6 +124,11 @@ const collectionRowOptions = [
   ...Object.entries(COLLECTION_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label })),
 ];
 const statusRowOptions = Object.entries(LEAD_STATUS_META).map(([key, meta]) => ({ value: key, label: meta.label }));
+const unchangedBulkOption = { value: "", label: "Giữ nguyên" };
+const bulkStatusOptions = [unchangedBulkOption, ...statusRowOptions];
+const bulkCollectionOptions = [unchangedBulkOption, ...collectionRowOptions.filter(option => option.value)];
+const checkboxLabelClass = "inline-flex size-9 cursor-pointer items-center justify-center align-middle";
+const selectionCheckboxClass = "size-4 shrink-0 cursor-pointer accent-primary focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed";
 
 interface FilterConditionRow {
   id: string;
@@ -164,10 +172,12 @@ function defaultWidthForType(type: LeadIntakeFieldType): number {
   return 164;
 }
 
-function readCellValue(lead: ExtendedLeadCard, col: LeadSheetColumn): string {
+function readCellValue(lead: ExtendedLeadCard, col: LeadSheetColumn, useSharedFields: boolean): string {
   if (col.kind === "intake") {
-    if (!leadHasIntakeField(lead, col)) return "";
-    return lead.answers?.[col.answerKey || col.key] || "";
+    if (!useSharedFields && !leadHasIntakeField(lead, col)) return "";
+    const key = col.answerKey || col.key;
+    const fallbackName = useSharedFields && isNameField({ key, label: col.label }) ? lead.customerName : "";
+    return lead.answers?.[key] || fallbackName;
   }
   switch (col.key) {
     case "customerName":
@@ -202,6 +212,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   onSelectAccountScope,
   refreshToken = 0,
   canReconcileContracts = false,
+  canManageLeads = false,
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -245,6 +256,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const [deleteTarget, setDeleteTarget] = useState<ExtendedLeadCard | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [selection, setSelection] = useState<{ query: string; ids: Set<string> } | null>(null);
+  const [loadedQuery, setLoadedQuery] = useState("");
+  const [bulkStatus, setBulkStatus] = useState("");
+  const [bulkCollectionStatus, setBulkCollectionStatus] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkDelete, setBulkDelete] = useState<{ query: string; ids: string[] } | null>(null);
 
   const columnMenuRef = useRef<HTMLDivElement>(null);
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
@@ -410,21 +428,22 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     () => profiles.find(profile => !profile.platform && !profile.accountId) || null,
     [profiles],
   );
+  const companyWideApplied = companyProfile?.applyToAllAccounts === true;
 
   const scopedProfile = useMemo(() => {
-    if (activeChannel === "all") return companyProfile;
+    if (companyWideApplied || activeChannel === "all") return companyProfile;
     if (accountId) {
       const exact = profiles.find(profile => profile.platform === activeChannel && profile.accountId === accountId);
       if (exact) return exact;
     }
     return profiles.find(profile => profile.platform === activeChannel && profile.accountId === "default") || companyProfile;
-  }, [profiles, activeChannel, accountId, companyProfile]);
+  }, [profiles, activeChannel, accountId, companyProfile, companyWideApplied]);
 
   const allColumns = useMemo<LeadSheetColumn[]>(() => {
     const isScopedAccount = activeChannel !== "all" && Boolean(accountId);
     const intakeColumns: LeadSheetColumn[] = [];
 
-    if (isScopedAccount) {
+    if (isScopedAccount && !companyWideApplied) {
       const profileFields = scopedProfile?.fields || [];
       if (profileFields.length > 0) {
         for (const field of profileFields) {
@@ -473,7 +492,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       }
     } else {
       const seenKeys = new Set<string>();
-      const sortedProfiles = [...profiles].sort((a, b) => Number(Boolean(a.platform)) - Number(Boolean(b.platform)));
+      const sortedProfiles = companyWideApplied && companyProfile
+        ? [companyProfile]
+        : [...profiles].sort((a, b) => Number(Boolean(a.platform)) - Number(Boolean(b.platform)));
       for (const profile of sortedProfiles) {
         if (activeChannel !== "all" && profile.platform && profile.platform !== activeChannel) continue;
         for (const field of profile.fields || []) {
@@ -537,6 +558,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         ? [{ key: "customerName", label: "Tên hệ thống", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 172, editable: true, sortable: true, sortKey: "customerName" }]
         : []),
       { key: "phone", label: "Số điện thoại", type: "phone", kind: "system", defaultWidth: 148, editable: true, sortable: true, sortKey: "phone" },
+      ...(activeChannel === "all" || activeChannel === "zalo"
+        ? [{ key: ZALO_UID_COLUMN_KEY, label: "UID Zalo", type: "text" as const, kind: "system" as const, defaultWidth: 232, editable: false }]
+        : []),
       ...(isScopedAccount
         ? []
         : [{ key: "sourceChannel", label: "Kênh / Tài khoản", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 168, editable: false, sortable: true, sortKey: "sourcePlatform" }]),
@@ -549,7 +573,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     ];
 
     return [...anchorNameCol, ...intakeColumns, ...optionalSystemColumns];
-  }, [activeChannel, accountId, scopedProfile, profiles, leads]);
+  }, [activeChannel, accountId, scopedProfile, profiles, leads, companyProfile, companyWideApplied]);
 
   const visibleColumns = useMemo(() => {
     const hidden = new Set(layoutPrefs.hiddenKeys);
@@ -568,6 +592,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     () => buildVisibleFilterColumns(visibleColumns),
     [visibleColumns],
   );
+  const includeZaloUid = visibleColumns.some(column => column.key === ZALO_UID_COLUMN_KEY);
   const visibleFilterColByKey = useMemo(
     () => new Map(visibleFilterColumns.map(col => [col.colKey, col])),
     [visibleFilterColumns],
@@ -650,6 +675,15 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   );
   const [pageState, setPageState] = useState<{ sig: string; value: number }>({ sig: "", value: 1 });
   const page = pageState.sig === filterSignature ? pageState.value : 1;
+  const pageQuery = JSON.stringify([companyCode, filterSignature, page, pageSize]);
+  const querySettled = loadedQuery === pageQuery && search === trimmedSearch && JSON.stringify(fieldFilters) === serializedFieldFilters;
+  const selectedRows = querySettled && selection?.query === pageQuery
+    ? leads.filter(row => selection.ids.has(row.id)) : [];
+  const selectedCount = selectedRows.length;
+  const visibleSelection = new Set(selectedRows.map(row => row.id));
+  const allRowsSelected = selectedCount > 0 && selectedCount === leads.length;
+  const canSelectRows = querySettled && !loading && !error && !bulkBusy;
+  const deleteBatch = bulkDelete?.query === pageQuery && querySettled ? bulkDelete : null;
   const setPage = useCallback(
     (next: number | ((current: number) => number)) => {
       setPageState(current => {
@@ -670,20 +704,35 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         accountId,
         search,
         ...(fieldFilters.length > 0 ? { fieldFilters } : {}),
+        ...(includeZaloUid ? { includeZaloUid: true } : {}),
         sort: effectiveSortParam,
         page,
         limit: pageSize,
       });
       if (seq !== requestSeqRef.current) return;
+      const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
+      if (page > lastPage) {
+        setPage(lastPage);
+        return;
+      }
       setLeads(Array.isArray(result.data) ? result.data : []);
       setTotalItems(result.total);
+      setLoadedQuery(pageQuery);
     } catch (cause) {
       if (seq !== requestSeqRef.current) return;
       setError(cause instanceof Error ? cause.message : "Không thể tải bảng Lead Sheet.");
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize]);
+  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize, pageQuery, setPage, includeZaloUid]);
+
+  useEffect(() => {
+    setSelection(null);
+    setBulkStatus("");
+    setBulkCollectionStatus("");
+    setBulkError("");
+    setBulkDelete(null);
+  }, [pageQuery, trimmedSearch, serializedFieldFilters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -840,7 +889,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         const nextAnswers = { ...(lead.answers || {}) };
         if (nextValue) nextAnswers[targetKey] = nextValue;
         else delete nextAnswers[targetKey];
-        updated = await crmService.updateLead(lead.id, { answers: nextAnswers });
+        const sharedName = companyWideApplied && isNameField({ key: targetKey, label: col.label }) ? nextValue.trim() : "";
+        updated = await crmService.updateLead(lead.id, { answers: nextAnswers, ...(sharedName ? { customerName: sharedName } : {}) });
       } else if (col.key === "customerName") {
         if (!nextValue.trim()) {
           toast.error("Họ tên khách hàng không được để trống.");
@@ -965,11 +1015,44 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     setPage(1);
   }
 
-  async function handleExport() {
+  function toggleRowSelection(id?: string) {
+    if (!canSelectRows) return;
+    setBulkError("");
+    setSelection(current => {
+      const visible = leads.map(lead => lead.id);
+      const ids = new Set(current?.query === pageQuery ? visible.filter(key => current.ids.has(key)) : []);
+      if (!id) return ids.size === visible.length ? null : { query: pageQuery, ids: new Set(visible) };
+      if (ids.has(id)) ids.delete(id);
+      else ids.add(id);
+      return ids.size ? { query: pageQuery, ids } : null;
+    });
+  }
+
+  async function applyBulkAction(action: LeadBulkAction, ids = selectedRows.map(lead => lead.id)) {
+    if (!canManageLeads || !canSelectRows || !ids.length) return;
+    setBulkBusy(true);
+    setBulkError("");
+    try {
+      const { affected, skipped } = await crmService.applyLeadBulkAction(ids, action);
+      setSelection(current => current?.query === pageQuery ? null : current);
+      setBulkStatus("");
+      setBulkCollectionStatus("");
+      setBulkDelete(null);
+      const result = action.action === "delete" ? `Đã xóa ${affected} Lead.` : `Đã cập nhật ${affected} Lead.`;
+      const reason = action.action === "delete" ? "không còn trong bảng" : "đã ở trạng thái này hoặc không còn trong bảng";
+      toast.success(skipped ? `${result} Bỏ qua ${skipped} Lead ${reason}.` : result);
+    } catch (cause) {
+      setBulkError(cause instanceof Error ? cause.message : "Không thể xử lý các Lead đã chọn.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleExport(selected?: ExtendedLeadCard[]) {
     if (exporting) return;
     setExporting(true);
     try {
-      const rows = await crmService.getAllLeadRows({
+      const rows = selected ?? await crmService.getAllLeadRows({
         channel: activeChannel,
         accountId,
         search: searchQuery,
@@ -1045,11 +1128,14 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     setQuickColBusy(true);
     setQuickColError("");
     try {
+      const target = companyWideApplied ? null : activeAccount;
       await crmService.saveAndActivateLeadIntakeProfile({
-        ...(activeAccount ? { platform: activeAccount.platform, accountId: activeAccount.accountId } : {}),
+        ...(target ? { platform: target.platform, accountId: target.accountId } : {}),
+        ...(companyWideApplied ? { applyToAllAccounts: true } : {}),
         goal: baseProfile?.goal || "Thu thập thông tin khách hàng tiềm năng",
         completionMessage: baseProfile?.completionMessage || "Cảm ơn anh/chị đã cung cấp thông tin, bên em sẽ tư vấn ngay ạ.",
         fields: [...existingFields, nextField],
+        needGroups: baseProfile?.needGroups,
         sourceDocumentIds: baseProfile?.sourceDocumentIds || [],
       });
       setQuickColModalOpen(false);
@@ -1089,6 +1175,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           goal: targetProfile.goal || "Thu thập thông tin khách hàng tiềm năng",
           completionMessage: targetProfile.completionMessage || "Cảm ơn anh/chị đã cung cấp thông tin, bên em sẽ tư vấn ngay ạ.",
           fields: remaining,
+          applyToAllAccounts: targetProfile.applyToAllAccounts,
+          needGroups: targetProfile.needGroups?.map(group => ({
+            ...group, fieldKeys: group.fieldKeys.filter(key => key !== deleteColumnTarget.answerKey),
+          })),
           sourceDocumentIds: targetProfile.sourceDocumentIds || [],
         });
       }
@@ -1106,6 +1196,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   const builderInitialAccountKey = activeAccount
     ? `${activeAccount.platform}:${activeAccount.accountId}`
     : "company";
+  const columnBuilderAccountKey = companyWideApplied ? "company" : builderInitialAccountKey;
 
   const customColumns = allColumns.filter(col => col.kind === "intake");
   const systemColumns = allColumns.filter(col => col.kind === "system");
@@ -1485,6 +1576,46 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         document.body,
       )}
 
+      <span role="status" className="sr-only">Đã chọn {selectedCount} Lead trên trang này</span>
+      {selectedCount > 0 && (
+        <div role="group" aria-label="Thao tác hàng loạt Lead" aria-busy={bulkBusy}
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-2.5">
+          <span className="px-1 text-sm font-medium tabular-nums">Đã chọn {selectedCount} Lead</span>
+          {canManageLeads && (
+            <>
+              <StyledSelect ariaLabel="Trạng thái chốt hàng loạt" placeholder="Trạng thái chốt"
+                value={bulkStatus} options={bulkStatusOptions} onChange={setBulkStatus} disabled={!canSelectRows}
+                className="h-9 w-44" appearance="erp" />
+              <StyledSelect ariaLabel="Tình trạng Bot hàng loạt" placeholder="Tình trạng Bot"
+                value={bulkCollectionStatus} options={bulkCollectionOptions} onChange={setBulkCollectionStatus}
+                disabled={!canSelectRows} className="h-9 w-44" appearance="erp" />
+              <button type="button" className={secondaryBtnClass} disabled={!canSelectRows || (!bulkStatus && !bulkCollectionStatus)}
+                onClick={() => void applyBulkAction({
+                  action: "update",
+                  ...(bulkStatus ? { status: bulkStatus as ExtendedLeadCard["status"] } : {}),
+                  ...(bulkCollectionStatus ? { collectionStatus: bulkCollectionStatus as LeadCollectionStatus } : {}),
+                })}>
+                {bulkBusy && !deleteBatch ? "Đang cập nhật…" : "Áp dụng"}
+              </button>
+            </>
+          )}
+          <button type="button" className={secondaryBtnClass} disabled={!canSelectRows || exporting}
+            onClick={() => void handleExport(selectedRows)}>
+            <Download aria-hidden="true" className="size-3.5" /> Xuất Excel đã chọn
+          </button>
+          {canManageLeads && (
+            <button type="button" aria-haspopup="dialog" disabled={!canSelectRows}
+              className={cn(secondaryBtnClass, "text-error")}
+              onClick={() => { setBulkError(""); setBulkDelete({ query: pageQuery, ids: selectedRows.map(lead => lead.id) }); }}>
+              <Trash2 aria-hidden="true" className="size-3.5" /> Xóa đã chọn
+            </button>
+          )}
+          <button type="button" className={secondaryBtnClass} disabled={bulkBusy}
+            onClick={() => { setSelection(null); setBulkError(""); }}>Bỏ chọn</button>
+          {bulkError && !deleteBatch && <p role="alert" className="w-full px-1 text-xs text-error">{bulkError}</p>}
+        </div>
+      )}
+
       {/* Worksheet Tabs & Spreadsheet Grid */}
       <div className="flex flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-2xs sm:min-h-0 sm:flex-1">
         {accounts.length > 0 && (
@@ -1508,7 +1639,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
               {accounts.map(acc => {
                 const selected = activeChannel === acc.platform && accountId === acc.accountId;
-                const hasProfile = profiles.some(profile => profile.platform === acc.platform && profile.accountId === acc.accountId);
+                const hasProfile = companyWideApplied || profiles.some(profile => profile.platform === acc.platform && profile.accountId === acc.accountId);
                 return (
                   <button
                     key={`${acc.platform}:${acc.accountId}`}
@@ -1537,7 +1668,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               <span className="tabular-nums">{intakeColumnCount} cột</span>
               <button
                 type="button"
-                onClick={() => setBuilderState({ open: true, addColumn: true, accountKey: builderInitialAccountKey })}
+                onClick={() => setBuilderState({ open: true, addColumn: true, accountKey: columnBuilderAccountKey })}
                 className="inline-flex min-h-7 items-center gap-1 rounded-lg border border-primary/35 bg-primary/10 px-2.5 text-xs font-medium text-primary hover:bg-primary/15 focus-visible:outline-1 focus-visible:outline-primary"
               >
                 <Plus aria-hidden="true" className="size-3.5" />
@@ -1606,7 +1737,19 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                 <th
                   scope="col"
                   style={{ width: 48, minWidth: 48, maxWidth: 48 }}
-                  className="sticky left-0 z-30 w-12 border-b border-r border-outline-variant bg-surface-container-low px-2 py-2.5 text-center font-medium tabular-nums"
+                  className="sticky left-0 z-30 w-12 border-b border-r border-outline-variant bg-surface-container-low text-center"
+                >
+                  <label className={checkboxLabelClass}>
+                    <input type="checkbox" aria-label="Chọn tất cả Lead trên trang này" className={selectionCheckboxClass}
+                      checked={allRowsSelected} disabled={!canSelectRows || leads.length === 0}
+                      ref={input => { if (input) input.indeterminate = selectedCount > 0 && !allRowsSelected; }}
+                      onChange={() => toggleRowSelection()} />
+                  </label>
+                </th>
+                <th
+                  scope="col"
+                  style={{ width: 48, minWidth: 48, maxWidth: 48 }}
+                  className="w-12 border-b border-r border-outline-variant bg-surface-container-low px-2 py-2.5 text-center font-medium tabular-nums sm:sticky sm:left-12 sm:z-30"
                 >
                   #
                 </th>
@@ -1623,7 +1766,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                       style={{ width, minWidth: width }}
                       className={cn(
                         "group/col relative select-none border-b border-r border-outline-variant bg-surface-container-low px-2.5 py-2 text-left font-medium",
-                        isStickyFirst && "sm:sticky sm:left-12 sm:z-30 sm:shadow-xs",
+                        isStickyFirst && "sm:sticky sm:left-24 sm:z-30 sm:shadow-xs",
                       )}
                     >
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -1727,7 +1870,14 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                   const syncedModule = lead.moduleSync?.targetModule ?? getCompletedLeadModule(lead.customerTransfer);
                   return (
                     <tr key={lead.id} className="group/row transition-colors hover:bg-surface-container-low/65">
-                      <td style={{ width: 48, minWidth: 48, maxWidth: 48 }} className="sticky left-0 z-10 w-12 border-b border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-xs tabular-nums text-on-surface-variant group-hover/row:bg-surface-container-low">
+                      <td style={{ width: 48, minWidth: 48, maxWidth: 48 }}
+                        className="sticky left-0 z-10 w-12 border-b border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center group-hover/row:bg-surface-container-low">
+                        <label className={checkboxLabelClass}>
+                          <input type="checkbox" aria-label={`Chọn ${lead.customerName}, dòng ${rowNumber}`} className={selectionCheckboxClass}
+                            checked={visibleSelection.has(lead.id)} disabled={!canSelectRows} onChange={() => toggleRowSelection(lead.id)} />
+                        </label>
+                      </td>
+                      <td style={{ width: 48, minWidth: 48, maxWidth: 48 }} className="w-12 border-b border-r border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-xs tabular-nums text-on-surface-variant group-hover/row:bg-surface-container-low sm:sticky sm:left-12 sm:z-10">
                         <button
                           type="button"
                           onClick={() => setDetailLead(lead)}
@@ -1764,6 +1914,18 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                               ) : (
                                 <span className="text-xs text-on-surface-variant">Thủ công</span>
                               )}
+                            </td>
+                          );
+                        }
+
+                        if (col.key === ZALO_UID_COLUMN_KEY) {
+                          const identity = lead.zaloIdentity;
+                          return (
+                            <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-2.5 py-1.5 align-middle text-xs tabular-nums">
+                              {identity && <>
+                                <span className="block break-all">UID {identity.uid}</span>
+                                <span className="block break-all text-on-surface-variant">OA {identity.oaId}</span>
+                              </>}
                             </td>
                           );
                         }
@@ -1809,8 +1971,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           );
                         }
 
-                        const intakeApplicable = col.kind !== "intake" || activeChannel !== "all" || leadHasIntakeField(lead, col);
-                        const cellValue = readCellValue(lead, col);
+                        const intakeApplicable = col.kind !== "intake" || companyWideApplied || activeChannel !== "all" || leadHasIntakeField(lead, col);
+                        const cellValue = readCellValue(lead, col, companyWideApplied);
 
                         return (
                           <td
@@ -1818,7 +1980,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                             style={cellStyle}
                             className={cn(
                               "border-b border-r border-outline-variant p-0 align-middle",
-                              isStickyFirst && "sm:sticky sm:left-12 sm:z-10 bg-surface-container-lowest sm:shadow-xs group-hover/row:bg-surface-container-low",
+                              isStickyFirst && "sm:sticky sm:left-24 sm:z-10 bg-surface-container-lowest sm:shadow-xs group-hover/row:bg-surface-container-low",
                               !intakeApplicable && "bg-surface-container-low/40",
                             )}
                           >
@@ -1954,7 +2116,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       {/* Simple Quick Add Column Modal using standard ErpModal + StyledSelect */}
       <ErpModal
         isOpen={quickColModalOpen}
-        title={activeAccount ? `Thêm cột mới (${activeAccount.displayName})` : "Thêm cột mới vào Lead Sheet"}
+        title={companyWideApplied ? "Thêm cột chung cho mọi Page/OA" : activeAccount ? `Thêm cột mới (${activeAccount.displayName})` : "Thêm cột mới vào Lead Sheet"}
         maxWidth="max-w-sm"
         closeDisabled={quickColBusy}
         onClose={() => {
@@ -2019,7 +2181,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               type="button"
               onClick={() => {
                 setQuickColModalOpen(false);
-                setBuilderState({ open: true, addColumn: true, accountKey: builderInitialAccountKey });
+                setBuilderState({ open: true, addColumn: true, accountKey: columnBuilderAccountKey });
               }}
               className="text-xs text-primary hover:underline focus-visible:outline-1 focus-visible:outline-primary"
             >
@@ -2049,7 +2211,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         title="Xóa cột khỏi Lead Sheet?"
         description={
           deleteColumnTarget
-            ? `Cột "${deleteColumnTarget.label}" sẽ được gỡ khỏi cấu hình Lead Sheet và Chatbot ngừng hỏi trường này.`
+            ? companyWideApplied
+              ? `Gỡ cột "${deleteColumnTarget.label}" khỏi bộ trường chung của mọi Page/OA.${companyProfile?.fields.length === 1 ? " Các Page/OA sẽ dùng lại bộ trường riêng sau khi gỡ cột cuối này." : ""}`
+              : `Cột "${deleteColumnTarget.label}" sẽ được gỡ khỏi cấu hình Lead Sheet và Chatbot ngừng hỏi trường này.`
             : ""
         }
         appearance="erp"
@@ -2070,12 +2234,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         initialAddColumn={builderState.addColumn}
         focusFieldKey={builderState.focusFieldKey}
         onClose={() => setBuilderState({ open: false, addColumn: false })}
-        onSaved={(savedAccount) => {
+        onSaved={(savedAccount, appliesToAll) => {
           if (savedAccount) {
             toast.success(`Đã áp dụng cấu hình Lead cho ${savedAccount.displayName}.`);
             onSelectAccountScope?.(savedAccount.platform, savedAccount.accountId);
           } else {
-            toast.success("Đã áp dụng cấu hình Lead mặc định.");
+            toast.success(appliesToAll ? "Đã áp dụng bộ trường Lead cho mọi Page/OA." : "Đã áp dụng cấu hình Lead mặc định.");
           }
           void loadProfiles();
           void loadLeads();
@@ -2090,6 +2254,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       <LeadDetailDrawer
         lead={leads.find(lead => lead.id === detailLead?.id) ?? detailLead}
         configuredFields={scopedProfile?.fields || []}
+        sharedFields={companyWideApplied ? companyProfile?.fields : undefined}
         onClose={closeDetailLead}
         onUpdated={(updated) => {
           setLeads(current => current.map(item => (item.id === updated.id ? updated : item)));
@@ -2124,6 +2289,18 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       )}
 
       {/* Confirm Lead Deletion */}
+      <ConfirmDialog
+        isOpen={Boolean(deleteBatch)}
+        title="Xóa các Lead đã chọn?"
+        description={`${deleteBatch?.ids.length ?? 0} Lead đã chọn và dữ liệu thu thập của từng dòng sẽ bị xóa khỏi bảng Lead.`}
+        appearance="erp"
+        tone="danger"
+        confirmLabel="Xóa các Lead đã chọn"
+        isSubmitting={bulkBusy}
+        error={bulkError}
+        onClose={() => { if (!bulkBusy) { setBulkDelete(null); setBulkError(""); } }}
+        onConfirm={() => { if (deleteBatch) void applyBulkAction({ action: "delete" }, deleteBatch.ids); }}
+      />
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
         title="Xóa Lead khỏi bảng?"

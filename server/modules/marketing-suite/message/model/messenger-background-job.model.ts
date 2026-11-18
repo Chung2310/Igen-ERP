@@ -1,10 +1,10 @@
 import mongoose, { Schema } from "mongoose";
 
-export type MessengerBackgroundJobKind = "zalo-webhook" | "lead-intake" | "lead-contract-ocr";
+export type MessengerBackgroundJobKind = "zalo-webhook" | "lead-intake" | "lead-contract-ocr" | "chat-test";
 
 const schema = new Schema({
   _id: { type: String, required: true },
-  kind: { type: String, enum: ["zalo-webhook", "lead-intake", "lead-contract-ocr"], required: true },
+  kind: { type: String, enum: ["zalo-webhook", "lead-intake", "lead-contract-ocr", "chat-test"], required: true },
   payload: { type: Schema.Types.Mixed },
   status: { type: String, enum: ["pending", "processing", "completed", "failed"], required: true },
   attempts: { type: Number, required: true },

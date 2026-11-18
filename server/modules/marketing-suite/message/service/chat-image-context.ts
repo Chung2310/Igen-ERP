@@ -102,14 +102,15 @@ export async function downloadChatImage(url: string): Promise<string> {
   return `data:${mime};base64,${Buffer.concat(chunks).toString("base64")}`;
 }
 
-export async function analyzeChatImages(urls: string[], customerMessage = ""): Promise<ChatImageObservation | undefined> {
-  if (!urls.length) return undefined;
+export async function analyzeChatImages(urls: string[], customerMessage = "", uploadedImages: string[] = []): Promise<ChatImageObservation | undefined> {
+  if (!urls.length && !uploadedImages.length) return undefined;
   const uniqueUrls = [...new Set(urls)];
-  if (uniqueUrls.length > 3) return { status: "needs_selection", reason: "multiple_images",
+  if ((uploadedImages.length || uniqueUrls.length) > 3) return { status: "needs_selection", reason: "multiple_images",
     description: "Có nhiều ảnh; cần khách chỉ rõ một mẫu muốn tư vấn trước." };
   let images: Array<{ url: string; data: string }>;
   try {
-    const downloaded = await Promise.all(uniqueUrls.map(async url => ({ url, data: await downloadChatImage(url) })));
+    const downloaded = uploadedImages.length ? uploadedImages.map(data => ({ url: "", data }))
+      : await Promise.all(uniqueUrls.map(async url => ({ url, data: await downloadChatImage(url) })));
     // Messenger can issue different signed URLs for repeated uploads of the same bytes.
     images = [...new Map(downloaded.map(item => [item.data, item])).values()];
   } catch {

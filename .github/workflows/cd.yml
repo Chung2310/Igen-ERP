@@ -30,18 +30,13 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
-      - name: Install system FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes ffmpeg
-          echo "FFMPEG_BIN=$(command -v ffmpeg)" >> "$GITHUB_ENV"
-
       - name: Install dependencies
         run: yarn install --frozen-lockfile --prefer-offline --no-progress
 
       - name: Type check
         run: yarn typecheck
 
+      # The resolver test mocks binary discovery. Docker installs the runtime binaries.
       - name: Check optional media binary resolution
         run: yarn vitest run server/modules/marketing-suite/shared/service/media-binary.service.test.ts
 

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import IntegrationSettingsTab from "./IntegrationSettingsTab";
+import { socialIntegrationService } from "../../services/socialIntegrationService";
+import type { UserProfile } from "../../types/index";
 
 vi.mock("./TelegramOrderConfigCard", () => ({
   default: ({ userProfile }: { userProfile: unknown }) => (
@@ -24,5 +26,35 @@ it("renders both Telegram and SePay config cards with userProfile", () => {
   expect(screen.getByTestId("sepay-card")).toBeDefined();
   expect(screen.getByText(/Telegram Card for/)).toBeDefined();
   expect(screen.getByText(/Sepay Card for/)).toBeDefined();
+  expect(screen.queryByText("Quản lý dữ liệu chat")).toBeNull();
+  cleanup();
+});
+
+it("keeps chat reset collapsed and requires explicit company confirmation", async () => {
+  const reset = vi.spyOn(socialIntegrationService, "resetCompanyChat").mockResolvedValue({ conversationCount: 2, messageCount: 5 });
+  try {
+    const profile = {
+      email: "admin@erp.test", role: "admin", companyCode: "ERP", companyName: "Igen",
+      permissions: ["social-integration:manage", "omni-inbox:manage"],
+    } as UserProfile;
+    render(<IntegrationSettingsTab userProfile={profile} />);
+    const disclosure = screen.getByText("Quản lý dữ liệu chat").closest("details")!;
+    expect(disclosure.open).toBe(false);
+    disclosure.open = true;
+    fireEvent.click(screen.getByRole("button", { name: "Xóa dữ liệu chat" }));
+    let dialog = screen.getByRole("alertdialog", { name: "Xóa dữ liệu chat của Igen (ERP)?" });
+    expect(reset).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy" }));
+    expect(reset).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Xóa dữ liệu chat" }));
+    dialog = screen.getByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Xóa vĩnh viễn" }));
+    expect(reset).toHaveBeenCalledOnce();
+    expect(reset).toHaveBeenCalledWith("ERP");
+    expect(await screen.findByText("Đã xóa 2 hội thoại và 5 tin nhắn.")).toBeDefined();
+  } finally {
+    cleanup();
+    reset.mockRestore();
+  }
 });
 
