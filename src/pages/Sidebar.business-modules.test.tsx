@@ -42,4 +42,11 @@ describe("Sidebar business modules", () => {
     expect(detailed.find((item) => item.label === "BÁN LẺ")).toMatchObject({ locked: true, lockReason: "module" });
     expect(detailed.find((item) => item.label === "NHÂN SỰ")).toMatchObject({ locked: true, lockReason: "permission" });
   });
+
+  it("allows company admins to open the enabled Legal Reference module", () => {
+    const profile = { role: "admin", enabledModules: ["legal-reference"], permissions: [] } as unknown as Parameters<typeof getAvailableMenuItems>[0];
+    const legalMenuItem = getAvailableMenuItems(profile, () => false).find((item) => item.label === "VĂN BẢN PHÁP LUẬT");
+
+    expect(legalMenuItem).toMatchObject({ locked: false });
+  });
 });

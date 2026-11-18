@@ -225,6 +225,13 @@ export async function getEffectivePermissions(
     rolePermissions = [...rolePermissions, "pos:manage"];
   }
 
+  // Legal Reference explicitly treats company admins as module administrators
+  // in the UI route. Keep that contract even when the tenant has an older,
+  // company-specific role-permission record that predates this module.
+  if (role === "admin" && !rolePermissions.includes("legal-reference:manage")) {
+    rolePermissions = [...rolePermissions, "legal-reference:manage"];
+  }
+
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));
 }
 
