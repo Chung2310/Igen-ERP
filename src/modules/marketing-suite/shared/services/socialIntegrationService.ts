@@ -63,6 +63,17 @@ type ValidationResult = {
 };
 
 export const socialIntegrationService = {
+  async resetCompanyChat(confirmCompanyCode: string): Promise<{ conversationCount: number; messageCount: number }> {
+    const res = await fetch("/api/v1/social-integrations/reset-chat", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getAccessToken()}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmCompanyCode }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.message || "Không thể xóa dữ liệu chat. Vui lòng thử lại.");
+    return result.data;
+  },
+
   async getAccounts(scope: "omni-inbox" | "marketing-campaigns" | "company-knowledge", platform?: string): Promise<SocialIntegration[]> {
     const query = platform ? `?platform=${encodeURIComponent(platform)}` : "";
     const res = await fetch(`/api/v1/${scope}/accounts${query}`, {

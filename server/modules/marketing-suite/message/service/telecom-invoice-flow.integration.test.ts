@@ -6,8 +6,8 @@ import type { LeadIntakeField } from "../../../../../shared/marketing-suite/lead
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import { LeadIntakeProfileModel } from "../model/lead-intake-profile.model";
 import { LeadContractModel, LeadContractPhotoModel } from "../model/lead-contract.model";
-import { FBMessageModel } from "../model/fb-messenger.model";
-import { ZaloMessageModel } from "../model/zalo-messenger.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
+import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { TelecomInvoiceConversationModel, TelecomInvoiceModel, TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { generateReplyCompletion } from "./ai-reply-provider";
 import { downloadChatImage, isTrustedChatImageUrl } from "./chat-image-context";
@@ -70,7 +70,7 @@ beforeEach(() => {
 afterEach(async () => {
   await Promise.all([CRMTicketModel.deleteMany(), LeadIntakeProfileModel.deleteMany(), TelecomInvoiceModel.deleteMany(),
     TelecomInvoiceConversationModel.deleteMany(), TelecomInvoiceSettingsModel.deleteMany(), LeadContractModel.deleteMany(), LeadContractPhotoModel.deleteMany(),
-    FBMessageModel.deleteMany(), ZaloMessageModel.deleteMany()]);
+    FBMessageModel.deleteMany(), ZaloMessageModel.deleteMany(), FBConversationModel.deleteMany(), ZaloConversationModel.deleteMany()]);
 });
 
 async function createProfile(pageId: string, companyCode: string, platform: "facebook" | "zalo", leadFields = fields) {
@@ -98,6 +98,8 @@ async function enableContractChannels() {
     { companyCode: company, pageId: zaloContract.pageId, enabled: false, zalo: contractConfig }]);
   await createProfile(page, company, "facebook", contractFields);
   await createProfile(zaloContract.pageId, company, "zalo", contractFields);
+  await FBConversationModel.create({ _id: facebookContract.conversationId, pageId: page, recipientId: "sender" });
+  await ZaloConversationModel.create({ _id: zaloContract.conversationId, oaId: zaloContract.pageId, recipientId: "sender" });
 }
 
 function contractReading(code?: string, name?: string, address?: string) {
@@ -123,6 +125,30 @@ function contractWorkbook(rows: Array<Array<string | number | null>>) {
 }
 
 describe("Lead contract OCR and reconciliation", () => {
+  it.each([
+    ["facebook", "message"], ["facebook", "conversation"], ["zalo", "message"], ["zalo", "conversation"],
+  ] as const)("skips pending OCR on %s after its source %s is deleted", async (platform, deleted) => {
+    await enableContractChannels();
+    const account = platform === "zalo" ? zaloContract : facebookContract;
+    const messageId = "deleted-contract-source";
+    const message = { ...imageMessage(messageId, "contract"), timestamp: contractDate, senderId: "sender",
+      recipientId: account.pageId, conversationId: account.conversationId };
+    if (platform === "zalo") {
+      await ZaloMessageModel.create(message);
+      if (deleted === "message") await ZaloMessageModel.deleteMany({ conversationId: account.conversationId });
+      else await ZaloConversationModel.deleteOne({ _id: account.conversationId });
+    } else {
+      await FBMessageModel.create(message);
+      if (deleted === "message") await FBMessageModel.deleteMany({ conversationId: account.conversationId });
+      else await FBConversationModel.deleteOne({ _id: account.conversationId });
+    }
+    await processLeadContractMessage({ ...account, messageId });
+    expect(downloadChatImage).not.toHaveBeenCalled();
+    expect(generateReplyCompletion).not.toHaveBeenCalled();
+    expect(await CRMTicketModel.countDocuments()).toBe(0);
+    expect(await LeadContractPhotoModel.countDocuments()).toBe(0);
+  });
+
   it("uses one Lead across Facebook and Zalo and reconciles each contract once", async () => {
     await enableContractChannels();
     pictures.set("order", contractReading(" ab-001 ", "Khách A"));
