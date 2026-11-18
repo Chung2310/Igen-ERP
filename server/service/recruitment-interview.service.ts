@@ -27,11 +27,32 @@ export async function createInterview(scope: RecruitmentScope, actorId: string, 
 }
 
 export async function listInterviews(scope: RecruitmentScope, filters: Record<string, any> = {}) {
-  const query: Record<string, any> = { ...scope, isDeleted: Boolean(filters.deleted) };
+  const query: Record<string, any> = { ...scope, isDeleted: filters.deleted === true || filters.deleted === "true" };
   for (const key of ["jobId", "applicantId", "status"]) if (filters[key]) query[key] = filters[key];
   if (filters.interviewerId) query.interviewerIds = filters.interviewerId;
-  if (filters.from || filters.to) query.scheduledStart = { ...(filters.from && { $gte: new Date(filters.from) }), ...(filters.to && { $lte: new Date(filters.to) }) };
-  return RecruitmentInterviewModel.find(query).sort({ scheduledStart: 1 }).lean();
+  if (filters.from || filters.to) query.scheduledStart = interviewDateBounds(filters.from, filters.to);
+  const rows = await RecruitmentInterviewModel.find(query).sort({ scheduledStart: 1 }).lean();
+  if (!rows.length) return rows;
+  const [applicants, jobs, users] = await Promise.all([
+    RecruitmentApplicantModel.find({ ...scope, _id: { $in: rows.map(row => row.applicantId) } }).select("fullName").lean(),
+    RecruitmentJobModel.find({ ...scope, _id: { $in: rows.map(row => row.jobId) } }).select("title").lean(),
+    UserModel.find({ ...scope, _id: { $in: rows.flatMap(row => row.interviewerIds || []) } } as any).select("displayName").lean(),
+  ]);
+  const names = new Map(applicants.map(row => [String(row._id), row.fullName]));
+  const titles = new Map(jobs.map(row => [String(row._id), row.title]));
+  const interviewers = new Map(users.map(row => [String(row._id), row.displayName]));
+  return rows.map(row => ({ ...row, applicantName: names.get(String(row.applicantId)) || "Ứng viên không còn khả dụng", jobTitle: titles.get(String(row.jobId)) || "Vị trí không còn khả dụng", interviewers: (row.interviewerIds || []).map(id => interviewers.get(String(id))).filter(Boolean).join(", ") }));
+}
+
+export function interviewDateBounds(from?: string, to?: string): Record<string, Date> {
+  const bounds: Record<string, Date> = {};
+  const dayOnly = /^\d{4}-\d{2}-\d{2}$/;
+  if (from) bounds.$gte = new Date(dayOnly.test(from) ? `${from}T00:00:00+07:00` : from);
+  if (to) {
+    if (dayOnly.test(to)) bounds.$lt = new Date(new Date(`${to}T00:00:00+07:00`).getTime() + 86400000);
+    else bounds.$lte = new Date(to);
+  }
+  return bounds;
 }
 
 export async function getInterview(scope: RecruitmentScope, id: string, includeDeleted = false) {

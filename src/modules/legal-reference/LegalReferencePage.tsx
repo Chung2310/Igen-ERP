@@ -171,7 +171,7 @@ export default function LegalReferencePage() {
   return <main className="min-w-0 space-y-4 p-3 text-on-surface sm:p-5">
     <header className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant pb-3">
       <div className="min-w-0"><h1 data-typography="page-title" className="text-balance text-lg font-semibold text-on-surface">Văn bản pháp luật</h1><p className="mt-1 max-w-3xl text-pretty text-sm text-on-surface-variant">Quản lý bản gốc, lịch sử phiên bản, rà soát trích xuất và tra cứu theo ngày áp dụng.</p></div>
-      <div className="flex flex-wrap items-center gap-2"><ErpRefreshButton onClick={() => void loadData()} loading={loading} />{canManage && section === "documents" && <button type="button" onClick={() => setShowCreateForm((current) => !current)} className="inline-flex min-h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{showCreateForm ? "Đóng biểu mẫu" : "Thêm văn bản"}</button>}</div>
+      <div className="flex flex-wrap items-center gap-2"><ErpRefreshButton onClick={() => void loadData()} loading={loading} />{canManage && section === "documents" && <button type="button" onClick={() => setShowCreateForm((current) => !current)} className="inline-flex min-h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{showCreateForm ? "Đóng biểu mẫu" : health && !health.syncConfigured ? "Nạp tệp thủ công" : "Thêm văn bản"}</button>}</div>
     </header>
 
     <nav className="flex flex-wrap gap-2 border-b border-outline-variant pb-3" aria-label="Khu vực văn bản pháp luật">
@@ -193,7 +193,9 @@ export default function LegalReferencePage() {
     <aside className="rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-sm">
       <h2 className="text-balance font-semibold">Nguồn vbpl.vn</h2>
       <p role="status" className="mt-1 max-w-4xl text-pretty text-on-surface-variant">{!health?.syncConfigured
-        ? "Nguồn VBPL chưa được kết nối. Quản trị hệ thống cần thiết lập dịch vụ và phạm vi đồng bộ trước khi tải văn bản tự động."
+        ? canManage
+          ? "Nguồn VBPL chưa kết nối; bạn vẫn có thể nạp PDF, DOCX hoặc TXT thủ công. Chưa cần tài khoản VBPL để sử dụng kho."
+          : "Nguồn VBPL chưa kết nối. Người có quyền quản lý văn bản có thể nạp tệp gốc PDF, DOCX hoặc TXT thủ công."
         : health.sync?.status === "running"
           ? `Đang đồng bộ ${health.sync.documentsFound} văn bản qua ${health.sync.pagesScanned} trang. Có thể làm mới để xem tiến độ.`
           : health.sync?.status === "failed"

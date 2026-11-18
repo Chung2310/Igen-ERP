@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Download, ImagePlus, LoaderCircle, Play, RefreshCw, SkipBack, SkipForward, Sparkles, Trash2, WandSparkles } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import type { ArchitectureImageToolKind, ArchitectureProject, ArchitectureRenderAsset, ArchitectureSyncCategory, ArchitectureToolId } from "../../shared/architecture-assistant";
@@ -130,6 +130,33 @@ function imageForUpload(dataUrl: string): Promise<string> {
   });
 }
 
+async function convertRenderPdf(file: File, maxPages: number): Promise<File[]> {
+  const [pdfjsLib, pdfWorker] = await Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+  ]);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker.default;
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  if (pdf.numPages > maxPages) throw new Error(`PDF “${file.name}” có ${pdf.numPages} trang nhưng chỉ còn chỗ cho ${maxPages} ảnh nguồn.`);
+  const pages: File[] = [];
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Trình duyệt không thể chuyển trang PDF thành ảnh.");
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1.5 });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvas, canvasContext: context, viewport }).promise;
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error("Không thể chuyển trang PDF thành ảnh.")), "image/png"));
+    const baseName = file.name.replace(/\.pdf$/i, "");
+    pages.push(new File([blob], `${baseName}_page_${pageNumber}.png`, { type: "image/png" }));
+  }
+  canvas.width = 0;
+  canvas.height = 0;
+  return pages;
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -188,10 +215,17 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
 }) {
   const [prompt, setPrompt] = useState(page.prompt);
   const [style, setStyle] = useState(project.style);
-  const [aspectRatio, setAspectRatio] = useState("4:3");
+  const [aspectRatio, setAspectRatio] = useState(page.id === "render" ? "Tự động" : "4:3");
   const [outputResolution, setOutputResolution] = useState("1K");
   const [lighting, setLighting] = useState("Ánh sáng tự nhiên");
   const [renderMode, setRenderMode] = useState("Ngoại thất");
+  const [renderSourceImages, setRenderSourceImages] = useState<Array<{ url: string; name: string }>>([]);
+  const [renderDescription, setRenderDescription] = useState("");
+  const [renderImageStyle, setRenderImageStyle] = useState("Ảnh chụp thực tế công trình");
+  const [renderRoomType, setRenderRoomType] = useState("Phòng khách");
+  const [interiorStyle, setInteriorStyle] = useState("Hiện đại");
+  const [buildingStyle, setBuildingStyle] = useState("Căn hộ");
+  const [customCameraAngle, setCustomCameraAngle] = useState("");
   const [renderSpace, setRenderSpace] = useState("Căn hộ");
   const [cameraAngle, setCameraAngle] = useState("Phối cảnh trục đo (Isometric)");
   const [colorTone, setColorTone] = useState("Trung tính tự nhiên");
@@ -238,31 +272,56 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
     : "https://lh3.googleusercontent.com/aida-public/AB6AXuCfYR7ZKVhfzsJEttn28fnSSW-nrS_4k2teL_Ae1_1fir2kRQWnWx5tHFVKKAleOuYgd7m06RaiHhrouViuHC_wYhbkBKBVLVd5h_VH-Jr7ab1WCpw2D2t2Ct384LtSv4qrUaZR6W6PltWAJvEfeuSGoXdWOw_SdgCJsbVu4bM-szqtTOBnV86AWD31b3zY9BKJdWvzqDEFF0qtDMXroYj4rc8S029c86Kx4_8y1f4e5EKP68Nob83rb3SDP_uQ2jzM27XEGtt6pVPW";
   const previewSrc = latestRelatedAsset ? assetUrls[latestRelatedAsset.id] : reference || sourcePreview;
 
-  const chooseReference = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.currentTarget.files || []);
-    event.currentTarget.value = "";
+  const chooseReference = async (files: File[]) => {
     setError("");
     if (!files.length) return;
     setSyncCategories([]);
-    if (referenceImages.length + files.length > 10) { setError("Mỗi lần tạo có thể dùng tối đa 10 ảnh tham chiếu."); return; }
+    if (referenceImages.length + files.length + (page.id === "render" ? renderSourceImages.length : 0) > 10) { setError(page.id === "render" ? "Mỗi lần render có thể dùng tối đa 10 ảnh nguồn và tham khảo gộp lại." : "Mỗi lần tạo có thể dùng tối đa 10 ảnh tham chiếu."); return; }
     const invalid = files.find(file => !file.type.startsWith("image/") || file.size > 15 * 1024 * 1024);
     if (invalid) { setError(invalid.size > 15 * 1024 * 1024 ? `Ảnh “${invalid.name}” phải nhỏ hơn 15 MB.` : `Tệp “${invalid.name}” không phải ảnh.`); return; }
     try {
       const processed = await Promise.all(files.map(async file => ({ url: await imageForUpload(await readImage(file)), name: file.name })));
-      const allImages = [...referenceImages, ...processed];
+      const nextReferences = [...referenceImages, ...processed];
+      const allImages = [...(page.id === "render" ? renderSourceImages : []), ...nextReferences];
       if (allImages.some(image => image.url.length > 2_100_000) || allImages.reduce((total, image) => total + image.url.length, 0) > 21_000_000) {
         setError("Ảnh sau khi thu nhỏ vẫn vượt giới hạn tổng dung lượng. Hãy chọn ảnh có độ phân giải hoặc dung lượng thấp hơn.");
         return;
       }
-      setReferenceImages(allImages);
+      setReferenceImages(nextReferences);
       setScenePrompts(current => [...current, ...processed.map((_, index) => current.length === 0 && index === 0 ? "" : "Tạo góc nhìn mới trong bối cảnh đích, giữ nguyên nhận diện nhân vật.")]);
+    } catch (cause) { setError(friendlyError(cause)); }
+  };
+
+  const chooseRenderSource = async (files: File[]) => {
+    setError("");
+    if (!files.length) return;
+    if (renderSourceImages.length + files.length + referenceImages.length > 10) { setError("Mỗi lần render có thể dùng tối đa 10 ảnh nguồn và tham khảo gộp lại."); return; }
+    const invalid = files.find(file => !(file.type.startsWith("image/") || file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) || file.size > 15 * 1024 * 1024);
+    if (invalid) { setError(invalid.size > 15 * 1024 * 1024 ? `Ảnh “${invalid.name}” phải nhỏ hơn 15 MB.` : `Tệp “${invalid.name}” không phải ảnh.`); return; }
+    try {
+      const expandedFiles: File[] = [];
+      for (const file of files) {
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        if (isPdf) {
+          const remaining = 10 - renderSourceImages.length - referenceImages.length - expandedFiles.length;
+          expandedFiles.push(...await convertRenderPdf(file, remaining));
+        } else expandedFiles.push(file);
+      }
+      if (renderSourceImages.length + referenceImages.length + expandedFiles.length > 10) { setError("PDF có quá nhiều trang. Mỗi lần render dùng tối đa 10 ảnh nguồn và ảnh tham khảo."); return; }
+      const processed = await Promise.all(expandedFiles.map(async file => ({ url: await imageForUpload(await readImage(file)), name: file.name })));
+      const next = [...renderSourceImages, ...processed];
+      const combined = [...next, ...referenceImages];
+      if (combined.some(image => image.url.length > 2_100_000) || combined.reduce((total, image) => total + image.url.length, 0) > 21_000_000) {
+        setError("Ảnh đầu vào sau khi thu nhỏ vẫn vượt giới hạn tổng dung lượng."); return;
+      }
+      setRenderSourceImages(next);
     } catch (cause) { setError(friendlyError(cause)); }
   };
 
   const useAsReference = async (asset: ArchitectureRenderAsset) => {
     setError(""); setNotice("");
     setSyncCategories([]);
-    if (referenceImages.length >= 10) { setError("Mỗi lần tạo có thể dùng tối đa 10 ảnh tham chiếu."); return; }
+    if (referenceImages.length + (page.id === "render" ? renderSourceImages.length : 0) >= 10) { setError("Mỗi lần tạo có thể dùng tối đa 10 ảnh nguồn và tham khảo gộp lại."); return; }
     try {
       const imageUrl = assetUrls[asset.id];
       if (!imageUrl) throw new Error("Ảnh trong thư viện chưa tải xong.");
@@ -272,7 +331,8 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
       const file = new File([blob], asset.filename, { type: asset.mimeType });
       const url = await imageForUpload(await readImage(file));
       const next = [...referenceImages, { url, name: asset.filename }];
-      if (url.length > 2_100_000 || next.reduce((total, image) => total + image.url.length, 0) > 21_000_000) {
+      const combined = [...(page.id === "render" ? renderSourceImages : []), ...next];
+      if (url.length > 2_100_000 || combined.reduce((total, image) => total + image.url.length, 0) > 21_000_000) {
         throw new Error("Ảnh này vượt giới hạn dung lượng tham chiếu sau khi thu nhỏ.");
       }
       setReferenceImages(next);
@@ -281,10 +341,43 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
     } catch (cause) { setError(friendlyError(cause)); }
   };
 
+  const useAsRenderSource = async (asset: ArchitectureRenderAsset) => {
+    setError(""); setNotice("");
+    if (renderSourceImages.length + referenceImages.length >= 10) { setError("Mỗi lần render có thể dùng tối đa 10 ảnh nguồn và tham khảo gộp lại."); return; }
+    try {
+      const imageUrl = assetUrls[asset.id];
+      if (!imageUrl) throw new Error("Ảnh trong thư viện chưa tải xong.");
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error("Không đọc được ảnh trong thư viện.");
+      const blob = await response.blob();
+      const file = new File([blob], asset.filename, { type: asset.mimeType });
+      const image = { url: await imageForUpload(await readImage(file)), name: asset.filename };
+      const next = [...renderSourceImages, image];
+      const combined = [...next, ...referenceImages];
+      if (image.url.length > 2_100_000 || combined.reduce((total, item) => total + item.url.length, 0) > 21_000_000) {
+        throw new Error("Ảnh này vượt giới hạn dung lượng ảnh nguồn sau khi thu nhỏ.");
+      }
+      setRenderSourceImages(next);
+      setNotice(`Đã thêm “${asset.filename}” làm ảnh nguồn.`);
+    } catch (cause) { setError(friendlyError(cause)); }
+  };
+
+  const buildRenderPromptInput = () => [
+    `Chế độ: ${renderMode}.`,
+    `Kiểu thể hiện: ${renderImageStyle}.`,
+    `Loại công trình: ${buildingStyle}; không gian: ${renderSpace}; chức năng phòng: ${renderRoomType}; phong cách nội thất: ${interiorStyle}.`,
+    `Góc máy: ${customCameraAngle.trim() || cameraAngle}; ánh sáng: ${lighting}; tông màu: ${colorTone}.`,
+    renderContext.trim() ? `Bối cảnh: ${renderContext.trim()}.` : "",
+    renderDescription.trim() ? `Mô tả ý tưởng: ${renderDescription.trim()}.` : "",
+    renderSourceImages.length ? `Dùng ${renderSourceImages.length} ảnh nguồn để khóa bố cục và hình khối.` : "Tạo mới theo mô tả, không có ảnh nguồn.",
+    referenceImages.length ? `Dùng ${referenceImages.length} ảnh riêng để tham khảo phong cách, vật liệu và màu sắc.` : "",
+    prompt.trim() ? `Yêu cầu bổ sung: ${prompt.trim()}` : "",
+  ].filter(Boolean).join("\n").slice(0, 1200);
+
   const optimize = async () => {
     setOptimizing(true); setError(""); setNotice("");
     try {
-      const result = await api.optimizePrompt(project._id, { tool: page.id, prompt, style });
+      const result = await api.optimizePrompt(project._id, { tool: page.id, prompt: page.id === "render" ? buildRenderPromptInput() : prompt, style: page.id === "render" ? [style, renderImageStyle, interiorStyle].filter(Boolean).join("; ").slice(0, 100) : style, ...(page.id === "render" ? { referenceImages: [...renderSourceImages, ...referenceImages].map(image => image.url), sourceImageCount: renderSourceImages.length } : {}) });
       if (result.prompt) setPrompt(result.prompt);
       setNotice("Đã tối ưu prompt.");
     } catch (cause) { setError(friendlyError(cause)); }
@@ -308,7 +401,9 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
     if (!canUseAi) { setError("Tài khoản chưa được cấp quyền sử dụng AI kiến trúc."); return; }
     const generatedCharacter = page.id === "sync" && syncMode === "character" && characterSource === "prompt";
     const utilityNeedsPair = page.id === "utilities" && ["insert-building", "merge-interior"].includes(utilityTool);
+    const renderNeedsSource = page.id === "render" && ["Floorplan to 3D", "Floorplan to 3D Floorplan", "Masterplan to 3D"].includes(renderMode);
     if (page.reference === "required" && !reference && !generatedCharacter) { setError("Tải ảnh tham chiếu lên trước khi tạo."); return; }
+    if (renderNeedsSource && !renderSourceImages.length) { setError("Tải ảnh mặt bằng hoặc tổng thể khu đất lên trước khi tạo."); return; }
     if (utilityNeedsPair && referenceImages.length < 2) { setError("Tải ảnh bối cảnh thứ nhất và ảnh công trình hoặc nội thất tham chiếu thứ hai."); return; }
     if (page.id === "sync" && syncMode === "character" && characterSource === "upload" && referenceImages.length < 2) { setError("Tải một ảnh nhân vật và ít nhất một ảnh bối cảnh đích."); return; }
     if (generatedCharacter && (referenceImages.length < 1 || characterPrompt.trim().length < 3)) { setError("Nhập mô tả nhân vật và tải ít nhất một ảnh bối cảnh đích."); return; }
@@ -326,7 +421,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
             `Character description: ${characterPrompt.trim()}`,
             "Show the complete person from head to shoes, standing naturally, with clear face, realistic proportions, simple neutral background, soft even lighting, and no other people, text, logos, or watermark.",
           ].join("\n"),
-          aspectRatio,
+          aspectRatio: aspectRatio === "Tự động" ? "auto" : aspectRatio,
           resolution: outputResolution,
         });
         onProjectUpdated(characterResult.project);
@@ -335,6 +430,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
         characterImage = await blobToDataUrl(await api.asset(project._id, identityAsset.id));
       }
       const sceneImages = generatedCharacter ? referenceImages : referenceImages.slice(1);
+      const renderReferences = [...renderSourceImages, ...referenceImages].map(image => image.url);
       const jobs = syncCharacter
         ? sceneImages.map((scene, index) => ({
           references: [generatedCharacter ? characterImage : referenceImages[0].url, scene.url],
@@ -344,7 +440,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
           ? ["morning", "noon", "afternoon", "night"].map(mood => ({ references: referenceImages.slice(0, 1).map(image => image.url), suffix: `Lighting mood variation: ${mood}.` }))
           : page.id === "utilities"
             ? [{ references: referenceImages.slice(0, utilityNeedsPair ? 2 : 1).map(image => image.url), suffix: utilityInstructions[utilityTool] }]
-        : Array.from({ length: variantCount }, () => ({ references: referenceImages.map(image => image.url), suffix: "" }));
+        : Array.from({ length: variantCount }, () => ({ references: page.id === "render" ? renderReferences : referenceImages.map(image => image.url), suffix: "" }));
       let generatedCount = 0;
       let firstSceneError: unknown;
       for (const job of jobs) {
@@ -358,7 +454,12 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
             page.id === "edit" ? "Ảnh tham chiếu đầu tiên là ảnh nền cần chỉnh. Các ảnh tham chiếu tiếp theo chỉ dùng làm mẫu đối tượng, model hoặc vật liệu." : "",
             page.id === "staging" && referenceImages.length > 1 ? "Ảnh đầu tiên là phòng gốc; các ảnh tham chiếu tiếp theo chỉ làm mẫu phong cách hoặc vật liệu. Giữ nguyên bố cục phòng." : "",
             syncCharacter ? "Ảnh tham chiếu đầu tiên là ảnh nhận diện nhân vật, ảnh thứ hai là bối cảnh kiến trúc đích. Giữ nhất quán khuôn mặt, kiểu tóc, vóc dáng, trang phục và phụ kiện của nhân vật; đặt nhân vật đúng tỷ lệ, ánh sáng và phối cảnh trong bối cảnh đích, không thay đổi công trình." : "",
-            page.id === "render" ? `Loại phối cảnh: ${renderMode}; không gian: ${renderSpace}; góc máy: ${cameraAngle}; ánh sáng: ${lighting}; tông màu: ${colorTone}.` : "",
+            page.id === "render" ? `Loại phối cảnh: ${renderMode}; phong cách ảnh: ${renderImageStyle}; công trình: ${buildingStyle}; không gian: ${renderSpace}; loại phòng: ${renderRoomType}; phong cách nội thất: ${interiorStyle}; góc máy: ${customCameraAngle.trim() || cameraAngle}; ánh sáng: ${lighting}; tông màu: ${colorTone}.` : "",
+            page.id === "render" && renderDescription.trim() ? `Mô tả ý tưởng: ${renderDescription.trim()}.` : "",
+            page.id === "render" && renderSourceImages.length ? `Giữ bố cục và hình khối theo ${renderSourceImages.length} ảnh nguồn đầu tiên; ${referenceImages.length ? "các ảnh còn lại chỉ tham khảo phong cách, vật liệu và bảng màu" : "không tự ý thay đổi cấu trúc công trình"}.` : page.id === "render" ? "Tạo công trình theo mô tả bằng văn bản vì chưa có ảnh nguồn." : "",
+            page.id === "render" && renderMode === "Floorplan to 3D" ? `Dựng mặt bằng thành phối cảnh nội thất 3D, không biến thành ảnh bản vẽ tô màu. ${renderImageStyle === "Phối cảnh thực tế" ? `Chụp ở góc ${customCameraAngle.trim() || cameraAngle || "ngang tầm mắt"}; phân tích phòng, đồ đạc, cửa mở và hướng nhìn thực sự có trong bản vẽ, không tự thêm vật dụng đặc thù.` : renderImageStyle === "Phối cảnh 3D" ? "Dùng góc isometric/dollhouse với tường cắt lửng, bỏ trần để thấy rõ bố cục." : "Dùng hiệu ứng mô hình kiến trúc thu nhỏ tilt-shift."} Xóa chữ, nhãn phòng, kích thước, hatch, ký hiệu CAD, mũi tên, watermark và annotation. Bảo toàn tuyệt đối tỷ lệ chiều dài/rộng, tường, cột, cửa, cửa sổ, cầu thang, phòng, lối đi và vị trí đồ đạc; không vuông hóa, thêm, bớt hoặc dịch chuyển.` : "",
+            page.id === "render" && renderMode === "Floorplan to 3D Floorplan" ? `Dựng lại bản vẽ mặt bằng kỹ thuật thành mô hình 3D axonometric${cameraAngle === "Top-down View" ? " nhìn từ trên xuống" : " kiểu isometric"}, không tạo ảnh chụp nội thất. Nhận diện đúng công năng và vị trí từng phòng theo nhãn trên bản vẽ; giữ nguyên tuyệt đối tường, cửa, phòng, đồ đạc và tỷ lệ. Xóa chữ, số đo, hatch, nét CAD, mũi tên và khung tên. Mô hình cần có vật liệu, màu sàn, tường và đồ nội thất rõ nét, không dùng kiểu đất sét trắng đơn sắc; đồ vật phải nằm đúng phòng và không xuyên tường.` : "",
+            page.id === "render" && renderMode === "Masterplan to 3D" ? "Dựng tổng thể quy hoạch 3D từ masterplan. Giữ nguyên ranh giới khu đất, đường giao thông, khối công trình, cây xanh, mặt nước và quan hệ không gian theo ảnh nguồn." : "",
             page.id === "render" && renderMode === "VR 360" ? "Tạo ảnh panorama equirectangular 360 độ liền mạch, giữ đường chân trời cân bằng và không để lộ đường nối ở hai mép ảnh." : "",
             page.id === "render" && renderContext.trim() ? `Bối cảnh bổ sung: ${renderContext.trim()}.` : "",
             page.id === "canvas" ? `Create a ${canvasTool} architecture presentation board in ${presentationStyle} style. Preserve the subject building and site design exactly. Use the selected board type to choose appropriate plans, diagrams, materials and layout; do not invent factual labels or dimensions.` : "",
@@ -377,7 +478,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
             job.suffix,
             prompt,
             ].filter(Boolean).join(" "),
-            aspectRatio,
+            aspectRatio: aspectRatio === "Tự động" ? "auto" : aspectRatio,
             resolution: outputResolution,
             referenceImages: job.references,
           });
@@ -395,7 +496,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
 
   return <ArchitectureImageWorkspace
     page={page}
-    previewUrl={previewSrc}
+    previewUrl={page.id === "render" ? latestRelatedAsset ? assetUrls[latestRelatedAsset.id] : renderSourceImages[0]?.url || reference || sourcePreview : previewSrc}
     assets={assets.slice().reverse()}
     assetUrls={assetUrls}
     canUseAi={canUseAi}
@@ -413,6 +514,22 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
     setLighting={setLighting}
     renderMode={renderMode}
     setRenderMode={setRenderMode}
+    renderSourceImages={renderSourceImages}
+    chooseRenderSource={files => { void chooseRenderSource(files); }}
+    onUseAsRenderSource={asset => { void useAsRenderSource(asset); }}
+    removeRenderSource={index => setRenderSourceImages(current => current.filter((_, itemIndex) => itemIndex !== index))}
+    renderDescription={renderDescription}
+    setRenderDescription={setRenderDescription}
+    renderImageStyle={renderImageStyle}
+    setRenderImageStyle={setRenderImageStyle}
+    renderRoomType={renderRoomType}
+    setRenderRoomType={setRenderRoomType}
+    interiorStyle={interiorStyle}
+    setInteriorStyle={setInteriorStyle}
+    buildingStyle={buildingStyle}
+    setBuildingStyle={setBuildingStyle}
+    customCameraAngle={customCameraAngle}
+    setCustomCameraAngle={setCustomCameraAngle}
     renderSpace={renderSpace}
     setRenderSpace={setRenderSpace}
     cameraAngle={cameraAngle}
@@ -447,7 +564,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
     referenceName={referenceName}
     referenceImages={referenceImages}
     removeReference={index => { setReferenceImages(current => current.filter((_, itemIndex) => itemIndex !== index)); setScenePrompts(current => current.filter((_, itemIndex) => itemIndex !== index)); setSyncCategories([]); }}
-    chooseReference={event => { void chooseReference(event); }}
+    chooseReference={files => { void chooseReference(files); }}
     syncMode={syncMode}
     setSyncMode={setSyncMode}
     characterSource={characterSource}

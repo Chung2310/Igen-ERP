@@ -1,8 +1,132 @@
 [
   {
+    "id": "omni.contract.providers.list",
+    "title": "Tra cứu nhà cung cấp hợp đồng",
+    "description": "Tra cứu nhà cung cấp hợp đồng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "omni-inbox:read",
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:read",
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/omni-inbox/lead-contracts/providers",
+    "fields": [],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [
+      "name"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.ec14b8bc333c1211",
+    "title": "Tra cứu ảnh hợp đồng cần rà soát",
+    "description": "Tra cứu ảnh hợp đồng cần rà soát. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/omni-inbox/lead-contracts/review",
+    "fields": [],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [
+      "provider",
+      "platform",
+      "receivedAt",
+      "contractCode",
+      "issue"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.618343e099d57959",
+    "title": "Tra cứu ảnh hợp đồng của khách tiềm năng",
+    "description": "Tra cứu ảnh hợp đồng của khách tiềm năng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "omni-inbox:read",
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:read",
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/omni-inbox/leads/:id/contract-photos",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Khách tiềm năng",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "omni-inbox.leads.list"
+      }
+    ],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [
+      "provider",
+      "platform",
+      "receivedAt",
+      "contractCode",
+      "issue"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.06681c767355ea2d",
+    "title": "Tra cứu khách tiềm năng theo hội thoại",
+    "description": "Tra cứu khách tiềm năng theo hội thoại. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "omni-inbox:read",
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:read",
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/omni-inbox/leads/by-conversation",
+    "fields": [],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [
+      "customerName",
+      "company",
+      "phone",
+      "email",
+      "productOfChoice",
+      "lastInteraction",
+      "value",
+      "status"
+    ],
+    "adapter": "contract"
+  },
+  {
     "id": "api.get.d3b0949a7f9b099b",
-    "title": "Xem đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
-    "description": "Xem đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "title": "Tra cứu hóa đơn viễn thông của khách tiềm năng",
+    "description": "Tra cứu hóa đơn viễn thông của khách tiềm năng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
     "module": "omni-inbox",
     "permissions": [
       "omni-inbox:read",
@@ -19,17 +143,65 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Khách tiềm năng",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "omni-inbox.leads.list"
       }
     ],
     "link": "/omni-inbox",
     "confirmation": false,
-    "resultFields": [],
+    "resultFields": [
+      "invoiceNumber",
+      "platform",
+      "confirmedAt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.e30354974a18d912",
+    "title": "Xem khách tiềm năng",
+    "description": "Xem khách tiềm năng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "omni-inbox:read",
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:read",
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/omni-inbox/leads/:id",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Khách tiềm năng",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "omni-inbox.leads.list"
+      }
+    ],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [
+      "customerName",
+      "company",
+      "phone",
+      "email",
+      "productOfChoice",
+      "lastInteraction",
+      "value",
+      "status"
+    ],
     "adapter": "contract"
   },
   {
@@ -803,6 +975,58 @@
       "pendingCode",
       "pendingCodeExpiresAt",
       "botUsername"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.get.0e783589312053eb",
+    "title": "Xem cấu hình đọc hóa đơn và hợp đồng",
+    "description": "Xem cấu hình đọc hóa đơn và hợp đồng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "social-marketing",
+    "permissions": [
+      "omni-inbox:read",
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:read",
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/marketing-settings/telecom-invoices/:platform/:pageId",
+    "fields": [
+      {
+        "key": "path_platform",
+        "label": "Nền tảng",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "platform",
+        "options": [
+          "facebook",
+          "zalo"
+        ]
+      },
+      {
+        "key": "path_pageId",
+        "label": "Tài khoản nhận hóa đơn",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "pageId",
+        "reference": "omni-inbox.account.list",
+        "referenceValueKey": "pageId"
+      }
+    ],
+    "link": "/chien-dich-noi-dung",
+    "confirmation": false,
+    "resultFields": [
+      "enabled",
+      "mode",
+      "contractProvider"
     ],
     "adapter": "contract"
   },
@@ -9552,6 +9776,969 @@
       "accountCount"
     ],
     "adapter": "contract"
+  },
+  {
+    "id": "architect.project.list",
+    "title": "Tra cứu dự án kiến trúc",
+    "description": "Tra cứu dự án kiến trúc. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/architect-assistant/projects",
+    "fields": [],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": false,
+    "resultFields": [
+      "name",
+      "areaM2",
+      "floors",
+      "style",
+      "requirements",
+      "createdAt",
+      "updatedAt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "architect.project.create",
+    "title": "Tạo dự án kiến trúc",
+    "description": "Tạo dự án kiến trúc. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ],
+      [
+        "architect-assistant:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/architect-assistant/projects",
+    "fields": [
+      {
+        "key": "name",
+        "label": "Tên dự án",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "min": 2,
+        "max": 120,
+        "source": "body",
+        "apiKey": "name"
+      },
+      {
+        "key": "areaM2",
+        "label": "Diện tích m²",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 20,
+        "max": 20000,
+        "source": "body",
+        "apiKey": "areaM2"
+      },
+      {
+        "key": "floors",
+        "label": "Số tầng",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 1,
+        "max": 12,
+        "integer": true,
+        "source": "body",
+        "apiKey": "floors"
+      },
+      {
+        "key": "style",
+        "label": "Phong cách",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "min": 2,
+        "max": 100,
+        "source": "body",
+        "apiKey": "style"
+      },
+      {
+        "key": "requirements",
+        "label": "Yêu cầu thiết kế",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 3000,
+        "defaultValue": "",
+        "source": "body",
+        "apiKey": "requirements"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": true,
+    "resultFields": [
+      "name",
+      "areaM2",
+      "floors",
+      "style",
+      "requirements",
+      "createdAt",
+      "updatedAt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "architect.project.detail",
+    "title": "Xem dự án kiến trúc",
+    "description": "Xem dự án kiến trúc. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/architect-assistant/projects/:projectId",
+    "fields": [
+      {
+        "key": "path_projectId",
+        "label": "Tên dự án kiến trúc",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "projectId",
+        "reference": "architect.project.list"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": false,
+    "resultFields": [
+      "name",
+      "areaM2",
+      "floors",
+      "style",
+      "requirements",
+      "createdAt",
+      "updatedAt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "architect.project.update",
+    "title": "Cập nhật thông tin dự án kiến trúc",
+    "description": "Cập nhật thông tin dự án kiến trúc. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ],
+      [
+        "architect-assistant:manage"
+      ]
+    ],
+    "method": "PATCH",
+    "path": "/architect-assistant/projects/:projectId",
+    "fields": [
+      {
+        "key": "path_projectId",
+        "label": "Tên dự án kiến trúc",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "projectId",
+        "reference": "architect.project.list"
+      },
+      {
+        "key": "name",
+        "label": "Tên dự án",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "min": 2,
+        "max": 120,
+        "source": "body",
+        "apiKey": "name"
+      },
+      {
+        "key": "areaM2",
+        "label": "Diện tích m²",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 20,
+        "max": 20000,
+        "source": "body",
+        "apiKey": "areaM2"
+      },
+      {
+        "key": "floors",
+        "label": "Số tầng",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "max": 12,
+        "integer": true,
+        "source": "body",
+        "apiKey": "floors"
+      },
+      {
+        "key": "style",
+        "label": "Phong cách",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "min": 2,
+        "max": 100,
+        "source": "body",
+        "apiKey": "style"
+      },
+      {
+        "key": "requirements",
+        "label": "Yêu cầu thiết kế",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 3000,
+        "source": "body",
+        "apiKey": "requirements"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": true,
+    "resultFields": [
+      "name",
+      "areaM2",
+      "floors",
+      "style",
+      "requirements",
+      "createdAt",
+      "updatedAt"
+    ],
+    "adapter": "contract",
+    "systemBodyFields": [
+      "revision"
+    ]
+  },
+  {
+    "id": "architect.project.delete",
+    "title": "Xóa dự án kiến trúc",
+    "description": "Xóa dự án kiến trúc. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ],
+      [
+        "architect-assistant:manage"
+      ]
+    ],
+    "method": "DELETE",
+    "path": "/architect-assistant/projects/:projectId",
+    "fields": [
+      {
+        "key": "path_projectId",
+        "label": "Tên dự án kiến trúc",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "projectId",
+        "reference": "architect.project.list"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": true,
+    "resultFields": [
+      "success"
+    ],
+    "adapter": "contract",
+    "systemBodyFields": [
+      "revision"
+    ]
+  },
+  {
+    "id": "architect.project.generate-plan",
+    "title": "Tạo mặt bằng kiến trúc bằng AI",
+    "description": "Tạo mặt bằng cho dự án đã chọn. Có sử dụng dịch vụ AI tính phí; kiểm tra yêu cầu và xác nhận trước khi tạo.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ],
+      [
+        "architect-assistant:manage"
+      ],
+      [
+        "architect-ai:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/architect-assistant/projects/:projectId/generate-plan",
+    "fields": [
+      {
+        "key": "path_projectId",
+        "label": "Tên dự án kiến trúc",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "projectId",
+        "reference": "architect.project.list"
+      },
+      {
+        "key": "instructions",
+        "label": "Yêu cầu mặt bằng",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 1200,
+        "defaultValue": "",
+        "source": "body",
+        "apiKey": "instructions"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": true,
+    "resultFields": [
+      "name",
+      "areaM2",
+      "floors",
+      "style",
+      "requirements",
+      "createdAt",
+      "updatedAt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "architect.project.optimize-prompt",
+    "title": "Tối ưu yêu cầu thiết kế bằng AI",
+    "description": "Tối ưu yêu cầu thiết kế bằng AI. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ],
+      [
+        "architect-assistant:manage"
+      ],
+      [
+        "architect-ai:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/architect-assistant/projects/:projectId/optimize-prompt",
+    "fields": [
+      {
+        "key": "path_projectId",
+        "label": "Tên dự án kiến trúc",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "projectId",
+        "reference": "architect.project.list"
+      },
+      {
+        "key": "tool",
+        "label": "Loại thiết kế",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "options": [
+          "render",
+          "edit",
+          "staging",
+          "visual",
+          "texture",
+          "human",
+          "enhance",
+          "upscale",
+          "sync",
+          "canvas",
+          "utilities",
+          "video"
+        ],
+        "max": 300,
+        "source": "body",
+        "apiKey": "tool"
+      },
+      {
+        "key": "prompt",
+        "label": "Nội dung yêu cầu",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "min": 3,
+        "max": 1200,
+        "source": "body",
+        "apiKey": "prompt"
+      },
+      {
+        "key": "style",
+        "label": "Phong cách",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 100,
+        "defaultValue": "",
+        "source": "body",
+        "apiKey": "style"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": true,
+    "resultFields": [
+      "prompt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.delete.b122644286c00552",
+    "title": "Xóa architect trợ lý dự án tài sản",
+    "description": "Xóa architect trợ lý dự án tài sản. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "architect-assistant",
+    "permissions": [
+      "architect-assistant:read"
+    ],
+    "permissionGroups": [
+      [
+        "architect-assistant:read"
+      ],
+      [
+        "architect-assistant:manage"
+      ]
+    ],
+    "method": "DELETE",
+    "path": "/architect-assistant/projects/:projectId/assets/:assetId",
+    "fields": [
+      {
+        "key": "path_projectId",
+        "label": "Mã dự án",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "projectId"
+      },
+      {
+        "key": "path_assetId",
+        "label": "Mã assetId",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "assetId"
+      }
+    ],
+    "link": "/tro-ly-kien-truc",
+    "confirmation": true,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.repository.status",
+    "title": "Xem tình trạng kho văn bản",
+    "description": "Xem tình trạng kho văn bản. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:read"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/legal-reference/health",
+    "fields": [],
+    "link": "/van-ban-phap-luat",
+    "confirmation": false,
+    "resultFields": [
+      "documents",
+      "chunks",
+      "pendingReviews",
+      "latestDownloadAt",
+      "syncConfigured"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.repository.sync",
+    "title": "Đồng bộ kho văn bản pháp lý",
+    "description": "Bắt đầu đồng bộ từ nguồn đã được quản trị viên cấu hình. Chấp nhận yêu cầu chưa có nghĩa đồng bộ đã hoàn tất; tra cứu tình trạng kho để kiểm tra tiến độ.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:manage"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/legal-reference/sync",
+    "fields": [
+      {
+        "key": "pageLimit",
+        "label": "Số trang nguồn tối đa",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "max": 100,
+        "integer": true,
+        "source": "body",
+        "apiKey": "pageLimit"
+      }
+    ],
+    "link": "/van-ban-phap-luat",
+    "confirmation": true,
+    "resultFields": [
+      "status",
+      "message"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.document.list",
+    "title": "Tra cứu danh mục văn bản pháp lý",
+    "description": "Tra cứu danh mục văn bản pháp lý. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:read"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/legal-reference/documents",
+    "fields": [
+      {
+        "key": "query_q",
+        "label": "Tên hoặc số ký hiệu văn bản",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 300,
+        "source": "query",
+        "apiKey": "q"
+      },
+      {
+        "key": "query_jurisdiction",
+        "label": "Phạm vi",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "central",
+          "ministry",
+          "local"
+        ],
+        "max": 300,
+        "source": "query",
+        "apiKey": "jurisdiction"
+      },
+      {
+        "key": "query_status",
+        "label": "Hiệu lực",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "effective",
+          "partially_effective",
+          "upcoming",
+          "expired",
+          "repealed",
+          "unknown"
+        ],
+        "max": 300,
+        "source": "query",
+        "apiKey": "status"
+      },
+      {
+        "key": "query_field",
+        "label": "Lĩnh vực",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 80,
+        "source": "query",
+        "apiKey": "field"
+      },
+      {
+        "key": "query_authority",
+        "label": "Cơ quan ban hành",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 100,
+        "source": "query",
+        "apiKey": "authority"
+      }
+    ],
+    "link": "/van-ban-phap-luat",
+    "confirmation": false,
+    "resultFields": [
+      "symbol",
+      "title",
+      "issuingAuthority",
+      "jurisdiction",
+      "province",
+      "field",
+      "issueDate",
+      "effectiveDate",
+      "expiryDate",
+      "status",
+      "sourceUrl",
+      "reviewRequired",
+      "chunksCount"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.review.list",
+    "title": "Tra cứu văn bản chờ rà soát",
+    "description": "Tra cứu văn bản chờ rà soát. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:read"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/legal-reference/review-queue",
+    "fields": [],
+    "link": "/van-ban-phap-luat",
+    "confirmation": false,
+    "resultFields": [
+      "title",
+      "symbol",
+      "taskType",
+      "reason",
+      "createdAt"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.review.content.update",
+    "title": "Sửa nội dung văn bản đang rà soát",
+    "description": "Sửa nội dung văn bản đang rà soát. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:manage"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/legal-reference/review-queue/:id/content",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Văn bản cần rà soát",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "legal.review.list"
+      },
+      {
+        "key": "text",
+        "label": "Nội dung văn bản đã sửa",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "max": 4000,
+        "source": "body",
+        "apiKey": "text"
+      }
+    ],
+    "link": "/van-ban-phap-luat",
+    "confirmation": true,
+    "resultFields": [
+      "status",
+      "chunksCount"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.review.decision",
+    "title": "Duyệt hoặc từ chối văn bản rà soát",
+    "description": "Duyệt hoặc từ chối văn bản rà soát. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:manage"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/legal-reference/review-queue/:id/decision",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Văn bản cần rà soát",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id",
+        "reference": "legal.review.list"
+      },
+      {
+        "key": "decision",
+        "label": "Quyết định",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "options": [
+          "approve",
+          "reject"
+        ],
+        "max": 300,
+        "source": "body",
+        "apiKey": "decision"
+      },
+      {
+        "key": "effectiveFrom",
+        "label": "Ngày bắt đầu áp dụng",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "effectiveFrom"
+      }
+    ],
+    "link": "/van-ban-phap-luat",
+    "confirmation": true,
+    "resultFields": [
+      "status"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "legal.document.search",
+    "title": "Tìm nội dung trong kho văn bản pháp lý",
+    "description": "Tìm nội dung trong kho văn bản pháp lý. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:read"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:read"
+      ]
+    ],
+    "method": "POST",
+    "path": "/legal-reference/search",
+    "fields": [
+      {
+        "key": "query",
+        "label": "Nội dung cần tra cứu",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "max": 500,
+        "source": "body",
+        "apiKey": "query"
+      },
+      {
+        "key": "asOf",
+        "label": "Ngày áp dụng",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "asOf"
+      },
+      {
+        "key": "jurisdiction",
+        "label": "Phạm vi",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "central",
+          "ministry",
+          "local"
+        ],
+        "max": 300,
+        "source": "body",
+        "apiKey": "jurisdiction"
+      },
+      {
+        "key": "field",
+        "label": "Lĩnh vực",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 80,
+        "source": "body",
+        "apiKey": "field"
+      },
+      {
+        "key": "authority",
+        "label": "Cơ quan ban hành",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 100,
+        "source": "body",
+        "apiKey": "authority"
+      }
+    ],
+    "link": "/van-ban-phap-luat",
+    "confirmation": false,
+    "resultFields": [
+      "symbol",
+      "title",
+      "issuingAuthority",
+      "field",
+      "status",
+      "chapter",
+      "article",
+      "clause",
+      "point",
+      "text",
+      "sourceUrl",
+      "versionNumber"
+    ],
+    "adapter": "contract",
+    "readOnly": true
+  },
+  {
+    "id": "legal.document.answer",
+    "title": "Giải đáp từ kho văn bản pháp lý",
+    "description": "Giải đáp từ kho văn bản pháp lý. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "legal-reference",
+    "permissions": [
+      "legal-reference:read"
+    ],
+    "permissionGroups": [
+      [
+        "legal-reference:read"
+      ]
+    ],
+    "method": "POST",
+    "path": "/legal-reference/answer",
+    "fields": [
+      {
+        "key": "query",
+        "label": "Nội dung cần tra cứu",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "max": 500,
+        "source": "body",
+        "apiKey": "query"
+      },
+      {
+        "key": "asOf",
+        "label": "Ngày áp dụng",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "asOf"
+      },
+      {
+        "key": "jurisdiction",
+        "label": "Phạm vi",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "central",
+          "ministry",
+          "local"
+        ],
+        "max": 300,
+        "source": "body",
+        "apiKey": "jurisdiction"
+      },
+      {
+        "key": "field",
+        "label": "Lĩnh vực",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 80,
+        "source": "body",
+        "apiKey": "field"
+      },
+      {
+        "key": "authority",
+        "label": "Cơ quan ban hành",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 100,
+        "source": "body",
+        "apiKey": "authority"
+      }
+    ],
+    "link": "/van-ban-phap-luat",
+    "confirmation": false,
+    "resultFields": [
+      "query",
+      "asOf",
+      "answer",
+      "sources"
+    ],
+    "resultChildFields": {
+      "sources": [
+        "citation",
+        "symbol",
+        "title",
+        "issuingAuthority",
+        "field",
+        "status",
+        "article",
+        "clause",
+        "sourceUrl",
+        "versionNumber"
+      ]
+    },
+    "adapter": "contract",
+    "readOnly": true
   },
   {
     "id": "resource.google-drive.list",
@@ -18799,9 +19986,131 @@
     "adapter": "contract"
   },
   {
+    "id": "recruitment.report",
+    "title": "Báo cáo tuyển dụng",
+    "description": "Báo cáo chỉ đọc theo chi nhánh được chọn. Hỗ trợ tổng quan, lịch/kết quả phỏng vấn theo khoảng ngày, số ứng viên được tuyển hoặc onboard, mức độ ứng tuyển theo vị trí/phòng ban, vị trí còn thiếu người và hạn nhận hồ sơ. Chỉ hiển thị dữ liệu trả về từ phân hệ tuyển dụng.",
+    "module": "hr",
+    "permissions": [
+      "recruitment:read"
+    ],
+    "permissionGroups": [
+      [
+        "recruitment:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/recruitment/reports/assistant",
+    "fields": [
+      {
+        "key": "branchId",
+        "label": "Chi nhánh áp dụng",
+        "type": "reference",
+        "systemRequired": true,
+        "required": true,
+        "source": "query",
+        "apiKey": "branchId",
+        "reference": "branch.list"
+      },
+      {
+        "key": "query_reportType",
+        "label": "Loại báo cáo",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "options": [
+          "overview",
+          "interviews",
+          "interview-count",
+          "interviewers",
+          "interview-results",
+          "hires",
+          "onboarded",
+          "job-applications",
+          "staffing-gaps",
+          "job-deadlines",
+          "applicants-by-department"
+        ],
+        "source": "query",
+        "apiKey": "reportType"
+      },
+      {
+        "key": "query_from",
+        "label": "Từ ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "from"
+      },
+      {
+        "key": "query_to",
+        "label": "Đến ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "to"
+      },
+      {
+        "key": "query_search",
+        "label": "Từ khóa",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "search"
+      },
+      {
+        "key": "query_rank",
+        "label": "Hạng",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "most",
+          "least"
+        ],
+        "source": "query",
+        "apiKey": "rank"
+      }
+    ],
+    "link": "/nhan-su",
+    "confirmation": false,
+    "resultFields": [
+      "reportType",
+      "summary",
+      "total",
+      "items"
+    ],
+    "resultChildFields": {
+      "items": [
+        "name",
+        "title",
+        "code",
+        "department",
+        "applicantName",
+        "jobTitle",
+        "applicationDeadline",
+        "scheduledStart",
+        "scheduledEnd",
+        "interviewers",
+        "format",
+        "status",
+        "result",
+        "count",
+        "headcount",
+        "gap",
+        "outcome",
+        "occurredAt",
+        "expired"
+      ]
+    },
+    "adapter": "contract"
+  },
+  {
     "id": "recruitment.job.create",
     "title": "Tạo vị trí tuyển dụng",
-    "description": "Tạo vị trí tuyển dụng ở trạng thái nháp hoặc mở tuyển. Mã và tiêu đề là bắt buộc. Nếu mở tuyển ngay, cần mô tả, yêu cầu, số lượng, hình thức làm việc, địa điểm và hạn nhận hồ sơ trong tương lai. Tài liệu JD được quản lý qua chức năng tải tệp riêng.",
+    "description": "Tạo vị trí tuyển dụng ở trạng thái nháp hoặc mở tuyển. Tiêu đề là bắt buộc; nếu không nêu mã, hệ thống tự tạo mã duy nhất. Nếu mở tuyển ngay, cần mô tả, yêu cầu, số lượng, hình thức làm việc, địa điểm và hạn nhận hồ sơ trong tương lai. Tài liệu JD được quản lý qua chức năng tải tệp riêng.",
     "module": "hr",
     "permissions": [
       "recruitment:manage"
@@ -18828,8 +20137,8 @@
         "key": "code",
         "label": "Mã",
         "type": "text",
-        "systemRequired": true,
-        "required": true,
+        "systemRequired": false,
+        "required": false,
         "max": 80,
         "source": "body",
         "apiKey": "code"
@@ -20397,6 +21706,17 @@
         "apiKey": "applicantId"
       },
       {
+        "key": "query_interviewerId",
+        "label": "Người phỏng vấn",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "employee.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "interviewerId"
+      },
+      {
         "key": "query_status",
         "label": "Trạng thái",
         "type": "text",
@@ -20694,7 +22014,7 @@
   {
     "id": "recruitment.interview.update",
     "title": "Cập nhật lịch phỏng vấn",
-    "description": "Chỉ cập nhật các trường được nêu; trường khác giữ nguyên. Ứng viên và vị trí phải thuộc cùng hồ sơ tuyển dụng; kết thúc phải sau khi bắt đầu. Phiên bản hiện tại được lấy tự động; cần xác nhận.",
+    "description": "Chỉ cập nhật các trường được nêu; trường khác giữ nguyên. Có thể đổi ngày hoặc giờ và giữ nguyên phần lịch chưa được yêu cầu thay đổi. Ứng viên và vị trí phải thuộc cùng hồ sơ tuyển dụng; kết thúc phải sau khi bắt đầu. Phiên bản hiện tại được lấy tự động; cần xác nhận.",
     "module": "hr",
     "permissions": [
       "recruitment:manage"
@@ -20850,6 +22170,24 @@
         "required": false,
         "source": "body",
         "apiKey": "notes"
+      },
+      {
+        "key": "requestedStartDate",
+        "label": "Ngày phỏng vấn",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "requestedStartDate"
+      },
+      {
+        "key": "requestedStartTime",
+        "label": "Giờ phỏng vấn",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "requestedStartTime"
       }
     ],
     "link": "/nhan-su",
@@ -53938,7 +55276,15 @@
       "fullName",
       "status",
       "laborType",
-      "registrationDate"
+      "registrationDate",
+      "phone",
+      "email",
+      "birthday",
+      "address",
+      "nationality",
+      "workPermitNumber",
+      "workPermitExpiry",
+      "note"
     ],
     "adapter": "contract"
   },

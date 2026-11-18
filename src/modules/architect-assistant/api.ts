@@ -39,7 +39,7 @@ export function architectAssistantApi(branchId: string) {
       (await request(`/projects/${encodeURIComponent(projectId)}/analyze-sync`, {
         method: "POST", body: JSON.stringify(input),
       })).json() as Promise<{ categories: ArchitectureSyncCategory[] }>,
-    optimizePrompt: async (projectId: string, input: { tool: string; prompt: string; style: string }) =>
+    optimizePrompt: async (projectId: string, input: { tool: string; prompt: string; style: string; referenceImages?: string[]; sourceImageCount?: number }) =>
       (await request(`/projects/${encodeURIComponent(projectId)}/optimize-prompt`, {
         method: "POST", body: JSON.stringify(input),
       })).json() as Promise<{ prompt: string }>,

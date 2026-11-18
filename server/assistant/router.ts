@@ -8,6 +8,7 @@ import { AssistantError } from "./policy";
 import { assistantPromptTemplateCreateSchema, assistantPromptTemplateFavoriteSchema, createAssistantPromptTemplate, listAssistantPromptTemplates, setAssistantPromptTemplateFavorite } from "./prompt-library";
 import { listWorkflows, saveWorkflow } from "./workflows";
 import { clearConversationMemory, conversationMemory, conversationState, deleteConversation, listConversations, processTurn, saveConversationMemory } from "./service";
+import { submitAssistantJob, assistantJobStatus, cancelAssistantJob, assertNoActiveAssistantJob, cancelConversationAssistantJob } from "./jobs";
 
 import { interpretWorkflowText } from "./workflow-text";
 import { getSettings, saveSettings } from "./settings";
@@ -254,7 +255,21 @@ const acceptanceLinesInput = Joi.object({
   }).unknown(false)).required(),
 }).unknown(false);
 const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
-assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(req => processTurn(req, req.body)));
+assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(async req => {
+  if (process.env.ASSISTANT_BACKGROUND_ENABLED === "true") {
+    const cancellation = String(req.body.text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi,"d").toLowerCase().trim();
+    if (req.body.mode !== "qa" && /^(?:dung|huy)(?:\s+(?:lai|tac vu|yeu cau))?[.!?]*$/.test(cancellation)) {
+      const stopped=await cancelConversationAssistantJob(req,req.body.conversationId);
+      if (stopped) return stopped;
+    }
+    if (req.body.text && req.body.mode !== "qa" && !req.body.attachment && !req.body.conversationUpload) return submitAssistantJob(req, req.body);
+    await assertNoActiveAssistantJob(req, req.body.conversationId);
+  }
+  return processTurn(req, req.body);
+}));
+assistantRouter.post("/jobs", validateRequest({ body: assistantTurnBody }), wrap(req => submitAssistantJob(req, req.body)));
+assistantRouter.get("/jobs/:requestId", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => assistantJobStatus(req, req.params.requestId)));
+assistantRouter.post("/jobs/:requestId/cancel", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => cancelAssistantJob(req, req.params.requestId)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
   const controller = new AbortController();
   const abortOnClose = () => { if (!res.writableEnded) controller.abort(); };

@@ -5,6 +5,10 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
+    "assistant:manual-guides": "tsx server/assistant/scripts/build-manual-guides.ts",
+    "dev:assistant-worker": "tsx watch server/workers/assistant.worker.ts",
+    "build:assistant-worker": "esbuild server/workers/assistant.worker.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/assistant-worker.cjs",
+    "start:assistant-worker": "node dist-server/assistant-worker.cjs",
     "dev:marketing-worker": "tsx watch server/workers/marketing-suite.worker.ts",
     "build:marketing-worker": "esbuild server/workers/marketing-suite.worker.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/marketing-worker.cjs",
     "start:marketing-worker": "node dist-server/marketing-worker.cjs",

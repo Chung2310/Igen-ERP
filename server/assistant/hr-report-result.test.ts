@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ASSISTANT_OPERATIONS } from "./catalog";
 import { projectRecords } from "./executor";
-import { formatAssistantResult } from "./result-format";
+import { formatAssistantResult, formatFriendlyAssistantResult } from "./result-format";
+import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 
 function operation(id: string) {
   const found = ASSISTANT_OPERATIONS.find((candidate) => candidate.id === id);
@@ -10,6 +11,39 @@ function operation(id: string) {
 }
 
 describe("HR assistant report results", () => {
+  it("keeps every employee with leave in the monthly summary, not just the maximum", () => {
+    const op=operation("timekeeping.records.monthly.leave-summary");
+    const records=projectRecords(op,{data:{year:2026,month:11,records:[{employeeName:"An",leaveDays:3},{employeeName:"Bình",leaveDays:1},{employeeName:"Chi",leaveDays:0}]}},{} as any,{});
+    const reply=formatAssistantResult(op,records[0]);
+    expect(reply).toContain("An");expect(reply).toContain("Bình");expect(reply).not.toContain("Chi");expect(reply).not.toContain("nhiều nhất");
+    expect(parseAssistantResultTable(reply)?.rows).toHaveLength(2);
+  });
+  it.each([{}, { startDate: "", endDate: " ", status: "" }])("marks unavailable calendar values explicitly instead of leaving empty cells", missing => {
+    const calendar = operation("hr.calendar.events.list");
+    const records = projectRecords(calendar, { data: [{ title: "Giới thiệu dịch vụ", type: "event", ...missing }] }, {} as any, {});
+    const table = parseAssistantResultTable(formatFriendlyAssistantResult(calendar, records));
+    expect(table?.rows[0].values).toMatchObject({ "Sự kiện": "Giới thiệu dịch vụ", "Bắt đầu": "Chưa có thông tin", "Kết thúc": "Chưa có thông tin", "Trạng thái": "Chưa có thông tin" });
+  });
+
+  it("preserves the employee count aggregate returned by the API", () => {
+    const countOperation = operation("employee.count");
+    const records = projectRecords(countOperation, {
+      status: "success",
+      data: { data: { count: 12, scope: "company" } },
+    }, { user: { companyCode: "ACME" } } as any, {});
+
+    expect(records[0]).toEqual({ count: 12, scope: "company" });
+    expect(formatFriendlyAssistantResult(countOperation, records)).toContain("Có 12 nhân sự trong toàn công ty, bao gồm các chi nhánh");
+  });
+
+  it("does not report zero when the employee count aggregate is missing", () => {
+    const countOperation = operation("employee.count");
+    const records = projectRecords(countOperation, { status: "success", data: {} }, { user: { companyCode: "ACME" } } as any, {});
+
+    expect(formatFriendlyAssistantResult(countOperation, records)).toContain("chưa đọc được tổng số nhân sự");
+    expect(formatFriendlyAssistantResult(countOperation, records)).not.toContain("Có 0 nhân sự");
+  });
+
   it("renders a monthly attendance report as a Vietnamese table with fractional workdays", () => {
     const reply = formatAssistantResult(operation("timekeeping.records.monthly.under-threshold"), {
       status: "success",
@@ -20,6 +54,21 @@ describe("HR assistant report results", () => {
     expect(reply).toContain("Nguyễn An");
     expect(reply).toContain("Nghỉ phép");
     expect(reply).not.toContain("employeeId");
+  });
+
+  it("shows missing timekeeping records when no recorded absence or leave exists", () => {
+    const reply = formatAssistantResult(operation("timekeeping.records.monthly.most-absent"), {
+      status: "success",
+      data: { year: 2026, month: 10, records: [
+        { employeeName: "Nguyễn An", workedDays: 0, absentDays: 0, leaveDays: 0, daysOff: 0, lateDays: 0, leftEarlyDays: 0, unrecordedDays: 4 },
+        { employeeName: "Trần Bình", workedDays: 0, absentDays: 0, leaveDays: 0, daysOff: 0, lateDays: 0, leftEarlyDays: 0, unrecordedDays: 2 },
+      ] },
+    });
+
+    expect(reply).toContain("Chưa thể xác nhận đây là ngày nghỉ");
+    expect(reply).toContain("Nguyễn An");
+    expect(reply).toContain("Ngày thiếu chấm công");
+    expect(reply).not.toContain("Trần Bình");
   });
 
   it("filters annual leave results using the requested balance rule", () => {

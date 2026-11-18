@@ -48,6 +48,7 @@ vi.mock("./settings", async () => {
   return { getSettings: vi.fn(async () => ({ ...defaultAssistantSettings, memoryEnabled: false, autoMemoryEnabled: false, responseRules: "" })) };
 });
 vi.mock("./interpreter", () => ({ interpretRequest: state.interpret, isEmployeeDetailsIntent: () => false }));
+vi.mock("./semantic-interpreter", () => ({ interpretRequest: state.interpret }));
 vi.mock("./reply-rules", () => ({ applyAssistantResponseRules: async (reply: unknown) => reply }));
 vi.mock("./documents", () => ({ answerAssistantConversation: vi.fn() }));
 vi.mock("./session-memory", () => ({ SESSION_MEMORY_LIMIT: 2400, summarizeAssistantSession: async () => null }));
@@ -124,19 +125,30 @@ it("creates a worker, asks for missing optional details, and updates that same w
 
   const agreed = await turn({ text: "Có" });
   expect(agreed.status).toBe("collecting");
-  state.interpret.mockResolvedValueOnce({ actionId: "worker.update", values: { email: "leminh@example.com" }, intentType: "workflow" });
-  const updatePreview = await turn({ text: "Thêm email leminh@example.com cho lao động vừa tạo" });
+  state.interpret.mockResolvedValueOnce({ actionId: "worker.update", values: { email: "leminh@example.com", address: "Hà Nội" }, intentType: "workflow" });
+  const updatePreview = await turn({ text: "Thêm email leminh@example.com, địa chỉ Hà Nội cho lao động vừa tạo" });
   expect(updatePreview.status).toBe("confirmation");
   expect(JSON.stringify(updatePreview)).not.toContain(workerId);
 
   const updated = await turn({ decision: { id: updatePreview.action!.id, confirmed: true } });
   expect(updated.status).toBe("completed");
   expect(savedWorker).toMatchObject({ fullName: "Lê Minh", email: "leminh@example.com" });
-  expect(parseAssistantResultTable(updated.reply)?.rows[0]?.values).toMatchObject({ "Họ và tên": "Lê Minh" });
+  expect(parseAssistantResultTable(updated.reply)?.rows[0]?.values).toMatchObject({ "Họ và tên": "Lê Minh", Email: "leminh@example.com", "Địa chỉ": "Hà Nội" });
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === "/api/v1/worker-management/workers" && init?.method === "POST")).toHaveLength(1);
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/worker-management/workers/${workerId}` && init?.method === "PATCH")).toHaveLength(1);
 });
 afterEach(() => vi.unstubAllGlobals());
+it.each([
+  ["Đổi địa điểm Dự án lắp đặt thành Hà Nội", {location: "Hà Nội"}],
+  ["Dời ngày kết thúc Dự án lắp đặt sang 30/12/2026", {endDate: "2026-12-30"}],
+])("does not require unrelated workers or weekdays on partial project updates: %s", async (text, values) => {
+  state.interpret.mockResolvedValueOnce({actionId:"worker.project.update",values:{path_id:"Dự án lắp đặt",...values},intentType:"workflow"});
+  const preview=await turn({text});
+  expect(preview.status,preview.reply).toBe("confirmation");
+  expect(preview.referenceSelections).toBeUndefined();
+  expect(state.session.pending.resolved).not.toHaveProperty("workerIds");
+  expect(state.session.pending.resolved).not.toHaveProperty("daysOfWeek");
+});
 
 it("lets the user choose a project and a worker in chat before confirming the assignment", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "worker.project.worker.add", values: {}, intentType: "workflow", newRequest: true });

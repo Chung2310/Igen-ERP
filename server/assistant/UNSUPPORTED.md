@@ -1,39 +1,30 @@
 # Route chưa nối với trợ lý
 
-Tự sinh từ `coverage.generated.json`: 36 route đang chờ rà soát hợp đồng và 400 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
+Tự sinh từ `coverage.generated.json`: 24 route đang chờ rà soát hợp đồng và 404 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
 
 ## Route đang chờ rà soát
 
-### Hạ tầng, xác thực hoặc chưa xác định phân hệ (36)
+### Cần hợp đồng dữ liệu ghi trước khi kết nối (10)
 
-- `GET /architect-assistant/projects` — `server/modules/architect-assistant/router.ts:299`
-- `POST /architect-assistant/projects` — `server/modules/architect-assistant/router.ts:304`
-- `GET /architect-assistant/projects/:projectId` — `server/modules/architect-assistant/router.ts:315`
-- `PATCH /architect-assistant/projects/:projectId` — `server/modules/architect-assistant/router.ts:320`
-- `DELETE /architect-assistant/projects/:projectId` — `server/modules/architect-assistant/router.ts:332`
-- `POST /architect-assistant/projects/:projectId/generate-plan` — `server/modules/architect-assistant/router.ts:341`
+- `POST /omni-inbox/lead-contracts/reconcile` — `server/modules/marketing-suite/message/router/lead-contract.router.ts:41`
+- `POST /omni-inbox/lead-contracts/review/:id` — `server/modules/marketing-suite/message/router/lead-contract.router.ts:63`
+- `PUT /marketing-settings/telecom-invoices/:platform/:pageId` — `server/modules/marketing-suite/shared/settings.router.ts:113`
+- `PUT /marketing-settings/telecom-invoices/:pageId` — `server/modules/marketing-suite/shared/settings.router.ts:113`
 - `POST /architect-assistant/projects/:projectId/render` — `server/modules/architect-assistant/router.ts:377`
 - `POST /architect-assistant/projects/:projectId/generate-image` — `server/modules/architect-assistant/router.ts:406`
 - `POST /architect-assistant/projects/:projectId/analyze-sync` — `server/modules/architect-assistant/router.ts:435`
-- `POST /architect-assistant/projects/:projectId/optimize-prompt` — `server/modules/architect-assistant/router.ts:481`
 - `POST /architect-assistant/projects/:projectId/videos` — `server/modules/architect-assistant/router.ts:498`
-- `GET /architect-assistant/projects/:projectId/videos/:jobId` — `server/modules/architect-assistant/router.ts:522`
-- `GET /architect-assistant/projects/:projectId/assets/:assetId` — `server/modules/architect-assistant/router.ts:553`
-- `DELETE /architect-assistant/projects/:projectId/assets/:assetId` — `server/modules/architect-assistant/router.ts:562`
-- `GET /legal-reference/health` — `server/modules/legal-reference/router.ts:83`
-- `POST /legal-reference/sync` — `server/modules/legal-reference/router.ts:97`
-- `GET /legal-reference/documents` — `server/modules/legal-reference/router.ts:108`
 - `POST /legal-reference/documents` — `server/modules/legal-reference/router.ts:153`
 - `POST /legal-reference/documents/:id/revisions` — `server/modules/legal-reference/router.ts:168`
-- `GET /legal-reference/documents/:id/original` — `server/modules/legal-reference/router.ts:178`
-- `GET /legal-reference/review-queue` — `server/modules/legal-reference/router.ts:192`
-- `POST /legal-reference/review-queue/:id/content` — `server/modules/legal-reference/router.ts:216`
-- `POST /legal-reference/review-queue/:id/decision` — `server/modules/legal-reference/router.ts:225`
-- `POST /legal-reference/search` — `server/modules/legal-reference/router.ts:284`
-- `POST /legal-reference/answer` — `server/modules/legal-reference/router.ts:295`
-- `GET /auth/users/count` — `server/router/auth.router.ts:284`
-- `POST /chatbot/assistant/projects/:projectId/files` — `server/assistant/router.ts:72`
-- `GET /chatbot/assistant/projects/:projectId/files/:fileId` — `server/assistant/router.ts:77`
+
+### Hạ tầng, xác thực hoặc chưa xác định phân hệ (14)
+
+- `GET /auth/users/count` — `server/router/auth.router.ts:286`
+- `POST /chatbot/assistant/projects/:projectId/files` — `server/assistant/router.ts:73`
+- `GET /chatbot/assistant/projects/:projectId/files/:fileId` — `server/assistant/router.ts:78`
+- `POST /chatbot/assistant/jobs` — `server/assistant/router.ts:270`
+- `GET /chatbot/assistant/jobs/:requestId` — `server/assistant/router.ts:271`
+- `POST /chatbot/assistant/jobs/:requestId/cancel` — `server/assistant/router.ts:272`
 - `GET /chatbot/agents` — `server/router/agent.router.ts:33`
 - `POST /chatbot/agents` — `server/router/agent.router.ts:34`
 - `PUT /chatbot/agents/:agentId` — `server/router/agent.router.ts:38`
@@ -47,24 +38,25 @@ Tự sinh từ `coverage.generated.json`: 36 route đang chờ rà soát hợp �
 
 Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint tiếp tục hoạt động trong ứng dụng theo quyền hiện có.
 
-- `DELETE /omni-inbox/leads/:id` — API xóa khách tiềm năng là xóa cứng; chưa có khôi phục hoặc kiểm tra liên kết nên trợ lý chưa được phép gọi. — `server/modules/marketing-suite/shared/data.router.ts:527`
-- `GET /omni-inbox/accounts/:id` — API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:543`
-- `GET /marketing-campaigns/accounts/:id` — API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:543`
-- `GET /company-knowledge/accounts/:id` — API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:543`
-- `PATCH /omni-inbox/ai-reply-logs/:id` — Trùng cập nhật feedback với PATCH /gemini/ai-reply-logs/:id/feedback đã có quyền quản lý, nhãn kết quả an toàn và hỗ trợ ghi chú; giữ một workflow. — `server/modules/marketing-suite/shared/data.router.ts:562`
-- `POST /social-integrations/:id/reveal-secret` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:571`
-- `GET /social-integrations` — Danh sách tích hợp trả hồ sơ rộng; chỉ có thao tác tra cứu tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:585`
-- `GET /social-integrations/:id` — Chi tiết tích hợp có thể chứa thông tin xác thực và cấu hình rộng; chat chỉ dùng danh sách tài khoản đã lọc trường và có quyền đọc tường minh. — `server/modules/marketing-suite/shared/data.router.ts:600`
-- `POST /marketing-contents` — API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái. — `server/modules/marketing-suite/shared/data.router.ts:605`
-- `POST /social-integrations` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:605`
-- `PATCH /marketing-contents/:id` — API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái. — `server/modules/marketing-suite/shared/data.router.ts:614`
-- `PATCH /social-integrations/:id` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:614`
-- `DELETE /marketing-contents/:id` — API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái. — `server/modules/marketing-suite/shared/data.router.ts:648`
-- `DELETE /social-integrations/:id` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:648`
+- `DELETE /omni-inbox/leads/:id` — API xóa khách tiềm năng là xóa cứng; chưa có khôi phục hoặc kiểm tra liên kết nên trợ lý chưa được phép gọi. — `server/modules/marketing-suite/shared/data.router.ts:555`
+- `GET /omni-inbox/accounts/:id` — API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:572`
+- `GET /marketing-campaigns/accounts/:id` — API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:572`
+- `GET /company-knowledge/accounts/:id` — API chi tiết tài khoản trả thêm metadata nội bộ; trợ lý chỉ dùng danh sách tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:572`
+- `PATCH /omni-inbox/ai-reply-logs/:id` — Trùng cập nhật feedback với PATCH /gemini/ai-reply-logs/:id/feedback đã có quyền quản lý, nhãn kết quả an toàn và hỗ trợ ghi chú; giữ một workflow. — `server/modules/marketing-suite/shared/data.router.ts:591`
+- `POST /social-integrations/:id/reveal-secret` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:600`
+- `GET /social-integrations` — Danh sách tích hợp trả hồ sơ rộng; chỉ có thao tác tra cứu tài khoản đã duyệt với trường đầu ra giới hạn. — `server/modules/marketing-suite/shared/data.router.ts:614`
+- `GET /social-integrations/:id` — Chi tiết tích hợp có thể chứa thông tin xác thực và cấu hình rộng; chat chỉ dùng danh sách tài khoản đã lọc trường và có quyền đọc tường minh. — `server/modules/marketing-suite/shared/data.router.ts:629`
+- `POST /marketing-contents` — API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái. — `server/modules/marketing-suite/shared/data.router.ts:634`
+- `POST /social-integrations` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:634`
+- `PATCH /marketing-contents/:id` — API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái. — `server/modules/marketing-suite/shared/data.router.ts:643`
+- `PATCH /social-integrations/:id` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:643`
+- `DELETE /marketing-contents/:id` — API ghi nội dung marketing nhận payload tổng quát và có thể đổi lịch đăng hoặc liên kết chiến dịch; dùng các route bản nháp trợ lý có giới hạn theo trường và trạng thái. — `server/modules/marketing-suite/shared/data.router.ts:677`
+- `DELETE /social-integrations/:id` — API ghi tích hợp có thể thay đổi thông tin xác thực và kết nối mạng xã hội; cần luồng quản lý bí mật, xác minh tài khoản và quyền riêng. — `server/modules/marketing-suite/shared/data.router.ts:677`
 - `POST /facebook/oauth-session` — Tạo phiên OAuth Facebook để mở luồng chuyển hướng trên trình duyệt; chat không thể giữ state/CSRF hoặc hoàn tất bước chấp thuận của Facebook. — `server/modules/marketing-suite/shared/facebook-oauth.router.ts:20`
 - `GET /facebook/oauth-callback` — Callback OAuth nhận state/cookie một lần và tạo hoặc cập nhật thông tin xác thực tích hợp; route còn được đăng ký ở nhiều router. Chỉ chạy qua luồng kết nối Facebook trong giao diện. — `server/modules/marketing-suite/shared/facebook-oauth.router.ts:34`
 - `POST /zalo/oauth-session` — Kết nối Zalo cần chuyển người dùng sang trang Zalo, giữ state chống giả mạo và xử lý callback OAuth dùng một lần trong trình duyệt; chat không thể hoàn tất hoặc xác minh an toàn luồng đó. — `server/modules/marketing-suite/shared/zalo-oauth.router.ts:43`
 - `GET /zalo/oauth-callback` — Callback OAuth /zalo/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này. — `server/modules/marketing-suite/shared/zalo-oauth.router.ts:86`
+- `GET /marketing-settings/telecom-invoices/:pageId` — Alias cấu hình Facebook; dùng thao tác cấu hình hóa đơn có tham số nền tảng để tránh chọn nhầm tài khoản. — `server/modules/marketing-suite/shared/settings.router.ts:112`
 - `GET /marketing-subscription/history` — Lịch sử gói AI có dữ liệu giao dịch và gia hạn cấp công ty nhưng route không khai báo quyền nghiệp vụ rõ ràng; chưa nối với trợ lý cho đến khi API giới hạn trường trả về và khai báo quyền đọc phù hợp. — `server/modules/marketing-suite/shared/subscription.router.ts:9`
 - `GET /webhooks/tiktok` — Webhook xác minh /webhooks/tiktok nhận challenge của nhà cung cấp; đây là callback máy chủ, không phải truy vấn dữ liệu tài khoản. — `server/modules/marketing-suite/router.ts:47`
 - `POST /webhooks/tiktok` — Webhook /webhooks/tiktok nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/modules/marketing-suite/router.ts:48`
@@ -193,6 +185,9 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /healthcare/visits` — Trợ lý dùng POST /healthcare/visits/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:106`
 - `GET /healthcare/appointments` — Trợ lý dùng POST /healthcare/appointments/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:136`
 - `GET /healthcare/care` — Trợ lý dùng POST /healthcare/care/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:156`
+- `GET /architect-assistant/projects/:projectId/videos/:jobId` — Đọc tiến độ video có thể gọi nhà cung cấp, tải tài sản và cập nhật dự án; cần adapter tác vụ có đối soát, không đăng ký như công cụ chỉ đọc. — `server/modules/architect-assistant/router.ts:522`
+- `GET /architect-assistant/projects/:projectId/assets/:assetId` — Endpoint truyền byte tài sản; cần nối vào đầu ra tệp của thao tác tạo ảnh/video, không phân tích như JSON. — `server/modules/architect-assistant/router.ts:553`
+- `GET /legal-reference/documents/:id/original` — Endpoint truyền byte văn bản gốc; cần adapter tải tệp có kiểm soát kiểu và kích thước, không phân tích như JSON. — `server/modules/legal-reference/router.ts:178`
 - `POST /webhook/payment` — Webhook thanh toán là callback máy chủ từ nhà cung cấp và bị đăng ký ở nhiều router; không phải thao tác người dùng, không gọi từ hội thoại. — `server/router/webhook.router.ts:9`
 - `POST /webhook/sepay/retail-payment` — Webhook /webhook/sepay/retail-payment nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/router/webhook.router.ts:10`
 - `GET /health` — Health check hạ tầng chỉ phục vụ giám sát dịch vụ, không phải thao tác dữ liệu tài khoản. — `server/router/index.ts:69`
@@ -217,17 +212,17 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `DELETE /auth/telegram-link` — Liên kết/gỡ liên kết Telegram cần xác nhận challenge trên ứng dụng Telegram để tránh gắn nhầm tài khoản. — `server/router/auth.router.ts:171`
 - `POST /auth/change-password` — Đổi mật khẩu cần mật khẩu hiện tại/kiểm tra xác thực; không thu thập bí mật đăng nhập trong chat. — `server/router/auth.router.ts:187`
 - `POST /auth/register-company` — Đăng ký tenant doanh nghiệp mới; đây là luồng onboarding công khai có xác thực và chống lạm dụng riêng. — `server/router/auth.router.ts:220`
-- `GET /auth/users/:id/activity` — Đọc nhật ký hoạt động cá nhân theo ID người dùng; đây là dữ liệu kiểm toán cần quyền quản trị và lọc phạm vi rõ ràng. — `server/router/auth.router.ts:285`
-- `GET /auth/companies` — Liệt kê tenant toàn hệ thống; dữ liệu chỉ dành cho superadmin, ngoài phạm vi doanh nghiệp hiện tại. — `server/router/auth.router.ts:305`
-- `GET /auth/current-ip` — Trả thông tin IP kết nối để phục vụ chẩn đoán bảo mật; không phải dữ liệu nghiệp vụ cần trợ lý thao tác. — `server/router/auth.router.ts:306`
-- `POST /auth/branches/:id/owner` — Gán chủ sở hữu chi nhánh làm thay đổi quyền quản trị và người chịu trách nhiệm; cần luồng bàn giao chi nhánh chuyên biệt. — `server/router/auth.router.ts:309`
-- `PATCH /auth/companies/:id` — Đọc hoặc sửa cấu hình tenant/Google Drive bằng mã công ty; có thể vượt phạm vi công ty đang đăng nhập. — `server/router/auth.router.ts:333`
-- `GET /auth/companies/drive/oauth-callback` — Callback OAuth /auth/companies/drive/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này. — `server/router/auth.router.ts:346`
-- `GET /auth/companies/:code/drive` — Đọc thông tin Drive theo mã tenant; route có thể truy cập kết nối công ty khác và không giới hạn trong tenant đang đăng nhập. — `server/router/auth.router.ts:351`
-- `GET /auth/companies/:code/drive/oauth-url` — Khởi tạo OAuth /auth/companies/:code/drive/oauth-url cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn. — `server/router/auth.router.ts:358`
-- `POST /auth/companies/:code/drive/disconnect` — Ngắt kết nối Drive theo mã tenant, có thể làm gián đoạn tệp của công ty khác; chỉ quản trị tenant trong giao diện cấu hình được phép. — `server/router/auth.router.ts:366`
-- `PATCH /auth/users/bulk` — Cập nhật nhiều tài khoản/role trong một lần; chưa có preview ảnh hưởng và có thể làm thay đổi quyền truy cập hàng loạt. — `server/router/auth.router.ts:437`
-- `DELETE /auth/users/:id` — Route xóa tài khoản bị đăng ký ở nhiều router, nhận ID cơ sở dữ liệu và chưa có danh sách nhân sự cùng preview tác động để chọn theo tên. Không gọi từ chat. — `server/router/auth.router.ts:443`
+- `GET /auth/users/:id/activity` — Đọc nhật ký hoạt động cá nhân theo ID người dùng; đây là dữ liệu kiểm toán cần quyền quản trị và lọc phạm vi rõ ràng. — `server/router/auth.router.ts:287`
+- `GET /auth/companies` — Liệt kê tenant toàn hệ thống; dữ liệu chỉ dành cho superadmin, ngoài phạm vi doanh nghiệp hiện tại. — `server/router/auth.router.ts:307`
+- `GET /auth/current-ip` — Trả thông tin IP kết nối để phục vụ chẩn đoán bảo mật; không phải dữ liệu nghiệp vụ cần trợ lý thao tác. — `server/router/auth.router.ts:308`
+- `POST /auth/branches/:id/owner` — Gán chủ sở hữu chi nhánh làm thay đổi quyền quản trị và người chịu trách nhiệm; cần luồng bàn giao chi nhánh chuyên biệt. — `server/router/auth.router.ts:311`
+- `PATCH /auth/companies/:id` — Đọc hoặc sửa cấu hình tenant/Google Drive bằng mã công ty; có thể vượt phạm vi công ty đang đăng nhập. — `server/router/auth.router.ts:335`
+- `GET /auth/companies/drive/oauth-callback` — Callback OAuth /auth/companies/drive/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này. — `server/router/auth.router.ts:348`
+- `GET /auth/companies/:code/drive` — Đọc thông tin Drive theo mã tenant; route có thể truy cập kết nối công ty khác và không giới hạn trong tenant đang đăng nhập. — `server/router/auth.router.ts:353`
+- `GET /auth/companies/:code/drive/oauth-url` — Khởi tạo OAuth /auth/companies/:code/drive/oauth-url cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn. — `server/router/auth.router.ts:360`
+- `POST /auth/companies/:code/drive/disconnect` — Ngắt kết nối Drive theo mã tenant, có thể làm gián đoạn tệp của công ty khác; chỉ quản trị tenant trong giao diện cấu hình được phép. — `server/router/auth.router.ts:368`
+- `PATCH /auth/users/bulk` — Cập nhật nhiều tài khoản/role trong một lần; chưa có preview ảnh hưởng và có thể làm thay đổi quyền truy cập hàng loạt. — `server/router/auth.router.ts:439`
+- `DELETE /auth/users/:id` — Route xóa tài khoản bị đăng ký ở nhiều router, nhận ID cơ sở dữ liệu và chưa có danh sách nhân sự cùng preview tác động để chọn theo tên. Không gọi từ chat. — `server/router/auth.router.ts:445`
 - `POST /super-admin/auth/enrollment/start` — Thiết lập/đổi trạng thái xác thực superadmin (TOTP, recovery, phiên hoặc logout); có thể khóa tài khoản quản trị toàn hệ thống. — `server/router/super-admin.router.ts:29`
 - `POST /super-admin/auth/enrollment/confirm` — Thiết lập/đổi trạng thái xác thực superadmin (TOTP, recovery, phiên hoặc logout); có thể khóa tài khoản quản trị toàn hệ thống. — `server/router/super-admin.router.ts:41`
 - `POST /super-admin/auth/totp/verify` — Thiết lập/đổi trạng thái xác thực superadmin (TOTP, recovery, phiên hoặc logout); có thể khóa tài khoản quản trị toàn hệ thống. — `server/router/super-admin.router.ts:55`
@@ -296,14 +291,14 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `PUT /company-email/celebration` — Thay toàn bộ cấu hình và nhận uploadTokens; workflow không thể bảo toàn các mục bị lược và hoàn tất tệp. Dùng PATCH chỉnh sửa từng trường an toàn qua trợ lý. — `server/router/company-email.router.ts:63`
 - `PUT /company-payment/vietqr` — Cấu hình VietQR chứa thông tin tài khoản nhận tiền và route PUT bị đăng ký lặp trong cùng router; chỉ cập nhật trên màn hình cấu hình thanh toán có trường bảo vệ. — `server/router/company-payment.router.ts:20`
 - `GET /company-payment/vietqr` — Route VietQR trùng đường dẫn với cấu hình thanh toán doanh nghiệp; không thể xác định handler đọc nào được router gọi và dữ liệu ngân hàng cần che. — `server/router/company-payment.router.ts:22`
-- `GET /recruitment/jobs/:jobId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua GET /recruitment/jobs/:jobId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:46`
-- `POST /recruitment/jobs/:jobId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua POST /recruitment/jobs/:jobId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:47`
-- `GET /recruitment/applicants/:applicantId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua GET /recruitment/applicants/:applicantId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:48`
-- `POST /recruitment/applicants/:applicantId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua POST /recruitment/applicants/:applicantId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:49`
-- `GET /recruitment/attachments/:id/download` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua GET /recruitment/attachments/:id/download; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:50`
-- `DELETE /recruitment/attachments/:id` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua DELETE /recruitment/attachments/:id; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:51`
-- `POST /recruitment/files/public` — Quản lý tệp tuyển dụng qua token công khai; cần kiểm tra quyền của người giữ token và liên kết tệp cụ thể trong giao diện. — `server/router/recruitment.router.ts:52`
-- `DELETE /recruitment/files/public` — Quản lý tệp tuyển dụng qua token công khai; cần kiểm tra quyền của người giữ token và liên kết tệp cụ thể trong giao diện. — `server/router/recruitment.router.ts:53`
+- `GET /recruitment/jobs/:jobId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua GET /recruitment/jobs/:jobId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:58`
+- `POST /recruitment/jobs/:jobId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua POST /recruitment/jobs/:jobId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:59`
+- `GET /recruitment/applicants/:applicantId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua GET /recruitment/applicants/:applicantId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:60`
+- `POST /recruitment/applicants/:applicantId/attachment` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua POST /recruitment/applicants/:applicantId/attachment; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:61`
+- `GET /recruitment/attachments/:id/download` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua GET /recruitment/attachments/:id/download; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:62`
+- `DELETE /recruitment/attachments/:id` — Tải lên/tải xuống tệp đính kèm tuyển dụng qua DELETE /recruitment/attachments/:id; cần dữ liệu nhị phân và kiểm tra tệp trong giao diện. — `server/router/recruitment.router.ts:63`
+- `POST /recruitment/files/public` — Quản lý tệp tuyển dụng qua token công khai; cần kiểm tra quyền của người giữ token và liên kết tệp cụ thể trong giao diện. — `server/router/recruitment.router.ts:64`
+- `DELETE /recruitment/files/public` — Quản lý tệp tuyển dụng qua token công khai; cần kiểm tra quyền của người giữ token và liên kết tệp cụ thể trong giao diện. — `server/router/recruitment.router.ts:65`
 - `GET /analytics/export` — Xuất báo cáo phân tích thành tệp tải xuống; chat không có luồng chọn bộ lọc/xuất và phân phối tệp. — `server/router/analytics.router.ts:102`
 - `POST /media/upload` — Route POST /media/upload cần truyền/nhận byte tệp; chat không thể chọn tệp cục bộ hoặc trả nội dung tải xuống an toàn. — `server/router/media.router.ts:78`
 - `POST /media/sign-upload` — Route POST /media/sign-upload cần truyền/nhận byte tệp; chat không thể chọn tệp cục bộ hoặc trả nội dung tải xuống an toàn. — `server/router/media.router.ts:87`
@@ -314,44 +309,44 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /push/public-key` — Đăng ký thông báo đẩy cần quyền notification và subscription của trình duyệt/thiết bị hiện tại. — `server/router/push.router.ts:40`
 - `POST /push/subscribe` — Đăng ký thông báo đẩy cần quyền notification và subscription của trình duyệt/thiết bị hiện tại. — `server/router/push.router.ts:43`
 - `POST /push/unsubscribe` — Đăng ký thông báo đẩy cần quyền notification và subscription của trình duyệt/thiết bị hiện tại. — `server/router/push.router.ts:52`
-- `GET /chatbot/assistant/conversations/:id/files/:fileId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:37`
-- `GET /chatbot/assistant/projects` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:63`
-- `PUT /chatbot/assistant/projects` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:64`
-- `GET /chatbot/assistant/prompt-templates` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:91`
-- `POST /chatbot/assistant/prompt-templates` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:95`
-- `PATCH /chatbot/assistant/prompt-templates/:templateId/favorite` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:99`
-- `GET /chatbot/assistant/studio/slides` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:111`
-- `GET /chatbot/assistant/studio/slides/:deckId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:115`
-- `PATCH /chatbot/assistant/studio/slides/:deckId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:119`
-- `POST /chatbot/assistant/studio/slides` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:123`
-- `POST /chatbot/assistant/studio/mindmaps` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:127`
-- `POST /chatbot/assistant/speech/document` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:131`
-- `POST /chatbot/assistant/studio/transcriptions` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:135`
-- `GET /chatbot/assistant/studio/transcriptions` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:140`
-- `POST /chatbot/assistant/studio/images/optimize-prompt` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:144`
-- `GET /chatbot/assistant/studio/charts` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:145`
-- `POST /chatbot/assistant/studio/charts` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:149`
-- `GET /chatbot/assistant/studio/charts/:chartId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:154`
-- `POST /chatbot/assistant/studio/charts/:chartId/edit` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:158`
-- `DELETE /chatbot/assistant/studio/charts/:chartId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:162`
-- `POST /chatbot/assistant/studio/images/edit` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:166`
-- `POST /chatbot/assistant/studio/images` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:175`
-- `GET /chatbot/assistant/memory` — Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện. — `server/assistant/router.ts:182`
-- `POST /chatbot/assistant/memory` — Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat. — `server/assistant/router.ts:183`
-- `PATCH /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:184`
-- `DELETE /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:185`
-- `GET /chatbot/assistant/workflows` — API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty. — `server/assistant/router.ts:186`
-- `POST /chatbot/assistant/workflows/:actionId/interpret` — API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ. — `server/assistant/router.ts:187`
-- `PATCH /chatbot/assistant/workflows/:actionId` — API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat. — `server/assistant/router.ts:188`
-- `POST /chatbot/assistant/workflows/:actionId/reset` — API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ. — `server/assistant/router.ts:189`
-- `GET /chatbot/assistant/conversations` — API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ. — `server/assistant/router.ts:190`
-- `GET /chatbot/assistant/conversations/:conversationId/memory` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:191`
-- `PATCH /chatbot/assistant/conversations/:conversationId/memory` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:192`
-- `DELETE /chatbot/assistant/conversations/:conversationId/memory` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:193`
-- `DELETE /chatbot/assistant/conversations/:conversationId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:194`
-- `GET /chatbot/assistant/conversations/:conversationId` — API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại. — `server/assistant/router.ts:195`
-- `POST /chatbot/assistant/turns` — API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại. — `server/assistant/router.ts:257`
-- `POST /chatbot/assistant/speech` — Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện. — `server/assistant/router.ts:258`
+- `GET /chatbot/assistant/conversations/:id/files/:fileId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:38`
+- `GET /chatbot/assistant/projects` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:64`
+- `PUT /chatbot/assistant/projects` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:65`
+- `GET /chatbot/assistant/prompt-templates` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:92`
+- `POST /chatbot/assistant/prompt-templates` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:96`
+- `PATCH /chatbot/assistant/prompt-templates/:templateId/favorite` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:100`
+- `GET /chatbot/assistant/studio/slides` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:112`
+- `GET /chatbot/assistant/studio/slides/:deckId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:116`
+- `PATCH /chatbot/assistant/studio/slides/:deckId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:120`
+- `POST /chatbot/assistant/studio/slides` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:124`
+- `POST /chatbot/assistant/studio/mindmaps` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:128`
+- `POST /chatbot/assistant/speech/document` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:132`
+- `POST /chatbot/assistant/studio/transcriptions` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:136`
+- `GET /chatbot/assistant/studio/transcriptions` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:141`
+- `POST /chatbot/assistant/studio/images/optimize-prompt` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:145`
+- `GET /chatbot/assistant/studio/charts` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:146`
+- `POST /chatbot/assistant/studio/charts` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:150`
+- `GET /chatbot/assistant/studio/charts/:chartId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:155`
+- `POST /chatbot/assistant/studio/charts/:chartId/edit` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:159`
+- `DELETE /chatbot/assistant/studio/charts/:chartId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:163`
+- `POST /chatbot/assistant/studio/images/edit` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:167`
+- `POST /chatbot/assistant/studio/images` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:176`
+- `GET /chatbot/assistant/memory` — Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện. — `server/assistant/router.ts:183`
+- `POST /chatbot/assistant/memory` — Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat. — `server/assistant/router.ts:184`
+- `PATCH /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:185`
+- `DELETE /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:186`
+- `GET /chatbot/assistant/workflows` — API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty. — `server/assistant/router.ts:187`
+- `POST /chatbot/assistant/workflows/:actionId/interpret` — API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ. — `server/assistant/router.ts:188`
+- `PATCH /chatbot/assistant/workflows/:actionId` — API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat. — `server/assistant/router.ts:189`
+- `POST /chatbot/assistant/workflows/:actionId/reset` — API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ. — `server/assistant/router.ts:190`
+- `GET /chatbot/assistant/conversations` — API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ. — `server/assistant/router.ts:191`
+- `GET /chatbot/assistant/conversations/:conversationId/memory` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:192`
+- `PATCH /chatbot/assistant/conversations/:conversationId/memory` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:193`
+- `DELETE /chatbot/assistant/conversations/:conversationId/memory` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:194`
+- `DELETE /chatbot/assistant/conversations/:conversationId` — Tính năng studio, dự án và ghi nhớ riêng của trợ lý được quản lý trong giao diện trợ lý; endpoint có phiên hội thoại, tệp hoặc đầu ra đa phương tiện, không phải thao tác trên hồ sơ nghiệp vụ của doanh nghiệp. — `server/assistant/router.ts:195`
+- `GET /chatbot/assistant/conversations/:conversationId` — API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại. — `server/assistant/router.ts:196`
+- `POST /chatbot/assistant/turns` — API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại. — `server/assistant/router.ts:258`
+- `POST /chatbot/assistant/speech` — Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện. — `server/assistant/router.ts:273`
 - `POST /chatbot/chat` — Endpoint nhận payload hội thoại tổng quát có thể chứa vai trò system; route bị đăng ký ở nhiều router. Chat nghiệp vụ dùng POST /chatbot/assistant/turns với workflow và quyền đã kiểm soát. — `server/router/chatbot.router.ts:27`
 - `GET /auth/teacher/:id` — Đọc hồ sơ giáo viên theo ID qua route công khai, không có quyền nghiệp vụ hoặc bộ lọc phạm vi tài khoản. — `server/modules/student-management/routes/auth.routes.ts:15`
 - `GET /auth/users/:id/bank-settings` — Route tra theo ID người dùng, không có quyền nghiệp vụ tường minh và trả thông tin tài khoản ngân hàng của người khác; không mở cho hội thoại. — `server/modules/student-management/routes/auth.routes.ts:17`
@@ -448,9 +443,6 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /worker-management/qr-attendance/session/:sessionId/status` — Đọc token/trạng thái phiên QR tại /worker-management/qr-attendance/session/:sessionId/status; phiên có thời hạn và cần được hiển thị/quét trên thiết bị thật. — `server/modules/worker-management/routes/worker-qr-attendance.routes.ts:55`
 - `POST /worker-management/qr-attendance/session/:sessionId/close` — Mở/đóng phiên điểm danh QR tại /worker-management/qr-attendance/session/:sessionId/close; cần quản lý vòng đời phiên trên màn hình và xác nhận thiết bị tại chỗ. — `server/modules/worker-management/routes/worker-qr-attendance.routes.ts:62`
 
-## Khai báo route động chưa phân giải
+## Route được sinh động
 
-Các khai báo này chưa có đường dẫn API ổn định trong inventory; cần rà soát router để tách thành route cụ thể trước khi đánh giá quyền và hợp đồng.
-
-- `server\modules\marketing-suite\shared\settings.router.ts:98`
-- `server\modules\marketing-suite\shared\settings.router.ts:99`
+Các route khai báo bằng vòng lặp và helper đã được mở rộng thành method/path cụ thể trong inventory; không còn khai báo route động chưa phân giải.

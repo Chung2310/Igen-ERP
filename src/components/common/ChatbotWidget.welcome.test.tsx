@@ -221,6 +221,23 @@ describe("ChatbotWidget welcome", () => {
     expect(await screen.findByText("Đã tìm thấy nhân sự.")).toBeTruthy();
   });
 
+  it.each(["failed", "unsupported", "uncertain"] as const)("restores a manual fallback link for %s without presenting it as a result", async (status) => {
+    const scope = `manual-fallback-${status}`;
+    localStorage.setItem(`igen_erp_chatbot_mode:${scope}:company`, "work");
+    const reply = "Hướng dẫn dự phòng: Kiểm tra học phí trước khi thao tác lại.";
+    vi.mocked(assistantService.state).mockResolvedValue({
+      messages: [{ role: "assistant", content: reply, createdAt: new Date().toISOString() }],
+      lastReply: { status, reply, link: "/quan-ly-hoc-vien?sub=hoc-phi" },
+      busy: false,
+      mode: "work",
+    });
+    render(<ChatbotWidget storageScope={scope} mode="standalone" />);
+    const link = await screen.findByRole("link", { name: "Mở phân hệ để kiểm tra" });
+    expect(link.getAttribute("href")).toBe("/quan-ly-hoc-vien?sub=hoc-phi");
+    expect(screen.queryByRole("link", { name: "Xem kết quả" })).toBeNull();
+    expect(assistantService.turn).not.toHaveBeenCalled();
+  });
+
   it("refreshes the employee roster after a confirmed employee update", async () => {
     localStorage.setItem("igen_erp_chatbot_mode:employee-update-refresh-test:company", "work");
     vi.mocked(assistantService.state).mockResolvedValue({

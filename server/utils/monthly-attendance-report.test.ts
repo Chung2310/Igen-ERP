@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMonthlyAttendanceReport } from "./monthly-attendance-report";
+import { buildApprovedLeaveAttendanceLogs, buildMonthlyAttendanceReport } from "./monthly-attendance-report";
 
 describe("buildMonthlyAttendanceReport", () => {
   it("counts worked, half, absent, approved leave, late, and early days separately", () => {
@@ -35,5 +35,26 @@ describe("buildMonthlyAttendanceReport", () => {
 
   it("rejects invalid periods instead of silently reporting another month", () => {
     expect(() => buildMonthlyAttendanceReport(2026, 13, [], [])).toThrow("không hợp lệ");
+  });
+});
+
+describe("buildApprovedLeaveAttendanceLogs", () => {
+  it("uses approved leave snapshots, falls back to working dates, and avoids overwriting attendance", () => {
+    const leaveLogs = buildApprovedLeaveAttendanceLogs(2026, 10, [
+      { id: "1", displayName: "Nguyễn An" },
+      { id: "2", displayName: "Trần Bình" },
+    ], [
+      { uid: "1", date: "2026-10-06", status: "Present" },
+    ], [
+      { employeeId: "1", requestKind: "leave", chargeableDates: ["2026-10-05", "2026-10-06", "2026-11-02"] },
+      { employeeId: "2", startDate: "2026-10-30T00:00:00.000Z", endDate: "2026-11-02T00:00:00.000Z" },
+      { employeeId: "1", requestKind: "event", chargeableDates: ["2026-10-07"] },
+    ], ["2026-10-30", "2026-10-31", "2026-11-02"]);
+
+    expect(leaveLogs).toEqual([
+      { uid: "1", date: "2026-10-05", status: "Approved-Leave" },
+      { uid: "2", date: "2026-10-30", status: "Approved-Leave" },
+      { uid: "2", date: "2026-10-31", status: "Approved-Leave" },
+    ]);
   });
 });

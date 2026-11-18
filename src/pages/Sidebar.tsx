@@ -219,8 +219,11 @@ export function getAvailableMenuItems(userProfile: UserProfile | null, hasPermis
       const isPartnerAdmin =
         ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
         (userProfile?.role === "admin" || userProfile?.role === "superadmin");
+      const isLegalReferenceAdmin =
+        item.label === "VĂN BẢN PHÁP LUẬT" &&
+        (userProfile?.role === "admin" || userProfile?.role === "superadmin");
       const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : item.label === "TRỢ LÝ AI" ? !hasPermission("chat:read") : requiredPerms
-        ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
+        ? !isPartnerAdmin && !isLegalReferenceAdmin && !requiredPerms.some((code) => hasPermission(code))
         : false;
       const moduleDisabled = !enabledTabs.has(item.label) || (item.label === "TÍCH HỢP MARKETING" && !userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)));
       return { ...item, locked: moduleDisabled || locked, lockReason: moduleDisabled ? "module" as const : locked ? "permission" as const : undefined };

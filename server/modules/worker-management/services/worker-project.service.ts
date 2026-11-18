@@ -15,6 +15,9 @@ export function buildWorkerProjectQuery(scope: WorkerScope) {
 export function normalizeWorkerProjectInput(input: WorkerProjectInput) {
   const name = String(input.name || "").trim();
   if (!name) throw new Error("Project name is required");
+  if (input.startDate && input.endDate && new Date(String(input.endDate)) < new Date(String(input.startDate))) {
+    throw new Error("Ngày kết thúc dự án phải bằng hoặc sau ngày bắt đầu.");
+  }
   return {
     name,
     code: String(input.code || "").trim().toUpperCase(),

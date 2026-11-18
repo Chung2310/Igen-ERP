@@ -61,6 +61,7 @@ export interface ArchitectureSyncCategory {
 }
 
 export type ArchitectureToolId = "plan" | "renders" | "render" | "edit" | "staging" | "visual" | "texture" | "human" | "enhance" | "upscale" | "sync" | "canvas" | "utilities" | "video" | "library";
+export const AVAILABLE_ARCHITECTURE_TOOLS: ReadonlySet<ArchitectureToolId> = new Set(["plan", "render", "renders"]);
 export type ArchitectureImageToolKind = Exclude<ArchitectureToolId, "plan" | "renders" | "video" | "library">;
 
 export interface ArchitectureRenderAsset {

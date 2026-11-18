@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WorkflowTab, { WorkflowReader } from "./WorkflowTab";
 
@@ -19,9 +19,6 @@ describe("WorkflowReader", () => {
         } as any}
         canEdit={false}
         onBack={vi.fn()}
-        onAddStep={vi.fn()}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
       />
     );
 
@@ -53,9 +50,6 @@ describe("WorkflowReader", () => {
         } as any}
         canEdit={false}
         onBack={vi.fn()}
-        onAddStep={vi.fn()}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
       />
     );
 
@@ -78,9 +72,6 @@ describe("WorkflowReader", () => {
         } as any}
         canEdit={false}
         onBack={vi.fn()}
-        onAddStep={vi.fn()}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
       />
     );
 
@@ -108,36 +99,49 @@ describe("WorkflowReader", () => {
   });
 });
 
-describe("WorkflowTab delete", () => {
-  it("opens confirmation from the detail view and deletes the selected workflow", async () => {
-    let deleted = false;
-    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => {
-      if (options?.method === "DELETE") {
-        deleted = true;
-        return { ok: true, json: async () => ({ status: "success" }) };
-      }
-      return { ok: true, json: async () => ({ data: deleted ? [] : [{ _id: "507f1f77bcf86cd799439011", name: "Quy trình thử", category: "", description: "", steps: [] }] }) };
+describe("WorkflowTab detail", () => {
+  it("lets a manager return to the list without offering add, save or delete actions in detail", async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => {
+      return { ok: true, json: async () => ({ data: [{ _id: "507f1f77bcf86cd799439011", name: "Quy trình thử", category: "", description: "", steps: [] }] }) };
     });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<WorkflowTab userProfile={{ uid: "admin", role: "admin" } as any} selectedCompanyCode="MAIN" isManager />);
     await screen.findByText("Quy trình thử");
     fireEvent.click(screen.getByTitle("Xem chi tiết quy trình"));
-    fireEvent.click(screen.getByTitle("Xóa quy trình"));
-
-    const dialog = screen.getByRole("dialog", { name: "Xóa quy trình?" });
-    expect(within(dialog).getAllByRole("button")).toHaveLength(2); // X đóng và nút xác nhận
-    fireEvent.click(within(dialog).getByRole("button", { name: "Xóa quy trình" }));
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/crud/workflows/507f1f77bcf86cd799439011",
-      expect.objectContaining({ method: "DELETE" }),
-    ));
-    await screen.findByText("Chưa có quy trình nào");
+    expect(screen.queryByRole("button", { name: /Thêm bước|Lưu|Xóa quy trình/ })).toBeNull();
+    expect(screen.queryByTitle("Xóa quy trình")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Danh sách quy trình" }));
+    expect(await screen.findByTitle("Xem chi tiết quy trình")).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([, options]) => ["POST", "PATCH", "DELETE"].includes(options?.method || ""))).toBe(false);
   });
 });
 
 describe("WorkflowTab search", () => {
+  it("persists categories through the API and retains the form when the API rejects a name", async () => {
+    const old = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "showModal");
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function () { this.setAttribute("open", ""); } });
+    let reject = true;
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === "POST"
+      ? { ok: !reject, json: async () => reject ? {message: "Nhãn đã tồn tại."} : {data: {name: "Bảo mật"}} }
+      : { ok: true, json: async () => ({ data: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      render(<WorkflowTab userProfile={{ uid: "admin", role: "admin" } as any} selectedCompanyCode="MAIN" isManager />);
+      fireEvent.click(await screen.findByRole("button", { name: "Tạo nhãn" }));
+      fireEvent.change(screen.getByLabelText("Tên nhãn"), { target: { value: "Bảo mật" } });
+      fireEvent.click(screen.getByRole("button", { name: "Thêm nhãn" }));
+      expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Nhãn đã tồn tại.");
+      expect(screen.getByLabelText("Tên nhãn").getAttribute("aria-invalid")).toBe("true");
+      reject = false;
+      fireEvent.click(screen.getByRole("button", { name: "Thêm nhãn" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", {name: "Tạo nhãn phân loại"})).toBeNull());
+      expect(fetchMock.mock.calls.filter(([, options]) => options?.method === "POST").map(([, options]) => JSON.parse(String(options?.body)))).toEqual([{name: "Bảo mật", companyCode: "MAIN"}, {name: "Bảo mật", companyCode: "MAIN"}]);
+    } finally {
+      if (old) Object.defineProperty(HTMLDialogElement.prototype, "showModal", old);
+      else delete (HTMLDialogElement.prototype as any).showModal;
+    }
+  });
   it("filters workflows by name and label, ignoring Vietnamese accents", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: true,

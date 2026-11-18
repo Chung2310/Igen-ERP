@@ -3,6 +3,31 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { operationById } from "./catalog";
 import { formatFriendlyAssistantResult } from "./result-format";
 
+it("counts all report rows before limiting the visible table", () => {
+  const rows = Array.from({length:18}, (_, i) => ({ projectName: "Kho vận", workerName: `Lao động ${i}`, date: "2026-11-18", status: "Present" }));
+  const reply = formatFriendlyAssistantResult(operationById("worker.report")!, rows);
+  expect(reply).toContain("18 kết quả");
+});
+
+it("formats attendance counts as people and hides internal versions", () => {
+  const reply = formatFriendlyAssistantResult(operationById("student.batch.attendance.summary")!, {className:"A",date:"2026-11-18",total:1,present:1,late:0,absent:0,version:2});
+  expect(reply).toContain("Tổng học viên: 1");
+  expect(reply).not.toContain("₫");
+  expect(reply).not.toContain("Phiên bản");
+});
+
+it.each(["hr.workflow.create", "hr.workflow.update"])("renders one workflow record instead of its nested steps: %s", actionId => {
+  const reply = formatFriendlyAssistantResult(operationById(actionId)!, { data: {
+    _id: "507f1f77bcf86cd799439090", name: "Tuyển dụng nhân sự", category: "Nhân sự", description: "Quy trình tuyển dụng",
+    steps: [{ id: "private-step", title: "Đăng bài", assigneeUid: "private-user" }, { title: "trả lương" }],
+  } });
+  const table = parseAssistantResultTable(reply);
+  expect(table?.rows).toHaveLength(1);
+  expect(Object.values(table!.rows[0].values)).toContain("Tuyển dụng nhân sự");
+  expect(reply).not.toContain("private-step");
+  expect(reply).not.toContain("private-user");
+});
+
 describe("student bulk result formatting", () => {
   it("renders invalid rows with the Excel row, learner, value and reason", () => {
     const operation = operationById("student.bulk.preview")!;
@@ -27,7 +52,7 @@ describe("student bulk result formatting", () => {
       errors: [{ row: 2, name: "Nguyễn Văn An", phone: "SĐT giả lập 001", reason: "Số điện thoại không hợp lệ." }],
     });
 
-    expect(reply).toContain("Đã nhập 0 học viên; bỏ qua 1 dòng · 1 kết quả:");
+    expect(reply).toContain("Đã nhập 0 học viên. Bỏ qua 1 dòng · 1 kết quả:");
     expect(reply).not.toContain("đã tạo nhiều hồ sơ học viên");
     expect(parseAssistantResultTable(reply)?.rows[0]?.values["Học viên"]).toBe("Nguyễn Văn An");
   });
@@ -160,7 +185,7 @@ describe("HR reports", () => {
 
     const table = parseAssistantResultTable(reply);
     expect(table?.rows[0]?.values).toMatchObject({ "Nhân sự": "Nguyễn Anh", "Khóa đào tạo": "An toàn lao động", "Tiến độ": "35%", "Trạng thái": "Đang học" });
-    expect(reply).toContain("kết quả có thể chưa bao gồm toàn bộ nhân sự");
+    expect(reply).toContain("Kết quả có thể chưa bao gồm toàn bộ nhân sự");
     expect(reply).not.toContain("private-id");
   });
 

@@ -270,8 +270,11 @@ const getUsersSchema = {
 };
 const getUsersCountSchema = {
   query: Joi.object({
+    createdFrom: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => { const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : helpers.error("any.invalid"); }).optional(),
+    createdTo: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => { const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : helpers.error("any.invalid"); }).optional(),
     companyCode: Joi.string().optional().allow(""),
     branchId: Joi.string().optional().allow(""),
+    scope: Joi.string().valid("company", "branch").optional(),
   }),
 };
 

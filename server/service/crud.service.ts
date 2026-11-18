@@ -8,6 +8,7 @@ import { TrainingCourseModel } from "../model/training-course.model";
 import { TrainingEnrollmentModel } from "../model/training-enrollment.model";
 import { UserModel } from "../model/user.model";
 import { WorkflowModel } from "../model/workflow.model";
+import { WorkflowCategoryModel } from "../model/workflow-category.model";
 import { HRCalendarEventModel } from "../model/hr-calendar-event.model";
 import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
@@ -421,6 +422,7 @@ const MODEL_MAPPING: Record<SupportedModelName, mongoose.Model<any>> = {
   "training-courses": TrainingCourseModel,
   "training-enrollments": TrainingEnrollmentModel,
   "workflows": WorkflowModel,
+  "workflow-categories": WorkflowCategoryModel,
   "users": UserModel,
   "hr-calendar-events": HRCalendarEventModel,
   "hr-leave-templates": HRLeaveTemplateModel,

@@ -5,12 +5,28 @@ import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
 import { RecruitmentStageHistoryModel } from "../model/recruitment-stage-history.model";
 import { cloudinaryService } from "./cloudinary.service";
-import { createApplicant, transitionApplicant, updateApplicant } from "./recruitment-applicant.service";
+import { createApplicant, transitionApplicant, updateApplicant, softDeleteApplicant, restoreApplicant } from "./recruitment-applicant.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 
 describe("recruitment applicant service", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it("changes deletion state in both directions with version and scope guards", async () => {
+    const update = vi.spyOn(RecruitmentApplicantModel, "findOneAndUpdate").mockResolvedValue({ _id: "app" } as any);
+    await softDeleteApplicant(scope, "app", 0, "actor");
+    expect(update).toHaveBeenLastCalledWith(
+      { _id: "app", ...scope, isDeleted: false, version: 0 },
+      expect.objectContaining({ $set: expect.objectContaining({ isDeleted: true, deletedAt: expect.any(Date), deletedBy: "actor" }) }),
+      expect.anything(),
+    );
+    await restoreApplicant(scope, "app", 1, "actor");
+    expect(update).toHaveBeenLastCalledWith(
+      { _id: "app", ...scope, isDeleted: true, version: 1 },
+      expect.objectContaining({ $set: expect.objectContaining({ isDeleted: false, deletedAt: null, deletedBy: null }) }),
+      expect.anything(),
+    );
+  });
 
   it("returns same-branch duplicate warnings before creating", async () => {
     vi.spyOn(RecruitmentJobModel, "findOne").mockReturnValue({ lean: async () => ({ _id: "job-1", status: "open" }) } as any);

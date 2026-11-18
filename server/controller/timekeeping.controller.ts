@@ -2,6 +2,7 @@
 import { AuthenticatedRequest } from "../middleware/auth";
 import { CompanyModel } from "../model/company.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
+import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { UserModel } from "../model/user.model";
 import { getDayContext, listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
 import { resolveShift, shiftWindow, vietnamWorkDate } from "../service/work-shift.service";
@@ -13,7 +14,7 @@ import { getRequestPublicIp } from "../utils/request-ip";
 import { isAttendanceLogActiveOnDate } from "../service/active-attendance-log.service";
 import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 import { buildAttendanceReportRows } from "../utils/attendance-report";
-import { buildMonthlyAttendanceReport } from "../utils/monthly-attendance-report";
+import { buildApprovedLeaveAttendanceLogs, buildMonthlyAttendanceReport } from "../utils/monthly-attendance-report";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
@@ -216,11 +217,35 @@ export const timekeepingController = {
           .lean()
         : [];
 
-      const records = buildMonthlyAttendanceReport(year, month, employees.map((employee) => ({
+      const approvedLeaves = employeeIds.length
+        ? await HRLeaveApplicationModel.find({
+            companyCode,
+            status: "approved",
+            employeeId: { $in: employeeIds },
+            startDate: { $lte: new Date(`${endDate}T23:59:59.999+07:00`) },
+            endDate: { $gte: new Date(`${startDate}T00:00:00.000+07:00`) },
+            $or: [{ requestKind: "leave" }, { requestKind: { $exists: false } }],
+            ...rosterScope,
+          })
+            .select("employeeId requestKind startDate endDate chargeableDates")
+            .lean()
+        : [];
+
+      const reportEmployees = employees.map((employee) => ({
         id: String(employee._id),
         displayName: employee.displayName,
-          createdAt: employee.createdAt,
-        })), logs.map((log) => ({ uid: log.uid, date: log.date, status: log.status })), workingDates);
+        createdAt: employee.createdAt,
+      }));
+      const attendanceLogs = logs.map((log) => ({ uid: log.uid, date: log.date, status: log.status }));
+      const leaveLogs = buildApprovedLeaveAttendanceLogs(year, month, reportEmployees, attendanceLogs, approvedLeaves.map(leave => ({
+        employeeId: leave.employeeId,
+        requestKind: leave.requestKind,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        chargeableDates: leave.chargeableDates,
+      })), workingDates);
+
+      const records = buildMonthlyAttendanceReport(year, month, reportEmployees, [...attendanceLogs, ...leaveLogs], workingDates);
       return res.status(200).json({ status: "success", data: { year, month, records } });
     } catch (error: any) {
       console.error("[timekeepingController.listMonthlyAttendanceReport] Error:", error);

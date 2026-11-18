@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { normalizeBusinessResult } from "./business-result";
+import { AssistantApiRejection } from "./api-rejection";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantField, AssistantValue } from "../../src/shared/assistant-workflow";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
@@ -281,6 +283,22 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  if (op.id === "student.batch.attendance.summary") {
+    const detail = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "student.batch.detail")!;
+    const response = await callOperation(req, detail, { path_id: input.path_id }, password, requestId);
+    const date = String(input.date || new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
+    const { studentAttendanceSummary } = await import("./student-attendance-report");
+    return { data: studentAttendanceSummary(response.data, date) };
+  }
+  if (op.id === "hr.training.progress") {
+    const response = await callOperation(req, ASSISTANT_OPERATIONS.find(candidate => candidate.id === "hr.training.incomplete.list")!, input, password, requestId);
+    const rows = rawRecords(response);
+    const courseName = String(input.courseName || "").trim();
+    if (Number(response?.total) > rows.length) throw new AssistantError("Danh sách tiến độ còn trang chưa tải; thu hẹp khóa học để báo cáo đầy đủ.");
+    const matching = rows.filter((row: any) => !courseName || normalize(String(row.courseTitle || "")).includes(normalize(courseName)));
+    if (!matching.length) throw new AssistantError("Chưa có dữ liệu đăng ký học phù hợp để báo cáo tiến độ; hãy kiểm tra tên khóa đào tạo nội bộ và danh sách đăng ký.");
+    return { data: matching.map((row: any) => ({ employeeName: row.userName, courseTitle: row.courseTitle, progress: row.progress, status: row.status })) };
+  }
   if (op.module === "quotation") {
     try { return await callQuotationOperation(req, op, input, requestId); }
     catch (error) { if (error instanceof QuotationUncertainExecutionError) throw new UncertainExecutionError(error.message); throw error; }
@@ -592,6 +610,11 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   const localHost = req.socket.localAddress === "::1" ? "[::1]" : "127.0.0.1";
   if (!req.socket.localPort) throw new AssistantError("Không xác định được máy chủ nghiệp vụ.", 503);
   const url = new URL(`/api/v1${route}`, `http://${localHost}:${req.socket.localPort}`);
+  if (op.id === "architect.project.delete") {
+    const revision = Number(input.revision);
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new AssistantError("Không đọc được phiên bản dự án; chưa thể xóa.");
+    url.searchParams.set("revision", String(revision));
+  }
   const strictPayrollRunList = op.id === "payroll.run.list";
   // These schemas reject otherwise implicit query scope; auth claims and x-branch-id remain authoritative.
   const rejectsImplicitScopeQuery = op.path === "/student-quality" || op.path === "/learning-roadmaps/waitlist";
@@ -608,7 +631,12 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     }
   }
   if (!strictPayrollRunList && !rejectsImplicitScopeQuery) url.searchParams.set("companyCode", companyCode);
-  if (["employee.list", "employee.detail", "employee.birthday.next-month", "employee.count", "department.employees.list"].includes(op.id)) {
+  if (op.id === "employee.count") {
+    const branchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
+    const selectedBranchId = branchField && typeof input[branchField.key] === "string" ? String(input[branchField.key]) : "";
+    if (selectedBranchId) url.searchParams.set("branchId", selectedBranchId);
+    else url.searchParams.set("scope", "company");
+  } else if (["employee.list", "employee.detail", "employee.birthday.next-month", "department.employees.list"].includes(op.id)) {
     const employeeBranchId = req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
     if (employeeBranchId) url.searchParams.set("branchId", employeeBranchId);
   }
@@ -620,6 +648,10 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: req.headers.authorization || "" };
   const branchId = branchScopedOperation ? effectiveBranchId : req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
   if (branchId) headers["x-branch-id"] = branchId;
+  if (["employee.count", "employee.list", "employee.birthday.next-month"].includes(op.id)) {
+    const target = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
+    if (target && typeof input[target.key] === "string" && input[target.key]) headers["x-branch-id"] = String(input[target.key]);
+  }
   if (typeof req.headers["x-device-id"] === "string") headers["x-device-id"] = req.headers["x-device-id"];
   for (const key of op.contextHeaders || []) {
     if (key !== "idempotency-key") throw new AssistantError("Workflow yêu cầu một tiêu đề ngữ cảnh chưa được hỗ trợ.");
@@ -663,7 +695,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
           } else bodyValue = JSON.parse(validateStructuredField(field, value));
         }
         body[field.apiKey!] = ["workingDays", "daysOfWeek"].includes(field.apiKey!) && [
-          "api.post.4e68581113f1ef79", "api.patch.08411917f1ed9b75", "api.post.5511b45cf3a736d1", "api.patch.6bc968347283a069",
+          "api.post.4e68581113f1ef79", "api.patch.08411917f1ed9b75", "api.post.5511b45cf3a736d1", "api.patch.6bc968347283a069", "worker.project.create", "worker.project.update",
         ].includes(op.id) ? normalizeWeekdays(bodyValue, field.label) : bodyValue;
       }
     } else if (field.key !== "id" && field.source !== "path" && field.source !== "query") {
@@ -692,6 +724,8 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     body.aiAutoReplyConfig = config;
   }
   if (op.adapter === "contract" && op.fixedBodyValues) Object.assign(body, op.fixedBodyValues);
+  // The project API requires this key but explicitly accepts an empty value.
+  if (op.id === "architect.project.create" && body.requirements === undefined) body.requirements = "";
   if (op.id === "hr.calendar.event.create") {
     const creatorId = String(req.user?.id || "");
     if (!/^[a-f\d]{24}$/i.test(creatorId)) throw new AssistantError("Không xác định được tài khoản tạo sự kiện.", 403);
@@ -1184,8 +1218,9 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     if (typeof smtp.hasPassword === "boolean") summary.hasPassword = smtp.hasPassword;
     return { status: "success", data: summary };
   }
-  if (op.id === "payroll.run.payslip.review-requests.list") {
-    const requests = Array.isArray(result?.data) ? result.data : [];
+  if (op.id === "payroll.run.payslip.review-requests.list" && response.ok && result?.success !== false && result?.status !== "error") {
+    if (!Array.isArray(result?.data)) throw new AssistantError("Không đọc được danh sách yêu cầu kiểm tra phiếu lương hợp lệ.", 502);
+    const requests = result.data;
     return { ...result, data: requests.map((request: any) => {
       const safe: Record<string, any> = {
         employeeName: typeof request.employeeName === "string" ? request.employeeName : undefined,
@@ -1254,10 +1289,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   if (!response.ok || !result || result.success === false || result.status === "error") {
     if (op.method !== "GET" && (response.status >= 500 || !result)) throw new UncertainExecutionError("API nghiệp vụ chưa xác nhận kết quả. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; yêu cầu này không được tự chạy lại.");
-    const formatFailure = (value: unknown) => typeof value === "string" ? value.trim()
-      : value && typeof value === "object" ? JSON.stringify(value).slice(0, 1000) : "";
-    const message = [result?.details, result?.message, result?.error].map(formatFailure).filter(Boolean).join(" ") || "API nghiệp vụ từ chối thao tác.";
-    throw new AssistantError(message + (result?.errors ? " " + JSON.stringify(result.errors).slice(0, 2000) : ""), response.status >= 400 && response.status < 500 ? response.status : 502);
+    throw new AssistantApiRejection(result, response.status >= 400 && response.status < 500 ? response.status : 502);
   }
   if (op.id === "student.exam.assigned-students.list") {
     const rows = Array.isArray(result?.data) ? result.data : [];
@@ -1753,6 +1785,32 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       message: typeof issue?.message === "string" ? issue.message : undefined,
       remediation: typeof issue?.remediation === "string" ? issue.remediation : undefined,
     })) };
+  }
+  if (op.id === "payroll.adjustment.list" && input.status && Array.isArray(result?.data)) {
+    return { ...result, data: result.data.filter((row: any) => row?.status === input.status) };
+  }
+  if (op.id === "payroll.run.complaints.list") {
+    if (!Array.isArray(result?.data?.items)) throw new AssistantError("Không đọc được danh sách đối soát lương hợp lệ.", 502);
+    const reviewOperation = operationById("payroll.run.payslip.review-requests.list");
+    if (!reviewOperation) throw new AssistantError("Chưa thể đọc yêu cầu kiểm tra phiếu lương.");
+    const reviews = await callOperation(req, reviewOperation, input);
+    const records = result.data.items;
+    const complaints = records.flatMap((record: any) => (Array.isArray(record?.issues) ? record.issues : []).map((issue: any) => {
+      const messages = Array.isArray(issue?.messages) ? issue.messages : [];
+      return {
+        employeeName: record.employeeName, periodKey: record.periodKey, source: "Lương tạm tính",
+        fieldLabel: payrollReconciliationFieldLabels[String(issue?.field || "")] || "Khoản lương",
+        status: issue.status,
+        message: messages.filter((message: any) => message.role === "employee").map((message: any) => message.body).join("\n"),
+        response: messages.filter((message: any) => message.role === "staff").map((message: any) => message.body).join("\n"),
+        createdAt: messages[0]?.at,
+      };
+    }));
+    const published = (Array.isArray(reviews?.data) ? reviews.data : []).map((review: any) => ({
+      employeeName: review.employeeName, periodKey: review.periodKey, source: "Phiếu lương đã phát hành",
+      status: review.status, message: review.message, response: review.response, createdAt: review.createdAt,
+    }));
+    return { status: "success", data: [...complaints, ...published] };
   }
   if (op.id === "payroll.run.reconciliation.list") {
     const data = result?.data || {};
@@ -2519,12 +2577,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   };
   if (op.id === "worker.update" && result?.worker && typeof result.worker === "object") {
     const worker = result.worker;
-    return {
-      fullName: worker.fullName,
-      status: worker.status,
-      laborType: worker.laborType,
-      registrationDate: worker.registrationDate,
-    };
+    return Object.fromEntries(op.resultFields.filter(key => Object.hasOwn(worker, key)).map(key => [key, worker[key]]));
   }
   if (op.id.startsWith("inventory.serial.transfer.")) {
     const safeSerial = (serial: any) => serial && typeof serial === "object" ? {
@@ -2993,11 +3046,13 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     } };
   }
   if (op.id === "employee.count" && result?.data && typeof result.data === "object") {
-    const count = Number(result.data.count ?? result.total ?? 0);
-    return { ...result, data: {
-      count: Number.isFinite(count) && count >= 0 ? Math.trunc(count) : 0,
+    const rawCount = result.data.count ?? result.data.total ?? result.total;
+    const count = typeof rawCount === "number" || (typeof rawCount === "string" && rawCount.trim()) ? Number(rawCount) : NaN;
+    if (Number.isSafeInteger(count) && count >= 0) return { ...result, data: {
+      count,
       ...(typeof result.data.branchName === "string" ? { branchName: result.data.branchName } : {}),
       ...(typeof result.data.branchCode === "string" ? { branchCode: result.data.branchCode } : {}),
+      ...(result.data.scope === "company" || result.data.scope === "branch" ? { scope: result.data.scope } : {}),
     } };
   }
   if (op.id === "department.unmanaged.list" && Array.isArray(result?.data)) {
@@ -3071,12 +3126,25 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       conflictCount: Array.isArray(data.conflicts) ? data.conflicts.length : 0,
     } };
   }
-  return result;
+  return normalizeBusinessResult(op.module, op.id, result);
 }
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest, input: Record<string, AssistantValue> = {}): AssistantRecord[] {
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
+  if (op.id === "employee.count") {
+    const candidates = [responseData, responseData?.data, responseData?.result, response?.data?.data, response?.result, response];
+    const countRecord = candidates.find(candidate => candidate && typeof candidate === "object"
+      && (typeof candidate.count === "number" || (typeof candidate.count === "string" && candidate.count.trim())));
+    const rawCount = countRecord?.count ?? countRecord?.total;
+    const count = typeof rawCount === "number" || (typeof rawCount === "string" && rawCount.trim()) ? Number(rawCount) : NaN;
+    return [{
+      ...(Number.isSafeInteger(count) && count >= 0 ? { count } : {}),
+      ...(typeof countRecord?.branchName === "string" ? { branchName: countRecord.branchName } : {}),
+      ...(typeof countRecord?.branchCode === "string" ? { branchCode: countRecord.branchCode } : {}),
+      ...(countRecord?.scope === "company" || countRecord?.scope === "branch" ? { scope: countRecord.scope } : {}),
+    }];
+  }
   if (op.id === "employee.birthday.next-month") {
     const nowParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", month: "2-digit" }).formatToParts(new Date());
     const currentMonth = Number(nowParts.find(part => part.type === "month")?.value || 1);
@@ -3090,7 +3158,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     birthdays.sort((a, b) => a.birthday.localeCompare(b.birthday) || a.displayName.localeCompare(b.displayName, "vi"));
     return [{ birthdays, total: birthdays.length, month: targetMonth } as unknown as AssistantRecord];
   }
-  if (["timekeeping.records.monthly.under-threshold", "timekeeping.records.monthly.overview", "timekeeping.records.monthly.most-absent", "timekeeping.records.monthly.most-late", "timekeeping.records.monthly.most-leave", "timekeeping.records.monthly.unrecorded"].includes(op.id)) {
+  if (["timekeeping.records.monthly.under-threshold", "timekeeping.records.monthly.overview", "timekeeping.records.monthly.most-absent", "timekeeping.records.monthly.most-late", "timekeeping.records.monthly.most-leave", "timekeeping.records.monthly.leave-summary", "timekeeping.records.monthly.unrecorded"].includes(op.id)) {
     const thresholdDays = Number(input.thresholdDays);
     const records = Array.isArray(responseData?.records) ? responseData.records.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim() ? [{
       employeeName: record.employeeName.trim().slice(0, 160),
@@ -3362,7 +3430,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === req.user.branchId))).map((item: any) => {
     const safe: AssistantRecord = {};
     const id = String(item._id || item.id || item.uid || item.__assistantRef?.id || ((op.id === "payroll.employee.me.reconciliation" || op.id === "payroll.employee.me.payslips") ? item.__assistantRef?.runId || item.runId : "") || "");
-    if (/^[a-f\d]{24}$/i.test(id) || (op.id === "resource.google-drive.list" && /^[A-Za-z0-9_-]{10,200}$/.test(id))) safe.id = id;
+    if (op.module === "architect-assistant" && Number.isSafeInteger(item.revision) && item.revision > 0) Object.defineProperty(safe, "revision", { value: item.revision, enumerable: false });
+    if (/^[a-f\d]{24}$/i.test(id) || (op.module === "architect-assistant" && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id)) || (op.id === "resource.google-drive.list" && /^[A-Za-z0-9_-]{10,200}$/.test(id))) safe.id = id;
     if (op.id === "chat.room.members.list" && ["admin", "deputy", "member"].includes(String(item.role))) {
       Object.defineProperty(safe, "role", { value: item.role, enumerable: false });
     }
@@ -3876,6 +3945,12 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
   const referencedList = field.reference && ASSISTANT_OPERATIONS.find(candidate => candidate.id === field.reference && candidate.method === "GET");
   const list = referencedList || ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === path);
   if (!list) return null;
+  if (list.id === "recruitment.interview.list") {
+    const context: Record<string, AssistantValue> = {};
+    const branch = list.fields.find(candidate => candidate.source === "query" && candidate.apiKey === "branchId");
+    if (branch) context[branch.key] = String(values.branchId || req.user?.branchId || "");
+    return { list, rows: await lookupReferenceCandidates(req, op, field, String(values[field.key] || ""), context) };
+  }
   if (list.id === "worker.labor.contract.list") return { list, rows: await lookupRecords(req, list.id, String(values[field.key] || "")) };
   if (list.id === "inventory.count.detail") {
     const listPathField = list.fields.find(candidate => candidate.source === "path");
@@ -3932,6 +4007,11 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
     else if (/page$/.test(apiKey)) input[listField.key] = 1;
     else if (listField.required && listField.defaultValue !== undefined) input[listField.key] = listField.defaultValue;
     else if (listField.required) return { list, rows: [] as Record<string, any>[] };
+  }
+  if (list.id === "payroll.run.list" && op.id === "payroll.run.reconciliation.publish") {
+    input.query_status = "draft";
+    const requestedPeriod = String(values[field.key] || values[`__assistantReferenceSearch_${field.key}`] || "");
+    if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(requestedPeriod)) input.query_periodKey = requestedPeriod;
   }
   if (op.id.endsWith(".restore")) {
     const deletedField = list.fields.find(candidate => candidate.source === "query" && candidate.apiKey === "deleted");
@@ -4001,6 +4081,16 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
   }
   let result = await callOperation(req, op, input);
   let records = projectRecords(op, result, req, input);
+  if (["department.list", "hr.workflow.list"].includes(op.id) && !records.some(record => matchesReference(record, search))) {
+    const prefix = op.id === "department.list" ? /^(?:phòng ban|phong ban|phòng|phong|ban)\s+/iu : /^(?:quy trình|quy trinh)\s+/iu;
+    const shortName = search.replace(prefix, "").trim();
+    if (shortName && shortName !== search) {
+      const retryInput = { ...input, search: shortName, [searchField?.key || "search"]: shortName };
+      const retry = projectRecords(op, await callOperation(req, op, retryInput), req, retryInput);
+      records = retry.filter(record => matchesReference(record, shortName));
+      for (const record of records) Object.defineProperty(record, "__assistantQueryMatch", {value: search, enumerable: false});
+    }
+  }
   if (operationId === "inventory.serial.list" && !records.length && search) {
     const barcodeField = op.fields.find(field => field.source === "query" && field.apiKey === "barcodes");
     const serialField = op.fields.find(field => field.source === "query" && field.apiKey === "serial");
@@ -4016,6 +4106,10 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
     const retryInput = { ...input, search: namePrefix, [searchField.key]: namePrefix };
     result = await callOperation(req, op, retryInput);
     records = projectRecords(op, result, req, retryInput);
+  }
+  if (operationId === "task.list" && extraValues.completionFilter === "unfinished") {
+    const unfinishedStatuses = new Set(["Not Started", "In Progress", "Review/Testing"]);
+    records = records.filter(record => unfinishedStatuses.has(String(record.status || "")));
   }
   if (operationId === "product.list" && search && !searchByInternalId) {
     for (const record of records) {
@@ -4169,6 +4263,9 @@ function campaignSlotReferenceCandidates(op: AssistantOperation, field: Assistan
 
 function filterRelationshipCandidates(op: AssistantOperation, field: AssistantField, candidates: Record<string, any>[], values: Record<string, AssistantValue> = {}) {
   const selectingWriteRelationship = ["POST", "PATCH", "PUT"].includes(op.method) && field.source !== "path";
+  if (op.id === "recruitment.applicant.create" && field.apiKey === "jobId" && field.reference === "recruitment.job.list") {
+    candidates = candidates.filter(candidate => candidate.status === "open" && candidate.isDeleted !== true);
+  }
   if (op.id === "company-knowledge.faq-candidate.reject" && field.reference === "company-knowledge.faq-candidates.list") {
     candidates = candidates.filter(candidate => candidate.status === "pending");
   }
@@ -4248,10 +4345,37 @@ async function lookupReferenceCandidates(
   context: Record<string, AssistantValue>,
 ) {
   const normalizedSearch = field.reference === "batch.list" ? normalizeBatchClassSearch(search) : search.trim();
-  let candidates = await lookupRecords(req, field.reference!, normalizedSearch, context);
+  if (ownerOperation.id.startsWith("recruitment.interview.") && field.source === "path"
+    && field.reference === "recruitment.interview.list" && normalizedSearch && !isRecordIdentifier(normalizedSearch)) {
+    const applicantList = operationById("recruitment.applicant.list");
+    if (applicantList) {
+      const applicants = await lookupRecords(req, applicantList.id, normalizedSearch, context);
+      const namedApplicants = applicants.filter(candidate => matchesReference(candidate, normalizedSearch));
+      if (namedApplicants.length) {
+        const groups = await Promise.all(namedApplicants.slice(0, 8).map(async applicant => {
+          const applicantId = String(applicant.id || applicant._id || "");
+          if (!applicantId) return [];
+          const interviews = await lookupRecords(req, "recruitment.interview.list", "", { ...context, query_applicantId: applicantId });
+          return interviews.map(interview => {
+            const date = interview.scheduledStart ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(String(interview.scheduledStart))) : "Thời gian chưa xác định";
+            return { ...interview, fullName: `${String(applicant.fullName || applicant.displayName || "Ứng viên")} — ${date}` };
+          });
+        }));
+        return groups.flat() as Record<string, any>[];
+      }
+    }
+  }
+  const lookupContext = ownerOperation.id === "payroll.run.reconciliation.publish" && field.reference === "payroll.run.list"
+    ? {
+      ...context,
+      query_status: "draft",
+      ...( /^\d{4}-(?:0[1-9]|1[0-2])$/.test(normalizedSearch) ? { query_periodKey: normalizedSearch } : {}),
+    }
+    : context;
+  let candidates = await lookupRecords(req, field.reference!, normalizedSearch, lookupContext);
   if (field.reference === "batch.list" && !candidates.length && normalizedSearch.split(/\s+/).length >= 2) {
     const broaderClassSearch = normalizedSearch.split(/\s+/).slice(0, -1).join(" ");
-    candidates = await lookupRecords(req, field.reference, broaderClassSearch, context);
+    candidates = await lookupRecords(req, field.reference, broaderClassSearch, lookupContext);
   }
   if (["student.batch.create", "student.batch.update"].includes(ownerOperation.id)
     && field.apiKey === "instructorId" && field.reference === "employee.list") {
@@ -4392,7 +4516,9 @@ export async function suggestReferenceOptions(
   if (parentPathField) context[parentPathField.key] = String(parentValue);
   else if (parentQueryField) context[parentQueryField.key] = String(parentValue);
 
-  const referenceSearch = String(values[`__assistantReferenceSearch_${field.key}`] || "").trim();
+  const payrollPeriodSearch = op.id === "payroll.run.reconciliation.publish" && field.key === "path_id"
+    && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(values.path_id || "")) ? String(values.path_id) : "";
+  const referenceSearch = String(values[`__assistantReferenceSearch_${field.key}`] || payrollPeriodSearch).trim();
   const isReceiptProductSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
     && field.reference === "product.list" && /^items\[\d+\]\.productId$/.test(field.key);
   const isReceiptSkuSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
@@ -4555,6 +4681,13 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     const value = record && (field.referenceValueKey ? record[field.referenceValueKey] : record.id || record._id || record[field.key]);
     if (exact.length !== 1 || !record || !value) {
       const choices = candidates.slice(0, 8).map(referenceLabel).join("; ");
+      const payrollDraftPeriod = op.id === "payroll.run.reconciliation.publish" && field.key === "path_id"
+        && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(search) ? `kỳ ${search}` : "";
+      if (payrollDraftPeriod && exact.length === 0) {
+        addUnresolvedReferenceError(field.key,
+          `Không tìm thấy lượt lương nháp cho ${payrollDraftPeriod} trong phạm vi hiện tại. Chỉ lượt nháp có dữ liệu mới nhất và không còn lỗi chặn mới phát hành được.`);
+        continue;
+      }
       const explanation = confirmingReferral && !candidates.length
         ? "chỉ có thể xác nhận referral đang chờ"
         : importingInvoiceTax && !candidates.length ? "chỉ có thể ghi nhận VAT từ hóa đơn đã phát hành trong chi nhánh đã chọn"
@@ -5040,6 +5173,9 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     if (op.id === "payroll.run.payslips.publish" && field.apiKey === "id") {
       eligible = eligible.filter(row => ["closed", "paid"].includes(String(row.status)));
     }
+    if (op.id === "payroll.run.reconciliation.publish" && field.apiKey === "id") {
+      eligible = eligible.filter(row => String(row.status) === "draft");
+    }
     if (payrollPaymentRequiredStatus[op.id] && field.apiKey === "id") {
       eligible = eligible.filter(row => String(row.status) === payrollPaymentRequiredStatus[op.id]);
     }
@@ -5309,6 +5445,9 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       const current = (await callOperation(req, readOperation, {}))?.data;
       const version = Number(current?.version);
       if (!Number.isSafeInteger(version) || version < 0) throw new Error("schedule version unavailable");
+      for (const key of ["enabled", "day", "hour", "minute", "periodOffset"]) {
+        if (resolved[key] === undefined) resolved[key] = current[key];
+      }
       resolved.version = version;
       labels.version = "Phiên bản cài đặt hiện tại (được lấy tự động)";
     } catch {
@@ -5335,7 +5474,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       errors.push("Không đọc được kế hoạch tài chính hiện tại cho tháng đã chọn; chưa thể lưu an toàn.");
     }
   }
-  if (isRecruitmentOperation(op) && op.systemBodyFields?.includes("version") && !errors.length) {
+  if (isRecruitmentOperation(op) && op.systemBodyFields?.includes("version") && resolved.path_id && !errors.length) {
     const branchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
     const branchValues = branchField && resolved[branchField.key] !== undefined ? { [branchField.key]: resolved[branchField.key] as AssistantValue } : {};
     try {
@@ -5354,6 +5493,30 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       }
       const currentVersion = Number(current?.version);
       if (!current || !Number.isSafeInteger(currentVersion) || currentVersion < 0) throw new Error("current version unavailable");
+      if (op.id === "recruitment.interview.update" && (resolved.requestedStartDate !== undefined || resolved.requestedStartTime !== undefined)) {
+        const currentStart = new Date(current.scheduledStart);
+        const currentEnd = new Date(current.scheduledEnd);
+        if (!Number.isFinite(currentStart.getTime()) || !Number.isFinite(currentEnd.getTime()) || currentEnd <= currentStart) {
+          errors.push("Không đọc được thời lượng lịch phỏng vấn hiện tại; chưa thể đổi ngày hoặc giờ an toàn.");
+        } else {
+          const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(currentStart);
+          const part = (key: string) => parts.find(item => item.type === key)?.value || "00";
+          const currentDate = `${part("year")}-${part("month")}-${part("day")}`;
+          const currentTime = `${part("hour")}:${part("minute")}`;
+          const date = String(resolved.requestedStartDate || currentDate);
+          const time = String(resolved.requestedStartTime || currentTime);
+          const nextStart = new Date(`${date}T${time}:00+07:00`);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time) || !Number.isFinite(nextStart.getTime())) {
+            errors.push("Ngày hoặc giờ phỏng vấn mới không hợp lệ; chưa cập nhật lịch.");
+          } else {
+            const duration = currentEnd.getTime() - currentStart.getTime();
+            resolved.scheduledStart = nextStart.toISOString();
+            resolved.scheduledEnd = new Date(nextStart.getTime() + duration).toISOString();
+          }
+        }
+        delete resolved.requestedStartDate;
+        delete resolved.requestedStartTime;
+      }
       if (op.id === "recruitment.job.status" && resolved.status === "open") {
         const missing = missingRecruitmentJobReadiness(current);
         if (missing.length) errors.push(`Chưa thể mở tuyển. Vị trí hiện thiếu: ${missing.join(", ")}. Hãy cập nhật vị trí trước.`);

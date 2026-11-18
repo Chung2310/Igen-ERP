@@ -1,5 +1,27 @@
 # Trợ lý thao tác và workflow cá nhân
 
+## Kiểm thử mock và chuẩn bị staging
+
+Phạm vi đã chốt là toàn bộ nghiệp vụ ERP, giữ xác thực và thiết bị trên luồng chuyên dụng. Tiến độ và các khoảng thiếu nằm ở [COVERAGE.md](./COVERAGE.md), danh sách từng route ở [UNSUPPORTED.md](./UNSUPPORTED.md). Chưa thể coi bản hiện tại là hoàn tất toàn bộ nghiệp vụ.
+
+Các lệnh kiểm tra từ thư mục gốc:
+
+```sh
+node server/assistant/scripts/inventory.mjs
+node server/assistant/scripts/build-catalog.mjs
+node server/assistant/scripts/update-coverage-summary.mjs
+npx vitest run server/assistant --reporter=json --outputFile=assistant-test-results.json
+npm run typecheck
+npm run build
+npm run build:assistant-worker
+```
+
+Kiểm thử hội thoại dùng API và diễn giải ý định giả lập để kiểm tra thu thập dữ liệu, xác nhận, phân giải bản ghi, hoàn tất, bổ sung vào cùng hồ sơ và hiển thị kết quả. Kiểm thử semantic riêng kiểm tra hợp đồng đầu ra của mô hình. Các kết quả này không chứng minh độ chính xác của LLM thật hoặc khả năng tích hợp với dịch vụ bên ngoài; cần kiểm tra các câu diễn đạt khác nhau trên staging với dữ liệu thử trước khi mở rộng người dùng.
+
+Xử lý nền mặc định tắt. Nếu thử xử lý nền trên staging, cấu hình `ASSISTANT_BACKGROUND_ENABLED=true` cho API và worker, dùng cùng cấu hình cơ sở dữ liệu và khóa xác thực, build rồi chạy thêm `npm run start:assistant-worker`. Lệnh build ứng dụng hiện chưa tự build worker trợ lý. Kiểm tra nhận tác vụ, xem trạng thái, hủy và khởi động lại worker; trạng thái đã tiếp nhận không đồng nghĩa thao tác nghiệp vụ đã hoàn tất.
+
+Các ca mới cho Kiến trúc/Pháp lý kiểm tra tạo dự án thiếu dữ liệu tùy chọn, đồng ý/bỏ qua, bổ sung đúng dự án, xóa với phiên bản hiện tại, tra cứu có nguồn và ngày áp dụng, duyệt văn bản sau xác nhận. Bản gốc pháp lý, media kiến trúc và các adapter còn thiếu vẫn được ghi rõ trong coverage; không có kiểm thử tích hợp thật cho các mục đó.
+
 Báo giá có 60 workflow qua `quotation-catalog.ts`: bảng giá và nhập Excel/CSV, yêu cầu/phân tích AI, báo giá khách hàng, dự toán, phương án ngân sách, duyệt, hợp đồng, nghiệm thu, quyết toán và xuất/tải file. Adapter gọi lại API ERP trên cùng listener, giữ token tài khoản và chi nhánh, kiểm tra hồ sơ cùng bản xem trước trước khi ghi. Mọi thao tác ghi hoặc xuất file dùng AI cần xác nhận; kết quả xếp hàng chưa được báo là file đã hoàn tất. Kết quả và hỏi bổ sung dùng dispatcher, completion và bảng chung. `quotation-route-coverage.json` ghi rõ các API được nối và các API phụ hoặc tải tệp nhị phân vẫn dùng giao diện. Chat hỗ trợ bảng Excel/CSV đã trích xuất tối đa 100 dòng; mẫu tài liệu mới và tệp yêu cầu gốc được tải ở màn hình Báo giá.
 
 Đồng bộ y tế với `develop` tại `d5f9d83f` (10/11/2026): 28 thao tác, tạo bệnh nhân có mã tự sinh, nhận bác sĩ ngoài danh mục, gắn chăm sóc với lượt khám và xem nội dung từng dòng báo cáo Excel. Cấu hình cũ tự bỏ yêu cầu mã bệnh nhân từng bị khóa bắt buộc; các lựa chọn bắt buộc do người dùng chủ động đặt vẫn được giữ. Xóa bệnh nhân cần quyền quản lý, chọn rõ từng hồ sơ, xem số dữ liệu liên quan, xác nhận và kiểm tra lại bản xem trước trước khi xóa. Kết quả vẫn dùng bảng chung, giữ câu hỏi thông tin tùy chọn, ẩn lời dẫn kỹ thuật và trường tự điền.
@@ -200,3 +222,14 @@ Ngày 2026-11-01: siết nhãn lựa chọn FAQ và phiên bản Content Sheet. 
 Ngày 2026-11-02: hoàn tất rà soát toàn bộ inventory; 812 route đã nối, 0 route chờ rà soát, 314 route có lý do cụ thể chủ ý chưa nối. Đã kiểm tra lại quy tắc gợi ý liên kết: khi tạo, trợ lý đề xuất lựa chọn theo tên/mã cho các tham chiếu có sẵn; khi sửa, trợ lý chỉ hỏi nếu người dùng yêu cầu đổi liên kết.
 
 Ngày 2026-11-02: cập nhật UNSUPPORTED.md để mỗi route chưa hỗ trợ hiển thị method/path, lý do cụ thể và vị trí route nguồn ngay cùng dòng. Chia lý do theo hành vi thật như callback OAuth, webhook, tệp, quyền tài khoản, token công khai, QR/khuôn mặt và CRUD động. Build catalog: 812 route nối, 0 chờ rà soát, 314 có lý do chưa nối; 520 test trợ lý và typecheck đạt.
+# Hướng dẫn thao tác dự phòng
+
+Chạy `npm run assistant:manual-guides` để tạo `docs/assistant/manual-guides/index.html` và `catalog.json`. Bản xuất local nằm trong thư mục bị gitignore; khi chuyển checkout hoặc staging, chạy lại lệnh để tạo báo cáo. Không cần khóa AI hoặc dữ liệu khách hàng.
+
+Nguồn duy trì: `manual-guide-routes.ts` xác định màn hình; `manual-guide-procedures.ts` chứa từng quy trình và bằng chứng control; `manual-guides.ts` xác định trạng thái khả dụng. Chỉ `procedure` có đủ bước đối chiếu nguồn. `navigation-only`, `unverified` và `ui-unavailable` là khoảng trống, không tính là hướng dẫn hoàn chỉnh. Kiểm tra nguồn không thay thế thử giao diện bằng tài khoản thực tế.
+
+Đợt rà 397 mục ngày 2026-11-19: `manual-guide-supplement.ts` nối hướng dẫn theo đúng mã thao tác (kèm method/path), tránh nhầm hai hành động dùng chung endpoint. `manual-guide-unavailable.ts` lưu lý do và tệp nguồn cho từng khoảng trống đã đối chiếu. Danh sách gốc được giữ trong `manual-guide-backlog.json`; kiểm thử không cho phép các mục này quay về trạng thái chỉ có điều hướng hoặc chưa xác minh. Việc ghi nhận không có giao diện không được tính thành hướng dẫn thao tác hoàn chỉnh. Chưa thử toàn bộ luồng bằng tài khoản thực tế.
+
+Khi thêm chức năng, bổ sung đường dẫn, bước đúng với hành động cụ thể, điều kiện và cách đối chiếu kết quả; thêm bằng chứng control thực tế. Phân biệt xem trước với ghi dữ liệu. Chạy trình tạo để kiểm tra bằng chứng và khả năng truy cập component từ entry ứng dụng, rồi chạy Vitest `manual-guides.test.ts` và `fallback-guidance.test.ts`. Nếu control bị feature flag ẩn hoặc component chưa gắn vào màn hình, không đánh dấu hướng dẫn khả dụng.
+
+Trợ lý dùng chung bộ hướng dẫn trong fallback. Khi API từ chối, giữ nguyên lý do; khi thiếu quyền, không hướng dẫn ghi; khi chưa biết đã lưu hay chưa, chỉ hướng dẫn kiểm tra trước, không yêu cầu thực hiện lại.

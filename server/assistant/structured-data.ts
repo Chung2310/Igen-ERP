@@ -5,7 +5,7 @@ export const isProtectedAssistantKey = (key: string) => protectedKey.test(key);
 const isInternalIdentifierKey = (key: string) => {
   const normalized = key.toLowerCase();
   if (normalized === "appid") return false;
-  return ["id", "_id", "uid", "_uid", "ids", "_ids", "uids", "_uids"].includes(normalized)
+  return ["id", "_id", "uid", "_uid", "ids", "_ids", "uids", "_uids", "version", "__v", "revision", "imageversion", "expectedversion"].includes(normalized)
     || /(?:Id|Uid|Ids|Uids)$/.test(key)
     || /(?:_id|_uid|_ids|_uids)$/i.test(key)
     || /[a-z](?:ID|UID|IDs|UIDs)$/.test(key);
@@ -110,7 +110,9 @@ export function validateStructuredField(
 }
 export function redactAssistantResult(value: unknown, depth = 0): unknown {
   if (depth > 6) return "…";
-  if (Array.isArray(value)) return value.slice(0, 15).map(item => redactAssistantResult(item, depth + 1));
+  // Pagination and display limits belong to the caller. Truncation here changes
+  // report totals before the formatter can disclose omitted rows.
+  if (Array.isArray(value)) return value.map(item => redactAssistantResult(item, depth + 1));
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).filter(([key]) => !isProtectedAssistantKey(key) && !isInternalIdentifierKey(key)).slice(0, 60).map(([key, item]) => [key, redactAssistantResult(item, depth + 1)]));
   if (typeof value === "string") return value.slice(0, 1500);
   return value;
