@@ -11,6 +11,8 @@ const state = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   create: vi.fn(),
   findOne: vi.fn(),
+  updateMany: vi.fn(),
+  deleteMany: vi.fn(),
 }));
 
 vi.mock("../../../middleware/auth", () => ({
@@ -22,6 +24,8 @@ vi.mock("../message/model/crm-ticket.model", () => ({
   CRMTicketModel: {
     create: state.create,
     findOne: state.findOne,
+    updateMany: state.updateMany,
+    deleteMany: state.deleteMany,
     find: (filter: Record<string, unknown>) => {
       state.findFilter = filter;
       return {
@@ -82,6 +86,53 @@ function requestLeads(method: "get" | "post", query: Record<string, string>, bod
 }
 
 const queryLeads = (query: Record<string, string>) => requestLeads("get", query);
+
+describe("POST /omni-inbox/leads/bulk", () => {
+  const leadId = "507f1f77bcf86cd799439011";
+  const otherId = "507f1f77bcf86cd799439022";
+  const bulk = (body: Record<string, unknown>) => requestLeads("post", {}, body, "/omni-inbox/leads/bulk");
+
+  beforeEach(() => {
+    state.permissions = ["omni-inbox:manage"];
+    state.updateMany.mockReset();
+    state.deleteMany.mockReset();
+  });
+
+  it("requires management access before writing", async () => {
+    state.permissions = ["omni-inbox:read"];
+    expect((await bulk({ action: "delete", ids: [leadId] })).status).toBe(403);
+    expect(state.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("validates all IDs, the page size, and both statuses", async () => {
+    expect((await bulk({ action: "delete", ids: [leadId, { $ne: "" }] })).status).toBe(400);
+    expect((await bulk({ action: "delete", ids: Array(101).fill(leadId) })).status).toBe(400);
+    expect((await bulk({ action: "update", ids: [leadId], status: "won", collectionStatus: "invalid" })).status).toBe(400);
+    expect(state.updateMany).not.toHaveBeenCalled();
+    expect(state.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("updates distinct IDs in one company-scoped write and skips unchanged rows", async () => {
+    state.updateMany.mockResolvedValue({ modifiedCount: 1 });
+    expect(await bulk({ action: "update", ids: [leadId, leadId.toUpperCase(), otherId], status: "won", collectionStatus: "complete" }))
+      .toEqual({ status: 200, body: { status: "success", data: { affected: 1, skipped: 1 } } });
+    expect(state.updateMany).toHaveBeenCalledExactlyOnceWith({
+      companyCode: "SPA01",
+      _id: { $in: [leadId, otherId] },
+      $or: [{ status: { $ne: "won" } }, { collectionStatus: { $ne: "complete" } }],
+    }, {
+      $set: { status: "won", collectionStatus: "complete", lastInteractionAt: expect.any(Date) },
+      $inc: { intakeRevision: 1 },
+    }, { runValidators: true });
+  });
+
+  it("deletes only the requested IDs in the current company", async () => {
+    state.deleteMany.mockResolvedValue({ deletedCount: 1 });
+    expect(await bulk({ action: "delete", ids: [leadId, otherId] }))
+      .toEqual({ status: 200, body: { status: "success", data: { affected: 1, skipped: 1 } } });
+    expect(state.deleteMany).toHaveBeenCalledExactlyOnceWith({ companyCode: "SPA01", _id: { $in: [leadId, otherId] } });
+  });
+});
 
 it("reads only the linked Lead summary for the current company, account and conversation", async () => {
   state.permissions = ["omni-inbox:read"];

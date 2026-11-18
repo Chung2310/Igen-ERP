@@ -7,7 +7,7 @@ import { PAGE_CUSTOMER_NOTES_KEY, savePageCustomer } from "../../page-customer.s
 import { splitHistoryAndPendingInboundMessages } from "../../chat-image-context";
 import { findLeadForIntake, upsertLeadFromIntake } from "../../lead-intake.service";
 vi.mock("../../../model/page-chat-flow.model", () => ({ PageChatFlowModel: { findOne: vi.fn() }, PageChatFlowStateModel: { findOne: vi.fn(), updateOne: vi.fn() } }));
-vi.mock("../../../model/lead-intake-profile.model", () => ({ LeadIntakeProfileModel: { findOne: vi.fn(), exists: vi.fn() } }));
+vi.mock("../../../model/lead-intake-profile.model", () => ({ LeadIntakeProfileModel: { find: vi.fn(), exists: vi.fn() } }));
 vi.mock("../../ai-reply-provider", () => ({ generateReplyCompletion: vi.fn() }));
 vi.mock("../../page-customer.service", () => ({ PAGE_CUSTOMER_NOTES_KEY: "__customer_notes", savePageCustomer: vi.fn() }));
 vi.mock("../../lead-intake.service", () => ({ findLeadForIntake: vi.fn(), upsertLeadFromIntake: vi.fn() }));
@@ -20,7 +20,7 @@ const fields = [
 describe("Page intake flow", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => null }) } as never);
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValue({ sort: () => ({ lean: async () => [] }) } as never);
     vi.mocked(findLeadForIntake).mockResolvedValue(null);
     vi.mocked(upsertLeadFromIntake).mockResolvedValue({ _id: "LEAD" } as never);
   });
@@ -63,12 +63,12 @@ describe("Page intake flow", () => {
     expect(savePageCustomer).not.toHaveBeenCalled();
   });
   it("collects two needs on the same Lead using the configured groups", async () => {
-    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValueOnce({ sort: () => ({ lean: async () => ({
-      _id: "PROFILE", version: 1, fields, goal: "Tư vấn", needGroups: [
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValueOnce({ sort: () => ({ lean: async () => [{
+      _id: "PROFILE", version: 1, platform: "facebook", accountId: "PAGE", fields, goal: "Tư vấn", needGroups: [
         { key: "paint", label: "Sơn", fieldKeys: ["surface", "area"] },
         { key: "materials", label: "Vật tư", fieldKeys: ["paint"] },
       ],
-    }) }) } as never);
+    }] }) } as never);
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
     vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({
       __lead_intent: true,
@@ -97,16 +97,32 @@ describe("Page intake flow", () => {
   it("uses the intake profile configured for the exact social account", async () => {
     const profile = { _id: "ACCOUNT-PROFILE", companyCode: "ACME", platform: "zalo", accountId: "OA-1", version: 5, goal: "Tư vấn khóa học",
       fields: [{ key: "name", label: "Họ tên", question: "Tên học viên?", type: "text", required: true }], completionMessage: "Đã nhận thông tin." };
-    vi.mocked(LeadIntakeProfileModel.findOne).mockImplementation(((filter: Record<string, unknown>) => ({ sort: () => ({ lean: async () => filter?.accountId === "OA-1" ? profile : null }) })) as never);
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValue({ sort: () => ({ lean: async () => [profile, {
+      _id: "DEFAULT", version: 2, fields, goal: "Tư vấn chung",
+    }] }) } as never);
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
     vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ __lead_intent: true, name: "Nguyễn An" }) } as never);
     await pageIntakeFlow.process({ companyCode: "ACME", pageId: "OA-1", platform: "zalo", conversationId: "USER-2", messageId: "M2", message: "Nguyễn An", imageUrls: [] });
-    expect(LeadIntakeProfileModel.findOne).toHaveBeenCalledTimes(1);
-    expect(LeadIntakeProfileModel.findOne).toHaveBeenCalledWith({ companyCode: "ACME", platform: "zalo", accountId: "OA-1", status: "active" });
+    expect(LeadIntakeProfileModel.find).toHaveBeenCalledExactlyOnceWith({
+      companyCode: "ACME", status: "active", $or: [{ platform: "zalo", accountId: "OA-1" }, { platform: { $exists: false } }],
+    });
     expect(PageChatFlowModel.findOne).not.toHaveBeenCalled();
     expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ platform: "zalo", accountId: "OA-1", profileId: "ACCOUNT-PROFILE", profileVersion: 5 }));
     expect(PageChatFlowStateModel.updateOne).toHaveBeenCalledWith(expect.objectContaining({ pageId: "OA-1", platform: "zalo" }),
       expect.objectContaining({ $set: expect.objectContaining({ profileId: "ACCOUNT-PROFILE", version: 5 }) }), { upsert: true });
+  });
+  it.each(["facebook", "zalo", "tiktok"] as const)("uses the company fields for %s even when the account has a newer profile", async platform => {
+    const shared = { _id: "SHARED", version: 6, applyToAllAccounts: true, goal: "Tư vấn chung", fields: [fields[0]] };
+    const account = { _id: "LOCAL", version: 7, platform, accountId: "PAGE", goal: "Tư vấn riêng", fields: [fields[1]] };
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValue({ sort: () => ({ lean: async () => [account, shared] }) } as never);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ __lead_intent: true, surface: "tường" }) } as never);
+
+    await pageIntakeFlow.process({ companyCode: "ACME", platform, pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường", imageUrls: [] });
+    expect(PageChatFlowModel.findOne).not.toHaveBeenCalled();
+    expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({
+      platform, accountId: "PAGE", profileId: "SHARED", fields: [fields[0]], values: { surface: "tường" },
+    }));
   });
   it("updates an already complete Lead with new answers without repeating the collection completion message", async () => {
     const contactFields = [
@@ -130,9 +146,9 @@ describe("Page intake flow", () => {
     ];
     const answers = { nhu_cau: "Đặt lịch khám" };
     const lead = { _id: "LEAD", answers, intakeStaffFields: ["answers.email"] };
-    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => ({
-      _id: "PROFILE", version: 1, goal: "Đăng ký lịch khám", fields: bookingFields,
-    }) }) } as never);
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValue({ sort: () => ({ lean: async () => [{
+      _id: "PROFILE", platform: "zalo", accountId: "OA", version: 1, goal: "Đăng ký lịch khám", fields: bookingFields,
+    }] }) } as never);
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({
       version: 1, profileId: "PROFILE", completedAt: new Date(), values: answers,
     }) } as never);
@@ -160,13 +176,13 @@ describe("Page intake flow", () => {
   });
 
   it("keeps required contact fields shared when they are selected in a need group", async () => {
-    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => ({
-      _id: "PROFILE", version: 1, goal: "Đặt lịch", fields: [
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValue({ sort: () => ({ lean: async () => [{
+      _id: "PROFILE", applyToAllAccounts: true, version: 1, goal: "Đặt lịch", fields: [
         { key: "ho_va_ten", label: "Họ và tên", required: true },
         { key: "so_dien_thoai", label: "Số điện thoại", type: "phone", required: true },
       ],
       needGroups: [{ key: "booking", label: "Đặt lịch", fieldKeys: ["ho_va_ten", "so_dien_thoai"] }],
-    }) }) } as never);
+    }] }) } as never);
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
     const reply = await pageIntakeFlow.process({
       companyCode: "ACME", pageId: "OA", platform: "zalo", conversationId: "C", messageId: "PHONE",
@@ -216,9 +232,9 @@ describe("Page intake flow", () => {
       { key: "phone", label: "Số điện thoại", type: "phone", question: "Cho em xin số liên hệ để lễ tân xác nhận lịch nhé?" },
       { key: "visit_date", label: "Ngày muốn khám", type: "date", question: "Mình muốn đến khám ngày nào ạ?" },
     ];
-    vi.mocked(LeadIntakeProfileModel.findOne).mockReturnValue({ sort: () => ({ lean: async () => ({
-      _id: "PROFILE", version: 1, goal: "Đăng ký gói khám", fields,
-    }) }) } as never);
+    vi.mocked(LeadIntakeProfileModel.find).mockReturnValue({ sort: () => ({ lean: async () => [{
+      _id: "PROFILE", version: 1, platform: "zalo", accountId: "OA", goal: "Đăng ký gói khám", fields,
+    }] }) } as never);
     vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({
       version: 1, profileId: "PROFILE", leadId: "LEAD", hasLeadIntent: true, values: { package: "Nam" },
     }) } as never);

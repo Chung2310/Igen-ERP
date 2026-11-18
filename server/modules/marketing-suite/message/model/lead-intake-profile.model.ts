@@ -13,6 +13,7 @@ const schema = new Schema({
   companyCode: { type: String, required: true, index: true },
   platform: { type: String, enum: ["facebook", "zalo", "tiktok"], index: true },
   accountId: { type: String, trim: true, maxlength: 200, index: true },
+  applyToAllAccounts: { type: Boolean },
   status: { type: String, enum: ["draft", "active", "archived"], default: "draft", index: true },
   version: { type: Number, required: true, min: 1 },
   goal: { type: String, required: true, maxlength: 300 },
