@@ -19,6 +19,49 @@ const leadIntake = {
   missingRequiredFields: [{ label: "Số điện thoại", type: "phone" }],
 };
 
+it("passes verified contact context to both generation and review without assuming a booking", async () => {
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
+  const replyText = "Em nhận được số điện thoại của mình rồi ạ, mình đang cần bên em hỗ trợ gì để em tư vấn đúng hơn nhé?";
+  vi.mocked(generateText)
+    .mockResolvedValueOnce({ text: "Mình đang quan tâm gói khám nào ạ?" } as never)
+    .mockResolvedValueOnce({ text: JSON.stringify({ compliant: false, correctedParts: [replyText] }) } as never)
+    .mockResolvedValueOnce({ text: JSON.stringify({ compliant: true }) } as never);
+  const result = await geminiChatService.chat("0912345678", [{ sender: "user", text: "Hi" }],
+    { companyName: "Phòng khám" }, { leadIntake: {
+      goal: "Tư vấn và đặt lịch", status: "just_completed",
+      collected: { phone: "0912345678" }, receivedContact: ["phone"], missingRequiredFields: [],
+    } });
+  expect(result.text).toBe(replyText);
+  const prompt = vi.mocked(generateText).mock.calls[0][2]?.systemInstruction;
+  expect(prompt).toContain('"receivedContact":["phone"]');
+  expect(prompt).toContain("Đừng mặc định họ đã chọn gói hay muốn đặt lịch");
+  const review = JSON.parse(String(vi.mocked(generateText).mock.calls[1][1]));
+  expect(JSON.stringify(review.rules)).toContain("Ghi nhận cụ thể loại thông tin vừa nhận");
+});
+
+it("answers the service question when the customer skips an optional field", async () => {
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
+  const answer = "Phòng khám mở cửa đến 20h ạ";
+  vi.mocked(generateText)
+    .mockResolvedValueOnce({ text: `${answer}, mình cho em xin họ tên nhé?` } as never)
+    .mockResolvedValueOnce({ text: JSON.stringify({ compliant: false, correctedParts: [answer] }) } as never)
+    .mockResolvedValueOnce({ text: JSON.stringify({ compliant: true }) } as never);
+  const result = await geminiChatService.chat("Mình chưa tiện cho tên. Phòng khám mở đến mấy giờ ạ?", [
+    { sender: "model", text: "Nếu tiện, cho em xin tên để dễ xưng hô nhé?" },
+  ], { companyName: "Phòng khám" }, {
+    contextText: "Phòng khám mở cửa đến 20h.",
+    leadIntake: { goal: "Tư vấn lịch khám", status: "complete", collected: { nhu_cau: "Khám tổng quát" },
+      missingRequiredFields: [], missingOptionalFields: [{ label: "Họ và tên", type: "text", question: "Tên người đi khám" }] },
+  });
+
+  expect(result.text).toBe(answer);
+  const prompt = vi.mocked(generateText).mock.calls[0][2]?.systemInstruction;
+  expect(prompt).toContain('"missingOptionalFields":[{"label":"Họ và tên"');
+  expect(prompt).toContain("Thứ tự cấu hình chỉ dùng khi các trường phù hợp như nhau");
+  const review = JSON.parse(String(vi.mocked(generateText).mock.calls[1][1]));
+  expect(JSON.stringify(review.rules)).toContain("đã bỏ qua hoặc từ chối cung cấp trường đó");
+});
+
 it("uses the previous offer and Lead details when the customer's answer is just 'ok'", async () => {
   vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
   const text = "Lớp tối bắt đầu lúc 19h, mình muốn học ngày nào ạ?";
@@ -61,7 +104,7 @@ it("provides the next configured booking question to generation and review after
   expect(reply.text).toBe(corrected);
   expect(vi.mocked(generateText).mock.calls[0][2]?.systemInstruction).toContain(question);
   const review = JSON.parse(String(vi.mocked(generateText).mock.calls[1][1]));
-  expect(JSON.stringify(review.rules)).toContain("tiếp tục hỏi một trường còn thiếu");
+  expect(JSON.stringify(review.rules)).toContain("ưu tiên một trường bắt buộc còn thiếu");
   expect(JSON.stringify(review.rules)).toContain("missingRequiredFields là nguồn duy nhất");
   expect(review.conversationContext).toContain(question);
 });
@@ -121,7 +164,7 @@ it("provides the next configured booking question to generation and review after
   expect(reply.text).toBe(corrected);
   expect(vi.mocked(generateText).mock.calls[0][2]?.systemInstruction).toContain(question);
   const review = JSON.parse(String(vi.mocked(generateText).mock.calls[1][1]));
-  expect(JSON.stringify(review.rules)).toContain("tiếp tục hỏi một trường còn thiếu");
+  expect(JSON.stringify(review.rules)).toContain("ưu tiên một trường bắt buộc còn thiếu");
   expect(JSON.stringify(review.rules)).toContain("missingRequiredFields là nguồn duy nhất");
   expect(review.conversationContext).toContain(question);
 });

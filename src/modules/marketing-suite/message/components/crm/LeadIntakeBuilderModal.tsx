@@ -55,8 +55,8 @@ function emptyField(): EditableField {
 }
 
 const starterFields: LeadIntakeField[] = [
-  { key: "ho_va_ten", label: "Họ và tên", type: "text", required: false, question: "Tên khách tự cung cấp" },
-  { key: "so_dien_thoai", label: "Số điện thoại", type: "phone", required: false, question: "Số điện thoại liên hệ của khách" },
+  { key: "ho_va_ten", label: "Họ và tên", type: "text", required: true, question: "Tên khách tự cung cấp" },
+  { key: "so_dien_thoai", label: "Số điện thoại", type: "phone", required: true, question: "Số điện thoại liên hệ của khách" },
   { key: "nhu_cau", label: "Nhu cầu", type: "long_text", required: true, question: "Sản phẩm, dịch vụ hoặc nhu cầu khách đang quan tâm" },
 ];
 
@@ -163,7 +163,7 @@ function LeadIntakeBuilderModalBody({
         const fallback = selectedAccount ? fallbackProfiles.find(profile => profile.status === "active") : undefined;
         const base = draft || active || fallback;
 
-        const baseFields = normalizeEditableFields(base?.fields || []);
+        const baseFields = normalizeEditableFields(base?.fields ?? starterFields);
         if (initialAddColumn && baseFields.length < 30) {
           pendingFocusNewRowRef.current = true;
           baseFields.push(emptyField());
@@ -408,7 +408,7 @@ function LeadIntakeBuilderModalBody({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-sm font-medium text-on-surface">Thông tin cần thu</h4>
-            <p className="text-xs text-on-surface-variant">Bỏ chọn «Chủ động hỏi» để chỉ lưu khi khách tự chia sẻ.</p>
+            <p className="text-xs text-on-surface-variant text-pretty">Cần đủ các cột bắt buộc để hoàn tất thu thập. Bot có thể hỏi cột tùy chọn khi phù hợp.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -484,7 +484,7 @@ function LeadIntakeBuilderModalBody({
           <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
             <div className={`hidden items-center gap-2 border-b border-outline-variant bg-surface-container-low px-3 py-2 text-xs font-medium text-on-surface-variant sm:grid ${columnLayout}`}>
               <span>Tên cột</span>
-              <span className="text-center">Chủ động hỏi</span>
+              <span className="text-center">Bắt buộc</span>
               <span className="text-right">Thao tác</span>
             </div>
 
@@ -512,13 +512,13 @@ function LeadIntakeBuilderModalBody({
                       <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 text-xs text-on-surface sm:justify-center">
                         <input
                           type="checkbox"
-                          aria-label={`Chủ động hỏi cột ${field.label || index + 1}`}
+                          aria-label={`Bắt buộc thu thập cột ${field.label || index + 1}`}
                           checked={field.required}
                           disabled={Boolean(busy)}
                           onChange={(event) => updateField(field._localId, { required: event.target.checked })}
                           className="size-4 accent-primary"
                         />
-                        <span className="sm:sr-only">Chủ động hỏi</span>
+                        <span className="sm:sr-only">Bắt buộc</span>
                       </label>
                       <div className="flex items-center justify-end gap-1">
                         <button type="button" disabled={Boolean(busy)}
