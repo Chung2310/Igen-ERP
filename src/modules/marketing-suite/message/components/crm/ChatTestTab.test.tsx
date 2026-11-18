@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatTestTab } from "./ChatTestTab";
 import { chatTestService } from "../../services/chatTestService";
@@ -28,6 +28,7 @@ const aiConfig: AIChatConfig = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:preview"), revokeObjectURL: vi.fn() }));
   HTMLElement.prototype.scrollIntoView = vi.fn();
   HTMLElement.prototype.scrollTo = vi.fn();
   vi.mocked(chatTestService.list).mockResolvedValue([session]);
@@ -39,7 +40,90 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+async function renderReadyChat() {
+  render(<ChatTestTab accounts={[]} onConfigureLead={vi.fn()} />);
+  const textbox = await screen.findByRole("textbox", { name: "Tin nhắn của khách" });
+  await waitFor(() => expect(textbox).toHaveProperty("disabled", false));
+  return { textbox, area: document.getElementById("chat_conversation_area")! };
+}
+
 describe("Direct CRM chat", () => {
+  it("accepts a folder image dropped anywhere in the conversation and keeps the drop indicator across child elements", async () => {
+    const { area, textbox } = await renderReadyChat();
+    const image = new File(["image"], "trien-khai.png", { type: "image/png" });
+    const transfer = { types: ["Files"], files: [image], dropEffect: "none" };
+    fireEvent.dragEnter(area, { dataTransfer: transfer });
+    fireEvent.dragOver(area, { dataTransfer: transfer });
+    expect(transfer.dropEffect).toBe("copy");
+    fireEvent.dragEnter(textbox, { dataTransfer: transfer });
+    fireEvent.dragLeave(textbox, { dataTransfer: transfer });
+    expect(screen.getByText("Thả ảnh để đính kèm vào tin nhắn")).toBeTruthy();
+    const drop = createEvent.drop(area, { dataTransfer: transfer, cancelable: true });
+    fireEvent(area, drop);
+    expect(drop.defaultPrevented).toBe(true);
+    expect(screen.queryByText("Thả ảnh để đính kèm vào tin nhắn")).toBeNull();
+    expect(await screen.findByAltText("Ảnh sắp gửi")).toBeTruthy();
+    expect(chatTestService.send).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await waitFor(() => expect(chatTestService.send).toHaveBeenCalledWith("session-1", expect.any(String), "", image));
+  });
+
+  it.each(["items", "files"])("pastes a copied web image from clipboard %s without inserting clipboard text", async source => {
+    const { textbox } = await renderReadyChat();
+    const image = new File(["image"], "clipboard.png", { type: "image/png" });
+    const paste = createEvent.paste(textbox, { cancelable: true, clipboardData: {
+      items: source === "items" ? [{ kind: "file", type: "image/png", getAsFile: () => image }] : [],
+      files: [image], getData: () => "https://example.test/image.png",
+    } });
+    fireEvent(textbox, paste);
+    expect(paste.defaultPrevented).toBe(true);
+    expect(await screen.findByAltText("Ảnh sắp gửi")).toBeTruthy();
+    expect(textbox).toHaveProperty("value", "");
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await waitFor(() => expect(chatTestService.send).toHaveBeenCalledWith("session-1", expect.any(String), "", image));
+  });
+
+  it("keeps ordinary text paste native and does not intercept image pasting in the AI settings panel", async () => {
+    const { textbox } = await renderReadyChat();
+    const textPaste = createEvent.paste(textbox, { cancelable: true, clipboardData: { items: [], files: [], getData: () => "Xin chào" } });
+    fireEvent(textbox, textPaste);
+    expect(textPaste.defaultPrevented).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Cấu hình chatbot" }));
+    const rules = await screen.findByDisplayValue("Tư vấn tự nhiên");
+    const image = new File(["image"], "clipboard.png", { type: "image/png" });
+    const settingsPaste = createEvent.paste(rules, { cancelable: true, clipboardData: {
+      items: [{ kind: "file", type: "image/png", getAsFile: () => image }], files: [image],
+    } });
+    fireEvent(rules, settingsPaste);
+    expect(settingsPaste.defaultPrevented).toBe(false);
+    expect(screen.queryByAltText("Ảnh sắp gửi")).toBeNull();
+  });
+
+  it.each(["multiple", "type", "size"])("rejects a %s-invalid drop without losing an existing attachment", async invalid => {
+    const { area } = await renderReadyChat();
+    const original = new File(["image"], "original.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Chọn ảnh gửi cho chatbot"), { target: { files: [original] } });
+    await screen.findByAltText("Ảnh sắp gửi");
+    const rejected = new File(["file"], invalid === "type" ? "file.pdf" : "other.png", { type: invalid === "type" ? "application/pdf" : "image/png" });
+    if (invalid === "size") Object.defineProperty(rejected, "size", { value: 9 * 1024 * 1024 });
+    fireEvent.drop(area, { dataTransfer: { types: ["Files"], files: invalid === "multiple" ? [original, rejected] : [rejected] } });
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", invalid === "multiple"
+      ? "Mỗi lượt gửi một ảnh. Bạn chọn hoặc thả từng ảnh nhé." : "Chọn ảnh JPEG, PNG, WebP hoặc GIF tối đa 8 MB.");
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await waitFor(() => expect(chatTestService.send).toHaveBeenCalledWith("session-1", expect.any(String), "", original));
+  });
+
+  it("blocks image drops while a bot turn is pending", async () => {
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: { ...session, pending: true }, aiConfig, messages: [], leads: [] });
+    render(<ChatTestTab accounts={[]} onConfigureLead={vi.fn()} />);
+    await screen.findByText("Đang chờ chatbot…");
+    const area = document.getElementById("chat_conversation_area")!;
+    const image = new File(["image"], "clipboard.png", { type: "image/png" });
+    fireEvent.drop(area, { dataTransfer: { types: ["Files"], files: [image] } });
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Chờ hội thoại sẵn sàng và chatbot trả lời xong trước khi thêm ảnh.");
+    expect(screen.queryByAltText("Ảnh sắp gửi")).toBeNull();
+    expect(chatTestService.send).not.toHaveBeenCalled();
+  });
   it("uses the inbox conversation UI to send an inbound message without connecting a Page", async () => {
     vi.mocked(chatTestService.list).mockResolvedValue([]);
     render(<ChatTestTab accounts={[]} onConfigureLead={vi.fn()} />);

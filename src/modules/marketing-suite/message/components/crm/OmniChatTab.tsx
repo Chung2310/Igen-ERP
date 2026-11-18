@@ -47,7 +47,12 @@ type OmniChatTabProps = {
     configScopeLabel?: string;
     composer?: React.ReactNode;
     hasAttachment?: boolean;
-    onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
+    onPaste?: React.ClipboardEventHandler<HTMLDivElement>;
+    onDragEnter?: React.DragEventHandler<HTMLDivElement>;
+    onDragOver?: React.DragEventHandler<HTMLDivElement>;
+    onDragLeave?: React.DragEventHandler<HTMLDivElement>;
+    onDrop?: React.DragEventHandler<HTMLDivElement>;
+    dropOverlay?: React.ReactNode;
     headerActions?: React.ReactNode;
     sidebarActions?: React.ReactNode;
     status?: React.ReactNode;
@@ -872,7 +877,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       </div>}
 
       {/* M-Col: Active Conversation details */}
-      <div className="flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area">
+      <div className="relative flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area"
+        onPaste={directChat?.onPaste} onDragEnter={directChat?.onDragEnter} onDragOver={directChat?.onDragOver}
+        onDragLeave={directChat?.onDragLeave} onDrop={directChat?.onDrop}>
+        {directChat?.dropOverlay}
         {isInboxLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-[#00ADFC] mb-3" />
@@ -1170,7 +1178,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   value={typeMessage}
                   onChange={(e) => setTypeMessage(e.target.value)}
                   disabled={aiWaiting}
-                  onPaste={directChat?.onPaste}
                 />
                 <button
                   type="submit"

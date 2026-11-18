@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { ImagePlus, Plus, Settings2, X } from "lucide-react";
 import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { ErpRefreshButton } from "../../../../../components/common/ErpRefreshButton";
@@ -105,12 +105,15 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
   const [file, setFile] = useState<File>();
   const [preview, setPreview] = useState("");
   const [sending, setSending] = useState(false);
+  const [draggingImage, setDraggingImage] = useState(false);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [channel, setChannel] = useState<"all" | "facebook" | "zalo" | "tiktok">("all");
   const [images, setImages] = useState<Record<string, string>>({});
   const imageUrls = useRef<Record<string, string>>({});
   const upload = useRef<HTMLInputElement>(null);
+  const attachmentHintId = useId();
+  const dragDepth = useRef(0);
   const pendingSend = useRef<{ key: string; text: string; file?: File }>(null);
   useEffect(() => {
     if (!id) return;
@@ -156,12 +159,22 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
       ...(images[message.id] ? { attachments: [{ type: "image", url: images[message.id] }] } : {}) },
     ...(message.reply ? [{ id: message.id + "-reply", sender: "ai" as const, text: message.reply, timestamp: new Date(message.createdAt) }] : []),
   ]) || [];
-  function choose(file?: File) {
-    if (!file) return;
+  function choose(files: File[]) {
+    if (!files.length) return;
+    if (!id || !data || sending || pending) {
+      setError("Chờ hội thoại sẵn sàng và chatbot trả lời xong trước khi thêm ảnh."); return;
+    }
+    if (files.length !== 1) {
+      setError("Mỗi lượt gửi một ảnh. Bạn chọn hoặc thả từng ảnh nhé."); return;
+    }
+    const file = files[0];
     if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 8 * 1024 * 1024) {
       setError("Chọn ảnh JPEG, PNG, WebP hoặc GIF tối đa 8 MB."); return;
     }
     setFile(file); setError("");
+  }
+  function hasDraggedFiles(transfer: DataTransfer) {
+    return Array.from(transfer.types).includes("Files") || transfer.files.length > 0;
   }
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -207,13 +220,49 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
           onConfigureLead(data?.session.sourceAccountId ? `${data.session.channel}:${data.session.sourceAccountId}` : "company")}>
           <Settings2 className="size-4" aria-hidden="true" /> Thiết lập Lead
         </button>,
-        onPaste: event => { const image = Array.from(event.clipboardData.items).find(item => item.type.startsWith("image/"))?.getAsFile(); if (image) choose(image); },
+        onPaste: event => {
+          const items = Array.from(event.clipboardData.items || []).flatMap(item => {
+            const file = item.kind === "file" ? item.getAsFile() : null;
+            return file ? [file] : [];
+          });
+          const files = items.length ? items : Array.from(event.clipboardData.files || []);
+          if (!files.length) return;
+          event.preventDefault();
+          choose(files);
+        },
+        onDragEnter: event => {
+          if (!hasDraggedFiles(event.dataTransfer)) return;
+          event.preventDefault();
+          dragDepth.current++;
+          if (id && data && !sending && !pending) setDraggingImage(true);
+        },
+        onDragOver: event => {
+          if (!hasDraggedFiles(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = id && data && !sending && !pending ? "copy" : "none";
+        },
+        onDragLeave: event => {
+          event.preventDefault();
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (!dragDepth.current) setDraggingImage(false);
+        },
+        onDrop: event => {
+          if (!hasDraggedFiles(event.dataTransfer)) return;
+          event.preventDefault();
+          dragDepth.current = 0;
+          setDraggingImage(false);
+          choose(Array.from(event.dataTransfer.files));
+        },
+        dropOverlay: draggingImage && <div role="status" className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-surface-container-lowest/95 p-4 text-center text-sm font-medium text-on-surface">
+          Thả ảnh để đính kèm vào tin nhắn
+        </div>,
         composer: <div className="mb-2 flex flex-wrap items-center gap-2">
           <input type="file" ref={upload} className="sr-only" tabIndex={-1} accept="image/jpeg,image/png,image/webp,image/gif"
-            aria-label="Chọn ảnh gửi cho chatbot" disabled={sending || pending} onChange={event => choose(event.target.files?.[0])} />
-          <button type="button" className={buttonClass} disabled={sending || pending} onClick={() => upload.current?.click()}>
+            aria-label="Chọn ảnh gửi cho chatbot" aria-describedby={attachmentHintId} disabled={sending || pending} onChange={event => choose(Array.from(event.target.files || []))} />
+          <button type="button" className={buttonClass} aria-describedby={attachmentHintId} disabled={sending || pending} onClick={() => upload.current?.click()}>
             <ImagePlus className="size-4" aria-hidden="true" /> Gửi ảnh
           </button>
+          <p id={attachmentHintId} className="text-pretty text-xs text-on-surface-variant">Kéo thả ảnh vào hội thoại hoặc Ctrl+V để dán ảnh · Tối đa 8 MB/ảnh</p>
           {preview && <><img src={preview} alt="Ảnh sắp gửi" className="size-14 rounded object-contain" />
             <button type="button" className={buttonClass} disabled={sending || pending} aria-label="Bỏ ảnh đã chọn"
               onClick={() => { setFile(undefined); if (upload.current) upload.current.value = ""; }}><X className="size-4" aria-hidden="true" /></button></>}
