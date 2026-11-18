@@ -82,6 +82,7 @@ import {
   resolveFilterValueLabel,
   saveSheetLayout,
   toIntakeFieldKey,
+  ZALO_UID_COLUMN_KEY,
   type LeadAccountOption,
   type LeadSheetColumn,
   type LeadSocialPlatform,
@@ -557,6 +558,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         ? [{ key: "customerName", label: "Tên hệ thống", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 172, editable: true, sortable: true, sortKey: "customerName" }]
         : []),
       { key: "phone", label: "Số điện thoại", type: "phone", kind: "system", defaultWidth: 148, editable: true, sortable: true, sortKey: "phone" },
+      ...(activeChannel === "all" || activeChannel === "zalo"
+        ? [{ key: ZALO_UID_COLUMN_KEY, label: "UID Zalo", type: "text" as const, kind: "system" as const, defaultWidth: 232, editable: false }]
+        : []),
       ...(isScopedAccount
         ? []
         : [{ key: "sourceChannel", label: "Kênh / Tài khoản", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 168, editable: false, sortable: true, sortKey: "sourcePlatform" }]),
@@ -588,6 +592,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     () => buildVisibleFilterColumns(visibleColumns),
     [visibleColumns],
   );
+  const includeZaloUid = visibleColumns.some(column => column.key === ZALO_UID_COLUMN_KEY);
   const visibleFilterColByKey = useMemo(
     () => new Map(visibleFilterColumns.map(col => [col.colKey, col])),
     [visibleFilterColumns],
@@ -699,6 +704,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         accountId,
         search,
         ...(fieldFilters.length > 0 ? { fieldFilters } : {}),
+        ...(includeZaloUid ? { includeZaloUid: true } : {}),
         sort: effectiveSortParam,
         page,
         limit: pageSize,
@@ -718,7 +724,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     } finally {
       if (seq === requestSeqRef.current) setLoading(false);
     }
-  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize, pageQuery, setPage]);
+  }, [activeChannel, accountId, search, fieldFilters, effectiveSortParam, page, pageSize, pageQuery, setPage, includeZaloUid]);
 
   useEffect(() => {
     setSelection(null);
@@ -1908,6 +1914,18 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                               ) : (
                                 <span className="text-xs text-on-surface-variant">Thủ công</span>
                               )}
+                            </td>
+                          );
+                        }
+
+                        if (col.key === ZALO_UID_COLUMN_KEY) {
+                          const identity = lead.zaloIdentity;
+                          return (
+                            <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-2.5 py-1.5 align-middle text-xs tabular-nums">
+                              {identity && <>
+                                <span className="block break-all">UID {identity.uid}</span>
+                                <span className="block break-all text-on-surface-variant">OA {identity.oaId}</span>
+                              </>}
                             </td>
                           );
                         }

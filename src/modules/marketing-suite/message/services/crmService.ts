@@ -3,7 +3,7 @@ import { getAccessToken } from "../../shared/services/authService";
 import { socketService } from "../../../../services/socketService";
 import { createInboxRefreshQueue } from "./inboxRefreshQueue";
 import { LeadCard } from "../../shared/types/index";
-import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule, ZaloLeadIdentity } from "../../../../../shared/marketing-suite/lead-intake";
 import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
 import type { ConfirmedTelecomInvoice, LeadContractPhoto, LeadContractReport, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
 
@@ -24,6 +24,7 @@ export interface ExtendedLeadCard extends LeadCard {
   sourcePlatform?: "facebook" | "zalo" | "tiktok";
   sourceAccountId?: string;
   sourceConversationId?: string;
+  zaloIdentity?: ZaloLeadIdentity;
   intakeProfileId?: string;
   intakeProfileVersion?: number;
   collectionStatus?: LeadCollectionStatus;
@@ -71,6 +72,7 @@ export interface LeadPageQueryOptions {
   collectionStatus?: string;
   fieldFilters?: LeadFieldFilter[];
   sort?: string;
+  includeZaloUid?: boolean;
 }
 
 export interface ActiveLeadIntakeProfile {
@@ -199,6 +201,7 @@ export const crmService = {
       params.set("fieldFilters", JSON.stringify(options.fieldFilters));
     }
     if (options.sort) params.set("sort", options.sort);
+    if (options.includeZaloUid) params.set("includeZaloUid", "true");
     const response = await fetch(`/api/v1/omni-inbox/leads?${params.toString()}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
     if (!response.ok) throw new Error("Không thể tải danh sách Lead.");
     const json = await response.json();
