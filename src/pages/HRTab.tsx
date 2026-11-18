@@ -151,10 +151,15 @@ export default function HRTab() {
   };
 
   useEffect(() => {
+    const refreshUsersAfterMutation = () => {
+      if (selectedCompanyCode) void fetchUsers();
+    };
+    window.addEventListener("user-mutation", refreshUsersAfterMutation);
     if (selectedCompanyCode) {
       fetchUsers();
       fetchCourses(selectedCompanyCode);
     }
+    return () => window.removeEventListener("user-mutation", refreshUsersAfterMutation);
   }, [selectedCompanyCode, userProfile?.uid, activeBranchId]);
 
   // Map user profile from Firestore to EmployeeNode tree model

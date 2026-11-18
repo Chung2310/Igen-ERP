@@ -14,6 +14,11 @@ export interface AssistantCompletion {
 /** Scope, selected targets and private snapshots never count as requested edits. */
 export function hasAssistantUpdatePayload(op: AssistantOperation, values: Record<string, unknown>): boolean {
   if (op.module === "quotation" && op.fixedBodyValues?.action === "recalculate") return true;
+  if (op.id === "hr.workflow.update") {
+    const action = String(values.workflowAction || "");
+    const requestedValue = action === "Gỡ bước" ? values.workflowTarget : values.workflowValue;
+    if (typeof requestedValue === "string" && requestedValue.trim()) return true;
+  }
   return op.fields.some(field => field.source !== "path" && field.source !== "query" && field.key !== "id"
     && !field.key.startsWith("__assistant") && !op.systemBodyFields?.includes(field.apiKey || field.key)
     && !/^(?:expectedVersion|idempotencyKey)$/i.test(field.apiKey || field.key) && values[field.key] !== undefined);

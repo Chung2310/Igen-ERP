@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { CompanyModel } from "../model/company.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { UserModel } from "../model/user.model";
-import { getDayContext, toVietnamDate } from "../service/company-work-calendar.service";
+import { getDayContext, listWorkingDates, toVietnamDate } from "../service/company-work-calendar.service";
 import { resolveShift, shiftWindow, vietnamWorkDate } from "../service/work-shift.service";
 import { attendanceResourceService } from "../service/attendance-resource.service";
 import { BranchModel } from "../model/branch.model";
@@ -14,6 +14,9 @@ import { isAttendanceLogActiveOnDate } from "../service/active-attendance-log.se
 import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 import { buildAttendanceReportRows } from "../utils/attendance-report";
 import { buildMonthlyAttendanceReport } from "../utils/monthly-attendance-report";
+import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
+import { PayrollRunModel } from "../model/payroll-run.model";
+import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 
 const attendanceAction = (req: AuthenticatedRequest) => req.path.includes("check-out") ? "check-out" as const : "check-in" as const;
 async function enforceBranchAttendance(req: AuthenticatedRequest, latitude: number, longitude: number) {
@@ -197,26 +200,167 @@ export const timekeepingController = {
 
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
+        const today = vietnamWorkDate();
+        const monthKey = startDate.slice(0, 7);
+        const reportEndDate = monthKey > today.slice(0, 7) ? "" : monthKey === today.slice(0, 7) ? (today < endDate ? today : endDate) : endDate;
       const rosterScope = buildBranchRosterFilter(req.user?.branchId);
       const employees = await UserModel.find({ companyCode, ...rosterScope })
-        .select("_id displayName")
+          .select("_id displayName createdAt")
         .sort({ displayName: 1 })
         .lean();
       const employeeIds = employees.map((employee) => String(employee._id));
+        const workingDates = reportEndDate ? await listWorkingDates(companyCode, startDate, reportEndDate) : [];
       const logs = employeeIds.length
         ? await TimekeepingLogModel.find({ companyCode, date: { $gte: startDate, $lte: endDate }, uid: { $in: employeeIds }, ...rosterScope })
-          .select("uid status")
+            .select("uid date status")
           .lean()
         : [];
 
       const records = buildMonthlyAttendanceReport(year, month, employees.map((employee) => ({
         id: String(employee._id),
         displayName: employee.displayName,
-      })), logs.map((log) => ({ uid: log.uid, status: log.status })));
+          createdAt: employee.createdAt,
+        })), logs.map((log) => ({ uid: log.uid, date: log.date, status: log.status })), workingDates);
       return res.status(200).json({ status: "success", data: { year, month, records } });
     } catch (error: any) {
       console.error("[timekeepingController.listMonthlyAttendanceReport] Error:", error);
       return res.status(500).json({ status: "error", message: "Không thể tổng hợp dữ liệu chấm công theo tháng." });
+    }
+  },
+
+  /**
+   * PATCH /api/v1/timekeeping/records/adjust
+   * Correct a timekeeping row by employee and date, creating it when absent.
+   */
+  async adjustAttendanceRecord(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const employeeId = String(req.body.employeeId || "");
+      const date = String(req.body.date || "");
+      const reason = String(req.body.editReason || "").trim();
+      const checkInInput = req.body.checkInTime;
+      const checkOutInput = req.body.checkOutTime;
+      const dateValue = new Date(`${date}T00:00:00.000Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(dateValue.valueOf()) || dateValue.toISOString().slice(0, 10) !== date) {
+        return res.status(400).json({ status: "error", message: "Ngày chấm công không hợp lệ." });
+      }
+      if (!checkInInput && !checkOutInput) {
+        return res.status(400).json({ status: "error", message: "Hãy nêu giờ vào hoặc giờ ra cần điều chỉnh." });
+      }
+      if (reason.length < 3) {
+        return res.status(400).json({ status: "error", message: "Vui lòng nhập lý do chỉnh sửa chấm công." });
+      }
+      const normalizeTime = (value: unknown): string | null => {
+        if (value === undefined || value === null || value === "") return "";
+        if (typeof value !== "string" || !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+        return value.length === 4 ? `0${value}` : value;
+      };
+      const checkInTime = normalizeTime(checkInInput);
+      const checkOutTime = normalizeTime(checkOutInput);
+      if (checkInTime === null || checkOutTime === null) {
+        return res.status(400).json({ status: "error", message: "Giờ chấm công cần theo định dạng HH:MM." });
+      }
+
+      const employee = await UserModel.findOne({
+        _id: employeeId,
+        companyCode,
+        ...buildBranchRosterFilter(req.user?.branchId, true),
+      }).lean();
+      if (!employee) return res.status(404).json({ status: "error", message: "Không tìm thấy nhân sự trong phạm vi được cấp quyền." });
+
+      const branchId = employee.branchId || req.user?.branchId || undefined;
+      const log = await TimekeepingLogModel.findOne({ uid: employeeId, companyCode, date });
+      if (log && req.user?.branchId && log.branchId && log.branchId !== req.user.branchId) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy bản ghi chấm công trong phạm vi được cấp quyền." });
+      }
+      const periodKey = date.slice(0, 7);
+      const [lockedResult, payrollRun] = await Promise.all([
+        AttendancePeriodResultModel.findOne({ companyCode, branchId, periodKey, status: "locked" }).lean(),
+        PayrollRunModel.findOne({ companyCode, branchId, periodKey, type: "regular" })
+          .sort({ createdAt: 1, _id: 1 })
+          .lean(),
+      ]);
+      if (lockedResult || payrollRun?.status === "closed") {
+        return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+      }
+
+      if (!log && !checkInTime) {
+        return res.status(400).json({ status: "error", message: "Chưa có bản ghi trong ngày; cần cung cấp giờ vào để tạo bản ghi điều chỉnh." });
+      }
+      if (log && !log.checkIn?.time && !checkInTime) {
+        return res.status(400).json({ status: "error", message: "Bản ghi chưa có giờ vào; cần cung cấp giờ vào để hoàn tất điều chỉnh." });
+      }
+
+      const resolved = await resolveShift(companyCode, employeeId, date);
+      const shiftWindowDefaults = shiftWindow(resolved.shift, date);
+      const scheduledStartAt = log?.scheduledStartAt || shiftWindowDefaults.scheduledStartAt;
+      const scheduledEndAt = log?.scheduledEndAt || shiftWindowDefaults.scheduledEndAt;
+      const toLocalDateTime = (time: string, nextDay = false) => {
+        const value = new Date(`${date}T${time}:00+07:00`);
+        if (nextDay) value.setUTCDate(value.getUTCDate() + 1);
+        return value;
+      };
+      const before = log ? (typeof log.toObject === "function" ? log.toObject() : { ...log }) : {};
+      const previousCheckIn = log?.checkIn && typeof (log.checkIn as any).toObject === "function" ? (log.checkIn as any).toObject() : log?.checkIn;
+      const previousCheckOut = log?.checkOut && typeof (log.checkOut as any).toObject === "function" ? (log.checkOut as any).toObject() : log?.checkOut;
+      const nextCheckInTime = checkInTime ? toLocalDateTime(checkInTime) : new Date(log!.checkIn!.time);
+      const checkoutValue = checkOutTime || "";
+      const previousOut = previousCheckOut?.time ? new Date(previousCheckOut.time) : null;
+      const nextCheckOutTime = checkoutValue
+        ? toLocalDateTime(checkoutValue, Boolean(checkoutValue < new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(nextCheckInTime)))
+        : previousOut;
+      const detailDefaults = { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual attendance adjustment", ipAddress: "" };
+      const checkIn = checkInTime ? { ...detailDefaults, ...(previousCheckIn || {}), time: nextCheckInTime } : previousCheckIn;
+      const checkOut = checkoutValue ? { ...detailDefaults, ...(previousCheckOut || {}), time: nextCheckOutTime } : previousCheckOut;
+      const status = calculateShiftStatus(
+        nextCheckInTime,
+        nextCheckOutTime,
+        scheduledStartAt,
+        scheduledEndAt,
+        resolved.shift.allowedLateMinutes,
+        resolved.shift.allowedEarlyLeaveMinutes,
+      ) as any;
+      const item = log || new TimekeepingLogModel({ uid: employeeId, companyCode, branchId, date });
+      item.checkIn = checkIn as any;
+      item.checkOut = (checkOut || null) as any;
+      item.status = status;
+      item.branchId = item.branchId || branchId;
+      item.workDate = item.workDate || date;
+      item.scheduledStartAt = item.scheduledStartAt || scheduledStartAt;
+      item.scheduledEndAt = item.scheduledEndAt || scheduledEndAt;
+      item.shiftId = item.shiftId || (resolved.shift._id ? String(resolved.shift._id) : undefined);
+      item.shiftName = item.shiftName || resolved.shift.name;
+      item.shiftCode = item.shiftCode || resolved.shift.code;
+      item.standardMinutes = item.standardMinutes || resolved.shift.standardMinutes;
+      item.breakPeriods = item.breakPeriods || resolved.shift.breakPeriods;
+      item.assignmentSource = item.assignmentSource || resolved.source;
+      item.manuallyAdjusted = true;
+      item.adjustedAt = new Date();
+      item.adjustedBy = req.user?.id;
+      item.adjustmentReason = reason;
+      await item.save();
+
+      const after = typeof item.toObject === "function" ? item.toObject() : item;
+      await Promise.all([
+        TimekeepingAdjustmentAuditModel.create({
+          companyCode,
+          logId: item._id,
+          employeeId,
+          date,
+          actorId: req.user!.id,
+          reason,
+          before,
+          after,
+        }),
+        AttendancePeriodResultModel.updateMany({ companyCode, branchId, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+      ]);
+      return res.status(200).json({ status: "success", message: "Đã điều chỉnh dữ liệu chấm công.", data: item });
+    } catch (error: any) {
+      console.error("[timekeepingController.adjustAttendanceRecord] Error:", error);
+      if (error?.code === 11000) {
+        return res.status(409).json({ status: "error", message: "Bản ghi chấm công vừa được tạo bởi thao tác khác. Hãy tải lại và thử điều chỉnh lần nữa." });
+      }
+      return res.status(500).json({ status: "error", message: "Không thể điều chỉnh dữ liệu chấm công." });
     }
   },
 

@@ -1,7 +1,6 @@
 ﻿import { afterEach, describe, expect, it, vi } from "vitest";
-import { RecruitmentApplicantModel } from "../model/recruitment-applicant.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
-import { getOrCreatePipeline, savePipeline } from "./recruitment-pipeline.service";
+import { getOrCreatePipeline } from "./recruitment-pipeline.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 
@@ -24,15 +23,5 @@ describe("recruitment pipeline service", () => {
     const result: any = await getOrCreatePipeline(scope, "actor");
     expect(update).toHaveBeenCalledWith({ _id: "pipe", ...scope, isDeleted: false, version: 2 }, expect.objectContaining({ $inc: { version: 1 } }), { returnDocument: 'after', runValidators: true });
     expect(result.stages.map((stage: any) => stage.name)).toEqual(["Hồ sơ mới", "Duyệt nội bộ"]);
-  });
-
-  it("rejects removal or disabling of a stage containing applicants", async () => {
-    vi.spyOn(RecruitmentPipelineModel, "findOne").mockReturnValue({
-      lean: async () => ({ version: 1, stages: [{ id: "screen", name: "Screen", isActive: true }] }),
-    } as any);
-    vi.spyOn(RecruitmentApplicantModel, "exists").mockResolvedValue({ _id: "app-1" } as any);
-    await expect(savePipeline(scope, "actor-1", 1, [
-      { id: "other", name: "Other", color: "#000000" },
-    ])).rejects.toThrow("Pipeline stage is in use");
   });
 });

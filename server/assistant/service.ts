@@ -309,6 +309,9 @@ export function inventoryReceiptFollowUpQuestion(
 const processingReply = (): AssistantReply => ({ status: "processing", reply: "Mình đang xử lý yêu cầu trước. Bạn chờ mình một chút nhé; chưa cần gửi lại yêu cầu." });
 const uncertainReply = (): AssistantReply => ({ status: "uncertain", reply: "Mình chưa xác nhận được yêu cầu trước đã hoàn tất hay chưa. Bạn kiểm tra dữ liệu trong phân hệ giúp mình trước khi thử lại nhé; mình không tự chạy lại để tránh tạo trùng." });
 function updateDetailsQuestion(op: AssistantOperation, intent: string, values: Record<string, unknown>) {
+  if (op.id === "employee.update" && /\b(?:so dien thoai|dien thoai|sdt)\b/.test(normalizeAssistantText(intent))) {
+    return "Bạn gửi giúp mình số điện thoại mới của nhân sự này nhé.";
+  }
   if (op.id === "healthcare.patient.update" && normalizeAssistantText(intent).includes("bo sung thong tin benh nhan vua tao")) {
     return "Bạn gửi thông tin muốn bổ sung cho bệnh nhân vừa tạo nhé: số điện thoại, ngày sinh, địa chỉ hoặc ghi chú. Bạn có thể chỉ bổ sung những mục đang có thông tin.";
   }
@@ -1972,6 +1975,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     if (op.method === "GET" && (op.adapter === "contract" || op.rawResponse)) {
       const result = await dispatch(checked.values);
+      if (["leave.balances.minimum", "timekeeping.records.monthly.under-threshold"].includes(op.id)) {
+        const records = projectRecords(op, result, req, checked.values);
+        pending = null;
+        return { status: "completed", reply: friendlyResult(op, records[0] || {}), link: op.link };
+      }
+      if (["task.kpi.monthly", "hr.leave.applications.list", "hr.calendar.events.list"].includes(op.id)) {
+        const records = projectRecords(op, result, req, checked.values);
+        pending = null;
+        return { status: "completed", reply: friendlyResult(op, op.id === "hr.calendar.events.list" ? records : records[0] || {}), link: op.link };
+      }
       if (op.id === "worker.attendance.list") {
         const sourceRows = Array.isArray(result?.data) ? result.data : [];
         const [workers, projects] = await Promise.all([
@@ -2053,7 +2066,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
       return { status: "completed", reply: friendlyResult(op, created), link: op.link };
     }
-    const records = projectRecords(op, result, req);
+    const records = projectRecords(op, result, req, checked.values);
     const deletedEmployeeName = op.id === "employee.delete"
       ? pending?.preview?.values?.find((item: { label?: string }) => item.label === op.fields.find(field => field.key === "id")?.label)?.value
       : undefined;
@@ -2512,7 +2525,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         : "";
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
-      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory, knownModules);
+      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided, intent: pending.intent } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory, knownModules);
       if (conversationFile?.visualAttachments?.length && interpreted.actionId) {
         const selectedOperation = operationById(interpreted.actionId);
         if (selectedOperation) {

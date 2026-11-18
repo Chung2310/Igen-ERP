@@ -220,7 +220,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
     } catch (cause) { setError(apiMessage(cause, "Không tạo được phối cảnh.")); }
     finally { setBusy(false); }
   };
-  const generateRenderFrom3D = async (referenceImage: string) => {
+  const generateRenderFrom3D = async (referenceImage: string, mode: "interior" | "floorplan", cameraAspectRatio: "4:3" | "16:9" | "1:1") => {
     if (!selected || !canUseAi || !planDraft.rooms.some(room => room.floor === activeFloor)) return;
     setBusy(true); setError(""); setNotice("");
     try {
@@ -234,11 +234,17 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         const finish = room.finishes || {};
         return `${room.name}: ${room.style || selected.style}; sàn ${finish.flooring || "Gỗ sáng"}; tường ${finish.walls || "Trắng ấm"}; trần ${finish.ceiling || "Trắng"}; cửa ${finish.doors || "Gỗ tự nhiên"}; cửa sổ ${finish.windows || "Kính trong, khung nhôm"}`;
       }).join("\n");
+      const furnitureNotes = (planDraft.furniture || []).filter(item => planDraft.rooms.some(room => room.id === item.roomId && room.floor === activeFloor)).map(item => {
+        const room = planDraft.rooms.find(candidate => candidate.id === item.roomId);
+        return `${room?.name || "Phòng"}: ${item.name}; kiểu dáng ${item.style?.replaceAll("_", " ") || "mặc định"}; phong cách dự án ${selected.style}; vật liệu ${item.material || "theo mẫu 3D"}; màu ${item.color || "theo vật liệu"}`;
+      }).join("\n");
       const result = await api.generateImage(projectForRender._id, {
-        kind: "render", aspectRatio, resolution, referenceImages: [referenceImage],
-        prompt: `Create a photorealistic architectural render from this exact 3D camera view. Preserve the camera angle, room layout, doors, windows, furniture placement, and proportions. Apply the project's selected finishes:\n${finishNotes}`,
+        kind: "render", aspectRatio: cameraAspectRatio, resolution, referenceImages: [referenceImage],
+        prompt: mode === "floorplan"
+          ? `Create a richly colored and textured professional 3D floorplan rendering from this exact top-down 3D view. Show the complete floor as a clear dollhouse or axonometric plan, not an interior room photograph. Preserve all room boundaries, walls, doors, windows, furniture placement, and proportions. Apply the project's selected finishes:\n${finishNotes}\nFurniture specification:\n${furnitureNotes}\nDo not add labels, dimensions, or text.`
+          : `Create a photorealistic architectural interior render from this exact 3D camera view. Preserve the camera angle, room layout, doors, windows, furniture placement, and proportions. Apply the project's selected finishes:\n${finishNotes}\nFurniture specification:\n${furnitureNotes}`,
       });
-      replaceProject(result.project); setNotice("Đã tạo phối cảnh từ góc nhìn 3D và lưu vào thư viện dự án.");
+      replaceProject(result.project); setNotice(mode === "floorplan" ? "Đã tạo mặt bằng 3D và lưu vào thư viện dự án." : "Đã tạo phối cảnh từ góc nhìn 3D và lưu vào thư viện dự án.");
     } catch (cause) { setError(apiMessage(cause, "Không tạo được phối cảnh từ góc nhìn 3D.")); }
     finally { setBusy(false); }
   };
@@ -267,7 +273,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         : ARCHITECTURE_TOOL_NAV.find(item => item.id === page)?.label || "Trợ lý kiến trúc";
 
   return <div className="architect-assistant-source min-h-full space-y-5 overflow-auto bg-surface p-4 sm:p-6" aria-busy={busy || loading}>
-    <header className="sticky top-0 z-30 -mx-4 -mt-4 flex min-h-16 items-center justify-between gap-3 border-b border-white/40 bg-white/70 px-4 py-3 shadow-sm shadow-slate-900/5 backdrop-blur-xl sm:-mx-6 sm:-mt-6 sm:px-6">
+    <header className="sticky top-0 z-30 -mx-4 -mt-4 flex min-h-16 items-center justify-between gap-3 border-b border-outline-variant/40 bg-surface-container-lowest/80 px-4 py-3 shadow-sm backdrop-blur-xl sm:-mx-6 sm:-mt-6 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <button type="button" onClick={() => setPage("home")} aria-label="Về trang công cụ kiến trúc" className="flex size-10 shrink-0 items-center justify-center rounded-full text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary">
           <ArrowLeft className="size-5" aria-hidden="true" />
@@ -318,7 +324,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         <FolderOpen className="mb-4 size-12 text-primary" aria-hidden="true" />
         <h2 className="text-balance text-xl font-bold text-on-surface">Chọn dự án để bắt đầu</h2>
         <p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">Các bản vẽ, phối cảnh và ảnh được lưu trong dự án đang chọn.</p>
-        <button type="button" onClick={() => { setPage("projects"); setShowProjectsPanel(true); }} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
+        <button type="button" onClick={() => { setPage("projects"); setShowProjectsPanel(true); }} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
           <FolderOpen className="size-4" aria-hidden="true" /> Mở danh sách dự án
         </button>
       </section> : <section className="min-w-0 space-y-4 rounded-xl bg-surface p-1 sm:p-2">
@@ -349,7 +355,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         </>}
 
         {page === "rendering" && <nav className="flex gap-1 overflow-x-auto rounded-full bg-surface-container-low p-1.5" aria-label="Công cụ rendering">
-          {RENDERING_TABS.map(item => <button key={item.tool} type="button" aria-pressed={tab === item.tool} onClick={() => setTab(item.tool)} className={cn("min-h-10 shrink-0 rounded-full px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary sm:px-6", tab === item.tool ? "bg-white text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface")}>
+          {RENDERING_TABS.map(item => <button key={item.tool} type="button" aria-pressed={tab === item.tool} onClick={() => setTab(item.tool)} className={cn("min-h-10 shrink-0 rounded-full px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary sm:px-6", tab === item.tool ? "bg-surface-container-lowest text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface")}>
             {item.label}
           </button>)}
         </nav>}
@@ -360,7 +366,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         </div>}
 
         {(page === "plan" || (page === "projects" && tab === "plan")) ? <div className="space-y-4">
-          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline) => void generatePlan(prompt, outline)} onGenerate3DRender={image => void generateRenderFrom3D(image)} />
+          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline) => void generatePlan(prompt, outline)} onGenerate3DRender={(image, mode, ratio) => void generateRenderFrom3D(image, mode, ratio)} />
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant pt-4">
             <p className="text-xs text-on-surface-variant">AI đề xuất phương án tham khảo; hãy kiểm tra kích thước và quy chuẩn trước khi triển khai.</p>
             <div className="flex flex-wrap gap-2">

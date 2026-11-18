@@ -4,6 +4,7 @@ import MoneyInput from "./MoneyInput";
 import VietnameseDatePicker from "./VietnameseDatePicker";
 import type { CatalogItem } from "./types";
 import type { Notify } from "./Feedback";
+import { catalogIdempotencyKeyFor, type CatalogRequestAttempt } from "./catalog-idempotency";
 
 export default function CatalogProductDialog({ item, mode, onClose, onSaved, onToast }: { item: CatalogItem; mode: "create" | "edit" | "duplicate"; onClose: () => void; onSaved: (item: CatalogItem) => void; onToast: Notify }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -18,7 +19,7 @@ export default function CatalogProductDialog({ item, mode, onClose, onSaved, onT
   const [effectiveTo, setEffectiveTo] = useState(item.effectiveTo ?? "");
   const [attributes, setAttributes] = useState<Array<{ key: string; value: string }>>(() => Object.entries(item.attributes ?? {}).map(([key, value]) => ({ key, value })));
   const [busy, setBusy] = useState(false);
-  const [requestKey] = useState(() => crypto.randomUUID());
+  const requestAttempt = useRef<CatalogRequestAttempt>({ key: "", fingerprint: "" });
   const [error, setError] = useState("");
   const report = (message: string) => { setError(message); onToast(message, "error"); };
 
@@ -52,12 +53,19 @@ export default function CatalogProductDialog({ item, mode, onClose, onSaved, onT
       return;
     }
     const customAttributes = Object.fromEntries(filledAttributes.map((attribute) => [attribute.key.trim(), attribute.value.trim()]));
+    const payload = { ...(mode === "duplicate" ? { sourceUpdatedAt: item.updatedAt } : {}), sku, name, description, unit, price: Number(price), currency, active, effectiveFrom, effectiveTo, attributes: customAttributes };
+    const requestKey = catalogIdempotencyKeyFor(requestAttempt.current, {
+      mode,
+      itemId: item._id,
+      expectedVersion: mode === "edit" ? item.updatedAt : undefined,
+      payload,
+    });
     setBusy(true); setError("");
     try {
       const result = await api<{ item: CatalogItem }>(mode === "create" ? "/api/catalog" : `/api/catalog/${encodeURIComponent(item._id)}${mode === "duplicate" ? "/duplicate" : ""}`, {
         method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Idempotency-Key": requestKey, ...(mode === "edit" && item.updatedAt ? { "If-Unmodified-Since": item.updatedAt } : {}) },
-        body: JSON.stringify({ ...(mode === "duplicate" ? { sourceUpdatedAt: item.updatedAt } : {}), sku, name, description, unit, price: Number(price), currency, active, effectiveFrom, effectiveTo, attributes: customAttributes }),
+        body: JSON.stringify(payload),
       });
       onSaved(result.item);
     } catch (cause) {

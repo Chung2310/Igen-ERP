@@ -4,7 +4,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Download, Rotate3D, Sparkles } from "lucide-react";
 import type { ArchitectureOpening, ArchitecturePlan, ArchitectureRoom } from "../../shared/architecture-assistant";
 
-type CameraPreset = "isometric" | "front" | "top";
+type CameraPreset = "isometric" | "front" | "top" | "room";
+type RoomAspectRatio = "4:3" | "16:9" | "1:1";
+type ThreeDRenderMode = "interior" | "floorplan";
 type ViewerState = { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls };
 const WORLD_SCALE = 0.16;
 const WALL_HEIGHT = 2.7;
@@ -100,13 +102,137 @@ function buildRoomScene(plan: ArchitecturePlan, floor: number, scene: THREE.Scen
     const sizeZ = Math.max(0.16, item.height / 100 * roomZ * 0.9);
     const x = (room.x - 50) * WORLD_SCALE + item.x / 100 * roomX + sizeX / 2;
     const z = (room.y - 50) * WORLD_SCALE + item.y / 100 * roomZ + sizeZ / 2;
-    const isBed = /giường/i.test(item.type);
-    const isSofa = /sofa/i.test(item.type);
-    const height = isBed ? 0.48 : isSofa ? 0.72 : /bàn/i.test(item.type) ? 0.78 : 1.1;
-    const color = isBed ? 0xd6c6ae : isSofa ? 0x788897 : /bàn/i.test(item.type) ? 0x96734d : 0x9a876d;
-    const material = new THREE.MeshStandardMaterial({ color, roughness: 0.72 });
-    const furniture = addBox(root, [sizeX, height, sizeZ], [x, height / 2 + 0.05, z], material, item.rotation * Math.PI / 180);
-    furniture.userData.label = item.name;
+    const label = `${item.type} ${item.name}`.toLocaleLowerCase("vi");
+    const isBed = /giường|bed/.test(label);
+    const isSofa = /sofa/.test(label);
+    const isNightstand = /tủ đầu giường|nightstand/.test(label);
+    const isFridge = /tủ lạnh|fridge/.test(label);
+    const isWasher = /máy giặt|máy sấy|washing machine/.test(label);
+    const isWardrobe = /tủ|wardrobe|cabinet/.test(label);
+    const isKitchen = /bếp|cooktop/.test(label);
+    const isDesk = /bàn làm việc|desk/.test(label);
+    const isTable = /bàn|table/.test(label);
+    const isBath = /thiết bị vệ sinh|bồn cầu|toilet|lavabo|chậu rửa|bồn rửa|sink|bath/.test(label);
+    const isStairs = /cầu thang|stairs/.test(label);
+    const isPlant = /chậu cây|cây cảnh|plant/.test(label);
+    const isCar = /ô tô|xe|car|vehicle/.test(label);
+    const furniture = new THREE.Group();
+    furniture.position.set(x, 0.04, z); furniture.rotation.y = -item.rotation * Math.PI / 180;
+    furniture.userData.label = item.name; root.add(furniture);
+    const materialColors: Record<string, number> = {
+      natural_oak: 0xc8a578, dark_walnut: 0x5c4033, painted_white: 0xf2f0e9,
+      fabric_grey: 0x87929b, fabric_green: 0x426954, beige_fabric: 0xc6b79f,
+      marble: 0xd4d9dc, stainless_steel: 0xaab4ba, black_metal: 0x343a3d,
+    };
+    const selectedMaterialColor = item.color && /^#[0-9a-f]{6}$/i.test(item.color)
+      ? new THREE.Color(item.color)
+      : item.material && materialColors[item.material] !== undefined ? new THREE.Color(materialColors[item.material]) : undefined;
+    const fabricMaterial = item.material?.startsWith("fabric_") || item.material === "beige_fabric";
+    const metalMaterial = item.material === "stainless_steel" || item.material === "black_metal";
+    const whiteMaterial = item.material === "painted_white";
+    const woodColor = selectedMaterialColor && !fabricMaterial && !metalMaterial
+      ? selectedMaterialColor : new THREE.Color(isBed || isWardrobe || isNightstand || isTable || isDesk ? 0x96734d : 0x9a876d);
+    const fabricColor = selectedMaterialColor && fabricMaterial
+      ? selectedMaterialColor : new THREE.Color(isSofa ? 0x788897 : 0xd6c6ae);
+    const wood = new THREE.MeshStandardMaterial({ color: woodColor, roughness: item.material === "marble" ? 0.24 : 0.68 });
+    const fabric = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.92 });
+    const white = new THREE.MeshStandardMaterial({ color: whiteMaterial && selectedMaterialColor ? selectedMaterialColor : 0xf0eee8, roughness: 0.8 });
+    const metal = new THREE.MeshStandardMaterial({ color: metalMaterial && selectedMaterialColor ? selectedMaterialColor : 0x9da8ad, metalness: 0.72, roughness: 0.28 });
+    const dark = new THREE.MeshStandardMaterial({ color: item.material === "black_metal" && selectedMaterialColor ? selectedMaterialColor : 0x30373a, roughness: 0.28, metalness: 0.32 });
+    const part = (size: [number, number, number], position: [number, number, number], material: THREE.Material) => addBox(furniture, size, position, material);
+    const cylinder = (radiusTop: number, radiusBottom: number, height: number, position: [number, number, number], material: THREE.Material) => {
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 20), material);
+      mesh.position.set(...position); mesh.castShadow = true; mesh.receiveShadow = true; furniture.add(mesh);
+    };
+
+    if (isBed) {
+      const bedWidth = item.style === "crib" ? sizeX * 0.58 : sizeX;
+      const bedDepth = item.style === "crib" ? sizeZ * 0.62 : sizeZ;
+      part([bedWidth, 0.22, bedDepth], [0, 0.13, 0], wood);
+      part([bedWidth * 0.94, 0.2, bedDepth * 0.93], [0, 0.33, 0], white);
+      part([bedWidth, 0.78, 0.12], [0, 0.52, -bedDepth * 0.45], wood);
+      part([bedWidth * 0.96, 0.12, bedDepth * 0.36], [0, 0.49, bedDepth * 0.24], fabric);
+      part([bedWidth * 0.31, 0.09, bedDepth * 0.16], [-bedWidth * 0.24, 0.48, -bedDepth * 0.29], white);
+      if (item.style !== "crib") part([bedWidth * 0.31, 0.09, bedDepth * 0.16], [bedWidth * 0.24, 0.48, -bedDepth * 0.29], white);
+    } else if (isSofa) {
+      part([sizeX, 0.34, sizeZ * 0.82], [0, 0.28, sizeZ * 0.08], fabric);
+      part([sizeX, 0.62, 0.16], [0, 0.66, -sizeZ * 0.4], fabric);
+      part([sizeX * 0.14, 0.53, sizeZ * 0.9], [-sizeX * 0.43, 0.39, 0], fabric);
+      part([sizeX * 0.14, 0.53, sizeZ * 0.9], [sizeX * 0.43, 0.39, 0], fabric);
+      if (item.style === "sectional") part([sizeX * 0.42, 0.32, sizeZ * 0.48], [sizeX * 0.27, 0.31, sizeZ * 0.34], fabric);
+    } else if (isFridge) {
+      const height = 1.8;
+      part([sizeX, height, sizeZ], [0, height / 2, 0], white);
+      part([0.025, height * 0.48, 0.025], [sizeX * 0.36, height * 0.74, sizeZ * 0.52], metal);
+      part([sizeX * 0.86, 0.025, 0.025], [0, height * 0.55, sizeZ * 0.52], metal);
+    } else if (isWasher) {
+      part([sizeX, 0.88, sizeZ], [0, 0.44, 0], white);
+      cylinder(sizeX * 0.28, sizeX * 0.28, 0.035, [0, 0.47, sizeZ * 0.51], metal);
+      cylinder(sizeX * 0.2, sizeX * 0.2, 0.04, [0, 0.47, sizeZ * 0.53], dark);
+    } else if (isBath) {
+      if (/bồn cầu|toilet/.test(label)) {
+        part([sizeX * 0.7, 0.48, sizeZ * 0.7], [0, 0.24, 0], white);
+        cylinder(sizeX * 0.37, sizeX * 0.42, 0.28, [0, 0.48, sizeZ * 0.1], white);
+        part([sizeX * 0.62, 0.58, sizeZ * 0.2], [0, 0.3, -sizeZ * 0.36], white);
+      } else {
+        part([sizeX, 0.72, sizeZ], [0, 0.36, 0], white);
+        part([sizeX * 0.74, 0.025, sizeZ * 0.72], [0, 0.74, 0], metal);
+      }
+    } else if (isNightstand || isWardrobe) {
+      const height = isNightstand ? 0.52 : 2.05;
+      part([sizeX, height, sizeZ], [0, height / 2, 0], wood);
+      part([sizeX * 0.92, height * 0.92, 0.025], [0, height / 2, sizeZ * 0.51], white);
+      part([0.035, isNightstand ? 0.07 : 0.16, 0.035], [0, height * 0.56, sizeZ * 0.54], metal);
+    } else if (isKitchen) {
+      part([sizeX, 0.72, sizeZ], [0, 0.36, 0], wood);
+      part([sizeX * 1.02, 0.07, sizeZ * 1.02], [0, 0.755, 0], dark);
+      for (const side of [-1, 1]) {
+        cylinder(sizeX * 0.13, sizeX * 0.13, 0.025, [side * sizeX * 0.22, 0.8, 0], metal);
+      }
+    } else if (isDesk || isTable) {
+      const topY = 0.75;
+      part([sizeX, 0.07, sizeZ], [0, topY, 0], wood);
+      for (const sideX of [-1, 1]) for (const sideZ of [-1, 1]) {
+        part([0.055, topY, 0.055], [sideX * sizeX * 0.43, topY / 2, sideZ * sizeZ * 0.42], dark);
+      }
+    } else if (isStairs) {
+      const stepCount = 7;
+      const stepDepth = sizeZ / stepCount;
+      for (let index = 0; index < stepCount; index += 1) {
+        const stepHeight = 0.18 * (index + 1);
+        part([sizeX, stepHeight, stepDepth], [0, stepHeight / 2, -sizeZ / 2 + stepDepth * (index + 0.5)], wood);
+      }
+      if (item.style?.startsWith("l_shaped") || item.style === "u_shaped") {
+        const sideCount = item.style === "u_shaped" ? 5 : 4;
+        const stepWidth = sizeX / sideCount;
+        for (let index = 0; index < sideCount; index++) {
+          const stepHeight = 0.18 * (stepCount - index);
+          part([stepWidth, stepHeight, sizeZ * 0.34], [-sizeX / 2 + stepWidth * (index + 0.5), stepHeight / 2, sizeZ * 0.33], wood);
+        }
+        if (item.style === "u_shaped") for (let index = 0; index < sideCount; index++) {
+          const stepHeight = 0.18 * (index + 1);
+          part([stepWidth, stepHeight, sizeZ * 0.34], [sizeX / 2 - stepWidth * (index + 0.5), stepHeight / 2, sizeZ * 0.33], wood);
+        }
+      }
+    } else if (isPlant) {
+      cylinder(sizeX * 0.28, sizeX * 0.36, 0.34, [0, 0.18, 0], new THREE.MeshStandardMaterial({ color: 0xa55331, roughness: 0.8 }));
+      cylinder(0.045, 0.06, 0.72, [0, 0.7, 0], wood);
+      const leaves = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.2, Math.min(sizeX, sizeZ) * 0.42), 16, 12), new THREE.MeshStandardMaterial({ color: 0x527b4a, roughness: 0.86 }));
+      leaves.position.set(0, 1.15, 0); leaves.castShadow = true; furniture.add(leaves);
+    } else if (isCar) {
+      const suv = item.style === "suv";
+      const vehicleHeight = suv ? 0.58 : 0.46;
+      part([sizeX, vehicleHeight, sizeZ], [0, vehicleHeight * 0.87, 0], new THREE.MeshStandardMaterial({ color: 0x526b7a, metalness: 0.58, roughness: 0.3 }));
+      part([sizeX * (suv ? 0.82 : 0.78), 0.42, sizeZ * (suv ? 0.58 : 0.48)], [0, vehicleHeight + 0.19, -sizeZ * 0.04], new THREE.MeshStandardMaterial({ color: 0x9ab5c3, metalness: 0.2, roughness: 0.18, transparent: true, opacity: 0.78 }));
+      const wheelGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 16); wheelGeometry.rotateZ(Math.PI / 2);
+      const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x202326, roughness: 0.92 });
+      for (const wheelX of [-sizeX * 0.48, sizeX * 0.48]) for (const wheelZ of [-sizeZ * 0.3, sizeZ * 0.3]) {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial); wheel.position.set(wheelX, 0.24, wheelZ); wheel.castShadow = true; furniture.add(wheel);
+      }
+    } else {
+      part([sizeX, 0.82, sizeZ], [0, 0.41, 0], wood);
+      part([sizeX * 0.9, 0.035, 0.025], [0, 0.42, sizeZ * 0.51], metal);
+    }
   }
 
   if (!rooms.length) {
@@ -152,13 +278,26 @@ export default function ArchitecturePlan3DViewer({ plan, floor, fallback, canGen
   fallback: ReactNode;
   canGenerateAi?: boolean;
   rendering?: boolean;
-  onGenerateRender?: (image: string) => void;
+  onGenerateRender?: (image: string, mode: ThreeDRenderMode, aspectRatio: RoomAspectRatio) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<ViewerState | null>(null);
   const [webglAvailable, setWebglAvailable] = useState(false);
   const [preset, setPreset] = useState<CameraPreset>("isometric");
+  const [roomViewId, setRoomViewId] = useState("");
+  const [roomCameraX, setRoomCameraX] = useState(50);
+  const [roomCameraY, setRoomCameraY] = useState(50);
+  const [roomRotation, setRoomRotation] = useState(0);
+  const [roomFov, setRoomFov] = useState(85);
+  const [aspectRatio, setAspectRatio] = useState<RoomAspectRatio>("4:3");
+  const [renderMode, setRenderMode] = useState<ThreeDRenderMode>("interior");
   const [captureError, setCaptureError] = useState("");
+  const floorRooms = plan.rooms.filter(room => room.floor === floor);
+  const floorRoomIds = floorRooms.map(room => room.id).join("|");
+
+  useEffect(() => {
+    if (!floorRooms.some(room => room.id === roomViewId)) setRoomViewId(floorRooms[0]?.id || "");
+  }, [floor, floorRoomIds, roomViewId]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -228,21 +367,53 @@ export default function ArchitecturePlan3DViewer({ plan, floor, fallback, canGen
     buildRoomScene(plan, floor, viewer.scene);
   }, [plan, floor, webglAvailable]);
 
-  const setCamera = (next: CameraPreset) => {
+  const setCamera = (next: Exclude<CameraPreset, "room">) => {
     const viewer = viewerRef.current; if (!viewer) return;
-    const positions: Record<CameraPreset, [number, number, number]> = {
+    const positions: Record<Exclude<CameraPreset, "room">, [number, number, number]> = {
       isometric: [17, 14, 20], front: [0, 7, 25], top: [0, 32, 0.01],
     };
-    viewer.camera.position.set(...positions[next]); viewer.controls.target.set(0, 0.8, 0); viewer.controls.update(); setPreset(next);
+    viewer.camera.fov = 42; viewer.camera.updateProjectionMatrix();
+    viewer.camera.position.set(...positions[next]); viewer.controls.target.set(0, 0.8, 0);
+    viewer.controls.minDistance = 7; viewer.controls.maxDistance = 48; viewer.controls.maxPolarAngle = Math.PI * 0.49;
+    viewer.controls.update(); setPreset(next);
   };
+  const positionRoomCamera = (id = roomViewId, rotation = roomRotation, fov = roomFov, xPercent = roomCameraX, yPercent = roomCameraY) => {
+    const viewer = viewerRef.current;
+    const room = floorRooms.find(item => item.id === id);
+    if (!viewer || !room) return false;
+    const centerX = (room.x + room.width * xPercent / 100 - 50) * WORLD_SCALE;
+    const centerZ = (room.y + room.height * yPercent / 100 - 50) * WORLD_SCALE;
+    const angle = THREE.MathUtils.degToRad(rotation);
+    const target = new THREE.Vector3(centerX, 1.55, centerZ);
+    const direction = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+    const eye = target.clone().addScaledVector(direction, -0.05);
+    viewer.camera.fov = fov; viewer.camera.updateProjectionMatrix();
+    viewer.camera.position.copy(eye); viewer.controls.target.copy(target);
+    viewer.controls.minDistance = 0.01; viewer.controls.maxDistance = 0.1; viewer.controls.minPolarAngle = 0.05; viewer.controls.maxPolarAngle = Math.PI - 0.05;
+    viewer.camera.lookAt(target); viewer.controls.update();
+    setPreset("room");
+    return true;
+  };
+  useEffect(() => {
+    if (preset === "room") positionRoomCamera();
+  }, [plan, floor, roomViewId, roomCameraX, roomCameraY, roomRotation, roomFov, webglAvailable, preset]);
+  const previewAspectClass = preset !== "room" && renderMode !== "floorplan" ? "aspect-video" : aspectRatio === "1:1" ? "aspect-square" : aspectRatio === "4:3" ? "aspect-[4/3]" : "aspect-video";
   const download = () => {
     const renderer = viewerRef.current?.renderer; if (!renderer) return;
     const link = document.createElement("a"); link.download = `mat-bang-3d-tang-${floor}.png`; link.href = renderer.domElement.toDataURL("image/png"); link.click();
   };
-  const generateRender = () => {
+  const captureRender = (mode: ThreeDRenderMode) => {
     const renderer = viewerRef.current?.renderer; if (!renderer || !onGenerateRender) return;
-    try { setCaptureError(""); onGenerateRender(renderer.domElement.toDataURL("image/png")); }
+    try { setCaptureError(""); onGenerateRender(renderer.domElement.toDataURL("image/png"), mode, aspectRatio); }
     catch { setCaptureError("Không chụp được góc nhìn 3D. Hãy thử lại hoặc tải ảnh xuống."); }
+  };
+  const generateRender = () => {
+    if (renderMode === "floorplan") {
+      setCamera("top");
+      requestAnimationFrame(() => captureRender(renderMode));
+      return;
+    }
+    captureRender(renderMode);
   };
 
   return <div className="space-y-2">
@@ -251,13 +422,29 @@ export default function ArchitecturePlan3DViewer({ plan, floor, fallback, canGen
         <button type="button" aria-pressed={preset === "isometric"} disabled={!webglAvailable} onClick={() => setCamera("isometric")} className="min-h-9 rounded-lg border border-outline-variant px-3 text-xs text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Phối cảnh</button>
         <button type="button" aria-pressed={preset === "front"} disabled={!webglAvailable} onClick={() => setCamera("front")} className="min-h-9 rounded-lg border border-outline-variant px-3 text-xs text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Mặt trước</button>
         <button type="button" aria-pressed={preset === "top"} disabled={!webglAvailable} onClick={() => setCamera("top")} className="min-h-9 rounded-lg border border-outline-variant px-3 text-xs text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Từ trên</button>
+        <button type="button" aria-pressed={preset === "room"} disabled={!webglAvailable || !floorRooms.length} aria-describedby={!floorRooms.length ? "architecture-room-camera-help" : undefined} onClick={() => positionRoomCamera()} className="min-h-9 rounded-lg border border-outline-variant px-3 text-xs text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Góc nhìn phòng</button>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {canGenerateAi && <button type="button" onClick={generateRender} disabled={!webglAvailable || rendering} aria-busy={rendering} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><Sparkles className="size-4" aria-hidden="true" />{rendering ? "Đang tạo…" : "Tạo phối cảnh từ góc 3D"}</button>}
+        {canGenerateAi && <>
+          <label className="sr-only" htmlFor={`architecture-3d-render-mode-${floor}`}>Chế độ render 3D</label>
+          <select id={`architecture-3d-render-mode-${floor}`} className="min-h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-xs text-on-surface focus:border-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" value={renderMode} onChange={event => setRenderMode(event.target.value as ThreeDRenderMode)} disabled={!webglAvailable || rendering}>
+            <option value="interior">Phối cảnh nội thất</option><option value="floorplan">Mặt bằng 3D</option>
+          </select>
+          <button type="button" onClick={generateRender} disabled={!webglAvailable || rendering} aria-busy={rendering} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><Sparkles className="size-4" aria-hidden="true" />{rendering ? "Đang tạo…" : renderMode === "floorplan" ? "Tạo mặt bằng 3D" : "Tạo phối cảnh từ góc 3D"}</button>
+        </>}
         <button type="button" onClick={download} disabled={!webglAvailable} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-xs text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><Download className="size-4" aria-hidden="true" />Tải ảnh 3D</button>
       </div>
     </div>
-    <div className="relative aspect-video overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+    {preset === "room" && <div className="grid gap-3 rounded-lg border border-outline-variant bg-surface-container-low p-3 sm:grid-cols-2 xl:grid-cols-3">
+      <label className="block space-y-1 text-xs text-on-surface-variant"><span>Phòng nhìn</span><select className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus-visible:outline-2 focus-visible:outline-primary" value={roomViewId} onChange={event => { const id = event.target.value; setRoomViewId(id); setRoomCameraX(50); setRoomCameraY(50); positionRoomCamera(id, roomRotation, roomFov, 50, 50); }}>{floorRooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}</select></label>
+      <label className="block space-y-1 text-xs text-on-surface-variant"><span>Vị trí ngang trong phòng · {roomCameraX}%</span><input className="block min-h-9 w-full accent-primary focus-visible:outline-2 focus-visible:outline-primary" type="range" min="5" max="95" step="1" value={roomCameraX} onChange={event => { const value = Number(event.target.value); setRoomCameraX(value); positionRoomCamera(roomViewId, roomRotation, roomFov, value); }} /></label>
+      <label className="block space-y-1 text-xs text-on-surface-variant"><span>Vị trí sâu trong phòng · {roomCameraY}%</span><input className="block min-h-9 w-full accent-primary focus-visible:outline-2 focus-visible:outline-primary" type="range" min="5" max="95" step="1" value={roomCameraY} onChange={event => { const value = Number(event.target.value); setRoomCameraY(value); positionRoomCamera(roomViewId, roomRotation, roomFov, roomCameraX, value); }} /></label>
+      <label className="block space-y-1 text-xs text-on-surface-variant"><span>Hướng camera · {roomRotation}°</span><input className="block min-h-9 w-full accent-primary focus-visible:outline-2 focus-visible:outline-primary" type="range" min="0" max="359" step="1" value={roomRotation} onChange={event => { const value = Number(event.target.value); setRoomRotation(value); positionRoomCamera(roomViewId, value); }} /></label>
+      <label className="block space-y-1 text-xs text-on-surface-variant"><span>Tầm nhìn · {roomFov}°</span><input className="block min-h-9 w-full accent-primary focus-visible:outline-2 focus-visible:outline-primary" type="range" min="30" max="120" step="5" value={roomFov} onChange={event => { const value = Number(event.target.value); setRoomFov(value); positionRoomCamera(roomViewId, roomRotation, value); }} /></label>
+      <label className="block space-y-1 text-xs text-on-surface-variant"><span>Tỷ lệ khung hình</span><select className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus-visible:outline-2 focus-visible:outline-primary" value={aspectRatio} onChange={event => setAspectRatio(event.target.value as RoomAspectRatio)}><option value="4:3">Landscape (4:3)</option><option value="16:9">Widescreen (16:9)</option><option value="1:1">Square (1:1)</option></select></label>
+    </div>}
+    {!floorRooms.length && <p id="architecture-room-camera-help" className="text-pretty text-xs text-on-surface-variant">Thêm ít nhất một phòng ở tầng này để dùng góc camera trong phòng.</p>}
+    <div className={`relative ${previewAspectClass} overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest`}>
       <div ref={containerRef} className="absolute inset-0" />
       {!webglAvailable && <div className="absolute inset-0">{fallback}</div>}
       {webglAvailable && <div id={`architecture-3d-controls-${floor}`} className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-surface-container-lowest/90 px-2 py-1 text-xs text-on-surface-variant"><Rotate3D className="size-3.5" aria-hidden="true" />Kéo để xoay · Cuộn để thu/phóng · Tab vào mô hình rồi dùng phím mũi tên, +/−</div>}
