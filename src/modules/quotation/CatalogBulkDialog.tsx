@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, formatMoney } from "./api";
 import type { CatalogItem } from "./types";
+import { catalogIdempotencyKeyFor, type CatalogRequestAttempt } from "./catalog-idempotency";
 
 import { catalogActionLabels, type CatalogAction } from "./catalog-actions";
 type Preview = { previewHash: string; rows: Array<{ id: string; sku: string; name: string; currency: string; before: { price: number; active: boolean; deleted: boolean }; after: { price: number; active: boolean; deleted: boolean } }> };
@@ -9,7 +10,7 @@ export default function CatalogBulkDialog({ action, items, onClose, onApplied }:
   const dialog = useRef<HTMLDialogElement>(null);
   const [mode, setMode] = useState<"amount" | "percent">("percent"), [direction, setDirection] = useState(1), [value, setValue] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const [key] = useState(() => crypto.randomUUID());
+  const requestAttempt = useRef<CatalogRequestAttempt>({ key: "", fingerprint: "" });
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null, previousOverflow = document.body.style.overflow;
     const element = dialog.current!;
@@ -25,8 +26,10 @@ export default function CatalogBulkDialog({ action, items, onClose, onApplied }:
   };
   const apply = async () => {
     if (!preview || busy) return;
+    const requestPayload = { ...payload(), previewHash: preview.previewHash };
+    const key = catalogIdempotencyKeyFor(requestAttempt.current, requestPayload);
     setBusy(true); setError("");
-    try { const result = await api<{ items: CatalogItem[] }>("/api/catalog/bulk", { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify({ ...payload(), previewHash: preview.previewHash }) }); onApplied(result.items); }
+    try { const result = await api<{ items: CatalogItem[] }>("/api/catalog/bulk", { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify(requestPayload) }); onApplied(result.items); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Chưa áp dụng được thay đổi. Hãy tải lại để đối chiếu."); }
     finally { setBusy(false); }
   };

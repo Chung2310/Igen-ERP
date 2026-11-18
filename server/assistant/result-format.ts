@@ -1046,6 +1046,25 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       ? formatAssistantResultTable("Thông tin phòng ban", rows)
       : "Không tìm thấy phòng ban khớp với tên đã nêu trong phạm vi hiện tại.";
   }
+  if (operation.id === "department.employees.list") {
+    const employees = collection(safeResult) || [];
+    const rows = employees.slice(0, 50).flatMap((value: unknown) => {
+      const employee = recordOf(value);
+      if (!employee || typeof employee.displayName !== "string" || !employee.displayName.trim()) return [];
+      return [{
+        "Nhân sự": employee.displayName.trim().slice(0, 160),
+        ...(typeof employee.jobTitle === "string" && employee.jobTitle.trim() ? { "Chức danh": employee.jobTitle.trim().slice(0, 120) } : {}),
+        ...(typeof employee.department === "string" && employee.department.trim() ? { "Phòng ban": employee.department.trim().slice(0, 120) } : {}),
+      }];
+    });
+    if (!rows.length) return "Chưa có nhân sự phù hợp trong phòng ban được chọn.";
+    const departmentName = rows[0]["Phòng ban"] || "đã chọn";
+    return formatAssistantResultTable(
+      `Danh sách nhân sự phòng ${departmentName} · ${countValue(employees.length)} kết quả`,
+      rows,
+      employees.length > rows.length ? [`Còn ${countValue(employees.length - rows.length)} nhân sự chưa hiển thị.`] : [],
+    );
+  }
   if (operation.id === "hr.contract.expiring.list") {
     const alerts = Array.isArray(dataResult.expiryAlerts) ? dataResult.expiryAlerts : [];
     const total = Number.isSafeInteger(Number(dataResult.expiryAlertTotal)) && Number(dataResult.expiryAlertTotal) >= 0
@@ -1083,6 +1102,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   if (operation.id === "hr.training.incomplete.list") {
     const enrollments = Array.isArray(dataResult.incompleteEnrollments) ? dataResult.incompleteEnrollments : [];
     const total = Number.isSafeInteger(Number(dataResult.incompleteTotal)) ? Number(dataResult.incompleteTotal) : enrollments.length;
+    const courseName = typeof dataResult.courseName === "string" && dataResult.courseName.trim() ? dataResult.courseName.trim() : "";
     const rows = enrollments.slice(0, 20).flatMap((value: unknown) => {
       const enrollment = recordOf(value);
       if (!enrollment || typeof enrollment.employeeName !== "string") return [];
@@ -1095,9 +1115,11 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       }];
     });
     const incompleteNote = dataResult.truncated === true ? "Danh sách đăng ký đào tạo vượt quá giới hạn đọc 1.000 dòng; kết quả có thể chưa bao gồm toàn bộ nhân sự." : "";
-    if (!total) return incompleteNote || "Không có đăng ký đào tạo nội bộ nào chưa hoàn thành trong phạm vi hiện tại.";
+    if (!total) return incompleteNote || (courseName
+      ? `Không có lượt học nào chưa hoàn thành khóa học ${courseName} trong phạm vi hiện tại.`
+      : "Không có đăng ký đào tạo nội bộ nào chưa hoàn thành trong phạm vi hiện tại.");
     return rows.length
-      ? formatAssistantResultTable(`Có ${countValue(total)} lượt học chưa hoàn thành.`, rows, [
+      ? formatAssistantResultTable(`Có ${countValue(total)} lượt học chưa hoàn thành${courseName ? ` trong khóa học ${courseName}` : ""}.`, rows, [
         ...(total > rows.length ? [`Còn ${countValue(total - rows.length)} lượt học chưa hiển thị.`] : []),
         ...(incompleteNote ? [incompleteNote] : []),
       ])
@@ -1163,9 +1185,13 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       : "0";
     let filtered = records.map(recordOf).filter((record): record is Record<string, any> => Boolean(record));
     let summary: string;
-    if (operation.id === "timekeeping.records.monthly.under-26") {
-      filtered = filtered.filter(record => Number(record.workedDays) < 26);
-      summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự chưa đủ 26 công trong ${period}.` : `Không có nhân sự nào dưới 26 công trong ${period}.`;
+    if (operation.id === "timekeeping.records.monthly.under-threshold") {
+      const thresholdDays = Number(dataResult.thresholdDays);
+      filtered = filtered.filter(record => Number(record.workedDays) < thresholdDays);
+      const thresholdLabel = dayValue(thresholdDays);
+      summary = filtered.length
+        ? `Có ${countValue(filtered.length)} nhân sự chưa đủ ${thresholdLabel} công trong ${period}.`
+        : `Không có nhân sự nào dưới ${thresholdLabel} công trong ${period}.`;
     } else if (operation.id === "timekeeping.records.monthly.most-absent") {
       const highest = filtered.reduce((max, record) => Math.max(max, Number(record.daysOff) || 0), 0);
       filtered = highest > 0 ? filtered.filter(record => Number(record.daysOff) === highest) : [];
@@ -1173,6 +1199,13 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     } else if (operation.id === "timekeeping.records.monthly.most-late") {
       filtered = filtered.filter(record => Number(record.lateDays) > 0).sort((left, right) => Number(right.lateDays) - Number(left.lateDays));
       summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự đi muộn trong ${period}; danh sách xếp theo số lượt giảm dần.` : `Không ghi nhận lượt đi muộn trong ${period}.`;
+    } else if (operation.id === "timekeeping.records.monthly.most-leave") {
+      const highest = filtered.reduce((max, record) => Math.max(max, Number(record.leaveDays) || 0), 0);
+      filtered = highest > 0 ? filtered.filter(record => Number(record.leaveDays) === highest) : [];
+      summary = filtered.length ? `Nhân sự nghỉ phép nhiều nhất trong ${period}: ${dayValue(highest)} ngày.` : `Không ghi nhận ngày nghỉ phép trong ${period}.`;
+    } else if (operation.id === "timekeeping.records.monthly.unrecorded") {
+      filtered = filtered.filter(record => Number(record.unrecordedDays) > 0).sort((left, right) => Number(right.unrecordedDays) - Number(left.unrecordedDays));
+      summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự thiếu bản ghi chấm công trong ${period}.` : `Không có nhân sự nào thiếu bản ghi chấm công trong ${period}.`;
     } else {
       summary = `Tổng hợp chấm công tháng ${period}: ${countValue(filtered.length)} nhân sự.`;
     }
@@ -1184,9 +1217,89 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       "Tổng ngày nghỉ": dayValue(record.daysOff),
       "Đi muộn": dayValue(record.lateDays),
       "Về sớm": dayValue(record.leftEarlyDays),
+      ...(operation.id === "timekeeping.records.monthly.unrecorded" ? { "Ngày thiếu chấm công": dayValue(record.unrecordedDays) } : {}),
     }] : []);
     return rows.length
       ? formatAssistantResultTable(summary, rows, filtered.length > rows.length ? [`Còn ${countValue(filtered.length - rows.length)} nhân sự chưa hiển thị.`] : [])
+      : summary;
+  }
+  if (operation.id === "task.kpi.monthly") {
+    const rows = Array.isArray(dataResult.rows) ? dataResult.rows.map(recordOf).filter((record): record is Record<string, any> => Boolean(record)) : [];
+    const exact = dataResult.completionFilter === "exactly-100";
+    const period = typeof dataResult.periodKey === "string" && /^\d{4}-\d{2}$/.test(dataResult.periodKey)
+      ? `${dataResult.periodKey.slice(5, 7)}/${dataResult.periodKey.slice(0, 4)}` : "tháng được chọn";
+    const label = exact ? "đạt 100% KPI" : "chưa đạt 100% KPI";
+    const displayed = rows.filter(record => typeof record.employeeName === "string" && Number.isFinite(Number(record.percent)));
+    const tableRows = displayed.slice(0, 50).map(record => ({
+      "Nhân sự": String(record.employeeName).trim().slice(0, 160),
+      "Tổng công việc": countValue(record.totalTasks),
+      "Đã hoàn thành": countValue(record.completedTasks),
+      "Còn lại": countValue(record.pendingTasks),
+      "Tỷ lệ KPI": `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(Number(record.percent))}%`,
+    }));
+    return tableRows.length
+      ? formatAssistantResultTable(`Danh sách nhân sự ${label} trong ${period}.`, tableRows,
+        displayed.length > tableRows.length ? [`Còn ${countValue(displayed.length - tableRows.length)} nhân sự chưa hiển thị.`] : [])
+      : `Không có nhân sự ${label} trong ${period}.`;
+  }
+  if (operation.id === "hr.leave.applications.list") {
+    const reportKind = String(dataResult.reportKind || "requests");
+    const requests = Array.isArray(dataResult.requests) ? dataResult.requests.map(recordOf).filter((record): record is Record<string, any> => Boolean(record)) : [];
+    if (reportKind === "leave-most" || reportKind === "wfh-most") {
+      const leaders = Array.isArray(dataResult.leaders) ? dataResult.leaders.map(recordOf).filter((record): record is Record<string, any> => Boolean(record)) : [];
+      const highest = Number(dataResult.maximumDays) || 0;
+      const rows = leaders.slice(0, 20).map(row => ({ "Nhân sự": row.employeeName, "Số ngày": countValue(row.days), "Số đơn": countValue(row.requests) }));
+      const subject = reportKind === "wfh-most" ? "làm việc từ xa" : "nghỉ phép";
+      return rows.length ? formatAssistantResultTable(`Nhân sự ${subject} nhiều nhất trong khoảng thời gian được hỏi: ${countValue(highest)} ngày.`, rows)
+        : `Không có dữ liệu ${subject} đã duyệt trong khoảng thời gian được hỏi.`;
+    }
+    if (!requests.length) return "Không có đơn nghỉ phép nào trong khoảng thời gian được hỏi.";
+    const rows = requests.slice(0, 50).map(request => ({
+      "Nhân sự": String(request.employeeName || "").slice(0, 160),
+      "Loại đơn": request.requestKind === "wfh" ? "Làm việc từ xa" : request.type === "leave" || request.requestKind === "leave" ? "Nghỉ phép" : String(request.type || "Yêu cầu"),
+      ...(typeof request.startDate === "string" ? { "Từ ngày": formatValue(operation, "startDate", request.startDate) } : {}),
+      ...(typeof request.endDate === "string" ? { "Đến ngày": formatValue(operation, "endDate", request.endDate) } : {}),
+      ...(typeof request.reason === "string" && request.reason.trim() ? { "Lý do": request.reason.trim().slice(0, 200) } : {}),
+      ...(typeof request.status === "string" ? { "Trạng thái": ({ pending: "Đang chờ duyệt", approved: "Đã duyệt", rejected: "Đã từ chối" } as Record<string, string>)[request.status] || request.status } : {}),
+    }));
+    return formatAssistantResultTable(`Có ${countValue(requests.length)} đơn nghỉ phép trong khoảng thời gian được hỏi.`, rows,
+      requests.length > rows.length ? [`Còn ${countValue(requests.length - rows.length)} đơn chưa hiển thị.`] : []);
+  }
+  if (operation.id === "hr.calendar.events.list") {
+    const events = Array.isArray(safeResult) ? safeResult.map(recordOf).filter((record): record is Record<string, any> => Boolean(record))
+      : Array.isArray(dataResult.events) ? dataResult.events.map(recordOf).filter((record): record is Record<string, any> => Boolean(record)) : [];
+    const rows = events.slice(0, 50).map(event => ({
+      "Sự kiện": String(event.title || "").slice(0, 200),
+      "Loại": event.type === "meeting" ? "Cuộc họp" : event.type === "reminder" ? "Nhắc việc" : "Sự kiện",
+      ...(typeof event.startDate === "string" ? { "Bắt đầu": formatValue(operation, "startDate", event.startDate) } : {}),
+      ...(typeof event.endDate === "string" ? { "Kết thúc": formatValue(operation, "endDate", event.endDate) } : {}),
+      ...(typeof event.location === "string" && event.location.trim() ? { "Địa điểm": event.location.trim().slice(0, 160) } : {}),
+      ...(typeof event.status === "string" ? { "Trạng thái": event.status } : {}),
+    }));
+    return rows.length ? formatAssistantResultTable(`Có ${countValue(events.length)} sự kiện trong khoảng thời gian được hỏi.`, rows,
+      events.length > rows.length ? [`Còn ${countValue(events.length - rows.length)} sự kiện chưa hiển thị.`] : [])
+      : "Không có sự kiện nào trong khoảng thời gian được hỏi.";
+  }
+  if (operation.id === "employee.count") {
+    const record = recordOf(safeResult) || {};
+    const count = Number(record.count);
+    const total = Number.isFinite(count) && count >= 0 ? Math.trunc(count) : 0;
+    const branch = typeof record.branchName === "string" && record.branchName.trim()
+      ? ` tại chi nhánh ${record.branchName.trim()}`
+      : typeof record.branchCode === "string" && record.branchCode.trim()
+        ? ` tại chi nhánh ${record.branchCode.trim()}`
+        : " trong công ty hiện tại";
+    return `Có ${countValue(total)} nhân sự${branch}.`;
+  }
+  if (operation.id === "department.unmanaged.list") {
+    const departments = (collection(safeResult) || []).map(recordOf)
+      .filter((record): record is ResultRecord & { name: string } => record !== null && typeof record.name === "string" && record.name.trim().length > 0);
+    const rows = departments.slice(0, 50).map(record => ({ "Phòng ban": record.name.trim().slice(0, 120) }));
+    const summary = departments.length
+      ? `Có ${countValue(departments.length)} phòng ban chưa có người quản lý.`
+      : "Không có phòng ban nào đang thiếu người quản lý.";
+    return rows.length
+      ? formatAssistantResultTable(summary, rows, departments.length > rows.length ? [`Còn ${countValue(departments.length - rows.length)} phòng ban chưa hiển thị.`] : [])
       : summary;
   }
   if (operation.id.startsWith("leave.balances.")) {
@@ -1196,7 +1309,8 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       ? new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(Number(value))
       : "0";
     let filtered = balances.map(recordOf).filter((record): record is Record<string, any> => Boolean(record));
-    if (operation.id === "leave.balances.at-least-12") filtered = filtered.filter(record => Number(record.remaining) >= 12);
+    const thresholdDays = operation.id === "leave.balances.minimum" ? Number(dataResult.thresholdDays) : NaN;
+    if (operation.id === "leave.balances.minimum") filtered = filtered.filter(record => Number(record.remaining) >= thresholdDays);
     if (operation.id === "leave.balances.exhausted") filtered = filtered.filter(record => Number(record.entitlement) > 0 && Number(record.remaining) <= 0);
     const rows = filtered.slice(0, 20).flatMap(record => typeof record.employeeName === "string" && record.employeeName.trim() ? [{
       "Nhân sự": record.employeeName.trim().slice(0, 160),
@@ -1208,8 +1322,8 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       "Còn lại": leaveDayValue(record.remaining),
     }] : []);
     const yearLabel = Number.isInteger(year) ? ` năm ${year}` : "";
-    const summary = operation.id === "leave.balances.at-least-12"
-      ? `Có ${countValue(filtered.length)} nhân sự còn ít nhất 12 ngày phép${yearLabel}.`
+    const summary = operation.id === "leave.balances.minimum"
+      ? `Có ${countValue(filtered.length)} nhân sự còn từ ${leaveDayValue(thresholdDays)} ngày phép trở lên${yearLabel}.`
       : operation.id === "leave.balances.exhausted"
         ? `${countValue(filtered.length)} nhân sự đã dùng hết phép năm${yearLabel}.`
         : `Số dư phép năm${yearLabel} của ${countValue(filtered.length)} nhân sự.`;
@@ -1225,6 +1339,17 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       return [{ "Ngày": formatIsoDate(day.date), "Nội dung": day.name.trim().slice(0, 160), "Loại ngày": typeof day.dayTypeLabel === "string" ? day.dayTypeLabel : "Ngày nghỉ" }];
     });
     return rows.length ? formatAssistantResultTable("Các ngày nghỉ đã áp dụng trong tháng được hỏi.", rows) : "Không có ngày nghỉ lễ hoặc nghỉ bù đã áp dụng trong tháng được hỏi.";
+  }
+  if (operation.id === "timekeeping.work-calendar.named-holiday") {
+    const days = collection(safeResult) || [];
+    const rows = days.slice(0, 31).flatMap((value: unknown) => {
+      const day = recordOf(value);
+      if (!day || typeof day.date !== "string" || typeof day.name !== "string") return [];
+      return [{ "Ngày": formatIsoDate(day.date), "Tên ngày nghỉ": day.name.trim().slice(0, 160) }];
+    });
+    return rows.length
+      ? formatAssistantResultTable("Ngày nghỉ hoặc ngày đặc biệt đã lưu trong lịch làm việc công ty.", rows)
+      : "Chưa tìm thấy ngày có tên này trong lịch làm việc của công ty.";
   }
   if (["student.bulk.preview", "student.bulk.create"].includes(operation.id)) {
     const errors = Array.isArray(dataResult.errors) ? dataResult.errors : [];

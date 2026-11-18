@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { MessengerBackgroundJobModel, type MessengerBackgroundJobKind } from "../model/messenger-background-job.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { enabledLeadContractAccount, TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { startQueueRecovery } from "../../shared/queue-recovery";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
@@ -87,6 +88,14 @@ async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
   const { chatOrderFlowRegistry } = await import("./chat-ordering/registry");
   const input = payload as ChatOrderFlowInput;
   if (!await canProcessMessengerWebhook(input.platform === "zalo" ? "Zalo" : "Facebook", input.pageId, input.companyCode)) return;
+  if (input.platform !== "tiktok") {
+    const conversationScope = { _id: input.conversationId, ...(input.platform === "zalo" ? { oaId: input.pageId } : { pageId: input.pageId }) };
+    const messageScope = { conversationId: input.conversationId, messageId: input.messageId, recipientId: input.pageId, direction: "inbound" as const };
+    const [conversation, message] = await Promise.all(input.platform === "zalo"
+      ? [ZaloConversationModel.exists(conversationScope), ZaloMessageModel.exists(messageScope)]
+      : [FBConversationModel.exists(conversationScope), FBMessageModel.exists(messageScope)]);
+    if (!conversation || !message) return;
+  }
   const flow = await chatOrderFlowRegistry.resolveForCompanyPage(input.companyCode, input.pageId, input.platform);
   if (flow?.key !== "page-intake") return;
   await withAiUsage({ companyCode: input.companyCode }, async () => {

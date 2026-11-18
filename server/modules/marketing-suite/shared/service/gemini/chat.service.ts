@@ -467,12 +467,14 @@ export class GeminiChatService {
     const customerServiceScript = String(aiConfig?.customerServiceScript || "").trim();
     const scenarioGuidance = combineChatScenarios(ragContext?.scenarioContextText, customerServiceScript);
     const leadGuidance = leadIntake ? [
-      "Trả lời điều khách vừa hỏi trước, dựa trên hội thoại, rule và dữ liệu doanh nghiệp. Viết lời nhắn mới bằng giọng trò chuyện, tránh mở đầu hoặc kết thúc lặp lại.",
-      "Danh sách missingRequiredFields là nguồn duy nhất để chủ động hỏi thông tin thu thập Lead và ưu tiên hơn mọi danh sách trong rule, kịch bản, FAQ, kho tri thức và câu hỏi cũ của bot. Nếu danh sách trống, kết thúc bước thu thập, không tự hỏi thêm ngày sinh, ngày hẹn, địa chỉ hay thông tin khác. Nếu khách chủ động hỏi về quy trình của doanh nghiệp, vẫn trả lời câu hỏi mà không yêu cầu họ khai thêm ngoài danh sách.",
-      "Khi status là collecting và khách vừa đồng ý tiếp tục hoặc vừa trả lời câu hỏi thu thập, tiếp tục hỏi một trường còn thiếu trong missingRequiredFields theo thứ tự đã cấu hình. Hiểu tên riêng, số điện thoại hoặc ngày khách gửi riêng là câu trả lời cho câu hỏi ngay trước đó khi phù hợp. Ghi nhận ngắn gọn rồi hỏi tiếp, không quay lại báo giá hay giới thiệu gói trừ khi khách hỏi.",
-      "Dùng question của trường để hiểu chính xác cần hỏi gì và diễn đạt tự nhiên. Chỉ hỏi một trường còn thiếu mỗi lượt, không hỏi lại dữ kiện đã có trong collected hoặc đã rõ trong hội thoại. Nếu khách hỏi thêm về cùng nhu cầu, trả lời câu hỏi đó trước rồi mới hỏi tiếp. Nếu khách muốn dừng, chưa muốn chia sẻ, hoặc chuyển sang nhu cầu khác, tôn trọng lựa chọn đó và hỗ trợ yêu cầu hiện tại.",
+      "Trả lời điều khách vừa hỏi trước, dựa trên hội thoại và dữ liệu doanh nghiệp. Viết như nhân viên đang tiếp nối cuộc trò chuyện: ghi nhận điều khách vừa nói, giải thích ngắn vì sao cần hỏi thêm nếu hữu ích, rồi hỏi tự nhiên. Tránh nhảy thẳng sang một câu hỏi rời rạc, lặp lại lời chào hay đọc nguyên câu mẫu.",
+      "missingRequiredFields và missingOptionalFields là hai danh sách trường được phép chủ động hỏi để thu thập Lead; ưu tiên các danh sách này hơn rule, kịch bản, FAQ và câu hỏi cũ của bot. missingRequiredFields là nguồn duy nhất cho các thông tin bắt buộc. Nếu cả hai danh sách trống thì tiếp tục hỗ trợ bình thường. Vẫn trả lời câu khách hỏi về quy trình hoặc dịch vụ.",
+      "Đọc câu hỏi ngay trước đó để hiểu câu trả lời ngắn. Khi khách muốn tiếp tục một việc cụ thể như đặt lịch, đăng ký hoặc nhận tư vấn, ưu tiên một trường bắt buộc còn thiếu giúp tiến hành việc đó. Thứ tự cấu hình chỉ dùng khi các trường phù hợp như nhau. Khi khách đang tìm hiểu, giải đáp điều họ hỏi trước. Nếu khách mới chào hoặc chưa rõ muốn gì, mở lời hỗ trợ để hiểu nhu cầu trước khi xin thông tin cá nhân.",
+      "receivedContact cho biết khách vừa cung cấp tên, số điện thoại hoặc email đã đối chiếu. Ghi nhận cụ thể loại thông tin vừa nhận trước khi hỏi tiếp, không nhắc lại số điện thoại hoặc email đầy đủ. Nếu khách chỉ gửi số điện thoại và chưa nói cần gì, cảm ơn vì đã gửi số rồi mời khách nói điều cần hỗ trợ. Đừng mặc định họ đã chọn gói hay muốn đặt lịch. Nếu nhu cầu đã rõ, tiếp tục đúng nhu cầu đó và chỉ hỏi điều còn thiếu.",
+      "Dùng question của trường để hiểu cần hỏi gì rồi diễn đạt theo tình huống. Mỗi lượt chủ động hỏi tối đa một thông tin. Dữ kiện đã có trong collected hoặc khách đã nêu rõ trong hội thoại thì dùng ngay.",
+      "Chỉ hỏi một trường trong missingOptionalFields khi nó có ích hiển nhiên cho việc khách đang muốn làm. Giải thích ngắn mục đích khi cần và để khách dễ dàng bỏ qua. Nếu khách đã bỏ qua hoặc từ chối cung cấp trường đó trong cuộc trò chuyện, chuyển sang hỗ trợ phần họ muốn và không hỏi lại. Có thể hỏi một trường tùy chọn phù hợp sau khi đã đủ trường bắt buộc; không biến nó thành điều kiện để tiếp tục.",
       "Khi status là inactive, chỉ tư vấn theo nhu cầu hiện tại, chưa hỏi thông tin để tạo lead.",
-      "Khi status là just_completed, chỉ xác nhận ngắn nếu phù hợp với lượt chat. Khi status là complete, tiếp tục tư vấn bình thường. Không hứa gọi lại, đặt lịch hoặc chuyển cho nhân viên khi chưa thực hiện.",
+      "Khi status là just_completed hoặc complete, tiếp tục tư vấn theo đề nghị của khách. Chỉ xác nhận đã nhận thông tin nếu hợp tình huống. Không thông báo máy móc là đã thu thập đủ, không hứa gọi lại, đặt lịch hoặc chuyển cho nhân viên khi chưa thực hiện.",
       "Nếu khách chỉ xác nhận xã giao, đáp ngắn gọn với cách diễn đạt phù hợp tình huống. Nếu đang trả lời một câu hỏi hay đồng ý một đề nghị, hãy tiếp tục đúng ý đó.",
     ].join("\n") : "";
     requireChatMessageOpenRouterKey();
@@ -665,7 +667,7 @@ Trước khi gửi câu trả lời, hãy tự kiểm tra:
 
 Câu trả lời có giống một nhân viên thật đang chat không?
 
-Có thể rút ngắn hơn mà vẫn đủ ý không?
+${leadIntake ? "Đã ghi nhận đúng điều khách vừa nói và trả lời đủ ý trước khi hỏi tiếp chưa?" : "Có thể rút ngắn hơn mà vẫn đủ ý không?"}
 
 Có đang hỏi khách quá nhiều thứ cùng lúc không?
 

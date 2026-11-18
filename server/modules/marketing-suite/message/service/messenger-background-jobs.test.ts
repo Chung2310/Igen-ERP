@@ -7,6 +7,7 @@ import { zaloMessengerController } from "../controller/zalo-messenger.controller
 import { MessengerBackgroundJobModel } from "../model/messenger-background-job.model";
 import { FacebookAutoReplyJobModel } from "../model/facebook-auto-reply-job.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { enqueueLeadIntakeRetry, enqueueZaloWebhook, startMessengerBackgroundWorkers } from "./messenger-background-jobs";
 import { UserModel } from "../../../../model/user.model";
 import { claimMessengerReply, enqueueMessengerReply, expireMessengerReplyJobs, markMessengerReplySending } from "./facebook-auto-reply-queue";
@@ -48,6 +49,7 @@ beforeEach(async () => {
   mocks.contractOcr.mockReset();
   vi.spyOn(UserModel, "findOne").mockResolvedValue({ zaloIntegration: { isMock: true } } as never);
   await Promise.all([ZaloConversationModel.deleteMany({}), ZaloMessageModel.deleteMany({}),
+    FBConversationModel.deleteMany({}), FBMessageModel.deleteMany({}),
     MessengerBackgroundJobModel.deleteMany({}), FacebookAutoReplyJobModel.deleteMany({}), TelecomInvoiceSettingsModel.deleteMany({})]);
   vi.stubEnv("ZALO_APP_ID", "test-app");
   vi.stubEnv("ZALO_OA_SECRET_KEY", "test-secret");
@@ -168,7 +170,11 @@ it("recovers Zalo jobs across an expired lease and a failed message write withou
 }, 20_000);
 
 it("deduplicates a Lead retry and processes only intake in the worker", async () => {
-  const turn = { companyCode: "TEST", platform: "zalo" as const, pageId: "oa", conversationId: "c",
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  await ZaloMessageModel.create({ conversationId, senderId: "customer", recipientId: "oa", direction: "inbound",
+    messageId: "m1", timestamp: new Date(), text: "Xin tư vấn" });
+  const turn = { companyCode: "TEST", platform: "zalo" as const, pageId: "oa", conversationId,
     messageId: "m1", messageAt: new Date(), message: "Xin tư vấn", imageUrls: ["not-required"] };
   await enqueueLeadIntakeRetry(turn);
   await enqueueLeadIntakeRetry(turn);
@@ -177,6 +183,34 @@ it("deduplicates a Lead retry and processes only intake in the worker", async ()
     expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-intake", status: "completed" })).toBe(1);
   }, { timeout: 6_000 });
   expect(mocks.intake).toHaveBeenCalledExactlyOnceWith({ ...turn, imageUrls: [], retryIntake: true });
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+}, 10_000);
+
+it.each([
+  ["facebook", "message"], ["facebook", "conversation"], ["zalo", "message"], ["zalo", "conversation"],
+] as const)("skips pending %s Lead processing after the %s has been deleted", async (platform, deleted) => {
+  const conversation = platform === "zalo"
+    ? await ZaloConversationModel.create({ oaId: "account", recipientId: "customer" })
+    : await FBConversationModel.create({ pageId: "account", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  const inbound = { conversationId, senderId: "customer", recipientId: "account", direction: "inbound" as const,
+    messageId: "deleted-source", timestamp: new Date(), text: "Xin tư vấn" };
+  if (platform === "zalo") {
+    await ZaloMessageModel.create(inbound);
+    if (deleted === "message") await ZaloMessageModel.deleteMany({ conversationId });
+    else await ZaloConversationModel.deleteOne({ _id: conversationId });
+  } else {
+    await FBMessageModel.create(inbound);
+    if (deleted === "message") await FBMessageModel.deleteMany({ conversationId });
+    else await FBConversationModel.deleteOne({ _id: conversationId });
+  }
+  await enqueueLeadIntakeRetry({ companyCode: "TEST", platform, pageId: "account", conversationId,
+    messageId: inbound.messageId, message: inbound.text, imageUrls: [] });
+  stopWorkers = startMessengerBackgroundWorkers();
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-intake", status: "completed" })).toBe(1);
+  }, { timeout: 6_000 });
+  expect(mocks.intake).not.toHaveBeenCalled();
   expect(mocks.dispatch).not.toHaveBeenCalled();
 }, 10_000);
 

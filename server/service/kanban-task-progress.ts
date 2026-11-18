@@ -30,7 +30,7 @@ export function taskActivityUpdate(task: any, input: any, actor: { uid: string; 
   switch (input.action) {
     case "progress": {
       if (!owner) fail(403, "Chỉ người phụ trách hoặc quản lý được cập nhật tiến độ.");
-      if (!Number.isInteger(input.progress) || input.progress < 0 || input.progress > 100 || !note) fail(400, "Tiến độ phải từ 0–100 và có ghi chú báo cáo.");
+      if (!Number.isInteger(input.progress) || input.progress < 0 || input.progress > 100) fail(400, "Tiến độ phải là số nguyên từ 0 đến 100.");
       const progress = input.progress;
       update = { progress, progressNote: note, status: progress === 100 ? "Done" : progress > 0 ? "In Progress" : "Not Started" };
       if (progress > 0 && !task.actualStartTime) update.actualStartTime = now;
@@ -40,7 +40,7 @@ export function taskActivityUpdate(task: any, input: any, actor: { uid: string; 
         update.endTime = update.completedAt;
         update.helpRequested = false;
       } else { update.completedAt = ""; update.endTime = ""; }
-      action = `Báo cáo tiến độ ${progress}%: ${note}`;
+      action = `Báo cáo tiến độ ${progress}%${note ? `: ${note}` : ""}`;
       break;
     }
     case "help":

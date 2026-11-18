@@ -26,7 +26,6 @@ export const recruitmentController = {
   deleteJob: asyncHandler(async (req, res) => ok(res, await jobs.softDeleteJob(scope(req), req.params.id, req.body.version, actor(req)))),
   restoreJob: asyncHandler(async (req, res) => ok(res, await jobs.restoreJob(scope(req), req.params.id, req.body.version, actor(req)))),
   getPipeline: asyncHandler(async (req, res) => ok(res, await pipelines.getOrCreatePipeline(scope(req), actor(req)))),
-  savePipeline: asyncHandler(async (req, res) => ok(res, await pipelines.savePipeline(scope(req), actor(req), req.body.version, req.body.stages))),
   listApplicants: asyncHandler(async (req, res) => ok(res, await applicants.listApplicants(scope(req), req.query))),
   createApplicant: asyncHandler(async (req, res) => { const { confirmDuplicate, ...input } = req.body; ok(res, await applicants.createApplicant(scope(req), actor(req), input, confirmDuplicate), 201); }),
   getApplicant: asyncHandler(async (req, res) => ok(res, await applicants.getApplicant(scope(req), req.params.id))),

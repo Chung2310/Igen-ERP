@@ -66,6 +66,7 @@ function readAssistantConversationPreferences(key: string): AssistantConversatio
   } catch { return {}; }
 }
 const ASSISTANT_PROCESSING_POLL_ATTEMPTS = 280;
+const ASSISTANT_REQUEST_ID_CONFLICT = "Mã yêu cầu đã được dùng cho nội dung khác.";
 const MemoAssistantStudio = React.memo(AssistantStudio);
 const assistantHeaderOptions = [{ value: "qa", label: "Hỏi đáp" }, { value: "work", label: "Thao tác" }];
 const assistantQuickPrompts: Record<AssistantMode, readonly string[]> = {
@@ -797,7 +798,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const owningProject = turnMode === "qa" ? projectsRef.current.find(project => project.conversations.some(item => item.sourceConversationId === request.conversationId)) : undefined;
     const turnStorageKey = turnMode === "work" ? storageBaseKey : `${storageBaseKey}:qa`;
     const turnRequestKey = `${turnStorageKey}:request`;
-    const turnRequest: AssistantTurnInput = { ...request, mode: turnMode, ...(owningProject ? { projectId: owningProject.id } : {}) };
+    let turnRequest: AssistantTurnInput = { ...request, mode: turnMode, ...(owningProject ? { projectId: owningProject.id } : {}) };
     const controller = new AbortController();
     requestRef.current = controller;
     retryRef.current = turnRequest;
@@ -823,7 +824,25 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           setProjectsError("");
         }
       }
-      let result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
+      let result: AssistantReply;
+      try {
+        result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
+      } catch (cause) {
+        const status = cause instanceof Error ? (cause as Error & { status?: number }).status : undefined;
+        if (status !== 409 || !(cause instanceof Error) || cause.message !== ASSISTANT_REQUEST_ID_CONFLICT) throw cause;
+
+        // The server rejected this turn before processing because its request ID
+        // belongs to different content. A fresh ID is safe for this one retry.
+        turnRequest = { ...turnRequest, requestId: crypto.randomUUID() };
+        retryRef.current = turnRequest;
+        try {
+          if (!turnRequest.attachment && !turnRequest.file) localStorage.setItem(turnRequestKey, JSON.stringify({
+            ...turnRequest,
+            decision: turnRequest.decision ? { id: turnRequest.decision.id, confirmed: turnRequest.decision.confirmed } : undefined,
+          }));
+        } catch { /* Keep the current request usable in memory. */ }
+        result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
+      }
       for (let attempt = 0; result.status === "processing" && attempt < ASSISTANT_PROCESSING_POLL_ATTEMPTS && !controller.signal.aborted; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         if (controller.signal.aborted) return;
@@ -849,6 +868,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       } else if (turnMode === "work" && turnRequest.attachment && result.status !== "unsupported" && result.status !== "failed" && turnIsActive()) {
         setAttachmentSubmitted(true);
       }
+      if (turnMode === "work" && result.status === "completed" && turnRequest.decision?.confirmed && result.link === "/nhan-su") {
+        window.dispatchEvent(new Event("user-mutation"));
+      }
       if (turnIsActive()) setSynced(true);
       const appendReply = (current: Message[]): Message[] => {
         const last = current[current.length - 1];
@@ -859,7 +881,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       const storedMessages = appendReply(readHistory(turnStorageKey, turnWelcomeMessage));
       try { localStorage.setItem(turnStorageKey, JSON.stringify(storedMessages)); } catch { /* Keep the current session usable. */ }
       if (turnIsActive() && (messages[messages.length - 1]?.role !== "assistant" || messages[messages.length - 1]?.content !== result.reply)) {
-        setRevealingReply({ requestId: request.requestId, content: result.reply });
+        setRevealingReply({ requestId: turnRequest.requestId, content: result.reply });
       }
       if (turnIsActive()) setMessages(current => turnIsActive() ? appendReply(current) : current);
       retryRef.current = null;

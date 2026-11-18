@@ -1,5 +1,38 @@
 [
   {
+    "id": "api.get.d3b0949a7f9b099b",
+    "title": "Xem đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn",
+    "description": "Xem đa kênh hộp thư khách hàng tiềm năng telecom hóa đơn. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "omni-inbox:read",
+      "omni-inbox:manage"
+    ],
+    "permissionGroups": [
+      [
+        "omni-inbox:read",
+        "omni-inbox:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/omni-inbox/leads/:id/telecom-invoices",
+    "fields": [
+      {
+        "key": "path_id",
+        "label": "Mã bản ghi",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "id"
+      }
+    ],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
     "id": "omni-inbox.leads.export-google-sheets",
     "title": "Gửi các khách tiềm năng đã chọn sang Google Sheets",
     "description": "Đưa từ 1 đến 100 khách tiềm năng đã chọn vào hàng chờ đồng bộ Google Sheets. Chỉ các hồ sơ có tài khoản nguồn và đã bật đồng bộ mới được gửi; kết quả cho biết số hồ sơ đã xếp hàng và bị bỏ qua. Cần xác nhận trước khi gửi dữ liệu ra Google Sheets.",
@@ -10961,6 +10994,67 @@
     "adapter": "contract"
   },
   {
+    "id": "timekeeping.records.monthly.report",
+    "title": "Tổng hợp chấm công theo tháng",
+    "description": "Tổng hợp công đã làm, ngày vắng, ngày nghỉ phép, đi muộn và về sớm theo tháng trong phạm vi công ty hoặc chi nhánh của tài khoản.",
+    "module": "hr",
+    "permissions": [
+      "timekeeping:read"
+    ],
+    "permissionGroups": [
+      [
+        "timekeeping:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/timekeeping/monthly-report",
+    "fields": [
+      {
+        "key": "query_month",
+        "label": "Tháng",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 1,
+        "max": 12,
+        "integer": true,
+        "source": "query",
+        "apiKey": "month"
+      },
+      {
+        "key": "query_year",
+        "label": "Năm",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 2000,
+        "max": 2200,
+        "integer": true,
+        "source": "query",
+        "apiKey": "year"
+      }
+    ],
+    "link": "/nhan-su",
+    "confirmation": false,
+    "resultFields": [
+      "year",
+      "month",
+      "records"
+    ],
+    "resultChildFields": {
+      "records": [
+        "employeeName",
+        "workedDays",
+        "absentDays",
+        "leaveDays",
+        "daysOff",
+        "lateDays",
+        "leftEarlyDays"
+      ]
+    },
+    "adapter": "contract"
+  },
+  {
     "id": "api.get.d2e63aaeb8682c88",
     "title": "Tra cứu lần chấm công bị từ chối",
     "description": "Xem các lần vào/ra ca bị từ chối hoặc lỗi trong ngày của chi nhánh gắn với tài khoản. Chỉ hiển thị tên nhân viên, thao tác, lý do, thời điểm và khoảng cách nếu có; không trả email, tọa độ GPS, địa chỉ IP, mã nhân viên hoặc dữ liệu ảnh.",
@@ -12104,7 +12198,7 @@
   {
     "id": "timekeeping.work-calendar.list",
     "title": "Tra cứu lịch ngày lễ và lịch làm việc công ty",
-    "description": "Quản trị viên xem lịch ngày lễ, ngày nghỉ bù và ngày làm việc ngoại lệ của công ty theo năm.",
+    "description": "Quản trị viên xem lịch ngày lễ, ngày nghỉ bù và ngày làm việc ngoại lệ của công ty theo năm hoặc một tháng.",
     "module": "hr",
     "permissions": [
       "chat:read"
@@ -12135,6 +12229,18 @@
         "apiKey": "year"
       },
       {
+        "key": "query_month",
+        "label": "Tháng",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "max": 12,
+        "integer": true,
+        "source": "query",
+        "apiKey": "month"
+      },
+      {
         "key": "query_appliedOnly",
         "label": "Chỉ ngày đang áp dụng",
         "type": "text",
@@ -12146,6 +12252,19 @@
         ],
         "source": "query",
         "apiKey": "appliedOnly"
+      },
+      {
+        "key": "query_holidaysOnly",
+        "label": "Chỉ ngày lễ/nghỉ bù",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "true",
+          "false"
+        ],
+        "source": "query",
+        "apiKey": "holidaysOnly"
       }
     ],
     "link": "/nhan-su",
@@ -17598,6 +17717,61 @@
     "adapter": "contract"
   },
   {
+    "id": "leave.balances.report",
+    "title": "Thống kê số dư phép năm nhân sự",
+    "description": "Xem số phép được hưởng, đã dùng, đang chờ duyệt và còn lại theo công ty hoặc chi nhánh trong tài khoản hiện tại.",
+    "module": "hr",
+    "permissions": [
+      "hr:read"
+    ],
+    "permissionGroups": [
+      [
+        "hr:read"
+      ],
+      [
+        "access:read"
+      ],
+      [
+        "timekeeping:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/leave/balances",
+    "fields": [
+      {
+        "key": "query_year",
+        "label": "Năm",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 2000,
+        "max": 2200,
+        "integer": true,
+        "defaultValue": 2026,
+        "source": "query",
+        "apiKey": "year"
+      }
+    ],
+    "link": "/nhan-su",
+    "confirmation": false,
+    "resultFields": [
+      "year",
+      "balances"
+    ],
+    "resultChildFields": {
+      "balances": [
+        "employeeName",
+        "department",
+        "entitlement",
+        "used",
+        "pending",
+        "unexcused",
+        "remaining"
+      ]
+    },
+    "adapter": "contract"
+  },
+  {
     "id": "api.get.0c557a74cbc907f9",
     "title": "Tra cứu hợp đồng nhân sự",
     "description": "Tìm hợp đồng theo tên nhân sự hoặc loại hợp đồng. Có thể chọn khoảng cảnh báo từ 1 đến 365 ngày; nếu không nêu, hệ thống dùng số ngày đã cài cho công ty. Kết quả gồm hợp đồng và danh sách sắp hết hạn, không hiển thị mã nhân viên.",
@@ -18155,8 +18329,8 @@
         "key": "name",
         "label": "Tên",
         "type": "text",
-        "systemRequired": true,
-        "required": true,
+        "systemRequired": false,
+        "required": false,
         "source": "body",
         "apiKey": "name"
       },
@@ -19349,98 +19523,6 @@
       "terminalOutcome"
     ],
     "adapter": "contract"
-  },
-  {
-    "id": "recruitment.pipeline.update",
-    "title": "Cập nhật các bước tuyển dụng",
-    "description": "Thay thế toàn bộ danh sách bước tuyển dụng theo thứ tự. Hãy tra cứu các bước hiện tại, giữ lại ID bằng tên bước khi sửa hoặc sắp xếp, và nêu đủ các bước muốn giữ; màu mặc định là #64748b. Hệ thống không cho tắt/xóa bước đang có ứng viên. Phiên bản được lấy tự động; cần xác nhận.",
-    "module": "hr",
-    "permissions": [
-      "recruitment:manage"
-    ],
-    "permissionGroups": [
-      [
-        "recruitment:manage"
-      ]
-    ],
-    "method": "PUT",
-    "path": "/recruitment/pipeline",
-    "fields": [
-      {
-        "key": "branchId",
-        "label": "Chi nhánh áp dụng",
-        "type": "reference",
-        "systemRequired": true,
-        "required": true,
-        "source": "query",
-        "apiKey": "branchId",
-        "reference": "branch.list"
-      },
-      {
-        "key": "stages",
-        "label": "Toàn bộ danh sách bước tuyển dụng theo thứ tự",
-        "type": "json",
-        "systemRequired": true,
-        "required": true,
-        "structure": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "keys": {
-              "id": {
-                "type": "string",
-                "required": false,
-                "reference": "recruitment.pipeline.get",
-                "referenceValueKey": "id",
-                "label": "Tên bước tuyển dụng hiện có"
-              },
-              "name": {
-                "type": "string",
-                "required": true
-              },
-              "color": {
-                "type": "string",
-                "required": true,
-                "defaultValue": "#64748b"
-              },
-              "position": {
-                "type": "number",
-                "required": false,
-                "min": 0,
-                "integer": true
-              },
-              "isActive": {
-                "type": "boolean"
-              },
-              "terminalOutcome": {
-                "type": "string",
-                "required": false,
-                "options": [
-                  "hired",
-                  "rejected",
-                  "withdrawn"
-                ]
-              }
-            }
-          },
-          "required": true,
-          "minItems": 1,
-          "label": "Toàn bộ danh sách bước tuyển dụng theo thứ tự"
-        },
-        "source": "body",
-        "apiKey": "stages"
-      }
-    ],
-    "link": "/nhan-su",
-    "confirmation": true,
-    "resultFields": [
-      "version",
-      "stages"
-    ],
-    "adapter": "contract",
-    "systemBodyFields": [
-      "version"
-    ]
   },
   {
     "id": "recruitment.applicant.list",
@@ -39736,17 +39818,13 @@
     "permissions": [
       "customer:read",
       "pos:manage",
-      "repair:manage",
-      "people:manage",
-      "healthcare:manage"
+      "repair:manage"
     ],
     "permissionGroups": [
       [
         "customer:read",
         "pos:manage",
-        "repair:manage",
-        "people:manage",
-        "healthcare:manage"
+        "repair:manage"
       ]
     ],
     "method": "GET",
@@ -39874,314 +39952,6 @@
         "warrantyEndAt"
       ]
     },
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.6cb617ae007ffb69",
-    "title": "Xem khách hàng khách hàng tiềm năng needs",
-    "description": "Xem khách hàng khách hàng tiềm năng needs. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:read"
-    ],
-    "permissionGroups": [
-      [
-        "customer:read"
-      ],
-      [
-        "omni-inbox:read"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/:id/lead-needs",
-    "fields": [
-      {
-        "key": "path_id",
-        "label": "Mã bản ghi",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "id"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.d875a4aa67d731e4",
-    "title": "Tra cứu khách hàng linked modules",
-    "description": "Tra cứu khách hàng linked modules. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:read"
-    ],
-    "permissionGroups": [
-      [
-        "customer:read"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/linked-modules",
-    "fields": [],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.d2ae1750a90bd679",
-    "title": "Xem khách hàng source hồ sơ queue",
-    "description": "Xem khách hàng source hồ sơ queue. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:manage"
-    ],
-    "permissionGroups": [
-      [
-        "customer:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/source-records/:module/queue",
-    "fields": [
-      {
-        "key": "path_module",
-        "label": "Phân hệ",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "module"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.a4ae17fb66b3aa98",
-    "title": "Xem khách hàng source điều chuyển cài đặt",
-    "description": "Xem khách hàng source điều chuyển cài đặt. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:manage"
-    ],
-    "permissionGroups": [
-      [
-        "customer:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/source-transfer-settings/:module",
-    "fields": [
-      {
-        "key": "path_module",
-        "label": "Phân hệ",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "module"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.d3800a2be3ef2ad3",
-    "title": "Xem khách hàng source hồ sơ",
-    "description": "Xem khách hàng source hồ sơ. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:manage"
-    ],
-    "permissionGroups": [
-      [
-        "customer:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/source-records/:module",
-    "fields": [
-      {
-        "key": "path_module",
-        "label": "Phân hệ",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "module"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.d88c23c7286ccb3c",
-    "title": "Xem khách hàng source hồ sơ khách hàng",
-    "description": "Xem khách hàng source hồ sơ khách hàng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:manage"
-    ],
-    "permissionGroups": [
-      [
-        "customer:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/source-records/:module/:sourceId/customers",
-    "fields": [
-      {
-        "key": "path_module",
-        "label": "Phân hệ",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "module"
-      },
-      {
-        "key": "path_sourceId",
-        "label": "Mã sourceId",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "sourceId"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.7966d84b7eca1fb6",
-    "title": "Xem khách hàng module liên kết",
-    "description": "Xem khách hàng module liên kết. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:read"
-    ],
-    "permissionGroups": [
-      [
-        "customer:read"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/:id/module-links",
-    "fields": [
-      {
-        "key": "path_id",
-        "label": "Mã bản ghi",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "id"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.8c0e265a4a489163",
-    "title": "Xem khách hàng module liên kết đề xuất",
-    "description": "Xem khách hàng module liên kết đề xuất. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "customer",
-    "permissions": [
-      "customer:manage"
-    ],
-    "permissionGroups": [
-      [
-        "customer:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/customers/:id/module-links/:module/candidates",
-    "fields": [
-      {
-        "key": "path_id",
-        "label": "Mã bản ghi",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "id"
-      },
-      {
-        "key": "path_module",
-        "label": "Phân hệ",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "module"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.delete.b880c725541c4bfa",
-    "title": "Xóa khách hàng module liên kết",
-    "description": "Xóa khách hàng module liên kết. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
-    "module": "customer",
-    "permissions": [
-      "customer:manage"
-    ],
-    "permissionGroups": [
-      [
-        "customer:manage"
-      ]
-    ],
-    "method": "DELETE",
-    "path": "/customers/:id/module-links/:module/:sourceId",
-    "fields": [
-      {
-        "key": "path_id",
-        "label": "Mã bản ghi",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "id"
-      },
-      {
-        "key": "path_module",
-        "label": "Phân hệ",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "module"
-      },
-      {
-        "key": "path_sourceId",
-        "label": "Mã sourceId",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "sourceId"
-      }
-    ],
-    "link": "/quan-ly-khach-hang",
-    "confirmation": true,
-    "resultFields": [],
     "adapter": "contract"
   },
   {

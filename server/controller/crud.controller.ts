@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest, getEffectivePermissions, DEFAULT_ROLE_LEVELS } from "../middleware/auth";
 import { crudService } from "../service/crud.service";
+import { applyAssistantCrudDateFilters } from "../utils/assistant-crud-date-filters";
 import { SupportedModelName } from "../interface/crud.interface";
 import { UserModel } from "../model/user.model";
 import { RolePermissionModel } from "../model/role-permission.model";
@@ -94,10 +95,20 @@ export const crudController = {
 
       // Trích xuất các tham số còn lại làm bộ lọc động (filters)
       const { page: _p, limit: _l, sort: _s, search: _sh, filters: queryFilters, ...otherParams } = req.query;
-      const filters: any = {
+      let filters: any = {
         ...(typeof queryFilters === "object" && queryFilters !== null ? queryFilters : {}),
         ...otherParams,
       };
+      filters = applyAssistantCrudDateFilters(modelName, filters);
+
+      if (modelName === "training-enrollments" && typeof filters.courseName === "string") {
+        const courseName = filters.courseName.trim();
+        delete filters.courseName;
+        if (courseName) {
+          const escapedCourseName = courseName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          filters.courseTitle = { $regex: escapedCourseName, $options: "i" };
+        }
+      }
 
       if (req.user?.branchId) {
         if (modelName === "timekeeping-logs") {

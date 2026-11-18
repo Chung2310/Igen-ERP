@@ -27,6 +27,9 @@ export interface ArchitectureFurniture {
   width: number;
   height: number;
   rotation: 0 | 90 | 180 | 270;
+  style?: string;
+  material?: string;
+  color?: string;
 }
 
 export interface ArchitectureOpening {

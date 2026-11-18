@@ -60,6 +60,23 @@ describe("nested API result fields", () => {
 });
 
 describe("shared tables for module lookups", () => {
+  it("lists department employees in a safe shared table", () => {
+    const operation = operationById("department.employees.list")!;
+    const reply = formatFriendlyAssistantResult(operation, [
+      { displayName: "Trần Minh", jobTitle: "Quản trị hệ thống", department: "IT", id: "private-id" },
+      { displayName: "Hà My", jobTitle: "Hỗ trợ kỹ thuật", department: "IT", _id: "private-id-2" },
+    ]);
+
+    const table = parseAssistantResultTable(reply);
+    expect(table?.rows).toHaveLength(2);
+    expect(table?.rows[0]?.values).toMatchObject({
+      "Nhân sự": "Trần Minh",
+      "Chức danh": "Quản trị hệ thống",
+      "Phòng ban": "IT",
+    });
+    expect(reply).not.toContain("private-id");
+  });
+
   it("renders generic lookup lists as a table while keeping internal fields hidden", () => {
     const operation = operationById("customer.list")!;
     const reply = formatFriendlyAssistantResult(operation, [{
@@ -145,6 +162,15 @@ describe("HR reports", () => {
     expect(table?.rows[0]?.values).toMatchObject({ "Nhân sự": "Nguyễn Anh", "Khóa đào tạo": "An toàn lao động", "Tiến độ": "35%", "Trạng thái": "Đang học" });
     expect(reply).toContain("kết quả có thể chưa bao gồm toàn bộ nhân sự");
     expect(reply).not.toContain("private-id");
+  });
+
+  it("keeps the requested course name and says course of study in an empty report", () => {
+    const operation = operationById("hr.training.incomplete.list")!;
+    const reply = formatFriendlyAssistantResult(operation, {
+      incompleteEnrollments: [], incompleteTotal: 0, courseName: "hát",
+    });
+
+    expect(reply).toContain("Không có lượt học nào chưa hoàn thành khóa học hát");
   });
 
   it("confirms a contract extension with the employee and formatted dates", () => {
