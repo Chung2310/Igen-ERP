@@ -132,9 +132,10 @@ export async function readChatTestState(companyCode: string, userId: string, id:
       return {
         id: String(message._id), text: message.text, reply: message.reply, status: message.status,
         hasImage: message.hasImage, imageCount: message.imageCount ?? (message.hasImage ? 1 : 0), fileName: message.fileName, createdAt: message.createdAt.toISOString(),
-        error: message.error, latencyMs: message.latencyMs, phase: message.phase,
+        error: message.error, errorCode: message.errorCode, latencyMs: message.latencyMs, phase: message.phase,
         ...(photo ? { ocr: { status: photo.status, issue: photo.issue, values: photo.values, leadId: photo.leadId?.toString() } }
-          : message.leadImageProfileHash ? { ocr: { status: "read", issue: message.leadImageIssue, values: message.leadImageValues || {} } } : {}),
+          : message.leadImageProfileHash && (message.leadImageReadings?.length || Object.keys(message.leadImageValues || {}).length)
+            ? { ocr: { status: "read", issue: message.leadImageIssue, values: message.leadImageValues || {} } } : {}),
       };
     }),
     leads: leads.map(lead => ({
@@ -326,7 +327,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
   ]);
   if (!session || !message || message.status === "completed") return;
   if (session.pendingMessageId !== job.messageId) return;
-  await ChatTestMessageModel.updateOne({ _id: message._id }, { $set: { status: "processing" }, $unset: { error: 1 } });
+  await ChatTestMessageModel.updateOne({ _id: message._id }, { $set: { status: "processing" }, $unset: { error: 1, errorCode: 1, errorStatus: 1 } });
   const started = Date.now();
   await withAiUsage({ companyCode: session.companyCode, userId: session.userId }, async () => {
     const pageId = session.directLeadWrites ? session.sourceAccountId || `chat-test:${session._id}` : `chat-test:${session._id}`;
@@ -341,7 +342,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
     const finish = (reply: string, error?: string) => ChatTestSessionModel.db.transaction(async transaction => {
       await ChatTestMessageModel.updateOne({ _id: message._id }, {
         $set: { status: "completed", reply, latencyMs: Date.now() - started, ...(error ? { error } : {}) },
-        ...(!error ? { $unset: { error: 1 } } : {}),
+        ...(!error ? { $unset: { error: 1, errorCode: 1, errorStatus: 1 } } : {}),
       }, { session: transaction });
       await ChatTestSessionModel.updateOne({ _id: session._id, pendingMessageId: job.messageId },
         { $unset: { pendingMessageId: 1 } }, { session: transaction });
@@ -411,7 +412,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
       : conflictFields.length ? "Các ảnh có thông tin không thống nhất; những trường này chưa được cập nhật."
         : hasImages && leadFields.length && !contractOcr && !Object.keys(verifiedImageValues).length && !subscriberCodes.length
           ? "Chưa đọc được thông tin khớp bộ trường Lead từ ảnh." : undefined;
-    if (!contractOcr && (hasImages || documentMode)) {
+    if (!contractOcr && ((hasImages && leadFields.length) || documentMode)) {
       await ChatTestMessageModel.updateOne({ _id: message._id }, {
         $set: { leadImageValues: verifiedImageValues, leadImageProfileHash: profileHash,
           ...(!hasImages && documentMode && readings.length ? { leadImageReadings: readings } : {}),
@@ -498,18 +499,30 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
 }
 
 export async function failChatTestMessage(job: { sessionId: string; messageId: string }, error?: unknown) {
-  const failure = error as { code?: string; status?: number; statusCode?: number; message?: string } | undefined;
+  const failure = error as { code?: string; providerCode?: string; status?: number; statusCode?: number; message?: string; name?: string } | undefined;
+  const status = failure?.status ?? failure?.statusCode;
+  const safeStatus = typeof status === "number" && status >= 400 && status <= 599 ? status : undefined;
+  const providerCode = failure?.code || failure?.providerCode;
+  const invalidVisual = /^(?:Invalid visual|Unknown selected image|Invalid customer request|Invalid requested shape|A visible sample)/.test(failure?.message || "");
+  const timedOut = failure?.name === "TimeoutError" || failure?.name === "AbortError" || failure?.message === "[OpenRouter] Reply deadline exceeded";
+  const code = invalidVisual ? "AI_VISUAL_REPLY_INVALID" : timedOut ? "AI_REPLY_TIMEOUT"
+    : providerCode && /^[A-Z][A-Z0-9_]{0,79}$/.test(providerCode) ? providerCode
+      : safeStatus ? `AI_PROVIDER_HTTP_${safeStatus}` : failure?.name === "SyntaxError" ? "AI_RESPONSE_INVALID" : "CHAT_TEST_PROCESSING_FAILED";
   let detail = "Dịch vụ AI chưa xử lý được lượt này. Có thể bấm thử lại hoặc tạo phiên mới sau khi đổi cấu hình.";
+  if (invalidVisual) detail = "AI trả về kết quả phân tích ảnh chưa hợp lệ. Bạn bấm Thử lại giúp nhé.";
+  if (timedOut) detail = "AI xử lý quá thời gian cho lượt này. Bạn có thể bấm Thử lại; các ảnh đã gửi vẫn được giữ.";
   if (failure?.code === "CHAT_MESSAGE_OPENROUTER_KEY_MISSING") detail = "Chưa cấu hình API key của Chat Message.";
   if (failure?.code === "AI_SUBSCRIPTION_LIMIT") detail = failure.message || "Gói AI đã hết lượt.";
   if (failure?.status === 429 || failure?.statusCode === 429) detail = "Dịch vụ AI đang giới hạn tần suất. Chờ một lúc rồi thử lại.";
   await ChatTestSessionModel.db.transaction(async transaction => {
     await ChatTestMessageModel.updateOne({ _id: job.messageId, sessionId: job.sessionId, status: { $ne: "completed" } }, {
-      $set: { status: "failed", error: detail },
+      $set: { status: "failed", error: detail, errorCode: code, ...(safeStatus ? { errorStatus: safeStatus } : {}) },
     }, { session: transaction });
     await ChatTestSessionModel.updateOne({ _id: job.sessionId, pendingMessageId: job.messageId },
       { $unset: { pendingMessageId: 1 } }, { session: transaction });
   });
+  const message = await ChatTestMessageModel.findOne({ _id: job.messageId, sessionId: job.sessionId }).select("phase").lean().catch(() => null);
+  console.error("[Chat test] Failed turn", { messageId: job.messageId, phase: message?.phase, code, status: safeStatus });
 }
 
 export async function retryChatTestMessage(companyCode: string, userId: string, sessionId: string, messageId: string) {
@@ -523,7 +536,7 @@ export async function retryChatTestMessage(companyCode: string, userId: string, 
     const claimed = await ChatTestSessionModel.updateOne({ _id: session._id, pendingMessageId: { $exists: false } },
       { $set: { pendingMessageId: messageId } }, { session: transaction });
     if (!claimed.modifiedCount) throw chatTestError("Chờ chatbot xử lý xong tin nhắn trước.", 409);
-    await ChatTestMessageModel.updateOne({ _id: messageId }, { $set: { status: "pending" }, $unset: { error: 1 } }, { session: transaction });
+    await ChatTestMessageModel.updateOne({ _id: messageId }, { $set: { status: "pending" }, $unset: { error: 1, errorCode: 1, errorStatus: 1 } }, { session: transaction });
     await MessengerBackgroundJobModel.updateOne({ _id: `chat-test:${messageId}` }, {
       $set: { kind: "chat-test", payload: { sessionId, messageId }, status: "pending", attempts: 0, dueAt: new Date() },
       $unset: { completedAt: 1, leaseToken: 1, leaseUntil: 1 },

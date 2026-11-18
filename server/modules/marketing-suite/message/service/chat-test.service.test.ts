@@ -16,6 +16,7 @@ import { prepareChatPreview } from "./chat-preview.service";
 import { prepareChatReplyContext } from "./chat-reply-context.service";
 import { generateReplyCompletion } from "./ai-reply-provider";
 import { geminiService } from "../../shared/service/gemini.service";
+import { prepareChatImages, parseChatVisualReply } from "./chat-visual-context";
 import {
   addChatTestMessage, createChatTestSession, deleteChatTestSession, failChatTestMessage,
   processChatTestMessage, readChatTestSession, readChatTestState, retryChatTestMessage,
@@ -91,6 +92,47 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it("answers two documents with no Lead profile through the real visual parser without a sample-selection crash", async () => {
+    await LeadIntakeProfileModel.deleteMany({ companyCode });
+    await UserModel.updateOne({ _id: userId }, { $set: { "aiAutoReplyConfig.imageReplyEnabled": true } });
+    const imageFiles = await Promise.all(["red", "blue"].map(async color => ({
+      data: `data:image/png;base64,${(await sharp({ create: { width: 3, height: 3, channels: 3, background: color } }).png().toBuffer()).toString("base64")}`,
+    })));
+    const session = await start();
+    const messageId = await addChatTestMessage({ companyCode, userId, sessionId: session.id, clientMessageId: "documents-without-profile", text: "", imageFiles });
+    const loaded = await prepareChatImages(imageFiles.map(image => ({ dataUrl: image.data, messageId })));
+    const visualInput = { images: loaded.images, messageId, sourceMessageIds: [messageId], customerMessage: "[Ảnh]" };
+    vi.mocked(prepareChatReplyContext).mockResolvedValue({
+      ragContext: { visualInput }, visualInput, memoryImages: [], sourceMessageId: messageId, sourceTimestamp: new Date(), resetMemory: false,
+    });
+    vi.mocked(geminiService.chat).mockImplementation(async (_message, _history, _config, context) => ({
+      ...parseChatVisualReply({ replyDraft: "Bạn muốn kiểm tra thông tin nào trên hai ảnh này?", visual: {
+        subjectType: "document", readable: true, needsSelection: false, selectedImageId: "", summary: "Hai ảnh tài liệu",
+        facts: loaded.images.map(image => ({ key: "document", value: "Thông tin hồ sơ", confidence: "high", imageId: image.id })),
+        customerRequests: [], uncertainties: [],
+      } }, context!.visualInput!), isMock: false,
+    }));
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.messages[0]).toMatchObject({ status: "completed", imageCount: 2 });
+    expect(state.messages[0].ocr).toBeUndefined();
+    expect(state.leads).toHaveLength(0);
+    expect(geminiService.chat).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores safe failure diagnostics and clears them when retrying without exposing provider text", async () => {
+    const session = await start();
+    const messageId = await send(session.id, "Xin tư vấn", "diagnostic-message");
+    await failChatTestMessage({ sessionId: session.id, messageId }, Object.assign(new Error("Invalid visual fact source"), { status: 502 }));
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.messages[0]).toMatchObject({ errorCode: "AI_VISUAL_REPLY_INVALID", error: expect.stringContaining("phân tích ảnh") });
+    await retryChatTestMessage(companyCode, userId, session.id, messageId);
+    expect((await readChatTestState(companyCode, userId, session.id)).messages[0].errorCode).toBeUndefined();
+    await failChatTestMessage({ sessionId: session.id, messageId }, new Error("private provider response sk-or-example"));
+    const failed = (await readChatTestState(companyCode, userId, session.id)).messages[0];
+    expect(failed.errorCode).toBe("CHAT_TEST_PROCESSING_FAILED");
+    expect(failed.error).not.toContain("private provider");
+  });
   it("reads three images as one turn, merges the same subscriber, separates others and reuses OCR on retry", async () => {
     await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: [...fields.slice(0, 2),
       { key: "account", label: "Account", question: "Mã?", type: "text", required: true },

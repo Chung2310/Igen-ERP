@@ -29,6 +29,7 @@ export interface ChatTestMessage {
   latencyMs?: number;
   phase?: string;
   error?: string;
+  errorCode?: string;
   ocr?: { status: string; issue?: string; values: Record<string, string>; leadId?: string };
 }
 

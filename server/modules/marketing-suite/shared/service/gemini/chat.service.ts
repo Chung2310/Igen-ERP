@@ -753,7 +753,7 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
         response.text = parsed.text;
         visual = parsed.visual;
         // Quote only an existing compatible price row; never manufacture image prices.
-        if (visual.readable && !visual.needsSelection && isImagePriceInquiry(message)
+        if ((!visual.subjectType || visual.subjectType === "product") && visual.readable && !visual.needsSelection && isImagePriceInquiry(message)
           && extractImageQuoteRows(ragContext?.pricingContextText || "").length) {
           const observation = visualToImageObservation(visual, visualInput.images);
           const quote = observation.status === "ready" && observation.shapeConfidence === "high"

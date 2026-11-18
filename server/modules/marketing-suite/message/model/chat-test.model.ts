@@ -42,6 +42,8 @@ const messageSchema = new Schema({
   status: { type: String, enum: ["pending", "processing", "completed", "failed"], required: true },
   reply: { type: String, default: "" },
   error: String,
+  errorCode: String,
+  errorStatus: Number,
   latencyMs: Number,
   phase: String,
 }, { timestamps: true });
