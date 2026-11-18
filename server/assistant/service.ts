@@ -1,3 +1,6 @@
+import { interpretRequest } from "./semantic-interpreter";
+import { combineAssistantPlanResults } from "./plan-results";
+import { ExecutionBudget, PlanStoppedError, PlanCancelledError } from "./execution-budget";
 import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantDataShape, AssistantField, AssistantQuotationAcceptanceForm, AssistantQuotationAcceptanceLinesInput, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
@@ -8,12 +11,13 @@ import { actorScope, assertOperation, currentWorkflow, listWorkflows } from "./w
 import { AssistantError, collectValues, isAssistantFieldApplicable, isBlank } from "./policy";
 import { callOperation, lookupRecords, projectRecords, resolveNamedReferenceSelectors, resolveReferences, suggestReferenceOptions, UncertainExecutionError } from "./executor";
 import { getSettings } from "./settings";
-import { directStudentRecordActionId, directWorkerRecordActionId, interpretRequest, isEmployeeDetailsIntent } from "./interpreter";
+import { directStudentRecordActionId, directWorkerRecordActionId, isEmployeeDetailsIntent } from "./interpreter";
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { presentAssistantReply } from "./reply-presentation";
 import { applyAssistantResponseRules } from "./reply-rules";
-import { assistantRequestGuidance, assistantUnsupportedGuidance } from "./request-guidance";
+import { assistantCourseChoiceGuidance, assistantRequestGuidance } from "./request-guidance";
+import { appendAssistantFallback, type FallbackReason } from "./fallback-guidance";
 import { autoSaveAssistantMemories } from "./auto-memory";
 import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
 import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
@@ -25,6 +29,7 @@ import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { formatQuotationResult, quotationResultLink, quotationValue } from "./quotation-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
+import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
 import { extractAssistantAttachmentValues } from "./attachment-values";
@@ -73,7 +78,9 @@ function safeAssistantPreviewFieldValue(field: AssistantField, rawValue: Assista
     return "Bản ghi đã chọn";
   }
   const visibleValue = hideInternalAssistantIds(displayValue);
-  return (typeof visibleValue === "string" && ["date", "datetime"].includes(field.type)
+  const calendarField = ["date", "datetime"].includes(field.type)
+    || (field.key === "date" && Boolean(field.pattern?.includes("d{4}")));
+  return (typeof visibleValue === "string" && calendarField
     ? formatAssistantTemporalValue(visibleValue) : undefined) ?? visibleValue;
 }
 async function workerProjectDisplayNames(req: AuthenticatedRequest, workerId?: unknown, projectId?: unknown) {
@@ -260,11 +267,14 @@ const sessionMemoryVersionFilter = (version: number) => version === 0
   : { sessionMemoryVersion: version };
 const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(op.module === "quotation" ? formatQuotationResult(op, value) : op.module === "healthcare" ? formatHealthcareResult(op, value) : formatFriendlyAssistantResult(op, value));
 function friendlyFailure(error: unknown) {
+  if (error instanceof AssistantApiRejection && [400, 409, 422].includes(error.status)) {
+    return `Dữ liệu chưa được chấp nhận: ${error.message}\nBạn sửa thông tin được nêu rồi gửi lại nhé.`;
+  }
   if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công; bạn thử lại sau giúp mình nhé.";
   const message = error.message || "";
   if (message === AI_PROVIDER_TEMPORARY_ERROR || isAiProviderBillingError(message)) return AI_PROVIDER_TEMPORARY_ERROR;
   if (/dữ liệu yêu cầu không hợp lệ/i.test(message)) {
-    return "Mình chưa làm được vì một vài thông tin gửi lên chưa đúng định dạng. Bạn kiểm tra lại yêu cầu rồi gửi mình nhé; dữ liệu vẫn chưa thay đổi.";
+    return `Dữ liệu chưa được chấp nhận: ${message}\nBạn sửa thông tin được nêu rồi gửi lại nhé.`;
   }
   if (/(?:không có quyền|chưa được cấp quyền|phân hệ chưa được bật)/i.test(message)) {
     return "Tài khoản hiện chưa có quyền cho thao tác này hoặc phân hệ chưa được bật. Bạn nhờ quản trị viên kiểm tra giúp mình nhé.";
@@ -329,6 +339,12 @@ function updateDetailsQuestion(op: AssistantOperation, intent: string, values: R
       if (typeof existing.name === "string" && existing.name.trim()) processName = existing.name.trim();
       if (Array.isArray(existing.steps)) stepTitles = existing.steps.slice(0, 30).map((step: any) => String(step?.title || "").trim()).filter(Boolean);
     } catch { /* keep the follow-up question useful without an optional summary */ }
+    if (values.workflowAction === "Thêm giai đoạn con" && isBlank(values.workflowValue)) {
+      const parentStep = typeof values.workflowTarget === "string" ? values.workflowTarget.trim() : "";
+      return parentStep
+        ? `Bạn muốn đặt tên bước con là gì? Mình sẽ thêm vào bước “${parentStep}” của quy trình “${processName}”.`
+        : `Bạn muốn thêm bước con vào bước nào của quy trình “${processName}”, và tên bước con là gì?`;
+    }
     const currentSteps = stepTitles.length
       ? ` Hiện có các bước: ${stepTitles.map((title, index) => `${index + 1}. ${title}`).join("; ")}. Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn giữ; mình sẽ giữ thông tin của bước trùng tên.`
       : " Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn có nhé.";
@@ -793,7 +809,10 @@ async function laborPartnerMissingInfoReply(req: AuthenticatedRequest, text: str
 }
 const relationMentioned = (intent: string, field: AssistantField) => {
   const text = normalizeAssistantText(intent);
-  const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "hoc", "mot", "cac", "ban", "ghi", "lien", "quan", "tai"]);
+  if (/interviewerIds/.test(field.key)) return /\b(?:nguoi phong van|hoi dong phong van)\b/.test(text);
+  if (field.key === "applicantId") return /\b(?:doi|thay|chuyen)\s+(?:sang\s+)?ung vien\b/.test(text);
+  if (/workerIds/.test(field.key)) return /\b(?:them|gan|giao|phan cong|bo sung|go|xoa|doi|chuyen)\s+(?:cac\s+)?(?:lao dong|nhan cong|cong nhan)\b/.test(text);
+  const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "hoc", "mot", "cac", "ban", "ghi", "lien", "quan", "tai", "ngay", "trong"]);
   const intentTokens = new Set(text.split(/\s+/).filter(Boolean));
   const isManagerReference = /manager|supervisor/i.test(`${field.key} ${field.apiKey || ""}`);
   const tokens = [field.key, field.apiKey || "", field.label]
@@ -854,6 +873,11 @@ const isReferenceCorrectionReply = (text: string) => {
 };
 const isSkippingReference = (text: string) => /^(?:thoi\s+)?(?:bo qua|khong can|de trong|khong gan|khong lien ket|khong chon)(?:\s|$)/.test(normalizeAssistantText(text));
 function unavailableReferencePrompt(op: AssistantOperation, field: AssistantField, label: string, skipHint = "", lookupFailed = false) {
+  if (op.id === "payroll.run.reconciliation.publish" && field.key === "path_id") {
+    return lookupFailed
+      ? "Mình chưa tải được danh sách lượt lương để kiểm tra. Bạn thử lại sau nhé."
+      : "Hãy tạo lượt lương nháp cho kỳ này hoặc chọn một kỳ khác có lượt nháp để phát hành.";
+  }
   if (op.id === "quotation.contract.create" && field.key === "quoteId") {
     return lookupFailed
       ? "Mình chưa tải được danh sách dự toán đã duyệt. Bạn thử lại sau hoặc gửi mã dự toán nếu đã biết nhé."
@@ -893,6 +917,7 @@ function unavailableReferencePrompt(op: AssistantOperation, field: AssistantFiel
   return `Chưa có lựa chọn khả dụng cho ${label}.${skipHint}`;
 }
 function assistantOptionLabel(op: AssistantOperation, field: AssistantField, value: string) {
+  if (op.id === "payroll.reconciliation.schedule.update" && field.key === "recurrence" && value === "monthly") return "Hằng tháng";
   if (op.module === "quotation") return quotationValue(field.apiKey || field.key, value);
   if (op.module === "healthcare") return healthcareValue(field.apiKey || field.key, value);
   if (op.id === "retail.coupon.create" && field.key === "targetType") {
@@ -960,6 +985,20 @@ function assistantOptionLabel(op: AssistantOperation, field: AssistantField, val
   return value;
 }
 function assistantPreviewValue(op: AssistantOperation, fieldKey: string, value: AssistantValue): AssistantValue {
+  if (["recruitment.interview.create", "recruitment.interview.update"].includes(op.id) && fieldKey === "interviewerIds") {
+    const parsed = parseStructuredAssistantValue(value);
+    if (Array.isArray(parsed)) {
+      const interviewers = parsed.flatMap(item => {
+        const label = typeof item === "string"
+          ? item.trim()
+          : isAssistantRecord(item)
+            ? String(item.displayName || item.fullName || item.name || item.label || "").trim()
+            : "";
+        return label ? [label] : [];
+      });
+      if (interviewers.length) return interviewers.join(", ");
+    }
+  }
   if (op.id === "student.learning-roadmap.create" && fieldKey === "steps") {
     const parsed = parseStructuredAssistantValue(value);
     if (!Array.isArray(parsed)) return value;
@@ -981,7 +1020,7 @@ function assistantPreviewValue(op: AssistantOperation, fieldKey: string, value: 
       return details.join(" · ");
     }).join("\n");
   }
-  if (op.id === "hr.workflow.update" && fieldKey === "steps") {
+  if (["hr.workflow.create", "hr.workflow.update"].includes(op.id) && fieldKey === "steps") {
     const parsed = parseStructuredAssistantValue(value);
     if (!Array.isArray(parsed)) return value;
     return parsed.map((step: any, index: number) => [
@@ -1110,7 +1149,7 @@ export async function missingReferencePrompts(
     const configured = workflow.fields.find(candidate => candidate.key === field.key);
     return Boolean(field.required || field.systemRequired || configured?.required);
   });
-  if (missingRequiredDetailReference && op.id !== "student.batch.detail") {
+  if (missingRequiredDetailReference && !["student.batch.detail", "payroll.run.complaints.list"].includes(op.id)) {
     const missingPathFields = op.fields.filter(field => {
       if (field.source !== "path" || !field.reference || values[field.key] !== undefined || unresolvedReferenceKeys.has(field.key)) return false;
       const configured = workflow.fields.find(candidate => candidate.key === field.key);
@@ -1406,7 +1445,9 @@ export async function missingReferencePrompts(
             ...(itemShape.referenceContext ? { referenceContext: itemShape.referenceContext } : {}),
           };
           const configured = workflow.fields.find(candidate => candidate.key === field.key);
-          const required = Boolean(field.systemRequired || field.required || configured?.required || shape.required || itemShape.required || conditionApplies(field));
+          // An item is required only inside a supplied array; it does not make
+          // an omitted optional relationship mandatory on a partial update.
+          const required = Boolean(field.systemRequired || field.required || configured?.required || shape.required || conditionApplies(field));
           const relationRequested = relationMentioned(intent, referenceField);
           const mustResolve = required || relationChangeRequested(intent, referenceField);
           const shouldPrompt = required || isCreate || (["PATCH", "PUT"].includes(op.method) && relationRequested);
@@ -1776,11 +1817,14 @@ export async function listConversations(req: AuthenticatedRequest, options: { li
   };
 }
 
-export async function processTurn(req: AuthenticatedRequest, input: TurnInput): Promise<AssistantReply> {
+export interface TurnExecutionControl { background?: boolean; cancelled?: () => Promise<boolean>; }
+export async function processTurn(req: AuthenticatedRequest, input: TurnInput, control: TurnExecutionControl = {}): Promise<AssistantReply> {
+  input = { ...input };
+  const budget = new ExecutionBudget(control.background);
   const scope = scopeOf(req);
   const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
-  const projectInstructions = input.projectId ? await projectInstructionsForConversation(req, input.projectId, input.conversationId) : "";
+  const projectInstructions = input.projectId ? await projectInstructionsForConversation(req, input.projectId, input.conversationId, input.text || "") : "";
   const fileDigestInput = input.conversationUpload ? {
     fileName: input.conversationUpload.fileName,
     digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
@@ -1809,13 +1853,18 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const sessionFilter = { ...scope, conversationId: input.conversationId };
   try { await AssistantSessionModel.updateOne(sessionFilter, { $setOnInsert: { ...sessionFilter, mode: assistantMode } }, { upsert: true }); }
   catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
-  const session = await AssistantSessionModel.findOneAndUpdate({ ...sessionFilter, busy: false }, { $set: { busy: true } }, { returnDocument: "after" });
+  const session = await AssistantSessionModel.findOneAndUpdate({ ...sessionFilter, busy: false }, { $set: { busy: true, activeRequestId: input.requestId } }, { returnDocument: "after" });
   if (!session) {
     const reply: AssistantReply = { status: "failed", reply: "Mình đang xử lý một yêu cầu khác trong cuộc trò chuyện này. Bạn chờ kết quả rồi gửi yêu cầu tiếp theo nhé." };
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "completed", result: reply } });
     return reply;
   }
   let pending = restorePendingActionId(session.pending as PendingAction | null);
+  let remainingRequests: string[] = Array.isArray(session.remainingRequests) ? session.remainingRequests.filter((item: unknown): item is string => typeof item === "string") : [];
+  const previousRemainingRequests = [...remainingRequests];
+  let pendingMemoryProposal = session.pendingMemoryProposal || "";
+  let stepRequestId = input.requestId;
+  const steps: Array<{ requestId: string; actionId: string; status: string }> = [];
   let pendingDocumentRequest = session.pendingDocumentRequest || "";
   if (pending) pending.preview = sanitizeActionPreview(pending.preview, operationById(pending.actionId));
   let hasDispatched = false;
@@ -1824,11 +1873,18 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   let needsIntentClarification = false;
   let availableWorkflows: AssistantWorkflow[] = [];
   let manualGuidanceContext: { text: string; module?: string } | null = null;
+  let fallbackOperation: AssistantOperation | undefined;
+  let fallbackModule: string | undefined;
+  let fallbackReason: FallbackReason = "technical";
   let responseRules = "";
   let autoMemoryEnabled = false;
   const unsupportedReply = (text: string, module?: string): AssistantReply => {
     needsIntentClarification = true;
-    const guide = assistantUnsupportedGuidance(text, availableWorkflows, module);
+    fallbackModule = module;
+    if (fallbackReason !== "permission") fallbackReason = "unsupported";
+    const guide = fallbackReason === "permission"
+      ? "Tài khoản hiện chưa có quyền cho thao tác này hoặc phân hệ chưa được bật. Chưa thực hiện thay đổi dữ liệu."
+      : "Mình hiểu bạn muốn thực hiện yêu cầu này. Hiện trợ lý chưa thể làm việc đó trong khung chat, nên chưa có dữ liệu nào được thay đổi.";
     return { status: "unsupported", reply: `${guide}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
   };
   const sessionMemory = typeof session.sessionMemory === "string" ? session.sessionMemory : "";
@@ -1851,12 +1907,29 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const history = [...session.messages, { role: "user", content: historyContent, createdAt: new Date().toISOString() }];
 
   const execute = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
-    const dispatch = async (resolved: Record<string, AssistantValue>) => {
-      const result = await callOperation(req, op, resolved, password, input.requestId);
-      completion = { operation: op, workflow, values: resolved, result, defaultedKeys: pending?.defaultedKeys || [] };
+    fallbackOperation = op;
+    const dispatch = async (resolved: Record<string, AssistantValue>, lookup?: () => Promise<any>) => {
+      if (await control.cancelled?.()) throw new PlanCancelledError("Đã dừng theo yêu cầu. Các bước đã hoàn tất được giữ nguyên.");
+      const readOnly = op.method === "GET" || Boolean(op.readOnly);
+      const fingerprint = budget.beforeCall(op.id, resolved, readOnly);
+      steps.push({ requestId: stepRequestId, actionId: op.id, status: "executing" });
+      await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { steps } });
+      const result = lookup ? await lookup() : await callOperation(req, op, resolved, password, stepRequestId);
+      if (readOnly) budget.afterRead(fingerprint, result);
+      const defaultedKeys = [...(pending?.defaultedKeys || [])];
+      // Defaults applied by business APIs also stay out of the creation reply.
+      if (op.method === "POST" && !op.readOnly) {
+        for (const field of workflow.fields) {
+          if (!field.required && !field.systemRequired && field.source !== "path" && field.source !== "query"
+            && resolved[field.key] === undefined) defaultedKeys.push(field.key);
+        }
+      }
+      completion = { operation: op, workflow, values: resolved, result, defaultedKeys };
+      steps[steps.length - 1].status = "completed";
+      await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { steps } });
       return result;
     };
-    if (Date.now() - new Date(turn.createdAt).getTime() > 120_000) throw new AssistantError("Yêu cầu đã hết thời gian xử lý trước khi thực thi. Chưa thay đổi dữ liệu; vui lòng gửi lại yêu cầu.", 408);
+    if (Date.now() >= budget.deadline) throw new PlanStoppedError("Đã hết thời gian xử lý trước khi thực thi. Phần việc còn lại được giữ.");
     await assertOperation(req, op.id);
     if (op.id === "employee.create" && (!password || password.length < 6 || password.length > 128)) throw new AssistantError("Vui lòng nhập mật khẩu khởi tạo (6–128 ký tự) trong ô bảo mật của bản xem trước.");
     const latest = await currentWorkflow(req, op.id);
@@ -1864,7 +1937,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if (op.method !== "GET" && !op.readOnly && !input.decision?.confirmed && (await getSettings(req)).alwaysConfirm) return { status: "confirmation", reply: "Cài đặt yêu cầu xác nhận trước khi thay đổi dữ liệu. Vui lòng kiểm tra bản xem trước.", action: pending!.preview };
     const hiddenFields = new Set(op.systemBodyFields || []);
     const validationValues = Object.fromEntries(Object.entries(values).filter(([key]) =>
-      !key.startsWith("__assistant")
+      op.fields.some(field => field.key === key) && !key.startsWith("__assistant")
       && !hiddenFields.has(key)
       && !(op.id.startsWith("recruitment.") && key === "version")
     ));
@@ -1916,7 +1989,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, pending?.provided || validationValues)) throw new AssistantError(updateDetailsQuestion(op, input.text || pending?.intent || "", checked.values));
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "executing", actionId: op.id, workflowVersion: workflow.version, payload: checked.values } });
-    hasDispatched = !op.readOnly && (op.method !== "GET" || op.module === "quotation");
+    hasDispatched ||= !op.readOnly && (op.method !== "GET" || op.module === "quotation");
     if (op.module === "quotation") {
       const result = await dispatch(checked.values);
       pending = null;
@@ -1954,13 +2027,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     if (op.method === "GET" && op.id === "worker.list") {
       const search = String(checked.values.query_search || checked.values.search || "");
-      const rows = await lookupRecords(req, op.id, search, checked.values);
+      const rows = await dispatch(checked.values, () => lookupRecords(req, op.id, search, checked.values));
       pending = null;
       return { status: "completed", reply: friendlyResult(op, rows), link: op.link };
     }
     if (op.method === "GET" && op.id === "employee.detail") {
       const search = String(checked.values.search || "").trim();
-      const rows = await lookupRecords(req, op.id, search, checked.values);
+      const rows = await dispatch(checked.values, () => lookupRecords(req, op.id, search, checked.values));
       const query = normalizeAssistantText(search);
       const matches = rows.filter(row => [row.displayName, row.email, row.phone]
         .some(value => typeof value === "string" && normalizeAssistantText(value).includes(query)));
@@ -2021,7 +2094,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       return { status: "completed", reply: friendlyResult(op, result?.data ?? result), link: op.link };
     }
     if (op.method === "GET") {
-      const rows = await lookupRecords(req, op.id, String(values.search || ""), values);
+      const rows = await dispatch(checked.values, () => lookupRecords(req, op.id, String(values.search || ""), values));
       pending = null;
       return { status: "completed", reply: friendlyResult(op, rows), link: op.link };
     }
@@ -2105,6 +2178,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (/(?:thong tin (?:chuyen khoan|tai khoan)|chuyen khoan|bank account|bank details)/.test(normalizedIntent)) actionId = "partner.bank-details.update";
       else if (/(?:cau hinh hoa hong|hoa hong|commission)/.test(normalizedIntent)) actionId = "partner.commission.update";
     }
+    fallbackOperation = operationById(actionId);
     const op = await assertOperation(req, actionId);
     provided = normalizeAcceptanceValues(op, provided, input.text || "");
     const workflow = await currentWorkflow(req, actionId);
@@ -2136,7 +2210,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       && isBlank(contextualValues.instructor);
     if (trainingInstructorIsDefault) contextualValues.instructor = creatorName;
     if (previousPending?.awaitingPathReferenceKeys?.length === 1 && input.text?.trim()) {
-      contextualValues[previousPending.awaitingPathReferenceKeys[0]] = input.text.trim();
+      const key = previousPending.awaitingPathReferenceKeys[0];
+      if (isBlank(contextualValues[key])) contextualValues[key] = input.text.trim();
     }
     let attachmentSummary = previousPending?.attachmentSummary;
     if (input.attachment) {
@@ -2166,7 +2241,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     for (const field of op.fields) if (contextualValues[field.key] !== undefined && String(contextualValues[field.key]).trim()) skippedReferenceKeys.delete(field.key);
     const selectedBranchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
-    if (req.user?.branchId && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) contextualValues[selectedBranchField.key] = req.user.branchId;
+    if (op.id !== "employee.count" && req.user?.branchId && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) contextualValues[selectedBranchField.key] = req.user.branchId;
     const resolvedNamedValues = await resolveNamedReferenceSelectors(req, op, contextualValues);
     const selectedValues = inferCustomerQuoteMode(
       op,
@@ -2201,7 +2276,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (attachmentSummary?.fieldKey === field.key) return `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}`;
       const resolvedLabel = references.labels[field.key];
       const optionLabel = field.options?.some(option => String(option) === String(value)) ? assistantOptionLabel(op, field, String(value)) : "";
-      return safeAssistantPreviewFieldValue(field, value, resolvedLabel || optionLabel || assistantPreviewValue(op, field.key, value));
+      const displayValue = resolvedLabel || optionLabel || value;
+      return safeAssistantPreviewFieldValue(field, value, assistantPreviewValue(op, field.key, displayValue));
     };
     const previewValues = workflow.fields.filter(f => collected.values[f.key] !== undefined
       && !(op.id === "quotation.acceptance.create" && f.key === "lines"))
@@ -2335,6 +2411,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     };
     if (collected.missing.length || collected.errors.length || references.errors.length || relationshipPrompts.prompts.length) {
       const lines = [
+        ...(op.id === "payroll.reconciliation.schedule.update" && !collected.values.recurrence
+          ? ["Lịch phát hành tự động hiện lặp hằng tháng, chưa hỗ trợ hẹn một lần vào ngày/tháng cụ thể. Bạn chọn Hằng tháng nếu muốn lặp vào ngày và giờ đã nêu nhé."] : []),
         ...(missingWithoutReferenceLabels.length ? [`Mình đã hiểu yêu cầu ${workflow.title.toLocaleLowerCase("vi")}; mình còn thiếu ${missingWithoutReferenceLabels.join(", ")}. Bạn gửi giúp mình nhé.`] : []),
         ...(customerQuoteQuestion ? [customerQuoteQuestion] : []),
         ...(receiptQuestion ? [receiptQuestion] : []),
@@ -2411,7 +2489,19 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.trainingContent || input.acceptanceLines)) {
       throw new AssistantError("Tab Trò chuyện cần có nội dung tin nhắn. Hãy nhập câu hỏi hoặc yêu cầu kèm tệp.");
     }
-    if (forgetMemoryCommand !== null) {
+    const memoryAnswer = normalizeAssistantText(input.text || "").trim().replace(/[.!?]+$/, "");
+    if (pendingMemoryProposal && !pending && /^(?:co|dong y|ghi nho|luu|vang|ok|khong|bo qua|huy)$/.test(memoryAnswer)) {
+      if (/^(?:khong|bo qua|huy)$/.test(memoryAnswer)) {
+        reply = { status: "completed", reply: "Mình không lưu cách gọi này." };
+      } else if (!settings.memoryEnabled) {
+        reply = { status: "completed", reply: "Ghi nhớ đang tắt nên mình chưa lưu cách gọi này." };
+      } else {
+        await saveAssistantMemory(req, pendingMemoryProposal, "explicit");
+        reply = { status: "completed", reply: "Mình đã lưu cách gọi này vào ghi nhớ riêng của bạn." };
+      }
+      pendingMemoryProposal = "";
+    } else if (forgetMemoryCommand !== null) {
+      pendingMemoryProposal = "";
       const deleted = await forgetAssistantMemoryByContent(req, forgetMemoryCommand);
       reply = {
         status: "completed",
@@ -2453,9 +2543,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (!input.decision.confirmed) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy thao tác theo yêu cầu. Dữ liệu chưa được thay đổi." }; }
       else {
         const workflow = await currentWorkflow(req, pending.actionId);
+        fallbackOperation = operationById(pending.actionId);
         const operation = await assertOperation(req, pending.actionId);
         const confirmationValues = Object.fromEntries(Object.entries(pending.resolved)
-          .filter(([key]) => !key.startsWith("__assistant") && !operation.systemBodyFields?.includes(key)));
+          .filter(([key]) => operation.fields.some(field => field.key === key) && !operation.systemBodyFields?.includes(key)));
         const confirmationValidation = collectValues(workflowForRequest(operation, workflow, pending.intent), confirmationValues);
         reply = workflow.version !== pending.workflowVersion
           ? await prepare(pending.actionId, pending.provided, true, pending.intent)
@@ -2525,7 +2616,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         : "";
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
-      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided, intent: pending.intent } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory, knownModules);
+      budget.plan();
+      const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided, intent: pending.intent } : null, session.messages as any, [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n"), memories, [sessionMemory, remainingRequests.length ? `Các yêu cầu chưa hoàn tất (chỉ ngữ cảnh, không tự xác nhận): ${JSON.stringify(remainingRequests)}` : ""].filter(Boolean).join("\n"), knownModules);
+      if (interpreted.cancel || interpreted.newRequest) remainingRequests = [];
+      if (interpreted.actionId || interpreted.newRequest) pendingMemoryProposal = "";
+      if (interpreted.actionId && interpreted.remainingRequests && (!pending || interpreted.newRequest)) remainingRequests = interpreted.remainingRequests;
       if (conversationFile?.visualAttachments?.length && interpreted.actionId) {
         const selectedOperation = operationById(interpreted.actionId);
         if (selectedOperation) {
@@ -2558,15 +2653,20 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           module: operationById(interpreted.actionId)?.module,
         };
       }
-      if (interpreted.cancel === true) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
-      else if (laborPartnerMissingInfo) {
+      if (interpreted.cancel === true) { pendingMemoryProposal = ""; pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
+      else if (!interpreted.actionId && !pending && interpreted.memoryProposal && settings.memoryEnabled && !containsSensitiveMemoryContent(interpreted.memoryProposal)) {
+        pendingMemoryProposal = interpreted.memoryProposal;
+        needsIntentClarification = true;
+        reply = { status: "collecting", reply: `Bạn có muốn mình ghi nhớ cách gọi này cho những lần sau không: “${pendingMemoryProposal}”?` };
+      }
+      else if (!interpreted.intentType && !interpreted.actionId && laborPartnerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.partner.list")) {
           reply = unsupportedReply(input.text || "", operationById("worker.partner.list")?.module);
         } else {
           reply = await laborPartnerMissingInfoReply(req, input.text || "", previousAction);
         }
       }
-      else if (laborPartnerProfileUpdate) {
+      else if (!interpreted.intentType && !interpreted.actionId && laborPartnerProfileUpdate) {
         const operation = ASSISTANT_OPERATIONS.find(item => item.method === "PATCH" && item.path === "/worker-management/partners/:partnerId");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!operation || !workflow) {
@@ -2588,14 +2688,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           reply = await prepare(workflow.actionId, provided, false, continuing ? pending!.intent : input.text || "");
         }
       }
-      else if (workerMissingInfo) {
+      else if (!interpreted.intentType && !interpreted.actionId && workerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.list")) {
           reply = unsupportedReply(input.text || "", operationById("worker.list")?.module);
         } else {
           reply = await workerMissingInfoReply(req, input.conversationId, input.text || "");
         }
       }
-      else if (isPartnerDetailsIntent(input.text || "") || pending?.actionId === ASSISTANT_OPERATIONS.find(op => op.method === "GET" && op.path === "/partners/:id")?.id) {
+      else if (!interpreted.intentType && !interpreted.actionId && (isPartnerDetailsIntent(input.text || "") || pending?.actionId === ASSISTANT_OPERATIONS.find(op => op.method === "GET" && op.path === "/partners/:id")?.id)) {
         const operation = ASSISTANT_OPERATIONS.find(op => op.method === "GET" && op.path === "/partners/:id");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!workflow) {
@@ -2608,7 +2708,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           reply = await prepare(workflow.actionId, provided, false, continuing ? pending!.intent : input.text || "");
         }
       }
-      else if (isEmployeeDetailsIntent(input.text || "") || pending?.actionId === "employee.detail") {
+      else if (!interpreted.intentType && !interpreted.actionId && (isEmployeeDetailsIntent(input.text || "") || pending?.actionId === "employee.detail")) {
         const actionId = "employee.detail";
         const workflow = workflows.find(candidate => candidate.actionId === actionId);
         if (!workflow) {
@@ -2624,7 +2724,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           reply = await prepare(actionId, provided, false, continuing ? pending!.intent : input.text || "");
         }
       }
-      else if (isPartnerBankUpdateIntent(input.text || "")) {
+      else if (!interpreted.intentType && !interpreted.actionId && (isPartnerBankUpdateIntent(input.text || ""))) {
         const actionId = "partner.bank-details.update";
         const workflow = workflows.find(candidate => candidate.actionId === actionId);
         if (!workflow) {
@@ -2641,7 +2741,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           reply = await prepare(actionId, provided, false, continuing ? pending!.intent : input.text || "");
         }
       }
-      else if (isCommissionLevelCreationIntent(input.text || "", Boolean(pendingPartnerReference(pending)))) {
+      else if (!interpreted.intentType && !interpreted.actionId && (isCommissionLevelCreationIntent(input.text || "", Boolean(pendingPartnerReference(pending))))) {
         const operation = ASSISTANT_OPERATIONS.find(op => op.method === "POST" && op.path === "/partners/commission-levels");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (workflow) {
@@ -2652,7 +2752,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           reply = unsupportedReply(input.text || "", operation?.module);
         }
       }
-      else if (isPartnerCommissionUpdateIntent(input.text || "", Boolean(pendingPartnerReference(pending)))) {
+      else if (!interpreted.intentType && !interpreted.actionId && (isPartnerCommissionUpdateIntent(input.text || "", Boolean(pendingPartnerReference(pending))))) {
         const operation = ASSISTANT_OPERATIONS.find(op => op.id === "partner.commission.update");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!workflow) {
@@ -2670,7 +2770,18 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }
       }
       else if (!interpreted.actionId) {
-        if (interpreted.intentType === "unsupported") {
+        const salaryChoice = interpreted.intentType === "ambiguous"
+          && interpreted.suggestedActionIds?.includes("employee.update")
+          && interpreted.suggestedActionIds?.includes("payroll.policy.update");
+        const courseChoice = interpreted.intentType === "ambiguous"
+          ? assistantCourseChoiceGuidance(workflows, interpreted.suggestedActionIds) : "";
+        if (salaryChoice) {
+          needsIntentClarification = true;
+          reply = { status: "collecting", reply: "Bạn muốn cập nhật lương của nhân viên hay lương cơ bản trong chính sách lương? Bạn cho mình tên nhân viên hoặc tên chính sách cần sửa nhé." };
+        } else if (courseChoice) {
+          needsIntentClarification = true;
+          reply = { status: "collecting", reply: `${courseChoice}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
+        } else if (interpreted.intentType === "unsupported") {
           reply = unsupportedReply(input.text || "", interpreted.unsupportedModule);
         } else if (!pending && !input.attachment && interpreted.intentType === "general_question") {
           reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé; tab Thao tác dành cho tra cứu và cập nhật dữ liệu." };
@@ -2678,9 +2789,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           needsIntentClarification = true;
           const clarification = input.attachment
             ? `Mình đã nhận tệp ${input.attachment.fileName}. Bạn muốn dùng tệp này để làm gì?`
-            : "Mình chưa hiểu rõ yêu cầu này. Bạn nói hoặc viết lại cụ thể hơn nhé.";
+            : interpreted.clarification || "Bạn muốn tra cứu thông tin hay cập nhật dữ liệu nào?";
           const guidance = assistantRequestGuidance(input.text || "", workflows, Boolean(input.attachment));
-          reply = { status: "unsupported", reply: `${clarification}\n\n${guidance}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
+          reply = { status: "collecting", reply: `${clarification}\n\n${guidance}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
         }
       }
       else {
@@ -2727,7 +2838,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
   } catch (error) {
     const uncertain = error instanceof UncertainExecutionError || (hasDispatched && !(error instanceof AssistantError));
-    if (!uncertain && !hasDispatched && error instanceof AssistantError && error.status === 403 && manualGuidanceContext) {
+    fallbackReason = uncertain ? "uncertain" : error instanceof AssistantError && error.status === 403 ? "permission"
+      : error instanceof AssistantApiRejection && [400, 409, 422].includes(error.status) ? "validation" : "technical";
+    if (error instanceof PlanStoppedError) {
+      reply = { status: error instanceof PlanCancelledError ? "cancelled" : "collecting", reply: error.message };
+      if (error instanceof PlanCancelledError) pending = null;
+    } else if (!uncertain && !hasDispatched && error instanceof AssistantError && error.status === 403 && manualGuidanceContext) {
       reply = unsupportedReply(manualGuidanceContext.text, manualGuidanceContext.module);
     } else {
       reply = uncertain ? { ...uncertainReply(), link: pending ? operationById(pending.actionId)?.link : undefined } : { status: "failed", reply: friendlyFailure(error) };
@@ -2740,23 +2856,106 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     await assertOperation(req, operation.id);
     return (await currentWorkflow(req, operation.id)).enabled;
   });
-  if (autoMemoryEnabled && input.text && !memoryCommand && !forgetMemoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
+  // Keep the session lock for the whole bounded plan. Each API call gets its own
+  // durable journal entry; uncertain calls are never replayed automatically.
+  const stepMessages = [...history];
+  const completedReplies: string[] = [];
+  for (let step = 1; assistantMode === "work" && completion && reply.status === "completed"
+    && !pending && remainingRequests.length && budget.canContinue()
+    && !reply.files?.length && !reply.reply.includes("Bạn có muốn bổ sung không?"); step += 1) {
+    const previousReply = reply;
+    const previousCompletion = completion as AssistantCompletion;
+    const nextRequest = remainingRequests[0];
+    completedReplies.push(presentAssistantReply(previousReply, previousCompletion.workflow.fields
+      .filter(field => previousCompletion.defaultedKeys?.includes(field.key)).map(field => field.label)).reply);
+    stepMessages.push({ role: "assistant", content: completedReplies.at(-1)!, createdAt: new Date().toISOString() });
+    completion = undefined;
+    stepRequestId = `${input.requestId}:${step}`;
+    // The user's confirmation belongs only to the preview they saw.
+    input.decision = undefined;
+    try {
+      if (await control.cancelled?.()) throw new PlanCancelledError("Đã dừng theo yêu cầu. Các bước đã hoàn tất được giữ nguyên.");
+      budget.plan();
+      const settings = await getSettings(req);
+      const workflows = (await listWorkflows(req)).filter(workflow => workflow.enabled);
+      const next = await interpretRequest(nextRequest, workflows, null, stepMessages as any,
+        [settings.instructions || "", projectInstructions].filter(Boolean).join("\n"),
+        settings.memoryEnabled ? await assistantMemoryContext(req, nextRequest) : [], sessionMemory);
+      if (!next.actionId || next.cancel || next.memoryProposal) {
+        needsIntentClarification = true;
+        reply = { status: "collecting", reply: next.clarification || "Bạn cho mình làm rõ phần việc tiếp theo nhé." };
+        break;
+      }
+      fallbackOperation = operationById(next.actionId);
+      const operation = await assertOperation(req, next.actionId);
+      const values = { ...next.values };
+      // Carry only the server-owned follow-up reference, never raw API results.
+      const followUp = previousCompletion.followUp;
+      if (followUp?.actionId === next.actionId && operation.fields.every(field =>
+        field.source !== "path" && field.key !== "id" || values[field.key] === undefined)) {
+        Object.assign(values, { ...followUp.values, ...values });
+      }
+      const replayProtected = operation.contextBody?.includes("idempotencyKey")
+        || operation.contextHeaders?.includes("idempotency-key");
+      // APIs without replay protection require a fresh preview for writes.
+      const forceConfirmation = operation.method !== "GET" && !operation.readOnly && !replayProtected;
+      reply = await prepare(next.actionId, values, forceConfirmation, nextRequest);
+      if (["completed", "collecting", "confirmation"].includes(reply.status) && (pending || reply.status === "completed")) remainingRequests.shift();
+      reply = await completeAssistantOperation(reply, completion, ASSISTANT_OPERATIONS, async op => {
+        await assertOperation(req, op.id);
+        return (await currentWorkflow(req, op.id)).enabled;
+      });
+      await AssistantSessionModel.updateOne(sessionFilter, { $set: { pending, remainingRequests } });
+      await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { steps } });
+    } catch (error) {
+      const uncertain = error instanceof UncertainExecutionError || (!(error instanceof AssistantApiRejection)
+        && steps.at(-1)?.requestId === stepRequestId && steps.at(-1)?.status === "executing");
+      fallbackReason = uncertain ? "uncertain" : error instanceof AssistantError && error.status === 403 ? "permission"
+        : error instanceof AssistantApiRejection && [400, 409, 422].includes(error.status) ? "validation" : "technical";
+      reply = uncertain ? uncertainReply() : error instanceof PlanStoppedError ? { status: error instanceof PlanCancelledError ? "cancelled" : "collecting", reply: error.message } : { status: "failed", reply: friendlyFailure(error) };
+      if (uncertain || error instanceof PlanCancelledError) pending = null;
+      break;
+    }
+  }
+  if (completedReplies.length) {
+    const finalCompletion = completion as AssistantCompletion | undefined;
+    reply = presentAssistantReply(reply, finalCompletion?.workflow.fields.filter(field => finalCompletion.defaultedKeys?.includes(field.key)).map(field => field.label) || []);
+    reply = { ...reply, reply: combineAssistantPlanResults([...completedReplies, reply.reply]) };
+  }
+  if (assistantMode === "qa" && autoMemoryEnabled && input.text && !memoryCommand && !forgetMemoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
     await autoSaveAssistantMemories(req, input.text);
   }
-  const defaultedLabels = completion?.workflow.fields.filter(field => completion?.defaultedKeys?.includes(field.key))
+  const defaultedLabels = completedReplies.length ? [] : completion?.workflow.fields.filter(field => completion?.defaultedKeys?.includes(field.key))
     .flatMap(field => [field.label, localizedAssistantFieldLabel(field.apiKey || field.key, "", completion?.operation.id)]) || [];
   // General conversation already applies account preferences in its own prompt.
   // ERP presentation would strip explanations about workflows and alter code examples.
+  if (reply.status === "cancelled" || reply.status === "uncertain") remainingRequests = [];
+  if (reply.status === "failed" && !completedReplies.length) remainingRequests = previousRemainingRequests;
+  if (reply.status === "completed" && remainingRequests.length) {
+    reply = { ...reply, reply: `${reply.reply}\n\nCòn ${remainingRequests.length} yêu cầu trong mục tiêu này. Bạn có thể nói “tiếp tục” để xử lý phần còn lại.` };
+  }
   if (assistantMode !== "qa") {
     reply = presentAssistantReply(reply, defaultedLabels);
     // Keep uncertainty explicit; stylistic rewriting must not invent a selected operation.
-    if (!needsIntentClarification) reply = await applyAssistantResponseRules(reply, responseRules);
+    if (!needsIntentClarification && reply.status !== "failed" && reply.status !== "uncertain") reply = await applyAssistantResponseRules(reply, responseRules);
     reply = {
       ...reply,
       reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
       ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
     };
     reply = presentAssistantReply(reply, defaultedLabels);
+    // Confirmation turns can dispatch before the intent-discovery branch loads workflows.
+    // Keep fallback navigation scoped to the user's currently available modules.
+    if (!availableWorkflows.length && ["failed", "unsupported", "uncertain"].includes(reply.status)) {
+      try { availableWorkflows = await listWorkflows(req); } catch { /* Preserve the original failure. */ }
+    }
+    reply = appendAssistantFallback(reply, {
+      operation: fallbackOperation,
+      module: fallbackModule || manualGuidanceContext?.module,
+      workflows: availableWorkflows,
+      reason: fallbackReason,
+      completedSteps: steps.filter(step => step.status === "completed").length,
+    });
   }
   try {
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: {
@@ -2778,10 +2977,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       mode: assistantMode,
       pending,
       pendingDocumentRequest,
+      remainingRequests,
+      pendingMemoryProposal,
       lastReply: reply,
       messages: nextMessages.slice(-40),
       messageCount: nextMessageCount,
       busy: false,
+      activeRequestId: "",
     };
     const lastSessionMemoryCount = Number(session.sessionMemoryMessageCount) || 0;
     const shouldSummarizeSession = nextMessageCount >= 12 && nextMessageCount - lastSessionMemoryCount >= 12;

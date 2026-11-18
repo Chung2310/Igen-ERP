@@ -128,7 +128,7 @@ const planSchema = Joi.object({
 }).unknown(false);
 
 const generatePlanSchema = Joi.object({
-  instructions: Joi.string().trim().max(1200).allow("").default(""),
+  instructions: Joi.string().trim().max(5000).allow("").default(""),
   outline: Joi.array().items(outlinePointSchema).min(3).max(30),
 }).unknown(false);
 
@@ -206,7 +206,7 @@ const renderSchema = Joi.object({
 const imageToolSchema = Joi.object({
   kind: Joi.string().valid("render", "edit", "staging", "visual", "texture", "human", "enhance", "upscale", "sync", "canvas", "utilities").required(),
   prompt: Joi.string().trim().min(3).max(5000).required(),
-  aspectRatio: Joi.string().valid("1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9").default("4:3"),
+  aspectRatio: Joi.string().valid("auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9").default("4:3"),
   resolution: Joi.string().valid("1K", "2K", "4K").default("1K"),
   referenceImages: Joi.array().items(Joi.string().pattern(/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i).max(2_100_000)).max(10),
 }).unknown(false);
@@ -220,6 +220,8 @@ const optimizePromptSchema = Joi.object({
   tool: Joi.string().valid("render", "edit", "staging", "visual", "texture", "human", "enhance", "upscale", "sync", "canvas", "utilities", "video").required(),
   prompt: Joi.string().trim().min(3).max(1200).required(),
   style: Joi.string().trim().max(100).allow("").default(""),
+  referenceImages: Joi.array().items(Joi.string().pattern(/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i).max(2_100_000)).max(10),
+  sourceImageCount: Joi.number().integer().min(0).max(10).default(0),
 }).unknown(false);
 
 const videoSchema = Joi.object({
@@ -347,13 +349,13 @@ architectAssistantRouter.post("/projects/:projectId/generate-plan", manage, aiMa
     model,
     allowFallback: false,
     temperature: 0.35,
-    maxTokens: 2200,
+    maxTokens: 7000,
     jsonMode: true,
     responseSchema: {
       type: "object", additionalProperties: false, required: ["rooms", "notes"],
       properties: {
         notes: { type: "string" },
-        rooms: { type: "array", minItems: 3, maxItems: 14, items: {
+        rooms: { type: "array", minItems: 3, maxItems: 40, items: {
           type: "object", additionalProperties: false,
           required: ["name", "floor", "x", "y", "width", "height", "areaM2"],
           properties: {
@@ -365,7 +367,7 @@ architectAssistantRouter.post("/projects/:projectId/generate-plan", manage, aiMa
       },
     },
     messages: [
-      { role: "system", content: "Bạn là kiến trúc sư nhà ở. Trả lời bằng sơ đồ mặt bằng 2D nhìn từ trên xuống, chỉ JSON theo schema. Tọa độ x,y,width,height là phần trăm trong đường bao 100x100. Nếu người dùng cung cấp đa giác outline, tất cả phòng phải nằm trọn bên trong đa giác đó và tránh các vùng khuyết. Các phòng không chồng lấn, có lối giao thông nối với nhau; tổng diện tích phòng không vượt quá diện tích sàn. Bố trí khu sinh hoạt chung gần cửa vào, phòng ngủ riêng tư hơn, khu vệ sinh gần trục kỹ thuật. Giữ đúng số tầng, diện tích và yêu cầu người dùng; không thêm ghi chú pháp lý hoặc khẳng định bản vẽ thi công." },
+      { role: "system", content: "Bạn là kiến trúc sư nhà ở. Trả lời bằng sơ đồ mặt bằng 2D nhìn từ trên xuống, chỉ JSON theo schema. Tọa độ x,y,width,height là phần trăm trong đường bao 100x100. Nếu người dùng cung cấp đa giác outline, tất cả phòng phải nằm trọn bên trong đa giác đó và tránh các vùng khuyết. Các phòng không chồng lấn, có lối giao thông nối với nhau; tổng diện tích phòng không vượt quá diện tích sàn. Phân bổ phòng đúng từng tầng và ưu tiên đáp ứng chính xác cơ cấu phòng người dùng yêu cầu; không vượt quá 40 phòng tổng cộng. Bố trí khu sinh hoạt chung gần cửa vào, phòng ngủ riêng tư hơn, khu vệ sinh gần trục kỹ thuật. Giữ đúng số tầng, diện tích, phong cách và yêu cầu dự án; không thêm ghi chú pháp lý hoặc khẳng định bản vẽ thi công." },
       { role: "user", content: JSON.stringify({ name: project.name, areaM2: project.areaM2, floors: project.floors, style: project.style, requirements: project.requirements, instructions: value.instructions, outline }) },
     ],
   }));
@@ -479,17 +481,27 @@ architectAssistantRouter.post("/projects/:projectId/analyze-sync", manage, aiMan
 }));
 
 architectAssistantRouter.post("/projects/:projectId/optimize-prompt", manage, aiManage, route(async (request, response, db, actor) => {
-  await findProject(db, actor, request.params.projectId);
-  const value = parseBody<{ tool: string; prompt: string; style: string }>(optimizePromptSchema, request.body);
-  const model = ARCHITECT_ASSISTANT_MODELS.floorPlan;
+  const project = await findProject(db, actor, request.params.projectId);
+  const value = parseBody<{ tool: string; prompt: string; style: string; referenceImages?: string[]; sourceImageCount: number }>(optimizePromptSchema, request.body);
+  if (value.sourceImageCount > (value.referenceImages || []).length) {
+    throw new ValidationError("VALIDATION_FAILED", "Số ảnh nguồn không được lớn hơn tổng số ảnh đính kèm.");
+  }
+  if ((value.referenceImages || []).reduce((total, image) => total + image.length, 0) > 21_000_000) {
+    throw new ValidationError("VALIDATION_FAILED", "Tổng dung lượng ảnh tham khảo vượt quá giới hạn.");
+  }
+  const model = value.tool === "render" ? ARCHITECT_ASSISTANT_MODELS.vision : ARCHITECT_ASSISTANT_MODELS.floorPlan;
+  const renderPrompt = value.tool === "render";
   const optimized = await billAi(actor, `architect.${value.tool}.prompt`, model, () => openrouterChat({
     model,
     allowFallback: false,
     temperature: 0.4,
     maxTokens: 400,
     messages: [
-      { role: "system", content: "Bạn là chuyên gia viết prompt kiến trúc. Hãy viết lại prompt thành một chỉ dẫn hình ảnh rõ ràng, súc tích, nêu góc máy, ánh sáng, vật liệu và yêu cầu giữ nguyên bố cục khi có ảnh tham chiếu. Chỉ trả về prompt đã tối ưu bằng tiếng Việt, không giải thích, không thêm dấu ngoặc kép." },
-      { role: "user", content: JSON.stringify({ tool: value.tool, style: value.style, prompt: value.prompt }) },
+      { role: "system", content: renderPrompt ? "Bạn là chuyên gia viết prompt rendering kiến trúc. Người dùng sẽ ghi rõ số ảnh nguồn đầu tiên; những ảnh này cần giữ nguyên hình khối và bố cục, còn ảnh tiếp theo chỉ tham khảo phong cách, vật liệu và màu sắc. Viết thành một prompt render rõ ràng, mô tả góc máy, ánh sáng, vật liệu, bối cảnh và các ràng buộc của chế độ. Không tự thêm chi tiết trái với ảnh nguồn. Chỉ trả về prompt tiếng Việt, không giải thích, không thêm dấu ngoặc kép." : "Bạn là chuyên gia viết prompt kiến trúc. Hãy viết lại prompt thành một chỉ dẫn hình ảnh rõ ràng, súc tích, nêu góc máy, ánh sáng, vật liệu và yêu cầu giữ nguyên bố cục khi có ảnh tham chiếu. Chỉ trả về prompt đã tối ưu bằng tiếng Việt, không giải thích, không thêm dấu ngoặc kép." },
+      { role: "user", content: renderPrompt ? [
+        { type: "text" as const, text: JSON.stringify({ project: project.name, projectStyle: project.style, tool: value.tool, style: value.style, prompt: value.prompt, sourceImageCount: value.sourceImageCount, styleReferenceCount: (value.referenceImages || []).length - value.sourceImageCount }) },
+        ...(value.referenceImages || []).map(url => ({ type: "image_url" as const, image_url: { url } })),
+      ] : JSON.stringify({ tool: value.tool, style: value.style, prompt: value.prompt }) },
     ],
   }));
   response.json({ prompt: optimized.text.trim().slice(0, 1200) });

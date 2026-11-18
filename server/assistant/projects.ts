@@ -4,6 +4,7 @@ import { AssistantProjectCollectionModel, AssistantProjectFileModel, ensureAssis
 import { actorScope } from "./workflows";
 import { AssistantError } from "./policy";
 import { extractSpeechDocument } from "./studio-speech-document";
+import { projectEvidenceExcerpt } from "./project-evidence";
 
 const MAX_PROJECT_FILES = 100;
 const MAX_PROJECT_FILE_BYTES = 15 * 1024 * 1024;
@@ -113,7 +114,7 @@ export async function getAssistantProjectFile(req: AuthenticatedRequest, project
   return { fileName: file.fileName, mimeType: file.mimeType, bytes: asBuffer(file.bytes) };
 }
 
-export async function projectInstructionsForConversation(req: AuthenticatedRequest, projectId: string, conversationId: string) {
+export async function projectInstructionsForConversation(req: AuthenticatedRequest, projectId: string, conversationId: string, question = "") {
   const projects = await listAssistantProjects(req) as Array<Record<string, any>>;
   const project = projects.find(item => item.id === projectId);
   if (!project || !Array.isArray(project.conversations) || !project.conversations.some((item: any) => item.sourceConversationId === conversationId)) {
@@ -125,16 +126,16 @@ export async function projectInstructionsForConversation(req: AuthenticatedReque
   if (!fileIds.length) return instructions;
 
   const documents = await AssistantProjectFileModel.find({ ...projectScope(req), projectId, fileId: { $in: fileIds } })
-    .select("+extractedText fileId fileName")
+    .select("+extractedText fileId fileName updatedAt")
     .sort({ updatedAt: -1 })
     .lean();
   let remaining = MAX_PROJECT_CONTEXT_CHARS;
   const documentContext = documents.map(document => {
     const text = String(document.extractedText || "").trim();
     if (!text || remaining <= 0) return "";
-    const excerpt = text.slice(0, remaining);
+    const excerpt = projectEvidenceExcerpt(text, question, Math.min(remaining, Math.max(1200, Math.floor(MAX_PROJECT_CONTEXT_CHARS / documents.length))));
     remaining -= excerpt.length;
-    return `Tài liệu: ${document.fileName}\n${excerpt}${excerpt.length < text.length ? "\n[Nội dung đã được rút gọn.]" : ""}`;
+    return `Tài liệu: ${document.fileName}\nPhiên bản nguồn: ${new Date(document.updatedAt).toISOString()}\n${excerpt}${excerpt.length < text.length ? "\n[Nội dung đã được rút gọn.]" : ""}`;
   }).filter(Boolean);
 
   if (!documentContext.length) return instructions;

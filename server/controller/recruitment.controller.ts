@@ -6,6 +6,7 @@ import * as pipelines from "../service/recruitment-pipeline.service";
 import * as applicants from "../service/recruitment-applicant.service";
 import * as interviews from "../service/recruitment-interview.service";
 import * as attachments from "../service/recruitment-attachment.service";
+import * as reports from "../service/recruitment-report.service";
 
 export type RecruitmentRequest = AuthenticatedRequest & { recruitmentScope?: RecruitmentScope; file?: Express.Multer.File };
 const scope = (req: RecruitmentRequest) => {
@@ -35,6 +36,7 @@ export const recruitmentController = {
   restoreApplicant: asyncHandler(async (req, res) => ok(res, await applicants.restoreApplicant(scope(req), req.params.id, req.body.version, actor(req)))),
   applicantHistory: asyncHandler(async (req, res) => ok(res, await applicants.listApplicantHistory(scope(req), req.params.id))),
   listInterviews: asyncHandler(async (req, res) => ok(res, await interviews.listInterviews(scope(req), req.query))),
+  assistantReport: asyncHandler(async (req, res) => ok(res, await reports.recruitmentAssistantReport(scope(req), req.query as any))),
   createInterview: asyncHandler(async (req, res) => ok(res, await interviews.createInterview(scope(req), actor(req), req.body), 201)),
   getInterview: asyncHandler(async (req, res) => ok(res, await interviews.getInterview(scope(req), req.params.id))),
   updateInterview: asyncHandler(async (req, res) => ok(res, await interviews.updateInterview(scope(req), req.params.id, req.body.version, actor(req), req.body))),

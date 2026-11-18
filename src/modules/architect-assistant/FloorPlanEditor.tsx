@@ -65,6 +65,9 @@ function furnitureDisplayColor(item: Pick<ArchitectureFurniture, "material" | "c
 }
 const quickRoomTypes = ["Phòng khách", "Phòng bếp", "Phòng ăn", "Phòng ngủ", "Phòng tắm", "WC phụ", "Phòng làm việc", "Phòng sinh hoạt chung", "Ban công", "Sân thượng", "Gara", "Phòng giặt"];
 const defaultRoomCounts: Record<string, number> = { "Phòng khách": 1, "Phòng bếp": 1, "Phòng ăn": 1, "Phòng ngủ": 0, "Phòng tắm": 1, "WC phụ": 0, "Phòng làm việc": 0, "Phòng sinh hoạt chung": 0, "Ban công": 0, "Sân thượng": 0, "Gara": 1, "Phòng giặt": 0 };
+const defaultCountsForFloor = (floor: number, floorsCount: number) => floor === 1
+  ? defaultRoomCounts
+  : { ...defaultRoomCounts, "Phòng ngủ": 2, "Phòng khách": 0, "Phòng bếp": 0, "Phòng ăn": 0, "Gara": 0, "Phòng sinh hoạt chung": floorsCount <= 9 ? 1 : 0 };
 const finishChoices = {
   flooring: ["Gỗ sáng", "Gỗ tối", "Gạch đá", "Terrazzo", "Bê tông mài"],
   walls: ["Trắng ấm", "Trắng lạnh", "Màu kem", "Xám nhạt", "Xanh nhạt", "Xanh olive"],
@@ -215,12 +218,16 @@ function suggestedFurniture(name: string) {
   return [{ type: "Bàn làm việc", name: "Bàn làm việc" }, { type: "Ghế", name: "Ghế làm việc" }, { type: "Tủ", name: "Tủ lưu trữ" }];
 }
 
-export default function FloorPlanEditor({ plan, onChange, disabled = false, floor = 1, floorsCount = 1, canGenerateAi = false, canAskAi = false, rendering = false, aiGenerating = false, generationError = "", onGeneratePlan, onGenerate3DRender }: {
+export default function FloorPlanEditor({ plan, onChange, disabled = false, floor = 1, floorsCount = 1, projectName = "Dự án kiến trúc", projectAreaM2 = 0, projectStyle = "", projectRequirements = "", canGenerateAi = false, canAskAi = false, rendering = false, aiGenerating = false, generationError = "", onGeneratePlan, onGenerate3DRender }: {
   plan: ArchitecturePlan;
   onChange: (plan: ArchitecturePlan) => void;
   disabled?: boolean;
   floor?: number;
   floorsCount?: number;
+  projectName?: string;
+  projectAreaM2?: number;
+  projectStyle?: string;
+  projectRequirements?: string;
   canGenerateAi?: boolean;
   canAskAi?: boolean;
   rendering?: boolean;
@@ -261,6 +268,10 @@ export default function FloorPlanEditor({ plan, onChange, disabled = false, floo
   const gestureRef = useRef<Gesture | null>(null);
   const panGestureRef = useRef<PanGesture | null>(null);
   const floorRooms = plan.rooms.filter(room => room.floor === floor);
+  const countsForFloor = (targetFloor: number) => ({ ...defaultCountsForFloor(targetFloor, floorsCount), ...(quickRoomsByFloor[targetFloor] || {}) });
+  const roomCountForFloor = (targetFloor: number) => Object.values(countsForFloor(targetFloor)).reduce((sum, count) => sum + count, 0);
+  const requestedRoomCount = Array.from({ length: floorsCount }, (_, index) => index + 1)
+    .reduce((total, targetFloor) => total + roomCountForFloor(targetFloor), 0);
   const filteredFurnitureCatalog = furnitureCatalog.filter(item => `${item.name} ${item.category}`.toLocaleLowerCase("vi").includes(furnitureSearch.trim().toLocaleLowerCase("vi")));
   const selected = floorRooms.find(room => room.id === selectedId) || floorRooms[0];
   const selectedFurniture = (plan.furniture || []).find(item => item.id === selectedFurnitureId && item.roomId === selected?.id);
@@ -288,17 +299,15 @@ export default function FloorPlanEditor({ plan, onChange, disabled = false, floo
   const submitAssistantPrompt = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const userPrompt = assistantPrompt.trim();
-    const configuredFloors = Object.keys(quickRoomsByFloor).map(Number);
-    const floorsToSummarize = configuredFloors.length ? configuredFloors : [quickFloor];
-    const defaultCountsForFloor = (targetFloor: number) => targetFloor === 1 ? defaultRoomCounts : { ...defaultRoomCounts, "Phòng ngủ": 2, "Phòng khách": 0, "Phòng bếp": 0, "Phòng ăn": 0, "Gara": 0, "Phòng sinh hoạt chung": 1, "Ban công": 1, "Phòng làm việc": 1 };
+    const floorsToSummarize = Array.from({ length: floorsCount }, (_, index) => index + 1);
     const roomSummaries = floorsToSummarize.map(targetFloor => {
-      const counts = quickRoomsByFloor[targetFloor] || defaultCountsForFloor(targetFloor);
+      const counts = countsForFloor(targetFloor);
       const roomSummary = quickRoomTypes.filter(name => (counts[name] || 0) > 0).map(name => `${counts[name]} ${name}`).join(", ");
-      return roomSummary ? `Tầng ${targetFloor}: ${roomSummary}` : "";
-    }).filter(Boolean).join("; ");
-    const quickSummary = [`Hình dạng mặt bằng ưu tiên: ${quickShape}.`, roomSummaries ? `Bố trí công năng: ${roomSummaries}.` : ""]
+      return `Tầng ${targetFloor}: ${roomSummary || "không thêm phòng theo danh sách gợi ý"}`;
+    }).join("; ");
+    const quickSummary = [`Hình dạng mặt bằng ưu tiên: ${quickShape}.`, `Bố trí công năng theo từng tầng: ${roomSummaries}.`]
       .filter(Boolean).join(" ");
-    const prompt = [userPrompt, quickSummary].filter(Boolean).join(" ").slice(0, 1200);
+    const prompt = [userPrompt, quickSummary].filter(Boolean).join(" ").slice(0, 5000);
     if (!prompt || !onGeneratePlan || !canAskAi || aiGenerating) return;
     setAssistantMessages(messages => [...messages, { role: "user", text: prompt }, { role: "assistant", text: "Đang tạo phương án theo yêu cầu này…", pending: true }]);
     setAssistantPrompt("");
@@ -488,21 +497,35 @@ export default function FloorPlanEditor({ plan, onChange, disabled = false, floo
           <button type="button" aria-pressed={assistantTab === "history"} onClick={() => setAssistantTab("history")} className={cn("inline-flex min-h-12 items-center justify-center gap-2 border-b-2 px-3 text-xs font-bold uppercase tracking-wider focus-visible:outline-2 focus-visible:outline-primary", assistantTab === "history" ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:bg-surface-container-low") }><History className="size-4" aria-hidden="true" />Lịch sử</button>
         </div>
         {assistantTab === "chat" ? <>
+          <section className="mx-3 mt-3 space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3" aria-label="Thông tin dự án dùng cho AI">
+            <p className="text-[10px] font-bold uppercase text-on-surface-variant">Thông tin dự án gửi cho AI</p>
+            <p className="truncate text-sm font-semibold text-on-surface" title={projectName}>{projectName}</p>
+            <dl className="grid grid-cols-2 gap-2 text-xs">
+              <div><dt className="text-on-surface-variant">Diện tích</dt><dd className="font-medium tabular-nums text-on-surface">{projectAreaM2} m²</dd></div>
+              <div><dt className="text-on-surface-variant">Số tầng</dt><dd className="font-medium tabular-nums text-on-surface">{floorsCount}</dd></div>
+              <div className="col-span-2"><dt className="text-on-surface-variant">Phong cách</dt><dd className="font-medium text-on-surface">{projectStyle}</dd></div>
+              {projectRequirements && <div className="col-span-2"><dt className="text-on-surface-variant">Yêu cầu</dt><dd className="line-clamp-2 text-pretty text-on-surface" title={projectRequirements}>{projectRequirements}</dd></div>}
+            </dl>
+          </section>
           <div className="flex-1 space-y-3 overflow-y-auto p-4" role="log" aria-label="Trao đổi với trợ lý mặt bằng" aria-live="polite">
             {assistantMessages.map((message, index) => <div key={`${message.role}-${index}`} className={cn("max-w-[94%] rounded-2xl px-3.5 py-3 text-sm leading-relaxed", message.role === "assistant" ? "rounded-tl-sm bg-surface-container-lowest text-on-surface shadow-sm" : "ml-auto rounded-tr-sm bg-primary text-on-primary") }>{message.pending && <span className="mr-2 inline-block size-2 animate-pulse rounded-full bg-primary align-middle" />}{message.text}</div>)}
             {!canAskAi && <p className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-xs text-on-surface-variant">Cần quyền architect-ai:manage để gửi yêu cầu cho AI.</p>}
           </div>
           <form onSubmit={submitAssistantPrompt} className="space-y-3 border-t border-outline-variant bg-surface-container-lowest p-3">
-            <details className="group rounded-lg border border-outline-variant bg-surface-container-lowest">
-              <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Chọn hình dạng và phòng</summary>
+            <details open className="group rounded-lg border border-outline-variant bg-surface-container-lowest">
+              <summary className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><span>Cấu hình AI theo từng tầng</span><span className="shrink-0 rounded-full bg-primary-container px-2 py-1 tabular-nums text-on-primary-container">{requestedRoomCount}/40 phòng</span></summary>
               <div className="space-y-3 border-t border-outline-variant p-3">
+                <ul className="flex flex-wrap gap-1.5" aria-label="Số phòng đã chọn theo từng tầng">
+                  {Array.from({ length: floorsCount }, (_, index) => index + 1).map(targetFloor => <li key={targetFloor} className={cn("rounded-md border px-2 py-1 text-[11px] tabular-nums", quickFloor === targetFloor ? "border-primary bg-primary/10 font-semibold text-primary" : "border-outline-variant text-on-surface-variant")}>Tầng {targetFloor}: {roomCountForFloor(targetFloor)}</li>)}
+                </ul>
                 <label className="block space-y-1.5 text-xs text-on-surface-variant"><span>Hình dạng mặt bằng</span><select value={quickShape} onChange={event => { const shape = event.target.value; setQuickShape(shape); const outline = outlineTemplates[shape]; if (outline) { remember(); onChange({ ...plan, outline }); } }} className={fieldClass} disabled={disabled || aiGenerating}><option>Hình chữ nhật</option><option>Hình chữ L</option><option>Hình chữ U</option><option>Hình chữ T</option><option>Hình chữ H</option><option>Hình chữ thập</option>{quickShape === "Tùy chỉnh" && <option value="Tùy chỉnh">Tùy chỉnh</option>}</select></label>
                 <label className="block space-y-1.5 text-xs text-on-surface-variant"><span>Thiết lập công năng tầng</span><select aria-label="Tầng thiết lập công năng" value={quickFloor} onChange={event => setQuickFloor(Number(event.target.value))} className={fieldClass} disabled={disabled || aiGenerating}>{Array.from({ length: floorsCount }, (_, index) => index + 1).map(value => <option key={value} value={value}>Tầng {value}</option>)}</select></label>
                 <ul className="grid grid-cols-2 gap-x-2 gap-y-1" aria-label={`Số lượng phòng tầng ${quickFloor}`}>{quickRoomTypes.map(name => {
-                  const counts = quickRoomsByFloor[quickFloor] || (quickFloor === 1 ? defaultRoomCounts : { ...defaultRoomCounts, "Phòng ngủ": 2, "Phòng khách": 0, "Phòng bếp": 0, "Phòng ăn": 0, "Gara": 0, "Phòng sinh hoạt chung": 1, "Ban công": 1, "Phòng làm việc": 1 });
+                  const counts = countsForFloor(quickFloor);
                   const count = counts[name] || 0;
-                  return <li key={name} className="flex min-h-9 items-center justify-between gap-1 text-[11px] text-on-surface"><span className="truncate">{name}</span><span className="inline-flex shrink-0 items-center gap-1"><button type="button" aria-label={`Giảm số lượng ${name}`} className="flex size-7 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" disabled={disabled || aiGenerating || count <= 0} onClick={() => setQuickRoomsByFloor(current => ({ ...current, [quickFloor]: { ...counts, [name]: count - 1 } }))}><Minus className="size-3" aria-hidden="true" /></button><output className="w-4 text-center tabular-nums" aria-label={`${count} phòng ${name}`}>{count}</output><button type="button" aria-label={`Tăng số lượng ${name}`} className="flex size-7 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" disabled={disabled || aiGenerating || count >= 8} onClick={() => setQuickRoomsByFloor(current => ({ ...current, [quickFloor]: { ...counts, [name]: count + 1 } }))}><Plus className="size-3" aria-hidden="true" /></button></span></li>;
+                  return <li key={name} className="flex min-h-9 items-center justify-between gap-1 text-[11px] text-on-surface"><span className="truncate">{name}</span><span className="inline-flex shrink-0 items-center gap-1"><button type="button" aria-label={`Giảm số lượng ${name}, tầng ${quickFloor}`} className="flex size-7 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" disabled={disabled || aiGenerating || count <= 0} onClick={() => setQuickRoomsByFloor(current => ({ ...current, [quickFloor]: { ...counts, [name]: count - 1 } }))}><Minus className="size-3" aria-hidden="true" /></button><output className="w-4 text-center tabular-nums" aria-label={`${count} phòng ${name}, tầng ${quickFloor}`}>{count}</output><button type="button" aria-label={`Tăng số lượng ${name}, tầng ${quickFloor}`} className="flex size-7 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" disabled={disabled || aiGenerating || count >= 8 || requestedRoomCount >= 40} onClick={() => setQuickRoomsByFloor(current => ({ ...current, [quickFloor]: { ...counts, [name]: count + 1 } }))}><Plus className="size-3" aria-hidden="true" /></button></span></li>;
                 })}</ul>
+                <p className="text-[11px] text-on-surface-variant">Đã chọn {requestedRoomCount}/40 phòng tối đa trên toàn bộ các tầng.</p>
               </div>
             </details>
             <label htmlFor="architecture-plan-prompt" className="sr-only">Mô tả yêu cầu thiết kế mặt bằng</label>

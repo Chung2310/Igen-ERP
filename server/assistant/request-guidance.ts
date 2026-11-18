@@ -11,6 +11,16 @@ function exampleFor(kind: ExampleKind, entity: string) {
   return `Cập nhật ${entity} [tên hoặc mã]: [thông tin cần sửa]`;
 }
 
+/** Only offer the two course types when both operations are available to this user. */
+export function assistantCourseChoiceGuidance(workflows: readonly AssistantWorkflow[], suggestedActionIds: readonly string[] = []): string {
+  const pair = [["training.create", "course.create"], ["training.delete", "course.delete"]]
+    .find(ids => ids.every(id => suggestedActionIds.includes(id)));
+  if (!pair) return "";
+  const options = pair.map(id => workflows.find(workflow => workflow.enabled && workflow.actionId === id));
+  if (options.some(option => !option)) return "";
+  return `Bạn đang muốn chọn loại khóa học nào? Mình có thể “${options[0]!.title}” (đào tạo nội bộ cho nhân sự) hoặc “${options[1]!.title}” (cho học viên).`;
+}
+
 /** Receives only workflows already scoped to the user's permissions and modules. */
 export function assistantRequestGuidance(text: string, workflows: readonly AssistantWorkflow[], hasAttachment = false): string {
   if (hasAttachment) return "Ví dụ cách viết: “Dùng tệp này để [việc cần làm] cho [đối tượng]”.";

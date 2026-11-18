@@ -5,6 +5,7 @@ import type { AssistantOperation } from "./catalog";
 import type { AssistantRecord } from "./executor";
 import { QUOTATION_OPERATIONS } from "./quotation-catalog";
 import { AssistantError } from "./policy";
+import { AssistantApiRejection } from "./api-rejection";
 import { redactAssistantResult, validateStructuredField } from "./structured-data";
 
 type Values = Record<string, AssistantValue>;
@@ -49,10 +50,10 @@ async function request(req: AuthenticatedRequest, values: Values, path: string, 
     return request(req, values, nextPath + next.search, "GET", undefined, extraHeaders, mutating, redirects + 1);
   }
   if (!response.ok) {
-    let message = "Không thực hiện được thao tác Báo giá.";
-    try { const failure = await response.json(); message = String(failure.error?.message || failure.error || failure.message || message).slice(0, 1200); } catch { /* Use a public fallback. */ }
+    let failure: unknown = { message: "Không thực hiện được thao tác Báo giá." };
+    try { failure = await response.json(); } catch { /* Use a public fallback. */ }
     if (mutating && response.status >= 500) throw new QuotationUncertainExecutionError("Máy chủ chưa xác nhận kết quả Báo giá. Kiểm tra hồ sơ trước khi thử lại.");
-    throw new AssistantError(message, response.status);
+    throw new AssistantApiRejection(failure, response.status);
   }
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("json")) {

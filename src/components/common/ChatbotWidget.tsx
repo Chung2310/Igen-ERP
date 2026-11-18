@@ -2177,7 +2177,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                         </div>
                       </div>}
                     </section>}
-                    {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
+                    {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>{["failed", "unsupported", "uncertain"].includes(lastReply.status) ? "Mở phân hệ để kiểm tra" : "Xem kết quả"}</a>}
                     {isLoading && isOpen && <div role="status" aria-label={quotationFileProgressText || (isGeneratingImageRequest ? "Đang phân tích yêu cầu tạo ảnh" : retryRef.current?.research ? "Đang nghiên cứu web nhiều nguồn" : retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện")} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
                       <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
                       {quotationFileProgressText ? <span className="ml-2 text-pretty text-sm">{quotationFileProgressText}</span> : isGeneratingImageRequest ? <span className="ml-2 text-pretty text-sm">Đang phân tích yêu cầu và tạo hình ảnh…</span> : retryRef.current?.research && <span className="ml-2 text-pretty text-sm">Đang nghiên cứu và đối chiếu nhiều nguồn…</span>}

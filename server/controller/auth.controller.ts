@@ -79,6 +79,12 @@ export function buildUserRosterFilter(
   }
   return filter;
 }
+
+export function resolveUserCountScope(userBranchId: unknown, requestedBranchId: unknown, requestedScope: unknown) {
+  const scope = requestedScope === "company" ? "company" : "branch";
+  const branchId = scope === "company" ? "" : String(userBranchId || requestedBranchId || "").trim();
+  return { branchId, scope: branchId ? "branch" as const : "company" as const };
+}
 export const authController = {
   /**
    * POST /api/v1/auth/register
@@ -547,7 +553,7 @@ export const authController = {
         : String(req.user?.companyCode || "").trim();
       if (!companyCode) return res.status(400).json({ status: "error", message: "Vui lòng chọn doanh nghiệp để thống kê nhân sự." });
 
-      const requestedBranchId = String(req.user?.branchId || req.query.branchId || "").trim();
+      const { branchId: requestedBranchId, scope } = resolveUserCountScope(req.user?.branchId, req.query.branchId, req.query.scope);
       let branch: { code?: string; name?: string } | null = null;
       let includeUnassignedBranchUsers = false;
       if (requestedBranchId) {
@@ -557,11 +563,19 @@ export const authController = {
         includeUnassignedBranchUsers = String(foundBranch.code || "").toUpperCase() === "MAIN";
       }
 
-      const count = await UserModel.countDocuments(buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers));
+      const rosterFilter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers);
+      const createdFrom = String(req.query.createdFrom || ""), createdTo = String(req.query.createdTo || "");
+      if (createdFrom && createdTo && createdFrom > createdTo) return res.status(400).json({ status: "error", message: "Ngày bắt đầu phải trước ngày kết thúc." });
+      const createdAt = {
+        ...(createdFrom ? { $gte: new Date(`${createdFrom}T00:00:00+07:00`) } : {}),
+        ...(createdTo ? { $lt: new Date(new Date(`${createdTo}T00:00:00+07:00`).getTime() + 86400000) } : {}),
+      };
+      const count = await UserModel.countDocuments({ ...rosterFilter, ...(Object.keys(createdAt).length ? { createdAt } : {}) });
       return res.status(200).json({
         status: "success",
         data: {
           count,
+          scope: requestedBranchId ? "branch" : "company",
           ...(branch?.name ? { branchName: branch.name } : {}),
           ...(branch?.code ? { branchCode: branch.code } : {}),
         },

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { buildUserRosterFilter } from "./auth.controller";
+import { buildUserRosterFilter, resolveUserCountScope } from "./auth.controller";
 
 it("scopes the shared user list by company and branch without hiding inactive accounts", () => {
   assert.deepEqual(buildUserRosterFilter("ACME", "branch-a"), {
@@ -19,4 +19,13 @@ it("includes unassigned legacy users only when the selected branch is MAIN", () 
       { branchId: "" },
     ],
   });
+});
+
+it("counts the entire company, including branch employees, when company scope is requested", () => {
+  assert.deepEqual(resolveUserCountScope("branch-a", "branch-b", "company"), { branchId: "", scope: "company" });
+  assert.deepEqual(buildUserRosterFilter("ACME"), { companyCode: "ACME" });
+});
+
+it("keeps count requests in the authenticated branch unless company scope is explicit", () => {
+  assert.deepEqual(resolveUserCountScope("branch-a", "branch-b", "branch"), { branchId: "branch-a", scope: "branch" });
 });

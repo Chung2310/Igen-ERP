@@ -1,5 +1,6 @@
 import { openrouterChat, type OpenRouterCitation, type OpenRouterContentPart } from "../service/openrouter.service";
 import type { AssistantIllustration } from "../../src/shared/assistant-document";
+import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 import {
   extractIllustrationsFromSources,
@@ -144,6 +145,8 @@ function replaceJsonFragments(text: string) {
 }
 
 export function normalizeAssistantReply(text: string, question: string, depth = 0) {
+  // Structured business output is already formatted. JSON-like citations or values are data.
+  if (parseAssistantResultTable(text)) return text;
   if (explicitlyRequestsJson(question)) return text;
   const trimmed = text.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);

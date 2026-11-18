@@ -45,7 +45,7 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
       const base = op.fields.find(candidate => candidate.key === field.key)!;
       const savedDefaultValue = field.defaultValue;
       const defaultValue = base.reference ? undefined
-        : savedDefaultValue === undefined ? base.defaultValue
+        : savedDefaultValue === undefined || savedDefaultValue === null ? base.defaultValue
           : field.type === "json" && typeof savedDefaultValue !== "string"
             ? JSON.stringify(savedDefaultValue)
             : savedDefaultValue;

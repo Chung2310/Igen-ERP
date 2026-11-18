@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { HrStatusBadge } from "./HrStatusBadge";
 import { renderAsync } from "docx-preview";
@@ -122,6 +122,12 @@ export default function WorkflowTab({
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState("");
+  const categoryDialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (categoryDialogOpen) { setCategoryError(""); categoryDialogRef.current?.showModal(); }
+  }, [categoryDialogOpen]);
   const [wizardNewCategory, setWizardNewCategory] = useState("");
 
   const categoryStorageKey = `hr-workflow-categories:${selectedCompanyCode}`;
@@ -133,6 +139,16 @@ export default function WorkflowTab({
       setCustomCategories([]);
     }
   }, [categoryStorageKey]);
+
+  useEffect(() => {
+    if (!selectedCompanyCode) return;
+    let active = true;
+    fetch(`/api/v1/crud/workflow-categories?companyCode=${encodeURIComponent(selectedCompanyCode)}`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
+      .then(async response => { if (!response.ok) throw new Error("Không thể tải nhãn phân loại."); return response.json(); })
+      .then(json => { if (active) setCustomCategories(previous => [...new Set([...previous, ...(json.data || []).map((item: { name: string }) => item.name)])]); })
+      .catch(error => { if (active) toast.error(getApiErrorMessage(error, "Không thể tải nhãn phân loại.")); });
+    return () => { active = false; };
+  }, [selectedCompanyCode]);
 
   const categoryOptions = useMemo(() => {
     const categories = new Map<string, string>();
@@ -153,23 +169,27 @@ export default function WorkflowTab({
     );
   }, [workflows, workflowSearch]);
 
-  const handleAddCategory = (event: React.FormEvent) => {
+  const handleAddCategory = async (event: React.FormEvent) => {
     event.preventDefault();
     const label = newCategoryName.replace(/\s+/g, " ").trim();
-    if (!label) return;
+    if (!label || categorySaving) return;
     const existing = categoryOptions.find(option => option.value.toLocaleLowerCase("vi-VN") === label.toLocaleLowerCase("vi-VN"));
     if (existing) {
       if (wizardOpen) setWizardNewCategory(existing.value);
       toast.info("Nhãn này đã có trong danh sách.");
     } else {
-      const nextCategories = [...customCategories, label];
-      setCustomCategories(nextCategories);
+      setCategorySaving(true);
+      setCategoryError("");
       try {
-        localStorage.setItem(categoryStorageKey, JSON.stringify(nextCategories));
+        const response = await fetch("/api/v1/crud/workflow-categories", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` }, body: JSON.stringify({ name: label, companyCode: selectedCompanyCode }) });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.message || "Không thể lưu nhãn phân loại.");
+        setCustomCategories(previous => [...previous, label]);
         toast.success("Đã thêm nhãn phân loại.");
-      } catch {
-        toast.warning("Không thể lưu nhãn trên trình duyệt này.");
-      }
+      } catch (error) {
+        setCategoryError(getApiErrorMessage(error, "Không thể lưu nhãn phân loại."));
+        return;
+      } finally { setCategorySaving(false); }
       if (wizardOpen) setWizardNewCategory(label);
     }
     setNewCategoryName("");
@@ -504,11 +524,7 @@ export default function WorkflowTab({
           steps,
         }}
         canEdit={canEdit}
-        saving={saving}
         onBack={backToList}
-        onAddStep={openNewStep}
-        onSave={handleSave}
-        onDelete={handleDeleteWorkflow}
       />
       {confirmState && (
         <ConfirmDialog
@@ -545,25 +561,26 @@ export default function WorkflowTab({
         )}
 
         {categoryDialogOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4" role="presentation" onClick={() => setCategoryDialogOpen(false)}>
-            <form onSubmit={handleAddCategory} role="dialog" aria-modal="true" aria-labelledby="workflow-category-title" className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-center justify-between border-b border-[#e5eef8] px-5 py-4">
+          <dialog ref={categoryDialogRef} onCancel={(event) => { event.preventDefault(); if (!categorySaving) setCategoryDialogOpen(false); }} aria-labelledby="workflow-category-title" className="m-auto w-full max-w-md rounded-2xl bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-black/50">
+            <form onSubmit={handleAddCategory} aria-busy={categorySaving}>
+              <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
                 <div className="flex items-center gap-2.5">
-                  <span className="rounded-xl bg-[#e8f7ff] p-2 text-[#009fdf]"><Tag className="h-4 w-4" /></span>
-                  <h2 id="workflow-category-title" className="text-base font-normal text-slate-800">Tạo nhãn phân loại</h2>
+                  <span className="rounded-xl bg-primary/10 p-2 text-primary"><Tag className="size-4" aria-hidden="true" /></span>
+                  <h2 id="workflow-category-title" className="text-balance text-sm font-medium">Tạo nhãn phân loại</h2>
                 </div>
-                <button type="button" onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close><X className="h-4 w-4" /></button>
+                <button type="button" disabled={categorySaving} onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex size-8 items-center justify-center rounded-full text-on-surface hover:bg-primary/10 focus-visible:outline focus-visible:outline-primary disabled:opacity-40"><X className="size-4" aria-hidden="true" /></button>
               </div>
               <div className="px-5 py-5">
-                <label htmlFor="workflow-category-name" className="mb-1.5 block text-sm font-normal text-slate-700">Tên nhãn</label>
-                <input id="workflow-category-name" autoFocus required maxLength={50} value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="VD: Nhân sự, Vận hành" className="w-full rounded-xl border border-[#dce7f4] px-3.5 py-2.5 text-sm outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10" />
+                <label htmlFor="workflow-category-name" className="mb-1.5 block text-sm">Tên nhãn</label>
+                <input id="workflow-category-name" autoFocus required disabled={categorySaving} aria-invalid={!!categoryError} aria-describedby={categoryError ? "workflow-category-error" : undefined} maxLength={50} value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="VD: Nhân sự, Vận hành" className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 text-sm outline-none focus:border-primary" />
+                {categoryError && <p id="workflow-category-error" role="alert" className="mt-2 text-pretty text-sm text-error">{categoryError}</p>}
               </div>
-              <div className="flex justify-end gap-2 border-t border-[#e5eef8] px-5 py-4">
-                <button type="button" onClick={() => setCategoryDialogOpen(false)} className="rounded-xl border border-[#dce7f4] px-4 py-2 text-sm font-normal text-slate-700 hover:bg-slate-50">Hủy</button>
-                <button type="submit" disabled={!newCategoryName.trim()} className="rounded-xl bg-[#00adfc] px-4 py-2 text-sm font-normal text-white hover:bg-[#0097df] disabled:opacity-40">Thêm nhãn</button>
+              <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
+                <button type="button" disabled={categorySaving} onClick={() => setCategoryDialogOpen(false)} className="rounded-xl border border-outline-variant px-4 py-2 text-sm hover:bg-primary/10 disabled:opacity-40">Hủy</button>
+                <button type="submit" disabled={categorySaving || !newCategoryName.trim()} className={primaryCreateButtonClass}>{categorySaving ? "Đang lưu…" : "Thêm nhãn"}</button>
               </div>
             </form>
-          </div>
+          </dialog>
         )}
 
         <div className="flex flex-wrap items-center gap-2 p-4 sm:p-6">
@@ -1016,19 +1033,11 @@ export default function WorkflowTab({
 export function WorkflowReader({
   workflow,
   canEdit,
-  saving = false,
   onBack,
-  onAddStep,
-  onSave,
-  onDelete,
 }: {
   workflow: Pick<Workflow, "id" | "name" | "category" | "description" | "steps">;
   canEdit: boolean;
-  saving?: boolean;
   onBack: () => void;
-  onAddStep: () => void;
-  onSave: () => void;
-  onDelete: () => void;
 }) {
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
@@ -1089,21 +1098,6 @@ export function WorkflowReader({
           <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-[#f1f8fd]">
             <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
           </button>
-          <div className="ml-auto flex items-center gap-2">
-            {canEdit && (
-              <>
-                <button onClick={onAddStep} className="flex items-center gap-1 rounded-xl bg-[#00adfc] px-3 py-2 text-xs font-medium text-white hover:bg-[#0097df]">
-                  <Plus className="h-3.5 w-3.5" /> Thêm bước
-                </button>
-                <button onClick={onSave} disabled={saving} className="flex items-center gap-1 rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-3 py-2 text-xs font-medium text-[#008dcc] hover:bg-[#d7f2ff] disabled:opacity-50">
-                  <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
-                </button>
-                <button onClick={onDelete} className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-xs font-medium text-red-600 hover:bg-red-100" title="Xóa quy trình">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
-          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">

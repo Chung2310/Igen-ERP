@@ -18,6 +18,7 @@ const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
   "QUẢN LÝ HỌC VIÊN": "blue", "QUẢN LÝ LAO ĐỘNG": "teal", "QUẢN LÝ Y TẾ": "teal",
   "QUẢN LÝ KHÁCH HÀNG": "coral", "BÁN LẺ": "orange",
   "ĐỐI TÁC BÁN LẺ": "teal", "TÀI CHÍNH": "blue",
+  "TRỢ LÝ KIẾN TRÚC": "orange",
   "OMNI INBOX": "violet",
   "MARKETING": "orange", "KHO TRI THỨC": "teal",
   "TÍCH HỢP MARKETING": "blue", "GÓI AI & LƯỢT SỬ DỤNG": "violet",
@@ -33,6 +34,8 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
   };
   let art: ReactNode;
   switch (module) {
+    case "TRỢ LÝ KIẾN TRÚC":
+      art = <><rect x="8" y="5" width="32" height="38" rx="4" fill={a.blue}/><path d="M13 12h17M13 16h11" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><path d="M13 23h9v7h-9zm11 0h11v13H24zm-11 9h9v4h-9z" fill={a.mint}/><path d="M14 22h9v8m0-8v-5h6l7 5v14" fill="none" stroke={a.coral} strokeWidth="2" strokeLinejoin="round"/><path d="M27 29h4v7h-4z" fill={a.gold}/><path d="m31 14 7-7 4 4-7 7-5 1z" fill={a.coral}/><path d="m31 14 4 4m-5 1 2-2" stroke={a.gold} strokeWidth="1.5" strokeLinecap="round"/></>; break;
     case "TỔNG QUAN":
       art = <><path d="M7 36V25h8v11z" fill={a.mint}/><path d="M18 36V17h8v19z" fill={a.blue}/><path d="M29 36V10h8v26z" fill={a.gold}/><path d="M6 39h33" stroke={a.white} strokeWidth="3" strokeLinecap="round"/><circle cx="33" cy="10" r="4" fill={a.coral}/></>; break;
     case "TRỢ LÝ AI":

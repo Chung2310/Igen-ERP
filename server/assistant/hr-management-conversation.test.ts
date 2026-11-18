@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn() }));
+const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), saveMemory: vi.fn(), memoryEnabled: false, includeStudentCourses: false, includeRecruitmentReport: true }));
+vi.mock("./memory", async () => ({ ...await vi.importActual<typeof import("./memory")>("./memory"), assistantMemoryContext: async () => [], saveAssistantMemory: state.saveMemory }));
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
@@ -33,15 +34,21 @@ vi.mock("./workflows", async () => {
     actorScope: () => ({ userId: "actor", companyCode: "TEST" }),
     assertOperation: vi.fn(async (_req, id) => operationById(id)),
     currentWorkflow: vi.fn(async (_req, id) => defaultWorkflow(operationById(id)!)),
-    listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(operation => operation.module === "hr").map(defaultWorkflow)),
+    listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(operation => (["hr", "architect-assistant", "legal-reference"].includes(operation.module) || state.includeStudentCourses && operation.id === "course.create")
+      && (state.includeRecruitmentReport || operation.id !== "recruitment.report")).map(defaultWorkflow)),
   };
 });
 vi.mock("./settings", async () => {
   const { defaultAssistantSettings } = await import("../../src/shared/assistant-workflow");
-  return { getSettings: vi.fn(async () => ({ ...defaultAssistantSettings, memoryEnabled: false, autoMemoryEnabled: false, responseRules: "" })) };
+  return { getSettings: vi.fn(async () => ({ ...defaultAssistantSettings, memoryEnabled: state.memoryEnabled, autoMemoryEnabled: false, responseRules: "" })) };
 });
 vi.mock("./interpreter", () => ({ interpretRequest: state.interpret, isEmployeeDetailsIntent: () => false }));
+vi.mock("./semantic-interpreter", () => ({ interpretRequest: state.interpret }));
 vi.mock("./reply-rules", () => ({ applyAssistantResponseRules: async (reply: unknown) => reply }));
+vi.mock("./completion", async () => {
+  const actual = await vi.importActual<typeof import("./completion")>("./completion");
+  return { ...actual, completeAssistantOperation: vi.fn(actual.completeAssistantOperation) };
+});
 vi.mock("./documents", () => ({ answerAssistantConversation: vi.fn() }));
 vi.mock("./session-memory", () => ({ SESSION_MEMORY_LIMIT: 2400, summarizeAssistantSession: async () => null }));
 vi.mock("./conversation-file", () => ({
@@ -53,7 +60,8 @@ vi.mock("./conversation-file", () => ({
   })),
 }));
 
-import { processTurn } from "./service";
+import { conversationState, processTurn } from "./service";
+import { completeAssistantOperation } from "./completion";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 
 const employeeId = "507f1f77bcf86cd799439022";
@@ -63,6 +71,7 @@ const jobId = "507f1f77bcf86cd799439033";
 const financeDepartmentId = "507f1f77bcf86cd799439052";
 const hrContractId = "507f1f77bcf86cd799439062";
 const calendarEventId = "507f1f77bcf86cd799439092";
+const trainingCourseId = "507f1f77bcf86cd799439088";
 const kanbanTaskId = "507f1f77bcf86cd799439093";
 const departmentName = "Phòng kinh doanh";
 const branchId = "507f1f77bcf86cd799439012";
@@ -73,11 +82,261 @@ const nextMonthBirthday = () => {
 const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", companyCode: "TEST", branchId: "507f1f77bcf86cd799439012", role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
 const turn = (input: any) => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input });
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+const payrollRunId = "507f1f77bcf86cd799439701";
+const payrollOctoberRunId = "507f1f77bcf86cd799439703";
+const payrollPolicyId = "507f1f77bcf86cd799439702";
+async function usePayrollConversationFixtures() {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const fallback = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  let policy = { _id: payrollPolicyId, name: "Thu nhập An Bình", code: "AB", status: "draft", version: 3, baseSalary: 2340000, regionalMinimumWage: 4960000 };
+  let schedule = { enabled: true, day: 3, hour: 8, minute: 15, periodOffset: -1, version: 2 };
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/payroll/runs") {
+      const requestUrl = new URL(String(url));
+      const runs = [
+        { _id: payrollRunId, periodKey: "2028-02", type: "regular", status: "draft", version: 4 },
+        { _id: payrollOctoberRunId, periodKey: "2026-10", type: "regular", status: "draft", version: 7 },
+        { _id: "507f1f77bcf86cd799439704", periodKey: "2026-10", type: "regular", status: "closed", version: 8 },
+      ];
+      const rows = runs.filter(run => (!requestUrl.searchParams.has("periodKey") || requestUrl.searchParams.get("periodKey") === run.periodKey)
+        && (!requestUrl.searchParams.has("status") || requestUrl.searchParams.get("status") === run.status));
+      return json({ data: rows });
+    }
+    if (path === "/api/v1/payroll/policies") return json({ data: [policy] });
+    if (path === `/api/v1/payroll/policies/${payrollPolicyId}` && init?.method === "PATCH") {
+      policy = { ...policy, ...JSON.parse(String(init.body)), version: policy.version + 1 };
+      return json({ data: policy });
+    }
+    if (path === "/api/v1/payroll/reconciliation-schedule") {
+      if (init?.method === "PUT") schedule = { ...schedule, ...JSON.parse(String(init.body)), version: schedule.version + 1 };
+      return json({ data: schedule });
+    }
+    if (/^\/api\/v1\/payroll\/runs\/[^/]+\/reconciliation\/publish$/.test(path)) return json({ data: { employeeCount: 2 } });
+    if (path === `/api/v1/payroll/runs/${payrollRunId}/reconciliation`) return json({ data: {
+      runStatus: "draft", employeeCount: 2, items: [
+        { employeeName: "Lê Thu Hà", periodKey: "2028-02", issues: [{ id: "private-issue", field: "overtime", status: "open", messages: [
+          { role: "employee", body: "Thiếu hai giờ tăng ca", at: "2028-03-01T01:00:00Z", authorId: "private-user" },
+        ] }] },
+        { employeeName: "Người không khiếu nại", periodKey: "2028-02", issues: [] },
+      ],
+    } });
+    if (path === `/api/v1/payroll/runs/${payrollRunId}/payslip-review-requests`) return json({ data: [
+      { _id: "private-review", employeeName: "Đỗ Minh Quân", periodKey: "2028-02", status: "resolved", message: "Kiểm tra phụ cấp", response: "Đã bổ sung", createdAt: "2028-03-02T01:30:00Z" },
+    ] });
+    if (path === "/api/v1/payroll/periods/2028-02/adjustments") return json({ data: [
+      { _id: "private-adjustment", employeeName: "Lê Thu Hà", kind: "bonus", amount: 950000, reason: "Thưởng tháng", status: "pending" },
+      { employeeName: "Đã phê duyệt", kind: "bonus", amount: 500000, reason: "Đã duyệt", status: "approved" },
+      { employeeName: "Bị từ chối", kind: "deduction", amount: 100000, reason: "Từ chối", status: "rejected" },
+    ] });
+    return fallback(url, init);
+  });
+}
+
+it("test keys 74–75 aggregate both payroll complaint sources through a structured result", async () => {
+  await usePayrollConversationFixtures();
+  const result = await turn({ text: "Tổng hợp khiếu nại về bảng lương kỳ 2028-02" });
+  expect(result.status, result.reply).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  for (const text of ["Lê Thu Hà", "Đỗ Minh Quân", "Thiếu hai giờ tăng ca", "Kiểm tra phụ cấp", "Đã bổ sung"]) expect(result.reply).toContain(text);
+  expect(completeAssistantOperation).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }),
+    expect.objectContaining({ operation: expect.objectContaining({ id: "payroll.run.complaints.list" }) }), expect.any(Array), expect.any(Function));
+  expect(result.reply).not.toMatch(/private-|Người không khiếu nại|507f1f77/);
+  for (const suffix of ["reconciliation", "payslip-review-requests"]) {
+    const call = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname.endsWith(`/${payrollRunId}/${suffix}`));
+    expect(call).toBeDefined();
+    expect(new URL(String(call![0])).searchParams.get("branchId")).toBe(branchId);
+  }
+});
+
+it("asks for the payroll run instead of treating a sending date as a run identifier", async () => {
+  await usePayrollConversationFixtures();
+  const result = await turn({ text: "Bảng lương đã được gửi về tài khoản ngày 12/11 cho các nhân sự, họ có khiếu nại gì không?" });
+  expect(result.status).toBe("collecting");
+  expect(result.referenceSelections?.some(selection => selection.key === "path_id")).toBe(true);
+  expect(fetcher.mock.calls.some(([url]) => /\/runs\/[^/]+\/reconciliation$/.test(new URL(String(url)).pathname))).toBe(false);
+});
+
+it("test key 76 clarifies recurrence, preserves other schedule settings, and writes only after confirmation", async () => {
+  await usePayrollConversationFixtures();
+  const collecting = await turn({ text: "Đổi lịch tự động phát hành lương tạm tính sang ngày 22/12 lúc 9 giờ 45 phút" });
+  expect(collecting.status).toBe("collecting");
+  expect(collecting.reply).toContain("hằng tháng");
+  const preview = await turn({ text: "Hằng tháng" });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(result.status, result.reply).toBe("completed");
+  const write = fetcher.mock.calls.find(([url, init]) => String(url).includes("reconciliation-schedule") && init?.method === "PUT");
+  expect(JSON.parse(String(write?.[1]?.body))).toEqual({ enabled: true, day: 22, hour: 9, minute: 45, periodOffset: -1, version: 2 });
+});
+
+it("test key 77 publishes provisional payroll only after selecting a run and confirming", async () => {
+  await usePayrollConversationFixtures();
+  const collecting = await turn({ text: "Giúp tôi phát hành bảng lương tạm tính" });
+  expect(collecting.status).toBe("collecting");
+  const runOption = collecting.referenceSelections!.find(selection => selection.key === "path_id")!.options[0].value;
+  const preview = await turn({ referenceSelections: { path_id: [runOption] } });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(result.status, result.reply).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  const writes = fetcher.mock.calls.filter(([, init]) => init?.method === "POST");
+  expect(writes).toHaveLength(1);
+  expect(new URL(String(writes[0][0])).pathname).toBe(`/api/v1/payroll/runs/${payrollRunId}/reconciliation/publish`);
+  expect(JSON.parse(String(writes[0][1]?.body))).toEqual({ expectedVersion: 4 });
+});
+
+it("selects the draft run for a month-only request and confirms that exact payroll period", async () => {
+  await usePayrollConversationFixtures();
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-17T18:00:00Z"));
+  try {
+    const collecting = await turn({ text: "Phát hành bảng lương tạm tính tháng 10" });
+    expect(collecting.status, collecting.reply).toBe("confirmation");
+    expect(collecting.action?.title).toContain("Phát hành bảng lương tạm tính");
+    const runList = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/payroll/runs"
+      && new URL(String(url)).searchParams.get("periodKey") === "2026-10");
+    const query = new URL(String(runList?.[0])).searchParams;
+    expect(query.get("periodKey")).toBe("2026-10");
+    expect(query.get("status")).toBe("draft");
+
+    const completed = await turn({ decision: { id: collecting.action!.id, confirmed: true } });
+    expect(completed.status, completed.reply).toBe("completed");
+    const write = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === `/api/v1/payroll/runs/${payrollOctoberRunId}/reconciliation/publish` && init?.method === "POST");
+    expect(write).toBeDefined();
+    expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({ expectedVersion: 7 });
+  } finally { vi.useRealTimers(); }
+});
+
+it("explains that a month cannot be published when its draft payroll run is missing", async () => {
+  await usePayrollConversationFixtures();
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-17T18:00:00Z"));
+  const fallback = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation((url: URL, init?: RequestInit) => new URL(String(url)).pathname === "/api/v1/payroll/runs"
+    ? Promise.resolve(json({ data: [] }))
+    : fallback(url, init));
+  try {
+    const result = await turn({ text: "Phát hành bảng lương tạm tính tháng 10" });
+    expect(result.status).toBe("collecting");
+    expect(result.reply).toContain("Không tìm thấy lượt lương nháp cho kỳ 2026-10");
+    expect(result.reply).toContain("tạo lượt lương nháp cho kỳ này hoặc chọn một kỳ khác");
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  } finally { vi.useRealTimers(); }
+});
+
+it("test key 78 asks for a period and displays only pending adjustments", async () => {
+  await usePayrollConversationFixtures();
+  const collecting = await turn({ text: "Các khoản nào đang cần chờ duyệt" });
+  expect(collecting.status).toBe("collecting");
+  const result = await turn({ text: "Tháng 2/2028" });
+  expect(result.status, result.reply).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(result.reply).toContain("Lê Thu Hà");
+  expect(result.reply).not.toMatch(/Đã phê duyệt|Bị từ chối|private-adjustment/);
+});
+
+it("test keys 79–80 rename the selected policy and update its base salary in the same conversation", async () => {
+  await usePayrollConversationFixtures();
+  const collecting = await turn({ text: "Đổi chính sách lương thành Thu nhập mới 2028" });
+  expect(collecting.status).toBe("collecting");
+  const policyOption = collecting.referenceSelections!.find(selection => selection.key === "path_id")!.options[0].value;
+  const preview = await turn({ referenceSelections: { path_id: [policyOption] } });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+  // Supplement the selected policy before saving; do not select an employee or another policy.
+  const salaryPreview = await turn({ text: "Cập nhật lương cơ bản lên 3450k" });
+  expect(salaryPreview.status, salaryPreview.reply).toBe("confirmation");
+  const result = await turn({ decision: { id: salaryPreview.action!.id, confirmed: true } });
+  expect(result.status, result.reply).toBe("completed");
+  const writes = fetcher.mock.calls.filter(([, init]) => init?.method === "PATCH");
+  expect(writes).toHaveLength(1);
+  expect(new URL(String(writes[0][0])).pathname).toBe(`/api/v1/payroll/policies/${payrollPolicyId}`);
+  expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({ name: "Thu nhập mới 2028", baseSalary: 3450000, expectedVersion: 3 });
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+});
+
+it("test key 80 asks whether an unqualified base salary belongs to a policy or employee", async () => {
+  await usePayrollConversationFixtures();
+  const result = await turn({ text: "Cập nhật lương cơ bản lên 3450k" });
+  expect(result.status).toBe("collecting");
+  expect(result.reply).toContain("nhân viên hay lương cơ bản trong chính sách");
+  expect(fetcher.mock.calls.some(([, init]) => ["POST", "PATCH", "PUT"].includes(init?.method || ""))).toBe(false);
+  const preview = await turn({ text: "Chính sách Thu nhập An Bình" });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  const completed = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(completed.status, completed.reply).toBe("completed");
+  const write = fetcher.mock.calls.find(([, init]) => init?.method === "PATCH");
+  expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({ baseSalary: 3450000 });
+});
+
+it("does not report an empty complaint list when either payroll source fails", async () => {
+  await usePayrollConversationFixtures();
+  const original = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation((url: URL, init?: RequestInit) => String(url).includes("payslip-review-requests")
+    ? Promise.resolve(new Response(JSON.stringify({ status: "error", message: "Không đọc được phiếu lương" }), { status: 503 }))
+    : original(url, init));
+  const result = await turn({ text: "Tổng hợp khiếu nại bảng lương kỳ 2028-02" });
+  expect(result.status, JSON.stringify({ result, paths: fetcher.mock.calls.map(([url]) => String(url)) })).toBe("failed");
+  expect(result.reply).not.toMatch(/Không có.*khiếu nại|không có dữ liệu/i);
+});
+
+it("can cancel provisional publication without sending a write", async () => {
+  await usePayrollConversationFixtures();
+  const preview = await turn({ text: "Phát hành bảng lương tạm tính kỳ 2028-02" });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  await turn({ decision: { id: preview.action!.id, confirmed: false } });
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+});
+
+it("rejects invalid publication times before saving", async () => {
+  await usePayrollConversationFixtures();
+  const result = await turn({ text: "Đổi lịch phát hành lương tạm tính ngày 32 hằng tháng lúc 25 giờ" });
+  expect(result.status).toBe("collecting");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+});
+
+it("asks which schedule setting to change when none was supplied", async () => {
+  await usePayrollConversationFixtures();
+  const result = await turn({ text: "Đổi lịch phát hành lương tạm tính" });
+  expect(result.status, result.reply).toBe("collecting");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+});
+
 let fetcher: ReturnType<typeof vi.fn>;
+let trainingCourses: Array<Record<string, unknown>>;
 beforeEach(() => {
+  state.memoryEnabled = false; state.saveMemory.mockReset();
+  vi.mocked(completeAssistantOperation).mockClear();
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();
+  state.includeStudentCourses = false;
+  state.includeRecruitmentReport = true;
+  trainingCourses = [{ _id: trainingCourseId, title: "hát", category: "Văn hóa", duration: "2 giờ", instructor: "Mai Anh" }];
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/auth/users/count" && (init?.method || "GET") === "GET") {
+      const requestUrl = new URL(String(url));
+      return requestUrl.searchParams.get("scope") === "company"
+        ? json({ status: "success", data: { count: 12, scope: "company" } })
+        : json({ status: "success", data: { count: 3, scope: "branch", branchName: "Chi nhánh A" } });
+    }
+    if (path === "/api/v1/recruitment/reports/assistant") return json({ data: {
+      reportType: "interviewers", summary: "1 lịch phỏng vấn phù hợp.", total: 1,
+      items: [{ applicantName: "Nguyễn An", jobTitle: "QA Lead", scheduledStart: "2026-11-18T02:00:00.000Z", interviewers: "Võ Minh Quân", result: "Đạt" }],
+    } });
+    if (path === "/api/v1/crud/training-courses") {
+      if (init?.method === "POST") {
+        const course = { _id: trainingCourseId, ...JSON.parse(String(init.body)) };
+        trainingCourses = [course];
+        return json({ status: "success", data: course });
+      }
+      return json({ status: "success", data: trainingCourses, total: trainingCourses.length });
+    }
+    if (path === `/api/v1/crud/training-courses/${trainingCourseId}`) {
+      if (init?.method === "PATCH") trainingCourses[0] = { ...trainingCourses[0], ...JSON.parse(String(init.body)) };
+      return json({ status: "success", data: trainingCourses[0] });
+    }
     if (path === "/api/v1/auth/users" && (init?.method || "GET") === "GET") {
       const users = [
       { _id: employeeId, id: employeeId, displayName: "La Văn Sến", email: "sen@example.com", phone: "0901111222", monthlySalary: 35000000 },
@@ -86,6 +345,7 @@ beforeEach(() => {
       { _id: "507f1f77bcf86cd799439971", id: "507f1f77bcf86cd799439971", displayName: "Trần Minh", jobTitle: "Quản trị hệ thống", department: "IT" },
       { _id: "507f1f77bcf86cd799439972", id: "507f1f77bcf86cd799439972", displayName: "Hà My", jobTitle: "Hỗ trợ kỹ thuật", department: "IT" },
       { _id: "507f1f77bcf86cd799439973", id: "507f1f77bcf86cd799439973", displayName: "Cường", phone: "", jobTitle: "Nhân viên" },
+      { _id: "507f1f77bcf86cd799439974", id: "507f1f77bcf86cd799439974", displayName: "IT1", department: "IT", monthlySalary: 12000000 },
       ];
       const department = new URL(String(url)).searchParams.get("department")?.toLocaleLowerCase("vi");
       return json(department ? users.filter(user => String(user.department || "").toLocaleLowerCase("vi").includes(department)) : users);
@@ -107,6 +367,7 @@ beforeEach(() => {
     if (path === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE") return json({ status: "success", message: "Xóa nhân sự thành công" });
     if (path === `/api/v1/auth/users/${employeeId}` && init?.method === "PATCH") return json({ status: "success", data: { _id: employeeId, id: employeeId, displayName: "La Văn Sến", ...JSON.parse(String(init.body)) } });
     if (path === "/api/v1/auth/users/507f1f77bcf86cd799439973" && init?.method === "PATCH") return json({ status: "success", data: { _id: "507f1f77bcf86cd799439973", id: "507f1f77bcf86cd799439973", displayName: "Cường", ...JSON.parse(String(init.body)) } });
+    if (path === "/api/v1/auth/users/507f1f77bcf86cd799439974" && init?.method === "PATCH") return json({ status: "success", data: { _id: "507f1f77bcf86cd799439974", id: "507f1f77bcf86cd799439974", displayName: "IT1", ...JSON.parse(String(init.body)) } });
     if (path === `/api/v1/auth/users/${secondEmployeeId}` && init?.method === "PATCH") return json({ status: "success", data: { _id: secondEmployeeId, id: secondEmployeeId, displayName: "Nguyễn Anh", ...JSON.parse(String(init.body)) } });
     if (path === "/api/v1/hr-contracts" && (init?.method || "GET") === "GET") {
       const requestUrl = new URL(String(url));
@@ -238,6 +499,215 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it.each([true, false])("creates an architecture project and handles optional data without duplicate creation: supplement=%s", async supplement => {
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  const projectId = "e7c86155-ccf5-4dd4-bca5-312fc3be7c16";
+  let project: any;
+  fetcher.mockImplementation(async (url, init) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/architect-assistant/projects") {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        expect(body).toHaveProperty("requirements", "");
+        project = { _id: projectId, ...body, revision: 1 }; return json({ project });
+      }
+      return json({ projects: project ? [project] : [] });
+    }
+    if (path === `/api/v1/architect-assistant/projects/${projectId}`) {
+      if (init?.method === "PATCH") {
+        const values = JSON.parse(String(init.body));
+        expect(values.revision).toBe(project.revision);
+        project = { ...project, ...values, revision: project.revision + 1 };
+      }
+      return json({ project });
+    }
+    return original(url, init);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "architect.project.create", values: { name: "Nhà An", areaM2: 100, floors: 2, style: "Hiện đại" }, intentType: "workflow" });
+  const preview = await turn({ text: "Tạo dự án Nhà An diện tích 100 m², 2 tầng, hiện đại" });
+  expect(preview.status).toBe("confirmation");
+  const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(created.status).toBe("completed");
+  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(parseAssistantResultTable(created.reply)).not.toBeNull();
+  expect(created.reply).not.toContain(projectId);
+  if (supplement) {
+    await turn({ text: "có" });
+    state.interpret.mockResolvedValueOnce({ actionId: "architect.project.update", values: { requirements: "Có sân vườn" }, intentType: "workflow", newRequest: false });
+    const update = await turn({ text: "Bổ sung yêu cầu có sân vườn" });
+    expect(update.status).toBe("confirmation");
+    const updated = await turn({ decision: { id: update.action!.id, confirmed: true } });
+    expect(updated.status).toBe("completed");
+    expect(project.requirements).toBe("Có sân vườn");
+    expect(parseAssistantResultTable(updated.reply)).not.toBeNull();
+  } else await turn({ text: "bỏ qua" });
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === "/api/v1/architect-assistant/projects" && init?.method === "POST")).toHaveLength(1);
+});
+
+it("deletes an existing architecture project with its private current revision after confirmation", async () => {
+  const projectId = "e7c86155-ccf5-4dd4-bca5-312fc3be7c16";
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    const requestUrl = new URL(String(url));
+    if (requestUrl.pathname === "/api/v1/architect-assistant/projects") return json({ projects: [{ _id: projectId, name: "Nhà cũ", revision: 7, areaM2: 100, floors: 2, style: "Hiện đại" }] });
+    if (requestUrl.pathname === `/api/v1/architect-assistant/projects/${projectId}` && init?.method === "DELETE") {
+      expect(requestUrl.searchParams.get("revision")).toBe("7");
+      return json({ success: true });
+    }
+    return original(url, init);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "architect.project.delete", values: { path_projectId: "Nhà cũ" }, intentType: "workflow" });
+  const preview = await turn({ text: "Xóa dự án Nhà cũ" });
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).not.toContain(projectId);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(result.status).toBe("completed");
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(1);
+});
+
+it("looks up legal text with the API jurisdiction and preserves dated source citations", async () => {
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    if (new URL(String(url)).pathname === "/api/v1/legal-reference/answer") {
+      expect(JSON.parse(String(init?.body))).toMatchObject({ query: "Điều kiện áp dụng", jurisdiction: "central", asOf: "2026-11-18" });
+      return json({ query: "Điều kiện áp dụng", asOf: "2026-11-18T00:00:00.000Z", answer: "Điều kiện theo nguồn [1].", sources: [{ citation: "[1]", symbol: "VB-01", title: "Văn bản thử nghiệm", sourceUrl: "https://example.com/source", versionNumber: 1, internalId: "private-source" }] });
+    }
+    return original(url, init);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "legal.document.answer", values: { query: "Điều kiện áp dụng", jurisdiction: "central", asOf: "2026-11-18" }, intentType: "workflow" });
+  const result = await turn({ text: "Tra điều kiện áp dụng văn bản trung ương ngày 18/11/2026" });
+  expect(result.status).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(result.reply).toContain("[1]");
+  expect(result.reply).toContain("VB-01");
+  expect(result.reply).toContain("18/11/2026");
+  expect(result.reply).not.toContain("private-source");
+});
+
+it("confirms a legal review decision against the selected task and formats its result", async () => {
+  const reviewId = "507f1f77bcf86cd799439011";
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/legal-reference/review-queue") return json({ tasks: [{ id: reviewId, document: { title: "Văn bản thử nghiệm", symbol: "VB-01" }, taskType: "revision", reason: "Cần rà soát" }] });
+    if (path === `/api/v1/legal-reference/review-queue/${reviewId}/decision`) {
+      expect(JSON.parse(String(init?.body))).toMatchObject({ decision: "approve" });
+      return json({ status: "resolved" });
+    }
+    return original(url, init);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "legal.review.decision", values: { path_id: "Văn bản thử nghiệm", decision: "approve" }, intentType: "workflow" });
+  const preview = await turn({ text: "Duyệt văn bản thử nghiệm" });
+  expect(preview.status).toBe("confirmation");
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(result.status).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(result.reply).not.toContain(reviewId);
+});
+
+it("stores a terminology proposal only after explicit confirmation", async () => {
+  state.memoryEnabled = true;
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "ambiguous", memoryProposal: "KT nghĩa là phòng Kế toán" });
+  const proposal = await turn({ text: "Ở đây KT là cách gọi phòng Kế toán nhé" });
+  expect(proposal.status).toBe("collecting");
+  expect(state.saveMemory).not.toHaveBeenCalled();
+  expect(state.session.pendingMemoryProposal).toBe("KT nghĩa là phòng Kế toán");
+  const saved = await turn({ text: "đồng ý" });
+  expect(saved.status).toBe("completed");
+  expect(state.saveMemory).toHaveBeenCalledWith(req, "KT nghĩa là phòng Kế toán", "explicit");
+  expect(state.session.pendingMemoryProposal).toBe("");
+});
+
+it("allows declining a terminology proposal", async () => {
+  state.memoryEnabled = true;
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "ambiguous", memoryProposal: "KT nghĩa là phòng Kế toán" });
+  await turn({ text: "KT là phòng Kế toán" });
+  await turn({ text: "bỏ qua" });
+  expect(state.saveMemory).not.toHaveBeenCalled();
+  expect(state.session.pendingMemoryProposal).toBe("");
+});
+
+it("runs consecutive read steps through the shared completion path", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", newRequest: true, remainingRequests: ["Đếm nhân viên lần nữa"] });
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", newRequest: false, remainingRequests: [] });
+  const first = await turn({ text: "Đếm nhân viên rồi đếm lại" });
+  expect(first.status).toBe("completed");
+  expect(state.interpret.mock.calls.at(-1)?.[0]).toBe("Đếm nhân viên lần nữa");
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(completeAssistantOperation).toHaveBeenCalledTimes(2);
+  expect(state.turns[0].steps).toHaveLength(2);
+  expect(new Set(state.turns[0].steps.map((step: any) => step.requestId)).size).toBe(2);
+  expect(state.turns[0].steps.every((step: any) => step.status === "completed")).toBe(true);
+});
+
+it("retains unfinished steps when interpretation fails", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", remainingRequests: ["Đếm lại"] });
+  state.interpret.mockRejectedValueOnce(new Error("provider unavailable"));
+  const failed = await turn({ text: "Đếm nhân viên rồi đếm lại" });
+  expect(failed.status).toBe("failed");
+  expect(state.session.remainingRequests).toEqual(["Đếm lại"]);
+  expect(state.turns[0].steps).toHaveLength(1);
+});
+
+it("stops before a write in a multi-step goal and preserves its preview", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", remainingRequests: ["Sửa số điện thoại La Văn Sến"] });
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.update", values: { id: "La Văn Sến", phone: "0902222333" }, intentType: "workflow" });
+  const reply = await turn({ text: "Đếm nhân viên rồi sửa điện thoại La Văn Sến" });
+  expect(["confirmation", "collecting"]).toContain(reply.status);
+  expect(state.session.pending.actionId).toBe("employee.update");
+  expect(state.turns[0].steps).toHaveLength(1);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+});
+
+it("stops repeated reads with no new result and keeps unexecuted requests", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", remainingRequests: Array.from({length: 6}, (_, i) => `Đếm lần ${i + 2}`) });
+  state.interpret.mockResolvedValue({ actionId: "employee.count", values: {}, intentType: "workflow" });
+  const reply = await turn({ text: "Đếm nhân viên bảy lần" });
+  expect(reply.status).toBe("completed");
+  expect(state.turns[0].steps).toHaveLength(2);
+  expect(state.session.remainingRequests).toEqual(["Đếm lần 3", "Đếm lần 4", "Đếm lần 5", "Đếm lần 6", "Đếm lần 7"]);
+});
+
+it("stops a plan when an API result is uncertain without replaying the step", async () => {
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  let calls = 0;
+  fetcher.mockImplementation(async (...args) => {
+    if (new URL(String(args[0])).pathname === "/api/v1/auth/users/count" && ++calls === 2) throw new Error("connection lost");
+    return original(...args);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", remainingRequests: ["Đếm lần 2", "Đếm lần 3"] });
+  state.interpret.mockResolvedValue({ actionId: "employee.count", values: {}, intentType: "workflow" });
+  const reply = await turn({ text: "Đếm ba lần" });
+  expect(reply.status).toBe("uncertain");
+  expect(state.turns[0].steps).toHaveLength(2);
+  expect(state.turns[0].steps[1].status).toBe("executing");
+  expect(state.session.remainingRequests).toEqual([]);
+});
+
+it.each([true, false])("hides API defaults but preserves the same values when explicitly supplied: explicit=%s", async explicit => {
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    if (new URL(String(url)).pathname === "/api/v1/auth/register-user" && init?.method === "POST") {
+      return json({ status: "success", data: { _id: employeeId, division: "Nhân sự", phone: "Chưa cập nhật", ...JSON.parse(String(init.body)) } });
+    }
+    return original(url, init);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.create", values: {
+    displayName: "An", email: "an@example.com", birthDate: "1995-01-01", ...(explicit ? { division: "Nhân sự" } : {}),
+  }, intentType: "workflow" });
+  await turn({ text: "Tạo nhân sự An" });
+  const preview = await turn({ skipReferenceKeys: ["department"] });
+  expect(preview.status).toBe("confirmation");
+  const created = await turn({ decision: { id: preview.action!.id, confirmed: true, password: "test-secret-123" } });
+  expect(created.status).toBe("completed");
+  expect(created.reply).not.toContain("Chưa cập nhật");
+  expect(created.reply).toContain("Số điện thoại");
+  const table = parseAssistantResultTable(created.reply)!;
+  expect(Object.values(table.rows[0].values).includes("Nhân sự")).toBe(explicit);
+});
+
 it("creates an employee by choosing a department and keeps the initial password out of the preview", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "employee.create", values: {
     displayName: "Trần Thu An", email: "an@example.com", birthDate: "1992-03-04", phone: "0901234567",
@@ -321,6 +791,19 @@ it("finds an employee by the accented name and returns a safe, readable result",
   expect(result.reply).not.toContain("35000000");
 });
 
+it("counts the whole company even when the account is assigned to a branch", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", newRequest: true });
+
+  const result = await turn({ text: "Tổng số nhân sự của công ty" });
+
+  expect(result.status).toBe("completed");
+  expect(result.reply).toContain("Có 12 nhân sự trong toàn công ty, bao gồm các chi nhánh");
+  const request = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/auth/users/count");
+  const query = new URL(String(request?.[0])).searchParams;
+  expect(query.get("scope")).toBe("company");
+  expect(query.has("branchId")).toBe(false);
+});
+
 it("answers department count questions from the named department only", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
   state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
@@ -359,7 +842,7 @@ it("lists employees by a partial department name instead of searching employee n
   });
 
   expect(result.status).toBe("completed");
-  expect(parseAssistantResultTable(result.reply)?.rows.map(row => row.values["Nhân sự"])).toEqual(["Trần Minh", "Hà My"]);
+  expect(parseAssistantResultTable(result.reply)?.rows.map(row => row.values["Nhân sự"])).toEqual(["Trần Minh", "Hà My", "IT1"]);
   expect(result.reply).not.toContain("Nguyễn Anh");
   expect(new URL(String(request?.[0])).searchParams.has("search")).toBe(false);
   expect(result.reply).not.toContain("507f1f77bcf86cd799439971");
@@ -434,23 +917,90 @@ it("asks for a missing phone number and updates the selected employee instead of
 });
 
 it("lets the user choose an applicant and job from the chat when scheduling an interview", async () => {
-  state.interpret.mockResolvedValueOnce({
-    actionId: "recruitment.interview.create",
-    values: { scheduledStart: "2026-12-01T10:00:00+07:00", scheduledEnd: "2026-12-01T11:00:00+07:00", format: "online" },
-    intentType: "workflow",
-    newRequest: true,
-  });
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
 
-  const prompt = await turn({ text: "Tạo lịch phỏng vấn" });
+  const prompt = await turn({ text: "Thêm lịch phỏng vấn" });
 
   expect(prompt.status).toBe("collecting");
+  expect(prompt.action?.title).toContain("lịch phỏng vấn");
   const applicants = prompt.referenceSelections?.find(group => group.key === "applicantId");
   const jobs = prompt.referenceSelections?.find(group => group.key === "jobId");
+  const interviewers = prompt.referenceSelections?.find(group => group.key === "interviewerIds");
   expect(applicants?.options.map(option => option.label)).toContain("Nguyễn Thị Mai");
   expect(jobs?.options.map(option => option.label)).toContain("Kế toán — mã JOB-001");
+  expect(interviewers?.options.length).toBeGreaterThan(0);
+  expect(prompt.referenceSelections?.some(group => group.key === "managerUid")).toBe(false);
   expect(JSON.stringify(prompt)).not.toContain(applicantId);
   expect(JSON.stringify(prompt)).not.toContain(jobId);
   expect(prompt.reply).not.toContain(branchId);
+
+  const afterSelection = await turn({ referenceSelections: {
+    applicantId: [applicants!.options[0].value],
+    jobId: [jobs!.options[0].value],
+    interviewerIds: [interviewers!.options[0].value],
+    format: ["online"],
+  } });
+  expect(afterSelection.status).toBe("collecting");
+  expect(afterSelection.reply).toContain("Thời gian bắt đầu");
+  const interviewerValue = afterSelection.action?.values.find(value => value.label === "Người phỏng vấn")?.value;
+  expect(interviewerValue).toBe(interviewers!.options[0].label);
+  expect(interviewerValue).not.toMatch(/^[\[{]|[\]{}"]$/);
+});
+
+it("test keys 82–107 return recruitment reports as structured results through the shared completion path", async () => {
+  state.interpret.mockResolvedValueOnce({
+    actionId: "recruitment.report",
+    values: { query_reportType: "interviewers", query_from: "2026-11-18", query_to: "2026-11-18", query_search: "QA Lead" },
+    intentType: "workflow",
+    newRequest: true,
+  });
+  const result = await turn({ text: "Hôm nay có buổi phỏng vấn vị trí QA Lead, ai đã phỏng vấn?" });
+  expect(result.status, result.reply).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(result.reply).toContain("Nguyễn An");
+  expect(result.reply).toContain("Võ Minh Quân");
+  expect(completeAssistantOperation).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }),
+    expect.objectContaining({ operation: expect.objectContaining({ id: "recruitment.report" }) }), expect.any(Array), expect.any(Function));
+  const reportRequest = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/recruitment/reports/assistant");
+  expect(new URL(String(reportRequest?.[0])).searchParams.get("reportType")).toBe("interviewers");
+  expect(new URL(String(reportRequest?.[0])).searchParams.get("search")).toBe("QA Lead");
+});
+
+it("routes tomorrow's interview schedule question to the recruitment report", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-17T17:00:00.000Z"));
+  try {
+    const result = await turn({ text: "Ngày mai có lịch phỏng vấn ứng viên nào" });
+    expect(result.status, result.reply).toBe("completed");
+    expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+    const reportRequest = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/recruitment/reports/assistant");
+    const params = new URL(String(reportRequest?.[0])).searchParams;
+    expect(params.get("reportType")).toBe("interviews");
+    expect(params.get("from")).toBe("2026-11-19");
+    expect(params.get("to")).toBe("2026-11-19");
+    expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname.includes("hr-calendar-events"))).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("does not substitute calendar events when the recruitment report workflow is unavailable", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.includeRecruitmentReport = false;
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-17T17:00:00.000Z"));
+  try {
+    const result = await turn({ text: "Ngày mai có lịch phỏng vấn ứng viên nào" });
+    expect(result.status).toBe("unsupported");
+    expect(result.reply).not.toContain("demo sản phẩm cho khách");
+    expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname.includes("hr-calendar-events"))).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("transfers an employee to a selected department only after confirmation", async () => {
@@ -479,6 +1029,22 @@ it("changes a requested salary with an explicit confirmation", async () => {
   const update = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${secondEmployeeId}` && init?.method === "PATCH");
   expect(result.status).toBe("completed");
   expect(JSON.parse(String(update?.[1]?.body))).toMatchObject({ monthlySalary: 12000000 });
+});
+
+it("updates the base salary of the named employee instead of payroll-period inputs", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const preview = await turn({ text: "sửa lương cơ bản của nhân sự IT1 thành 20 triệu" });
+  expect(preview.status).toBe("confirmation");
+  expect(preview.action?.title).toContain("Cập nhật nhân sự");
+  expect(preview.action?.values.find(value => value.label === "Lương tháng")?.value).toBe(20000000);
+
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  const update = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === "/api/v1/auth/users/507f1f77bcf86cd799439974" && init?.method === "PATCH");
+  expect(result.status).toBe("completed");
+  expect(JSON.parse(String(update?.[1]?.body))).toMatchObject({ monthlySalary: 20000000 });
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname.includes("/payroll/periods/"))).toBe(false);
 });
 
 it("assigns, changes, and removes an employee job title through confirmed profile updates", async () => {
@@ -609,6 +1175,252 @@ it("filters incomplete training by the course title supplied by the user", async
     expect(rows[0].values["Khóa đào tạo"]).toMatch(new RegExp(courseName === "hát" ? "Hát dân ca" : courseName));
     expect(result.reply).not.toContain(courseName === "Quy chế bảo mật" ? "An toàn lao động" : courseName === "hát" ? "Quy chế bảo mật" : "Quy chế bảo mật");
   }
+});
+
+it("keeps the named training scope from the reported request through the result table", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const result = await turn({ text: "Kiểm tra ai chưa hoàn thành các bài học trong đào tạo hát" });
+  const request = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/crud/training-enrollments");
+  expect(new URL(String(request?.[0])).searchParams.get("courseName")).toBe("hát");
+  expect(result.status).toBe("completed");
+  const rows = parseAssistantResultTable(result.reply)?.rows || [];
+  expect(rows).toHaveLength(1);
+  expect(rows[0].values).toMatchObject({ "Nhân sự": "Phạm Gia Hân", "Khóa đào tạo": "Hát dân ca", "Tiến độ": "70%" });
+  expect(result.reply).not.toContain("Quy chế bảo mật");
+  expect(result.reply).not.toContain("An toàn lao động");
+});
+
+it.each(["tạo khóa học mới", "thêm khóa học mới"])("asks for the course type and then required details: %s", async text => {
+  state.includeStudentCourses = true;
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const choice = await turn({ text });
+  expect(choice.status).toBe("collecting");
+  expect(choice.reply).toContain("đào tạo nội bộ");
+  expect(choice.reply).toContain("cho học viên");
+  expect(choice.reply).not.toContain("chưa hiểu");
+  const details = await turn({ text: "nội bộ" });
+  expect(details.status).toBe("collecting");
+  expect(details.reply).toMatch(/Tên khóa học/);
+  expect(state.session.pending.actionId).toBe("training.create");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+});
+
+it.each([true, false])("creates one training course and handles optional follow-up (supplement: %s)", async supplement => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const details = await turn({ text: "tạo khóa học mới" });
+  expect(details.status).toBe("collecting");
+  expect(details.reply).toContain("Tên khóa học");
+
+  state.interpret.mockResolvedValueOnce({ actionId: "training.create", values: { title: "Hát dân ca", category: "Văn hóa", duration: "2 giờ", lessons: "[]", quizzes: "[]" }, newRequest: false });
+  const preview = await turn({ text: "Tên Hát dân ca, danh mục Văn hóa, thời lượng 2 giờ; bỏ qua bài giảng và câu hỏi" });
+  expect(preview.status).toBe("confirmation");
+  expect(JSON.stringify(preview)).not.toContain("actor@example.com");
+  const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(created.status).toBe("completed");
+  expect(parseAssistantResultTable(created.reply)?.rows).toHaveLength(1);
+  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).not.toContain(trainingCourseId);
+
+  const followUp = await turn({ text: supplement ? "có" : "bỏ qua" });
+  if (supplement) {
+    expect(followUp.status).toBe("collecting");
+    expect(state.session.pending.actionId).toBe("training.update");
+    state.interpret.mockResolvedValueOnce({ actionId: "training.update", values: { description: "Kỹ thuật hát dân ca cơ bản" }, newRequest: false });
+    const updatePreview = await turn({ text: "Bổ sung mô tả: Kỹ thuật hát dân ca cơ bản" });
+    expect(updatePreview.status).toBe("confirmation");
+    const updated = await turn({ decision: { id: updatePreview.action!.id, confirmed: true } });
+    expect(updated.status).toBe("completed");
+    expect(parseAssistantResultTable(updated.reply)?.rows).toHaveLength(1);
+    const patch = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === `/api/v1/crud/training-courses/${trainingCourseId}` && init?.method === "PATCH");
+    expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({ description: "Kỹ thuật hát dân ca cơ bản" });
+  } else {
+    expect(followUp.status).toBe("completed");
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+  }
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+});
+
+it.each([true, false])("only deletes the named training course after confirmation (confirm: %s)", async confirmed => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const preview = await turn({ text: "xóa khóa đạo tạo nhân sự hát" });
+  expect(preview.status).toBe("confirmation");
+  expect(preview.action?.title).toBe("Xóa khóa đào tạo nội bộ");
+  expect(JSON.stringify(preview)).toContain("hát");
+  expect(JSON.stringify(preview)).not.toContain(trainingCourseId);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+  const result = await turn({ decision: { id: preview.action!.id, confirmed } });
+  expect(result.status).toBe(confirmed ? "completed" : "cancelled");
+  const deletions = fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE");
+  expect(deletions).toHaveLength(confirmed ? 1 : 0);
+  if (confirmed) expect(new URL(String(deletions[0][0])).pathname).toBe(`/api/v1/crud/training-courses/${trainingCourseId}`);
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname.startsWith("/api/v1/auth/users"))).toBe(false);
+});
+
+it("asks to select a training course when its name matches multiple records", async () => {
+  trainingCourses[0].title = "Hát dân ca";
+  trainingCourses.push({ _id: "507f1f77bcf86cd799439089", title: "Hát cơ bản", category: "Văn hóa", duration: "3 giờ" });
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const selection = await turn({ text: "xóa khóa đạo tạo nhân sự hát" });
+  expect(selection.status).toBe("collecting");
+  expect(selection.referenceSelections?.find(group => group.key === "id")?.options).toHaveLength(2);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+});
+
+it("creates a shared workflow category after confirmation and renders the shared result table", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "hr.workflow.category.create", values: { name: "Bảo mật" }, intentType: "workflow" });
+  const fallback = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    if (new URL(String(url)).pathname === "/api/v1/crud/workflow-categories" && init?.method === "POST") return json({ data: { _id: "507f1f77bcf86cd799439777", name: "Bảo mật" } });
+    return fallback(url, init);
+  });
+  const preview = await turn({ text: "Tạo nhãn phân loại quy trình Bảo mật" });
+  expect(preview.status).toBe("confirmation");
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(result.status, result.reply).toBe("completed");
+  expect(result.reply).toContain("Bảo mật");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(result.reply).not.toContain("507f1f77bcf86cd799439777");
+  expect(completeAssistantOperation).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }), expect.objectContaining({ operation: expect.objectContaining({ id: "hr.workflow.category.create" }) }), expect.anything(), expect.anything());
+});
+
+it("shows numbered workflow steps in new and restored previews while preserving the execution payload", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const collecting = await turn({ text: "thêm quy trình tuyển dụng nhân sự" });
+  expect(collecting.status).toBe("collecting");
+  state.interpret.mockResolvedValueOnce({ actionId: "hr.workflow.create", values: {
+    steps: JSON.stringify(["đăng bài", "lọc cv", "gọi phỏng vấn", "phỏng vấn", "gửi thư trúng tuyển"].map(title => ({ title }))),
+  }, intentType: "workflow", newRequest: false });
+  const preview = await turn({ text: "bước 1: đăng bài, bước 2: lọc cv, bước 3: gọi phỏng vấn, bước 4: phỏng vấn, bước 5: gửi thư trúng tuyển" });
+  expect(preview.status).toBe("confirmation");
+  const expected = "1. đăng bài\n2. lọc cv\n3. gọi phỏng vấn\n4. phỏng vấn\n5. gửi thư trúng tuyển";
+  expect(preview.action?.values.find(field => field.label === "Các bước quy trình")?.value).toBe(expected);
+  const pendingSteps = state.session.pending.resolved.steps;
+  expect(JSON.parse(pendingSteps).map((step: { title: string }) => step.title)).toEqual([
+    "đăng bài", "lọc cv", "gọi phỏng vấn", "phỏng vấn", "gửi thư trúng tuyển",
+  ]);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+
+  // Older saved previews still contain JSON; restoring them must use the same formatter.
+  state.session.lastReply.action.values.find((field: { label: string }) => field.label === "Các bước quy trình").value = pendingSteps;
+  const restored = await conversationState(req, "hr-conversation");
+  expect(restored.lastReply?.action?.values.find(field => field.label === "Các bước quy trình")?.value).toBe(expected);
+  expect(state.session.pending.resolved.steps).toBe(pendingSteps);
+
+  const ordinaryFetch = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    if (new URL(String(url)).pathname === "/api/v1/crud/workflows" && init?.method === "POST") {
+      return json({ data: { _id: "507f1f77bcf86cd799439090", ...JSON.parse(String(init.body)) } });
+    }
+    return ordinaryFetch(url, init);
+  });
+  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(result.status).toBe("completed");
+  const creation = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === "/api/v1/crud/workflows" && init?.method === "POST");
+  expect(JSON.parse(String(creation?.[1]?.body)).steps).toMatchObject(JSON.parse(pendingSteps));
+});
+
+it.each([true, false])("appends the requested process step while preserving existing steps (confirm: %s)", async confirmed => {
+  const workflowId = "507f1f77bcf86cd799439090";
+  const originalSteps = ["đăng bài", "lọc cv", "gọi phỏng vấn", "phỏng vấn", "gửi thư trúng tuyển"].map((title, index) => ({
+    id: `step-${index + 1}`, title, type: "task", position: { x: index * 220, y: 20 },
+    assigneeUid: employeeId, assignee: "La Văn Sến", estDays: index + 1,
+    note: `Ghi chú bước ${index + 1}`, subTasks: [{ id: `child-${index}`, title: "Kiểm tra", done: true }],
+  }));
+  const edges = [{ id: "edge-1", source: "step-1", target: "step-2" }];
+  const record = { _id: workflowId, name: "tuyển dụng nhân sự", companyCode: "TEST", steps: originalSteps, edges };
+  const ordinaryFetch = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/crud/workflows") return json({ data: [record], total: 1 });
+    if (path === `/api/v1/crud/workflows/${workflowId}`) return json({ data: { ...record, ...(init?.method === "PATCH" ? JSON.parse(String(init.body)) : {}) } });
+    return ordinaryFetch(url, init);
+  });
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const preview = await turn({ text: "thêm bước trả lương cho quy trình tuyển dụng nhân sự" });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain("trả lương");
+  expect(JSON.stringify(preview)).toContain("tuyển dụng nhân sự");
+  expect(JSON.stringify(preview)).not.toContain(workflowId);
+  expect(preview.reply).not.toContain("Bạn muốn mình cập nhật thông tin nào");
+  expect(fetcher.mock.calls.some(([, init]) => ["PATCH", "POST"].includes(init?.method || ""))).toBe(false);
+
+  const result = await turn({ decision: { id: preview.action!.id, confirmed } });
+  expect(result.status, result.reply).toBe(confirmed ? "completed" : "cancelled");
+  const patches = fetcher.mock.calls.filter(([, init]) => init?.method === "PATCH");
+  expect(patches).toHaveLength(confirmed ? 1 : 0);
+  if (confirmed) {
+    expect(new URL(String(patches[0][0])).pathname).toBe(`/api/v1/crud/workflows/${workflowId}`);
+    const body = JSON.parse(String(patches[0][1]?.body));
+    expect(body.steps).toHaveLength(6);
+    expect(body.steps.slice(0, 5)).toEqual(originalSteps);
+    expect(body.steps[5]).toMatchObject({ title: "trả lương" });
+    expect(body.edges).toEqual(edges);
+    expect(parseAssistantResultTable(result.reply)?.rows, result.reply).toHaveLength(1);
+  }
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+});
+
+it.each([true, false])("collects the missing child step name and keeps it under the selected parent (confirm: %s)", async confirmed => {
+  const workflowId = "507f1f77bcf86cd799439090";
+  const originalSteps = ["đăng bài", "trả lương"].map((title, index) => ({
+    id: `step-${index + 1}`, title, type: "task", position: { x: index * 220, y: 20 },
+    assigneeUid: employeeId, assignee: "La Văn Sến", estDays: 2, note: "Giữ ghi chú",
+    subTasks: [{ id: `child-${index}`, title: "Đối chiếu hồ sơ", done: true }],
+  }));
+  const edges = [{ id: "edge-1", source: "step-1", target: "step-2" }];
+  const record = { _id: workflowId, name: "tuyển dụng nhân sự", companyCode: "TEST", steps: originalSteps, edges };
+  const ordinaryFetch = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/crud/workflows") return json({ data: [record], total: 1 });
+    if (path === `/api/v1/crud/workflows/${workflowId}`) return json({ data: { ...record, ...(init?.method === "PATCH" ? JSON.parse(String(init.body)) : {}) } });
+    return ordinaryFetch(url, init);
+  });
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const question = await turn({ text: "thêm bước con trong bước trả lương trong quy tình tuyển dụng nhân sự" });
+  expect(question.status, question.reply).toBe("collecting");
+  expect(question.reply).toContain("tên bước con");
+  expect(question.reply).toContain("trả lương");
+  expect(question.reply).toContain("tuyển dụng nhân sự");
+  expect(state.session.pending.provided).toMatchObject({ workflowAction: "Thêm giai đoạn con", workflowTarget: "trả lương" });
+  expect(state.session.pending.provided.workflowValue).toBeUndefined();
+  expect(fetcher.mock.calls.some(([, init]) => ["PATCH", "POST"].includes(init?.method || ""))).toBe(false);
+
+  const preview = await turn({ text: "Kiểm tra bảng lương" });
+  expect(preview.status, preview.reply).toBe("confirmation");
+  expect(JSON.stringify(preview)).toContain("Kiểm tra bảng lương");
+  expect(JSON.stringify(preview)).toContain("trả lương");
+  expect(JSON.stringify(preview)).not.toContain(workflowId);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+
+  const result = await turn({ decision: { id: preview.action!.id, confirmed } });
+  expect(result.status, result.reply).toBe(confirmed ? "completed" : "cancelled");
+  const patches = fetcher.mock.calls.filter(([, init]) => init?.method === "PATCH");
+  expect(patches).toHaveLength(confirmed ? 1 : 0);
+  if (confirmed) {
+    expect(new URL(String(patches[0][0])).pathname).toBe(`/api/v1/crud/workflows/${workflowId}`);
+    const body = JSON.parse(String(patches[0][1]?.body));
+    expect(body.steps).toHaveLength(2);
+    expect(body.steps[0]).toEqual(originalSteps[0]);
+    expect(body.steps[1]).toEqual({ ...originalSteps[1], subTasks: [
+      originalSteps[1].subTasks[0], expect.objectContaining({ title: "Kiểm tra bảng lương", done: false }),
+    ] });
+    expect(body.edges).toEqual(edges);
+    expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(1);
+  }
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
 });
 
 it("reports next-month birthdays without including birth years", async () => {
@@ -797,14 +1609,37 @@ it("uses arbitrary task names in progress updates and confirms the selected task
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
   state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
 
-  const preview = await turn({ text: "Báo cáo tiến độ công việc Dự hội thảo BNI EXPO ngày 20/11 hoàn thành được 50%" });
+  const preview = await turn({ text: "Cập nhập tiến độ công việc Dự hội thảo BNI EXPO ngày 20/11 hoàn thành được 50%" });
   expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
   expect(JSON.stringify(preview)).toContain("Dự hội thảo BNI EXPO ngày 20/11");
   const updated = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   const updateCall = fetcher.mock.calls.find(([url, init]) => new URL(String(url)).pathname === `/api/v1/kanban/tasks/${kanbanTaskId}/activity` && init?.method === "PATCH");
   expect(updated.status).toBe("completed");
   expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({ action: "progress", progress: 50 });
-  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/kanban/tasks" && new URL(String(url)).searchParams.get("search") === "Dự hội thảo BNI EXPO ngày 20/11")).toBe(true);
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/kanban/tasks" && new URL(String(url)).searchParams.get("search") === "Dự hội thảo BNI EXPO")).toBe(true);
+});
+
+it("keeps the parsed task title when retrying a progress update after no task match", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+  const text = "Cập nhập tiến độ công việc làm cho con bò ngày 20/11 hoàn thành được 50%";
+
+  const first = await turn({ text });
+  expect(first.status).toBe("collecting");
+  state.interpret.mockImplementationOnce(() => ({
+    actionId: "task.activity.update",
+    values: { path_id: "làm cho con bò", action: "progress", progress: 50 },
+    intentType: "workflow",
+    newRequest: true,
+  }));
+  const retry = await turn({ text });
+  const taskSearches = fetcher.mock.calls
+    .filter(([url]) => new URL(String(url)).pathname === "/api/v1/kanban/tasks")
+    .map(([url]) => new URL(String(url)).searchParams.get("search"));
+
+  expect(retry.status, retry.reply).toBe("collecting");
+  expect(taskSearches.length).toBeGreaterThanOrEqual(2);
+  expect(taskSearches.at(-1)).toBe("làm cho con bò");
 });
 
 it("passes arbitrary task search, status, overdue, priority, and assignee filters to the API", async () => {
@@ -816,7 +1651,7 @@ it("passes arbitrary task search, status, overdue, priority, and assignee filter
     const cases: Array<[string, (url: URL) => void, (reply: string) => void]> = [
       ["Công việc Kiểm thử sản phẩm mới 1234567890 đang được giao cho ai", url => expect(url.searchParams.get("search")).toBe("Kiểm thử sản phẩm mới 1234567890"), reply => expect(reply).toContain("Phạm Gia Hân")],
       ["Công việc Kiểm thử sản phẩm mới 1234567890 đã hoàn thành chưa", url => expect(url.searchParams.get("search")).toBe("Kiểm thử sản phẩm mới 1234567890"), reply => expect(reply).toContain("Done")],
-      ["Những công việc nào đang làm chưa xong", url => expect(url.searchParams.get("status"), url.href).toBe("In Progress"), reply => expect(reply).toContain("Dự hội thảo BNI EXPO")],
+      ["Những công việc nào đang làm chưa xong", url => expect(url.searchParams.has("status")).toBe(false), reply => expect(parseAssistantResultTable(reply)?.rows).toHaveLength(2)],
       ["Những công việc nào bị trễ deadline", url => expect(url.searchParams.get("overdue")).toBe("true"), reply => expect(reply).toContain("Chuẩn bị báo cáo quý")],
       ["Những công việc nào chưa bắt đầu", url => expect(url.searchParams.get("status")).toBe("Not Started"), reply => expect(reply).toContain("Chuẩn bị báo cáo quý")],
       ["Những công việc nào đang ở mức ưu tiên cao", url => expect(url.searchParams.get("priority")).toBe("High"), reply => expect(reply).toContain("Dự hội thảo BNI EXPO")],
@@ -867,6 +1702,27 @@ it("uses requested leave types, dates, and employee identities for reports", asy
   } finally {
     vi.useRealTimers();
   }
+});
+
+it.each(["demo sản phẩm cho khách", "Họp triển khai dự án"]) ("preserves every calendar result cell through today's full conversation: %s", async title => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2028-02-29T18:00:00.000Z"));
+  try {
+    const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+    state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+    const original = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+    fetcher.mockImplementation((url: URL, init?: RequestInit) => new URL(String(url)).pathname === "/api/v1/crud/hr-calendar-events"
+      ? Promise.resolve(json({ data: [{ _id: calendarEventId, title, type: "event", startDate: "2028-02-29T17:30:00.000Z", endDate: "2028-02-29T19:00:00.000Z", status: "active" }] }))
+      : original(url, init));
+    const reply = await turn({ text: "Ngày hôm nay có lịch gì không ?" });
+    expect(reply.status).toBe("completed");
+    const table = parseAssistantResultTable(reply.reply);
+    expect(table?.rows[0].values).toMatchObject({ "Sự kiện": title, "Loại": "Sự kiện", "Bắt đầu": "00:30, 01/03/2028", "Kết thúc": "02:00, 01/03/2028", "Trạng thái": "Đang hoạt động" });
+    const requestUrl = new URL(String(fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/crud/hr-calendar-events")![0]));
+    expect(requestUrl.searchParams.get("rangeStart")).toBe("2028-03-01");
+    expect(requestUrl.searchParams.get("rangeEnd")).toBe("2028-03-01");
+    expect(reply.reply).not.toContain(calendarEventId);
+  } finally { vi.useRealTimers(); }
 });
 
 it("lists calendar events and keeps optional event edits attached to the created record", async () => {

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { workerRoutes } from "./routes/worker.routes";
+import { workerReportRoutes } from "./routes/worker-report.routes";
 import { workerProjectRoutes } from "./routes/worker-project.routes";
 import { workerLaborContractRoutes } from "./routes/worker-labor-contract.routes";
 import { workerAttendanceRoutes } from "./routes/worker-attendance.routes";
@@ -9,6 +10,7 @@ import { workerNotificationRoutes } from "./routes/worker-notification.routes";
 import { workerStandardFieldRoutes } from "./routes/worker-standard-field.routes";
 
 export const workerManagementRouter = Router();
+workerManagementRouter.use("/worker-management/reports/assistant", workerReportRoutes);
 
 workerManagementRouter.use("/worker-management/workers", workerRoutes);
 workerManagementRouter.use("/worker-management/projects", workerProjectRoutes);

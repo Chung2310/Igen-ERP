@@ -13,6 +13,9 @@ export interface AssistantCompletion {
 
 /** Scope, selected targets and private snapshots never count as requested edits. */
 export function hasAssistantUpdatePayload(op: AssistantOperation, values: Record<string, unknown>): boolean {
+  if (op.id === "payroll.reconciliation.schedule.update") {
+    return ["enabled", "day", "hour", "minute", "periodOffset"].some(key => values[key] !== undefined);
+  }
   if (op.module === "quotation" && op.fixedBodyValues?.action === "recalculate") return true;
   if (op.id === "hr.workflow.update") {
     const action = String(values.workflowAction || "");
@@ -28,10 +31,10 @@ export function missingOptionalCreateFields(create: AssistantOperation, workflow
   if (create.method !== "POST" || create.readOnly || !result || typeof result !== "object" || Array.isArray(result)) return [];
   const record = result as Record<string, unknown>;
   const editable = new Set(update.fields.filter(field => field.source !== "path" && field.source !== "query").map(field => field.apiKey || field.key));
-  const missing = (value: unknown) => value == null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
+  const missing = (value: unknown) => value == null || (typeof value === "string" && (!value.trim() || value.trim() === "Chưa cập nhật")) || (Array.isArray(value) && value.length === 0);
   return workflow.fields.filter(field => {
     const key = field.apiKey || field.key;
-    if (field.source === "path" || field.source === "query" || field.required || field.systemRequired || field.defaultValue != null || !editable.has(key)) return false;
+    if (field.source === "path" || field.source === "query" || field.required || field.systemRequired || !missing(field.defaultValue) || !editable.has(key)) return false;
     if (/^(?:id|_id|version|password|confirmPassword|companyCode|branchId|createdAt|updatedAt)$/i.test(key)) return false;
     if (field.alternativeField) {
       const alternative = workflow.fields.find(candidate => candidate.key === field.alternativeField);

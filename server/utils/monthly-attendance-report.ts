@@ -10,6 +10,14 @@ export interface MonthlyAttendanceLog {
   date?: string;
 }
 
+export interface MonthlyAttendanceLeaveApplication {
+  employeeId: string;
+  requestKind?: string;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  chargeableDates?: string[];
+}
+
 export interface MonthlyAttendanceRow {
   employeeName: string;
   workedDays: number;
@@ -29,6 +37,45 @@ function localCreatedDate(value: Date | string | undefined) {
   if (!Number.isFinite(parsed.valueOf())) return "";
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(parsed);
   return `${parts.find(part => part.type === "year")?.value}-${parts.find(part => part.type === "month")?.value}-${parts.find(part => part.type === "day")?.value}`;
+}
+
+/** Add approved leave dates from the HR leave register where no attendance row exists. */
+export function buildApprovedLeaveAttendanceLogs(
+  year: number,
+  month: number,
+  employees: MonthlyAttendanceEmployee[],
+  logs: MonthlyAttendanceLog[],
+  applications: MonthlyAttendanceLeaveApplication[],
+  workingDates: string[],
+): MonthlyAttendanceLog[] {
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const employeeIds = new Set(employees.map(employee => employee.id));
+  const occupiedDates = new Set(logs.flatMap(log => log.date ? [`${log.uid}:${log.date.slice(0, 10)}`] : []));
+  const leaveDates = new Set<string>();
+
+  for (const application of applications) {
+    if (!employeeIds.has(application.employeeId) || (application.requestKind && application.requestKind !== "leave")) continue;
+
+    const dates = Array.isArray(application.chargeableDates)
+      ? application.chargeableDates
+      : (() => {
+          const start = localCreatedDate(application.startDate);
+          const end = localCreatedDate(application.endDate);
+          if (!start || !end || end < start) return [];
+          return workingDates.filter(date => date >= start && date <= end);
+        })();
+
+    for (const date of dates) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !date.startsWith(monthPrefix)) continue;
+      const key = `${application.employeeId}:${date}`;
+      if (!occupiedDates.has(key)) leaveDates.add(key);
+    }
+  }
+
+  return [...leaveDates].map(key => {
+    const separator = key.indexOf(":");
+    return { uid: key.slice(0, separator), date: key.slice(separator + 1), status: "Approved-Leave" };
+  });
 }
 
 export function buildMonthlyAttendanceReport(

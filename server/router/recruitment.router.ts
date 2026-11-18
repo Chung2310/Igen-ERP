@@ -1,4 +1,5 @@
 import { Router, type NextFunction, type Response } from "express";
+import Joi from "joi";
 import multer from "multer";
 import { recruitmentController as controller, type RecruitmentRequest } from "../controller/recruitment.controller";
 import { requireAuth, requirePermission } from "../middleware/auth";
@@ -16,12 +17,23 @@ async function recruitmentScopeGuard(req: RecruitmentRequest, res: Response, nex
   catch (error: any) { return res.status(403).json({ status: "error", message: error.message }); }
 }
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+const assistantReportQuerySchema = Joi.object({
+  reportType: Joi.string().valid("overview", "interviews", "interview-count", "interviewers", "interview-results", "hires", "onboarded", "job-applications", "staffing-gaps", "job-deadlines", "applicants-by-department").required(),
+  from: Joi.date().iso(), to: Joi.date().iso(), search: Joi.string().trim().max(200), rank: Joi.string().valid("most", "least"),
+  branchId: Joi.string(), companyCode: Joi.string(), page: Joi.number().integer().min(1), limit: Joi.number().integer().min(1).max(100),
+}).unknown(false);
+function validateAssistantReportQuery(req: any, res: Response, next: NextFunction) {
+  const result = assistantReportQuerySchema.validate(req.query, { abortEarly: false, convert: true, stripUnknown: false });
+  if (result.error) return res.status(400).json({ status: "error", message: result.error.message });
+  return next();
+}
 
 recruitmentRouter.use(requireAuth as any);
 recruitmentRouter.use(requireModule("hr"));
 recruitmentRouter.use(recruitmentScopeGuard as any);
 
 recruitmentRouter.get("/jobs", readPermissionGuard as any, controller.listJobs);
+recruitmentRouter.get("/reports/assistant", readPermissionGuard as any, validateAssistantReportQuery, controller.assistantReport);
 recruitmentRouter.post("/jobs", managePermissionGuard as any, validateBody(jobBodySchema), controller.createJob);
 recruitmentRouter.get("/jobs/:id", readPermissionGuard as any, controller.getJob);
 recruitmentRouter.patch("/jobs/:id", managePermissionGuard as any, validateBody(jobUpdateBodySchema), controller.updateJob);

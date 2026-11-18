@@ -3,6 +3,31 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { operationById } from "./catalog";
 import { formatFriendlyAssistantResult } from "./result-format";
 
+it("counts all report rows before limiting the visible table", () => {
+  const rows = Array.from({length:18}, (_, i) => ({ projectName: "Kho vận", workerName: `Lao động ${i}`, date: "2026-11-18", status: "Present" }));
+  const reply = formatFriendlyAssistantResult(operationById("worker.report")!, rows);
+  expect(reply).toContain("18 kết quả");
+});
+
+it("formats attendance counts as people and hides internal versions", () => {
+  const reply = formatFriendlyAssistantResult(operationById("student.batch.attendance.summary")!, {className:"A",date:"2026-11-18",total:1,present:1,late:0,absent:0,version:2});
+  expect(reply).toContain("Tổng học viên: 1");
+  expect(reply).not.toContain("₫");
+  expect(reply).not.toContain("Phiên bản");
+});
+
+it.each(["hr.workflow.create", "hr.workflow.update"])("renders one workflow record instead of its nested steps: %s", actionId => {
+  const reply = formatFriendlyAssistantResult(operationById(actionId)!, { data: {
+    _id: "507f1f77bcf86cd799439090", name: "Tuyển dụng nhân sự", category: "Nhân sự", description: "Quy trình tuyển dụng",
+    steps: [{ id: "private-step", title: "Đăng bài", assigneeUid: "private-user" }, { title: "trả lương" }],
+  } });
+  const table = parseAssistantResultTable(reply);
+  expect(table?.rows).toHaveLength(1);
+  expect(Object.values(table!.rows[0].values)).toContain("Tuyển dụng nhân sự");
+  expect(reply).not.toContain("private-step");
+  expect(reply).not.toContain("private-user");
+});
+
 describe("student bulk result formatting", () => {
   it("renders invalid rows with the Excel row, learner, value and reason", () => {
     const operation = operationById("student.bulk.preview")!;

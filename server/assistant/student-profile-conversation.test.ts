@@ -19,11 +19,12 @@ vi.mock("./models", () => {
         state.session ??= { messages: [], pending: null, busy: false, messageCount: 0 };
         apply(state.session, update);
       }),
-      findOneAndUpdate: vi.fn(async () => { state.session.busy = true; return structuredClone(state.session); }),
+      findOneAndUpdate: vi.fn(async () => { if (state.session.busy) return null; state.session.busy = true; return structuredClone(state.session); }),
       findOne: vi.fn(() => chain(() => state.session)),
     },
     AssistantTurnModel: {
       create: vi.fn(async input => {
+        if (state.turns.some(turn => turn.requestId === input.requestId)) throw { code: 11000 };
         const turn = { ...input, _id: String(state.turns.length + 1), createdAt: new Date(), updatedAt: new Date(), status: "processing" };
         state.turns.push(turn); return turn;
       }),
@@ -48,6 +49,7 @@ vi.mock("./settings", async () => {
   return { getSettings: vi.fn(async () => ({ ...defaultAssistantSettings, memoryEnabled: false, autoMemoryEnabled: false, responseRules: "" })) };
 });
 vi.mock("./interpreter", () => ({ interpretRequest: state.interpret, isEmployeeDetailsIntent: () => false }));
+vi.mock("./semantic-interpreter", () => ({ interpretRequest: state.interpret }));
 vi.mock("./reply-rules", () => ({ applyAssistantResponseRules: async (reply: unknown) => reply }));
 vi.mock("./documents", () => ({ answerAssistantConversation: vi.fn() }));
 vi.mock("./session-memory", () => ({ SESSION_MEMORY_LIMIT: 2400, summarizeAssistantSession: async () => null }));
@@ -194,8 +196,13 @@ beforeEach(() => {
       return record ? json({ success: true, data: record }) : new Response(JSON.stringify({ success: false, error: "Không tìm thấy học viên" }), { status: 404, headers: { "Content-Type": "application/json" } });
     }
     if (path === "/api/v1/students" && method === "POST") {
-      const record = { _id: studentId, __v: 0, ...body, address: body.address || "" };
+      const record = { _id: studentId, __v: 0, ...body, address: body.address || "", payments: [], steps: [] };
       students.push(record); return json({ success: true, data: record });
+    }
+    if (path === "/api/v1/payments" && method === "POST") {
+      const payment = { _id: paymentId, ...body };
+      payments.push(payment);
+      return json({ success: true, data: payment });
     }
     if (path === "/api/v1/students/bulk-delete-preview" && method === "POST") return json({
       success: true, deletableCount: students.length, blockedCount: 0,
@@ -239,10 +246,32 @@ it("guides manual handling when a recognized workflow is blocked by permissions"
   const result = await turn({ text: "Danh sách học viên" });
 
   expect(result.status).toBe("unsupported");
-  expect(result.reply).toContain("chưa có dữ liệu nào được thay đổi");
+  expect(result.reply).toContain("Chưa thực hiện thay đổi dữ liệu");
   expect(result.reply).toContain("tab QUẢN LÝ HỌC VIÊN");
-  expect(result.reply).toContain("Mở danh sách loại dữ liệu cần tra cứu");
+  expect(result.reply).toContain("Chỉ tiếp tục sau khi được cấp quyền");
+  expect(result.link).toBeUndefined();
   expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("shows the API validation reason without claiming a technical assistant failure or a successful write", async () => {
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    if (new URL(String(url)).pathname === "/api/v1/students" && init?.method === "POST") return new Response(JSON.stringify({
+      status: "error", message: "Dữ liệu yêu cầu không hợp lệ", errors: { body: ['Trường "email" phải là email hợp lệ.'] },
+    }), { status: 400, headers: { "Content-Type": "application/json" } });
+    return original(url, init);
+  });
+  state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: {
+    fullName: "An", phone: "0900000000", email: "an@example.test", registrationDate: "18/11/2026",
+  }, intentType: "workflow" });
+  const preview = await turn({ text: "Tạo học viên An" });
+  expect(preview.status).toBe("confirmation");
+  const rejected = await confirm(preview);
+  expect(rejected.status).toBe("failed");
+  expect(rejected.reply).toContain('Trường "email" phải là email hợp lệ.');
+  expect(rejected.reply).toContain("Dữ liệu chưa được chấp nhận");
+  expect(rejected.reply).not.toContain("trục trặc");
+  expect(students).toHaveLength(0);
 });
 
 it("creates one student, asks about missing optional fields, supplements that record, and renders shared result tables", async () => {
@@ -752,6 +781,222 @@ it("collects a required suspension reason and reopens an older preview missing i
   expect(JSON.parse(String(updateCall?.[1]?.body))).not.toHaveProperty("expectedVersion");
 });
 
+it("confirms tuition once even when reference resolution adds the learner's display name", async () => {
+  students = [{ _id: studentId, fullName: "Nguyễn An", fee: "10000000", paidAmount: 0, __v: 0 }];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.payment.create", values: {
+    studentId: "Nguyễn An", amount: 3000000, method: "Tiền mặt", date: "2026-11-18",
+  }, intentType: "workflow", newRequest: true });
+  const preview = await turn({ text: "Thu học phí Nguyễn An 3 triệu tiền mặt ngày 18/11/2026" });
+  expect(preview.status).toBe("confirmation");
+  const result = await confirm(preview);
+  expect(result.status).toBe("completed");
+  expect(payments).toHaveLength(1);
+  expect(payments[0]).toMatchObject({ studentId, amount: 3000000, date: "2026-11-18" });
+});
+
+async function paymentPreview() {
+  students = [{ _id: studentId, fullName: "Nguyễn An", fee: "10000000", paidAmount: 0, __v: 0 }];
+  state.interpret.mockResolvedValueOnce({ actionId: "student.payment.create", values: {
+    studentId: "Nguyễn An", amount: 3000000, method: "Tiền mặt", date: "2026-11-18",
+  }, intentType: "workflow", newRequest: true });
+  const preview = await turn({text:"Thu học phí Nguyễn An 3 triệu tiền mặt ngày 18/11/2026"});
+  expect(preview.status).toBe("confirmation");
+  return preview;
+}
+
+it("replays a completed request without collecting the tuition twice", async () => {
+  const preview = await paymentPreview();
+  const request = {requestId:randomUUID(),decision:{id:preview.action!.id,confirmed:true}};
+  const first = await turn(request);
+  expect(first.status).toBe("completed");
+  expect(await turn(request)).toEqual(first);
+  const repeatedConfirmation = await turn({decision:request.decision});
+  expect(repeatedConfirmation.status).toBe("failed");
+  expect(payments).toHaveLength(1);
+});
+
+it("allows only one simultaneous confirmation to reach the payment API", async () => {
+  const preview=await paymentPreview();
+  const ordinaryFetch=fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  let release!:()=>void, started!:()=>void;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  const entered=new Promise<void>(resolve=>{started=resolve;});
+  fetcher.mockImplementation(async(url,init)=>{
+    if(new URL(String(url)).pathname==="/api/v1/payments" && init?.method==="POST") {started();await gate;}
+    return ordinaryFetch(url,init);
+  });
+  const decision={id:preview.action!.id,confirmed:true};
+  const first=turn({decision});
+  await entered;
+  try {expect((await turn({decision})).status).toBe("failed");} finally {release();}
+  expect((await first).status).toBe("completed");
+  expect(payments).toHaveLength(1);
+});
+
+it("rejects reuse of a request ID with different content", async () => {
+  const preview=await paymentPreview();
+  const requestId=randomUUID();
+  await turn({requestId,decision:{id:preview.action!.id,confirmed:true}});
+  await expect(turn({requestId,text:"Thu thêm 3 triệu"})).rejects.toThrow("Mã yêu cầu đã được dùng cho nội dung khác");
+  expect(payments).toHaveLength(1);
+});
+
+it("does not report success when HTTP 200 contains a business rejection", async () => {
+  const preview=await paymentPreview();
+  const ordinaryFetch=fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async(url,init)=>new URL(String(url)).pathname==="/api/v1/payments" && init?.method==="POST"
+    ? json({success:false,message:"Số tiền vượt học phí còn nợ."}):ordinaryFetch(url,init));
+  const result=await confirm(preview);
+  expect(result.status).toBe("failed");
+  expect(result.reply).toContain("Số tiền vượt học phí còn nợ");
+  expect(payments).toHaveLength(0);
+});
+
+it("keeps the selected learner when a new record takes the old display name", async () => {
+  students=[{_id:studentId,fullName:"Nguyễn An",email:"old@example.com",__v:1}];
+  state.interpret.mockResolvedValueOnce({actionId:"student.update",values:{path_id:"Nguyễn An",email:"requested@example.com"},intentType:"workflow",newRequest:true});
+  const preview=await turn({text:"Đổi email Nguyễn An thành requested@example.com"});
+  expect(preview.status).toBe("confirmation");
+  // Emulate a name import outside the assistant, without changing the ID.
+  students[0].fullName="Nguyễn An đã đổi tên";
+  students.push({_id:secondStudentId,fullName:"Nguyễn An",email:"other@example.com",__v:1});
+  const result=await confirm(preview);
+  expect(result.status).toBe("completed");
+  expect(students[0].email).toBe("requested@example.com");
+  expect(students[1].email).toBe("other@example.com");
+});
+
+it("does not replay a write whose response was lost after the API saved it", async () => {
+  const preview = await paymentPreview();
+  const ordinaryFetch = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    if (new URL(String(url)).pathname === "/api/v1/payments" && init?.method === "POST") {
+      payments.push({_id:paymentId,...JSON.parse(String(init.body))});
+      throw new TypeError("connection reset after commit");
+    }
+    return ordinaryFetch(url,init);
+  });
+  const request={requestId:randomUUID(),decision:{id:preview.action!.id,confirmed:true}};
+  const result=await turn(request);
+  expect(result.status).toBe("uncertain");
+  expect(result.reply).toContain("Hướng dẫn dự phòng");
+  expect(result.reply).toContain("không thực hiện lại");
+  expect(result.reply).not.toContain("Chọn Thu học phí");
+  expect(result.link).toBe("/quan-ly-hoc-vien?sub=hoc-phi");
+  expect((await turn(request)).status).toBe("uncertain");
+  expect((await turn({decision:request.decision})).status).toBe("failed");
+  expect(payments).toHaveLength(1);
+});
+
+it("does not overwrite a learner changed after the confirmation preview", async () => {
+  students=[{_id:studentId,fullName:"Nguyễn An",email:"old@example.com",__v:1}];
+  state.interpret.mockResolvedValueOnce({actionId:"student.update",values:{path_id:"Nguyễn An",email:"requested@example.com"},intentType:"workflow",newRequest:true});
+  const preview=await turn({text:"Đổi email học viên Nguyễn An thành requested@example.com"});
+  expect(preview.status).toBe("confirmation");
+  Object.assign(students[0],{email:"concurrent@example.com",__v:2});
+  const result=await confirm(preview);
+  expect(result.status).toBe("failed");
+  expect(result.reply).toContain("Phiên bản đã thay đổi");
+  expect(students[0].email).toBe("concurrent@example.com");
+});
+
+it("rechecks permission before writing an already confirmed tuition preview", async () => {
+  const preview=await paymentPreview();
+  state.assertOperation.mockImplementation(async (_req,id) => {if(id==="student.payment.create")throw new AssistantError("Không có quyền ghi học phí",403);return operationById(id);});
+  const result=await confirm(preview);
+  expect(result.status).not.toBe("completed");
+  expect(payments).toHaveLength(0);
+});
+
+it("invalidates the old preview when the user corrects the payment amount", async () => {
+  const old=await paymentPreview();
+  state.interpret.mockResolvedValueOnce({actionId:"student.payment.create",values:{amount:2000000},intentType:"workflow",newRequest:false});
+  const corrected=await turn({text:"Không, chỉ thu 2 triệu thôi"});
+  expect(corrected.status).toBe("confirmation");
+  expect(corrected.action!.id).not.toBe(old.action!.id);
+  expect((await confirm(old)).status).toBe("failed");
+  expect(payments).toHaveLength(0);
+  expect((await confirm(corrected)).status).toBe("completed");
+  expect(payments).toHaveLength(1);
+  expect(payments[0].amount).toBe(2000000);
+});
+
+it("does not execute a cancelled preview when its old confirm button is used", async () => {
+  const preview=await paymentPreview();
+  expect((await turn({decision:{id:preview.action!.id,confirmed:false}})).status).toBe("cancelled");
+  expect((await confirm(preview)).status).toBe("failed");
+  expect(payments).toHaveLength(0);
+});
+
+it("refuses an update after the selected learner is deleted", async () => {
+  students=[{_id:studentId,fullName:"Nguyễn An",email:"old@example.com",__v:1}];
+  state.interpret.mockResolvedValueOnce({actionId:"student.update",values:{path_id:"Nguyễn An",email:"new@example.com"},intentType:"workflow",newRequest:true});
+  const preview=await turn({text:"Đổi email Nguyễn An"});
+  expect(preview.status).toBe("confirmation");
+  students=[];
+  const result=await confirm(preview);
+  expect(result.status).toBe("failed");
+  expect(fetcher.mock.calls.filter(([,init])=>init?.method==="PATCH")).toHaveLength(0);
+});
+
+it.each([0,-1,1.5])("does not send an invalid tuition amount to the API: %s", async amount => {
+  students=[{_id:studentId,fullName:"Nguyễn An",fee:"10000000",paidAmount:0,__v:0}];
+  state.interpret.mockResolvedValueOnce({actionId:"student.payment.create",values:{studentId:"Nguyễn An",amount,date:"2026-11-18",method:"Tiền mặt"},intentType:"workflow",newRequest:true});
+  const reply=await turn({text:`Thu học phí ${amount} đồng cho Nguyễn An`});
+  expect(reply.status).toBe("collecting");
+  expect(fetcher.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(0);
+  expect(payments).toHaveLength(0);
+});
+
+it("does not accept an injected record ID outside the offered learner choices", async () => {
+  students=[{_id:studentId,fullName:"Nguyễn An",__v:1},{_id:secondStudentId,fullName:"Nguyễn Anh",__v:1}];
+  state.interpret.mockResolvedValueOnce({actionId:"student.update",values:{path_id:"Nguyễn",email:"new@example.com"},intentType:"workflow",newRequest:true});
+  const choice=await turn({text:"Đổi email học viên Nguyễn"});
+  expect(choice.status).toBe("collecting");
+  const result=await turn({referenceSelections:{path_id:["64b000000000000000000099"]}});
+  expect(result.status).not.toBe("confirmation");
+  expect(result.status).not.toBe("completed");
+  expect(fetcher.mock.calls.filter(([,init])=>init?.method==="PATCH")).toHaveLength(0);
+});
+
+it.each(["html", "empty", "server-error"])("keeps an ambiguous API response uncertain and never replays the payment: %s", async kind => {
+  const preview=await paymentPreview();
+  const ordinaryFetch=fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async(url,init)=>{
+    if(new URL(String(url)).pathname==="/api/v1/payments" && init?.method==="POST") {
+      payments.push({_id:paymentId,...JSON.parse(String(init.body))});
+      return kind==="html" ? new Response("<html>Proxy error</html>",{status:200})
+        : kind==="empty" ? new Response(null,{status:204})
+        : new Response(JSON.stringify({success:false,message:"Internal error after commit"}),{status:500});
+    }
+    return ordinaryFetch(url,init);
+  });
+  const request={requestId:randomUUID(),decision:{id:preview.action!.id,confirmed:true}};
+  expect((await turn(request)).status).toBe("uncertain");
+  expect((await turn(request)).status).toBe("uncertain");
+  expect(payments).toHaveLength(1);
+});
+
+it("does not retry a rate-limited write automatically", async () => {
+  const preview=await paymentPreview();
+  const ordinaryFetch=fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  let attempts=0;
+  fetcher.mockImplementation(async(url,init)=>{
+    if(new URL(String(url)).pathname==="/api/v1/payments" && init?.method==="POST") {
+      attempts++;
+      return new Response(JSON.stringify({success:false,message:"Quá nhiều yêu cầu, vui lòng chờ."}),{status:429});
+    }
+    return ordinaryFetch(url,init);
+  });
+  const request={requestId:randomUUID(),decision:{id:preview.action!.id,confirmed:true}};
+  const result=await turn(request);
+  expect(result.status).toBe("failed");
+  expect(result.reply).toContain("Quá nhiều yêu cầu");
+  expect((await turn(request)).status).toBe("failed");
+  expect(attempts).toBe(1);
+  expect(payments).toHaveLength(0);
+});
+
 it("shows the matching tuition transaction before updating it", async () => {
   payments = [{ _id: paymentId, __v: 0, studentName: "Nguyễn An", amount: 2500000, method: "Tiền mặt", date: "2026-10-10", note: "Học phí tháng 10" }];
   state.interpret.mockResolvedValueOnce({ actionId: "student.payment.update", values: { method: "Chuyển khoản", date: "2026-11-14", note: "Đã đối soát" }, intentType: "workflow", newRequest: true });
@@ -765,7 +1010,7 @@ it("shows the matching tuition transaction before updating it", async () => {
   const preview = await turn({ referenceSelections: { path_id: [transactionSelection!.options[0].value] } });
   expect(preview.status).toBe("confirmation");
   expect(preview.action?.title).toBe("Sửa thông tin giao dịch học phí");
-  expect(preview.action?.values.some(value => value.label === "Ngày thu (DD/MM/YYYY hoặc YYYY-MM-DD)" && value.value === "2026-11-14")).toBe(true);
+  expect(preview.action?.values.some(value => value.label === "Ngày thu (DD/MM/YYYY hoặc YYYY-MM-DD)" && value.value === "14/11/2026")).toBe(true);
   expect(JSON.stringify(preview)).not.toContain(paymentId);
 });
 

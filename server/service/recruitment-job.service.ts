@@ -2,6 +2,8 @@
 import type { RecruitmentScope } from "../utils/recruitment-scope";
 import { cloudinaryService } from "./cloudinary.service";
 
+import { randomBytes } from "node:crypto";
+
 type JobStatus = "draft" | "open" | "paused" | "closed";
 type JobInput = Record<string, any> & { code?: string; status?: JobStatus };
 
@@ -25,17 +27,19 @@ function assertReadyToOpen(job: JobInput) {
 
 export async function createJob(scope: RecruitmentScope, actorId: string, input: JobInput) {
   if (input.status === "open") assertReadyToOpen(input);
+  const suppliedCode = String(input.code || "").trim().toUpperCase();
+  const generatedCode = `JOB-${Date.now().toString(36).toUpperCase()}-${randomBytes(4).toString("hex").toUpperCase()}`;
   return RecruitmentJobModel.create({
     ...input,
     ...scope,
-    code: String(input.code || "").trim().toUpperCase(),
+    code: suppliedCode || generatedCode,
     createdBy: actorId,
     updatedBy: actorId,
   });
 }
 
 export async function listJobs(scope: RecruitmentScope, filters: Record<string, any> = {}) {
-  const query: Record<string, any> = { ...scope, isDeleted: Boolean(filters.deleted) };
+  const query: Record<string, any> = { ...scope, isDeleted: filters.deleted === true || filters.deleted === "true" };
   if (filters.status) query.status = filters.status;
   if (filters.search) {
     const search = new RegExp(String(filters.search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");

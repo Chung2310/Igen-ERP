@@ -4,6 +4,7 @@ import type { AssistantOperation } from "./catalog";
 import type { AssistantRecord } from "./executor";
 import { HEALTHCARE_OPERATIONS } from "./healthcare-catalog";
 import { AssistantError } from "./policy";
+import { AssistantApiRejection } from "./api-rejection";
 import { appointmentInput, careInput, catalogInput, patientInput, visitInput } from "../modules/healthcare/validation";
 import * as XLSX from "xlsx";
 import { healthcareValue } from "./healthcare-result";
@@ -50,7 +51,7 @@ async function request(req: AuthenticatedRequest, branchId: string, path: string
   }
   if (!response.ok) {
     if (path.endsWith("/patients/bulk-delete") && response.status >= 500) throw new HealthcareUncertainExecutionError("Chưa xác định được kết quả xóa hồ sơ y tế. Kiểm tra lại danh sách bệnh nhân và dữ liệu liên quan trước khi thử lại.");
-    throw new AssistantError(String(result?.message || result?.error?.message || "Không thể thực hiện thao tác y tế.").slice(0, 1000), response.status);
+    throw new AssistantApiRejection(result, response.status);
   }
   return result;
 }

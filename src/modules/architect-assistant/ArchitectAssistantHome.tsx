@@ -1,9 +1,7 @@
 import { motion } from "motion/react";
-import { FolderOpen } from "lucide-react";
-import type { ArchitectureToolId } from "../../shared/architecture-assistant";
+import { Clock3, FolderOpen } from "lucide-react";
+import { AVAILABLE_ARCHITECTURE_TOOLS, type ArchitectureToolId } from "../../shared/architecture-assistant";
 import ArchitectAssistantIcon from "./ArchitectAssistantIcon";
-
-const logo = "https://res.cloudinary.com/dfbk14k5w/image/upload/v1783992125/igen_assets/brand-icon.png";
 
 const tools: Array<{ title: string; description: string; image: string; icon: string; slug: string; tool: ArchitectureToolId }> = [
   {
@@ -72,36 +70,32 @@ export default function ArchitectAssistantHome({
   onOpenProjects: () => void;
 }) {
   return <div className="architect-assistant-source min-h-full overflow-auto bg-surface">
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-outline-variant/40 bg-surface-container-lowest/80 px-4 py-3 shadow-sm backdrop-blur-xl sm:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <img src={logo} alt="iGen" className="h-10 shrink-0 object-contain sm:h-12" referrerPolicy="no-referrer" />
-        <span className="truncate text-sm font-semibold text-on-surface">- Trợ lý AI cho Kiến trúc sư</span>
-      </div>
-      <button type="button" onClick={onOpenProjects} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium text-on-surface shadow-sm hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary">
-        <FolderOpen className="size-4 text-primary" aria-hidden="true" />
-        <span className="hidden sm:inline">Dự án kiến trúc</span>
-        <span className="sm:hidden">Dự án</span>
-      </button>
-    </header>
-
     <main className="mx-auto w-full max-w-[1600px] p-8">
-      <div className="mb-12" />
+      <div className="mb-6 flex justify-end">
+        <button type="button" onClick={onOpenProjects} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary">
+          <FolderOpen className="size-4 text-primary" aria-hidden="true" />Dự án kiến trúc
+        </button>
+      </div>
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
-        {tools.map((tool, index) => <motion.button
+        {tools.map((tool, index) => {
+          const available = AVAILABLE_ARCHITECTURE_TOOLS.has(tool.tool);
+          return <motion.button
           key={tool.slug}
           type="button"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.2), ease: "easeOut" }}
-          whileHover={{ y: -4 }}
-          whileTap={{ scale: 0.99 }}
+          whileHover={available ? { y: -4 } : undefined}
+          whileTap={available ? { scale: 0.99 } : undefined}
           onClick={() => onOpenTool(tool.tool)}
-          className="group overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm transition-shadow hover:shadow-xl focus-visible:outline-2 focus-visible:outline-primary"
-          aria-label={`Mở ${tool.title}`}
+          disabled={!available}
+          className={available ? "group overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm transition-shadow hover:shadow-xl focus-visible:outline-2 focus-visible:outline-primary" : "cursor-not-allowed overflow-hidden rounded-xl border border-tertiary bg-surface-container-lowest text-left shadow-sm"}
+          aria-label={available ? `Mở ${tool.title}` : `${tool.title}, đang phát triển`}
         >
           <div className="relative h-[240px] overflow-hidden">
-            <img className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" src={tool.image} alt="" referrerPolicy="no-referrer" />
+            <img className={available ? "size-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" : "size-full object-cover"} src={tool.image} alt="" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+            {!available && <span aria-hidden="true" className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-tertiary bg-tertiary-container px-3 py-1.5 text-xs font-bold text-on-tertiary-container shadow-sm"><Clock3 className="size-3.5" />Đang phát triển</span>}
             <div className="absolute left-6 top-6 flex size-12 items-center justify-center rounded-2xl border border-white/30 bg-white/20 text-white backdrop-blur-xl">
               <ArchitectAssistantIcon name={tool.icon} className="text-2xl" />
             </div>
@@ -110,11 +104,10 @@ export default function ArchitectAssistantHome({
             <span className="mb-3 inline-block rounded-md bg-primary/10 px-2.5 py-1 font-mono text-[11px] font-medium text-primary">{tool.slug}</span>
             <h2 className="mb-3 text-xl font-semibold text-on-surface"><span className="font-bold text-primary">iGen</span> {tool.title}</h2>
             <p className="mb-6 h-12 overflow-hidden text-pretty text-sm leading-relaxed text-on-surface-variant">{tool.description}</p>
-            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase text-primary transition-[gap] group-hover:gap-3">
-              Sử dụng tính năng <ArchitectAssistantIcon name="arrow_forward" className="text-sm" />
-            </span>
+            {available && <span className="inline-flex items-center gap-2 text-xs font-bold uppercase text-primary transition-[gap] group-hover:gap-3">Sử dụng tính năng <ArchitectAssistantIcon name="arrow_forward" className="text-sm" /></span>}
           </div>
-        </motion.button>)}
+        </motion.button>;
+        })}
       </div>
     </main>
   </div>;

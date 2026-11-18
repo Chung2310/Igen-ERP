@@ -2,6 +2,7 @@ import { operationById, type AssistantOperation } from "./catalog";
 import { redactAssistantResult } from "./structured-data";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
 import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 
 type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "resultChildFields">>;
 type ResultRecord = Record<string, unknown>;
@@ -122,11 +123,12 @@ Object.assign(labels, {
 Object.assign(labels, { entityPreset: "Loại hồ sơ", isRequired: "Bắt buộc", isVisible: "Đang hiển thị", isArchived: "Đã lưu trữ", placeholder: "Gợi ý nhập" });
 Object.assign(labels, { registrationDate: "Ngày đăng ký", fee: "Học phí", isGroup: "Phòng nhóm" });
 Object.assign(labels, { stepsCount: "Số bước" });
+Object.assign(labels, { allocated: "Đã bố trí", gap: "Còn thiếu", absentDays: "Số ngày chưa chấm công", courseTitle: "Khóa học", className: "Lớp học", present: "Có mặt", late: "Đi muộn", absent: "Vắng", excused: "Có phép", unrecorded: "Chưa ghi nhận", interviewers: "Người phỏng vấn", applicantName: "Ứng viên" });
 Object.assign(labels, { contentGroup: "Nhóm nội dung", shootingContent: "Nội dung cần quay/chụp", productionRequirements: "Yêu cầu sản xuất", quantitySuggestion: "Số lượng đề xuất", headline: "Tiêu đề hiển thị", subheadline: "Mô tả ngắn", cta: "Lời kêu gọi hành động", visualBrief: "Mô tả hình ảnh", videoScript: "Kịch bản video", format: "Định dạng", revision: "Phiên bản", warnings: "Lưu ý" });
 Object.assign(labels, { operation: "Loại thao tác", totalItems: "Tổng số mục", completedItems: "Đã xong", failedItems: "Lỗi", skippedItems: "Bỏ qua", conflictedItems: "Xung đột", progress: "Tiến độ" });
 Object.assign(labels, { grossPay: "Tổng thu nhập", deductions: "Khấu trừ" });
 Object.assign(labels, { receivableCode: "Mã khoản phải thu", sourceCode: "Mã chứng từ nguồn", sourceType: "Loại nguồn", dueDate: "Hạn thu", originalAmount: "Số tiền ban đầu", adjustedAmount: "Điều chỉnh", balance: "Số dư còn lại", daysOverdue: "Số ngày quá hạn", daysUntilDue: "Số ngày đến hạn", bucket: "Nhóm tuổi nợ", alert: "Cảnh báo", reminderCount: "Số lần nhắc", paymentMethod: "Phương thức thu", direction: "Chiều công nợ", partyName: "Đối tượng", partyKind: "Loại đối tượng", shiftCode: "Mã ca POS", cashierName: "Nhân viên thu ngân", paymentIndex: "Khoản thu số", paymentAmount: "Số tiền thu" });
-Object.assign(labels, { type: "Loại bút toán", createdAt: "Ngày giao dịch", signedAmount: "Biến động số dư", runningBalance: "Số dư sau giao dịch" });
+Object.assign(labels, { type: "Loại bút toán", createdAt: "Ngày tạo", signedAmount: "Biến động số dư", runningBalance: "Số dư sau giao dịch" });
 Object.assign(labels, { itemsSummary: "Sản phẩm", orderCode: "Mã đơn hàng" });
 Object.assign(labels, {
   invoiceNo: "Số hóa đơn", issuedAt: "Ngày phát hành", invoiceCount: "Tổng số hóa đơn",
@@ -165,6 +167,7 @@ Object.assign(labels, { withdrawn: "Đã thu hồi phiếu lương" });
 Object.assign(labels, { pendingOwnerSetup: "Cần thiết lập chủ chi nhánh" });
 Object.assign(labels, { totalCount: "Tổng lượt gửi", sentCount: "Đã gửi", failedCount: "Gửi lỗi", pendingCount: "Đang chờ", skippedCount: "Đã bỏ qua", importedCount: "Đã nhập thành công", errors: "Dòng lỗi", row: "Dòng" });
 Object.assign(labels, { configured: "Đã cài đặt", birthdayEnabled: "Gửi email sinh nhật", holidayEnabled: "Gửi email ngày lễ", sendTime: "Giờ gửi", holidayOverridesCount: "Số ngày ngoại lệ" });
+Object.assign(labels, { areaM2: "Diện tích m²", floors: "Số tầng", style: "Phong cách", symbol: "Số ký hiệu", issuingAuthority: "Cơ quan ban hành", jurisdiction: "Phạm vi", province: "Tỉnh thành", expiryDate: "Ngày hết hiệu lực", reviewRequired: "Cần rà soát", chunksCount: "Số đoạn nội dung", taskType: "Loại rà soát", chapter: "Chương", article: "Điều", clause: "Khoản", point: "Điểm", versionNumber: "Phiên bản văn bản", asOf: "Ngày áp dụng", sourceUrl: "Nguồn", contractCode: "Mã hợp đồng", reportType: "Loại báo cáo", requestedStartDate: "Ngày phỏng vấn", requestedStartTime: "Giờ phỏng vấn" });
 
 Object.assign(labels, { partnerName: "Đối tác", partnerCode: "Mã đối tác", periodStart: "Từ ngày", periodEnd: "Đến ngày", balanceAmount: "Còn lại", version: "Phiên bản" });
 Object.assign(labels, { isDeleted: "Đã xóa mềm", headcount: "Số lượng tuyển", requirements: "Yêu cầu ứng viên", benefits: "Quyền lợi", employmentType: "Hình thức làm việc", workplaceType: "Nơi làm việc", applicationDeadline: "Hạn nhận hồ sơ", salaryMin: "Lương tối thiểu", salaryMax: "Lương tối đa", showSalary: "Hiển thị mức lương" });
@@ -235,6 +238,16 @@ export function localizedAssistantFieldLabel(key: string, label: string, operati
 }
 
 function labelFor(operation: ResultOperation, key: string): string {
+  if (operation.id === "student.batch.attendance.summary" && key === "total") return "Tổng học viên";
+  if (operation.id.startsWith("architect.") && key === "requirements") return "Yêu cầu thiết kế";
+  if (operation.id.startsWith("legal.")) {
+    const legalLabels: Record<string, string> = { documents: "Số văn bản", chunks: "Số đoạn nội dung", pendingReviews: "Số mục chờ rà soát", latestDownloadAt: "Lần tải gần nhất", syncConfigured: "Đã cấu hình nguồn", citation: "Trích dẫn", answer: "Nội dung trả lời", sources: "Nguồn tham khảo", query: "Nội dung tra cứu" };
+    if (legalLabels[key]) return legalLabels[key];
+  }
+  if (operation.id === "payroll.run.complaints.list") {
+    const complaintLabels: Record<string, string> = { source: "Loại bảng lương", message: "Nội dung khiếu nại", response: "Phản hồi", createdAt: "Ngày gửi" };
+    if (complaintLabels[key]) return complaintLabels[key];
+  }
   if (operation.id.startsWith("worker.notification.")) {
     const notificationLabels: Record<string, string> = {
       recipients: "Phạm vi người nhận", recipientCount: "Số người nhận", channels: "Kênh gửi", createdAt: "Ngày tạo",
@@ -426,6 +439,7 @@ function formatIsoDate(value: string): string {
 }
 
 function formatValueRaw(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
+  if (operation.id === "student.batch.attendance.summary" && ["total", "present", "late", "absent", "excused", "unrecorded"].includes(key) && typeof value === "number") return new Intl.NumberFormat("vi-VN").format(value);
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === "boolean") {
     if (operation.id.startsWith("recruitment.job.") && key === "isDeleted") return value ? "Đã xóa mềm" : "Chưa xóa";
@@ -449,9 +463,9 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
     return moneyKey.test(key) && !countOrMeasure && operation.id !== "leave.balance.me" ? `${formatted} ₫` : formatted;
   }
   if (typeof value === "string") {
-    if (operation.id === "employee.detail" && key === "birthDate") {
-      const date = new Date(value);
-      return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+    if (["birthDate", "birthday"].includes(key)) {
+      const date = formatAssistantTemporalValue(value.trim());
+      if (date) return date.split(", ").at(-1)!;
     }
     if (operation.id === "student.list" && key === "fee" && /^\d+(?:\.\d+)?$/.test(value.trim())) {
       return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} \u20AB`;
@@ -605,8 +619,10 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
       const localizedStatus = commonStatusLabels[value.trim().toLowerCase()];
       if (localizedStatus) return localizedStatus;
     }
-    const localizedDate = formatIsoDate(value.trim());
-    if (localizedDate) return localizedDate;
+    const temporalField = operation.fields.find(field => (field.key === key || field.apiKey === key) && ["date", "datetime"].includes(field.type));
+    const temporalKey = /(?:Date|At|Deadline)$/.test(key) || ["date", "asOf", "deadline", "checkIn", "checkOut", "scheduledStart", "scheduledEnd"].includes(key);
+    const localizedDate = temporalField || temporalKey ? formatAssistantTemporalValue(value.trim()) : undefined;
+    if (localizedDate) return temporalField?.type === "date" ? localizedDate.split(", ").at(-1)! : localizedDate;
     const parsed = parseJsonText(value);
     if (parsed !== value && depth < 2) return formatValue(operation, key, redactAssistantResult(parsed), depth + 1);
     const compact = value.replace(/\s+/g, " ").trim();
@@ -645,6 +661,12 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
 }
 
 function formatValue(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
+  if (operation.id.startsWith("legal.") && typeof value === "string") {
+    if (key === "citation") return value;
+    if (["asOf", "latestDownloadAt", "issueDate", "effectiveDate", "expiryDate", "createdAt"].includes(key)) return formatAssistantTemporalValue(value) ?? value;
+    if (key === "jurisdiction") return ({ central: "Trung ương", ministry: "Bộ, ngành", local: "Địa phương" } as Record<string, string>)[value] ?? value;
+    if (key === "status" && value === "accepted") return "Đã tiếp nhận, đang xử lý";
+  }
   const formatted = formatValueRaw(operation, key, value, depth);
   if (typeof value === "string" && (formatted === value || formatted === value.trim())) {
     const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -995,6 +1017,53 @@ function remainingTuition(record: ResultRecord): number | null {
 /** Format only catalog-approved fields into a short, readable result for the conversation. */
 export function formatAssistantResult(operation: ResultOperation, input: unknown): string {
   const redacted = redactAssistantResult(input);
+  if (operation.id === "recruitment.report") {
+    const wrapper = recordOf(redacted);
+    const report = recordOf(wrapper?.data) || wrapper || {};
+    const reportType = typeof report.reportType === "string" ? report.reportType : "";
+    const summary = typeof report.summary === "string" && report.summary.trim()
+      ? report.summary.trim()
+      : "Báo cáo tuyển dụng";
+    const items = Array.isArray(report.items) ? report.items : [];
+    const fieldsByType: Record<string, Array<[string, string]>> = {
+      overview: [["name", "Chỉ số"], ["count", "Số lượng"]],
+      interviews: [["applicantName", "Ứng viên"], ["jobTitle", "Vị trí"], ["scheduledStart", "Bắt đầu"], ["scheduledEnd", "Kết thúc"], ["interviewers", "Người phỏng vấn"], ["format", "Hình thức"], ["status", "Trạng thái"]],
+      interviewers: [["applicantName", "Ứng viên"], ["jobTitle", "Vị trí"], ["scheduledStart", "Thời gian"], ["interviewers", "Người phỏng vấn"], ["format", "Hình thức"], ["status", "Trạng thái"]],
+      "interview-results": [["applicantName", "Ứng viên"], ["jobTitle", "Vị trí"], ["scheduledStart", "Thời gian"], ["interviewers", "Người phỏng vấn"], ["result", "Kết quả"], ["status", "Trạng thái"]],
+      hires: [["name", "Ứng viên"], ["jobTitle", "Vị trí"], ["outcome", "Kết quả"], ["occurredAt", "Ngày ghi nhận"]],
+      onboarded: [["name", "Ứng viên"], ["jobTitle", "Vị trí"], ["outcome", "Kết quả"], ["occurredAt", "Ngày ghi nhận"]],
+      "job-applications": [["title", "Vị trí"], ["department", "Phòng ban"], ["count", "Số hồ sơ"]],
+      "staffing-gaps": [["name", "Phòng ban"], ["headcount", "Số lượng cần tuyển"], ["filled", "Đã tuyển"], ["gap", "Còn thiếu"], ["count", "Số vị trí"]],
+      "job-deadlines": [["title", "Vị trí"], ["department", "Phòng ban"], ["applicationDeadline", "Hạn nhận hồ sơ"], ["status", "Trạng thái"], ["expired", "Đã hết hạn"]],
+      "applicants-by-department": [["name", "Phòng ban"], ["count", "Số ứng viên"]],
+    };
+    const rows = items.slice(0, 50).flatMap((value: unknown) => {
+      const item = recordOf(value);
+      if (!item) return [];
+      const fields = fieldsByType[reportType] || [];
+      const row = Object.fromEntries(fields
+        .filter(([key]) => Object.hasOwn(item, key) && item[key] !== undefined && item[key] !== null && item[key] !== "")
+        .map(([key, label]) => [label, formatValue(operation, key, item[key])]));
+      return Object.keys(row).length ? [row] : [];
+    });
+    if (!rows.length && reportType === "interview-count" && report.total !== undefined && report.total !== null) {
+      rows.push({ "Số lịch phỏng vấn": new Intl.NumberFormat("vi-VN").format(Number(report.total)) });
+    }
+    if (!rows.length) rows.push({ "Thông tin": summary });
+    return formatAssistantResultTable(summary, rows,
+      items.length > rows.length ? [`Còn ${new Intl.NumberFormat("vi-VN").format(items.length - rows.length)} kết quả chưa hiển thị.`] : []);
+  }
+  if (operation.id === "payroll.run.complaints.list") {
+    const records = collection(redacted) || [];
+    const rows = records.slice(0, 8).flatMap(value => {
+      const record = recordOf(value);
+      if (!record) return [];
+      return [Object.fromEntries(operation.resultFields.filter(key => record[key] !== undefined && record[key] !== null && record[key] !== "")
+        .map(key => [labelFor(operation, key), formatValue(operation, key, record[key])]))];
+    });
+    return formatAssistantResultTable(`Có ${records.length} khiếu nại trong lượt lương đã chọn.`, rows,
+      records.length > rows.length ? [`Còn ${records.length - rows.length} khiếu nại chưa hiển thị.`] : []);
+  }
   const recalculatedSettlement = operation.id === "worker.partner.settlement.recalculate" ? recordOf(recordOf(redacted)?.settlement) : null;
   const safeResult = recalculatedSettlement || redacted;
   const wrappedResult = recordOf(safeResult);
@@ -1159,6 +1228,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       "timekeeping.records.leave": "nhân sự nghỉ phép",
     };
     if (!filtered.length) {
+      if (!records.length) return "Chưa có dữ liệu nhân sự/chấm công trong phạm vi này để xác định tình trạng đi làm.";
       const category = labels[operation.id];
       return category ? `Hôm nay không có ${category} trong phạm vi hiện tại.` : `${operation.title}\nKhông có dữ liệu chấm công trong phạm vi hiện tại.`;
     }
@@ -1194,8 +1264,16 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         : `Không có nhân sự nào dưới ${thresholdLabel} công trong ${period}.`;
     } else if (operation.id === "timekeeping.records.monthly.most-absent") {
       const highest = filtered.reduce((max, record) => Math.max(max, Number(record.daysOff) || 0), 0);
-      filtered = highest > 0 ? filtered.filter(record => Number(record.daysOff) === highest) : [];
-      summary = filtered.length ? `Nhân sự nghỉ nhiều nhất trong ${period}: ${dayValue(highest)} ngày vắng hoặc nghỉ phép.` : `Không có ngày vắng hoặc nghỉ phép được ghi nhận trong ${period}.`;
+      if (highest > 0) {
+        filtered = filtered.filter(record => Number(record.daysOff) === highest);
+        summary = `Nhân sự nghỉ nhiều nhất trong ${period}: ${dayValue(highest)} ngày vắng hoặc nghỉ phép.`;
+      } else {
+        const highestUnrecorded = filtered.reduce((max, record) => Math.max(max, Number(record.unrecordedDays) || 0), 0);
+        filtered = highestUnrecorded > 0 ? filtered.filter(record => Number(record.unrecordedDays) === highestUnrecorded) : [];
+        summary = filtered.length
+          ? `Không có ngày vắng hoặc nghỉ phép được ghi nhận trong ${period}. Nhân sự thiếu bản ghi chấm công nhiều nhất có ${dayValue(highestUnrecorded)} ngày; chưa thể xác nhận đây là ngày nghỉ.`
+          : `Không có ngày vắng hoặc nghỉ phép được ghi nhận trong ${period}.`;
+      }
     } else if (operation.id === "timekeeping.records.monthly.most-late") {
       filtered = filtered.filter(record => Number(record.lateDays) > 0).sort((left, right) => Number(right.lateDays) - Number(left.lateDays));
       summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự đi muộn trong ${period}; danh sách xếp theo số lượt giảm dần.` : `Không ghi nhận lượt đi muộn trong ${period}.`;
@@ -1203,6 +1281,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       const highest = filtered.reduce((max, record) => Math.max(max, Number(record.leaveDays) || 0), 0);
       filtered = highest > 0 ? filtered.filter(record => Number(record.leaveDays) === highest) : [];
       summary = filtered.length ? `Nhân sự nghỉ phép nhiều nhất trong ${period}: ${dayValue(highest)} ngày.` : `Không ghi nhận ngày nghỉ phép trong ${period}.`;
+    } else if (operation.id === "timekeeping.records.monthly.leave-summary") {
+      filtered = filtered.filter(record => Number(record.leaveDays) > 0).sort((left, right) => Number(right.leaveDays) - Number(left.leaveDays));
+      summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự nghỉ phép trong ${period}.` : `Không ghi nhận ngày nghỉ phép trong ${period}.`;
     } else if (operation.id === "timekeeping.records.monthly.unrecorded") {
       filtered = filtered.filter(record => Number(record.unrecordedDays) > 0).sort((left, right) => Number(right.unrecordedDays) - Number(left.unrecordedDays));
       summary = filtered.length ? `Có ${countValue(filtered.length)} nhân sự thiếu bản ghi chấm công trong ${period}.` : `Không có nhân sự nào thiếu bản ghi chấm công trong ${period}.`;
@@ -1217,7 +1298,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       "Tổng ngày nghỉ": dayValue(record.daysOff),
       "Đi muộn": dayValue(record.lateDays),
       "Về sớm": dayValue(record.leftEarlyDays),
-      ...(operation.id === "timekeeping.records.monthly.unrecorded" ? { "Ngày thiếu chấm công": dayValue(record.unrecordedDays) } : {}),
+      ...(operation.id === "timekeeping.records.monthly.unrecorded" || (operation.id === "timekeeping.records.monthly.most-absent" && Number(record.daysOff) === 0) ? { "Ngày thiếu chấm công": dayValue(record.unrecordedDays) } : {}),
     }] : []);
     return rows.length
       ? formatAssistantResultTable(summary, rows, filtered.length > rows.length ? [`Còn ${countValue(filtered.length - rows.length)} nhân sự chưa hiển thị.`] : [])
@@ -1271,24 +1352,28 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const rows = events.slice(0, 50).map(event => ({
       "Sự kiện": String(event.title || "").slice(0, 200),
       "Loại": event.type === "meeting" ? "Cuộc họp" : event.type === "reminder" ? "Nhắc việc" : "Sự kiện",
-      ...(typeof event.startDate === "string" ? { "Bắt đầu": formatValue(operation, "startDate", event.startDate) } : {}),
-      ...(typeof event.endDate === "string" ? { "Kết thúc": formatValue(operation, "endDate", event.endDate) } : {}),
+      "Bắt đầu": typeof event.startDate === "string" && event.startDate.trim() ? formatValue(operation, "startDate", event.startDate) : "Chưa có thông tin",
+      "Kết thúc": typeof event.endDate === "string" && event.endDate.trim() ? formatValue(operation, "endDate", event.endDate) : "Chưa có thông tin",
       ...(typeof event.location === "string" && event.location.trim() ? { "Địa điểm": event.location.trim().slice(0, 160) } : {}),
-      ...(typeof event.status === "string" ? { "Trạng thái": event.status } : {}),
+      "Trạng thái": typeof event.status === "string" && event.status.trim() ? formatValue(operation, "status", event.status) : "Chưa có thông tin",
     }));
     return rows.length ? formatAssistantResultTable(`Có ${countValue(events.length)} sự kiện trong khoảng thời gian được hỏi.`, rows,
       events.length > rows.length ? [`Còn ${countValue(events.length - rows.length)} sự kiện chưa hiển thị.`] : [])
       : "Không có sự kiện nào trong khoảng thời gian được hỏi.";
   }
   if (operation.id === "employee.count") {
-    const record = recordOf(safeResult) || {};
-    const count = Number(record.count);
-    const total = Number.isFinite(count) && count >= 0 ? Math.trunc(count) : 0;
+    const record = (Array.isArray(safeResult) ? recordOf(safeResult[0]) : recordOf(safeResult)) || {};
+    const rawCount = record.count;
+    const count = typeof rawCount === "number" || (typeof rawCount === "string" && rawCount.trim()) ? Number(rawCount) : NaN;
+    if (!Number.isSafeInteger(count) || count < 0) return "Mình chưa đọc được tổng số nhân sự trong phạm vi hiện tại.";
+    const total = count;
     const branch = typeof record.branchName === "string" && record.branchName.trim()
       ? ` tại chi nhánh ${record.branchName.trim()}`
       : typeof record.branchCode === "string" && record.branchCode.trim()
         ? ` tại chi nhánh ${record.branchCode.trim()}`
-        : " trong công ty hiện tại";
+        : record.scope === "company"
+          ? " trong toàn công ty, bao gồm các chi nhánh"
+          : " trong công ty hiện tại";
     return `Có ${countValue(total)} nhân sự${branch}.`;
   }
   if (operation.id === "department.unmanaged.list") {
@@ -1968,7 +2053,17 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   }
   const dataRecord = recordOf(recordOf(safeResult)?.data);
   const normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
-  const rows = collection(normalizedResult);
+  const isWorkWorkflowRecord = ["hr.workflow.create", "hr.workflow.update"].includes(operation.id)
+    && typeof recordOf(normalizedResult)?.name === "string";
+  // A saved record can contain empty child collections (student payments, steps...).
+  // Those collections are not the result set of the write operation.
+  const isWrittenRecord = operation.method !== "GET" && recordOf(normalizedResult)
+    && operation.resultFields.some(key => {
+      if (!["name", "fullName", "displayName", "title", "code", "sku"].includes(key)) return false;
+      const value = recordOf(normalizedResult)![key];
+      return value != null && typeof value !== "object";
+    });
+  const rows = isWorkWorkflowRecord || isWrittenRecord ? null : collection(normalizedResult);
   const isStudentManagementLookup = operation.method === "GET"
     && /^(?:student\.|course\.|batch\.)/.test(operation.id);
   if (isStudentManagementLookup) {
@@ -2017,7 +2112,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   if (Object.keys(tableFields).length) {
     const success = operation.method === "GET"
       ? "Mình tìm thấy 1 kết quả phù hợp cho bạn."
-      : `Xong rồi bạn nhé, mình đã thực hiện thao tác “${operation.title}”.`;
+      : "Đã hoàn tất yêu cầu.";
     return formatAssistantResultTable(success, [tableFields]);
   }
   return summary
