@@ -937,9 +937,8 @@ export default function CRMTab() {
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || (!isFbConnected && !isZaloConnected && !isTiktokConnected)) return;
 
-    const requestVersion = inboxFetchVersionRef.current;
     const refreshQueue = createInboxRefreshQueue<InboxChannel>(async channels => {
-      if (!document.hidden) await fetchOmniConversations(false, { channels }, requestVersion);
+      if (!document.hidden) await fetchOmniConversations(false, { channels }, inboxFetchVersionRef.current);
     });
     const selectedScopes: MessengerScope[] = [];
     if (selectedFacebookPageId) selectedScopes.push({ channel: "facebook", accountId: selectedFacebookPageId });
@@ -1034,6 +1033,10 @@ export default function CRMTab() {
     const unsubscribeListChange = socketService.on("conversation_list_changed", (scope: Partial<MessengerScope>) => {
       if (scope.channel && isSelectedScope(scope.channel, scope.accountId)) refreshQueue.request(scope.channel);
     });
+    const unsubscribeReset = socketService.on("company_chat_reset", () => {
+      resetInboxForAccountChange();
+      void fetchOmniConversations(true, { reset: true }, inboxFetchVersionRef.current);
+    });
     const readyChannels = new Set(selectedScopes.filter(scope => socketService.isMessengerScopeReady(scope.channel, scope.accountId)).map(scope => scope.channel));
     const unsubscribeScopes = socketService.onMessengerScopesChange(() => {
       for (const scope of selectedScopes) {
@@ -1054,6 +1057,7 @@ export default function CRMTab() {
       unsubscribeNewMsg();
       unsubscribeConvUpdate();
       unsubscribeListChange();
+      unsubscribeReset();
       unsubscribeScopes();
       document.removeEventListener("visibilitychange", refreshVisible);
     };

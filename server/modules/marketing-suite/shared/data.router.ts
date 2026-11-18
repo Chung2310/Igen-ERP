@@ -22,6 +22,7 @@ import { queueLeadSheet } from "../message/service/lead-sheet.service";
 import { PageChatFlowStateModel } from "../message/model/page-chat-flow.model";
 import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/service/lead-intake.service";
 import { leadContractRouter } from "../message/router/lead-contract.router";
+import { resetCompanyChat } from "../message/service/company-chat-reset.service";
 import { broadcastEvent } from "./socket";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
@@ -597,6 +598,17 @@ const SecretReadAudit = mongoose.model("MarketingSecretReadAudit", new Schema({
   companyCode: { type: String, required: true }, userId: { type: String, required: true },
   integrationId: { type: String, required: true }, field: { type: String, required: true },
 }, { timestamps: true }), "marketing_secret_read_audits");
+suiteDataRouter.post("/social-integrations/reset-chat", requirePermission("social-integration:manage"), requirePermission("omni-inbox:manage"), run(async (req, res) => {
+  const companyCode = req.user?.companyCode;
+  if (!companyCode) return res.status(403).json({ status: "error", message: "Không xác định được doanh nghiệp." });
+  if (req.body?.confirmCompanyCode !== companyCode) {
+    return res.status(400).json({ status: "error", message: "Doanh nghiệp đang chọn đã thay đổi. Hãy mở lại hộp thoại xác nhận." });
+  }
+  const data = await resetCompanyChat(companyCode);
+  broadcastEvent("company_chat_reset", { companyCode });
+  return res.json({ status: "success", data });
+}));
+
 suiteDataRouter.post("/social-integrations/:id/reveal-secret", requirePermission("social-integration:manage"), run(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
   const item = await SocialIntegrationModel.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();
