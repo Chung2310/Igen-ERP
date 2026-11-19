@@ -16,6 +16,7 @@ import { geminiService } from "../../shared/service/gemini.service";
 import { resolveAutoReplyOwner } from "./ai-auto-reply.service";
 import { prepareChatPreview } from "./chat-preview.service";
 import { prepareChatReplyContext, buildChatConversationInstructions, commitChatVisualContext } from "./chat-reply-context.service";
+import { buildChatBusinessContext } from "./chat-business-context";
 import { prepareChatImages, visualToImageObservation } from "./chat-visual-context";
 import { readLeadIntakeProfiles } from "./read-lead-intake-profiles";
 import { normalizeIntakeFields } from "./normalize-intake-fields";
@@ -344,6 +345,7 @@ export async function previewChatTestReply(companyCode: string, userId: string, 
     const intake = profile && (!telecomDocumentMode || subscriberIdentity) ? await pageIntakeFlow.process({
       companyCode, pageId: session.sourceAccountId || `chat-test:${id}`, platform: session.channel, conversationId: id,
       messageId, message, history, imageUrls: [], intakeProfile: profile, simulationMode: true,
+      businessContext: buildChatBusinessContext(savedConfig, prepared.ragContext),
       ...(subscriberIdentity ? { subscriberIdentity } : {}),
     }) : undefined;
     const result = await geminiService.chat(message, history, aiConfig, { ...prepared.ragContext, leadIntake: intake?.leadIntake });
@@ -500,6 +502,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
       messageId: job.messageId, messageAt: message.createdAt,
       message: documents.length > 1 && hasImages ? "[Ảnh]" : customerText,
       history: historyForSubscriber(code), imageUrls: [], observation, visualMode: aiConfig.imageReplyEnabled,
+      businessContext: buildChatBusinessContext(savedConfig, prepared.ragContext),
       replyDeadlineAt: Math.min(context.replyDeadlineAt ?? Infinity, Date.now() + 12_000),
     });
     let intake: ChatOrderFlowReply | undefined;
