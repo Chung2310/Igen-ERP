@@ -5,6 +5,7 @@ import {
   buildVisibleSortOptions,
   defaultBotQuestion,
   formatLeadCellDisplay,
+  formatLeadCreatedAt,
   leadHasIntakeField,
   parseMultiSelectValue,
   toIntakeFieldKey,
@@ -13,6 +14,12 @@ import {
 import type { ExtendedLeadCard } from "../../services/crmService";
 
 describe("leadSheetUtils", () => {
+  it("formats Lead creation timestamps in Vietnam time, including midnight and missing/invalid dates", () => {
+    expect(formatLeadCreatedAt("2026-11-18T17:00:00Z")).toBe("19/11/2026 00:00");
+    expect(formatLeadCreatedAt(new Date("2026-11-18T16:59:00Z"))).toBe("18/11/2026 23:59");
+    expect(formatLeadCreatedAt(undefined)).toBe("");
+    expect(formatLeadCreatedAt("invalid")).toBe("");
+  });
   it("converts Vietnamese column labels into safe database field keys without collisions", () => {
     const used = new Set(["so_dien_thoai"]);
     expect(toIntakeFieldKey("Họ và tên")).toBe("ho_va_ten");

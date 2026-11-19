@@ -81,6 +81,35 @@ function webhook(timestamp = Date.now()) {
   return { req, res, submit };
 }
 
+it("verifies the Facebook callback with a company Verify Token stored encrypted", async () => {
+  vi.stubEnv("SUPERADMIN_ENCRYPTION_KEY", "a".repeat(64));
+  vi.stubEnv("FB_VERIFY_TOKEN", "different-environment-verify-token");
+  vi.mocked(UserModel.findOne).mockResolvedValue(null);
+  const verifyToken = "test-company-verify-token";
+  const integration = await SocialIntegrationModel.create({
+    companyCode: "ACME", platform: "Facebook", username: "facebook-verify-page", displayName: "Page thử",
+    createdBy: "test", isConnected: true, verifyToken,
+  });
+  try {
+    const stored = await SocialIntegrationModel.collection.findOne({ _id: integration._id });
+    expect(stored?.verifyToken).toMatch(/^v1\./);
+    const verify = async (token: string) => {
+      const req = { query: { "hub.mode": "subscribe", "hub.verify_token": token, "hub.challenge": "123456" } } as unknown as Request;
+      const res = { status: vi.fn().mockReturnThis(), send: vi.fn() };
+      await fbMessengerController.verifyWebhook(req, res as unknown as Response);
+      return res;
+    };
+
+    const wrong = await verify("incorrect-verify-token");
+    expect(wrong.status).toHaveBeenCalledWith(403);
+    const correct = await verify(verifyToken);
+    expect(correct.status).toHaveBeenCalledWith(200);
+    expect(correct.send).toHaveBeenCalledWith("123456");
+  } finally {
+    await SocialIntegrationModel.deleteOne({ _id: integration._id });
+  }
+});
+
 it("accepts Facebook webhooks signed with an encrypted company Page secret", async () => {
   vi.stubEnv("SUPERADMIN_ENCRYPTION_KEY", "a".repeat(64));
   vi.stubEnv("FB_APP_SECRET", "different-environment-secret");
@@ -262,7 +291,8 @@ it("deduplicates a Lead retry and processes only intake in the worker", async ()
   await ZaloMessageModel.create({ conversationId, senderId: "customer", recipientId: "oa", direction: "inbound",
     messageId: "m1", timestamp: new Date(), text: "Xin tư vấn" });
   const turn = { companyCode: "TEST", platform: "zalo" as const, pageId: "oa", conversationId,
-    messageId: "m1", messageAt: new Date(), message: "Xin tư vấn", imageUrls: ["not-required"] };
+    messageId: "m1", messageAt: new Date(), message: "Xin tư vấn", imageUrls: ["not-required"],
+    businessContext: "Quy tắc thu thập đã lưu của OA" };
   await enqueueLeadIntakeRetry(turn);
   await enqueueLeadIntakeRetry(turn);
   stopWorkers = startMessengerBackgroundWorkers();

@@ -149,6 +149,15 @@ function safeExcelCell(value: unknown) {
   return /^[=+@-]/.test(text) ? `'${text}` : text;
 }
 
+export function formatLeadCreatedAt(value: ExtendedLeadCard["createdAt"]): string {
+  if (value == null || value === "") return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  const part = (key: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === key)?.value || "";
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+}
+
 export async function downloadLeadsExcel(leads: ExtendedLeadCard[], fields: LeadSheetColumn[]) {
   const XLSX = await import("xlsx");
   const intakeColumns = fields.filter(col => col.kind === "intake");
@@ -163,6 +172,7 @@ export async function downloadLeadsExcel(leads: ExtendedLeadCard[], fields: Lead
     "Giá trị dự kiến",
     "Tình trạng thu thập",
     "Module đã đồng bộ",
+    ...(fields.some(field => field.key === "createdAt") ? ["Ngày tạo Lead"] : []),
     ...intakeColumns.map(field => field.label),
   ];
   const rows = leads.map(lead => [
@@ -176,6 +186,7 @@ export async function downloadLeadsExcel(leads: ExtendedLeadCard[], fields: Lead
     Number(lead.value) || 0,
     lead.collectionStatus ? COLLECTION_STATUS_META[lead.collectionStatus].label : "Chưa cấu hình",
     lead.customerTransfer?.completedAt ? leadCustomerDestinationLabels[lead.customerTransfer.destination] : lead.moduleSync?.targetModule || "",
+    ...(fields.some(field => field.key === "createdAt") ? [formatLeadCreatedAt(lead.createdAt)] : []),
     ...intakeColumns.map(field => leadHasIntakeField(lead, field) ? lead.answers?.[field.answerKey || field.key] || "" : ""),
   ]);
   const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows].map(row => row.map(safeExcelCell)));
@@ -288,7 +299,8 @@ export function getSystemSortKey(key: string): string | undefined {
     case "collectionStatus":
       return "collectionStatus";
     case "updatedAt":
-      return "updatedAt";
+    case "createdAt":
+      return key;
     default:
       return undefined;
   }
@@ -314,6 +326,7 @@ export function getColumnFilterSpec(
     case "status":
     case "collectionStatus":
     case "updatedAt":
+    case "createdAt":
       return { filterKey: col.key, mode: "exact" };
     case "sourceChannel":
       return { filterKey: "sourcePlatform", mode: "exact" };

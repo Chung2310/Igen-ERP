@@ -7,6 +7,7 @@ import { startQueueRecovery } from "../../shared/queue-recovery";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
 import type { ChatOrderFlowInput } from "./chat-ordering/core/types";
 import type { LeadContractMessageJob } from "./lead-contract-ocr";
+import { LEAD_INTAKE_BUSINESS_CONTEXT_LIMIT } from "./chat-business-context";
 
 const ZALO_MESSAGE_EVENTS = new Set(["user_send_text", "user_send_image", "user_send_link", "user_send_sticker"]);
 const LEASE_MS = 120_000;
@@ -52,10 +53,12 @@ export async function enqueueZaloWebhook(body: ZaloWebhookPayload, rawBody?: str
 
 export function enqueueLeadIntakeRetry(input: ChatOrderFlowInput) {
   const { companyCode, platform = "facebook", pageId, conversationId, messageId, messageAt, message, history } = input;
+  const businessContext = input.businessContext?.trim().slice(0, LEAD_INTAKE_BUSINESS_CONTEXT_LIMIT);
   return enqueue("lead-intake", [companyCode, platform, pageId, conversationId, messageId], {
     companyCode, platform, pageId, conversationId, messageId, message,
     ...(messageAt ? { messageAt } : {}),
     ...(history?.length ? { history } : {}),
+    ...(businessContext ? { businessContext } : {}),
   });
 }
 

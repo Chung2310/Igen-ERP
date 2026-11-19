@@ -77,8 +77,10 @@ it("answers the service question when the customer skips an optional field", asy
   const prompt = vi.mocked(generateText).mock.calls[0][2]?.systemInstruction;
   expect(prompt).toContain('"missingOptionalFields":[{"label":"Họ và tên"');
   expect(prompt).toContain("Thứ tự cấu hình chỉ dùng khi các trường phù hợp như nhau");
+  expect(prompt).toContain("Khi điều kiện chưa thỏa, tiếp tục hỗ trợ việc khách đang làm");
   const review = JSON.parse(String(vi.mocked(generateText).mock.calls[1][1]));
   expect(JSON.stringify(review.rules)).toContain("đã bỏ qua hoặc từ chối cung cấp trường đó");
+  expect(JSON.stringify(review.rules)).toContain("thời điểm hoặc tình huống được hỏi một trường trong danh sách");
 });
 
 it("uses the previous offer and Lead details when the customer's answer is just 'ok'", async () => {

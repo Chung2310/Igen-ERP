@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model.ts";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { UserModel } from "../../../../model/user.model.ts";
@@ -87,9 +87,8 @@ export const fbMessengerService = {
    */
   async verifyWebhook(mode: string | undefined, token: string | undefined, challenge: string | undefined) {
     const verifyToken = process.env.FB_VERIFY_TOKEN || "igen_erp_fb_verify_2026";
-    console.log(`[FB Service verifyWebhook] So sánh Verify Token nhận được: "${token}" với Token cấu hình hệ thống.`);
 
-    if (mode === "subscribe") {
+    if (mode === "subscribe" && typeof token === "string" && token && typeof challenge === "string" && challenge) {
       if (token === verifyToken) {
         console.log("[FB Service verifyWebhook] Trùng khớp với Default Verify Token trong biến môi trường!");
         return challenge;
@@ -106,20 +105,21 @@ export const fbMessengerService = {
         return challenge;
       }
 
-      // Check if any company-level integration has configured this verifyToken
-      const integration = await SocialIntegrationModel.findOne({
+      // Randomized encryption means the token must be read through the model getter before comparing.
+      const integrations = await SocialIntegrationModel.find({
         platform: "Facebook",
         isConnected: true,
-        verifyToken: token
+        verifyToken: { $type: "string", $ne: "" },
+      }).select("verifyToken");
+      const received = Buffer.from(token);
+      const matches = integrations.some(integration => {
+        const expected = Buffer.from(integration.verifyToken || "");
+        return received.length === expected.length && timingSafeEqual(received, expected);
       });
 
-      if (integration) {
-        console.log(`[FB Service verifyWebhook] Trùng khớp với Verify Token được cấu hình trong Company Integration: ${integration.displayName}`);
-        return challenge;
-      }
+      if (matches) return challenge;
     }
 
-    console.error(`[FB Service verifyWebhook] Không tìm thấy Verify Token khớp với "${token}". Xác thực thất bại.`);
     throw new Error("Mã xác minh không chính xác");
   },
 

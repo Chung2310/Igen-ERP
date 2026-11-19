@@ -16,6 +16,7 @@ import { geminiService } from "../../shared/service/gemini.service";
 import { resolveAutoReplyOwner } from "./ai-auto-reply.service";
 import { prepareChatPreview } from "./chat-preview.service";
 import { prepareChatReplyContext, buildChatConversationInstructions, commitChatVisualContext } from "./chat-reply-context.service";
+import { buildChatBusinessContext } from "./chat-business-context";
 import { prepareChatImages, visualToImageObservation } from "./chat-visual-context";
 import { readLeadIntakeProfiles } from "./read-lead-intake-profiles";
 import { normalizeIntakeFields } from "./normalize-intake-fields";
@@ -23,8 +24,10 @@ import { pageIntakeFlow } from "./chat-ordering/flows/page-intake";
 import { findContractField, findSubscriberField } from "./telecom-invoice-profile";
 import { normalizeInvoiceValue } from "./telecom-invoice-values";
 import type { ChatOrderFlowReply } from "./chat-ordering/core/types";
-import { assertChatTestImages, groupChatTestReadings, type ChatTestImage, type ChatTestReading } from "./chat-test-images";
-import { processLeadContractImages, readLeadDocument } from "./lead-contract-ocr";
+import { assertChatTestImages, groupChatTestReadings, type ChatTestImage, type ChatTestReading, type ChatTestDocument } from "./chat-test-images";
+import { customerColumn } from "./telecom-customer-data";
+import { contractDocumentKey } from "./telecom-document-identity";
+import { LEAD_DOCUMENT_OCR_VERSION, processLeadContractImages, readLeadDocument } from "./lead-contract-ocr";
 import { AiAutoReplyConfigSchema, UserModel } from "../../../../model/user.model";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model";
 import type { TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
@@ -36,7 +39,7 @@ export function chatTestError(message: string, status = 400) {
 }
 
 function readProvidedSubscriberCode(message: string) {
-  const match = message.trim().match(/^(?:(mã thuê bao|thuê bao|account|tài khoản thuê bao)\s*[:=]?\s*)?([a-z0-9][a-z0-9._/-]{2,63})$/iu);
+  const match = message.trim().match(/^(?:(mã thuê bao|thuê bao|account|tài khoản thuê bao|số hợp đồng|mã hợp đồng|số hđ)\s*[:=]?\s*)?([a-z0-9][a-z0-9._/-]{2,63})$/iu);
   return match && (match[1] || /\d/.test(match[2])) ? normalizeInvoiceValue("subscriberCode", match[2]) : undefined;
 }
 
@@ -109,9 +112,16 @@ export async function readChatTestSession(companyCode: string, userId: string, i
 function chatTestLeadSetup(domain: string | undefined, fields: LeadIntakeField[]) {
   if (domain !== "telecom") return { ready: true };
   if (!fields.length) return { ready: false, message: "Chưa có bộ trường Lead đang áp dụng. Mở Thiết lập Lead, chọn các cột cần lưu rồi Lưu và áp dụng." };
+  const legacyKeys = new Set(["account", "ho_va_ten", "so_dien_thoai", "dia_chi_lap_dat", "ma_yeu_cau", "tong_tien", "nhan_vien_ky_thuat", "so_dien_thoai_ky_thuat", "ma_ket_cuoi", "ma_tram", "trang_thai_cong_viec"]);
+  if (fields.length === legacyKeys.size && fields.every(field => legacyKeys.has(field.key))) return {
+    ready: false,
+    message: "Đang dùng mẫu Nhà mạng cũ, chưa có cột Nhà mạng và Số hợp đồng. Mở Thiết lập Lead, chọn mẫu Nhà mạng → Thay bộ cột bằng mẫu → Lưu & áp dụng. Dữ liệu Lead đã lưu vẫn được giữ.",
+  };
   const subscriber = findSubscriberField(fields);
-  if (!subscriber || (subscriber.type && subscriber.type !== "text")) return { ready: false,
-    message: "Bộ trường Lead cần một cột Mã thuê bao hoặc Account kiểu văn bản để nhận diện và lưu từng hồ sơ nhà mạng." };
+  const contract = findContractField(fields);
+  const provider = fields.find(field => customerColumn(field.key) === "provider" || customerColumn(field.label) === "provider");
+  if ((!subscriber || (subscriber.type && subscriber.type !== "text")) && (!contract || !provider)) return { ready: false,
+    message: "Bộ trường Lead cần cột Mã thuê bao/Account hoặc Số hợp đồng kiểu văn bản kèm cột Nhà mạng để nhận diện và lưu từng hồ sơ nhà mạng." };
   return { ready: true };
 }
 
@@ -146,6 +156,7 @@ export async function readChatTestState(companyCode: string, userId: string, id:
     { sourceConversationId: String(session._id), sourceAccountId: pageId },
     { telecomConversationId: String(session._id), telecomPageId: pageId, telecomPlatform: session.channel },
     { telecomSubscriberCode: { $in: messages.flatMap(item => item.leadSubscriberCodes || (item.leadSubscriberCode ? [item.leadSubscriberCode] : [])) } },
+    { telecomDocumentKey: { $in: messages.flatMap(item => item.leadContractCodes || (item.leadContractCode ? [item.leadContractCode] : [])).map(code => contractDocumentKey("FPT", code)) } },
     { _id: { $in: photos.flatMap(photo => photo.leadId ? [photo.leadId] : []) } },
   ] }).sort({ lastInteractionAt: -1 }).limit(100).lean();
   return {
@@ -344,6 +355,7 @@ export async function previewChatTestReply(companyCode: string, userId: string, 
     const intake = profile && (!telecomDocumentMode || subscriberIdentity) ? await pageIntakeFlow.process({
       companyCode, pageId: session.sourceAccountId || `chat-test:${id}`, platform: session.channel, conversationId: id,
       messageId, message, history, imageUrls: [], intakeProfile: profile, simulationMode: true,
+      businessContext: buildChatBusinessContext(savedConfig, prepared.ragContext),
       ...(subscriberIdentity ? { subscriberIdentity } : {}),
     }) : undefined;
     const result = await geminiService.chat(message, history, aiConfig, { ...prepared.ragContext, leadIntake: intake?.leadIntake });
@@ -392,10 +404,13 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
     }
     let verifiedImageValues: Record<string, string> = {};
     let readings: ChatTestReading[] = [];
-    const profileHash = createHash("sha256").update(JSON.stringify({ fields: leadFields, domain: session.documentDomain || "general" })).digest("hex");
+    const profileHash = createHash("sha256").update(JSON.stringify({ fields: leadFields, domain: session.documentDomain || "general", ocrVersion: LEAD_DOCUMENT_OCR_VERSION })).digest("hex");
     const candidateSubscriberField = findSubscriberField(leadFields);
     const subscriberField = candidateSubscriberField && (!candidateSubscriberField.type || candidateSubscriberField.type === "text")
       ? candidateSubscriberField : undefined;
+    const contractField = findContractField(leadFields);
+    const providerField = leadFields.find(field => customerColumn(field.key) === "provider" || customerColumn(field.label) === "provider");
+    const contractGrouping = contractField ? { fieldKey: contractField.key, providerFieldKey: providerField?.key } : undefined;
     const contractOcr = hasImages && ocrConfig.enabled && ocrConfig.contractFieldKey && ocrConfig.contractProvider;
     if (contractOcr) {
       await ChatTestMessageModel.updateOne({ _id: message._id }, { $set: { phase: "ocr" } });
@@ -423,46 +438,56 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
         });
       }
     }
-    const documentMode = Boolean(session.documentDomain === "telecom" && subscriberField && !contractOcr && (hasImages || lastMessage?.leadDocumentMode));
-    let documents = groupChatTestReadings(readings, documentMode ? subscriberField!.key : undefined);
+    const documentMode = Boolean(session.documentDomain === "telecom" && (subscriberField || contractField) && !contractOcr && (hasImages || lastMessage?.leadDocumentMode));
+    let documents = groupChatTestReadings(readings, documentMode ? subscriberField?.key : undefined, documentMode ? contractGrouping : undefined);
     if (documentMode && !hasImages) {
-      const providedCode = readProvidedSubscriberCode(message.text);
-      const code = lastMessage?.leadSubscriberCode || providedCode;
+      const explicitContract = /^(?:số hợp đồng|mã hợp đồng|số hđ)\s*[:=]?\s*/iu.test(message.text.trim());
+      const explicitSubscriber = /^(?:mã thuê bao|thuê bao|account|tài khoản thuê bao)\s*[:=]?\s*/iu.test(message.text.trim());
+      const mixedPrevious = Boolean(lastMessage?.leadContractCodes?.length && lastMessage?.leadSubscriberCodes?.length);
+      const providedCode = mixedPrevious && !explicitContract && !explicitSubscriber ? undefined : readProvidedSubscriberCode(message.text);
+      const code = (explicitContract || explicitSubscriber) && providedCode ? providedCode : lastMessage?.leadContractCode || lastMessage?.leadSubscriberCode || providedCode;
+      const isContract = explicitContract || (!explicitSubscriber && (Boolean(lastMessage?.leadContractCode) || (!lastMessage?.leadSubscriberCode && lastMessage?.leadImageValues?.[providerField?.key || ""] === "FPT")));
       const pendingReadings = !lastMessage?.leadSubscriberCode && lastMessage?.leadImageProfileHash === profileHash
         ? (lastMessage.leadImageReadings || [{ values: lastMessage.leadImageValues || {} }]) as ChatTestReading[] : [];
       readings = pendingReadings;
-      const pending = groupChatTestReadings(pendingReadings, subscriberField!.key).filter(item => !item.subscriberCode);
+      const pending = groupChatTestReadings(pendingReadings, subscriberField?.key, contractGrouping).filter(item => !item.subscriberCode && !item.contractCode);
       // An explicit code can identify one waiting image, never several unrelated images.
       documents = [{ values: pending.length === 1 ? pending[0].values : {}, imageNumbers: pending.length === 1 ? pending[0].imageNumbers : [],
-        subscriberCode: pending.length > 1 ? undefined : code, conflicts: [] }];
+        ...(isContract ? { contractCode: pending.length > 1 ? undefined : code } : { subscriberCode: pending.length > 1 ? undefined : code }), conflicts: [] }];
+      if (documents[0].contractCode && contractField) documents[0].values[contractField.key] = documents[0].contractCode;
     }
     if (documents.length === 1) verifiedImageValues = { ...documents[0].values };
     const subscriberCodes = documents.flatMap(item => item.subscriberCode ? [item.subscriberCode] : []);
     const subscriberCode = documents.length === 1 ? documents[0].subscriberCode : undefined;
+    const contractCodes = documents.flatMap(item => item.contractCode ? [item.contractCode] : []);
+    const contractCode = documents.length === 1 ? documents[0].contractCode : undefined;
     if (subscriberCode) verifiedImageValues[subscriberField!.key] = subscriberCode;
-    const waitingDocuments = documentMode ? documents.filter(item => !item.subscriberCode) : [];
+    if (contractCode) verifiedImageValues[contractField!.key] = contractCode;
+    const waitingDocuments = documentMode ? documents.filter(item => !item.subscriberCode && !item.contractCode) : [];
     const conflictFields = [...new Set(documents.flatMap(item => item.conflicts))];
+    const pendingLabel = waitingDocuments.length && waitingDocuments.every(item => item.values[providerField?.key || ""] === "FPT")
+      ? contractField?.label : subscriberField?.label || contractField?.label;
     const imageIssue = waitingDocuments.length
-      ? `Chưa xác định được ${subscriberField!.label} duy nhất cho ảnh ${waitingDocuments.flatMap(item => item.imageNumbers).join(", ") || "đang chờ"}. Chưa ghi ảnh vào Lead.`
+      ? `Chưa xác định được ${pendingLabel || "mã hồ sơ"} duy nhất cho ảnh ${waitingDocuments.flatMap(item => item.imageNumbers).join(", ") || "đang chờ"}. Chưa ghi ảnh vào Lead.`
       : conflictFields.length ? "Các ảnh có thông tin không thống nhất; những trường này chưa được cập nhật."
-        : hasImages && leadFields.length && !contractOcr && !Object.keys(verifiedImageValues).length && !subscriberCodes.length
+        : hasImages && leadFields.length && !contractOcr && !Object.keys(verifiedImageValues).length && !subscriberCodes.length && !contractCodes.length
           ? "Chưa đọc được thông tin khớp bộ trường Lead từ ảnh." : undefined;
     if (!contractOcr && ((hasImages && leadFields.length) || documentMode)) {
       await ChatTestMessageModel.updateOne({ _id: message._id }, {
         $set: { leadImageValues: verifiedImageValues, leadImageProfileHash: profileHash,
           ...(!hasImages && documentMode && readings.length ? { leadImageReadings: readings } : {}),
-          ...(documentMode ? { leadDocumentMode: true, leadSubscriberCodes: subscriberCodes } : {}),
-          ...(subscriberCode ? { leadSubscriberCode: subscriberCode } : {}), ...(imageIssue ? { leadImageIssue: imageIssue } : {}),
+          ...(documentMode ? { leadDocumentMode: true, leadSubscriberCodes: subscriberCodes, leadContractCodes: contractCodes } : {}),
+          ...(subscriberCode ? { leadSubscriberCode: subscriberCode } : {}), ...(contractCode ? { leadContractCode: contractCode } : {}), ...(imageIssue ? { leadImageIssue: imageIssue } : {}),
         },
-        $unset: { ...(!subscriberCode ? { leadSubscriberCode: 1 } : {}), ...(!imageIssue ? { leadImageIssue: 1 } : {}) },
+        $unset: { ...(!subscriberCode ? { leadSubscriberCode: 1 } : {}), ...(!contractCode ? { leadContractCode: 1 } : {}), ...(!imageIssue ? { leadImageIssue: 1 } : {}) },
       });
     }
     previous.reverse();
-    const historyForSubscriber = (code?: string) => previous.filter(item => !documentMode || (code && item.leadSubscriberCode === code)).flatMap(item => [
+    const historyForSubscriber = (code?: string, contract = false) => previous.filter(item => !documentMode || (code && (contract ? item.leadContractCode === code : item.leadSubscriberCode === code))).flatMap(item => [
       { sender: "user" as const, text: item.text || "[Ảnh]", messageId: String(item._id) },
       ...(item.reply ? [{ sender: "model" as const, text: item.reply }] : []),
     ]);
-    const history = historyForSubscriber(subscriberCode);
+    const history = historyForSubscriber(contractCode || subscriberCode, Boolean(contractCode));
     if (savedConfig.enabled === false) {
       await finish("", "Chatbot đang tắt trong cấu hình. Bật Tự động trả lời AI và lưu để tiếp tục.");
       return;
@@ -478,7 +503,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
     const prepared = await prepareChatReplyContext({
       companyCode: session.companyCode, channel: session.channel,
       platformId: session.sourceAccountId || pageId, conversationId, messageId: job.messageId,
-      ...(documentMode ? { sessionId: `document:${subscriberCode ? createHash("sha256").update(subscriberCode).digest("hex") : job.messageId}` } : {}),
+      ...(documentMode ? { sessionId: `document:${(contractCode || subscriberCode) ? createHash("sha256").update(contractCode ? contractDocumentKey("FPT", contractCode) : `subscriber:${subscriberCode}`).digest("hex") : job.messageId}` } : {}),
       timestamp: message.createdAt, message: customerText, history,
       aiConfig: documentImageRead ? { ...aiConfig, imageReplyEnabled: false } : aiConfig,
       uploadedImages: !documentImageRead ? uploadedImages.map(image => image.data) : [],
@@ -493,33 +518,35 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
     const visual = visualReply?.visual || prepared.visualInput?.previous;
     const observation = visual ? visualToImageObservation(visual, prepared.memoryImages) : context.imageObservation;
     await ChatTestMessageModel.updateOne({ _id: message._id }, { $set: { phase: "lead" } });
-    const collect = (values: Record<string, string>, code?: string) => pageIntakeFlow.process({
+    const collect = (values: Record<string, string>, document?: ChatTestDocument) => pageIntakeFlow.process({
       companyCode: storageCompanyCode, platform: session.channel, pageId, conversationId,
       ...(profile ? { intakeProfile: profile } : {}), verifiedImageValues: values,
-      ...(code ? { subscriberIdentity: { fieldKey: subscriberField!.key, code } } : {}),
+      ...(document?.subscriberCode ? { subscriberIdentity: { fieldKey: subscriberField!.key, code: document.subscriberCode } } : {}),
+      ...(document?.contractCode ? { contractIdentity: { fieldKey: contractField!.key, code: document.contractCode, provider: "FPT", providerFieldKey: providerField?.key } } : {}),
       messageId: job.messageId, messageAt: message.createdAt,
       message: documents.length > 1 && hasImages ? "[Ảnh]" : customerText,
-      history: historyForSubscriber(code), imageUrls: [], observation, visualMode: aiConfig.imageReplyEnabled,
+      history: historyForSubscriber(document?.contractCode || document?.subscriberCode, Boolean(document?.contractCode)), imageUrls: [], observation, visualMode: aiConfig.imageReplyEnabled,
+      businessContext: buildChatBusinessContext(savedConfig, prepared.ragContext),
       replyDeadlineAt: Math.min(context.replyDeadlineAt ?? Infinity, Date.now() + 12_000),
     });
     let intake: ChatOrderFlowReply | undefined;
     if (documentMode) {
       const results = [];
       for (const document of documents) {
-        if (!document.subscriberCode) continue;
-        const result = await collect({ ...document.values, [subscriberField!.key]: document.subscriberCode }, document.subscriberCode);
-        results.push({ account: document.subscriberCode, imageNumbers: document.imageNumbers, intake: result?.leadIntake });
+        if (!document.subscriberCode && !document.contractCode) continue;
+        const result = await collect(document.values, document);
+        results.push({ code: document.contractCode || document.subscriberCode, type: document.contractCode ? "Số hợp đồng FPT" : "Account", imageNumbers: document.imageNumbers, intake: result?.leadIntake });
         if (documents.length === 1) intake = result;
       }
-      if (documents.length !== 1 || !subscriberCode) intake = {
+      if (documents.length !== 1 || (!subscriberCode && !contractCode)) intake = {
         text: "", isMock: false, draftId: "", revision: profile?.version || 1,
         leadIntake: {
           collectionMode: "document",
-          goal: `Đã xử lý riêng từng hồ sơ: ${JSON.stringify(results)}. Ảnh chưa xác định được account và chưa ghi vào Lead: ${JSON.stringify(waitingDocuments)}. Không trộn dữ liệu giữa account. Chỉ nói đã cập nhật hồ sơ có kết quả. Với ảnh đang chờ, hỏi account của đúng ảnh; nếu nhiều ảnh thiếu mã thì đề nghị gửi riêng từng ảnh kèm account. Không nói đã lưu ảnh đang chờ.`,
+          goal: `Đã xử lý riêng từng hồ sơ: ${JSON.stringify(results)}. Ảnh chưa xác định được mã hồ sơ và chưa ghi vào Lead: ${JSON.stringify(waitingDocuments)}. Không trộn dữ liệu giữa các hồ sơ hoặc giữa FPT và VNPT. Chỉ nói đã cập nhật hồ sơ có kết quả. Với ảnh FPT đang chờ, chỉ hỏi Số hợp đồng; với VNPT hỏi Account. Nếu chưa rõ nhà mạng thì hỏi nhà mạng trước; nếu nhiều ảnh thiếu mã thì đề nghị gửi riêng từng ảnh kèm đúng mã. Không nói đã lưu ảnh đang chờ.`,
           collected: documents.length === 1 ? verifiedImageValues : {},
           status: waitingDocuments.length || results.some(item => item.intake?.status === "collecting") ? "collecting" : "complete",
-          missingRequiredFields: waitingDocuments.length ? [{ label: subscriberField!.label, type: "text",
-            question: "Mã thuê bao/account chính của ảnh đang chờ là gì? Có thể gửi riêng ảnh thông tin thuê bao." }] : [],
+          missingRequiredFields: waitingDocuments.length ? [{ label: waitingDocuments.every(item => item.values[providerField?.key || ""] === "FPT") ? contractField?.label || "Số hợp đồng" : subscriberField?.label || "Mã hồ sơ", type: "text",
+            question: "Cho biết đúng mã của ảnh đang chờ: FPT dùng Số hợp đồng, VNPT dùng Account. Nếu chưa rõ nhà mạng thì hỏi nhà mạng trước." }] : [],
         },
       };
     } else if (leadFields.length) intake = await collect(verifiedImageValues);

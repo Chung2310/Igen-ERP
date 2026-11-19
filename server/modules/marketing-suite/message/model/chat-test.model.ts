@@ -35,6 +35,8 @@ const messageSchema = new Schema({
   leadImageIssue: String,
   leadImageReadings: Schema.Types.Mixed,
   leadSubscriberCode: String,
+  leadContractCode: String,
+  leadContractCodes: { type: [String], default: undefined },
   leadSubscriberCodes: { type: [String], default: undefined },
   leadDocumentMode: Boolean,
   fileName: String,
