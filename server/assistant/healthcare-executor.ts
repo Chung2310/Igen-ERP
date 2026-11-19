@@ -147,6 +147,9 @@ export async function callHealthcareOperation(req: AuthenticatedRequest, op: Ass
     const entity = op.id.split(".")[1] as keyof typeof schemaByEntity;
     const create = operation(`healthcare.${entity}.create`);
     const merged = Object.fromEntries(bodyFields(create).map(f => [f.apiKey || f.key, existing[f.apiKey || f.key]]));
+    // A date-only appointment has no startsAt/endsAt. Preserve its actual date
+    // even when the assistant is editing another field such as doctorName.
+    if (entity === 'appointment' && existing.scheduledOn) merged.scheduledOn = existing.scheduledOn;
     if (["visit", "appointment"].includes(entity) && typeof body.doctorName === "string" && body.doctorName.trim() && body.doctorId === undefined) merged.doctorId = "";
     const checked = schemaByEntity[entity].validate({ ...merged, ...body }, { abortEarly: false });
     if (checked.error) throw new AssistantError("Thông tin y tế chưa hợp lệ. Kiểm tra ngày giờ và các trường bắt buộc.");

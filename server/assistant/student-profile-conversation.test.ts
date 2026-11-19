@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { conversationAudit } from "./testing/conversation-audit";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), assertOperation: vi.fn() }));
@@ -71,7 +72,8 @@ const examId = "64b000000000000000000005";
 const resourceId = "64b000000000000000000006";
 const roadmapCourseId = "64b000000000000000000008";
 const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", companyCode: "TEST", branchId: "507f1f77bcf86cd799439012", role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
-const turn = (input: any) => processTurn(req, { conversationId: "student-conversation", requestId: randomUUID(), ...input });
+const audit = conversationAudit("student");
+const turn = (input: any) => audit.turn(input, () => processTurn(req, { conversationId: "student-conversation", requestId: randomUUID(), ...input }));
 const confirm = (reply: any) => turn({ decision: { id: reply.action.id, confirmed: true } });
 let students: any[];
 let courses: any[];
@@ -88,6 +90,127 @@ let qualityRows: any[];
 let placedWaitlist: any;
 let fetcher: ReturnType<typeof vi.fn>;
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+
+it.each([
+  "Phần học viên dùng làm gì?",
+  "Tôi chưa dùng phần này bao giờ, bắt đầu từ đâu?",
+  "Tôi có trung tâm đào tạo, muốn quản lý cho đỡ rối",
+  "Tôi đang theo dõi bằng Excel, hay quên ai chưa đóng tiền",
+  "toi khong biet cong nghe, giup toi quan ly hoc vien",
+])("owner discovery stays in the conversation without reading or writing: %s", async text => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, intentType: "general_question",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem dữ liệu đang có hay nhập danh sách học viên trước?" }) });
+  const reply = await turn({ text });
+  expect(reply.status).toBe("collecting");
+  expect(reply.reply).toContain("học viên");
+  expect(reply.reply).not.toContain("tab Hỏi đáp");
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(students).toHaveLength(0);
+  expect(state.session.pending).toBeFalsy();
+});
+
+it("owner goes from discovery to an explicit create, confirms once and sees the saved record", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem danh sách hay thêm học viên trước?" }) });
+  await turn({ text: "Tôi mới mở trung tâm, phần học viên giúp tôi làm gì?" });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn chọn xem danh sách hay thêm học viên nhé?" }) });
+  const ambiguous = await turn({ text: "Ừ làm đi" });
+  expect(ambiguous.status).toBe("collecting");
+  expect(fetcher).not.toHaveBeenCalled();
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "student.create", intentType: "workflow", values: {
+    fullName: "Nguyễn An", phone: "0900000000", email: "an@example.com", registrationDate: "14/11/2026",
+  } }) });
+  const preview = await turn({ text: "Thêm học viên Nguyễn An, số điện thoại 0900000000, email an@example.com, đăng ký 14/11/2026" });
+  expect(preview.status).toBe("confirmation");
+  expect(students).toHaveLength(0);
+  const saved = await confirm(preview);
+  expect(saved.status).toBe("completed");
+  expect(students).toHaveLength(1);
+  expect(parseAssistantResultTable(saved.reply)?.rows[0].values).toMatchObject({ "Họ và tên": "Nguyễn An" });
+  expect(saved.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(JSON.stringify(state.provider.mock.calls)).toContain("Tôi mới mở trung tâm");
+});
+
+it("discovery while drafting preserves supplied details and performs no write", async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: { phone: "0909999999" }, intentType: "workflow" });
+  await turn({ text: "Thêm học viên, số điện thoại 0909999999" });
+  const pending = structuredClone(state.session.pending);
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "ambiguous", businessDiscovery: { actionIds: ["student.list"] } });
+  const reply = await turn({ text: "Khoan, phần học viên còn giúp được gì?" });
+  expect(reply.status).toBe("collecting");
+  expect(state.session.pending).toEqual(pending);
+  expect(reply.reply).toContain("Yêu cầu trước vẫn được giữ");
+  expect(students).toHaveLength(0);
+});
+
+it.each([false, true])("an unexplained spreadsheet cannot select a write from its filename or draft (pending=%s)", async withDraft => {
+  if (withDraft) {
+    state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: { phone: "0909999999" }, intentType: "workflow" });
+    await turn({ text: "Thêm học viên có số điện thoại 0909999999" });
+  }
+  const pending = structuredClone(state.session?.pending);
+  fetcher.mockClear();
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem nội dung, thêm học viên mới hay cập nhật hồ sơ đang có?" }) });
+  const reply = await turn({ text: "Đây, làm giúp tôi", attachment: {
+    fileName: "tao-hoc-vien.xlsx", headers: ["Họ tên", "Điện thoại"], rows: [{ "Họ tên": "Nguyễn An", "Điện thoại": "0900000000" }],
+  } });
+  expect(reply.status).toBe("collecting");
+  expect(reply.reply).toContain("cập nhật hồ sơ");
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(students).toHaveLength(0);
+  if (withDraft) expect(state.session.pending).toEqual(pending);
+});
+
+it("owner follows discovery with a tuition question and gets actual mock balances without creating payments", async () => {
+  students = [{ _id: studentId, fullName: "Nguyễn An", phone: "0900000000", fee: 4200000, paidAmount: 1200000 },
+    { _id: secondStudentId, fullName: "Trần Bình", fee: 9000000, paidAmount: 0 }];
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list"] }, clarification: "Bạn muốn kiểm tra học phí của học viên nào?" }) });
+  await turn({ text: "Tôi hay quên ai đã đóng tiền rồi" });
+  expect(fetcher).not.toHaveBeenCalled();
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "student.list", values: { search: "Nguyễn An" }, intentType: "workflow" }) });
+  const reply = await turn({ text: "Nguyễn An đã đóng bao nhiêu, còn thiếu bao nhiêu?" });
+  expect(reply.status).toBe("completed");
+  expect(reply.reply).toContain("3.000.000");
+  expect(reply.reply).not.toContain("Trần Bình");
+  expect(parseAssistantResultTable(reply.reply)?.rows).toHaveLength(1);
+  expect(payments).toHaveLength(0);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
+
+it.each(["Thông tin học phí của Nguyễn An", "Nguyễn An đã đóng bao nhiêu, còn thiếu bao nhiêu?"])("simulated AI student fee report: %s", async text => {
+  students = [{ _id: studentId, fullName: "Nguyễn An", phone: "0900000000", fee: "4200000", paidAmount: 1200000, status: ["Đang học"] },
+    { _id: secondStudentId, fullName: "Trần Bình", phone: "0900000001", fee: "8000000", paidAmount: 0 }];
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "student.list", values: { search: "Nguyễn An" } }) });
+  const reply = await turn({ text });
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(reply.reply).toContain("3.000.000");
+  expect(reply.reply).not.toContain("Trần Bình");
+  expect(parseAssistantResultTable(reply.reply)?.rows).toHaveLength(1);
+  expect(payments).toHaveLength(0);
+});
+
+it("simulated AI student report never fabricates a result on an empty dataset", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "student.list", values: { search: "Không Tồn Tại" } }) });
+  const reply = await turn({ text: "Tìm thông tin học viên Không Tồn Tại" });
+  expect(reply.reply).not.toContain("4.200.000");
+  expect(parseAssistantResultTable(reply.reply)?.rows || []).toHaveLength(0);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
 const normalizeSearch = (value: unknown) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
 
 it("exports a filtered ERP list through the conversation and restores its file in history", async () => {
@@ -118,6 +241,7 @@ it("reads a text document, honors explicit user values, confirms and creates exa
 });
 
 beforeEach(() => {
+  audit.reset();
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset(); state.assertOperation.mockReset().mockImplementation(async (_req: unknown, id: string) => operationById(id)); students = []; courses = []; batches = []; payments = []; exams = []; eligibleExamStudents = []; resources = []; notifications = []; assignments = []; roadmaps = []; waitlistEntries = []; qualityRows = []; placedWaitlist = undefined;
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const requestUrl = new URL(String(url));
@@ -253,6 +377,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+afterEach(context => audit.write(context, state, { students, batches, payments, qualityRows, pending: state.session?.pending }));
 
 it("gives manual steps for a clearly understood student request with no chat workflow and makes no API call", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "unsupported", unsupportedModule: "student" });

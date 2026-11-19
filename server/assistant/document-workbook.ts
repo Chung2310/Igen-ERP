@@ -2,7 +2,7 @@ import XLSX from "xlsx";
 import PizZip from "pizzip";
 import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
 import type { AssistantDocumentContent } from "./document-export";
-import { assistantDocumentCellAlignment, type AssistantDocumentAlignment } from "./document-formatting";
+import { assistantDocumentCellAlignment, assistantDocumentParagraphAlignment, type AssistantDocumentAlignment } from "./document-formatting";
 
 export function workbookSheetNames(document: AssistantDocumentContent) {
   const used = new Set<string>();
@@ -73,16 +73,24 @@ function styleWorkbook(bytes: Buffer, document: AssistantDocumentContent): Buffe
     applyAlignment(record, alignment, "center");
     headerStyles.set(alignment, appendStyle(record));
   }
+  const integerStyles = new Map<string, number>();
+  for (const alignment of [undefined, ...alignments]) {
+    const record = records[0].cloneNode(true) as typeof records[number];
+    record.setAttribute("numFmtId", "3");
+    record.setAttribute("applyNumberFormat", "1");
+    applyAlignment(record, alignment);
+    integerStyles.set(alignment || "default", appendStyle(record));
+  }
   formats.setAttribute("count", String(formats.getElementsByTagName("xf").length));
   zip.file("xl/styles.xml", serialize(styles));
   const names = workbookSheetNames(document);
   const namesBySheetIndex = [...(names.notes ? [names.notes] : []), ...names.tables];
   const noteAlignmentByRow = new Map<number, AssistantDocumentAlignment | null>();
   document.sections.forEach((section, index) => {
-    if (section.alignment !== undefined) {
-      noteAlignmentByRow.set(2 + index * 2, section.alignment);
-      noteAlignmentByRow.set(3 + index * 2, section.alignment);
-    }
+    const heading = assistantDocumentParagraphAlignment(document.title, section.heading, section.alignment, false, section.role);
+    const body = assistantDocumentParagraphAlignment(document.title, section.text, section.alignment, false, section.role);
+    if (heading) noteAlignmentByRow.set(2 + index * 2, heading);
+    if (body) noteAlignmentByRow.set(3 + index * 2, body);
   });
   const tablesBySheet = new Map(names.tables.map((name, index) => [name, document.sheets[index]]));
   for (const entry of zip.file(/^xl\/worksheets\/sheet\d+\.xml$/)) {
@@ -97,7 +105,8 @@ function styleWorkbook(bytes: Buffer, document: AssistantDocumentContent): Buffe
         for (const cell of cells) {
           const address = cell.getAttribute("r");
           if (address === "A1") {
-            cell.setAttribute("s", String(document.titleAlignment ? headerStyles.get(document.titleAlignment) : headerBaseStyle));
+            const alignment = assistantDocumentParagraphAlignment(document.title, document.title, document.titleAlignment, true);
+            cell.setAttribute("s", String(alignment ? headerStyles.get(alignment) : headerBaseStyle));
           } else if (address && noteAlignmentByRow.has(rowNumber)) {
             const alignment = noteAlignmentByRow.get(rowNumber);
             if (alignment) cell.setAttribute("s", String(bodyStyles.get(alignment)));
@@ -109,11 +118,13 @@ function styleWorkbook(bytes: Buffer, document: AssistantDocumentContent): Buffe
           if (!address) continue;
           const column = XLSX.utils.decode_cell(address).c;
           if (rowNumber === 1) {
-            const alignment = table.headerAlignments?.[column];
+            const alignment = table.headerAlignments?.[column] === undefined ? "center" : table.headerAlignments[column];
             cell.setAttribute("s", String(alignment ? headerStyles.get(alignment) : headerBaseStyle));
           } else {
-            const alignment = assistantDocumentCellAlignment(table.columnAlignments, table.cellAlignments, rowNumber - 2, column);
-            if (alignment) cell.setAttribute("s", String(bodyStyles.get(alignment)));
+            const value = table.rows[rowNumber - 2]?.[column];
+            const alignment = assistantDocumentCellAlignment(table.columnAlignments, table.cellAlignments, rowNumber - 2, column, value);
+            if (typeof value === "number" && Number.isSafeInteger(value)) cell.setAttribute("s", String(integerStyles.get(alignment || "default")));
+            else if (alignment) cell.setAttribute("s", String(bodyStyles.get(alignment)));
           }
         }
       }

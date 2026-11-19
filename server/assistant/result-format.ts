@@ -3,6 +3,7 @@ import { redactAssistantResult } from "./structured-data";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
 import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
+import { formatBusinessOverview } from "./overview-result";
 
 type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "resultChildFields">>;
 type ResultRecord = Record<string, unknown>;
@@ -1016,6 +1017,7 @@ function remainingTuition(record: ResultRecord): number | null {
 
 /** Format only catalog-approved fields into a short, readable result for the conversation. */
 export function formatAssistantResult(operation: ResultOperation, input: unknown): string {
+  if (operation.id === "dashboard.business-overview") return formatBusinessOverview(input);
   const redacted = redactAssistantResult(input);
   if (operation.id === "recruitment.report") {
     const wrapper = recordOf(redacted);
@@ -1374,7 +1376,10 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         : record.scope === "company"
           ? " trong toàn công ty, bao gồm các chi nhánh"
           : " trong công ty hiện tại";
-    return `Có ${countValue(total)} nhân sự${branch}.`;
+    const createdFrom = typeof record.createdFrom === "string" ? formatAssistantTemporalValue(record.createdFrom) : undefined;
+    const createdTo = typeof record.createdTo === "string" ? formatAssistantTemporalValue(record.createdTo) : undefined;
+    const period = createdFrom || createdTo ? ` có hồ sơ được tạo${createdFrom ? ` từ ${createdFrom}` : ""}${createdTo ? ` đến ${createdTo}` : ""}` : "";
+    return `Có ${countValue(total)} nhân sự${period}${branch}.`;
   }
   if (operation.id === "department.unmanaged.list") {
     const departments = (collection(safeResult) || []).map(recordOf)

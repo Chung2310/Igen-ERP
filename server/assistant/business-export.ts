@@ -10,6 +10,7 @@ import { renderDocumentWorkbook } from "./document-workbook";
 import { documentFileName, documentMimeTypes } from "./document-export";
 import { formatFriendlyAssistantResult as friendlyResult } from "./result-format";
 import { projectRecords } from "./executor";
+import { formatQuotationResult } from "./quotation-result";
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase();
 export function isBusinessExcelRequest(text: string) {
@@ -71,7 +72,8 @@ export async function exportBusinessList(req: AuthenticatedRequest, operation: A
     if (seen.has(signature) && records.length) throw new AssistantError("API trả lại cùng một trang dữ liệu. Mình chưa xuất file để tránh lặp hoặc thiếu dòng.", 422);
     seen.add(signature);
     // Use the same public-field formatter as chat, one record at a time so display truncation cannot drop list rows.
-    const pageTables = records.map(record => friendlyResult(operation, [record]));
+    const pageTables = records.map(record => operation.module === "quotation"
+      ? formatQuotationResult(operation, [record]) : friendlyResult(operation, [record]));
     if (pageTables.some(text => !parseAssistantResultTable(text))) throw new AssistantError("Danh sách này chưa có bảng dữ liệu được phép xuất. Bạn dùng chức năng xuất của phân hệ để giữ đầy đủ thông tin nhé.", 422);
     tables.push(...pageTables);
     count += records.length;
