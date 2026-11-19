@@ -6,6 +6,8 @@ import { parseIntakeNumber } from "./intake-number";
 import { broadcastEvent } from "../../shared/socket";
 import { getIntakeStandardField, normalizeIntakeText } from "./normalize-intake-fields";
 import { isTelecomStaffField } from "./telecom-invoice-profile";
+import { LeadContractModel } from "../model/lead-contract.model";
+import { contractDocumentKey, type ContractLeadIdentity } from "./telecom-document-identity";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
 
@@ -36,9 +38,14 @@ type LeadIntakeIdentity = {
   accountId: string;
   conversationId: string;
   subscriberIdentity?: { fieldKey: string; code: string };
+  contractIdentity?: ContractLeadIdentity;
 };
 
 function intakeIdentity(input: LeadIntakeIdentity) {
+  if (input.contractIdentity) return {
+    companyCode: input.companyCode.trim().toUpperCase(),
+    telecomDocumentKey: contractDocumentKey(input.contractIdentity.provider, input.contractIdentity.code),
+  };
   if (input.subscriberIdentity) return {
     companyCode: input.companyCode.trim().toUpperCase(),
     telecomSubscriberCode: input.subscriberIdentity.code,
@@ -52,9 +59,23 @@ function intakeIdentity(input: LeadIntakeIdentity) {
 }
 
 export async function findLeadForIntake(input: LeadIntakeIdentity) {
-  const selection = "customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus telecomSubscriberCode telecomConversationId telecomPageId telecomPlatform";
+  const selection = "customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus telecomSubscriberCode telecomDocumentKey telecomConversationId telecomPageId telecomPlatform";
   const current = await CRMTicketModel.findOne(intakeIdentity(input)).select(selection).lean();
-  if (current || !input.subscriberIdentity) return current;
+  if (current) return current;
+  if (input.contractIdentity) {
+    const { fieldKey, code, provider, providerFieldKey = "nha_mang" } = input.contractIdentity;
+    if (![fieldKey, providerFieldKey].every(key => /^[a-z][a-z0-9_]{0,39}$/.test(key))) throw new Error("Cột hợp đồng không hợp lệ.");
+    const registered = await LeadContractModel.findOne({ companyCode: input.companyCode.trim().toUpperCase(), provider, code }).lean();
+    if (registered) return CRMTicketModel.findOne({ companyCode: input.companyCode.trim().toUpperCase(), _id: registered.leadId }).select(selection).lean();
+    const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const candidates = await CRMTicketModel.find({ companyCode: input.companyCode.trim().toUpperCase(),
+      [`answers.${fieldKey}`]: new RegExp(`^\\s*${escape(code)}\\s*$`, "i"),
+      [`answers.${providerFieldKey}`]: new RegExp(`^\\s*${escape(provider)}\\s*$`, "i"),
+    }).select(selection).limit(2).lean();
+    if (candidates.length > 1) throw new Error("Có nhiều Lead cùng số hợp đồng và nhà mạng. Cần kiểm tra trước khi ghi dữ liệu.");
+    return candidates[0] || null;
+  }
+  if (!input.subscriberIdentity) return current;
   const { fieldKey, code } = input.subscriberIdentity;
   if (!/^[a-z][a-z0-9_]{0,39}$/.test(fieldKey)) throw new Error("Cột thuê bao không hợp lệ.");
   const exactCode = new RegExp(`^\\s*${code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
@@ -79,6 +100,7 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
   preserveNewerValues?: boolean;
 }) {
   const identity = intakeIdentity(input);
+  const documentIdentity = input.contractIdentity || input.subscriberIdentity;
   const fieldSnapshot: ILeadIntakeFieldSnapshot[] = input.fields.map(field => ({
     key: field.key,
     label: field.label,
@@ -131,16 +153,19 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       } else continue;
       needsChanged = true;
     }
-    const subscriberChanged = input.subscriberIdentity && (current?.telecomSubscriberCode !== input.subscriberIdentity.code
+    const subscriberChanged = (input.contractIdentity && (current?.telecomDocumentKey !== contractDocumentKey(input.contractIdentity.provider, input.contractIdentity.code)
+      || current?.telecomConversationId !== input.conversationId || current?.telecomPageId !== input.accountId)) || input.subscriberIdentity && (current?.telecomSubscriberCode !== input.subscriberIdentity.code
       || current?.telecomConversationId !== input.conversationId || current?.telecomPageId !== input.accountId);
     if (!Object.keys(changedAnswers).length && !needsChanged && !subscriberChanged) return current;
 
-    const customerFields = input.subscriberIdentity ? input.fields.filter(field => !isTelecomStaffField(field)) : input.fields;
+    const customerFields = documentIdentity ? input.fields.filter(field => !isTelecomStaffField(field)) : input.fields;
     const standard = mapIntakeStandardFields(customerFields, changedAnswers);
     const complete = input.fields.every(field => field.required === false || Boolean(answers[field.key]?.trim()));
     const collectionStatus = current?.collectionStatus === "needs_human" ? "needs_human" : complete ? "complete" : "collecting";
     const changedAnswerPaths = Object.fromEntries(Object.entries(changedAnswers).map(([key, value]) => [`answers.${key}`, value]));
     const update: Record<string, unknown> = {
+      ...(input.contractIdentity ? { telecomDocumentKey: contractDocumentKey(input.contractIdentity.provider, input.contractIdentity.code),
+        telecomConversationId: input.conversationId, telecomPageId: input.accountId, telecomPlatform: input.platform } : {}),
       ...(input.subscriberIdentity ? { telecomSubscriberCode: input.subscriberIdentity.code,
         telecomConversationId: input.conversationId, telecomPageId: input.accountId, telecomPlatform: input.platform } : {}),
       ...(current ? changedAnswerPaths : { answers }),
@@ -156,7 +181,7 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
         ...(input.messageAt ? { lastIntakeMessageAt: input.messageAt } : {}) } : {}),
     };
 
-    const fallbackName = input.subscriberIdentity ? `Thuê bao ${input.subscriberIdentity.code}`
+    const fallbackName = input.contractIdentity ? `Hợp đồng ${input.contractIdentity.code}` : input.subscriberIdentity ? `Thuê bao ${input.subscriberIdentity.code}`
       : `Khách ${input.conversationId.slice(-6) || "mới"}`;
     const canUpdate = (field: "customerName" | "phone" | "email" | "company" | "productOfChoice" | "value") => {
       const currentValue = current?.[field];
@@ -184,12 +209,12 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       // The answer changes and the message that produced them commit together.
       const result = await CRMTicketModel.findOneAndUpdate(
         current
-          ? { ...(!input.subscriberIdentity ? identity : { companyCode: identity.companyCode }), _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
+          ? { ...(!documentIdentity ? identity : { companyCode: identity.companyCode }), _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
           : { ...identity, intakeRevision: { $exists: false } },
         {
           $set: update,
           $inc: { intakeRevision: 1 },
-          ...(!current ? { $setOnInsert: { ...(!input.subscriberIdentity ? identity : {
+          ...(!current ? { $setOnInsert: { ...(!documentIdentity ? identity : {
             companyCode: identity.companyCode, sourcePlatform: input.platform, sourceAccountId: input.accountId,
           }), status: "cold" as const, selectedProducts: [] } } : {}),
         },

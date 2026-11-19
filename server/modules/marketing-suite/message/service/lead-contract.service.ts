@@ -7,6 +7,7 @@ import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { parseLeadIntakeAmount, mapIntakeStandardFields } from "./lead-intake.service";
 import { isDuplicateInvoiceKey } from "./telecom-invoice-lead";
 import { broadcastEvent } from "../../shared/socket";
+import { contractDocumentKey } from "./telecom-document-identity";
 
 export type StoredContractPhoto = ContractPhotoRecord & { _id: Types.ObjectId };
 type ContractWriteResult = { leadId: string; issue?: undefined } | { leadId?: undefined; issue: string };
@@ -52,6 +53,7 @@ function applyConfirmedValues(photo: StoredContractPhoto, values: Record<string,
   const value = standard.value ? parseLeadIntakeAmount(standard.value) : undefined;
   return {
     answers,
+    telecomDocumentKey: contractDocumentKey(photo.provider, values[photo.contractFieldKey]),
     hasContractPhotos: true,
     intakeFields: [...intakeFields.values()],
     intakeSearchText: Object.values(answers).join("\n").slice(0, 100_000),
@@ -86,6 +88,7 @@ export async function recordLeadContractPhoto(photo: StoredContractPhoto, values
 
         const contract = await LeadContractModel.findOne(contractScope).session(session).lean();
         let lead = contract ? await CRMTicketModel.findOne({ companyCode, _id: contract.leadId }).session(session).lean() : null;
+        if (!lead) lead = await CRMTicketModel.findOne({ companyCode, telecomDocumentKey: contractDocumentKey(photo.provider, code) }).session(session).lean();
         if (!lead) {
           const accounts = await findContractAccountFields(companyCode, photo.provider, session);
           const exactCode = new RegExp("^\\s*" + code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "i");

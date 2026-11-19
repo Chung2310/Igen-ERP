@@ -24,6 +24,27 @@ describe("Page intake flow", () => {
     vi.mocked(findLeadForIntake).mockResolvedValue(null);
     vi.mocked(upsertLeadFromIntake).mockResolvedValue({ _id: "LEAD" } as never);
   });
+  it("lets a business rule fill a configured field while validating the returned answers", async () => {
+    const businessContext = "Khi khách chọn giao tận nơi, ghi Phương thức là Giao hàng. Số mẫu trong tài liệu là 0912345678.";
+    const delivery = { key: "delivery", label: "Phương thức", type: "single_select" as const,
+      options: ["Giao hàng", "Tự lấy"], question: "Chỉ hỏi cách nhận khi khách đã chọn món." };
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as never);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({
+      __lead_intent: true, delivery: "Giao hàng", phone: "0912345678", unconfigured: "Bỏ qua",
+    }) } as never);
+
+    await pageIntakeFlow.process({ companyCode: "SHOP", pageId: "OA", conversationId: "C", messageId: "M", platform: "zalo",
+      message: "Mình đặt giao tận nhà nhé", imageUrls: [], businessContext,
+      intakeProfile: { _id: "P", version: 1, goal: "Đặt hàng", fields: [delivery, fields[3]], completionMessage: "Cảm ơn." } });
+
+    const prompt = vi.mocked(generateReplyCompletion).mock.calls[0][0];
+    expect(prompt.messages[0].content).toContain("điều kiện đã được khách cung cấp hoặc xác nhận");
+    expect(JSON.parse(String(prompt.messages[1].content))).toMatchObject({ businessContext, fields: expect.arrayContaining([
+      expect.objectContaining({ key: "delivery", meaningHint: delivery.question }),
+    ]) });
+    expect(upsertLeadFromIntake).toHaveBeenCalledWith(expect.objectContaining({ values: { delivery: "Giao hàng" } }));
+  });
+
   it("validates and normalizes answers according to each configured field type", () => {
     expect(normalizeIntakeValue({ key: "email", label: "Email", question: "Email?", type: "email" }, " lead@example.com ")).toBe("lead@example.com");
     expect(normalizeIntakeValue({ key: "phone", label: "Điện thoại", question: "SĐT?", type: "phone" }, "+84 90 123 4567")).toBe("+84 90 123 4567");

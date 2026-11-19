@@ -73,6 +73,7 @@ import {
   defaultBotQuestion,
   downloadLeadsExcel,
   FIELD_TYPE_META,
+  formatLeadCreatedAt,
   getSystemSortKey,
   isNameField,
   LEAD_STATUS_META,
@@ -552,7 +553,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       ? []
       : [{ key: "customerName", label: "Họ và tên", type: "text", kind: "system", defaultWidth: 180, editable: true, sortable: true, sortKey: "customerName" }];
 
-    // Optional CRM metadata columns: off by default so user sees only the columns they defined.
+    // CRM metadata columns can be toggled; creation time is visible by default.
     const optionalSystemColumns: LeadSheetColumn[] = [
       ...(hasCustomNameColumn
         ? [{ key: "customerName", label: "Tên hệ thống", type: "text" as LeadIntakeFieldType, kind: "system" as const, defaultWidth: 172, editable: true, sortable: true, sortKey: "customerName" }]
@@ -569,6 +570,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       { key: "value", label: "Giá trị dự kiến", type: "currency", kind: "system", defaultWidth: 156, editable: true, sortable: true, sortKey: "value" },
       { key: "email", label: "Email", type: "email", kind: "system", defaultWidth: 180, editable: true, sortable: true, sortKey: "email" },
       { key: "company", label: "Doanh nghiệp", type: "text", kind: "system", defaultWidth: 164, editable: true, sortable: true, sortKey: "company" },
+      { key: "createdAt", label: "Ngày tạo Lead", type: "date", kind: "system", defaultWidth: 176, editable: false, sortable: true, sortKey: "createdAt" },
       { key: "updatedAt", label: "Cập nhật", type: "date", kind: "system", defaultWidth: 136, editable: false, sortable: true, sortKey: "updatedAt" },
     ];
 
@@ -1963,6 +1965,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           );
                         }
 
+                        if (col.key === "createdAt") {
+                          const display = formatLeadCreatedAt(lead.createdAt);
+                          const created = lead.createdAt instanceof Date ? lead.createdAt : new Date(lead.createdAt!);
+                          return <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-2.5 py-1.5 align-middle text-xs tabular-nums text-on-surface-variant">
+                            <time dateTime={display ? created.toISOString() : undefined}>{display || "Chưa có ngày tạo"}</time>
+                          </td>;
+                        }
                         if (col.key === "updatedAt") {
                           return (
                             <td key={col.key} style={cellStyle} className="border-b border-r border-outline-variant px-2.5 py-1.5 align-middle text-xs tabular-nums text-on-surface-variant">

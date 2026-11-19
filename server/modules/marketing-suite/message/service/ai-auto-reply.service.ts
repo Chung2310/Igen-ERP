@@ -34,6 +34,7 @@ import { enabledTelecomInvoiceAccount, TelecomInvoiceSettingsModel } from "../mo
 import { isStickerOnlyMessage } from "./chat-context";
 import { prepareChatReplyContext, commitChatVisualContext, buildChatConversationInstructions,
   describeChatVisualContext, type ChatSourceMessage } from "./chat-reply-context.service.ts";
+import { buildChatBusinessContext } from "./chat-business-context";
 import { visualToImageObservation } from "./chat-visual-context";
 import { createChatAiTrace, describeChatAiTrace, withChatAiTrace } from "./chat-ai-trace";
 import { withAiUsage } from "../../shared/service/ai-subscription.service";
@@ -1263,8 +1264,7 @@ export const aiAutoReplyService = {
                   : effectiveRagContext.replyDeadlineAt,
                 customerAddressStyle: aiConfig.customerAddressStyle,
                 session: customerSession,
-                businessContext: [aiConfig.advancedInstructions, aiConfig.customerServiceScript,
-                  effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
+                businessContext: buildChatBusinessContext(aiConfig, effectiveRagContext),
               };
               const intakeStartedAt = Date.now();
               if (facebookTiming) facebookTiming.contextMs = intakeStartedAt - startedAt;

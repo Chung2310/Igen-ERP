@@ -14,6 +14,7 @@ import { findContractField, invoiceFieldName, readActiveInvoiceLeadFields } from
 import { normalizeInvoiceLeadValue } from "./telecom-invoice-values";
 
 type ImageSource = { sourceIndex: number; url: string; prepared?: { image: string; imageHash: string } };
+export const LEAD_DOCUMENT_OCR_VERSION = 2;
 export type LeadContractMessageJob = TelecomInvoiceAccount & { conversationId: string; messageId: string };
 
 export function isLeadContractImage(attachment: { type?: string }) {
@@ -42,6 +43,7 @@ export async function readLeadDocument(image: string, leadFields: LeadIntakeFiel
     : "Giữ số 0 đầu trong các mã, số điện thoại và các trường văn bản.";
   const telecomInstruction = domain === "telecom" ? `Với ảnh nghiệp vụ viễn thông:
 - Trong khối Mô tả công việc, các dòng có thể lần lượt là account thuê bao, tên khách, số điện thoại khách, địa chỉ lắp đặt, mã kết cuối dù không có nhãn riêng. Chỉ đọc theo ngữ cảnh rõ ràng.
+- Nếu trường yêu cầu là danh sách Dịch vụ kiểu văn bản hoặc chọn nhiều, trả text là mảng chuỗi, mỗi phần tử là đúng một dịch vụ được ghi rõ. Giữ riêng từng dịch vụ dù nằm ở các dòng liền kề; không nối chúng thành một câu. Các trường đơn khác vẫn trả text là chuỗi.
 - Người xử lý, Nhân viên kỹ thuật và Số điện thoại người xử lý thuộc nhân viên, không phải khách. Địa chỉ kết cuối thuộc hạ tầng, không tự coi là địa chỉ khách.
 - Mã yêu cầu, mã dự án, mã trạm, mã kết cuối, account/thuê bao, mã hợp đồng là các loại mã khác nhau. Không dùng thay nhau. Ghép phần mã kết cuối bị xuống dòng khi rõ ràng là cùng mã.
 - Nếu có danh sách nhiều dịch vụ, lấy account chính được ghi rõ ở mục Thuê bao hoặc đúng loại dịch vụ mà trường yêu cầu. Nếu chỉ có nhiều Account ngang hàng, trường account đơn phải unclear; không tự chọn dòng đầu. Trường danh sách có thể chứa đủ các account rõ ràng. Mã account Mobile dạng số không tự trở thành số điện thoại khách.

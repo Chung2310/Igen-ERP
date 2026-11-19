@@ -113,6 +113,24 @@ afterEach(() => {
 });
 
 describe("LeadTable", () => {
+  it("shows the read-only creation time in Vietnam time and remembers when the user hides the column", async () => {
+    vi.mocked(crmService.getLeadPage).mockResolvedValue({ data: [{ ...sampleLead, createdAt: "2026-11-18T17:00:00Z" }], total: 1, page: 1, limit: 25, totalPages: 1 });
+    const worksheet = <LeadTable searchQuery="" setSearchQuery={vi.fn()} onCreateLead={vi.fn()} deleteLead={vi.fn()}
+      handleGoToChat={vi.fn()} activeChannel="all" companyCode="SPA01" branchId="main" accounts={accounts} />;
+    const view = render(worksheet);
+    const timestamp = await screen.findByText("19/11/2026 00:00");
+    expect(timestamp.tagName).toBe("TIME");
+    expect(timestamp.getAttribute("datetime")).toBe("2026-11-18T17:00:00.000Z");
+    expect(timestamp.closest("td")?.querySelector("input,textarea,[contenteditable=true]")).toBeNull();
+    expect(screen.getByRole("columnheader", { name: /Ngày tạo Lead/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Cột hiển thị/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Ngày tạo Lead" }));
+    expect(screen.queryByText("19/11/2026 00:00")).toBeNull();
+    view.unmount();
+    render(worksheet);
+    await screen.findByText(sampleLead.customerName);
+    expect(screen.queryByRole("columnheader", { name: /Ngày tạo Lead/ })).toBeNull();
+  });
   it("keeps the Zalo UID column hidden on saved worksheets until enabled, then shows the UID with its OA", async () => {
     localStorage.setItem("crm_lead_sheet_v2_layout_all", JSON.stringify({ widths: {}, hiddenKeys: ["email"] }));
     const zaloLead = { ...sampleLead, sourcePlatform: "zalo" as const, sourceAccountId: "zalo_01" };
