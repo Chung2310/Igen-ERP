@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Clock3, FolderOpen } from "lucide-react";
+import { Clock3 } from "lucide-react";
 import { AVAILABLE_ARCHITECTURE_TOOLS, type ArchitectureToolId } from "../../shared/architecture-assistant";
 import ArchitectAssistantIcon from "./ArchitectAssistantIcon";
 
@@ -64,18 +64,11 @@ const tools: Array<{ title: string; description: string; image: string; icon: st
 
 export default function ArchitectAssistantHome({
   onOpenTool,
-  onOpenProjects,
 }: {
   onOpenTool: (tool: ArchitectureToolId) => void;
-  onOpenProjects: () => void;
 }) {
   return <div className="architect-assistant-source min-h-full overflow-auto bg-surface">
     <main className="mx-auto w-full max-w-[1600px] p-8">
-      <div className="mb-6 flex justify-end">
-        <button type="button" onClick={onOpenProjects} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary">
-          <FolderOpen className="size-4 text-primary" aria-hidden="true" />Dự án kiến trúc
-        </button>
-      </div>
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
         {tools.map((tool, index) => {
           const available = AVAILABLE_ARCHITECTURE_TOOLS.has(tool.tool);

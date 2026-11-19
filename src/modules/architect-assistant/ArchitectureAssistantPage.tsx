@@ -3,7 +3,7 @@ import { ArrowLeft, Check, ChevronRight, Download, FolderOpen, Plus, RefreshCw, 
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
-import { AVAILABLE_ARCHITECTURE_TOOLS, type ArchitecturePlan, type ArchitectureProject, type ArchitectureProjectInput, type ArchitectureToolId } from "../../shared/architecture-assistant";
+import { AVAILABLE_ARCHITECTURE_TOOLS, AVAILABLE_RENDERING_TOOLS, type ArchitecturePlan, type ArchitectureProject, type ArchitectureProjectInput, type ArchitectureToolId } from "../../shared/architecture-assistant";
 import { cn } from "../student-management/lib/utils";
 import { architectAssistantApi } from "./api";
 import { ARCHITECTURE_TOOL_NAV, ArchitectureCreativeTools } from "./ArchitectureCreativeTools";
@@ -129,7 +129,6 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void loadProjects(); }, [api]);
   useEffect(() => {
     if (!selected) { setProjectDraft(blankProject); setPlanDraft(emptyPlan()); setActiveFloor(1); return; }
     setActiveFloor(1);
@@ -156,7 +155,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
     try {
       const result = await api.create(createDraft);
       setProjects(current => [result.project, ...current]); setSelectedId(result.project._id);
-      setShowCreate(false); setCreateDraft(blankProject); setTab("plan"); setNotice("Đã tạo dự án.");
+      setShowCreate(false); setCreateDraft(blankProject); setNotice("Đã tạo dự án.");
     } catch (cause) { setError(apiMessage(cause, "Không tạo được dự án.")); }
     finally { setBusy(false); }
   };
@@ -187,12 +186,18 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
       link.click();
     } catch (cause) { setError(apiMessage(cause, "Không xuất được bản vẽ mặt bằng.")); }
   };
-  const generatePlan = async (instructions = "", outline?: NonNullable<ArchitecturePlan["outline"]>) => {
+  const generatePlan = async (instructions = "", outline?: NonNullable<ArchitecturePlan["outline"]>, projectSettings?: { floors: number; areaM2: number; style: string; requirements: string }) => {
     if (!selected || !canUseAi) return;
     setBusy(true); setError(""); setNotice("");
     try {
+      if (projectSettings && (projectSettings.floors !== selected.floors || projectSettings.areaM2 !== selected.areaM2 || projectSettings.style !== selected.style || projectSettings.requirements !== selected.requirements)) {
+        const updated = await api.update(selected._id, selected.revision, projectSettings);
+        replaceProject(updated.project);
+        setProjectDraft({ name: updated.project.name, areaM2: updated.project.areaM2, floors: updated.project.floors, style: updated.project.style, requirements: updated.project.requirements });
+        setActiveFloor(current => Math.min(current, updated.project.floors));
+      }
       const result = await api.generatePlan(selected._id, instructions, outline);
-      replaceProject(result.project); setPlanDraft(result.project.plan || emptyPlan()); setNotice("Đã tạo mặt bằng bằng AI. Kiểm tra và chỉnh lại kích thước trước khi dùng.");
+      replaceProject(result.project); setProjectDraft({ name: result.project.name, areaM2: result.project.areaM2, floors: result.project.floors, style: result.project.style, requirements: result.project.requirements }); setActiveFloor(current => Math.min(current, result.project.floors)); setPlanDraft(result.project.plan || emptyPlan()); setNotice("Đã tạo mặt bằng bằng AI. Kiểm tra và chỉnh lại kích thước trước khi dùng.");
     } catch (cause) { setError(apiMessage(cause, "Không tạo được mặt bằng.")); }
     finally { setBusy(false); }
   };
@@ -244,7 +249,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
           ? `Create a richly colored and textured professional 3D floorplan rendering from this exact top-down 3D view. Show the complete floor as a clear dollhouse or axonometric plan, not an interior room photograph. Preserve all room boundaries, walls, doors, windows, furniture placement, and proportions. Apply the project's selected finishes:\n${finishNotes}\nFurniture specification:\n${furnitureNotes}\nDo not add labels, dimensions, or text.`
           : `Create a photorealistic architectural interior render from this exact 3D camera view. Preserve the camera angle, room layout, doors, windows, furniture placement, and proportions. Apply the project's selected finishes:\n${finishNotes}\nFurniture specification:\n${furnitureNotes}`,
       });
-      replaceProject(result.project); setNotice(mode === "floorplan" ? "Đã tạo mặt bằng 3D và lưu vào thư viện dự án." : "Đã tạo phối cảnh từ góc nhìn 3D và lưu vào thư viện dự án.");
+      replaceProject(result.project); setNotice(mode === "floorplan" ? "Đã tạo mặt bằng 3D và lưu vào thư viện kiến trúc." : "Đã tạo phối cảnh từ góc nhìn 3D và lưu vào thư viện kiến trúc.");
     } catch (cause) { setError(apiMessage(cause, "Không tạo được phối cảnh từ góc nhìn 3D.")); }
     finally { setBusy(false); }
   };
@@ -259,13 +264,31 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
     finally { setDeleting(false); }
   };
 
-  if (page === "home") return <ArchitectAssistantHome
-    onOpenTool={tool => { if (!AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) return; setTab(tool); setPage(tool === "render" ? "rendering" : tool); setShowProjectsPanel(false); setNotice(""); setError(""); }}
-    onOpenProjects={() => { setPage("projects"); setShowProjectsPanel(true); setTab("plan"); }}
-  />;
+  const openTool = async (tool: ArchitectureToolId) => {
+    if (!AVAILABLE_ARCHITECTURE_TOOLS.has(tool) || busy) return;
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      let workspace = selected;
+      if (!workspace) {
+        const result = await api.list();
+        workspace = result.projects.find(project => project.name === "Không gian tạo ảnh") || (await api.create({ name: "Không gian tạo ảnh", areaM2: 100, floors: 1, style: "Hiện đại", requirements: "" })).project;
+        setProjects([workspace]);
+        setSelectedId(workspace._id);
+      }
+      setTab(tool); setPage(tool === "render" ? "rendering" : tool); setShowProjectsPanel(false);
+    } catch (cause) {
+      setError(apiMessage(cause, "Không mở được công cụ kiến trúc."));
+    } finally { setBusy(false); setLoading(false); }
+  };
+
+  if (page === "home") return <div className="architect-assistant-source min-h-full bg-surface" aria-busy={busy}>
+    {error && <p className="mx-6 mt-4 rounded-lg border border-error/40 bg-error-container/20 px-4 py-3 text-sm text-on-surface" role="alert">{error}</p>}
+    {busy && <p className="mx-6 mt-4 flex items-center gap-2 text-sm text-on-surface-variant" role="status"><RefreshCw className="size-4 animate-spin" aria-hidden="true" />Đang mở công cụ…</p>}
+    <ArchitectAssistantHome onOpenTool={tool => { void openTool(tool); }} />
+  </div>;
 
   const activeTool: ArchitectureToolId | null = page === "projects" || page === "rendering" ? tab : page;
-  const activeToolIsUnavailable = Boolean(activeTool && !AVAILABLE_ARCHITECTURE_TOOLS.has(activeTool));
+  const activeToolIsUnavailable = Boolean(activeTool && !(page === "rendering" ? AVAILABLE_RENDERING_TOOLS : AVAILABLE_ARCHITECTURE_TOOLS).has(activeTool));
 
   return <div className="architect-assistant-source min-h-full space-y-5 overflow-auto bg-surface p-4 sm:p-6" aria-busy={busy || loading}>
     <div className="flex justify-end">
@@ -302,13 +325,8 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         </li>)}</ul>}
       </aside>}
 
-      {!selected ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-8 text-center">
-        <FolderOpen className="mb-4 size-12 text-primary" aria-hidden="true" />
-        <h2 className="text-balance text-xl font-bold text-on-surface">Chọn dự án để bắt đầu</h2>
-        <p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">Các bản vẽ, phối cảnh và ảnh được lưu trong dự án đang chọn.</p>
-        <button type="button" onClick={() => { setPage("projects"); setShowProjectsPanel(true); }} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
-          <FolderOpen className="size-4" aria-hidden="true" /> Mở danh sách dự án
-        </button>
+      {!selected ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-8 text-center" role={busy ? "status" : undefined}>
+        {busy ? <><RefreshCw className="mb-4 size-8 animate-spin text-primary" aria-hidden="true" /><h2 className="text-balance text-xl font-semibold text-on-surface">Đang mở công cụ…</h2></> : <><h2 className="text-balance text-xl font-semibold text-on-surface">Không mở được công cụ</h2><p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">{error || "Hãy quay lại danh sách công cụ và thử lại."}</p></>}
       </section> : activeToolIsUnavailable ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-8 text-center" aria-labelledby="architecture-tool-development-title">
         <h2 id="architecture-tool-development-title" className="text-balance text-xl font-semibold text-on-surface">Tính năng đang phát triển</h2>
         <p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">Công cụ này hiện chưa khả dụng. Bạn có thể tiếp tục với Vẽ bản vẽ AI hoặc Rendering.</p>
@@ -346,7 +364,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
 
         {page === "rendering" && <nav className="flex gap-1 overflow-x-auto rounded-full bg-surface-container-low p-1.5" aria-label="Công cụ rendering">
           {RENDERING_TABS.map(item => {
-            const available = AVAILABLE_ARCHITECTURE_TOOLS.has(item.tool);
+            const available = AVAILABLE_RENDERING_TOOLS.has(item.tool);
             return <button key={item.tool} type="button" aria-pressed={tab === item.tool} aria-label={available ? item.label : `${item.label}, đang phát triển`} disabled={!available} onClick={() => setTab(item.tool)} className={cn("inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-4 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed sm:px-6", tab === item.tool ? "bg-surface-container-lowest text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface")}>
               {item.label}
               {!available && <span className="rounded-full border border-tertiary bg-tertiary-container px-2.5 py-1 text-[11px] font-extrabold text-on-tertiary-container">Đang phát triển</span>}
@@ -360,7 +378,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         </div>}
 
         {(page === "plan" || (page === "projects" && tab === "plan")) ? <div className="space-y-4">
-          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} projectName={selected.name} projectAreaM2={selected.areaM2} projectStyle={selected.style} projectRequirements={selected.requirements} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline) => void generatePlan(prompt, outline)} onGenerate3DRender={(image, mode, ratio) => void generateRenderFrom3D(image, mode, ratio)} />
+          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} projectAreaM2={selected.areaM2} projectStyle={selected.style} projectRequirements={selected.requirements} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline, settings) => void generatePlan(prompt, outline, settings)} onGenerate3DRender={(image, mode, ratio) => void generateRenderFrom3D(image, mode, ratio)} />
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant pt-4">
             <p className="text-xs text-on-surface-variant">AI đề xuất phương án tham khảo; hãy kiểm tra kích thước và quy chuẩn trước khi triển khai.</p>
             <div className="flex flex-wrap gap-2">
@@ -380,9 +398,9 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
             {assetUrls[asset.id] ? asset.mimeType === "video/mp4" ? <video src={assetUrls[asset.id]} controls playsInline className="aspect-video w-full bg-surface" aria-label={asset.filename} /> : <img src={assetUrls[asset.id]} alt={`Phối cảnh ${selected.name}, tạo ngày ${new Date(asset.createdAt).toLocaleDateString("vi-VN")}`} className="aspect-[4/3] w-full object-cover" /> : <div className="flex aspect-[4/3] items-center justify-center text-sm text-on-surface-variant" role="status">Đang tải tệp…</div>}
             <figcaption className="flex flex-wrap items-center justify-between gap-3 p-3 text-xs text-on-surface-variant"><span>{new Date(asset.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · <span className="tabular-nums">{Math.round(asset.bytes / 1024)} KB</span></span>{assetUrls[asset.id] && <a href={assetUrls[asset.id]} download={asset.filename} className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"><Download className="size-4" aria-hidden="true" />Tải ảnh</a>}</figcaption>
           </figure>)}</div>}
-          {!selected.renders.length && <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant text-center"><Sparkles className="mb-2 size-8 text-on-surface-variant" aria-hidden="true" /><p className="text-sm text-on-surface-variant">Chưa có phối cảnh trong dự án này.</p></div>}
+          {!selected.renders.length && <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant text-center"><Sparkles className="mb-2 size-8 text-on-surface-variant" aria-hidden="true" /><p className="text-sm text-on-surface-variant">Chưa có ảnh được tạo trong phiên này.</p></div>}
           {selected.plan && <details className="rounded-lg border border-outline-variant p-4"><summary className="cursor-pointer text-sm font-medium text-on-surface">Xem lại mặt bằng gốc</summary><div className="mt-4 max-w-xl"><ArchitecturePlanSvg plan={selected.plan} floor={activeFloor} /></div></details>}
-        </div> : page === "rendering" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) setTab(tool); }} /> : page === "projects" && tab !== "renders" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) setTab(tool); }} /> : page !== "projects" ? <ArchitectureCreativeTools tool={page} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (!AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) return; setTab(tool); setPage(tool === "render" ? "rendering" : tool); }} /> : null}
+        </div> : page === "rendering" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_RENDERING_TOOLS.has(tool)) setTab(tool); }} /> : page === "projects" && tab !== "renders" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) setTab(tool); }} /> : page !== "projects" ? <ArchitectureCreativeTools tool={page} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (!AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) return; setTab(tool); setPage(tool === "render" ? "rendering" : tool); }} /> : null}
       </section>}
     </div>
     <ConfirmDialog appearance="erp" native isOpen={deleteOpen} title="Xóa dự án kiến trúc?" description={`Dự án “${selected?.name || ""}” sẽ bị xóa khỏi chi nhánh hiện tại.`} error={deleteOpen ? error : undefined} confirmLabel="Xóa dự án" isSubmitting={deleting} onClose={() => setDeleteOpen(false)} onConfirm={deleteProject} />
