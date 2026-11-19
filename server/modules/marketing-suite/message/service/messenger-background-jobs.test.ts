@@ -291,7 +291,8 @@ it("deduplicates a Lead retry and processes only intake in the worker", async ()
   await ZaloMessageModel.create({ conversationId, senderId: "customer", recipientId: "oa", direction: "inbound",
     messageId: "m1", timestamp: new Date(), text: "Xin tư vấn" });
   const turn = { companyCode: "TEST", platform: "zalo" as const, pageId: "oa", conversationId,
-    messageId: "m1", messageAt: new Date(), message: "Xin tư vấn", imageUrls: ["not-required"] };
+    messageId: "m1", messageAt: new Date(), message: "Xin tư vấn", imageUrls: ["not-required"],
+    businessContext: "Quy tắc thu thập đã lưu của OA" };
   await enqueueLeadIntakeRetry(turn);
   await enqueueLeadIntakeRetry(turn);
   stopWorkers = startMessengerBackgroundWorkers();

@@ -445,9 +445,13 @@ describe("Persistent chatbot test sessions", () => {
     await saveChatTestConfig(companyCode, userId, session.id, { enabled: true, advancedInstructions: "Rule mới" });
     expect((await UserModel.findById(userId).lean())?.aiAutoReplyConfig?.advancedInstructions).toBe("Rule mới");
     await previewChatTestReply(companyCode, userId, session.id, "Tôi là An", []);
+    expect(JSON.parse(String(vi.mocked(generateReplyCompletion).mock.lastCall?.[0].messages.at(-1)?.content)).businessContext)
+      .toBe("Rule mới\n\nGiá gói từ kho tri thức");
     expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(0);
     const messageId = await send(session.id, "Tôi là An", "new-rules-message");
     await processChatTestMessage({ sessionId: session.id, messageId });
+    expect(JSON.parse(String(vi.mocked(generateReplyCompletion).mock.lastCall?.[0].messages.at(-1)?.content)).businessContext)
+      .toBe("Rule mới\n\nGiá gói từ kho tri thức");
     expect(geminiService.chat).toHaveBeenLastCalledWith("Tôi là An", expect.any(Array),
       expect.objectContaining({ advancedInstructions: "Rule mới" }), expect.any(Object));
     expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(1);
