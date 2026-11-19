@@ -140,8 +140,6 @@ export const fbMessengerController = {
     const token = req.query["hub.verify_token"] as string;
     const challenge = req.query["hub.challenge"] as string;
 
-    console.log(`[Facebook Webhook Verification] Bắt đầu xác thực: mode=${mode}, token=${token}, challenge=${challenge}`);
-
     try {
       const result = await fbMessengerService.verifyWebhook(mode, token, challenge);
       console.log("[Facebook Webhook Verification] Xác thực thành công! Phản hồi challenge về Meta.");
