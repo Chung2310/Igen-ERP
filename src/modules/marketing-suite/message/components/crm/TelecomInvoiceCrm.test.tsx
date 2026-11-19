@@ -13,6 +13,36 @@ vi.mock("../../services/crmService", () => ({ crmService: {
 } }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
+it("renders repeated Excel lines in their original order with adjacent customer columns", async () => {
+  vi.mocked(crmService.getLeadContractProviders).mockResolvedValue(["FPT"]);
+  const excel = { customerName: "Khách A", address: "Căn 101", activatedAt: "7/2023", periods: ["02/2026"] };
+  vi.mocked(crmService.reconcileLeadContracts).mockResolvedValue({
+    excelCount: 2, duplicates: 1, invalidRows: [], sourceRowCount: 4,
+    rows: [{ code: "A001", status: "matched" }, { code: "B002", status: "matched" }, { code: "ERP-ONLY", status: "lead_only", lead: { customerName: "Khách cũ" } }],
+    excelRows: [
+      { code: "B002", excelCode: "b002", status: "matched", sourceRows: [8], sourceSerial: "1", excel: { ...excel, services: ["Internet"] } },
+      { code: "B002", excelCode: "b002", status: "matched", sourceRows: [9], sourceSerial: "1", excel: { ...excel, services: ["Truyền hình"] } },
+      { code: "B002", excelCode: "b002", status: "matched", sourceRows: [10], sourceSerial: "1", excel: { ...excel, services: ["Truyền hình"] } },
+      { code: "A001", status: "matched", sourceRows: [11], sourceSerial: "2", excel: { ...excel, services: ["Internet"] } },
+    ],
+  });
+  render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
+  fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [new File(["workbook"], "bang-ke.xlsx")] } });
+  fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
+  const table = await screen.findByRole<HTMLTableElement>("table", { name: "Đối soát theo từng dòng Excel" });
+  const rows = Array.from(table.tBodies[0].rows);
+  expect(rows).toHaveLength(5);
+  expect(rows.map(row => row.cells[1].textContent)).toEqual(["b002", "b002", "b002", "A001", "ERP-ONLY"]);
+  expect(rows.slice(0, 4).map(row => row.cells[2].textContent)).toEqual(Array(4).fill("Khách A"));
+  expect(rows.slice(0, 4).map(row => row.cells[3].textContent)).toEqual(Array(4).fill("Căn 101"));
+  expect(rows.slice(0, 4).map(row => row.cells[4].textContent)).toEqual(["Internet", "Truyền hình", "Truyền hình", "Internet"]);
+  expect(rows[0].cells[0].textContent).toContain("Dòng 8");
+  expect(rows[2].cells[0].textContent).toContain("Dòng 10");
+  expect(rows[4].cells[0].textContent).toContain("Ngoài Excel");
+  fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "matched" } });
+  expect(table.tBodies[0].rows).toHaveLength(4);
+});
+
 it("shows VNPT customer differences side by side without requiring OCR setup or displaying charges", async () => {
   vi.mocked(crmService.getLeadContractProviders).mockResolvedValue([]);
   vi.mocked(crmService.reconcileLeadContracts).mockResolvedValue({
@@ -30,9 +60,9 @@ it("shows VNPT customer differences side by side without requiring OCR setup or 
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
   fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
-  expect(await screen.findByRole("cell", { name: "Khác thông tin" })).toBeTruthy();
+  expect(await screen.findByText("Khác thông tin")).toBeTruthy();
   expect(screen.getByText("Địa chỉ: khác nhau.")).toBeTruthy();
-  expect(screen.getByText("Căn 101")).toBeTruthy();
+  expect(screen.getAllByText("Căn 101").length).toBeGreaterThan(0);
   expect(screen.getByText("Căn 202")).toBeTruthy();
   expect(screen.getByText("04/07/2023")).toBeTruthy();
   expect(screen.queryByText(/Hoa hồng|Tổng tiền/i)).toBeNull();
@@ -102,7 +132,7 @@ it("submits the selected period and file and filters the results by contract sta
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
   fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
-  expect(await screen.findByText("2 mã trong Excel · 2 dòng · 4 dòng có thông tin lặp")).toBeTruthy();
+  expect(await screen.findByText("2 mã trong Excel · 2 dòng · 4 dòng có thông tin lặp (vẫn giữ đủ)")).toBeTruthy();
   expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "FPT", 2026, 1, expect.any(AbortSignal));
   fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "excel_only" } });
   expect(screen.queryByText("001")).toBeNull();

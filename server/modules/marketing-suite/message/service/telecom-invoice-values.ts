@@ -2,6 +2,7 @@ import { DEFAULT_TELECOM_INVOICE_FIELDS, TELECOM_INVOICE_FIELDS, formatTelecomIn
 import type { LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
 import { normalizeIntakeValue } from "./normalize-intake-fields";
 import { invoiceFieldName, isInvoiceNumberField } from "./telecom-invoice-profile";
+import { customerColumn, serviceValues } from "./telecom-customer-data";
 
 const normalizeText = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d");
 
@@ -22,6 +23,13 @@ export function normalizeInvoiceLeadValue(field: LeadIntakeField, value: unknown
   // Convert a printed or manually entered Vietnamese date before the shared calendar validation.
   if (field.type === "date" && typeof value === "string") {
     value = value.trim().replace(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/, (_, day, month, year) => `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+  }
+  // Preserve separate service entries before generic text cleanup flattens newlines.
+  if ((customerColumn(field.key) === "services" || customerColumn(field.label) === "services")
+    && (!field.type || ["text", "long_text", "multi_select"].includes(field.type))) {
+    const items = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+    if (!items.length || items.some(item => typeof item !== "string")) return;
+    value = [...new Set(items.flatMap(item => serviceValues(item as string)))].join("; ");
   }
   if (typeof value === "string") value = value.replace(/[\r\n\t]+/g, " ").replace(/\p{Cc}|\p{Cf}/gu, "");
   return normalizeIntakeValue(field, value);

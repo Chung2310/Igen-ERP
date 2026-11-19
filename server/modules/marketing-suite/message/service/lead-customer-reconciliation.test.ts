@@ -32,6 +32,24 @@ async function lead(code: string, overrides: Record<string, unknown> = {}, compa
 }
 
 describe("Customer information reconciliation", () => {
+  it("preserves source order, repeated STT/customer cells and even identical lines while matching services individually", async () => {
+    await lead("B002");
+    await lead("A001", { dich_vu: "Internet" });
+    const bytes = workbook([headers,
+      [1, "B002", "Nguyễn An", "Căn 101 Green Pearl", "Internet", "04/07/2023", "01/02/2026-28/02/2026"],
+      [1, "B002", "Nguyễn An", "Căn 101 Green Pearl", "Truyền hình", "04/07/2023", "01/02/2026-28/02/2026"],
+      [1, "B002", "Nguyễn An", "Căn 101 Green Pearl", "Truyền hình", "04/07/2023", "01/02/2026-28/02/2026"],
+      [2, "A001", "Nguyễn An", "Căn 101 Green Pearl", "Truyền hình", "04/07/2023", "01/03/2026-31/03/2026"],
+    ]);
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, bytes);
+    expect(report).toMatchObject({ excelCount: 2, sourceRowCount: 4, duplicates: 1 });
+    expect(report.excelRows?.map(row => [row.code, row.sourceSerial, row.sourceRows?.[0], row.status])).toEqual([
+      ["B002", "1", 2, "matched"], ["B002", "1", 3, "matched"], ["B002", "1", 4, "matched"], ["A001", "2", 5, "different"],
+    ]);
+    expect(report.excelRows?.map(row => row.excel?.customerName)).toEqual(Array(4).fill("Nguyễn An"));
+    expect(report.excelRows?.map(row => row.excel?.services)).toEqual([["Internet"], ["Truyền hình"], ["Truyền hình"], ["Truyền hình"]]);
+    expect(await CRMTicketModel.countDocuments({ companyCode: "CUSTOMERS" })).toBe(2);
+  });
   it("compares an explicitly recorded reconciliation quarter and keeps missing period data optional", async () => {
     await lead("A", { ky_doi_soat: "Quý 2/2026", dich_vu: "Internet" });
     await lead("B", { ky_doi_soat: "Quý 1/2026", dich_vu: "Internet" });
@@ -56,6 +74,7 @@ describe("Customer information reconciliation", () => {
     expect(report).toMatchObject({ excelCount: 1, duplicates: 0, sourceRowCount: 3 });
     expect(report.rows[0]).toMatchObject({ code: "0001", status: "matched", sourceRows: [2, 3, 4], differences: [] });
     expect(report.rows[0].excel?.periods).toHaveLength(2);
+    expect(report.excelRows?.map(row => [row.sourceRows?.[0], row.status])).toEqual([[2, "matched"], [3, "matched"], [4, "matched"]]);
     expect(JSON.stringify(report)).not.toMatch(/999999|Hoa Hồng|Doanh thu/);
   });
 

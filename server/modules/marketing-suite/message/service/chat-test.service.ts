@@ -27,7 +27,7 @@ import type { ChatOrderFlowReply } from "./chat-ordering/core/types";
 import { assertChatTestImages, groupChatTestReadings, type ChatTestImage, type ChatTestReading, type ChatTestDocument } from "./chat-test-images";
 import { customerColumn } from "./telecom-customer-data";
 import { contractDocumentKey } from "./telecom-document-identity";
-import { processLeadContractImages, readLeadDocument } from "./lead-contract-ocr";
+import { LEAD_DOCUMENT_OCR_VERSION, processLeadContractImages, readLeadDocument } from "./lead-contract-ocr";
 import { AiAutoReplyConfigSchema, UserModel } from "../../../../model/user.model";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model";
 import type { TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
@@ -112,6 +112,11 @@ export async function readChatTestSession(companyCode: string, userId: string, i
 function chatTestLeadSetup(domain: string | undefined, fields: LeadIntakeField[]) {
   if (domain !== "telecom") return { ready: true };
   if (!fields.length) return { ready: false, message: "Chưa có bộ trường Lead đang áp dụng. Mở Thiết lập Lead, chọn các cột cần lưu rồi Lưu và áp dụng." };
+  const legacyKeys = new Set(["account", "ho_va_ten", "so_dien_thoai", "dia_chi_lap_dat", "ma_yeu_cau", "tong_tien", "nhan_vien_ky_thuat", "so_dien_thoai_ky_thuat", "ma_ket_cuoi", "ma_tram", "trang_thai_cong_viec"]);
+  if (fields.length === legacyKeys.size && fields.every(field => legacyKeys.has(field.key))) return {
+    ready: false,
+    message: "Đang dùng mẫu Nhà mạng cũ, chưa có cột Nhà mạng và Số hợp đồng. Mở Thiết lập Lead, chọn mẫu Nhà mạng → Thay bộ cột bằng mẫu → Lưu & áp dụng. Dữ liệu Lead đã lưu vẫn được giữ.",
+  };
   const subscriber = findSubscriberField(fields);
   const contract = findContractField(fields);
   const provider = fields.find(field => customerColumn(field.key) === "provider" || customerColumn(field.label) === "provider");
@@ -399,7 +404,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
     }
     let verifiedImageValues: Record<string, string> = {};
     let readings: ChatTestReading[] = [];
-    const profileHash = createHash("sha256").update(JSON.stringify({ fields: leadFields, domain: session.documentDomain || "general" })).digest("hex");
+    const profileHash = createHash("sha256").update(JSON.stringify({ fields: leadFields, domain: session.documentDomain || "general", ocrVersion: LEAD_DOCUMENT_OCR_VERSION })).digest("hex");
     const candidateSubscriberField = findSubscriberField(leadFields);
     const subscriberField = candidateSubscriberField && (!candidateSubscriberField.type || candidateSubscriberField.type === "text")
       ? candidateSubscriberField : undefined;

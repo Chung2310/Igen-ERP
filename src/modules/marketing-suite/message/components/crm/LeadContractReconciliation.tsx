@@ -97,7 +97,9 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
       setOpening("");
     }
   }
-  const visible = report?.rows.filter(row => filter === "all" || row.status === filter) ?? [];
+  const comparisonRows = report ? report.excelRows
+    ? [...report.excelRows, ...report.rows.filter(row => row.status === "lead_only")] : report.rows : [];
+  const visible = comparisonRows.filter(row => filter === "all" || row.status === filter);
   if (!providers && !error) return <p role="status" className="text-pretty text-sm text-on-surface-variant">Đang tải nhà cung cấp…</p>;
   if (!providers) return <div className="space-y-2">
     <p role="alert" className="text-pretty text-sm text-error">{error}</p>
@@ -125,7 +127,7 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
             onChange={event => { setYear(event.target.value); setReport(undefined); }} />
         </label>
       </div>
-      <p className="text-pretty text-xs text-on-surface-variant">FPT ghép bằng Số hợp đồng, VNPT bằng Mã khách hàng/Account. So tên, địa chỉ, dịch vụ và mốc hòa mạng; giữ các dịch vụ và kỳ của cùng mã.</p>
+      <p className="text-pretty text-xs text-on-surface-variant">FPT ghép bằng Số hợp đồng, VNPT bằng Mã khách hàng/Account. So tên, địa chỉ, dịch vụ và mốc hòa mạng; giữ nguyên từng dòng và thứ tự trong Excel, kể cả các dòng lặp.</p>
       <label className="block space-y-1 text-sm">
         <span>File bảng kê (.xlsx)</span>
         <input type="file" className="block w-full rounded-md border border-outline-variant p-2 text-sm outline-none focus:border-primary"
@@ -143,7 +145,7 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
     {error && <p id={errorId} role="alert" className="text-pretty text-sm text-error">{error}</p>}
     {report && <section aria-label="Kết quả đối soát" className="space-y-2">
       <p role="status" className="text-pretty text-sm tabular-nums">
-        {report.excelCount} mã trong Excel · {report.sourceRowCount ?? report.excelCount} dòng · {report.duplicates} dòng có thông tin lặp
+        {report.excelCount} mã trong Excel · {report.sourceRowCount ?? report.excelCount} dòng · {report.duplicates} dòng có thông tin lặp (vẫn giữ đủ)
       </p>
       {report.sheetName && <p className="text-pretty text-xs text-on-surface-variant">Bảng: {report.sheetName} · {report.period}. Bao gồm hồ sơ hòa mạng từ các kỳ trước; không dùng ngày gửi ảnh làm kỳ đối soát.</p>}
       {report.invalidRows.length > 0 && <p className="text-pretty text-sm text-error">
@@ -152,29 +154,40 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
       <label className="block max-w-xs space-y-1 text-sm">
         <span>Lọc kết quả</span>
         <select className={fieldClass} value={filter} onChange={event => { setFilter(event.target.value as typeof filter); setPage(1); }}>
-          <option value="all">Tất cả ({report.rows.length})</option>
+          <option value="all">Tất cả ({comparisonRows.length})</option>
           {Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>
-            {label} ({report.rows.filter(row => row.status === value).length})
+            {label} ({comparisonRows.filter(row => row.status === value).length})
           </option>)}
         </select>
       </label>
       {visible.length ? <div className="overflow-hidden rounded-md border border-outline-variant">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Đối soát theo từng dòng Excel" className="min-w-5xl w-full text-left text-sm">
             <thead className="bg-surface-container">
-              <tr>{[report.identityLabel || "Mã đối soát", "Kết quả", "Khách hàng và thông tin đối chiếu"].map(label =>
+              <tr>{["STT / dòng Excel", report.identityLabel || "Mã đối soát", "Tên khách hàng", "Địa chỉ", "Dịch vụ", "Thời gian", "Kết quả / Lead"].map(label =>
                 <th key={label} scope="col" className="px-3 py-2 font-medium">{label}</th>)}</tr>
             </thead>
             <tbody>{visible.slice((page - 1) * pageSize, page * pageSize).map(row =>
-              <tr key={row.code} className="border-t border-outline-variant">
-                <td className="wrap-anywhere px-3 py-2 font-medium tabular-nums">{row.code}</td>
-                <td className="px-3 py-2">{statuses[row.status]}{row.issue && <p className="mt-1 text-pretty text-xs text-on-surface-variant">{row.issue}</p>}</td>
-                <td className="px-3 py-2">
-                  {row.excel?.customerName && <p className="text-pretty">Excel: {row.excel.customerName}</p>}
+              <tr key={`${row.sourceRows?.join("-") || "lead"}:${row.code}`} className="border-t border-outline-variant">
+                <td className="px-3 py-2 align-top tabular-nums">
+                  <p>{row.sourceSerial || "—"}</p>
+                  <p className="text-pretty text-xs text-on-surface-variant">{row.sourceRows?.length ? `Dòng ${row.sourceRows.join(", ")}` : "Ngoài Excel"}</p>
+                </td>
+                <td className="wrap-anywhere px-3 py-2 align-top font-medium tabular-nums">{row.excelCode || row.code}</td>
+                <td className="wrap-anywhere px-3 py-2 align-top">{customerValue(row.excel || row.lead, "customerName")}</td>
+                <td className="wrap-anywhere px-3 py-2 align-top">{customerValue(row.excel || row.lead, "address")}</td>
+                <td className="px-3 py-2 align-top">{customerValue(row.excel || row.lead, "services")}</td>
+                <td className="px-3 py-2 align-top">
+                  <p className="text-pretty">{customerValue(row.excel || row.lead, "periods")}</p>
+                  {(row.excel || row.lead)?.activatedAt && <p className="mt-1 text-pretty text-xs text-on-surface-variant">Hòa mạng: {customerValue(row.excel || row.lead, "activatedAt")}</p>}
+                </td>
+                <td className="px-3 py-2 align-top">
+                  <p className="text-pretty">{statuses[row.status]}</p>
+                  {row.issue && <p className="mt-1 text-pretty text-xs text-on-surface-variant">{row.issue}</p>}
                   {row.leadId ? <button type="button" className={linkClass} disabled={Boolean(opening)}
                     onClick={() => void openLead(row.leadId!)}>{opening === row.leadId ? "Đang mở…" : row.customerName || "Mở Lead"}</button> : "—"}
                   {(row.excel || row.lead) && <details className="mt-2">
-                    <summary className="cursor-pointer rounded text-primary focus-visible:outline-1 focus-visible:outline-primary">So sánh thông tin mã {row.code}</summary>
+                    <summary className="cursor-pointer rounded text-primary focus-visible:outline-1 focus-visible:outline-primary">So sánh {row.sourceRows?.length ? `dòng ${row.sourceRows.join(", ")}` : "hồ sơ"} · {row.code}</summary>
                     <CustomerComparison excel={row.excel} lead={row.lead} />
                     {row.differences?.length ? <ul className="mt-2 list-inside list-disc space-y-1 text-xs">{row.differences.map(item => <li key={item.field}>{item.label}: {item.reason === "different" ? "khác nhau" : item.reason === "missing_lead" ? "Lead chưa có dữ liệu" : "Excel chưa có dữ liệu"}.</li>)}</ul> : null}
                     {row.sourceRows?.length ? <p className="mt-2 text-pretty text-xs tabular-nums">Dòng Excel: {row.sourceRows.join(", ")}</p> : null}
@@ -184,27 +197,28 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
           </table>
         </div>
         <TablePagination appearance="erp" currentPage={page} totalPages={Math.ceil(visible.length / pageSize)}
-          pageSize={pageSize} totalItems={visible.length} itemLabel="mã" onPageChange={setPage} onPageSizeChange={setPageSize} />
-      </div> : <p className="text-pretty text-sm text-on-surface-variant">Chưa có mã nào ở trạng thái này.</p>}
+          pageSize={pageSize} totalItems={visible.length} itemLabel="dòng" onPageChange={setPage} onPageSizeChange={setPageSize} />
+      </div> : <p className="text-pretty text-sm text-on-surface-variant">Chưa có dòng nào ở trạng thái này.</p>}
     </section>}
   </div>;
 }
 
-function CustomerComparison({ excel, lead }: { excel?: TelecomCustomerInfo; lead?: TelecomCustomerInfo }) {
-  const fields = [["customerName", "Tên khách hàng"], ["address", "Địa chỉ"], ["services", "Dịch vụ"], ["activatedAt", "Mốc hòa mạng / kích hoạt"], ["periods", "Kỳ đối soát"]] as const;
-  const value = (info: TelecomCustomerInfo | undefined, key: keyof TelecomCustomerInfo) => {
+function customerValue(info: TelecomCustomerInfo | undefined, key: keyof TelecomCustomerInfo) {
     const raw = info?.[key];
     if (!raw) return "Chưa có";
     if (Array.isArray(raw)) return raw.length ? raw.join("; ") : "Chưa có";
     if (key === "activatedAt") return raw.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1").replace(/^(\d{4})-(\d{2})$/, "$2/$1");
     return raw;
-  };
+}
+
+function CustomerComparison({ excel, lead }: { excel?: TelecomCustomerInfo; lead?: TelecomCustomerInfo }) {
+  const fields = [["customerName", "Tên khách hàng"], ["address", "Địa chỉ"], ["services", "Dịch vụ"], ["activatedAt", "Mốc hòa mạng / kích hoạt"], ["periods", "Kỳ đối soát"]] as const;
   return <table className="mt-2 w-full text-left text-xs">
     <thead><tr>{["Thông tin", "Excel", "Lead"].map(label => <th key={label} scope="col" className="border-b border-outline-variant px-2 py-1 font-medium">{label}</th>)}</tr></thead>
     <tbody>{fields.map(([key, label]) => <tr key={key} className="border-b border-outline-variant">
       <th scope="row" className="px-2 py-1 align-top font-medium">{label}</th>
-      <td className="wrap-anywhere px-2 py-1 align-top">{value(excel, key)}</td>
-      <td className="wrap-anywhere px-2 py-1 align-top">{value(lead, key)}</td>
+      <td className="wrap-anywhere px-2 py-1 align-top">{customerValue(excel, key)}</td>
+      <td className="wrap-anywhere px-2 py-1 align-top">{customerValue(lead, key)}</td>
     </tr>)}</tbody>
   </table>;
 }

@@ -15,6 +15,34 @@ const fields: LeadIntakeField[] = [
 ];
 beforeEach(() => vi.resetAllMocks());
 
+it.each([
+  ["array", ["Truyen hinh co ban", "Tra truoc Internet Recare"]],
+  ["line breaks", "Truyen hinh co ban\nTra truoc Internet Recare"],
+  ["semicolons", "Truyen hinh co ban; Tra truoc Internet Recare"],
+])("keeps both services from %s OCR output instead of flattening them into one service", async (_shape, text) => {
+  const customerFields: LeadIntakeField[] = [
+    { key: "services_custom", label: "Dịch vụ", type: "long_text", question: "Dịch vụ?" },
+    { key: "address", label: "Địa chỉ", type: "long_text", question: "Địa chỉ?" },
+  ];
+  vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields: {
+    services_custom: { status: "readable", text },
+    address: { status: "readable", text: "Green Pearl\nBắc Ninh" },
+  } }) } as never);
+  expect(await readLeadDocument("data:image/png;base64,fixture", customerFields, undefined, Date.now() + 60_000, "telecom"))
+    .toEqual({ other: false, values: { services_custom: "Truyen hinh co ban; Tra truoc Internet Recare", address: "Green Pearl Bắc Ninh" } });
+  expect(String(vi.mocked(generateReplyCompletion).mock.calls[0][0].messages[0].content)).toContain("mỗi phần tử là đúng một dịch vụ");
+});
+
+it("does not turn malformed service objects or lists for single-value fields into Lead text", async () => {
+  vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields: {
+    dich_vu: { status: "readable", text: ["Internet", { text: "Truyền hình" }] },
+    name: { status: "readable", text: ["A", "B"] },
+  } }) } as never);
+  expect(await readLeadDocument("data:image/png;base64,fixture", [
+    ...fields, { key: "dich_vu", label: "Dịch vụ", type: "long_text", question: "Dịch vụ?" },
+  ], undefined, Date.now() + 60_000, "telecom")).toEqual({ other: false, values: {} });
+});
+
 it("only accepts configured readable values and excludes credentials even if returned by the model", async () => {
   vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields: {
     account: { status: "readable", text: "bnh_gftth_thuyltt4" },

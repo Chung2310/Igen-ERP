@@ -10,7 +10,7 @@ import { customerColumn, customerDate, customerText, infoValue, sameCustomerDate
 
 const maxRows = 20_000;
 function inputError(message: string) { return Object.assign(new Error(message), { statusCode: 400 }); }
-type CustomerRow = { code: string; row: number; info: TelecomCustomerInfo };
+type CustomerRow = { code: string; row: number; serial: string; excelCode: string; info: TelecomCustomerInfo };
 function cellText(cell?: XLSX.CellObject): string {
   if (!cell) return "";
   if (cell.v instanceof Date) return `${cell.v.getUTCFullYear()}-${String(cell.v.getUTCMonth() + 1).padStart(2, "0")}-${String(cell.v.getUTCDate()).padStart(2, "0")}`;
@@ -83,7 +83,7 @@ export function readLeadContractWorkbook(bytes: Buffer, provider = "FPT", year?:
     const fingerprint = JSON.stringify([code, info]);
     if (seen.has(fingerprint)) duplicates++;
     seen.add(fingerprint); codes.add(code);
-    records.push({ code, row: row + 1, info });
+    records.push({ code, row: row + 1, serial, excelCode: rawCode, info });
   }
   if (!codes.size) throw inputError("Bảng kê chưa có mã khách hàng hợp lệ để đối soát.");
   return { codes, duplicates, invalidRows, records, sheetName: selected.name, identityLabel: identity === "account" ? "Mã khách hàng / Account" : "Số hợp đồng", period };
@@ -95,7 +95,7 @@ export function leadContractPeriod(year: number, quarter: number) {
   return { $gte: new Date(Date.UTC(year, startMonth, 1, -7)), $lt: new Date(Date.UTC(year, startMonth + 3, 1, -7)) };
 }
 
-function compare(excel: TelecomCustomerInfo, lead: TelecomCustomerInfo): TelecomCustomerDifference[] {
+function compare(excel: TelecomCustomerInfo, lead: TelecomCustomerInfo, exactServices = true): TelecomCustomerDifference[] {
   const labels = { customerName: "Tên khách hàng", address: "Địa chỉ", services: "Dịch vụ", activatedAt: "Mốc hòa mạng / kích hoạt", periods: "Kỳ đối soát" } as const;
   return (Object.keys(labels) as Array<keyof typeof labels>).flatMap<TelecomCustomerDifference>(field => {
     const a = infoValue(excel, field), b = infoValue(lead, field);
@@ -104,7 +104,9 @@ function compare(excel: TelecomCustomerInfo, lead: TelecomCustomerInfo): Telecom
     if (field === "periods" && (!a || !b)) return [];
     if (!a || !b) return [{ field, label: labels[field], excel: a, lead: b,
       reason: !a ? "missing_excel" as const : "missing_lead" as const }];
-    const equal = field === "services" ? [...new Set(excel.services?.map(serviceName))].sort().join(";") === [...new Set(lead.services?.map(serviceName))].sort().join(";")
+    const equal = field === "services" ? (exactServices
+      ? [...new Set(excel.services?.map(serviceName))].sort().join(";") === [...new Set(lead.services?.map(serviceName))].sort().join(";")
+      : (excel.services || []).every(service => (lead.services || []).some(value => serviceName(value) === serviceName(service))))
       : field === "periods" ? periodKeys(excel.periods || []).every(month => periodKeys(lead.periods || []).includes(month))
       : field === "activatedAt" ? sameCustomerDate(a, b) : customerText(a) === customerText(b);
     return equal ? [] : [{ field, label: labels[field], excel: a, lead: b, reason: "different" as const }];
@@ -194,6 +196,16 @@ export async function reconcileLeadContracts(companyCode: string, rawProvider: s
     const differences = compare(excel, match.info);
     return { ...base, excel, differences, status: differences.some(item => item.reason === "different") ? "different" : differences.length ? "incomplete" : "matched" };
   });
-  return { rows, excelCount: parsed.codes.size, duplicates: parsed.duplicates, invalidRows: parsed.invalidRows, provider,
+  const byCode = new Map(rows.map(row => [row.code, row]));
+  // Match each source line independently and retain its exact position, including
+  // identical repeats. One customer's other services must not invalidate this line.
+  const excelRows = parsed.records.map<LeadContractComparison>(record => {
+    const result = byCode.get(record.code)!;
+    const source = { ...result, excel: record.info, sourceRows: [record.row], sourceSerial: record.serial, excelCode: record.excelCode };
+    if (!result.lead || result.status === "needs_review") return source;
+    const differences = compare(record.info, result.lead, false);
+    return { ...source, differences, status: differences.some(item => item.reason === "different") ? "different" : differences.length ? "incomplete" : "matched" };
+  });
+  return { rows, excelRows, excelCount: parsed.codes.size, duplicates: parsed.duplicates, invalidRows: parsed.invalidRows, provider,
     sheetName: parsed.sheetName, identityLabel: parsed.identityLabel, period: parsed.period, sourceRowCount: parsed.records.length };
 }

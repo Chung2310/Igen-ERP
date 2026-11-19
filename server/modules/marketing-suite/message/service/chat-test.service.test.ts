@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { createHash } from "node:crypto";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import sharp from "sharp";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -96,6 +97,36 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it("rereads cached OCR from an older extractor before saving service data to a Lead", async () => {
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!.fields } });
+    const profile = (await LeadIntakeProfileModel.findOne({ companyCode }).lean())!;
+    const session = await start(false, "telecom");
+    const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    const messageId = await send(session.id, "", "old-extractor-cache", `data:image/png;base64,${image.toString("base64")}`);
+    const oldHash = createHash("sha256").update(JSON.stringify({ fields: profile.fields, domain: "telecom" })).digest("hex");
+    await ChatTestMessageModel.updateOne({ _id: messageId }, { $set: { leadImageProfileHash: oldHash,
+      leadImageReadings: [{ values: { nha_mang: "FPT", so_hop_dong: "FPT.CACHE", dich_vu: "Truyen hinh Internet" } }] } });
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields: {
+      nha_mang: { status: "readable", text: "FPT" }, so_hop_dong: { status: "readable", text: "FPT.CACHE" },
+      dich_vu: { status: "readable", text: ["Truyen hinh", "Internet"] },
+    } }) } as never);
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    expect(vi.mocked(generateReplyCompletion).mock.calls.filter(([request]) => request.operation === "lead_document_ocr")).toHaveLength(1);
+    expect(await CRMTicketModel.findOne({ companyCode }).lean()).toMatchObject({ answers: { dich_vu: "Truyen hinh; Internet" } });
+    expect((await ChatTestMessageModel.findById(messageId).lean())?.leadImageProfileHash).not.toBe(oldHash);
+  });
+  it("identifies the old eleven-column telecom template before OCR and unblocks after the new customer template is applied", async () => {
+    const oldKeys = ["account", "ho_va_ten", "so_dien_thoai", "dia_chi_lap_dat", "ma_yeu_cau", "tong_tien", "nhan_vien_ky_thuat", "so_dien_thoai_ky_thuat", "ma_ket_cuoi", "ma_tram", "trang_thai_cong_viec"];
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: oldKeys.map(key => ({ key, label: key, question: key, type: "text", required: true })) } });
+    const session = await start(false, "telecom");
+    expect((await readChatTestState(companyCode, userId, session.id)).session.leadSetup).toMatchObject({ ready: false, message: expect.stringContaining("mẫu Nhà mạng cũ") });
+    await expect(send(session.id, "", "old-template-photo", "data:image/png;base64,AA==")).rejects.toMatchObject({ code: "CHAT_TEST_LEAD_SETUP_REQUIRED" });
+    expect(generateReplyCompletion).not.toHaveBeenCalled();
+    expect(await ChatTestMessageModel.countDocuments()).toBe(0);
+    expect(await CRMTicketModel.countDocuments()).toBe(0);
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!.fields } });
+    expect((await readChatTestState(companyCode, userId, session.id)).session.leadSetup?.ready).toBe(true);
+  });
   it("supplements one FPT contract across conversations, preserves text updates and reconciles customer data", async () => {
     const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
     await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields } });

@@ -51,10 +51,13 @@ export type LeadContractComparison = {
   lead?: TelecomCustomerInfo;
   differences?: TelecomCustomerDifference[];
   sourceRows?: number[];
+  sourceSerial?: string;
+  excelCode?: string;
   issue?: string;
 };
 export type LeadContractReport = {
   rows: LeadContractComparison[];
+  excelRows?: LeadContractComparison[];
   excelCount: number;
   duplicates: number;
   invalidRows: number[];
