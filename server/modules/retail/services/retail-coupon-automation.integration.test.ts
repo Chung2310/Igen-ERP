@@ -1,6 +1,6 @@
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BranchModel } from "../../../model/branch.model";
 import { CustomerModel } from "../../customer-management/models/customer.model";
 import { RetailOrderModel } from "../models/retail-order.model";
@@ -19,11 +19,14 @@ const now = new Date("2026-10-21T03:00:00.000Z");
 describe("tự động tặng mã", () => {
   beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); await mongoose.connect(replSet.getUri()); });
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
     await Promise.all([BranchModel.deleteMany({}), CustomerModel.deleteMany({}), RetailOrderModel.deleteMany({}),
       RetailCouponModel.deleteMany({}), RetailCouponAutomationModel.deleteMany({})]);
     await BranchModel.create({ _id: branchId, companyCode, code: "CN1", name: "Chi nhánh thử nghiệm", isActive: true });
     await CustomerModel.create({ _id: customerId, companyCode, customerCode: "KH1", type: "regular", name: "Khách thử nghiệm", phone: "0900000001", normalizedPhone: "0900000001", dateOfBirth: new Date("2000-10-21T05:00:00Z"), status: "active", source: "manual", createdBy: "test", createdByName: "test", version: 0 });
   }, 30_000);
+  afterEach(() => vi.useRealTimers());
   afterAll(async () => { await mongoose.disconnect(); await replSet.stop(); });
 
   it("phát một mã sinh nhật mỗi khách mỗi năm", async () => {

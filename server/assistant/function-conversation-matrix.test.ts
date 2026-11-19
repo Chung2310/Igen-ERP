@@ -134,7 +134,7 @@ afterEach(() => vi.unstubAllGlobals());
 afterAll(() => { const output=process.env.ASSISTANT_FUNCTION_CONVERSATION_OUTPUT;if(output){fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(evidence,null,2));} });
 function matchingText(pattern?: string): string {
   if (!pattern) return 'QA';
-  const candidates = ['QA', '507f1f77bcf86cd799439021', '2026-11-01', '2026-11', '08:00', 'qa@example.test', '0900000000', '1', '#336699'];
+  const candidates = ['QA', '507f1f77bcf86cd799439021', '2026-11-01', '2026-11', '08:00', 'qa@example.test', '0900000000', '1', '#336699', 'https://res.cloudinary.com/fixture/video/upload/qa.mp4'];
   return candidates.find(value => new RegExp(pattern).test(value)) || 'QA';
 }
 function shapeValue(shape: AssistantDataShape | undefined): any {
@@ -155,8 +155,9 @@ function shapeValue(shape: AssistantDataShape | undefined): any {
   return matchingText(shape.pattern);
 }
 function fieldValue(field: AssistantField): unknown {
+  if (field.referenceValueKey==='version') return '1';
   if(field.apiKey==='branchId' || field.reference==='branch.list') return req.user.branchId;
-  if(state.selectedId.startsWith('healthcare.') && (field.reference?.startsWith('healthcare.') || field.source==='path' && field.apiKey==='id')) return '11111111-1111-4111-8111-111111111111';
+  if(field.reference?.startsWith('healthcare.') || state.selectedId.startsWith('healthcare.') && field.source==='path' && field.apiKey==='id') return '11111111-1111-4111-8111-111111111111';
   if(field.options?.length) return field.options[0];
   if(field.type==='json') return shapeValue(field.structure);
   if(field.type==='number') return Math.max(field.min||0,1);
@@ -203,6 +204,7 @@ for(const op of operations) describe(op.id,()=>{
       if(op.module==='healthcare' && values.patientIds) values.patientIds=['11111111-1111-4111-8111-111111111111'];
       if(op.id==='worker.standard-fields.update') values.selectedField='fullName';
       if(op.id==='retail.order.cancel') values.refunds=[];
+      if(op.id==='marketing.elevenlabs.voice-settings.update') values.stability=0.5;
       if(op.id==='retail.partner.product.commissions.update') values.rule={kind:'phone',amount:1000};
       if(['api.post.e57ae0da3cdf14f8','api.patch.2971d5a8a97f8be8'].includes(op.id)) {
         values.official={enabled:true,maxMonths:1,milestones:[{month:1,amount:1000,eligibilityRule:'contract_active'}]};
@@ -221,7 +223,8 @@ for(const op of operations) describe(op.id,()=>{
       record.reachedApi=calls.length>0;
       if(scenario!=='success-probe') expect(record.reply.status).not.toBe('completed');
       const previewPaths = new Set(['/api/v1/students/bulk-delete-preview', '/api/v1/quotation/catalog/bulk/preview', '/api/v1/quotation/catalog/import/preview']);
-      expect(calls.every(c=>c.method==='GET' || c.method==='POST' && (previewPaths.has(c.path) || /^\/api\/v1\/healthcare\/.*\/(search|bulk-delete-preview)$/.test(c.path) || c.path==='/api/v1/retail/orders/quote') || op.readOnly && c.method===op.method && c.path===`/api/v1${op.path}`)).toBe(true);
+      const expectedParts = (`/api/v1${op.path}`).split('/');
+      expect(calls.every(c=>c.method==='GET' || c.method==='POST' && (previewPaths.has(c.path) || /^\/api\/v1\/healthcare\/.*\/(search|bulk-delete-preview)$/.test(c.path) || c.path==='/api/v1/retail/orders/quote') || op.readOnly && c.method===op.method && c.path.split('/').length===expectedParts.length && c.path.split('/').every((part:string,i:number)=>expectedParts[i].startsWith(':') || part===expectedParts[i]))).toBe(true);
       if(op.unavailableReason) expect(calls).toHaveLength(0);
       if(['cancel','unknown-condition'].includes(scenario)) expect(calls).toHaveLength(0);
       if(probe) {

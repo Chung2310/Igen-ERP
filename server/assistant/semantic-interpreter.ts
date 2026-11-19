@@ -4,7 +4,7 @@ import type { AssistantInterpretation as BaseInterpretation } from "./interprete
 import { extractVietnameseInterviewTimes } from "./interpreter";
 import { ASSISTANT_OPERATIONS } from "./catalog";
 import { AssistantError } from "./policy";
-import { additionalCustomerNotes, appendCustomerNotes } from "../modules/customer-management/customer-notes";
+import { additionalCustomerNotes, appendCustomerNotes, hasCustomerExecutionConditions } from "../modules/customer-management/customer-notes";
 import { explicitlyRequestsBudgetCreation, quotationIntent } from "./quotation-intent";
 import { missingReportConstraint } from "./report-constraints";
 import { businessDiscoveryInstructions, validateBusinessDiscovery, type BusinessDiscovery } from "./business-discovery";
@@ -154,6 +154,9 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
     const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === selectedWorkflow.actionId);
     if (operation?.id === "customer.create" || (operation?.method === "PATCH" && operation.path === "/customers/:id")) {
       const extraFields = Object.fromEntries(Object.entries(parsed.values).filter(([key]) => !selectedWorkflow.fields.some(field => field.key === key)));
+      // Conditions affect whether/how to write. Never silently turn them into customer facts.
+      if (hasCustomerExecutionConditions(extraFields)) return { actionId: null, values: {}, intentType: "ambiguous",
+        clarification: "Mình chưa áp dụng được đầy đủ điều kiện bạn đưa ra. Bạn làm rõ điều kiện cần kiểm tra trước khi mình thay đổi hồ sơ nhé." };
       const previous = pending as { actionId?: string; values?: Record<string, unknown> } | null;
       const sameCustomer = selectedWorkflow.fields.filter(field => field.source === "path").every(field =>
         parsed.values[field.key] === undefined || previous?.values?.[field.key] === undefined || parsed.values[field.key] === previous.values[field.key]);

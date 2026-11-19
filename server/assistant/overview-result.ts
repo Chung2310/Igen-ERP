@@ -24,6 +24,7 @@ export function formatBusinessOverview(input: unknown): string {
   const access = object(data.access);
   const failures = Array.isArray(data.errors) ? data.errors : [];
   const notes: string[] = [];
+  if (typeof data.scopeLabel === "string") notes.push(`Phạm vi: ${data.scopeLabel}.`);
   for (const [key, section] of Object.entries(sections)) {
     if (access[key] === false) continue;
     if (failures.includes(key)) { notes.push(`Chưa tải được số liệu ${section.label.toLocaleLowerCase("vi")}. Báo cáo hiện chưa đầy đủ.`); continue; }
@@ -39,6 +40,8 @@ export function formatBusinessOverview(input: unknown): string {
   }
   const range = object(data.range);
   if (typeof range.from === "string" && typeof range.to === "string") notes.unshift(`Kỳ báo cáo: ${formatAssistantTemporalValue(range.from) || range.from} đến ${formatAssistantTemporalValue(range.to) || range.to}.`);
+  const comparison = object(data.comparisonRange);
+  if (typeof comparison.from === "string" && typeof comparison.to === "string") notes.push(`Kỳ đối chiếu: ${formatAssistantTemporalValue(comparison.from) || comparison.from} đến ${formatAssistantTemporalValue(comparison.to) || comparison.to}. Đây là kỳ liền trước có cùng độ dài, không mặc định là tháng dương lịch trước.`);
   if (!rows.length) return ["Chưa có số liệu để lập báo cáo.", ...notes].join("\n");
   return formatAssistantResultTable("Kết quả", rows, notes);
 }

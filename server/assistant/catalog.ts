@@ -1910,6 +1910,18 @@ if (studentIndividualCommission) {
 }
 // Query contracts must expose business filters to both interpretation and execution.
 // Keep these keyed by route so changing a generated operation ID cannot lose filters.
+const businessOverview = operations.find(operation => operation.id === "dashboard.business-overview");
+if (businessOverview) businessOverview.resultFields = [...businessOverview.resultFields, "comparisonRange", "scopeLabel"];
+for (const operation of operations.filter(item => ["student.create", "student.update"].includes(item.id))) {
+  operation.resultFields = [...new Set([...operation.resultFields, "address", "birthday", "referral"])];
+}
+operations.push({
+  id: "student.payment.reconcile", title: "Đối chiếu học phí học viên", module: "student", permissions: ["people:read", "people:manage"],
+  description: "Đối chiếu tổng phiếu thu, lịch sử thanh toán và số đã đóng trên hồ sơ của một học viên trong toàn bộ lịch sử. Dùng khi học viên nói đã đóng nhưng còn báo nợ. Chỉ đọc và nêu chênh lệch, không thu thêm, không sửa tiền và không suy đoán nguyên nhân. Không hỗ trợ giới hạn theo kỳ.",
+  method: "GET", path: "/payments/reconciliation/:id", adapter: "contract", readOnly: true,
+  fields: [{ ...ref("path_id", "Học viên cần đối chiếu", "student.list"), source: "path", apiKey: "id" }],
+  link: "/quan-ly-hoc-vien", resultFields: ["studentName", "totalFee", "recordedPaidAmount", "receiptTotal", "historyTotal", "remainingAmount", "paymentDifference", "receiptCount", "reconciliationStatus", "scopeDescription"],
+});
 const boundedCount = (key: string, label: string, max: number): AssistantField => ({ ...number(key, label), min: 1, max, integer: true });
 const queryChoice = choice;
 const reportDates = (): AssistantField[] => [date("from", "Từ ngày", true), date("to", "Đến ngày", true)];
@@ -1936,6 +1948,14 @@ for (const op of operations) {
     if (!op.fields.some(existing => existing.source === "query" && existing.apiKey === field.key)) op.fields.push(queryField(field));
   }
   op.description += " Giữ đầy đủ bộ lọc người dùng đã nêu. Chọn bản ghi tham chiếu theo tên, không tự đoán mã. Khoảng ngày phải có đủ đầu và cuối kỳ, thiếu kỳ thì hỏi lại. Danh sách bị giới hạn số dòng không đại diện cho toàn bộ dữ liệu.";
+}
+// These PATCH endpoints express the complete command in the URL, with no editable body.
+for (const operation of operations) {
+  if (["notification.mark-read", "notification.mark-all-read"].includes(operation.id)) operation.allowEmptyUpdate = true;
+  if (operation.id === "marketing.lead-intake-profile.activate") {
+    const version = operation.fields.find(field => field.apiKey === "version");
+    if (version) version.referenceValueKey = "version";
+  }
 }
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }

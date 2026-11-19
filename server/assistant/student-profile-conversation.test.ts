@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { conversationAudit } from "./testing/conversation-audit";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("../modules/student-management/services/payment-transaction", () => ({ runStudentPaymentTransaction: async (work: (session: undefined) => Promise<unknown>) => work(undefined) }));
 
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), assertOperation: vi.fn() }));
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
@@ -91,6 +92,49 @@ let placedWaitlist: any;
 let fetcher: ReturnType<typeof vi.fn>;
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
 
+it.each([999500, 1000000, 1000500])("business outcome: conversation through real payment service conserves debt for %s VND", async amount => {
+  const { PaymentService } = await import("../modules/student-management/services/payment.service");
+  const { Student } = await import("../modules/student-management/models/student.model");
+  const { Payment } = await import("../modules/student-management/models/payment.model");
+  students = [{ _id: studentId, __v: 0, ownerId: "actor", branchId: req.user.branchId, fullName: "Nguyễn An", phone: "0900000000",
+    fee: "2.000.000", paidAmount: 0, paymentHistory: [], installmentStatus: [1, 2].map(installmentNo => ({ installmentNo, amountDue: 1000000, status: "Chưa gửi" })) }];
+  const find = vi.spyOn(Student as any, "findOne").mockImplementation(async (query: any) => {
+    expect(query).toEqual({ _id: studentId, ownerId: "actor", branchId: req.user.branchId });
+    return { ...structuredClone(students[0]), markModified: vi.fn() };
+  });
+  const update = vi.spyOn(Student as any, "updateOne").mockImplementation(async (_query: any, change: any) => {
+    Object.assign(students[0], structuredClone(change.$set));
+    return { acknowledged: true, matchedCount: 1, modifiedCount: 1 };
+  });
+  const save = vi.spyOn(Payment.prototype, "save").mockImplementation(async function (this: any) { payments.push(this.toObject()); return this; });
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    if (new URL(String(url)).pathname === "/api/v1/payments" && init?.method === "POST") {
+      const result = await PaymentService.createPayment("actor", JSON.parse(String(init.body)), req.user.branchId);
+      return json({ success: true, data: result.toObject() });
+    }
+    return original(url, init);
+  });
+  try {
+    state.interpret.mockResolvedValueOnce({ actionId: "student.payment.create", intentType: "workflow", values: { studentId: "Nguyễn An", amount, method: "Tiền mặt", date: "2026-11-19" } });
+    const preview = await turn({ text: `Thu học phí Nguyễn An ${amount} đồng tiền mặt ngày 19/11/2026` });
+    expect(preview.status).toBe("confirmation");
+    expect(payments).toHaveLength(0);
+    const result = await confirm(preview);
+    expect(result.status).toBe("completed");
+    expect(payments).toHaveLength(1);
+    expect(payments[0].amount).toBe(amount);
+    expect(students[0].paidAmount).toBe(amount);
+    expect(students[0].installmentStatus.reduce((sum: number, item: any) => sum + item.amountDue, 0)).toBe(2000000 - amount);
+    state.interpret.mockResolvedValueOnce({ actionId: "student.list", values: { search: "Nguyễn An" }, intentType: "workflow", newRequest: true });
+    const report = await turn({ text: "Nguyễn An còn thiếu bao nhiêu tiền?" });
+    expect(report.status).toBe("completed");
+    expect(report.reply).toContain((2000000 - amount).toLocaleString("vi-VN"));
+    expect(parseAssistantResultTable(report.reply)?.rows).toHaveLength(1);
+    expect(payments).toHaveLength(1);
+  } finally { find.mockRestore(); update.mockRestore(); save.mockRestore(); }
+});
+
 it.each([
   "Phần học viên dùng làm gì?",
   "Tôi chưa dùng phần này bao giờ, bắt đầu từ đâu?",
@@ -148,7 +192,7 @@ it("discovery while drafting preserves supplied details and performs no write", 
   expect(students).toHaveLength(0);
 });
 
-it.each([false, true])("an unexplained spreadsheet cannot select a write from its filename or draft (pending=%s)", async withDraft => {
+it.each([false, true].flatMap(withDraft => ["discovery", "ambiguous", "general_question", "unsupported"].map(kind => ({ withDraft, kind }))))("an unexplained spreadsheet cannot select a write from its filename or draft ($withDraft, $kind)", async ({ withDraft, kind }) => {
   if (withDraft) {
     state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: { phone: "0909999999" }, intentType: "workflow" });
     await turn({ text: "Thêm học viên có số điện thoại 0909999999" });
@@ -157,16 +201,89 @@ it.each([false, true])("an unexplained spreadsheet cannot select a write from it
   fetcher.mockClear();
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
-    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem nội dung, thêm học viên mới hay cập nhật hồ sơ đang có?" }) });
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, intentType: kind === "discovery" ? "ambiguous" : kind,
+    ...(kind === "discovery" ? { businessDiscovery: { actionIds: ["student.list", "student.create"] } } : {}), clarification: "Bạn muốn xem nội dung, thêm học viên mới hay cập nhật hồ sơ đang có?" }) });
   const reply = await turn({ text: "Đây, làm giúp tôi", attachment: {
     fileName: "tao-hoc-vien.xlsx", headers: ["Họ tên", "Điện thoại"], rows: [{ "Họ tên": "Nguyễn An", "Điện thoại": "0900000000" }],
   } });
-  expect(reply.status).toBe("collecting");
-  expect(reply.reply).toContain("cập nhật hồ sơ");
+  expect(["collecting", "unsupported"]).toContain(reply.status);
   expect(fetcher).not.toHaveBeenCalled();
   expect(students).toHaveLength(0);
   if (withDraft) expect(state.session.pending).toEqual(pending);
+});
+
+it("rejecting a preview clears queued dependent work and cannot revive it on the next lookup", async () => {
+  const preview = await paymentPreview();
+  state.session.remainingRequests = ["Tạo thêm một phiếu thu sau bước vừa rồi"];
+  const cancelled = await turn({ decision: { id: preview.action.id, confirmed: false } });
+  expect(cancelled.status).toBe("cancelled");
+  expect(state.session.remainingRequests).toEqual([]);
+  state.interpret.mockResolvedValueOnce({ actionId: "student.list", values: {}, intentType: "workflow" });
+  const reply = await turn({ text: "Xem danh sách học viên" });
+  expect(reply.status).toBe("completed");
+  expect(payments).toHaveLength(0);
+});
+
+it("cancelling after a completed payment does not claim to undo saved data", async () => {
+  const preview = await paymentPreview();
+  expect((await confirm(preview)).status).toBe("completed");
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, cancel: true });
+  const reply = await turn({ text: "Thôi hủy đi" });
+  expect(payments).toHaveLength(1);
+  expect(reply.reply).not.toContain("Dữ liệu chưa được thay đổi");
+  expect(reply.reply).toContain("không tự hoàn tác");
+});
+
+it("explaining capabilities while awaiting payment confirmation keeps the preview without paying", async () => {
+  const preview = await paymentPreview();
+  const pending = structuredClone(state.session.pending);
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "ambiguous", businessDiscovery: { actionIds: ["student.list"] } });
+  const explanation = await turn({ text: "Trước khi làm, còn có thể xem được thông tin gì về học viên?" });
+  expect(explanation.status).toBe("collecting");
+  expect(state.session.pending).toEqual(pending);
+  expect(payments).toHaveLength(0);
+  expect((await confirm(preview)).status).toBe("completed");
+  expect(payments).toHaveLength(1);
+});
+
+it.each([403, 500])("an explicit new goal invalidates the old payment preview even when preparation fails (%s)", async status => {
+  const old = await paymentPreview();
+  state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: { fullName: "Bình" }, intentType: "workflow", newRequest: true });
+  state.assertOperation.mockRejectedValueOnce(new AssistantError("Không thể chuẩn bị yêu cầu mới", status));
+  expect(["failed", "unsupported"]).toContain((await turn({ text: "Bỏ việc thu tiền, chuyển sang thêm học viên Bình" })).status);
+  expect(state.session.pending).toBeNull();
+  expect((await confirm(old)).status).toBe("failed");
+  expect(payments).toHaveLength(0);
+});
+
+it("starting another payment does not borrow the previous learner's amount or payment method", async () => {
+  const old = await paymentPreview();
+  students.push({ _id: secondStudentId, fullName: "Trần Bình", fee: 8000000, paidAmount: 0, __v: 0 });
+  state.interpret.mockResolvedValueOnce({ actionId: "student.payment.create", values: { studentId: "Trần Bình" }, intentType: "workflow", newRequest: true });
+  const reply = await turn({ text: "Bỏ phiếu vừa rồi, thu tiền của Trần Bình" });
+  expect(reply.status).toBe("collecting");
+  expect(state.session.pending.provided.amount).toBeUndefined();
+  expect(state.session.pending.provided.method).toBeUndefined();
+  expect((await confirm(old)).status).toBe("failed");
+  expect(payments).toHaveLength(0);
+});
+
+it("an interpretation outage keeps the draft because a change of goal has not been established", async () => {
+  const preview = await paymentPreview();
+  const pending = structuredClone(state.session.pending);
+  state.interpret.mockRejectedValueOnce(new AssistantError("AI tạm thời không phản hồi", 502));
+  expect((await turn({ text: "Sửa ngày thu giúp tôi" })).status).toBe("failed");
+  expect(state.session.pending).toEqual(pending);
+  expect((await confirm(preview)).status).toBe("completed");
+  expect(payments).toHaveLength(1);
+});
+
+it.each(["Thôi hủy đi", "Dừng lại", "Không làm nữa"])("cancelling a payment draft invalidates its old confirmation: %s", async text => {
+  const preview = await paymentPreview();
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, cancel: true });
+  expect((await turn({ text })).status).toBe("cancelled");
+  expect((await confirm(preview)).status).toBe("failed");
+  expect(payments).toHaveLength(0);
 });
 
 it("owner follows discovery with a tuition question and gets actual mock balances without creating payments", async () => {

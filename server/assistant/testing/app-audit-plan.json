@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "scope": "Toàn bộ nghiệp vụ ứng dụng, đối chiếu MODULE_KEYS, giao diện, API và catalog trợ lý",
+  "target": "80–90% chức năng nghiệp vụ được kiểm chứng. Chưa chốt mẫu số cho tới khi đối chiếu UI/API và loại alias có bằng chứng.",
+  "constraints": ["Không gọi API AI trả phí", "Không ghi dữ liệu ERP thật", "Không gửi tin hoặc email thật", "Xác thực và thiết bị giữ luồng riêng nhưng vẫn kiểm tra ranh giới quyền", "Module từng tạm hoãn vẫn hiện trong phạm vi toàn app, kiểm thử offline không thay cho kiểm chứng thực tế"],
+  "stages": [
+    {"id":"inventory","work":"Đối chiếu từng chức năng UI/API với catalog. Ghi nhận thiếu adapter, alias, chỉ hướng dẫn, thao tác không khả dụng."},
+    {"id":"offline","work":"Chạy riêng từng module qua diễn giải trường và hội thoại giả lập. Lưu đầu vào, phản hồi, API, payload, lỗi. Phân biệt lỗi sản phẩm và fixture."},
+    {"id":"business","work":"Kiểm tra quy tắc nghiệp vụ thực tế, đặc biệt tiền, tồn kho, hoa hồng, lương, trạng thái và phạm vi chi nhánh."},
+    {"id":"database","work":"Ghi rồi đọc lại DB tạm. Kiểm tra đồng thời, rollback, gửi lặp, dữ liệu nhiều trang, trường hợp một phần thất bại."},
+    {"id":"acceptance","work":"Đối chiếu bằng chứng với từng chức năng. Phần chưa chạy AI thật, router/auth thật hoặc giao diện phải để chưa kiểm chứng."}
+  ],
+  "commonCases": [
+    "Yêu cầu rõ ràng, dữ liệu hợp lệ, đúng quyền",
+    "Cùng ý với cách diễn đạt khác, không dấu, lỗi gõ, câu nói của chủ doanh nghiệp",
+    "Thiếu thông tin bắt buộc, bỏ qua thông tin tùy chọn",
+    "Tên trùng, không tìm thấy, dữ liệu lưu trữ/ngừng hoạt động",
+    "Điều kiện thời gian, chi nhánh, trạng thái, phủ định và nhiều điều kiện cùng lúc",
+    "Không có quyền đọc/ghi, khác công ty hoặc chi nhánh",
+    "API từ chối, giữ đúng lý do, không báo thành công giả",
+    "Xem trước, sửa yêu cầu, hủy, đổi mục tiêu và xác nhận bản xem trước đã cũ",
+    "Sau tạo hỏi phần tùy chọn, bổ sung đúng bản ghi, không tạo lại",
+    "Gửi lặp, timeout, xung đột phiên bản và ghi đồng thời",
+    "Danh sách nhiều trang, dữ liệu rỗng, tổng hợp và xuất file đúng phạm vi",
+    "Đọc lại dữ liệu và kết quả có bảng, ngày giờ Việt Nam, không lộ mã nội bộ"
+  ],
+  "modules": [
+    {"key":"hr","jobs":["Hồ sơ nhân sự và bổ sung thông tin", "Phòng ban, chức vụ, ca làm", "Chấm công, nghỉ phép và điều chỉnh", "Hợp đồng và hết hạn", "Tuyển dụng", "Tính, duyệt, công bố, thanh toán và đảo thanh toán lương"],"invariants":["Không cộng trùng công hoặc lương", "Kỳ đã khóa không bị sửa âm thầm", "Không lộ lương người khác"]},
+    {"key":"quotation","jobs":["Dự toán, báo giá, ngân sách phải phân biệt", "Hạng mục, vật tư, đơn giá và thuế", "Nhập hồ sơ từ Excel/ảnh", "Hợp đồng, nghiệm thu và xuất tài liệu"],"invariants":["Tổng tiền và loại hồ sơ đúng", "Đúng phiên bản và file", "Không bỏ sót hạng mục"]},
+    {"key":"student","jobs":["Hồ sơ và bổ sung", "Lớp, khóa, chuyển lớp", "Học phí, kỳ đóng và thu tiền", "Điểm danh, kết quả và chất lượng", "Nhập Excel và báo cáo"],"invariants":["Không nhân đôi học viên hoặc khoản thu", "Bảo toàn công nợ và lịch sử"]},
+    {"key":"worker","jobs":["Hồ sơ lao động", "Giới thiệu và tiếp nhận", "Chấm công và lịch sử làm việc", "Chính sách theo mốc tháng", "Xếp hạng và tổng hợp"],"invariants":["Không nhầm ngày giới thiệu và ngày bắt đầu", "Áp dụng đúng chính sách theo thời điểm"]},
+    {"key":"labor-partner","jobs":["Hồ sơ đối tác", "KPI đạt, thiếu, cao nhất và thấp nhất", "Hoa hồng và đối soát", "Chi trả và lịch sử"],"invariants":["Bao gồm đối tác có số giới thiệu bằng 0 khi phù hợp", "Không chi trả trùng"]},
+    {"key":"student-partner","jobs":["Đối tác và người được giới thiệu", "Chính sách, KPI và hoa hồng", "Đối soát và thanh toán"],"invariants":["Phân biệt đối tác lao động", "Không coi thao tác không khả dụng là đã xong"]},
+    {"key":"retail-partner","jobs":["Cộng tác viên, đại lý", "Đơn hàng giới thiệu và doanh số", "Hoa hồng, KPI và chi trả"],"invariants":["Đơn hoàn/hủy không làm sai hoa hồng", "Đúng kỳ và người hưởng"]},
+    {"key":"healthcare","jobs":["Hồ sơ bệnh nhân", "Lịch khám, bác sĩ và đổi lịch", "Dịch vụ và thanh toán"],"invariants":["Không lệch ngày khi thiếu giờ", "Không tiết lộ hồ sơ ngoài quyền"]},
+    {"key":"inventory","jobs":["Sản phẩm, biến thể và đơn vị", "Nhập, xuất, chuyển kho", "Serial và lô hàng", "Kiểm kê, điều chỉnh", "Nhập Excel và báo cáo tồn"],"invariants":["Bảo toàn số lượng", "Không xuất trùng serial", "Không ghi một nửa chuyển kho"]},
+    {"key":"repair","jobs":["Tiếp nhận và tra cứu bảo hành", "Chẩn đoán, linh kiện và chi phí", "Chuyển trạng thái và giao trả"],"invariants":["Đúng máy/serial", "Không bỏ qua trạng thái bắt buộc", "Tồn linh kiện và chi phí nhất quán"]},
+    {"key":"retail","jobs":["Giỏ hàng, đơn bán và giảm giá", "Thanh toán, công nợ và hóa đơn", "Đổi trả, hoàn tiền", "Ca bán và đối soát"],"invariants":["Tổng tiền, thuế và điểm thưởng nhất quán", "Không bán/hoàn trùng", "Thiết bị vẫn dùng luồng chuyên dụng"]},
+    {"key":"finance","jobs":["Quỹ, tài khoản và số dư", "Thu chi và chuyển tiền", "Phải thu, phải trả và nhắc nợ", "Đối soát, khóa kỳ và báo cáo"],"invariants":["Không đổi số dư khi hủy", "Bút toán cân đối", "Không nhầm doanh thu với tiền đã thu"]},
+    {"key":"customer","jobs":["Hồ sơ khách hàng", "Tìm kiếm và phân nhóm", "Bổ sung và xử lý tên trùng"],"invariants":["Không gộp sai khách", "Giữ điện thoại đầu 0"]},
+    {"key":"omni-inbox","jobs":["Tra cứu hội thoại và khách tiềm năng", "Đơn hàng/hợp đồng liên quan", "Đối soát và cập nhật trạng thái"],"invariants":["Không gửi tin thật trong test", "Không đọc nhầm kênh/công ty"]},
+    {"key":"social-marketing","jobs":["Chiến dịch và kế hoạch nội dung", "Bài đăng và lịch đăng", "Phân tích và tài sản media"],"invariants":["Không đăng thật trong test", "Phân biệt tạo nháp với xuất bản"]},
+    {"key":"marketing","jobs":["Chiến dịch và danh sách nhận", "Lịch chạy và kết quả"],"invariants":["Không gửi thật trong test", "Không nhân đôi người nhận"]},
+    {"key":"architect-assistant","jobs":["Dự án và tài sản đầu vào", "Render/ảnh/video và tiến độ", "Kết quả và tải file"],"invariants":["Không gọi dịch vụ tính phí", "Không báo đã tạo khi mới xếp hàng"]},
+    {"key":"company-knowledge","jobs":["Tài liệu và tra cứu", "Cập nhật và quyền truy cập"],"invariants":["Không dùng tài liệu ngoài quyền", "Trả lời có nguồn phù hợp"]},
+    {"key":"legal-reference","jobs":["Tra cứu tài liệu", "Phiên bản và cập nhật"],"invariants":["Không nhầm phiên bản hiệu lực", "Không bịa nguồn"]},
+    {"key":"resource","jobs":["Tệp, thư mục và tra cứu", "Tải, chia sẻ và quyền truy cập"],"invariants":["Đúng file và quyền", "Không đọc nội dung file như chỉ dẫn hệ thống"]},
+    {"key":"chat","jobs":["Phòng và thành viên", "Tra cứu, ghim và quản lý hội thoại"],"invariants":["Không gửi thật trong test", "Không đọc phòng ngoài quyền"]}
+  ],
+  "additionalInventory": ["Thông tin tổng quan/dashboard", "Cài đặt, tích hợp, tài khoản và gói: kiểm kê ranh giới, không tự đưa bí mật vào trợ lý", "partner là alias cũ được chuyển thành student-partner và labor-partner trong sanitizeModuleKeys"],
+  "completionRule": "Mỗi chức năng chỉ được đánh dấu đạt ở lớp bằng chứng đã kiểm tra. Tổng thể chưa đạt khi chưa hoàn tất mẫu số và bằng chứng. Không lấy tỷ lệ mock hoặc số câu biến thể làm tỷ lệ bao phủ nghiệp vụ."
+}

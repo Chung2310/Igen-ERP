@@ -1,5 +1,7 @@
 ﻿import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
+import { afterEach, vi } from 'vitest';
+import { databaseBusinessAudit } from '../../../assistant/testing/database-business-audit';
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { financeTreasuryService as service } from "./finance-treasury.service";
 import { FinanceCashAccountModel as Account, FinanceCashVoucherModel as Voucher } from "../models/finance-treasury.model";
@@ -11,11 +13,40 @@ const scope = { companyCode: "TREASURY", branchId: "B1" }, day = "2026-01-10";
 const account = (name = "Cash", balance = 1000, kind = "cash") => service.createAccount(scope, { name, kind, openingOn: "2026-01-01", openingBalance: balance }, "maker");
 const voucher = (accountId: any, extra: any = {}) => service.createVoucher(scope, { key: crypto.randomUUID(), kind: "payment", amount: 300, occurredOn: day, description: "Test", accountId: String(accountId), ...extra }, "maker");
 const approve = (v: any) => service.decide(scope, String(v._id), { action: "approve", version: 0 }, "approver");
+const audit = databaseBusinessAudit('finance', [Account, Voucher, FinanceDebtModel]);
 describe("Treasury: atomic posting and reconciliation", () => {
   let db: MongoMemoryReplSet;
   beforeAll(async () => { db = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); await mongoose.connect(db.getUri()); await Promise.all(Object.values(mongoose.models).map(m => m.init())); }, 120000);
   afterAll(async () => { await mongoose.disconnect(); await db?.stop(); });
   beforeEach(async () => { await Promise.all(Object.values(mongoose.models).map(m => m.deleteMany({}))); });
+  beforeEach(async () => { await audit.before(); });
+  afterEach(async ctx => { vi.restoreAllMocks(); await audit.after(ctx.task.name); });
+  it('allows only one of two competing payments when funds cover only one', async () => {
+    const a = await account();
+    const first = await voucher(a._id, { amount: 700 });
+    const second = await voucher(a._id, { amount: 700 });
+    await audit.checkpoint('Hai phiếu chờ duyệt, mỗi phiếu 700, quỹ có 1000', { amounts: [700, 700], openingBalance: 1000 });
+    const outcomes = await Promise.allSettled([approve(first), approve(second)]);
+    expect(outcomes.filter(x => x.status === 'fulfilled')).toHaveLength(1);
+    expect((await Account.findById(a._id))!.balance).toBe(300);
+    expect(await Voucher.countDocuments({ status: 'posted' })).toBe(1);
+    expect(await Voucher.countDocuments({ status: 'pending' })).toBe(1);
+  });
+  it('rolls back cash and debt if saving the posted voucher fails', async () => {
+    const a = await account();
+    const debt = await FinanceDebtModel.create({ ...scope, direction: 'payable', partyKind: 'supplier', partyName: 'NCC', reference: 'FAULT', amount: 500, balance: 500, occurredOn: day, dueOn: day });
+    const v = await voucher(a._id, { debtId: String(debt._id), amount: 300 });
+    const save = vi.spyOn(Voucher.prototype, 'save').mockRejectedValue(new Error('injected voucher write failure'));
+    await expect(approve(v)).rejects.toThrow('injected voucher write failure');
+    save.mockRestore();
+    await audit.checkpoint('Sau lỗi lưu phiếu, trước khi thử lại', { injectedFailure: 'Voucher.save' });
+    expect((await Account.findById(a._id))!.balance).toBe(1000);
+    expect((await FinanceDebtModel.findById(debt._id))!.balance).toBe(500);
+    expect((await Voucher.findById(v._id))!.status).toBe('pending');
+    await approve(v);
+    expect((await Account.findById(a._id))!.balance).toBe(700);
+    expect((await FinanceDebtModel.findById(debt._id))!.payments).toHaveLength(1);
+  });
   it("posts once under concurrent approval and isolates branch/account access", async () => {
     const a = await account(), v = await voucher(a._id);
     expect((await Account.findById(a._id))!.balance).toBe(1000);

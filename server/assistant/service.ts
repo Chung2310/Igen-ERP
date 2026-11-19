@@ -1867,6 +1867,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   let pending = restorePendingActionId(session.pending as PendingAction | null);
   let remainingRequests: string[] = Array.isArray(session.remainingRequests) ? session.remainingRequests.filter((item: unknown): item is string => typeof item === "string") : [];
   const previousRemainingRequests = [...remainingRequests];
+  let replacedGoal = false;
   let pendingMemoryProposal = session.pendingMemoryProposal || "";
   let stepRequestId = input.requestId;
   const steps: Array<{ requestId: string; actionId: string; status: string }> = [];
@@ -2695,7 +2696,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
       budget.plan();
       const interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided, intent: pending.intent } : null, session.messages as any, [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n"), memories, [sessionMemory, remainingRequests.length ? `Các yêu cầu chưa hoàn tất (chỉ ngữ cảnh, không tự xác nhận): ${JSON.stringify(remainingRequests)}` : ""].filter(Boolean).join("\n"), knownModules);
-      if (interpreted.cancel || interpreted.newRequest) remainingRequests = [];
+      const correctsPendingReference = pending?.actionId === interpreted.actionId
+        && Boolean(pending?.awaitingPathReferenceKeys?.length) && isReferenceCorrectionReply(input.text || "");
+      replacedGoal = interpreted.newRequest === true && !correctsPendingReference;
+      if (replacedGoal) {
+        // Supersede the old preview before looking up or preparing the new action.
+        // A failure in the new goal must never make the old confirmation valid again.
+        pending = null;
+        remainingRequests = [];
+      }
+      if (interpreted.cancel) remainingRequests = [];
       if (interpreted.actionId || interpreted.newRequest) pendingMemoryProposal = "";
       if (interpreted.actionId && interpreted.remainingRequests && (!pending || interpreted.newRequest)) remainingRequests = interpreted.remainingRequests;
       if (conversationFile && interpreted.actionId) {
@@ -2712,17 +2722,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
           }
         }
       }
-      if (input.attachment && !interpreted.actionId && !interpreted.cancel && !interpreted.businessDiscovery) {
-        const combinedText = `${input.text || ""} ${attachmentIntentHint}`.trim();
+      if (input.attachment && !interpreted.actionId && !interpreted.cancel && !interpreted.businessDiscovery && !interpreted.intentType) {
+        // The filename is data, not an instruction to create or update a record.
+        const combinedText = input.text || "";
         const fallbackActionId = directStudentRecordActionId(combinedText, workflows)
           || directWorkerRecordActionId(combinedText, workflows);
         if (fallbackActionId) {
           interpreted.actionId = fallbackActionId;
           interpreted.intentType = "workflow";
-        } else if (pending && workflows.some(w => w.actionId === pending!.actionId)) {
-          interpreted.actionId = pending.actionId;
-          interpreted.intentType = "workflow";
-          interpreted.newRequest = false;
         }
       }
       if (interpreted.actionId) {
@@ -2731,7 +2738,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
           module: operationById(interpreted.actionId)?.module,
         };
       }
-      if (interpreted.cancel === true) { pendingMemoryProposal = ""; pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
+      if (interpreted.cancel === true) {
+        const hadPending = Boolean(pending || remainingRequests.length);
+        pendingMemoryProposal = "";
+        pending = null;
+        reply = { status: "cancelled", reply: hadPending
+          ? "Mình đã dừng yêu cầu đang chờ. Các bước đã hoàn tất không tự hoàn tác."
+          : "Hiện không có thao tác nào đang chờ xác nhận. Các bước đã hoàn tất không tự hoàn tác. Bạn muốn hủy hoặc điều chỉnh bản ghi nào?" };
+      }
       else if (!interpreted.actionId && !pending && interpreted.memoryProposal && settings.memoryEnabled && !containsSensitiveMemoryContent(interpreted.memoryProposal)) {
         pendingMemoryProposal = interpreted.memoryProposal;
         needsIntentClarification = true;
@@ -3012,7 +3026,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   // General conversation already applies account preferences in its own prompt.
   // ERP presentation would strip explanations about workflows and alter code examples.
   if (reply.status === "cancelled" || reply.status === "uncertain") remainingRequests = [];
-  if (reply.status === "failed" && !completedReplies.length) remainingRequests = previousRemainingRequests;
+  if (reply.status === "failed" && !completedReplies.length) remainingRequests = replacedGoal ? [] : previousRemainingRequests;
   if (reply.status === "completed" && remainingRequests.length) {
     reply = { ...reply, reply: `${reply.reply}\n\nCòn ${remainingRequests.length} yêu cầu trong mục tiêu này. Bạn có thể nói “tiếp tục” để xử lý phần còn lại.` };
   }

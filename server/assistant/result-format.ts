@@ -123,6 +123,7 @@ Object.assign(labels, {
 });
 Object.assign(labels, { entityPreset: "Loại hồ sơ", isRequired: "Bắt buộc", isVisible: "Đang hiển thị", isArchived: "Đã lưu trữ", placeholder: "Gợi ý nhập" });
 Object.assign(labels, { registrationDate: "Ngày đăng ký", fee: "Học phí", isGroup: "Phòng nhóm" });
+Object.assign(labels, { recordedPaidAmount: "Đã đóng trên hồ sơ", receiptTotal: "Tổng tiền phiếu thu", historyTotal: "Tổng lịch sử thanh toán", paymentDifference: "Phiếu thu trừ số đã đóng", receiptCount: "Số phiếu thu", reconciliationStatus: "Kết quả đối chiếu", scopeDescription: "Phạm vi đối chiếu" });
 Object.assign(labels, { stepsCount: "Số bước" });
 Object.assign(labels, { allocated: "Đã bố trí", gap: "Còn thiếu", absentDays: "Số ngày chưa chấm công", courseTitle: "Khóa học", className: "Lớp học", present: "Có mặt", late: "Đi muộn", absent: "Vắng", excused: "Có phép", unrecorded: "Chưa ghi nhận", interviewers: "Người phỏng vấn", applicantName: "Ứng viên" });
 Object.assign(labels, { contentGroup: "Nhóm nội dung", shootingContent: "Nội dung cần quay/chụp", productionRequirements: "Yêu cầu sản xuất", quantitySuggestion: "Số lượng đề xuất", headline: "Tiêu đề hiển thị", subheadline: "Mô tả ngắn", cta: "Lời kêu gọi hành động", visualBrief: "Mô tả hình ảnh", videoScript: "Kịch bản video", format: "Định dạng", revision: "Phiên bản", warnings: "Lưu ý" });
@@ -2064,7 +2065,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   // Those collections are not the result set of the write operation.
   const isWrittenRecord = operation.method !== "GET" && recordOf(normalizedResult)
     && operation.resultFields.some(key => {
-      if (!["name", "fullName", "displayName", "title", "code", "sku"].includes(key)) return false;
+      // Draft business documents may not have a public code until posting.
+      // Their line items must not replace the saved document in the result table.
+      if (!["name", "fullName", "displayName", "title", "code", "sku", "orderCode", "invoiceCode", "transferCode", "grandTotal"].includes(key)) return false;
       const value = recordOf(normalizedResult)![key];
       return value != null && typeof value !== "object";
     });

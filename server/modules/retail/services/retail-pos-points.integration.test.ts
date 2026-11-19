@@ -1,5 +1,9 @@
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
+import { afterEach } from 'vitest';
+import { databaseBusinessAudit } from '../../../assistant/testing/database-business-audit';
+import { RetailOrderModel } from '../models/retail-order.model';
+import { RetailInvoiceModel } from '../models/retail-invoice.model';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanyModel } from "../../../model/company.model";
 import { BranchModel } from "../../../model/branch.model";
@@ -35,6 +39,7 @@ const actor = { id: new mongoose.Types.ObjectId().toString(), displayName: "Thu 
 let shift: any;
 const input = () => ({ customerId: String(customerId), pointsToRedeem: 20, items: [{ productId: String(variantId), quantity: 1, discount: { type: "amount", value: 0 } }], orderDiscount: { type: "amount", value: 0 }, taxRate: 0, shippingFee: 0 });
 const balance = async () => (await CustomerModel.findById(customerId).lean())?.pointsBalance;
+const audit = databaseBusinessAudit('retail', [RetailOrderModel, RetailInvoiceModel, InventoryBalanceModel, RetailPointLedgerModel, CustomerModel]);
 
 describe("POS points through pricing, orders and payments", () => {
   beforeAll(async () => {
@@ -61,6 +66,33 @@ describe("POS points through pricing, orders and payments", () => {
     await CashierShiftModel.collection.insertOne(shift);
   });
   afterAll(async () => { await mongoose.disconnect(); await replSet.stop(); });
+  beforeEach(async () => { await audit.before(); });
+  afterEach(async ctx => { vi.restoreAllMocks(); await audit.after(ctx.task.name); });
+  it('replays concurrent checkout without duplicate stock, invoice or point movements', async () => {
+    const request = { input: input(), posSessionId: String(sessionId), expectedGrandTotal: 80_000, idempotencyKey: 'concurrent-checkout', payments: [{ method: 'cash', amount: 80_000, tenderedAmount: 80_000 }] };
+    const results = await Promise.all([RetailOrderService.checkout(scope, request, actor, shift, true), RetailOrderService.checkout(scope, request, actor, shift, true)]);
+    await audit.checkpoint('Sau hai yêu cầu thanh toán đồng thời cùng khóa', request);
+    expect(String(results[0].order._id)).toBe(String(results[1].order._id));
+    expect(await RetailOrderModel.countDocuments()).toBe(1);
+    expect(await RetailInvoiceModel.countDocuments()).toBe(1);
+    expect(await balance()).toBe(88);
+    expect((await InventoryBalanceModel.findOne({ ...scope, variantId: String(variantId) }).lean())?.quantity).toBe(4);
+    expect(await RetailPointLedgerModel.countDocuments({ type: 'redeem' })).toBe(1);
+  });
+  it('rolls back order stock and points if invoice persistence fails, then permits retry', async () => {
+    const request = { input: input(), posSessionId: String(sessionId), expectedGrandTotal: 80_000, idempotencyKey: 'invoice-failure', payments: [{ method: 'cash', amount: 80_000, tenderedAmount: 80_000 }] };
+    const create = vi.spyOn(RetailInvoiceModel, 'create').mockRejectedValue(new Error('injected invoice failure'));
+    await expect(RetailOrderService.checkout(scope, request, actor, shift, true)).rejects.toThrow('injected invoice failure');
+    create.mockRestore();
+    await audit.checkpoint('Sau lỗi tạo hóa đơn, trước khi thử lại', request);
+    expect(await RetailOrderModel.countDocuments()).toBe(0);
+    expect(await RetailInvoiceModel.countDocuments()).toBe(0);
+    expect(await balance()).toBe(100);
+    expect((await InventoryBalanceModel.findOne({ ...scope, variantId: String(variantId) }).lean())?.quantity).toBe(5);
+    await RetailOrderService.checkout(scope, request, actor, shift, true);
+    expect(await RetailInvoiceModel.countDocuments()).toBe(1);
+    expect(await balance()).toBe(88);
+  });
 
   it("prices points without spending them and resolves ERP company-wide customers in a saved draft", async () => {
     const quote = await RetailOrderService.quote(scope, input());

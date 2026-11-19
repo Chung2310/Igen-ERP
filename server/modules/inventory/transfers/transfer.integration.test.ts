@@ -5,6 +5,8 @@ import { getSerialHistory, listSerialUnits, transferSerialUnit, transitionSerial
 import { listWarehouses, getWarehouse } from "../warehouse/warehouse.service";
 import { createCount } from "../counting/inventory-count.service";
 import mongoose from "mongoose";
+import { afterEach } from 'vitest';
+import { databaseBusinessAudit } from '../../../assistant/testing/database-business-audit';
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BranchModel } from "../../../model/branch.model";
@@ -28,6 +30,7 @@ const targetScope = { companyCode, branchId: targetBranchId };
 const actor = { id: "tester", name: "Tester" };
 const input = (more: any = {}) => ({ fromWarehouseId: warehouseId, toBranchId: targetBranchId, toWarehouseId: targetWarehouseId, reason: "Replenish", idempotencyKey: id(), items: [line()], ...more });
 const models = [BranchModel, WarehouseModel, ProductCatalogModel, ProductVariantModel, InventoryBalanceModel, InventoryLedgerEntryModel, StockLogModel, SerialUnitModel, SerialEventModel, GoodsReceiptModel, InventoryTransferModel];
+const audit = databaseBusinessAudit('inventory', [InventoryBalanceModel, InventoryLedgerEntryModel, InventoryTransferModel, SerialUnitModel]);
 let replica: MongoMemoryReplSet;
 const line = (more: any = {}) => ({ productId, variantId, sku: "SKU-A", productName: "Phone", quantity: 1, unitPrice: 200, unitCost: 0, ...more });
 async function quantity() { return (await InventoryBalanceModel.findOne({ warehouseId, variantId }).lean())!.quantity; }
@@ -63,6 +66,21 @@ describe("transfer document invariants", () => {
     await InventoryBalanceModel.create({ ...scope, warehouseId, productId, variantId, sku: "SKU-A", quantity: 2, reservedQuantity: 0, averageCost: 100, version: 0 });
   });
   afterAll(async () => { vi.restoreAllMocks(); await mongoose.disconnect(); await replica?.stop(); });
+  beforeEach(async () => { await audit.before(); });
+  afterEach(async ctx => { await audit.after(ctx.task.name); });
+  it('prevents two distinct shipments from consuming the same remaining stock', async () => {
+    const outcomes = await Promise.allSettled([
+      createTransfer(scope, input({ items: [line({ quantity: 2 })] }), actor),
+      createTransfer(scope, input({ items: [line({ quantity: 2 })] }), actor),
+    ]);
+    expect(outcomes.filter(x => x.status === 'fulfilled')).toHaveLength(1);
+    await audit.checkpoint('Sau hai yêu cầu chuyển cùng lượng hàng còn lại', { sourceQuantity: 2, requestedQuantities: [2, 2], outcomes: outcomes.map(x => x.status) });
+    expect(await quantity()).toBe(0);
+    expect(await InventoryTransferModel.countDocuments()).toBe(1);
+    const balances = await InventoryBalanceModel.find({ companyCode, variantId }).lean();
+    expect(balances.reduce((sum, row) => sum + row.quantity, 0)).toBe(2);
+    expect(balances.every(row => row.quantity >= 0)).toBe(true);
+  });
 
   it("creates multiple Retail transfers with the existing ERP unique indexes", async () => {
     const first = await createTransfer(scope, input(), actor);

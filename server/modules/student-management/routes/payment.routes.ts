@@ -14,6 +14,7 @@ router.use(authMiddleware);
 
 router.post("/", requireManage, validate(createPaymentSchema), PaymentController.create);
 router.get("/", PaymentController.getList);
+router.get("/reconciliation/:id", requireAnyPermission([...STUDENT_AREA_PERMISSIONS.payment.read, ...STUDENT_AREA_PERMISSIONS.payment.manage]) as any, validate(idParamSchema, "params"), PaymentController.reconcileStudent);
 router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updatePaymentSchema), PaymentController.update);
 router.delete("/:id", requireManage, validate(idParamSchema, "params"), PaymentController.delete);
 
