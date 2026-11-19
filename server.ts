@@ -45,7 +45,8 @@ const SENSITIVE_QUERY_KEYS = ["secret", "token", "apikey", "api_key", "password"
 function redactSensitiveQuery(url: string): string {
   if (!url.includes("?")) return url;
   const [path, rawQuery] = url.split("?");
-  if (path.toLowerCase().replace(/\/$/, "") === "/api/v1/zalo/oauth-callback") return path;
+  const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+  if (normalizedPath === "/api/v1/zalo/oauth-callback" || normalizedPath === "/api/v1/facebook/webhook") return path;
   const redacted = rawQuery
     .split("&")
     .map((pair) => {
