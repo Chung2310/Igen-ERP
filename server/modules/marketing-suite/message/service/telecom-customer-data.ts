@@ -50,7 +50,9 @@ export function infoValue(info: TelecomCustomerInfo, key: keyof TelecomCustomerI
 }
 
 export function periodKeys(values: string[]) {
-  return [...new Set(values.flatMap(value => {
+  // A Lead text cell can contain several independent periods. Expand each one
+  // separately so March followed by February is not read as a reversed range.
+  return [...new Set(values.flatMap(value => value.split(/[;\r\n]+/).map(part => part.trim()).filter(Boolean)).flatMap(value => {
     const plain = customerText(value);
     const quarter = plain.match(/^(?:quy|q)\s*([1-4])\s+(\d{4})$/);
     if (quarter) return [0, 1, 2].map(offset => `${quarter[2]}-${String((Number(quarter[1]) - 1) * 3 + offset + 1).padStart(2, "0")}`);

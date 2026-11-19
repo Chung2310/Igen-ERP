@@ -32,6 +32,23 @@ async function lead(code: string, overrides: Record<string, unknown> = {}, compa
 }
 
 describe("Customer information reconciliation", () => {
+  it("does not invent February coverage when a Lead only records separate January and March ranges", async () => {
+    await lead("PERIOD_GAP", { dich_vu: "Internet", ky_doi_soat: "01/01/2026-31/01/2026; 01/03/2026-31/03/2026" });
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, workbook([headers,
+      [1, "PERIOD_GAP", "Nguyễn An", "Căn 101 Green Pearl", "Internet", "04/07/2023", "01/02/2026-28/02/2026"],
+    ]));
+    expect(report.rows[0]).toMatchObject({ status: "different", differences: [expect.objectContaining({ field: "periods", reason: "different" })] });
+    expect(report.excelRows?.[0].status).toBe("different");
+  });
+  it.each(["; ", "\n"])("matches several reporting periods in one Lead cell separated by %j regardless of their order", async separator => {
+    await lead("SAME_PERIODS", { dich_vu: "Internet", ky_doi_soat: ["01/03/2026-31/03/2026", "01/02/2026-28/02/2026"].join(separator) });
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, workbook([headers,
+      [1, "SAME_PERIODS", "Nguyễn An", "Căn 101 Green Pearl", "Internet", "04/07/2023", "01/02/2026-28/02/2026"],
+      [1, "SAME_PERIODS", "Nguyễn An", "Căn 101 Green Pearl", "Internet", "04/07/2023", "01/03/2026-31/03/2026"],
+    ]));
+    expect(report.rows[0].status).toBe("matched");
+    expect(report.excelRows?.map(row => row.status)).toEqual(["matched", "matched"]);
+  });
   it("selects full Vietnam calendar days by Lead creation and reports Excel matches outside the range separately", async () => {
     const range = { from: "2026-01-01", to: "2026-03-31" };
     const dates = { START: "2025-12-31T17:00:00.000Z", LAST: "2026-03-31T16:59:59.999Z",
