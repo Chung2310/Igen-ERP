@@ -17,6 +17,7 @@ import { prepareChatReplyContext } from "./chat-reply-context.service";
 import { generateReplyCompletion } from "./ai-reply-provider";
 import { geminiService } from "../../shared/service/gemini.service";
 import { prepareChatImages, parseChatVisualReply } from "./chat-visual-context";
+import { LEAD_INTAKE_TEMPLATES } from "../../../../../src/modules/marketing-suite/message/components/crm/leadIntakeTemplates";
 import {
   addChatTestMessage, createChatTestSession, deleteChatTestSession, failChatTestMessage,
   processChatTestMessage, readChatTestSession, readChatTestState, retryChatTestMessage,
@@ -93,6 +94,31 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it("saves the ready-made telecom template to a Lead and keeps the technician phone separate from the customer phone", async () => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields, goal: template.goal } });
+    const session = await start(false, "telecom");
+    expect((await readChatTestState(companyCode, userId, session.id)).session.leadSetup?.ready).toBe(true);
+    const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields: {
+      account: { status: "readable", text: "bnh_gftth_test01" },
+      ho_va_ten: { status: "readable", text: "Nguyễn An" },
+      so_dien_thoai: { status: "readable", text: "0901234567" },
+      so_dien_thoai_ky_thuat: { status: "readable", text: "0987654321" },
+      nhan_vien_ky_thuat: { status: "readable", text: "Nhân viên kỹ thuật" },
+      tong_tien: { status: "readable", text: "2.760.000" },
+    } }) } as never);
+    const messageId = await send(session.id, "", "ready-made-template", `data:image/png;base64,${image.toString("base64")}`);
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.messages[0].status).toBe("completed");
+    expect(state.leads).toHaveLength(1);
+    expect(await CRMTicketModel.findById(state.leads[0].id).lean()).toMatchObject({
+      customerName: "Nguyễn An", phone: "0901234567", telecomSubscriberCode: "BNH_GFTTH_TEST01",
+      answers: { so_dien_thoai_ky_thuat: "0987654321", tong_tien: "2760000" },
+    });
+  });
+
   it("changes only the owned conversation mode and refuses changes while a turn is pending", async () => {
     const session = await start();
     const changed = await changeChatTestDomain(companyCode, userId, session.id, "telecom");

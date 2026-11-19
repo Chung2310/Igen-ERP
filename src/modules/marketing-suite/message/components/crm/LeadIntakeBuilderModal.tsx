@@ -5,6 +5,7 @@ import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { LEAD_INTAKE_FIELD_TYPES, type LeadIntakeField, type LeadIntakeFieldType, type LeadNeedGroup } from "../../../../../../shared/marketing-suite/lead-intake";
 import { crmService } from "../../services/crmService";
+import { LEAD_INTAKE_TEMPLATES, missingTemplateFields } from "./leadIntakeTemplates";
 import { TelecomInvoiceSettingsPanel } from "./TelecomInvoiceSettings";
 import { FIELD_TYPE_META, PLATFORM_LABELS, toIntakeFieldKey, type LeadAccountOption } from "./leadSheetUtils";
 
@@ -45,7 +46,7 @@ function normalizeEditableFields(fields: LeadIntakeField[]): EditableField[] {
     question: field.question || "",
     type: field.type || "text",
     required: field.required !== false,
-    options: Array.isArray(field.options) ? field.options : [],
+    options: Array.isArray(field.options) ? [...field.options] : [],
     _keyEdited: Boolean(field.key),
     _typeEdited: true,
   }));
@@ -55,11 +56,7 @@ function emptyField(): EditableField {
   return { _localId: makeFieldId(), key: "", label: "", question: "", type: "text", required: true, options: [] };
 }
 
-const starterFields: LeadIntakeField[] = [
-  { key: "ho_va_ten", label: "Họ và tên", type: "text", required: true, question: "Tên khách tự cung cấp" },
-  { key: "so_dien_thoai", label: "Số điện thoại", type: "phone", required: true, question: "Số điện thoại liên hệ của khách" },
-  { key: "nhu_cau", label: "Nhu cầu", type: "long_text", required: true, question: "Sản phẩm, dịch vụ hoặc nhu cầu khách đang quan tâm" },
-];
+const starterFields = LEAD_INTAKE_TEMPLATES[0].fields;
 
 function inferFieldType(key: string): LeadIntakeFieldType {
   if (/^(?:so_dien_thoai|dien_thoai|sdt|phone)(?:_|$)/.test(key)) return "phone";
@@ -120,6 +117,10 @@ function LeadIntakeBuilderModalBody({
   const [fields, setFields] = useState<EditableField[]>([]);
   const [needGroups, setNeedGroups] = useState<LeadNeedGroup[]>([]);
   const [hasOwnProfile, setHasOwnProfile] = useState(false);
+  const [hasBaseProfile, setHasBaseProfile] = useState(false);
+  const [templateId, setTemplateId] = useState("");
+  const templateHintId = useId();
+  const selectedTemplate = LEAD_INTAKE_TEMPLATES.find(template => template.id === templateId);
   const [applyToAllAccounts, setApplyToAllAccounts] = useState(false);
   const [inheritsSharedProfile, setInheritsSharedProfile] = useState(false);
   const sharedProfileHintId = useId();
@@ -182,6 +183,8 @@ function LeadIntakeBuilderModalBody({
         setFields(baseFields);
         setNeedGroups(base?.needGroups || []);
         setHasOwnProfile(Boolean(active || draft));
+        setHasBaseProfile(Boolean(base));
+        setTemplateId("");
         setApplyToAllAccounts(!selectedAccount && base?.applyToAllAccounts === true);
         setInheritsSharedProfile(inheritsShared);
         setProfileStatus(inheritsShared ? "Dùng bộ trường chung" : draft ? "Bản nháp" : active ? "Đang áp dụng" : fallback ? "Dùng mặc định" : "Chưa thiết lập");
@@ -435,6 +438,38 @@ function LeadIntakeBuilderModalBody({
         )}
         {!hideOcrSettings && !initialAddColumn && (selectedAccount?.platform === "zalo" || selectedAccount?.platform === "facebook") &&
           <TelecomInvoiceSettingsPanel key={`${selectedAccount.platform}:${selectedAccount.accountId}`} platform={selectedAccount.platform} accountId={selectedAccount.accountId} />}
+        {!initialAddColumn && !focusFieldKey && <section aria-label="Mẫu Lead có sẵn" className="space-y-2 rounded-xl border border-outline-variant bg-surface-container-low p-3">
+          <h4 className="text-balance text-sm font-medium text-on-surface">Mẫu Lead có sẵn</h4>
+          <p id={templateHintId} className="text-pretty text-xs text-on-surface-variant">Chọn mẫu để bắt đầu nhanh, hoặc tự tạo bằng nút Thêm cột. Các cột đều có thể chỉnh sửa.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-full min-w-0 sm:w-64">
+              <StyledSelect ariaLabel="Chọn mẫu Lead" value={templateId} disabled={cannotEdit} describedBy={templateHintId} placeholder="Tự tạo / chỉnh sửa"
+                options={[{ value: "", label: "Tự tạo / chỉnh sửa" }, ...LEAD_INTAKE_TEMPLATES.map(template => ({ value: template.id, label: template.name }))]}
+                onChange={setTemplateId} className="h-9 rounded-xl text-xs" />
+            </div>
+            {selectedTemplate && <button type="button" className={secondaryBtnClass} disabled={cannotEdit} onClick={() => {
+              if (cannotEdit) return;
+              const additions = hasBaseProfile ? missingTemplateFields(fields, selectedTemplate) : selectedTemplate.fields;
+              if (hasBaseProfile && fields.length + additions.length > 30) {
+                setError("Bộ cột sẽ vượt quá 30 cột. Bỏ bớt cột trước khi thêm mẫu."); return;
+              }
+              setError("");
+              if (hasBaseProfile && !additions.length) {
+                setNotice("Bộ hiện tại đã có đủ các cột trong mẫu."); return;
+              }
+              setFields(current => hasBaseProfile ? [...current, ...normalizeEditableFields(additions)] : normalizeEditableFields(additions));
+              if (!hasBaseProfile || !goal.trim()) setGoal(selectedTemplate.goal);
+              if (!hasBaseProfile) setNeedGroups([]);
+              setExpandedFieldId(undefined);
+              setNotice(`Đã đưa mẫu ${selectedTemplate.name} vào bản đang chỉnh. Xem lại rồi bấm Lưu & áp dụng.`);
+            }}>{hasBaseProfile ? "Thêm cột từ mẫu" : "Dùng mẫu"}</button>}
+          </div>
+          {selectedTemplate && <div className="space-y-1 text-xs text-on-surface-variant">
+            <p className="text-pretty">{selectedTemplate.description}</p>
+            <p className="text-pretty">Các cột: {selectedTemplate.fields.map(field => field.label).join(", ")}.</p>
+            <p className="text-pretty">{hasBaseProfile ? "Chỉ thêm cột còn thiếu; giữ nguyên các cột và nhóm đang có." : "Dùng mẫu sẽ thay bộ cột đang chỉnh."} Chỉ áp dụng sau khi bấm Lưu & áp dụng.</p>
+          </div>}
+        </section>}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h4 className="text-sm font-medium text-on-surface">Thông tin cần thu</h4>
@@ -463,18 +498,6 @@ function LeadIntakeBuilderModalBody({
           </div>
         </div>
 
-        {!cannotEdit && !hasOwnProfile && !fields.some(field => field.label.trim()) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline-variant bg-surface-container-low p-3">
-            <div>
-              <p className="text-sm font-medium text-on-surface">Bộ cột cơ bản</p>
-              <p className="text-xs text-on-surface-variant">Họ và tên, số điện thoại, nhu cầu</p>
-            </div>
-            <button type="button" className={secondaryBtnClass} onClick={() => {
-              setFields(normalizeEditableFields(starterFields));
-              setError("");
-            }}>Dùng bộ cơ bản</button>
-          </div>
-        )}
 
         {showAiPanel && (
           <div className="flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-low p-2.5 sm:flex-row sm:items-center">
