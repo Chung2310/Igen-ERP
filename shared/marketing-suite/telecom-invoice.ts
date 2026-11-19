@@ -34,18 +34,35 @@ export function normalizeLeadContractProvider(value: unknown): string | undefine
   return provider.length > 0 && provider.length <= 80 && !/\p{C}/u.test(provider) ? provider : undefined;
 }
 
-export type LeadContractStatus = "matched" | "excel_only" | "lead_only" | "needs_review";
+export type LeadContractStatus = "matched" | "excel_only" | "lead_only" | "needs_review" | "different" | "incomplete";
+export type TelecomCustomerInfo = {
+  customerName?: string; address?: string; services?: string[]; activatedAt?: string; periods?: string[];
+};
+export type TelecomCustomerDifference = {
+  field: string; label: string; excel: string; lead: string;
+  reason: "different" | "missing_excel" | "missing_lead";
+};
 export type LeadContractComparison = {
   code: string;
   status: LeadContractStatus;
   leadId?: string;
   customerName?: string;
+  excel?: TelecomCustomerInfo;
+  lead?: TelecomCustomerInfo;
+  differences?: TelecomCustomerDifference[];
+  sourceRows?: number[];
+  issue?: string;
 };
 export type LeadContractReport = {
   rows: LeadContractComparison[];
   excelCount: number;
   duplicates: number;
   invalidRows: number[];
+  provider?: string;
+  identityLabel?: string;
+  sheetName?: string;
+  period?: string;
+  sourceRowCount?: number;
 };
 export type LeadContractPhoto = {
   id: string;

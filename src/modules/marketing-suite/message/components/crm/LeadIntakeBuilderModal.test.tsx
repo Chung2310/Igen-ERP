@@ -27,28 +27,47 @@ async function selectTemplate(name: string) {
 }
 
 describe("Ready-made Lead templates", () => {
-  it("previews telecom columns, then saves an editable subscriber profile through the existing activation flow", async () => {
-    await open();
+  it("replaces the editable old telecom columns with the customer-only template before activation", async () => {
+    vi.mocked(crmService.getLeadIntakeProfilesForAccount).mockResolvedValue({ profiles: [{
+      status: "active", version: 1, fields: [{ key: "tong_tien", label: "Tổng tiền", question: "Tổng?", type: "currency", required: true }],
+    }], fallbackProfiles: [] } as never);
+    render(<LeadIntakeBuilderModal isOpen accounts={[]} hideOcrSettings onSaved={onSaved} onClose={onClose} />);
+    await screen.findByDisplayValue("Tổng tiền");
     await selectTemplate("Nhà mạng");
-    expect(screen.getByText(/Các cột: Mã thuê bao/)).toBeTruthy();
-    expect(screen.queryByDisplayValue("Mã thuê bao")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Thay bộ cột bằng mẫu" }));
+    expect(screen.queryByDisplayValue("Tổng tiền")).toBeNull();
+    expect(screen.getByDisplayValue("Số hợp đồng")).toBeTruthy();
+    expect(screen.getByDisplayValue("Mã khách hàng / Account")).toBeTruthy();
     expect(crmService.saveAndActivateLeadIntakeProfile).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Dùng mẫu" }));
-    expect(screen.getByDisplayValue("Mã thuê bao")).toBeTruthy();
-    expect(screen.queryByDisplayValue("Nhu cầu")).toBeNull();
-    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Mã thuê bao" }).checked).toBe(true);
-    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Số điện thoại" }).checked).toBe(false);
-    fireEvent.change(screen.getByDisplayValue("Địa chỉ lắp đặt"), { target: { value: "Địa chỉ thuê bao" } });
     fireEvent.click(screen.getByRole("button", { name: "Lưu & áp dụng" }));
     await waitFor(() => expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledOnce());
     const input = vi.mocked(crmService.saveAndActivateLeadIntakeProfile).mock.calls[0][0];
-    expect(input.fields).toHaveLength(11);
+    expect(input.fields).toHaveLength(9);
+    expect(input.fields.some(field => field.type === "currency")).toBe(false);
+  });
+  it("previews telecom columns, then saves an editable subscriber profile through the existing activation flow", async () => {
+    await open();
+    await selectTemplate("Nhà mạng");
+    expect(screen.getByText(/Các cột: Nhà mạng/)).toBeTruthy();
+    expect(screen.queryByDisplayValue("Mã khách hàng / Account")).toBeNull();
+    expect(crmService.saveAndActivateLeadIntakeProfile).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Dùng mẫu" }));
+    expect(screen.getByDisplayValue("Mã khách hàng / Account")).toBeTruthy();
+    expect(screen.queryByDisplayValue("Nhu cầu")).toBeNull();
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Mã khách hàng / Account" }).checked).toBe(false);
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Bắt buộc thu thập cột Số điện thoại" }).checked).toBe(false);
+    fireEvent.change(screen.getByDisplayValue("Địa chỉ"), { target: { value: "Địa chỉ thuê bao" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lưu & áp dụng" }));
+    await waitFor(() => expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledOnce());
+    const input = vi.mocked(crmService.saveAndActivateLeadIntakeProfile).mock.calls[0][0];
+    expect(input.fields).toHaveLength(9);
     expect(input.fields).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: "account", type: "text", required: true }),
+      expect.objectContaining({ key: "account", type: "text", required: false }),
       expect.objectContaining({ key: "dia_chi_lap_dat", label: "Địa chỉ thuê bao" }),
-      expect.objectContaining({ key: "tong_tien", type: "currency", required: false }),
-      expect.objectContaining({ key: "so_dien_thoai_ky_thuat", type: "phone", required: false }),
+      expect.objectContaining({ key: "so_hop_dong", type: "text", required: false }),
+      expect.objectContaining({ key: "moc_hoa_mang", type: "text", required: false }),
     ]));
+    expect(input.fields.some(field => field.type === "currency" || /tong_tien|nhan_vien/.test(field.key))).toBe(false);
     expect(input).not.toHaveProperty("platform");
     expect(onSaved).toHaveBeenCalledWith(null);
     expect(onClose).toHaveBeenCalledOnce();
@@ -85,13 +104,13 @@ describe("Ready-made Lead templates", () => {
     fireEvent.click(screen.getByRole("button", { name: "Thêm cột từ mẫu" }));
     fireEvent.click(screen.getByRole("button", { name: "Thêm cột từ mẫu" }));
     expect(screen.getByRole("status").textContent).toContain("đã có đủ");
-    expect(screen.queryByDisplayValue("Mã thuê bao")).toBeNull();
+    expect(screen.queryByDisplayValue("Mã khách hàng / Account")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Lưu & áp dụng" }));
     await waitFor(() => expect(crmService.saveAndActivateLeadIntakeProfile).toHaveBeenCalledOnce());
     const input = vi.mocked(crmService.saveAndActivateLeadIntakeProfile).mock.calls[0][0];
     expect(input).toMatchObject({ goal: "Mục tiêu đã chỉnh", sourceDocumentIds: ["document-1"], needGroups: groups });
     expect(input.fields.slice(0, 3)).toMatchObject(fields);
-    expect(input.fields.filter(field => field.type === "phone")).toHaveLength(2);
+    expect(input.fields.filter(field => field.type === "phone")).toHaveLength(1);
   });
 
   it("keeps manual column creation available without choosing a template", async () => {
@@ -114,7 +133,7 @@ describe("Ready-made Lead templates", () => {
     await selectTemplate("Nhà mạng");
     fireEvent.click(screen.getByRole("button", { name: "Thêm cột từ mẫu" }));
     expect(screen.getByRole("alert").textContent).toContain("30 cột");
-    expect(screen.queryByDisplayValue("Mã thuê bao")).toBeNull();
+    expect(screen.queryByDisplayValue("Mã khách hàng / Account")).toBeNull();
     expect(screen.getAllByRole("textbox", { name: /^Tên cột/ })).toHaveLength(29);
     expect(crmService.saveAndActivateLeadIntakeProfile).not.toHaveBeenCalled();
   });
@@ -126,7 +145,7 @@ describe("Ready-made Lead templates", () => {
     vi.mocked(crmService.saveAndActivateLeadIntakeProfile).mockRejectedValueOnce(new Error("Không lưu được cấu hình"));
     fireEvent.click(screen.getByRole("button", { name: "Lưu & áp dụng" }));
     await screen.findByText("Không lưu được cấu hình");
-    expect(screen.getByDisplayValue("Mã thuê bao")).toBeTruthy();
+    expect(screen.getByDisplayValue("Mã khách hàng / Account")).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Lưu & áp dụng" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
