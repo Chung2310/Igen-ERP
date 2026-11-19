@@ -11,6 +11,7 @@ import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { enqueueLeadIntakeRetry, enqueueZaloWebhook, startMessengerBackgroundWorkers } from "./messenger-background-jobs";
 import { UserModel } from "../../../../model/user.model";
+import { SocialIntegrationModel } from "../../shared/model/social-integration.model";
 import { claimMessengerReply, enqueueMessengerReply, expireMessengerReplyJobs, markMessengerReplySending } from "./facebook-auto-reply-queue";
 import { zaloMessengerService } from "./zalo-messenger.service";
 import { fbMessengerService } from "./fb-messenger.service";
@@ -79,6 +80,43 @@ function webhook(timestamp = Date.now()) {
   const submit = () => zaloMessengerController.receiveWebhookEvent(req, res as unknown as Response);
   return { req, res, submit };
 }
+
+it("accepts Facebook webhooks signed with an encrypted company Page secret", async () => {
+  vi.stubEnv("SUPERADMIN_ENCRYPTION_KEY", "a".repeat(64));
+  vi.stubEnv("FB_APP_SECRET", "different-environment-secret");
+  const appSecret = "test-company-page-secret";
+  const pageId = "company-facebook-page";
+  const integration = await SocialIntegrationModel.create({
+    companyCode: "ACME", platform: "Facebook", username: pageId, displayName: "Page thử", createdBy: "test",
+    isConnected: true, appSecret,
+  });
+  try {
+    const stored = await SocialIntegrationModel.collection.findOne({ _id: integration._id });
+    expect(stored?.appSecret).toMatch(/^v1\./);
+    const body = { object: "page", entry: [{ id: pageId, messaging: [{
+      sender: { id: "test-customer" }, recipient: { id: pageId }, timestamp: Date.now(),
+      message: { mid: "mid.company-secret", text: "Chào shop" },
+    }] }] };
+    const rawBody = JSON.stringify(body);
+    const receive = async (secret: string) => {
+      const signature = createHmac("sha256", secret).update(rawBody).digest("hex");
+      const req = { body, rawBody, get: () => `sha256=${signature}` } as unknown as Request;
+      const res = { status: vi.fn().mockReturnThis(), send: vi.fn() };
+      await fbMessengerController.receiveWebhookEvent(req, res as unknown as Response);
+      return res;
+    };
+
+    const rejected = await receive("incorrect-signing-secret");
+    expect(rejected.status).toHaveBeenCalledWith(401);
+    expect(await MessengerBackgroundJobModel.countDocuments({ kind: "facebook-webhook" })).toBe(0);
+
+    const accepted = await receive(appSecret);
+    expect(accepted.status).toHaveBeenCalledWith(200);
+    expect(await MessengerBackgroundJobModel.countDocuments({ kind: "facebook-webhook", "payload.pageId": pageId })).toBe(1);
+  } finally {
+    await SocialIntegrationModel.deleteOne({ _id: integration._id });
+  }
+});
 
 it("saves a signed Facebook webhook before acknowledging and retries an interrupted inbound write", async () => {
   vi.stubEnv("FB_APP_SECRET", "test-facebook-secret");
