@@ -4,43 +4,49 @@ Catalog chỉ đưa vào executor các route có hợp đồng dữ liệu, quy�
 
 ## Số liệu hiện tại
 
-- Coverage hiện có 1.282 route API, gồm các route được khai báo tường minh trong manifest adapter.
-- 797 hợp đồng sinh từ API và 109 route qua adapter thủ công, tổng cộng 906 route đã nối. Phân hệ Báo giá có 60 workflow, 60 route được duyệt và 17 API phụ hoặc tải tệp nhị phân chủ ý giữ ở giao diện.
-- 13 route ngoài Báo giá đang chờ rà soát; trợ lý chưa gọi các route này.
-- 363 route đã được đánh giá và chủ ý chưa nối; lý do cụ thể được liệt kê riêng trong `UNSUPPORTED.md`.
-- Các route tạo bằng vòng lặp và helper đã được mở rộng thành path cụ thể; inventory không còn route động chưa phân giải.
+Phạm vi người dùng đã chốt: toàn bộ nghiệp vụ ERP; xác thực và thiết bị giữ luồng riêng. Trạng thái hiện tại **chưa hoàn tất toàn bộ phạm vi này**.
 
-Danh sách đầy đủ từng route chưa nối, lý do và tệp nguồn được sinh tại [UNSUPPORTED.md](./UNSUPPORTED.md).
+- 1367 route trong coverage, gồm API kiểm kê và manifest adapter thủ công.
+- 828 hợp đồng sinh và 111 route adapter thủ công: tổng 939 route đã nối.
+- 24 route chờ rà soát; 404 route hiện chưa nối sau đánh giá.
+- 0 khai báo route động chưa phân giải.
 
-### Thao tác theo phân hệ
+Số route không phải số nghiệp vụ đã kiểm thử. Nhóm chưa nối gồm cả alias, hạ tầng/xác thực/thiết bị và nghiệp vụ còn thiếu adapter. Không được coi toàn bộ nhóm này là ngoài phạm vi người dùng hoặc báo đã phủ 100%.
+
+Danh sách từng route, lý do và tệp nguồn: [UNSUPPORTED.md](./UNSUPPORTED.md). Chạy `node server/assistant/scripts/update-coverage-summary.mjs` sau khi sinh lại catalog để cập nhật số liệu ở đây.
+
+### Hợp đồng sinh theo phân hệ
 
 | Phân hệ | Hợp đồng sinh |
 | --- | ---: |
+| architect-assistant | 8 |
 | chat | 32 |
 | company-knowledge | 14 |
 | customer | 13 |
-| finance | 67 |
-| hr | 138 |
-| inventory | 62 |
-| marketing | 11 |
-| omni-inbox | 24 |
-| partner | 43 |
-| repair | 34 |
+| finance | 66 |
+| hr | 145 |
+| inventory | 63 |
+| labor-partner | 32 |
+| legal-reference | 8 |
+| marketing | 8 |
+| omni-inbox | 35 |
+| repair | 33 |
 | resource | 17 |
-| retail | 74 |
+| retail | 70 |
 | retail-partner | 17 |
-| social-marketing | 118 |
-| student | 99 |
+| social-marketing | 120 |
+| student | 106 |
+| student-partner | 11 |
 | worker | 30 |
 
-### Lý do route còn chờ
+### Phần nghiệp vụ còn cần phát triển
 
-| Lý do | Số route |
-| --- | ---: |
-| **Tổng đang chờ rà soát** | **13** |
+- Nhập/xuất và xử lý tệp: gắn tệp của đúng phiên, kiểm tra loại/kích thước, xem trước dữ liệu, trả tệp kết quả có quyền truy cập.
+- Tạo ảnh/video kiến trúc và các tác vụ media: nối đầu vào ảnh, phiên tác vụ, tiến độ và tài sản kết quả.
+- Rà soát hợp đồng/hóa đơn dùng bộ trường động: đọc cấu hình hiện tại, phân giải trường theo tên, xác nhận và bảo toàn dữ liệu.
+- Các thao tác marketing hàng loạt, khôi phục/đối soát và thao tác ghi còn bị chặn: cần adapter theo hợp đồng API thực tế và kiểm thử hội thoại.
 
-Các route đã đánh giá và chủ ý chưa nối được thống kê riêng: 363 route. Chúng gồm thao tác có side effect khi đọc, route cần chọn tệp/tài khoản/phiên theo luồng riêng, route trùng workflow chuẩn hoặc cần xác nhận/kiểm soát chưa có trong chat. Danh sách và lý do từng route nằm trong [UNSUPPORTED.md](./UNSUPPORTED.md).
-
+Các mục này vẫn thuộc phạm vi nghiệp vụ đã yêu cầu; chưa được tính là hoàn tất chỉ vì có route API hoặc đã chạy qua bộ kiểm thử hiện có.
 ## Adapter thủ công
 
 Các adapter dưới đây là route cố định, được khai báo riêng và có kiểm tra khớp với catalog:

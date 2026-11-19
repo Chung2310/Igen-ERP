@@ -12,6 +12,7 @@ export type TabType =
   | "CHIẾN DỊCH NỘI DUNG"
   | "OMNI INBOX"
   | "KHO TRI THỨC"
+  | "VĂN BẢN PHÁP LUẬT"
   | "TÍCH HỢP MARKETING"
   | "GÓI AI & LƯỢT SỬ DỤNG"
   | "TỔNG QUAN"

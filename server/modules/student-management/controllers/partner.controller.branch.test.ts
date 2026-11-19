@@ -6,6 +6,7 @@ import { PartnerController } from "./partner.controller";
 
 test("admin creates a partner under the resolved owner of the active branch", async () => {
   const originalFindOne = User.findOne;
+  const originalFind = User.find;
   const originalCreate = PartnerService.createPartner;
   let createArgs: unknown[] = [];
   (User as any).findOne = () => {
@@ -15,6 +16,7 @@ test("admin creates a partner under the resolved owner of the active branch", as
     };
     return query;
   };
+  (User as any).find = () => ({ select: async () => [] });
   (PartnerService as any).createPartner = async (...args: unknown[]) => {
     createArgs = args;
     return { _id: "partner-1" };
@@ -37,6 +39,7 @@ test("admin creates a partner under the resolved owner of the active branch", as
     assert.equal(res.statusCode, 201);
   } finally {
     (User as any).findOne = originalFindOne;
+    (User as any).find = originalFind;
     (PartnerService as any).createPartner = originalCreate;
   }
 });

@@ -14,7 +14,7 @@ it('lưu doanh nghiệp và người liên hệ độc lập với lựa chọn 
   fireEvent.click(screen.getByRole('option', { name: 'Doanh nghiệp / tổ chức' }));
   fireEvent.change(screen.getByLabelText(/Tên doanh nghiệp/), { target: { value: 'Công ty A' } });
   fireEvent.change(screen.getByLabelText(/Số điện thoại/), { target: { value: '0901000001' } });
-  fireEvent.change(screen.getByLabelText('Người liên hệ'), { target: { value: 'Nguyễn Văn A' } });
+  fireEvent.change(screen.getByLabelText('Người liên hệ của doanh nghiệp'), { target: { value: 'Nguyễn Văn A' } });
   fireEvent.click(screen.getByRole('button', { name: 'Lưu khách hàng' }));
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ customerKind: 'business', contactName: 'Nguyễn Văn A', type: 'regular' }), undefined));
 });

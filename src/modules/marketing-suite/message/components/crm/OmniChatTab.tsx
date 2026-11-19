@@ -4,7 +4,7 @@ import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, Chevro
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../../shared/types/index";
 import { toast } from "../../../../../pages/Toast";
 import { geminiApi } from "../../../shared/api/gemini";
-import { ExtendedLeadCard } from "../../services/crmService";
+import type { ConversationLead } from "../../services/crmService";
 import { AiAssistantConfigPanel } from "./AiAssistantConfigPanel";
 import { resolveAiReplyScope } from "../../../shared/utils/aiReplyScope";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
@@ -24,7 +24,7 @@ type OmniChatTabProps = {
   handleSelectCustomer: (cust: CustomerInbox) => void;
   handleSendChatMessage: (e: React.FormEvent) => void;
   handleLoadOlderMessages: () => void;
-  leads: ExtendedLeadCard[];
+  linkedLead: ConversationLead | null;
   onCreateLeadFromChat: (customer: CustomerInbox) => void;
   facebookPages: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }>;
   selectedFacebookPageId: string;
@@ -42,6 +42,22 @@ type OmniChatTabProps = {
   isTiktokConnected?: boolean;
   isInboxLoading: boolean;
   onResumeAI?: (conversationId: string, channel: "facebook" | "zalo" | "tiktok") => Promise<void>;
+  directChat?: {
+    scopeKey: string;
+    configScopeLabel?: string;
+    composer?: React.ReactNode;
+    hasAttachment?: boolean;
+    onPaste?: React.ClipboardEventHandler<HTMLDivElement>;
+    onDragEnter?: React.DragEventHandler<HTMLDivElement>;
+    onDragOver?: React.DragEventHandler<HTMLDivElement>;
+    onDragLeave?: React.DragEventHandler<HTMLDivElement>;
+    onDrop?: React.DragEventHandler<HTMLDivElement>;
+    dropOverlay?: React.ReactNode;
+    headerActions?: React.ReactNode;
+    sidebarActions?: React.ReactNode;
+    status?: React.ReactNode;
+    onPreview: (message: string, images: string[]) => Promise<{ text: string; mode: string; contextMatches: number }>;
+  };
 };
 
 export const OmniChatTab: React.FC<OmniChatTabProps> = ({
@@ -57,7 +73,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   handleSelectCustomer,
   handleSendChatMessage,
   handleLoadOlderMessages,
-  leads,
+  linkedLead,
   onCreateLeadFromChat,
   facebookPages,
   selectedFacebookPageId,
@@ -75,12 +91,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   isTiktokConnected,
   isInboxLoading,
   onResumeAI,
+  directChat,
 }) => {
   const [filterInbox, setFilterInbox] = useState("");
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const latestInboundMessage = [...chatHistory].reverse().find((message) => message.sender === "user");
-  const isFacebookReplyWindowExpired = activeCustomer?.channel === "facebook" && !!latestInboundMessage &&
+  const isFacebookReplyWindowExpired = !directChat && activeCustomer?.channel === "facebook" && !!latestInboundMessage &&
     // eslint-disable-next-line react-hooks/purity -- Legacy reply-window eligibility must use current wall-clock time on each render.
     Date.now() - latestInboundMessage.timestamp.getTime() > 24 * 60 * 60 * 1000;
 
@@ -222,7 +239,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const [localConfig, setLocalConfig] = useState<AIChatConfig>(aiConfig);
   const [savingConfig, setSavingConfig] = useState(false);
   const [localConfigDraftDirty, setLocalConfigDraftDirty] = useState(false);
-  const configScopeKey = resolveAiReplyScope({
+  const configScopeKey = directChat?.scopeKey || resolveAiReplyScope({
     customer: activeCustomer, activeChannel, facebookId: selectedFacebookPageId,
     zaloId: selectedZaloAccountId, tiktokId: selectedTiktokAccountId,
   }).key;
@@ -359,7 +376,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     setTestingAI(true);
     try {
       const channel = activeCustomer?.channel || (activeChannel === "all" ? "facebook" : activeChannel);
-      const result = await geminiApi.testReply(testQuestion, {
+      const result = directChat ? await directChat.onPreview(testQuestion, testImages.map(image => image.dataUrl)) : await geminiApi.testReply(testQuestion, {
         channel,
         conversationId: activeCustomer?.id && /^[0-9a-fA-F]{24}$/.test(activeCustomer.id) ? activeCustomer.id : undefined,
         platformId: (channel === "facebook"
@@ -669,10 +686,11 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     <div className="flex h-full min-h-0 overflow-hidden bg-surface-container-lowest" id="omni_inbox_layout">
 
       {/* L-Col: Inbox Customers list */}
-      <div className="flex h-full w-80 shrink-0 flex-col justify-between border-r border-outline-variant bg-surface-container-lowest" id="inbox_sidebar">
+      {!directChat && <div className="flex h-full w-80 shrink-0 flex-col justify-between border-r border-outline-variant bg-surface-container-lowest" id="inbox_sidebar">
 
         {/* Search & Channel Filters Group */}
         <div className="flex flex-col gap-3 p-4 border-b border-slate-100 shrink-0">
+          {directChat?.sidebarActions}
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 text-slate-400" />
@@ -856,10 +874,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             </>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* M-Col: Active Conversation details */}
-      <div className="flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area">
+      <div className="relative flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area"
+        onPaste={directChat?.onPaste} onDragEnter={directChat?.onDragEnter} onDragOver={directChat?.onDragOver}
+        onDragLeave={directChat?.onDragLeave} onDrop={directChat?.onDrop}>
+        {directChat?.dropOverlay}
         {isInboxLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-[#00ADFC] mb-3" />
@@ -876,58 +897,48 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           <>
             {/* Active Customer Info Top Header */}
             <div className="p-4 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
-              {(() => {
-                const linkedLead = leads.find(l => l.sourceConversationId === activeCustomer.id
-                  && l.sourcePlatform === (activeCustomer.channel || "facebook")
-                  && l.sourceAccountId === activeCustomer.accountId)
-                  || (() => {
-                    const sameName = leads.filter(lead => lead.customerName.toLowerCase() === activeCustomer.name.toLowerCase());
-                    return sameName.length === 1 ? sameName[0] : undefined;
-                  })();
-                return (
-                  <div className="flex items-center gap-3 text-left">
-                    <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
-                      {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-extrabold text-slate-800 text-sm font-sans">
-                          {activeCustomer.name}
-                        </h4>
-                        {activeCustomer.isVip && (
-                          <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
-                        )}
+              <div className="flex items-center gap-3 text-left">
+                <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
+                  {renderCustomerAvatar(activeCustomer, "h-11 w-11")}
+                </span>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-slate-800 text-sm font-sans">
+                      {activeCustomer.name}
+                    </h4>
+                    {activeCustomer.isVip && (
+                      <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
+                    )}
 
-                        {/* Lead status reflects data collection, not a sales stage. */}
-                        {linkedLead ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface-variant">
-                              Lead · {linkedLead.collectionStatus === "complete" ? "Đủ thông tin" : linkedLead.collectionStatus === "needs_human" ? "Chờ nhân viên" : "Đang thu thập"}
-                            </span>
-                            {linkedLead.customerTransfer?.completedAt ? <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
-                              Đã chuyển · {leadCustomerDestinationLabels[linkedLead.customerTransfer.destination]}
-                            </span> : linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
-                              Đã chuyển vào {linkedLead.moduleSync.targetModule === "students" ? "Học viên" : linkedLead.moduleSync.targetModule === "healthcare" ? "Y tế" : "Lao động"}
-                            </span>}
-                          </div>
-                        ) : (
-                          <button type="button" onClick={() => onCreateLeadFromChat(activeCustomer)}
-                            className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary">
-                            <Plus aria-hidden="true" className="mr-1 inline size-3" />Tạo Lead
-                          </button>
-                        )}
+                    {/* Lead status reflects data collection, not a sales stage. */}
+                    {linkedLead ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface-variant">
+                          Lead · {linkedLead.collectionStatus === "complete" ? "Đủ thông tin" : linkedLead.collectionStatus === "needs_human" ? "Chờ nhân viên" : "Đang thu thập"}
+                        </span>
+                        {linkedLead.customerTransfer?.completedAt ? <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                          Đã chuyển · {leadCustomerDestinationLabels[linkedLead.customerTransfer.destination]}
+                        </span> : linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                          Đã chuyển vào {linkedLead.moduleSync.targetModule === "students" ? "Học viên" : linkedLead.moduleSync.targetModule === "healthcare" ? "Y tế" : "Lao động"}
+                        </span>}
                       </div>
-                      <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : activeCustomer.channel === "tiktok" ? "bg-black animate-pulse" : "bg-blue-500"}`} />
-                        {activeCustomer.channel === "zalo" ? "Khách Zalo " : activeCustomer.channel === "tiktok" ? "Khách TikTok " : "Khách Facebook  "}
-                      </p>
-                    </div>
+                    ) : (
+                      <button type="button" onClick={() => onCreateLeadFromChat(activeCustomer)}
+                        className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary">
+                        <Plus aria-hidden="true" className="mr-1 inline size-3" />Tạo Lead
+                      </button>
+                    )}
                   </div>
-                );
-              })()}
+                  <p className="text-[10px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeCustomer.channel === "zalo" ? "bg-cyan-400 animate-pulse" : activeCustomer.channel === "tiktok" ? "bg-black animate-pulse" : "bg-blue-500"}`} />
+                    {directChat ? "Chat trực tiếp trong ERP" : activeCustomer.channel === "zalo" ? "Khách Zalo " : activeCustomer.channel === "tiktok" ? "Khách TikTok " : "Khách Facebook  "}
+                  </p>
+                </div>
+              </div>
 
               {/* Header Actions: Collapsible config and channel badge */}
               <div className="flex items-center gap-2">
+                {directChat?.headerActions}
                 {/* Collapsible toggle button */}
                 <button
                   onClick={() => setShowConfig(!showConfig)}
@@ -937,7 +948,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     }`}
                 >
                   <Sliders className="h-3.5 w-3.5" />
-                  <span>{showConfig ? "Ẩn cấu hình chatbot" : "Cấu hình chatbot Page"}</span>
+                  <span>{showConfig ? "Ẩn cấu hình chatbot" : directChat ? "Cấu hình chatbot" : "Cấu hình chatbot Page"}</span>
                 </button>
 
                 {/* Source logo info */}
@@ -947,7 +958,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     ? "bg-slate-900 text-white border-slate-900"
                     : "bg-[#EAF8FF] text-[#008FCF] border-[#BEEBFF]"
                   }`}>
-                  {activeCustomer.channel === "facebook" ? (
+                  {directChat ? <span>Hội thoại nội bộ</span> : activeCustomer.channel === "facebook" ? (
                     <>
                       <SocialPlatformIcon platform="facebook" className="h-3.5 w-3.5" />
                       <span>Facebook Messenger</span>
@@ -998,12 +1009,14 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 </div>
 
                 {chatHistory.map((h, index) => {
-                  const isMe = h.sender === "agent";
+                  const isMe = directChat ? h.sender === "user" : h.sender === "agent";
                   const isAI = h.sender === "ai";
                   const isSystem = h.text.includes("[AI AUTOMATION]");
                   const attachments = h.attachments || [];
                   const primaryAttachment = attachments[0];
                   const hasImageAttachment = primaryAttachment?.url && ["image", "sticker"].includes(primaryAttachment.type);
+                  const visibleImages = directChat ? attachments.filter(attachment => attachment.url && ["image", "sticker"].includes(attachment.type))
+                    : hasImageAttachment ? [primaryAttachment] : [];
                   const displayText = h.text || (attachments.length > 0 ? (primaryAttachment?.type === "sticker" ? "[Biểu tượng]" : "[Đính kèm]") : "");
 
                   // Kiểm tra hiển thị phân cách ngày
@@ -1066,16 +1079,17 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                                 <Sparkles size={10} />{isSystem ? "Hệ thống AI tự động chốt sales" : "iGen AI Assistant (Trả lời tự động)"}
                               </span>
                             )}
-                            {hasImageAttachment && (
+                            {visibleImages.map((attachment, imageIndex) => <button key={`${attachment.url}:${imageIndex}`} type="button"
+                              aria-label={`Xem ảnh đính kèm ${imageIndex + 1}`} className="mb-2 block max-w-full rounded-2xl focus-visible:outline-2 focus-visible:outline-primary"
+                              onClick={() => setLightboxImage(attachment.url)}>
                               <img
-                                src={primaryAttachment.url}
-                                alt={primaryAttachment.type === "sticker" ? "Facebook sticker" : "Facebook attachment"}
+                                src={attachment.url}
+                                alt={attachment.type === "sticker" ? "Biểu tượng đính kèm" : `Ảnh đính kèm ${imageIndex + 1}`}
                                 className="max-w-[220px] max-h-[220px] rounded-2xl mb-2 object-contain bg-white/70 cursor-zoom-in hover:brightness-95 active:scale-98 transition-all duration-200 border border-slate-150/40 shadow-xs"
                                 loading="lazy"
                                 referrerPolicy="no-referrer"
-                                onClick={() => setLightboxImage(primaryAttachment.url)}
                               />
-                            )}
+                            </button>)}
                             {displayText ? (
                               <p className="leading-relaxed whitespace-pre-wrap select-text">{displayText}</p>
                             ) : null}
@@ -1083,7 +1097,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         </div>
 
                         <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
-                          {isMe ? "CRM Operator • " : isAI ? "Chatbot Page • " : `${activeCustomer.name} • `}
+                          {isMe ? directChat ? "Bạn • " : "CRM Operator • " : isAI ? "Chatbot Page • " : `${activeCustomer.name} • `}
                           {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
@@ -1148,6 +1162,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
             {/* Chat Send Input Box area */}
             <form onSubmit={handleSendChatMessage} className="p-4 border-t border-slate-100 bg-white shrink-0" id="chat_input_section">
+              {directChat?.status}
+              {directChat?.composer}
               {isFacebookReplyWindowExpired && (
                 <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-medium text-amber-900">
                   <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -1159,7 +1175,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
               <div className="flex gap-3">
                 <input
                   type="text"
-                  placeholder={`Gửi phản hồi cho ${activeCustomer.name}...`}
+                  aria-label={directChat ? "Tin nhắn của khách" : "Nội dung phản hồi"}
+                  placeholder={directChat ? "Nhắn với chatbot như khách hàng…" : `Gửi phản hồi cho ${activeCustomer.name}...`}
                   className="flex-1 text-left px-4 py-3 border border-slate-200 bg-slate-50/40 rounded-xl text-xs focus:ring-4 focus:ring-[#00ADFC]/10 focus:border-[#00ADFC] outline-none font-sans"
                   value={typeMessage}
                   onChange={(e) => setTypeMessage(e.target.value)}
@@ -1167,8 +1184,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 />
                 <button
                   type="submit"
-                  disabled={aiWaiting || !typeMessage.trim()}
-                  className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${aiWaiting || !typeMessage.trim()
+                  aria-label="Gửi tin nhắn"
+                  disabled={aiWaiting || (!typeMessage.trim() && !directChat?.hasAttachment)}
+                  className={`p-3 rounded-xl transition-all shadow-sm flex items-center justify-center shrink-0 ${aiWaiting || (!typeMessage.trim() && !directChat?.hasAttachment)
                     ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
                     : "bg-[#00ADFC] hover:bg-[#008FCF] text-white cursor-pointer active:scale-95 shadow-md shadow-[#00ADFC]/10"
                     }`}
@@ -1184,6 +1202,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       {/* R-Col: Config side-panel sidebar for custom AI assistant parameters (Collapsible) */}
       {showConfig && (
         <AiAssistantConfigPanel
+          scopeLabel={directChat?.configScopeLabel}
           onClose={() => setShowConfig(false)}
           localConfig={localConfig}
           setLocalConfig={updateLocalConfig}

@@ -76,6 +76,7 @@ DEFAULT_ROLE_PERMISSIONS.manager.push("repair:read");
 DEFAULT_ROLE_PERMISSIONS.admin.push("customer:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("marketing:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("omni-inbox:manage", "company-knowledge:manage", "social-integration:manage");
+DEFAULT_ROLE_PERMISSIONS.admin.push("legal-reference:manage");
 
 /**
  * Cấp bậc mặc định của các vai trò hệ thống (Số nhỏ hơn = cấp cao hơn)
@@ -222,6 +223,13 @@ export async function getEffectivePermissions(
   // role-permission record predates or omits the system minimum.
   if (role === "pos_cashier" && !rolePermissions.includes("pos:manage")) {
     rolePermissions = [...rolePermissions, "pos:manage"];
+  }
+
+  // Legal Reference explicitly treats company admins as module administrators
+  // in the UI route. Keep that contract even when the tenant has an older,
+  // company-specific role-permission record that predates this module.
+  if (role === "admin" && !rolePermissions.includes("legal-reference:manage")) {
+    rolePermissions = [...rolePermissions, "legal-reference:manage"];
   }
 
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));

@@ -1,16 +1,24 @@
 import mongoose from "mongoose";
+import * as XLSX from "xlsx";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LeadIntakeField } from "../../../../../shared/marketing-suite/lead-intake";
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import { LeadIntakeProfileModel } from "../model/lead-intake-profile.model";
+import { LeadContractModel, LeadContractPhotoModel } from "../model/lead-contract.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
+import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
 import { TelecomInvoiceConversationModel, TelecomInvoiceModel, TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { generateReplyCompletion } from "./ai-reply-provider";
 import { downloadChatImage, isTrustedChatImageUrl } from "./chat-image-context";
 import { isPendingTelecomConfirmation, markTelecomInvoiceReplyDelivered, processTelecomInvoiceTurn, splitTelecomInvoiceReply, type TelecomInvoiceReply } from "./telecom-invoice-flow";
 import { normalizeInvoiceValue, parseInvoiceCommands } from "./telecom-invoice-values";
+import { readLeadContractWorkbook, reconcileLeadContracts } from "./lead-contract-reconciliation";
+import { recordLeadContractPhoto } from "./lead-contract.service";
+import { processLeadContractMessage } from "./lead-contract-ocr";
 
 vi.mock("./ai-reply-provider", () => ({ generateReplyCompletion: vi.fn() }));
+vi.mock("../webhook-access", () => ({ canProcessMessengerWebhook: async () => true }));
 vi.mock("./chat-image-context", async importOriginal => ({
   ...(await importOriginal<typeof import("./chat-image-context")>()), downloadChatImage: vi.fn(),
 }));
@@ -27,7 +35,7 @@ const scope = { companyCode: company, pageId: page, platform: "facebook" as cons
 const start = Date.now();
 const time = (seconds: number) => new Date(start + seconds * 1000);
 const imageMessage = (messageId: string, ...images: string[]) => ({
-  messageId, direction: "inbound", attachments: images.map(url => ({ type: "image", url })),
+  messageId, direction: "inbound" as const, attachments: images.map(url => ({ type: "image", url })),
 });
 const inbound = (messageId: string, text: string) => ({ messageId, direction: "inbound", text });
 const outbound = (messageId: string, reply: TelecomInvoiceReply) => ({ messageId, direction: "outbound", text: reply.text });
@@ -43,7 +51,8 @@ let mongo: MongoMemoryReplSet;
 beforeAll(async () => {
   mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongo.getUri());
-  await Promise.all([CRMTicketModel.init(), LeadIntakeProfileModel.init(), TelecomInvoiceModel.init(), TelecomInvoiceConversationModel.init(), TelecomInvoiceSettingsModel.init()]);
+  await Promise.all([CRMTicketModel.init(), LeadIntakeProfileModel.init(), TelecomInvoiceModel.init(), TelecomInvoiceConversationModel.init(),
+    TelecomInvoiceSettingsModel.init(), LeadContractModel.init(), LeadContractPhotoModel.init()]);
 }, 45_000);
 afterAll(async () => { await mongoose.disconnect(); await mongo?.stop(); });
 beforeEach(() => {
@@ -59,7 +68,9 @@ beforeEach(() => {
   });
 });
 afterEach(async () => {
-  await Promise.all([CRMTicketModel.deleteMany(), LeadIntakeProfileModel.deleteMany(), TelecomInvoiceModel.deleteMany(), TelecomInvoiceConversationModel.deleteMany(), TelecomInvoiceSettingsModel.deleteMany()]);
+  await Promise.all([CRMTicketModel.deleteMany(), LeadIntakeProfileModel.deleteMany(), TelecomInvoiceModel.deleteMany(),
+    TelecomInvoiceConversationModel.deleteMany(), TelecomInvoiceSettingsModel.deleteMany(), LeadContractModel.deleteMany(), LeadContractPhotoModel.deleteMany(),
+    FBMessageModel.deleteMany(), ZaloMessageModel.deleteMany(), FBConversationModel.deleteMany(), ZaloConversationModel.deleteMany()]);
 });
 
 async function createProfile(pageId: string, companyCode: string, platform: "facebook" | "zalo", leadFields = fields) {
@@ -71,6 +82,134 @@ async function enable(pageId = page, companyCode = company) {
   await TelecomInvoiceSettingsModel.create({ companyCode, pageId, enabled: true });
   await createProfile(pageId, companyCode, "facebook");
 }
+
+const contractFields: LeadIntakeField[] = [
+  { key: "ma_hop_dong", label: "Mã hợp đồng", question: "Mã hợp đồng?" },
+  { key: "customer_name", label: "Tên khách hàng", question: "Tên khách?", required: false },
+  { key: "address", label: "Địa chỉ", question: "Địa chỉ?", required: false },
+];
+const contractDate = new Date("2026-02-26T02:00:00Z");
+const contractConfig = { enabled: true, mode: "contract", contractFieldKey: "ma_hop_dong", contractProvider: "FPT" };
+const facebookContract = { ...scope, conversationId: "687774d529b6887ee8840ac1" };
+const zaloContract = { companyCode: company, platform: "zalo" as const, pageId: "OA-1", conversationId: "687774d529b6887ee8840ac2" };
+
+async function enableContractChannels() {
+  await TelecomInvoiceSettingsModel.create([{ companyCode: company, pageId: page, ...contractConfig },
+    { companyCode: company, pageId: zaloContract.pageId, enabled: false, zalo: contractConfig }]);
+  await createProfile(page, company, "facebook", contractFields);
+  await createProfile(zaloContract.pageId, company, "zalo", contractFields);
+  await FBConversationModel.create({ _id: facebookContract.conversationId, pageId: page, recipientId: "sender" });
+  await ZaloConversationModel.create({ _id: zaloContract.conversationId, oaId: zaloContract.pageId, recipientId: "sender" });
+}
+
+function contractReading(code?: string, name?: string, address?: string) {
+  return { kind: "document", fields: Object.fromEntries(Object.entries({ ma_hop_dong: code, customer_name: name, address })
+    .map(([key, text]) => [key, { status: text ? "readable" : "missing", text }])) };
+}
+
+async function receiveContractPhoto(account: typeof facebookContract | typeof zaloContract, messageId: string, image: string) {
+  const message = { ...imageMessage(messageId, image), text: "Cho mình hỏi gói này còn bán không?", timestamp: contractDate,
+    senderId: "sender", recipientId: account.pageId, conversationId: account.conversationId, status: "delivered" as const };
+  if (account.platform === "zalo") await ZaloMessageModel.create(message);
+  else await FBMessageModel.create(message);
+  const calls = vi.mocked(generateReplyCompletion).mock.calls.length;
+  await expect(processTelecomInvoiceTurn({ ...account, messageAt: contractDate, messageId, messages: [message] })).resolves.toBeUndefined();
+  expect(generateReplyCompletion).toHaveBeenCalledTimes(calls);
+  await expect(processLeadContractMessage({ ...account, messageId })).resolves.toBeUndefined();
+}
+
+function contractWorkbook(rows: Array<Array<string | number | null>>) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Bảng kê hợp đồng"], [], ["STT", "Số HĐ", "Dịch vụ"], ...rows]), "Bảng kê ");
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+describe("Lead contract OCR and reconciliation", () => {
+  it.each([
+    ["facebook", "message"], ["facebook", "conversation"], ["zalo", "message"], ["zalo", "conversation"],
+  ] as const)("skips pending OCR on %s after its source %s is deleted", async (platform, deleted) => {
+    await enableContractChannels();
+    const account = platform === "zalo" ? zaloContract : facebookContract;
+    const messageId = "deleted-contract-source";
+    const message = { ...imageMessage(messageId, "contract"), timestamp: contractDate, senderId: "sender",
+      recipientId: account.pageId, conversationId: account.conversationId };
+    if (platform === "zalo") {
+      await ZaloMessageModel.create(message);
+      if (deleted === "message") await ZaloMessageModel.deleteMany({ conversationId: account.conversationId });
+      else await ZaloConversationModel.deleteOne({ _id: account.conversationId });
+    } else {
+      await FBMessageModel.create(message);
+      if (deleted === "message") await FBMessageModel.deleteMany({ conversationId: account.conversationId });
+      else await FBConversationModel.deleteOne({ _id: account.conversationId });
+    }
+    await processLeadContractMessage({ ...account, messageId });
+    expect(downloadChatImage).not.toHaveBeenCalled();
+    expect(generateReplyCompletion).not.toHaveBeenCalled();
+    expect(await CRMTicketModel.countDocuments()).toBe(0);
+    expect(await LeadContractPhotoModel.countDocuments()).toBe(0);
+  });
+
+  it("uses one Lead across Facebook and Zalo and reconciles each contract once", async () => {
+    await enableContractChannels();
+    pictures.set("order", contractReading(" ab-001 ", "Khách A"));
+    pictures.set("install", contractReading("AB-001", "Tên khác trên ảnh", "Bắc Ninh"));
+    await receiveContractPhoto(facebookContract, "fb", "order");
+    await receiveContractPhoto(zaloContract, "zalo", "install");
+    await receiveContractPhoto(zaloContract, "duplicate", "order");
+    expect(generateReplyCompletion).toHaveBeenCalledTimes(2);
+    const leads = await CRMTicketModel.find({ companyCode: company }).lean();
+    expect(leads).toHaveLength(1);
+    expect(leads[0]).toMatchObject({ customerName: "Khách A", answers: { ma_hop_dong: "AB-001", address: "Bắc Ninh" } });
+    const receipts = await LeadContractPhotoModel.find({ status: "recorded" }).lean();
+    expect(receipts.map(photo => photo.platform).sort()).toEqual(["facebook", "zalo"]);
+    expect(receipts.every(photo => photo.leadId?.equals(leads[0]._id))).toBe(true);
+    const report = await reconcileLeadContracts(company, "FPT", 2026, 1, contractWorkbook([
+      [1, " ab-001 ", "Internet"], [2, "AB-001", "Truyền hình"], [3, "0002", "Internet"],
+    ]));
+    expect(report).toMatchObject({ excelCount: 2, duplicates: 1, invalidRows: [] });
+    expect(report.rows).toEqual([
+      { code: "0002", status: "excel_only" },
+      { code: "AB-001", status: "matched", leadId: String(leads[0]._id), customerName: "Khách A" },
+    ]);
+    expect((await reconcileLeadContracts("OTHER", "FPT", 2026, 1, contractWorkbook([[1, "AB-001"]]))).rows[0].status).toBe("excel_only");
+  });
+
+  it("retains unreadable contracts for staff review, reuses existing Leads and respects the selected quarter", async () => {
+    await enableContractChannels();
+    const existing = await CRMTicketModel.create({ companyCode: company, customerName: "Khách cũ", sourcePlatform: "zalo",
+      sourceAccountId: zaloContract.pageId, answers: { ma_hop_dong: "old001" } });
+    pictures.set("blur", contractReading(undefined, undefined, "Địa chỉ mới"));
+    await receiveContractPhoto(facebookContract, "blur", "blur");
+    expect(await LeadContractModel.countDocuments()).toBe(0);
+    const draft = (await LeadContractPhotoModel.findOne({ status: "review" }).lean())!;
+    const saved = await recordLeadContractPhoto(draft, { ...draft.values, ma_hop_dong: "OLD001" }, true);
+    expect(saved.leadId).toBe(String(existing._id));
+    expect((await CRMTicketModel.findById(existing._id).lean())?.answers?.address).toBe("Địa chỉ mới");
+    const bytes = contractWorkbook([[1, "UNSEEN"]]);
+    expect((await reconcileLeadContracts(company, "FPT", 2026, 1, bytes)).rows)
+      .toContainEqual({ code: "OLD001", customerName: "Khách cũ", leadId: String(existing._id), status: "lead_only" });
+    expect((await reconcileLeadContracts(company, "FPT", 2026, 2, bytes)).rows).toEqual([{ code: "UNSEEN", status: "excel_only" }]);
+    const secondSave = await recordLeadContractPhoto(draft, { ma_hop_dong: "NEW001", customer_name: "Khách khác" }, true);
+    expect(secondSave.issue).toContain("đã được xử lý");
+  });
+
+  it("holds ambiguous codes, bypasses unrelated images and reports invalid spreadsheet rows", async () => {
+    await enableContractChannels();
+    await CRMTicketModel.create([
+      { companyCode: company, customerName: "A", sourcePlatform: "facebook", sourceAccountId: page, answers: { ma_hop_dong: "A00" } },
+      { companyCode: company, customerName: "B", sourcePlatform: "zalo", sourceAccountId: zaloContract.pageId, answers: { ma_hop_dong: "A00" } },
+    ]);
+    pictures.set("ambiguous", contractReading("A00", "A"));
+    await receiveContractPhoto(facebookContract, "ambiguous", "ambiguous");
+    expect((await LeadContractPhotoModel.findOne({ status: "review" }).lean())?.issue).toContain("nhiều Lead");
+    expect(await LeadContractModel.countDocuments()).toBe(0);
+    await receiveContractPhoto(facebookContract, "unrelated", "unrelated");
+    expect(await LeadContractPhotoModel.countDocuments({ status: "other" })).toBe(1);
+    const bytes = contractWorkbook([[1, "A00"], [2, null], [3, "mã lỗi"], ["Tổng", null]]);
+    expect(readLeadContractWorkbook(bytes)).toMatchObject({ codes: new Set(["A00"]), invalidRows: [5, 6], duplicates: 0 });
+    expect((await reconcileLeadContracts(company, "FPT", 2026, 1, bytes)).rows).toEqual([{ code: "A00", status: "needs_review" }]);
+  });
+});
 
 describe("telecom invoice flow", () => {
   it("leaves the existing bot in control when disabled, on another Page, and for unrelated messages", async () => {

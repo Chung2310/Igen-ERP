@@ -7,6 +7,7 @@ import { zaloMessengerController } from "../controller/zalo-messenger.controller
 import { MessengerBackgroundJobModel } from "../model/messenger-background-job.model";
 import { FacebookAutoReplyJobModel } from "../model/facebook-auto-reply-job.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model";
 import { enqueueLeadIntakeRetry, enqueueZaloWebhook, startMessengerBackgroundWorkers } from "./messenger-background-jobs";
 import { UserModel } from "../../../../model/user.model";
 import { claimMessengerReply, enqueueMessengerReply, expireMessengerReplyJobs, markMessengerReplySending } from "./facebook-auto-reply-queue";
@@ -14,14 +15,19 @@ import { zaloMessengerService } from "./zalo-messenger.service";
 import { assertZaloDeliveryCurrent, beginZaloFollowUpDelivery, expireZaloFollowUpDeliveries,
   readZaloFollowUpMessages, ZaloReplyCancelledError } from "./zalo-reply-context";
 import { CRMTicketModel } from "../model/crm-ticket.model";
+import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 
-const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn() }));
+const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
 vi.mock("./ai-auto-reply.service.ts", () => ({
   aiAutoReplyService: { triggerAutoReply: mocks.dispatch },
   recoverZaloAutoReplyJobs: vi.fn(),
 }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: vi.fn() }));
 vi.mock("../webhook-access", () => ({ canProcessMessengerWebhook: async () => true }));
+vi.mock("./lead-contract-ocr", async importOriginal => ({
+  ...(await importOriginal<typeof import("./lead-contract-ocr")>()),
+  processLeadContractMessage: mocks.contractOcr,
+}));
 vi.mock("./chat-ordering/registry", () => ({
   chatOrderFlowRegistry: { resolveForCompanyPage: async () => ({ key: "page-intake", process: mocks.intake }) },
 }));
@@ -40,9 +46,11 @@ afterAll(async () => {
 beforeEach(async () => {
   mocks.dispatch.mockReset();
   mocks.intake.mockReset();
+  mocks.contractOcr.mockReset();
   vi.spyOn(UserModel, "findOne").mockResolvedValue({ zaloIntegration: { isMock: true } } as never);
   await Promise.all([ZaloConversationModel.deleteMany({}), ZaloMessageModel.deleteMany({}),
-    MessengerBackgroundJobModel.deleteMany({}), FacebookAutoReplyJobModel.deleteMany({})]);
+    FBConversationModel.deleteMany({}), FBMessageModel.deleteMany({}),
+    MessengerBackgroundJobModel.deleteMany({}), FacebookAutoReplyJobModel.deleteMany({}), TelecomInvoiceSettingsModel.deleteMany({})]);
   vi.stubEnv("ZALO_APP_ID", "test-app");
   vi.stubEnv("ZALO_OA_SECRET_KEY", "test-secret");
 });
@@ -108,6 +116,30 @@ it("keeps each Zalo invoice photo in order when images arrive in the same attach
   expect(mocks.dispatch).toHaveBeenLastCalledWith("zalo", "oa", String(messages[0].conversationId), "[Hình ảnh]", "images-1", { propagateError: true });
 });
 
+it("dispatches the original image and question to the chatbot before the separate contract OCR job runs", async () => {
+  await TelecomInvoiceSettingsModel.create({ companyCode: "TEST", pageId: "oa", zalo: {
+    enabled: true, mode: "contract", contractFieldKey: "ma_hop_dong", contractProvider: "FPT",
+  } });
+  const body = {
+    event_name: "user_send_image", recipient: { id: "oa" }, sender: { id: "customer" }, timestamp: Date.now(),
+    message: { msg_id: "contract-1", text: "Gói này còn bán không?",
+      attachments: [{ type: "image", payload: { url: "https://s120-ava-talk.zadn.vn/image/contract.jpg" } }] },
+  };
+  await zaloMessengerService.handleWebhookEvent(body);
+  const message = await ZaloMessageModel.findOne({ messageId: body.message.msg_id }).lean();
+  const conversationId = String(message?.conversationId);
+  expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith("zalo", "oa", conversationId, body.message.text, body.message.msg_id, { propagateError: true });
+  expect(mocks.contractOcr).not.toHaveBeenCalled();
+  expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-contract-ocr", status: "pending" })).toBe(1);
+
+  stopWorkers = startMessengerBackgroundWorkers();
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-contract-ocr", status: "completed" })).toBe(1);
+  }, { timeout: 6_000 });
+  expect(mocks.contractOcr).toHaveBeenCalledExactlyOnceWith({ companyCode: "TEST", platform: "zalo", pageId: "oa", conversationId, messageId: body.message.msg_id });
+  expect(mocks.dispatch).toHaveBeenCalledTimes(1);
+}, 10_000);
+
 it("recovers Zalo jobs across an expired lease and a failed message write without double-counting unread", async () => {
   const eventTimestamp = Math.floor(Date.now() / 1000);
   const { submit } = webhook(eventTimestamp);
@@ -138,7 +170,11 @@ it("recovers Zalo jobs across an expired lease and a failed message write withou
 }, 20_000);
 
 it("deduplicates a Lead retry and processes only intake in the worker", async () => {
-  const turn = { companyCode: "TEST", platform: "zalo" as const, pageId: "oa", conversationId: "c",
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  await ZaloMessageModel.create({ conversationId, senderId: "customer", recipientId: "oa", direction: "inbound",
+    messageId: "m1", timestamp: new Date(), text: "Xin tư vấn" });
+  const turn = { companyCode: "TEST", platform: "zalo" as const, pageId: "oa", conversationId,
     messageId: "m1", messageAt: new Date(), message: "Xin tư vấn", imageUrls: ["not-required"] };
   await enqueueLeadIntakeRetry(turn);
   await enqueueLeadIntakeRetry(turn);
@@ -147,6 +183,34 @@ it("deduplicates a Lead retry and processes only intake in the worker", async ()
     expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-intake", status: "completed" })).toBe(1);
   }, { timeout: 6_000 });
   expect(mocks.intake).toHaveBeenCalledExactlyOnceWith({ ...turn, imageUrls: [], retryIntake: true });
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+}, 10_000);
+
+it.each([
+  ["facebook", "message"], ["facebook", "conversation"], ["zalo", "message"], ["zalo", "conversation"],
+] as const)("skips pending %s Lead processing after the %s has been deleted", async (platform, deleted) => {
+  const conversation = platform === "zalo"
+    ? await ZaloConversationModel.create({ oaId: "account", recipientId: "customer" })
+    : await FBConversationModel.create({ pageId: "account", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  const inbound = { conversationId, senderId: "customer", recipientId: "account", direction: "inbound" as const,
+    messageId: "deleted-source", timestamp: new Date(), text: "Xin tư vấn" };
+  if (platform === "zalo") {
+    await ZaloMessageModel.create(inbound);
+    if (deleted === "message") await ZaloMessageModel.deleteMany({ conversationId });
+    else await ZaloConversationModel.deleteOne({ _id: conversationId });
+  } else {
+    await FBMessageModel.create(inbound);
+    if (deleted === "message") await FBMessageModel.deleteMany({ conversationId });
+    else await FBConversationModel.deleteOne({ _id: conversationId });
+  }
+  await enqueueLeadIntakeRetry({ companyCode: "TEST", platform, pageId: "account", conversationId,
+    messageId: inbound.messageId, message: inbound.text, imageUrls: [] });
+  stopWorkers = startMessengerBackgroundWorkers();
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.countDocuments({ kind: "lead-intake", status: "completed" })).toBe(1);
+  }, { timeout: 6_000 });
+  expect(mocks.intake).not.toHaveBeenCalled();
   expect(mocks.dispatch).not.toHaveBeenCalled();
 }, 10_000);
 

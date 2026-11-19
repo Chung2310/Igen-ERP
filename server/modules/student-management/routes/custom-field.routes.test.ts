@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import type { NextFunction, Response } from "express";
 import { getJwtAccessSecret } from "../../../config/env";
 import { UserModel } from "../../../model/user.model";
+import { CompanyModel } from "../../../model/company.model";
 import { RolePermissionModel } from "../../../model/role-permission.model";
 import { CustomFieldController } from "../controllers/custom-field.controller";
 import customFieldRouter from "./custom-field.routes";
@@ -54,11 +55,16 @@ async function requestRouter(router: Router, mountPath: string, method: string, 
   const { port } = server.address() as AddressInfo;
   const actorId = "669865fae3bbab7f00000002";
   const branchId = "669865fae3bbab7f00000003";
-  const token = jwt.sign({ id: actorId, email: "actor@example.com", role: "manager", companyCode: "tenant-a" }, getJwtAccessSecret());
+  const token = jwt.sign({ id: actorId, email: "actor@example.com", role: "manager", companyCode: "tenant-a", sid: "session-a" }, getJwtAccessSecret());
   const originalFindById = UserModel.findById;
   const originalRoleFindOne = RolePermissionModel.findOne;
-  (UserModel as any).findById = () => ({ select: () => ({ lean: async () => ({ branchId, permissions: ["settings:manage"] }) }) });
+  const originalCompanyFindOne = CompanyModel.findOne;
+  (UserModel as any).findById = () => ({ select: () => ({ lean: async () => ({
+    role: "manager", email: "actor@example.com", companyCode: "tenant-a", branchId,
+    activeSessionId: "session-a", isActive: true, permissions: ["settings:manage"],
+  }) }) });
   (RolePermissionModel as any).findOne = () => ({ lean: async () => null });
+  (CompanyModel as any).findOne = () => ({ select: () => ({ lean: async () => ({ lifecycleStatus: "active" }) }) });
 
   try {
     const response = await fetch(`http://127.0.0.1:${port}${path}`, {
@@ -70,6 +76,7 @@ async function requestRouter(router: Router, mountPath: string, method: string, 
   } finally {
     (UserModel as any).findById = originalFindById;
     (RolePermissionModel as any).findOne = originalRoleFindOne;
+    (CompanyModel as any).findOne = originalCompanyFindOne;
     server.close();
     await once(server, "close");
   }

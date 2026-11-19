@@ -265,6 +265,16 @@ const getUsersSchema = {
     companyCode: Joi.string().optional().allow(""),
     branchId: Joi.string().optional().allow(""),
     search: Joi.string().trim().max(100).optional().allow(""),
+    department: Joi.string().trim().max(100).optional().allow(""),
+  }),
+};
+const getUsersCountSchema = {
+  query: Joi.object({
+    createdFrom: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => { const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : helpers.error("any.invalid"); }).optional(),
+    createdTo: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => { const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : helpers.error("any.invalid"); }).optional(),
+    companyCode: Joi.string().optional().allow(""),
+    branchId: Joi.string().optional().allow(""),
+    scope: Joi.string().valid("company", "branch").optional(),
   }),
 };
 
@@ -275,6 +285,7 @@ authRouter.get("/users/colleagues", requireAuth as any, authController.getCollea
 // hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
 // (sơ đồ tổ chức, lịch, giao việc trong module HR đều cần roster này để hiển thị).
 authRouter.get("/users", requireAuth as any, requirePermission(["access:read", "hr:read", "timekeeping:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
+authRouter.get("/users/count", requireAuth as any, requirePermission(["access:read", "hr:read", "timekeeping:read"]) as any, validateRequest(getUsersCountSchema), authController.countUsers as any);
 authRouter.get("/users/:id/activity", requireAuth as any, requireRole(["admin"]) as any, async (req: any, res) => {
   try {
     return res.json(await userActivityService.list({

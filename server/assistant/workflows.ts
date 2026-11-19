@@ -12,8 +12,7 @@ export function actorScope(req: AuthenticatedRequest) {
 export async function allowedOperations(req: AuthenticatedRequest): Promise<AssistantOperation[]> {
   const scope = actorScope(req);
   const [permissions, state] = await Promise.all([getEffectivePermissions(scope.userId, req.user!.role, scope.companyCode), getModuleStateForCompany(scope.companyCode)]);
-  return ASSISTANT_OPERATIONS.filter(op => op.id !== "recruitment.pipeline.update"
-    && (!op.roles || op.roles.includes(req.user!.role))
+  return ASSISTANT_OPERATIONS.filter(op => (!op.roles || op.roles.includes(req.user!.role))
     && (op.id !== "employee.create" || ["admin", "superadmin"].includes(req.user!.role))
     && (permissions.has("*") || (op.permissionGroups || [op.permissions]).every(group => group.some(p => permissions.has(p))))
     && (op.modules || [op.module]).some(module => resolveModuleAccess(req.user, module, state.modules, state.exists, state.businessType)));
@@ -46,7 +45,7 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
       const base = op.fields.find(candidate => candidate.key === field.key)!;
       const savedDefaultValue = field.defaultValue;
       const defaultValue = base.reference ? undefined
-        : savedDefaultValue === undefined ? base.defaultValue
+        : savedDefaultValue === undefined || savedDefaultValue === null ? base.defaultValue
           : field.type === "json" && typeof savedDefaultValue !== "string"
             ? JSON.stringify(savedDefaultValue)
             : savedDefaultValue;

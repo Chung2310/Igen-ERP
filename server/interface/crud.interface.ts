@@ -7,6 +7,7 @@ export type SupportedModelName =
   | "training-courses"
   | "training-enrollments"
   | "workflows"
+  | "workflow-categories"
   | "users"
   | "hr-calendar-events"
   | "hr-leave-templates"

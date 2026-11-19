@@ -105,3 +105,17 @@ describe("POS cashier access and assignment", () => {
     expect(emitToUserSession).toHaveBeenCalledWith("old-session", "auth:session-replaced", expect.any(Object));
   });
 });
+
+describe("Legal Reference administrator access", () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); });
+
+  it("retains legal module access when an older tenant role record omits it", async () => {
+    vi.spyOn(UserModel, "findById").mockReturnValue({ select: () => ({ lean: async () => ({ permissions: [] }) }) } as any);
+    vi.spyOn(RolePermissionModel, "findOne").mockReturnValue({ lean: async () => ({ permissions: ["dashboard:manage"] }) } as any);
+
+    const permissions = await getEffectivePermissions("admin-1", "admin", "ACME");
+
+    expect(permissions.has("legal-reference:manage")).toBe(true);
+    expect(permissions.has("legal-reference:read")).toBe(true);
+  });
+});

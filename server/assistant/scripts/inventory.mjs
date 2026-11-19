@@ -105,6 +105,7 @@ function contracts(args,file){
 function staticRouteValues(node,file,site,depth=0){
  node=unwrap(node);if(!node||depth>16)return [];
  if(ts.isStringLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node))return [node.text];
+ if(ts.isArrayLiteralExpression(node))return node.elements.flatMap(item=>staticRouteValues(item,file,site,depth+1));
  if(ts.isTemplateExpression(node)){
   let values=[node.head.text];
   for(const span of node.templateSpans){const parts=staticRouteValues(span.expression,file,site,depth+1);if(!parts.length)return [];values=values.flatMap(value=>parts.map(part=>value+part+span.literal.text));}

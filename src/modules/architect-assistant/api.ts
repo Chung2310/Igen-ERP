@@ -1,5 +1,5 @@
 import { parseApiErrorResponse } from "../../services/apiClientError";
-import type { ArchitectureImageToolKind, ArchitectureProject, ArchitectureProjectInput, ArchitectureVideoJob } from "../../shared/architecture-assistant";
+import type { ArchitectureImageToolKind, ArchitecturePlan, ArchitectureProject, ArchitectureProjectInput, ArchitectureSyncCategory, ArchitectureVideoJob } from "../../shared/architecture-assistant";
 
 export function architectAssistantApi(branchId: string) {
   async function request(path: string, options: RequestInit = {}) {
@@ -24,18 +24,22 @@ export function architectAssistantApi(branchId: string) {
       })).json() as Promise<{ project: ArchitectureProject }>,
     remove: async (projectId: string, revision: number) =>
       (await request(`/projects/${encodeURIComponent(projectId)}?revision=${revision}`, { method: "DELETE" })).json() as Promise<{ success: true }>,
-    generatePlan: async (projectId: string) => (await request(`/projects/${encodeURIComponent(projectId)}/generate-plan`, {
-      method: "POST", body: JSON.stringify({}),
+    generatePlan: async (projectId: string, instructions = "", outline?: ArchitecturePlan["outline"]) => (await request(`/projects/${encodeURIComponent(projectId)}/generate-plan`, {
+      method: "POST", body: JSON.stringify({ instructions, outline }),
     })).json() as Promise<{ project: ArchitectureProject }>,
-    render: async (projectId: string, planImage: string, aspectRatio: string, prompt: string, floor: number) =>
+    render: async (projectId: string, planImage: string, aspectRatio: string, prompt: string, floor: number, resolution = "1K") =>
       (await request(`/projects/${encodeURIComponent(projectId)}/render`, {
-        method: "POST", body: JSON.stringify({ planImage, aspectRatio, prompt, floor }),
+        method: "POST", body: JSON.stringify({ planImage, aspectRatio, prompt, floor, resolution }),
       })).json() as Promise<{ project: ArchitectureProject }>,
-    generateImage: async (projectId: string, input: { kind: ArchitectureImageToolKind; prompt: string; aspectRatio: string; referenceImage?: string }) =>
+    generateImage: async (projectId: string, input: { kind: ArchitectureImageToolKind; prompt: string; aspectRatio: string; resolution?: string; referenceImages?: string[] }) =>
       (await request(`/projects/${encodeURIComponent(projectId)}/generate-image`, {
         method: "POST", body: JSON.stringify(input),
       })).json() as Promise<{ project: ArchitectureProject }>,
-    optimizePrompt: async (projectId: string, input: { tool: string; prompt: string; style: string }) =>
+    analyzeSync: async (projectId: string, input: { image: string; style: string }) =>
+      (await request(`/projects/${encodeURIComponent(projectId)}/analyze-sync`, {
+        method: "POST", body: JSON.stringify(input),
+      })).json() as Promise<{ categories: ArchitectureSyncCategory[] }>,
+    optimizePrompt: async (projectId: string, input: { tool: string; prompt: string; style: string; referenceImages?: string[]; sourceImageCount?: number }) =>
       (await request(`/projects/${encodeURIComponent(projectId)}/optimize-prompt`, {
         method: "POST", body: JSON.stringify(input),
       })).json() as Promise<{ prompt: string }>,
@@ -47,6 +51,8 @@ export function architectAssistantApi(branchId: string) {
       (await request(`/projects/${encodeURIComponent(projectId)}/videos/${encodeURIComponent(jobId)}`)).json() as Promise<{ project: ArchitectureProject; job: ArchitectureVideoJob }>,
     asset: async (projectId: string, assetId: string) =>
       (await request(`/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}`)).blob(),
+    removeAsset: async (projectId: string, assetId: string) =>
+      (await request(`/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}`, { method: "DELETE" })).json() as Promise<{ project: ArchitectureProject; storageDeleted: boolean }>,
   };
 }
 

@@ -8,6 +8,7 @@ import { AssistantError } from "./policy";
 import { assistantPromptTemplateCreateSchema, assistantPromptTemplateFavoriteSchema, createAssistantPromptTemplate, listAssistantPromptTemplates, setAssistantPromptTemplateFavorite } from "./prompt-library";
 import { listWorkflows, saveWorkflow } from "./workflows";
 import { clearConversationMemory, conversationMemory, conversationState, deleteConversation, listConversations, processTurn, saveConversationMemory } from "./service";
+import { submitAssistantJob, assistantJobStatus, cancelAssistantJob, assertNoActiveAssistantJob, cancelConversationAssistantJob } from "./jobs";
 
 import { interpretWorkflowText } from "./workflow-text";
 import { getSettings, saveSettings } from "./settings";
@@ -25,7 +26,7 @@ import { createStudioChart, deleteStudioChart, editStudioChart, getStudioChart, 
 import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studioSlideDeckUpdateSchema, studioSlideRequestSchema, updateStudioSlideDeck } from "./studio-slides";
 import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
 import { getAssistantProjectFile, listAssistantProjects, saveAssistantProjectCollection, saveAssistantProjectFile } from "./projects";
-import { assistantConversationFileFilter } from "./conversation-file";
+import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode } from "./conversation-file";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -218,7 +219,7 @@ const parseConversationFileUpload = (req: any, res: any, next: any) => {
       const payload = typeof payloadText === "string" ? JSON.parse(payloadText) : null;
       if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new AssistantError("Nội dung lượt chat không hợp lệ.", 400);
       if (!req.file) throw new AssistantError("Chưa nhận được tệp đính kèm. Hãy chọn lại tệp rồi gửi.", 400);
-      if (payload.mode !== "qa" || payload.attachment) throw new AssistantError("Tệp PDF, ảnh và video chỉ hỗ trợ trong mục Trò chuyện.", 400);
+      if (!isAssistantConversationFileAllowedForMode(req.file.originalname, payload.mode) || payload.attachment) throw new AssistantError("\u1ea2nh JPG, PNG, WebP ch\u1ec9 d\u00f9ng \u0111\u01b0\u1ee3c trong Thao t\u00e1c; PDF, t\u00e0i li\u1ec7u v\u00e0 video d\u00f9ng trong Tr\u00f2 chuy\u1ec7n.", 400);
       payload.conversationUpload = { buffer: req.file.buffer, fileName: req.file.originalname };
       req.body = payload;
       return next();
@@ -254,7 +255,21 @@ const acceptanceLinesInput = Joi.object({
   }).unknown(false)).required(),
 }).unknown(false);
 const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
-assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(req => processTurn(req, req.body)));
+assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(async req => {
+  if (process.env.ASSISTANT_BACKGROUND_ENABLED === "true") {
+    const cancellation = String(req.body.text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi,"d").toLowerCase().trim();
+    if (req.body.mode !== "qa" && /^(?:dung|huy)(?:\s+(?:lai|tac vu|yeu cau))?[.!?]*$/.test(cancellation)) {
+      const stopped=await cancelConversationAssistantJob(req,req.body.conversationId);
+      if (stopped) return stopped;
+    }
+    if (req.body.text && req.body.mode !== "qa" && !req.body.attachment && !req.body.conversationUpload) return submitAssistantJob(req, req.body);
+    await assertNoActiveAssistantJob(req, req.body.conversationId);
+  }
+  return processTurn(req, req.body);
+}));
+assistantRouter.post("/jobs", validateRequest({ body: assistantTurnBody }), wrap(req => submitAssistantJob(req, req.body)));
+assistantRouter.get("/jobs/:requestId", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => assistantJobStatus(req, req.params.requestId)));
+assistantRouter.post("/jobs/:requestId/cancel", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => cancelAssistantJob(req, req.params.requestId)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
   const controller = new AbortController();
   const abortOnClose = () => { if (!res.writableEnded) controller.abort(); };

@@ -27,7 +27,6 @@ export const recruitmentApi = {
   deleteJob: (id: string, version: number) => request(`/jobs/${id}/delete`, json("POST", { version })),
   restoreJob: (id: string, version: number) => request(`/jobs/${id}/restore`, json("POST", { version })),
   getPipeline: (branchId?: string) => request<RecruitmentPipeline>("/pipeline", branchRequest(branchId)),
-  savePipeline: (version: number, stages: RecruitmentPipeline["stages"]) => request<RecruitmentPipeline>("/pipeline", json("PUT", { version, stages })),
   listApplicants: (filters?: Record<string, unknown>, branchId?: string) => request<RecruitmentApplicant[]>(`/applicants${query(filters)}`, branchRequest(branchId)),
   createApplicant: (value: Partial<RecruitmentApplicant> & { jobId: string; fullName: string; confirmDuplicate?: boolean }) => request<any>("/applicants", json("POST", value)),
   updateApplicant: (id: string, value: Partial<RecruitmentApplicant> & { version: number }) => request<RecruitmentApplicant>(`/applicants/${id}`, json("PATCH", value)),

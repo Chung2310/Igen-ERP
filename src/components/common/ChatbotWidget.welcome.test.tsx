@@ -203,6 +203,68 @@ describe("ChatbotWidget welcome", () => {
     await waitFor(() => expect(screen.queryByText("1 dòng · sẵn sàng gửi")).toBeNull());
   });
 
+  it("retries a reused assistant request ID once with a fresh ID", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:request-id-conflict-test:company", "work");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "work" });
+    const conflict = Object.assign(new Error("Mã yêu cầu đã được dùng cho nội dung khác."), { status: 409 });
+    vi.mocked(assistantService.turn).mockRejectedValueOnce(conflict).mockResolvedValueOnce({ status: "completed", reply: "Đã tìm thấy nhân sự." });
+    const { container } = render(<ChatbotWidget storageScope="request-id-conflict-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.change(container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!, { target: { value: "Danh sách nhân sự phòng IT" } });
+    fireEvent.click(container.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalledTimes(2));
+    const calls = vi.mocked(assistantService.turn).mock.calls;
+    expect(calls[0]?.[0].requestId).not.toBe(calls[1]?.[0].requestId);
+    expect(calls[1]?.[0].text).toBe("Danh sách nhân sự phòng IT");
+    expect(await screen.findByText("Đã tìm thấy nhân sự.")).toBeTruthy();
+  });
+
+  it.each(["failed", "unsupported", "uncertain"] as const)("restores a manual fallback link for %s without presenting it as a result", async (status) => {
+    const scope = `manual-fallback-${status}`;
+    localStorage.setItem(`igen_erp_chatbot_mode:${scope}:company`, "work");
+    const reply = "Hướng dẫn dự phòng: Kiểm tra học phí trước khi thao tác lại.";
+    vi.mocked(assistantService.state).mockResolvedValue({
+      messages: [{ role: "assistant", content: reply, createdAt: new Date().toISOString() }],
+      lastReply: { status, reply, link: "/quan-ly-hoc-vien?sub=hoc-phi" },
+      busy: false,
+      mode: "work",
+    });
+    render(<ChatbotWidget storageScope={scope} mode="standalone" />);
+    const link = await screen.findByRole("link", { name: "Mở phân hệ để kiểm tra" });
+    expect(link.getAttribute("href")).toBe("/quan-ly-hoc-vien?sub=hoc-phi");
+    expect(screen.queryByRole("link", { name: "Xem kết quả" })).toBeNull();
+    expect(assistantService.turn).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the employee roster after a confirmed employee update", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:employee-update-refresh-test:company", "work");
+    vi.mocked(assistantService.state).mockResolvedValue({
+      messages: [{ role: "assistant", content: "Mình đã chuẩn bị bản xem trước.", createdAt: new Date().toISOString() }],
+      lastReply: {
+        status: "confirmation",
+        reply: "Mình đã chuẩn bị bản xem trước.",
+        action: { id: "employee-update-action", title: "Cập nhật nhân sự", values: [] },
+        link: "/nhan-su",
+      },
+      busy: false,
+      mode: "work",
+    });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "completed", reply: "Đã cập nhật số điện thoại.", link: "/nhan-su" });
+    const rosterRefresh = vi.fn();
+    window.addEventListener("user-mutation", rosterRefresh);
+    try {
+      render(<ChatbotWidget storageScope="employee-update-refresh-test" mode="standalone" />);
+      fireEvent.click(await screen.findByRole("button", { name: "Xác nhận thực hiện" }));
+      await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+      expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({ decision: { id: "employee-update-action", confirmed: true } });
+      await waitFor(() => expect(rosterRefresh).toHaveBeenCalledTimes(1));
+    } finally {
+      window.removeEventListener("user-mutation", rosterRefresh);
+    }
+  });
+
   it("filters a long course list by Vietnamese text and submits the selected course", async () => {
     localStorage.setItem("igen_erp_chatbot_mode:course-selector-test:company", "work");
     const options = Array.from({ length: 12 }, (_, index) => {
@@ -301,6 +363,27 @@ describe("ChatbotWidget welcome", () => {
       file,
     });
     await waitFor(() => expect(screen.queryByText("Tệp sẽ được đọc khi gửi")).toBeNull());
+  });
+
+  it("sends an image with an ERP request in work mode", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "work" });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "collecting", reply: "Mình cần thêm email." });
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    const file = new File(["image bytes"], "cccd.png", { type: "image/png" });
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, { target: { files: [file] } });
+    expect(await screen.findByText("Tệp sẽ được đọc khi gửi")).toBeTruthy();
+    fireEvent.change(container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!, { target: { value: "Tạo nhân sự theo thông tin trên CCCD này" } });
+    fireEvent.click(container.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
+      mode: "work",
+      text: "Tạo nhân sự theo thông tin trên CCCD này",
+      file,
+    });
   });
 
   it.each([

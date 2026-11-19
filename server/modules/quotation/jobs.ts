@@ -9,6 +9,7 @@ import { assertQuotationPermission } from "./context";
 import { connectDatabase, quotationCollectionName } from "./db";
 
 const queueName = "quotation-documents";
+const usesLocalQuotationQueue = () => process.env.NODE_ENV !== "production" && process.env.QUOTATION_QUEUE_MODE === "local";
 const options = () => ({ prefix: process.env.QUOTATION_QUEUE_PREFIX || `igen-${process.env.NODE_ENV || "development"}-quotation`, connection: {
   host: process.platform === "win32" && (!process.env.REDIS_HOST || process.env.REDIS_HOST === "redis") ? "127.0.0.1" : process.env.REDIS_HOST || "redis",
   port: Number(process.env.REDIS_PORT || 6379), ...(process.env.REDIS_PASSWORD ? { password: process.env.REDIS_PASSWORD } : {}),
@@ -69,8 +70,12 @@ export async function queueQuotationExport(kind: string, sourceId: string) {
         console.error("[quotation-queue] In-process export failed:", fallbackError instanceof Error ? fallbackError.message : fallbackError);
       }
     };
-    void enqueueQuotationJob(jobId).catch(processLocally);
-    if (process.env.NODE_ENV !== "production") {
+    if (usesLocalQuotationQueue()) {
+      // The MongoDB-backed local worker polls this durable job; do not initialize BullMQ/Redis.
+    } else {
+      void enqueueQuotationJob(jobId).catch(processLocally);
+    }
+    if (!usesLocalQuotationQueue() && process.env.NODE_ENV !== "production") {
       const fallbackTimer = setTimeout(async () => {
         if (await jobs.findOne({ _id: job!._id, status: "queued" })) await processLocally("No worker claimed the local export job.");
       }, 5_000);
@@ -137,6 +142,25 @@ export async function processQuotationJob(id: string) {
 export async function startQuotationWorker() {
   await import("./router");
   if (!process.env.QUOTATION_QUEUE_PREFIX) throw new Error("QUOTATION_QUEUE_PREFIX phải riêng cho từng môi trường.");
+  if (usesLocalQuotationQueue()) {
+    console.info("[quotation-worker] Local MongoDB queue mode enabled; Redis is not used.");
+    const recoverLocal = async () => {
+      const jobs = mongoose.connection.db!.collection<QuotationJob>(quotationCollectionName("generatedExportJobs"));
+      // An interrupted provider operation may have succeeded: never replay it automatically.
+      await jobs.updateMany({ status: "running", startedAt: { $lt: new Date(Date.now() - 30 * 60_000) } }, { $set: { status: "failed", error: "Tác vụ bị gián đoạn; cần kiểm tra kết quả và thử lại nếu phù hợp.", updatedAt: new Date() } });
+      for (const job of await jobs.find({ status: "queued" }).limit(100).toArray()) await processQuotationJob(String(job._id));
+    };
+    let activeRecovery: Promise<void> | null = null;
+    const poll = () => {
+      if (activeRecovery) return activeRecovery;
+      activeRecovery = recoverLocal().finally(() => { activeRecovery = null; });
+      return activeRecovery;
+    };
+    const timer = setInterval(() => { void poll().catch(error => console.error("[quotation-worker] Local queue recovery failed:", error.message)); }, 1_000);
+    timer.unref();
+    void poll().catch(error => console.error("[quotation-worker] Local queue recovery failed:", error.message));
+    return { close: async () => { clearInterval(timer); await activeRecovery; } };
+  }
   const worker = new Worker(queueName, job => processQuotationJob(job.data.jobId), { ...options(), concurrency: Math.max(1, Math.min(4, Number(process.env.QUOTATION_WORKER_CONCURRENCY || 1))) });
   worker.on("error", error => console.error("[quotation-worker]", error.message));
   const recover = async () => {

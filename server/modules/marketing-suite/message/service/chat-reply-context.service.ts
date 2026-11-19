@@ -130,7 +130,12 @@ export async function prepareChatReplyContext(input: {
         ...(sameImages || !references.length ? { previous: memory?.visual } : {}) };
     }
   } else {
-    observation = await analyzeChatImages(input.imageUrls || [], input.message);
+    if (input.uploadedImages?.length) {
+      const uploaded = await prepareChatImages(input.uploadedImages.map(dataUrl => ({ dataUrl, messageId: input.messageId })));
+      observation = uploaded.failure
+        ? { status: "unavailable", reason: "download_failed", description: "Chưa đọc được ảnh đã gửi." }
+        : await analyzeChatImages([], input.message, uploaded.images.map(image => image.dataUrl));
+    } else observation = await analyzeChatImages(input.imageUrls || [], input.message);
   }
   const retrievalMessage = observation?.status === "ready"
     ? input.message + "\nKhách gửi ảnh sản phẩm cần tư vấn: " + observation.description

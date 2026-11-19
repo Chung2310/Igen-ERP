@@ -66,6 +66,7 @@ function readAssistantConversationPreferences(key: string): AssistantConversatio
   } catch { return {}; }
 }
 const ASSISTANT_PROCESSING_POLL_ATTEMPTS = 280;
+const ASSISTANT_REQUEST_ID_CONFLICT = "Mã yêu cầu đã được dùng cho nội dung khác.";
 const MemoAssistantStudio = React.memo(AssistantStudio);
 const assistantHeaderOptions = [{ value: "qa", label: "Hỏi đáp" }, { value: "work", label: "Thao tác" }];
 const assistantQuickPrompts: Record<AssistantMode, readonly string[]> = {
@@ -797,7 +798,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const owningProject = turnMode === "qa" ? projectsRef.current.find(project => project.conversations.some(item => item.sourceConversationId === request.conversationId)) : undefined;
     const turnStorageKey = turnMode === "work" ? storageBaseKey : `${storageBaseKey}:qa`;
     const turnRequestKey = `${turnStorageKey}:request`;
-    const turnRequest: AssistantTurnInput = { ...request, mode: turnMode, ...(owningProject ? { projectId: owningProject.id } : {}) };
+    let turnRequest: AssistantTurnInput = { ...request, mode: turnMode, ...(owningProject ? { projectId: owningProject.id } : {}) };
     const controller = new AbortController();
     requestRef.current = controller;
     retryRef.current = turnRequest;
@@ -823,7 +824,25 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           setProjectsError("");
         }
       }
-      let result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
+      let result: AssistantReply;
+      try {
+        result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
+      } catch (cause) {
+        const status = cause instanceof Error ? (cause as Error & { status?: number }).status : undefined;
+        if (status !== 409 || !(cause instanceof Error) || cause.message !== ASSISTANT_REQUEST_ID_CONFLICT) throw cause;
+
+        // The server rejected this turn before processing because its request ID
+        // belongs to different content. A fresh ID is safe for this one retry.
+        turnRequest = { ...turnRequest, requestId: crypto.randomUUID() };
+        retryRef.current = turnRequest;
+        try {
+          if (!turnRequest.attachment && !turnRequest.file) localStorage.setItem(turnRequestKey, JSON.stringify({
+            ...turnRequest,
+            decision: turnRequest.decision ? { id: turnRequest.decision.id, confirmed: turnRequest.decision.confirmed } : undefined,
+          }));
+        } catch { /* Keep the current request usable in memory. */ }
+        result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
+      }
       for (let attempt = 0; result.status === "processing" && attempt < ASSISTANT_PROCESSING_POLL_ATTEMPTS && !controller.signal.aborted; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         if (controller.signal.aborted) return;
@@ -849,6 +868,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       } else if (turnMode === "work" && turnRequest.attachment && result.status !== "unsupported" && result.status !== "failed" && turnIsActive()) {
         setAttachmentSubmitted(true);
       }
+      if (turnMode === "work" && result.status === "completed" && turnRequest.decision?.confirmed && result.link === "/nhan-su") {
+        window.dispatchEvent(new Event("user-mutation"));
+      }
       if (turnIsActive()) setSynced(true);
       const appendReply = (current: Message[]): Message[] => {
         const last = current[current.length - 1];
@@ -859,7 +881,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       const storedMessages = appendReply(readHistory(turnStorageKey, turnWelcomeMessage));
       try { localStorage.setItem(turnStorageKey, JSON.stringify(storedMessages)); } catch { /* Keep the current session usable. */ }
       if (turnIsActive() && (messages[messages.length - 1]?.role !== "assistant" || messages[messages.length - 1]?.content !== result.reply)) {
-        setRevealingReply({ requestId: request.requestId, content: result.reply });
+        setRevealingReply({ requestId: turnRequest.requestId, content: result.reply });
       }
       if (turnIsActive()) setMessages(current => turnIsActive() ? appendReply(current) : current);
       retryRef.current = null;
@@ -1151,7 +1173,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         setAttachmentSubmitted(false);
         setAttachment(await readAssistantTableFile(file));
       } else {
-        if (assistantMode !== "qa") throw new Error("PDF, ảnh và video chỉ hỗ trợ trong mục Trò chuyện.");
+        if (assistantMode !== "qa" && !["png", "jpg", "jpeg", "webp"].includes(extension)) throw new Error("\u1ea2nh JPG/PNG/WebP c\u00f3 th\u1ec3 d\u00f9ng trong Thao t\u00e1c; PDF, t\u00e0i li\u1ec7u v\u00e0 video ch\u1ec9 d\u00f9ng trong Tr\u00f2 chuy\u1ec7n.");
         if (!["pdf", "docx", "txt", "png", "jpg", "jpeg", "webp", "mp4", "mov", "webm", "m4v"].includes(extension)) throw new Error("Định dạng chưa hỗ trợ. Chọn PDF, DOCX, TXT, ảnh JPG/PNG/WebP hoặc video MP4/MOV/WebM.");
         const maxBytes = ["mp4", "mov", "webm", "m4v"].includes(extension) ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
         if (file.size > maxBytes) throw new Error(`Tệp không được vượt quá ${maxBytes === 50 * 1024 * 1024 ? "50" : "20"} MB.`);
@@ -1645,7 +1667,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const currentAttachmentName = attachment?.fileName || fileAttachment?.name || "";
     const isVideoAttachment = Boolean(fileAttachment && /\.(?:mp4|mov|webm|m4v)$/i.test(fileAttachment.name));
     const attachmentPreviewUrl = fileAttachment && attachmentPreview?.file === fileAttachment ? attachmentPreview.url : null;
-    const attachmentAccept = ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" + (assistantMode === "qa" ? ",.pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.mp4,.mov,.webm,.m4v,application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" : "");
+    const attachmentAccept = ".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" + (assistantMode === "qa" ? ",.pdf,.docx,.txt,.png,.jpg,.jpeg,.webp,.mp4,.mov,.webm,.m4v,application/pdf,image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" : ",.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp");
     const compactConversationComposer = placement === "conversation" && ((headerPanel && !fullscreen) || mode === "standalone");
     const compactPopupComposer = mode === "popup" && headerPanel && !fullscreen;
     const stackedLandingComposer = placement === "landing" && mode === "standalone" && !isStandaloneChatHome;
@@ -1718,7 +1740,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         </div>
       </form>
       {(placement === "conversation" || projectId) && <p id="erp-chatbot-keyboard-help" className="sr-only">Nhấn Enter để gửi, Shift + Enter để xuống dòng.</p>}
-      <p id="erp-chatbot-file-help" className="sr-only">Excel và CSV hỗ trợ trong các mục. Trò chuyện hỗ trợ thêm PDF, DOCX, TXT, ảnh JPG, PNG, WebP và video MP4, MOV, M4V, WebM; tối đa 20 MB với tài liệu, ảnh và 50 MB với video.</p>
+      <p id="erp-chatbot-file-help" className="sr-only">{"Excel v\u00e0 CSV d\u00f9ng cho nh\u1eadp b\u1ea3ng. \u1ea2nh JPG, PNG, WebP c\u00f3 th\u1ec3 \u0111\u00ednh k\u00e8m y\u00eau c\u1ea7u trong Thao t\u00e1c ho\u1eb7c Tr\u00f2 chuy\u1ec7n. Tr\u00f2 chuy\u1ec7n h\u1ed7 tr\u1ee3 th\u00eam PDF, DOCX, TXT v\u00e0 video; t\u1ed1i \u0111a 20 MB cho t\u00e0i li\u1ec7u v\u00e0 \u1ea3nh, 50 MB cho video."}</p>
       {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
       {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
       <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" || twoWayVoiceEnabled ? "status" : undefined} className={cn("text-pretty text-xs text-on-surface-variant", voiceStatus === "off" && !twoWayVoiceEnabled && "sr-only")}>{twoWayVoiceEnabled ? isSpeaking ? "Đang đọc câu trả lời…" : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu…" : retryRef.current ? "Đang chờ thử lại yêu cầu." : "Đang nghe. Dừng nói để gửi." : voiceStatus === "waiting" ? "Đang chờ “Hey Igen”. Hãy nói từ khóa rồi nêu yêu cầu." : voiceStatus === "command" ? "Đang nghe yêu cầu. Mình sẽ tự gửi khi bạn dừng nói." : voiceStatus === "manual" ? "Đang nghe tiếng Việt. Bấm micro để dừng và kiểm tra nội dung." : "Chế độ 2 chiều tự gửi khi bạn dừng nói và đọc câu trả lời có tính phí."}</p>
@@ -2155,7 +2177,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                         </div>
                       </div>}
                     </section>}
-                    {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
+                    {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>{["failed", "unsupported", "uncertain"].includes(lastReply.status) ? "Mở phân hệ để kiểm tra" : "Xem kết quả"}</a>}
                     {isLoading && isOpen && <div role="status" aria-label={quotationFileProgressText || (isGeneratingImageRequest ? "Đang phân tích yêu cầu tạo ảnh" : retryRef.current?.research ? "Đang nghiên cứu web nhiều nguồn" : retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện")} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
                       <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
                       {quotationFileProgressText ? <span className="ml-2 text-pretty text-sm">{quotationFileProgressText}</span> : isGeneratingImageRequest ? <span className="ml-2 text-pretty text-sm">Đang phân tích yêu cầu và tạo hình ảnh…</span> : retryRef.current?.research && <span className="ml-2 text-pretty text-sm">Đang nghiên cứu và đối chiếu nhiều nguồn…</span>}

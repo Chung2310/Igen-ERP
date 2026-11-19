@@ -51,7 +51,7 @@ export async function createApplicant(
 }
 
 export async function listApplicants(scope: RecruitmentScope, filters: Record<string, any> = {}) {
-  const query: Record<string, any> = { ...scope, isDeleted: Boolean(filters.deleted) };
+  const query: Record<string, any> = { ...scope, isDeleted: filters.deleted === true || filters.deleted === "true" };
   for (const key of ["jobId", "stageId", "outcome", "recruiterId", "source"]) if (filters[key]) query[key] = filters[key];
   if (filters.search) query.$or = ["fullName", "email", "phone"].map((key) => ({ [key]: { $regex: String(filters.search), $options: "i" } }));
   return RecruitmentApplicantModel.find(query).sort({ createdAt: -1 }).lean();
@@ -129,7 +129,7 @@ export async function transitionApplicant(scope: RecruitmentScope, id: string, v
 async function deleteState(scope: RecruitmentScope, id: string, version: number, actorId: string, restore: boolean) {
   const updated = await RecruitmentApplicantModel.findOneAndUpdate(
     { _id: id, ...scope, isDeleted: !restore, version },
-    { $set: { isDeleted: !restore, deletedAt: restore ? new Date() : null, deletedBy: restore ? actorId : null, updatedBy: actorId }, $inc: { version: 1 } },
+    { $set: { isDeleted: restore, deletedAt: restore ? new Date() : null, deletedBy: restore ? actorId : null, updatedBy: actorId }, $inc: { version: 1 } },
     { returnDocument: 'after', runValidators: true },
   );
   if (!updated) throw new Error("Applicant version conflict");

@@ -318,6 +318,8 @@ export interface OpenRouterImageParams {
   exactModel?: boolean;
   aspectRatio?: string;
   resolution?: string;
+  /** Use OpenRouter's Images API for providers that expose normalized output resolution tiers. */
+  useImagesApi?: boolean;
   quality?: "low" | "medium" | "high" | "auto";
   background?: "auto" | "transparent" | "opaque";
   outputFormat?: "png" | "jpeg" | "webp";
@@ -341,7 +343,8 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
       ? mapModelName(process.env.IGENAI_TRANSPARENT_IMAGE_EDIT_MODEL || TRANSPARENT_IMAGE_EDIT_MODEL)
     : (process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
 
-  const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
+  const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9"]);
+  const autoAspectRatio = params.aspectRatio === "auto";
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
   const model = params.exactModel
     ? configuredModel
@@ -352,10 +355,10 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     : (configuredModel === RECRAFT_IMAGE_MODEL && !RECRAFT_ASPECT_RATIOS.has(ratioKey))
       ? IMAGE_EDIT_MODEL
       : configuredModel;
-  const finalPrompt = params.preserveInputAspectRatio
+  const finalPrompt = params.preserveInputAspectRatio || autoAspectRatio
     ? params.prompt
     : `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
-  const requestAspectRatio = params.preserveInputAspectRatio
+  const requestAspectRatio = params.preserveInputAspectRatio || autoAspectRatio
     ? params.background === "transparent" ? "auto" : undefined
     : ratioKey;
 
@@ -368,6 +371,16 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   console.log(`[OpenRouter Image] model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey} | hasReference=${Boolean(params.referenceImages?.length)}`);
 
   try {
+    if (params.useImagesApi) {
+      const resolution = ["512", "1K", "2K", "4K"].includes(params.resolution || "")
+        ? params.resolution as "512" | "1K" | "2K" | "4K"
+        : "1K";
+      return await generateImageViaImagesApi(apiKey, model, params.prompt, autoAspectRatio ? undefined : ratioKey, undefined, {
+        inputReferences: params.referenceImages,
+        outputFormat: params.outputFormat ?? "png",
+        resolution,
+      });
+    }
     if (params.background === "transparent") {
       return await generateImageViaImagesApi(
         apiKey,
@@ -387,9 +400,9 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
         inputReferences: params.referenceImages,
       });
     }
-    if (!params.referenceImages?.length && model === DEFAULT_IMAGE_MODEL) return await generateImageViaImagesApi(apiKey, model, params.prompt, ratioKey, "low");
-    if (!params.referenceImages?.length && model === RECRAFT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
-    return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);
+    if (!params.referenceImages?.length && model === DEFAULT_IMAGE_MODEL) return await generateImageViaImagesApi(apiKey, model, params.prompt, autoAspectRatio ? undefined : ratioKey, "low");
+    if (!params.referenceImages?.length && model === RECRAFT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, autoAspectRatio ? undefined : ratioKey);
+    return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio || autoAspectRatio ? undefined : ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
     if (model === META_MUSE_IMAGE_MODEL || (!params.referenceImages?.length && (model === DEFAULT_IMAGE_MODEL || model === RECRAFT_IMAGE_MODEL)) || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
@@ -397,7 +410,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
     );
-    return await generateImageWithRetries(apiKey, fallbackModel, content, params.preserveInputAspectRatio ? undefined : ratioKey, 2);
+    return await generateImageWithRetries(apiKey, fallbackModel, content, params.preserveInputAspectRatio || autoAspectRatio ? undefined : ratioKey, 2);
   }
 }
 

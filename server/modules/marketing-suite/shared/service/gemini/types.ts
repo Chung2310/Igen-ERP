@@ -10,6 +10,7 @@ export type NormalizedImageRegion = {
 };
 
 export interface GenerateTextConfig {
+  keyScope?: OpenRouterChatParams["keyScope"];
   systemInstruction?: string;
   temperature?: number;
   responseMimeType?: string;

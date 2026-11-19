@@ -27,6 +27,9 @@ export interface ArchitectureFurniture {
   width: number;
   height: number;
   rotation: 0 | 90 | 180 | 270;
+  style?: string;
+  material?: string;
+  color?: string;
 }
 
 export interface ArchitectureOpening {
@@ -43,9 +46,22 @@ export interface ArchitecturePlan {
   notes: string;
   furniture?: ArchitectureFurniture[];
   openings?: ArchitectureOpening[];
+  outline?: Array<{ x: number; y: number }>;
 }
 
-export type ArchitectureToolId = "plan" | "renders" | "render" | "staging" | "visual" | "texture" | "human" | "enhance" | "upscale" | "video" | "library";
+export interface ArchitectureSyncSuggestion {
+  id: string;
+  title: string;
+  text: string;
+}
+
+export interface ArchitectureSyncCategory {
+  name: string;
+  suggestions: ArchitectureSyncSuggestion[];
+}
+
+export type ArchitectureToolId = "plan" | "renders" | "render" | "edit" | "staging" | "visual" | "texture" | "human" | "enhance" | "upscale" | "sync" | "canvas" | "utilities" | "video" | "library";
+export const AVAILABLE_ARCHITECTURE_TOOLS: ReadonlySet<ArchitectureToolId> = new Set(["plan", "render", "renders"]);
 export type ArchitectureImageToolKind = Exclude<ArchitectureToolId, "plan" | "renders" | "video" | "library">;
 
 export interface ArchitectureRenderAsset {
@@ -54,8 +70,9 @@ export interface ArchitectureRenderAsset {
   mimeType: "image/png" | "image/jpeg" | "image/webp" | "video/mp4";
   bytes: number;
   model: string;
+  resolution?: "1K" | "2K" | "4K";
   createdAt: string;
-  kind?: "render" | "staging" | "visual" | "texture" | "human" | "enhance" | "upscale" | "video";
+  kind?: "render" | "edit" | "staging" | "visual" | "texture" | "human" | "enhance" | "upscale" | "sync" | "canvas" | "utilities" | "video";
   prompt?: string;
 }
 

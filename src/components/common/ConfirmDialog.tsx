@@ -57,7 +57,11 @@ export function ConfirmDialog({
     else dialog.setAttribute("open", "");
     return () => {
       if (dialog.open && typeof dialog.close === "function") dialog.close();
-      if (!parentDialog?.isConnected || !parentDialog.open) return;
+      if (!parentDialog) {
+        if (previousFocus?.isConnected) previousFocus.focus();
+        return;
+      }
+      if (!parentDialog.isConnected || !parentDialog.open) return;
       if (previousFocus && parentDialog.contains(previousFocus)) previousFocus.focus();
       if (!parentDialog.contains(document.activeElement) || dialog.contains(document.activeElement)) {
         parentDialog.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();

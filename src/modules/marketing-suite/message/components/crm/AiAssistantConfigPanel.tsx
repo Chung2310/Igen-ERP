@@ -6,6 +6,7 @@ import { KnowledgeCenterSummaryCard } from "../../../knowledge/components/knowle
 
 interface AiAssistantConfigPanelProps {
   onClose?: () => void;
+  scopeLabel?: string;
   localConfig: AIChatConfig;
   setLocalConfig: (config: AIChatConfig) => void;
   savingConfig: boolean;
@@ -41,6 +42,7 @@ interface AiAssistantConfigPanelProps {
 
 export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
   onClose,
+  scopeLabel,
   localConfig,
   setLocalConfig,
   savingConfig,
@@ -98,6 +100,7 @@ export const AiAssistantConfigPanel: React.FC<AiAssistantConfigPanelProps> = ({
           )}
         </div>
         {/* AI switchers */}
+        {scopeLabel && <p className="text-pretty text-xs text-on-surface-variant">{scopeLabel}</p>}
         <div className="space-y-4 pt-4 border-t border-slate-100" id="config_switches">
           {/* auto reply status */}
           <div className="flex justify-between items-start gap-4 pb-3 border-b border-slate-100/50">

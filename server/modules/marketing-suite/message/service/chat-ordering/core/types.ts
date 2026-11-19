@@ -22,6 +22,14 @@ export interface ChatOrderFlowInput extends ChatOrderScope {
   observation?: ChatImageObservation;
   visualMode?: boolean;
   simulationMode?: boolean;
+  intakeProfile?: {
+    _id: string; version: number; goal: string; completionMessage: string;
+    fields: import("../../../../../../../shared/marketing-suite/lead-intake").LeadIntakeField[];
+    needGroups?: import("../../../../../../../shared/marketing-suite/lead-intake").LeadNeedGroup[];
+  };
+  verifiedImageValues?: Record<string, string>;
+  // Set by the document reader, never by model-generated intake output.
+  subscriberIdentity?: { fieldKey: string; code: string };
   retryIntake?: boolean;
   freshImage?: boolean;
   replyDeadlineAt?: number;
@@ -45,11 +53,16 @@ export interface ChatOrderFlowReply {
 }
 
 export interface LeadIntakeContext {
+  collectionMode?: "document";
   goal: string;
   collected: Record<string, string>;
-  missingRequiredFields: Array<{ label: string; type: string; question?: string; options?: string[] }>;
+  receivedContact?: import("../../lead-intake-contact").LeadContactField[];
+  missingRequiredFields: LeadIntakeQuestion[];
+  missingOptionalFields?: LeadIntakeQuestion[];
   status: "inactive" | "collecting" | "just_completed" | "complete";
 }
+
+type LeadIntakeQuestion = { label: string; type: string; question?: string; options?: string[] };
 
 export interface ChatOrderFlowPreview {
   dryRun: true;

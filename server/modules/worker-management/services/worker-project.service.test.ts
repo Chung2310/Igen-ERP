@@ -11,6 +11,10 @@ import {
 afterEach(() => vi.restoreAllMocks());
 
 describe("worker project service", () => {
+  it("rejects an end date before the start without changing valid same-day projects", () => {
+    expect(() => normalizeWorkerProjectInput({name:"Dự án", startDate:"2026-11-01", endDate:"2026-06-05"})).toThrow("Ngày kết thúc dự án phải bằng hoặc sau ngày bắt đầu.");
+    expect(normalizeWorkerProjectInput({name:"Dự án", startDate:"2026-11-01", endDate:"2026-11-01"}).endDate).toBe("2026-11-01");
+  });
   it("scopes projects by company and branch", () => {
     const HN_id = new Types.ObjectId();
     const query = buildWorkerProjectQuery({ companyCode: "ACME", branchId: HN_id.toString() });
@@ -105,7 +109,7 @@ describe("worker project service", () => {
     const projectId = new Types.ObjectId();
     const workerId = new Types.ObjectId();
     const branchId = new Types.ObjectId().toString();
-    vi.spyOn(WorkerProjectModel, "findOne").mockResolvedValue(null);
+    vi.spyOn(WorkerProjectModel, "findOne").mockResolvedValue(null).mockReturnValueOnce({ lean: async () => ({_id:projectId, name:"Project",code:"P-1",workerIds:[]}) } as any);
     vi.spyOn(WorkerModel, "findOne").mockResolvedValue(null);
     const update = vi
       .spyOn(WorkerProjectModel, "findOneAndUpdate")

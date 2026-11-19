@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request, Response } from "express";
 import { CompanyModel } from "../../../model/company.model";
-import { retailSePayController } from "./retail-sepay.controller";
+import { setRateLimitRedisClientForTesting } from "../../../infrastructure/rate-limit-redis";
+
+setRateLimitRedisClientForTesting({ eval: async () => [1, 60_000], decr: async () => 0, del: async () => 0 } as any);
+const { retailSePayController } = await import("./retail-sepay.controller");
 
 function response() {
   return {

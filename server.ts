@@ -24,6 +24,7 @@ import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-sc
 import { startPayrollPublicationScheduler } from "./server/service/payroll-publication-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
 import { startHealthcareImportWorker } from "./server/modules/healthcare/import-worker";
+import { startVbplSyncScheduler } from "./server/modules/legal-reference/services/vbpl-sync.service";
 import { startQuotationWorker } from "./server/modules/quotation/jobs";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
@@ -241,6 +242,7 @@ async function startServer() {
   facebookCommentService.startWorker();
   startDomainEventWorker();
   const stopHealthcareImportWorker = startHealthcareImportWorker();
+  const stopVbplSyncScheduler = startVbplSyncScheduler();
   startCelebrationScheduler();
   startMarketingScheduler();
   startResourceRetentionScheduler();
@@ -423,6 +425,7 @@ async function startServer() {
     if (shuttingDown) return;
     shuttingDown = true;
     stopMessengerBackgroundWorkers();
+    stopVbplSyncScheduler();
     httpServer.close(async () => {
       await Promise.all([
         flushUserActivityQueue(),

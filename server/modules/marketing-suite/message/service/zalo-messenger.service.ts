@@ -6,6 +6,7 @@ import { UserModel } from "../../../../model/user.model.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { emitToMessengerAccount } from "../../shared/socket";
 import { aiAutoReplyService } from "./ai-auto-reply.service.ts";
+import { enqueueLeadContractOcr } from "./messenger-background-jobs";
 
 const syncTimestamps = new Map<string, number>();
 
@@ -927,7 +928,11 @@ export const zaloMessengerService = {
     if (duplicateMsg) {
       if (resumeDispatch && duplicateMsg.direction === "inbound" && duplicateMsg.recipientId === oaId && duplicateMsg.senderId === senderId) {
         await ZaloConversationModel.updateOne({ _id: duplicateMsg.conversationId, oaId }, { $pull: { pendingInboundMessageIds: messageId } });
-        await this.dispatchInboundMessage(oaId, String(duplicateMsg.conversationId), duplicateMsg.text, messageId);
+        const conversationId = String(duplicateMsg.conversationId);
+        await Promise.all([
+          this.dispatchInboundMessage(oaId, conversationId, duplicateMsg.text, messageId),
+          enqueueLeadContractOcr({ platform: "zalo", pageId: oaId, conversationId, messageId }, duplicateMsg.attachments),
+        ]);
       }
       return;
     }
@@ -1054,7 +1059,11 @@ export const zaloMessengerService = {
     const inboxConversation = updatedConversation || conversation;
     emitToMessengerAccount("zalo", oaId, "new_message", { message: newMsg, conversation: inboxConversation });
     emitToMessengerAccount("zalo", oaId, "conversation_updated", inboxConversation);
-    await this.dispatchInboundMessage(oaId, String(conversation._id), text, messageId);
+    const conversationId = String(conversation._id);
+    await Promise.all([
+      this.dispatchInboundMessage(oaId, conversationId, text, messageId),
+      enqueueLeadContractOcr({ platform: "zalo", pageId: oaId, conversationId, messageId }, attachments),
+    ]);
   }
 };
 

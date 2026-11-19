@@ -12,6 +12,7 @@ import { messengerOrderService } from "./messenger-order.service.ts";
 import { companyProductCatalogService } from "./company-product-catalog.service.ts";
 import { AmbiguousAutoReplyOwnerError, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { facebookSendRequest } from "../../shared/service/facebook-send-request";
+import { enqueueLeadContractOcr } from "./messenger-background-jobs";
 import {
   FacebookMessengerError,
   createFacebookIntegrationNotFoundError,
@@ -20,9 +21,10 @@ import {
   translateFacebookSendError,
 } from "./fb-messenger-error";
 
-const syncTimestamps = new Map<string, number>();
-const CONVERSATION_SYNC_TTL_MS = 15000;
-const MESSAGE_SYNC_TTL_MS = 5000;
+const profileDenials = new Map<string, number>();
+const profileRequests = new Map<string, Promise<any>>();
+const PROFILE_DENIAL_TTL_MS = 30 * 60_000;
+const PROFILE_DENIAL_CACHE_LIMIT = 4096;
 const FACEBOOK_SENDER_ACTION_TIMEOUT_MS = 1500;
 const pageWebhookSubscriptions = new Map<string, number>();
 
@@ -43,255 +45,7 @@ function createPostbackMessageId(pageId: string, event: any, title: string, payl
   return `fb_postback_${createHash("sha256").update(identity).digest("hex")}`;
 }
 
-function normalizeOptionalFacebookConversationId(value: any): string | undefined {
-  const normalized = String(value || "").trim();
-  return normalized || undefined;
-}
-
 export const fbMessengerService = {
-  shouldSync(key: string, ttlMs: number) {
-    const now = Date.now();
-    const lastRun = syncTimestamps.get(key) || 0;
-    if (now - lastRun < ttlMs) {
-      return false;
-    }
-
-    syncTimestamps.set(key, now);
-    return true;
-  },
-
-  async fetchGraphJson(url: string) {
-    const response = await (globalThis as any).fetch(url);
-    const rawText = await response.text();
-    let parsed: any = null;
-
-    try {
-      parsed = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      parsed = rawText;
-    }
-
-    if (!response.ok) {
-      throw new Error(typeof parsed === "string" ? parsed : JSON.stringify(parsed));
-    }
-
-    return parsed;
-  },
-
-  async syncConversationsFromFacebook(pageId: string, tokenContext?: FacebookTokenContext) {
-    const startedAt = Date.now();
-    console.log(`[FB Service syncConversations] Bắt đầu đồng bộ hội thoại trực tiếp từ Facebook cho Page ID: ${pageId}`);
-    const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
-    if (!token) {
-      throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
-    }
-
-    // Tự động đảm bảo Webhook Subscription của Page này luôn được kích hoạt trên Meta Graph API
-    void this.subscribePageWebhooks(pageId, token).catch((err) => {
-      console.warn(`[FB Service syncConversations] Không thể tự động subscribe webhook cho Page ${pageId}:`, err.message || err);
-    });
-
-    const fields = [
-      "id",
-      "updated_time",
-      "senders",
-      "messages.limit(1){id,message,created_time,from,to}"
-    ].join(",");
-    const url = `https://graph.facebook.com/v25.0/${pageId}/conversations?fields=${encodeURIComponent(fields)}&limit=50&access_token=${encodeURIComponent(token)}`;
-    const data = await this.fetchGraphJson(url);
-    const conversations = Array.isArray(data?.data) ? data.data : [];
-
-    for (const fbConversation of conversations) {
-      const senders = Array.isArray(fbConversation?.senders?.data) ? fbConversation.senders.data : [];
-      const latestMessage = Array.isArray(fbConversation?.messages?.data) ? fbConversation.messages.data[0] : null;
-      const nonPageSender = senders.find((sender: any) => sender?.id && sender.id !== pageId);
-      const fallbackRecipientId = latestMessage?.from?.id && latestMessage.from.id !== pageId
-        ? latestMessage.from.id
-        : "";
-      const recipientId = nonPageSender?.id || fallbackRecipientId;
-
-      if (!recipientId) {
-        console.warn(`[FB Service syncConversations] Bỏ qua conversation ${fbConversation?.id} vì không xác định được recipientId.`);
-        continue;
-      }
-
-      let conversation = await FBConversationModel.findOne({
-        pageId,
-        $or: [
-          { facebookConversationId: fbConversation.id },
-          { recipientId }
-        ]
-      });
-
-      let avatarUrl = "";
-      let senderName = nonPageSender?.name || "";
-
-      // Chỉ fetch profile của khách hàng nếu hội thoại chưa có trong DB hoặc chưa có đủ Tên/Avatar
-      if (!conversation || !conversation.avatarUrl || !conversation.senderName || conversation.senderName === "Khách hàng Facebook") {
-        if (recipientId) {
-          try {
-            const profile = await this.getSenderProfile(recipientId, token);
-            avatarUrl = profile?.profile_pic || "";
-            if (profile?.first_name || profile?.last_name) {
-              senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
-            }
-          } catch (error) {
-            console.warn(`[FB Service syncConversations] Không lấy được avatar/profile cho PSID ${recipientId}:`, error);
-          }
-        }
-      }
-
-      if (conversation) {
-        conversation.facebookConversationId = normalizeOptionalFacebookConversationId(fbConversation.id);
-        conversation.recipientId = recipientId;
-        conversation.senderName = senderName || conversation.senderName || "Khách hàng Facebook";
-        if (avatarUrl) {
-          conversation.avatarUrl = avatarUrl;
-        }
-        conversation.lastMessageText = latestMessage?.message || conversation.lastMessageText || "[Đính kèm]";
-        conversation.lastMessageAt = latestMessage?.created_time
-          ? new Date(latestMessage.created_time)
-          : (conversation.lastMessageAt || new Date(fbConversation?.updated_time || Date.now()));
-        conversation.status = "open";
-        await conversation.save();
-      } else {
-        conversation = new FBConversationModel({
-          recipientId,
-          pageId,
-          facebookConversationId: normalizeOptionalFacebookConversationId(fbConversation.id),
-          senderName: senderName || "Khách hàng Facebook",
-          avatarUrl,
-          lastMessageText: latestMessage?.message || "[Đính kèm]",
-          lastMessageAt: latestMessage?.created_time
-            ? new Date(latestMessage.created_time)
-            : new Date(fbConversation?.updated_time || Date.now()),
-          status: "open",
-        });
-        await conversation.save();
-      }
-
-      // Phát sự kiện socket để cập nhật realtime danh sách ở frontend
-      emitToMessengerAccount("facebook", pageId, "conversation_updated", conversation);
-    }
-
-    console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);
-  },
-
-  async syncMessagesFromFacebook(pageId: string, recipientId: string, tokenContext?: FacebookTokenContext) {
-    const startedAt = Date.now();
-    console.log(`[FB Service syncMessages] Bắt đầu đồng bộ tin nhắn từ Facebook cho PSID ${recipientId}, Page ID: ${pageId}`);
-    const conversation = await FBConversationModel.findOne({ pageId, recipientId });
-    const conversationGraphId = conversation?.facebookConversationId;
-
-    if (!conversationGraphId) {
-      console.warn(`[FB Service syncMessages] Không có facebookConversationId cho PSID ${recipientId}. Thử đồng bộ lại danh sách hội thoại.`);
-      await this.syncConversationsFromFacebook(pageId, tokenContext);
-    }
-
-    const refreshedConversation = await FBConversationModel.findOne({ pageId, recipientId });
-    if (!refreshedConversation?.facebookConversationId) {
-      console.warn(`[FB Service syncMessages] Vẫn không tìm thấy conversation graph ID cho PSID ${recipientId}.`);
-      return [];
-    }
-
-    const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
-    if (!token) {
-      throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
-    }
-
-    const existingMids = new Set(
-      (await FBMessageModel.find({ conversationId: refreshedConversation._id }, { messageId: 1 }))
-        .map(m => m.messageId)
-    );
-
-    const fields = ["id", "message", "created_time", "from", "to", "attachments"].join(",");
-    const url = `https://graph.facebook.com/v25.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(token)}`;
-    const data = await this.fetchGraphJson(url);
-    const messages = Array.isArray(data?.data) ? data.data : [];
-    let upsertedCount = 0;
-    const newMessagesToEmit: any[] = [];
-
-    for (const fbMessage of messages) {
-      if (existingMids.has(fbMessage.id)) {
-        continue;
-      }
-
-      const fromId = fbMessage?.from?.id || "";
-      const direction = fromId === pageId ? "outbound" : "inbound";
-      const toList = Array.isArray(fbMessage?.to?.data) ? fbMessage.to.data : [];
-      const matchedRecipientId = direction === "outbound"
-        ? (toList.find((item: any) => item?.id && item.id !== pageId)?.id || recipientId)
-        : recipientId;
-      const attachmentList = Array.isArray(fbMessage?.attachments?.data)
-        ? fbMessage.attachments.data.map((attachment: any) => ({
-            type: attachment?.mime_type?.startsWith("image/") ? "image" : (attachment?.mime_type || attachment?.type || "attachment"),
-            url: attachment?.image_data?.url || attachment?.file_url || attachment?.video_data?.url || attachment?.payload?.url || "",
-          }))
-        : [];
-      const normalizedText = fbMessage?.message || "";
-
-      const savedMsg = await FBMessageModel.findOneAndUpdate(
-        { messageId: fbMessage.id },
-        {
-          conversationId: refreshedConversation._id,
-          senderId: fromId || (direction === "outbound" ? pageId : recipientId),
-          recipientId: matchedRecipientId,
-          direction,
-          text: normalizedText,
-          attachments: attachmentList,
-          messageId: fbMessage.id,
-          timestamp: fbMessage?.created_time ? new Date(fbMessage.created_time) : new Date(),
-          status: "delivered",
-        },
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true,
-        }
-      );
-      upsertedCount += 1;
-      newMessagesToEmit.push(savedMsg);
-    }
-
-    console.log(`[FB Service syncMessages] Đồng bộ xong ${upsertedCount}/${messages.length} tin nhắn từ Facebook cho PSID ${recipientId} trong ${Date.now() - startedAt}ms`);
-
-    if (newMessagesToEmit.length > 0) {
-      // Sắp xếp tin nhắn theo thời gian tăng dần trước khi emit
-      newMessagesToEmit.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      for (const msg of newMessagesToEmit) {
-        emitToMessengerAccount("facebook", pageId, "new_message", {
-          message: msg,
-          conversation: refreshedConversation
-        });
-      }
-      emitToMessengerAccount("facebook", pageId, "conversation_updated", refreshedConversation);
-
-      // Kích hoạt AI Auto-Reply nếu phát hiện tin nhắn đến mới từ khách hàng qua đồng bộ
-      const latestInboundMsg = [...newMessagesToEmit]
-        .reverse()
-        .find((m) => m.direction === "inbound" && m.text);
-      if (
-        latestInboundMsg &&
-        isFacebookReplyWindowOpen(latestInboundMsg.timestamp)
-      ) {
-        console.log(
-          `[FB Service syncMessages] 🚀 TRIGGER AI từ Sync: Phát hiện tin nhắn inbound mới ` +
-          `cho conversationId=${refreshedConversation._id.toString()}, pageId=${pageId}, messageId=${latestInboundMsg.messageId}, ` +
-          `messageAgeMs=${Date.now() - new Date(latestInboundMsg.timestamp).getTime()}, textLength=${latestInboundMsg.text.length}`
-        );
-        aiAutoReplyService.triggerAutoReply(
-          "facebook",
-          pageId,
-          refreshedConversation._id.toString(),
-          latestInboundMsg.text,
-          latestInboundMsg.messageId
-        );
-      }
-    }
-
-    return FBMessageModel.find({ conversationId: refreshedConversation._id }).sort({ timestamp: 1 });
-  },
-
   normalizeWebhookBody(body: any) {
     if (body?.object === "page" && Array.isArray(body?.entry)) {
       return body;
@@ -780,6 +534,7 @@ export const fbMessengerService = {
     emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
 
     const conversationId = conversation._id.toString();
+    const contractOcr = enqueueLeadContractOcr({ platform: "facebook", pageId: resolvedPageId, conversationId, messageId }, attachments);
     const handleOrderMessage = async () => {
       try {
         const { chatOrderFlowRegistry } = await import("./chat-ordering/registry");
@@ -886,6 +641,7 @@ export const fbMessengerService = {
         }
       }).catch(() => console.error(`[FB Service] Không thể lên lịch thử lại cho messageId=${messageId}`));
     });
+    await contractOcr;
   },
 
   /**
@@ -933,14 +689,33 @@ export const fbMessengerService = {
   /**
    * Gọi Graph API lấy Profile từ PSID bằng Token động
    */
-  async getSenderProfile(psid: string, token: string): Promise<any> {
+  getSenderProfile(psid: string, token: string): Promise<any> {
+    const key = `${createHash("sha256").update(token).digest("hex")}:${psid}`;
+    const expiresAt = profileDenials.get(key) ?? 0;
+    if (expiresAt > Date.now()) return Promise.resolve(null);
+    if (expiresAt) profileDenials.delete(key);
+    const inFlight = profileRequests.get(key);
+    if (inFlight) return inFlight;
+    const request = this.fetchSenderProfile(psid, token, key).finally(() => profileRequests.delete(key));
+    profileRequests.set(key, request);
+    return request;
+  },
+
+  async fetchSenderProfile(psid: string, token: string, cacheKey: string): Promise<any> {
     const url = `https://graph.facebook.com/v25.0/${encodeURIComponent(psid)}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`;
     try {
-      const response = await (globalThis as any).fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!response.ok) {
         const errText = await response.text();
-        if (errText.includes('"error_subcode":33') || errText.includes('"code":100')) {
-          console.warn(`[FB Service GraphAPI] Không có quyền lấy profile chi tiết cho PSID ${psid} (Facebook App hạn chế quyền User Profile hoặc tài khoản khách hàng bật bảo mật). Sẽ sử dụng thông tin mặc định.`);
+        const denied = response.status >= 400 && response.status < 500 && response.status !== 429
+          && (/"error_subcode"\s*:\s*33\b/.test(errText) || /"code"\s*:\s*(10|100|200)\b/.test(errText));
+        if (denied) {
+          if (profileDenials.size >= PROFILE_DENIAL_CACHE_LIMIT) {
+            const oldest = profileDenials.keys().next().value;
+            if (oldest !== undefined) profileDenials.delete(oldest);
+          }
+          profileDenials.set(cacheKey, Date.now() + PROFILE_DENIAL_TTL_MS);
+          console.warn("[FB Service GraphAPI] Facebook từ chối lấy profile; giữ thông tin hội thoại hiện tại.");
         } else {
           console.error(`[FB Service GraphAPI] Lỗi phản hồi từ Graph API: ${response.status} - ${errText}`);
         }
@@ -993,27 +768,13 @@ export const fbMessengerService = {
       throw createFacebookIntegrationNotFoundError();
     }
 
-    let latestInbound = await FBMessageModel.findOne({
+    const latestInbound = await FBMessageModel.findOne({
       conversationId: conversation._id,
       direction: "inbound",
     }).sort({ timestamp: -1 });
 
     if (!isFacebookReplyWindowOpen(latestInbound?.timestamp)) {
-      let windowRefreshSucceeded = true;
-      try {
-        await this.syncMessagesFromFacebook(resolvedPageId, recipientPsid, tokenContext);
-        latestInbound = await FBMessageModel.findOne({
-          conversationId: conversation._id,
-          direction: "inbound",
-        }).sort({ timestamp: -1 });
-      } catch (syncError) {
-        windowRefreshSucceeded = false;
-        console.warn(`[FB Service sendReply] Không thể làm mới cửa sổ phản hồi cho conversationId=${conversationId}:`, syncError);
-      }
-
-      if (windowRefreshSucceeded && !isFacebookReplyWindowOpen(latestInbound?.timestamp)) {
-        throw createFacebookReplyWindowExpiredError();
-      }
+      throw createFacebookReplyWindowExpiredError();
     }
 
     const url = `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`;
@@ -1024,7 +785,7 @@ export const fbMessengerService = {
       messaging_type: "RESPONSE"
     };
 
-    // The follow-up guard runs after token/window synchronization, directly before delivery.
+    // Check the follow-up guard immediately before delivery.
     if (beforeSend) await beforeSend();
     const graphStartedAt = Date.now();
     try {
@@ -1245,17 +1006,6 @@ export const fbMessengerService = {
     const skip = options?.skip || 0;
     const limit = options?.limit || 20;
 
-    if (pageId && options?.sync && skip === 0 && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
-      // Chạy đồng bộ bất đồng bộ dưới nền để không block request của Frontend
-      this.syncConversationsFromFacebook(pageId, options?.tokenContext)
-        .then(() => {
-          console.log(`[FB Service getConversations] Đồng bộ ngầm thành công cho Page ID: ${pageId}`);
-        })
-        .catch((error) => {
-          console.error(`[FB Service getConversations] Đồng bộ ngầm thất bại cho Page ID ${pageId}:`, error);
-        });
-    }
-
     return FBConversationModel.find(filter)
       .sort({ lastMessageAt: -1 })
       .skip(skip)
@@ -1295,16 +1045,6 @@ export const fbMessengerService = {
     const filter: any = { conversationId: conversation._id };
     if (beforeDate && !Number.isNaN(beforeDate.getTime())) {
       filter.timestamp = { $lt: beforeDate };
-    }
-
-    if (!beforeDate && options?.sync && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
-      try {
-        // A sync request must include newly imported outbound replies in its response.
-        // Returning cached rows first made recovery depend on the same socket event that was missed.
-        await this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext);
-      } catch (error) {
-        console.error(`[FB Service getMessages] Đồng bộ thất bại cho conversation ${conversation._id}, trả lịch sử đã lưu:`, error);
-      }
     }
 
     const existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);

@@ -1,32 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import type { ILeadIntakeFieldSnapshot } from "../interface/crm-ticket.interface";
-import type { LeadCollectionStatus, LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-suite/lead-intake";
+import type { LeadIntakeField, LeadNeed } from "../../../../../shared/marketing-suite/lead-intake";
 import { parseIntakeNumber } from "./intake-number";
+import { broadcastEvent } from "../../shared/socket";
+import { getIntakeStandardField, normalizeIntakeText } from "./normalize-intake-fields";
+import { isTelecomStaffField } from "./telecom-invoice-profile";
 
 type IntakePlatform = "facebook" | "zalo" | "tiktok";
 
-function normalized(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-const fieldAliases = new Map<string, string>([
-  ["name", "name"], ["full name", "name"], ["customer name", "name"], ["ho ten", "name"], ["ho va ten", "name"], ["ten khach hang", "name"], ["ten lien he", "name"], ["khach hang", "name"], ["ten", "name"],
-  ["phone", "phone"], ["phone number", "phone"], ["mobile", "phone"], ["so dien thoai", "phone"], ["dien thoai", "phone"], ["sdt", "phone"],
-  ["email", "email"], ["customer email", "email"], ["thu dien tu", "email"],
-  ["company", "company"], ["company name", "company"], ["business", "company"], ["ten cong ty", "company"], ["cong ty", "company"],
-  ["product", "productOfChoice"], ["product of choice", "productOfChoice"], ["san pham", "productOfChoice"], ["dich vu", "productOfChoice"], ["nhu cau", "productOfChoice"],
-  ["budget", "value"], ["estimated budget", "value"], ["ngan sach", "value"], ["gia tri du kien", "value"],
-]);
-
 function initials(value: string) {
   return value.trim().split(/\s+/).slice(-2).map(part => part[0]?.toUpperCase()).join("") || "KH";
-}
-
-function standardField(field: { key: string; label: string; type?: string }) {
-  return fieldAliases.get(normalized(field.key))
-    || fieldAliases.get(normalized(field.label))
-    || (field.type === "phone" ? "phone" : field.type === "email" ? "email" : undefined);
 }
 
 export function parseLeadIntakeAmount(value: string) {
@@ -40,7 +24,7 @@ export function mapIntakeStandardFields(
   const standard: Record<string, string> = {};
   for (const field of fields) {
     const answer = answers[field.key]?.trim();
-    const target = standardField(field);
+    const target = getIntakeStandardField(field);
     if (answer && target) standard[target] = answer;
   }
   return standard;
@@ -51,9 +35,14 @@ type LeadIntakeIdentity = {
   platform: IntakePlatform;
   accountId: string;
   conversationId: string;
+  subscriberIdentity?: { fieldKey: string; code: string };
 };
 
 function intakeIdentity(input: LeadIntakeIdentity) {
+  if (input.subscriberIdentity) return {
+    companyCode: input.companyCode.trim().toUpperCase(),
+    telecomSubscriberCode: input.subscriberIdentity.code,
+  };
   return {
     companyCode: input.companyCode.trim().toUpperCase(),
     sourcePlatform: input.platform,
@@ -62,10 +51,18 @@ function intakeIdentity(input: LeadIntakeIdentity) {
   };
 }
 
-export function findLeadForIntake(input: LeadIntakeIdentity) {
-  return CRMTicketModel.findOne(intakeIdentity(input))
-    .select("customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus")
-    .lean();
+export async function findLeadForIntake(input: LeadIntakeIdentity) {
+  const selection = "customerName phone email company avatar productOfChoice value answers needs customerId intakeRevision intakeStaffFields lastIntakeMessageId lastIntakeMessageAt collectionStatus telecomSubscriberCode telecomConversationId telecomPageId telecomPlatform";
+  const current = await CRMTicketModel.findOne(intakeIdentity(input)).select(selection).lean();
+  if (current || !input.subscriberIdentity) return current;
+  const { fieldKey, code } = input.subscriberIdentity;
+  if (!/^[a-z][a-z0-9_]{0,39}$/.test(fieldKey)) throw new Error("Cột thuê bao không hợp lệ.");
+  const exactCode = new RegExp(`^\\s*${code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i");
+  const candidates = await CRMTicketModel.find({ companyCode: input.companyCode.trim().toUpperCase(),
+    telecomSubscriberCode: { $exists: false }, [`answers.${fieldKey}`]: exactCode,
+  }).select(selection).limit(2).lean();
+  if (candidates.length > 1) throw new Error("Có nhiều Lead cùng mã thuê bao. Cần kiểm tra trước khi ghi dữ liệu.");
+  return candidates[0] || null;
 }
 
 export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
@@ -128,19 +125,24 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       if (previous && JSON.stringify(previous) === JSON.stringify(next)) continue;
       if (index >= 0) needs[index] = next;
       else if (needs.length < 50 && !needs.some(need => need.groupKey === next.groupKey
-        && normalized(need.title) === normalized(next.title) && Object.keys(need.answers || {}).length === Object.keys(next.answers).length
+        && normalizeIntakeText(need.title) === normalizeIntakeText(next.title) && Object.keys(need.answers || {}).length === Object.keys(next.answers).length
         && Object.entries(next.answers).every(([key, answer]) => need.answers?.[key] === answer))) {
         needs.push(next);
       } else continue;
       needsChanged = true;
     }
-    if (!Object.keys(changedAnswers).length && !needsChanged) return current;
+    const subscriberChanged = input.subscriberIdentity && (current?.telecomSubscriberCode !== input.subscriberIdentity.code
+      || current?.telecomConversationId !== input.conversationId || current?.telecomPageId !== input.accountId);
+    if (!Object.keys(changedAnswers).length && !needsChanged && !subscriberChanged) return current;
 
-    const standard = mapIntakeStandardFields(input.fields, changedAnswers);
+    const customerFields = input.subscriberIdentity ? input.fields.filter(field => !isTelecomStaffField(field)) : input.fields;
+    const standard = mapIntakeStandardFields(customerFields, changedAnswers);
     const complete = input.fields.every(field => field.required === false || Boolean(answers[field.key]?.trim()));
     const collectionStatus = current?.collectionStatus === "needs_human" ? "needs_human" : complete ? "complete" : "collecting";
     const changedAnswerPaths = Object.fromEntries(Object.entries(changedAnswers).map(([key, value]) => [`answers.${key}`, value]));
     const update: Record<string, unknown> = {
+      ...(input.subscriberIdentity ? { telecomSubscriberCode: input.subscriberIdentity.code,
+        telecomConversationId: input.conversationId, telecomPageId: input.accountId, telecomPlatform: input.platform } : {}),
       ...(current ? changedAnswerPaths : { answers }),
       ...(needsChanged ? { needs } : {}),
       intakeSearchText: [...Object.values(answers), ...needs.flatMap(need => [need.title, need.groupLabel, ...Object.values(need.answers || {})])].join(" ").slice(0, 100000),
@@ -154,7 +156,8 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
         ...(input.messageAt ? { lastIntakeMessageAt: input.messageAt } : {}) } : {}),
     };
 
-    const fallbackName = `Khách ${identity.sourceConversationId.slice(-6) || "mới"}`;
+    const fallbackName = input.subscriberIdentity ? `Thuê bao ${input.subscriberIdentity.code}`
+      : `Khách ${input.conversationId.slice(-6) || "mới"}`;
     const canUpdate = (field: "customerName" | "phone" | "email" | "company" | "productOfChoice" | "value") => {
       const currentValue = current?.[field];
       const missing = currentValue == null || currentValue === "" ||
@@ -170,7 +173,7 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
     if (standard.email && canUpdate("email")) update.email = standard.email.slice(0, 254);
     if (standard.company && canUpdate("company")) update.company = standard.company.slice(0, 200);
     if (standard.productOfChoice && canUpdate("productOfChoice")) update.productOfChoice = standard.productOfChoice.slice(0, 200);
-    const budgetField = [...input.fields].reverse().find(field => standardField(field) === "value" && changedAnswers[field.key]);
+    const budgetField = [...input.fields].reverse().find(field => getIntakeStandardField(field) === "value" && changedAnswers[field.key]);
     const canonicalBudget = (budgetField?.type === "currency" || budgetField?.type === "number") && /^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/.test(standard.value || "");
     // The typed extractor already stored a canonical decimal string.
     const amount = standard.value ? (canonicalBudget ? parseIntakeNumber(Number(standard.value))
@@ -181,16 +184,21 @@ export async function upsertLeadFromIntake(input: LeadIntakeIdentity & {
       // The answer changes and the message that produced them commit together.
       const result = await CRMTicketModel.findOneAndUpdate(
         current
-          ? { ...identity, _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
+          ? { ...(!input.subscriberIdentity ? identity : { companyCode: identity.companyCode }), _id: current._id, intakeRevision: current.intakeRevision ?? { $exists: false } }
           : { ...identity, intakeRevision: { $exists: false } },
         {
           $set: update,
           $inc: { intakeRevision: 1 },
-          ...(!current ? { $setOnInsert: { ...identity, status: "cold" as const, selectedProducts: [] } } : {}),
+          ...(!current ? { $setOnInsert: { ...(!input.subscriberIdentity ? identity : {
+            companyCode: identity.companyCode, sourcePlatform: input.platform, sourceAccountId: input.accountId,
+          }), status: "cold" as const, selectedProducts: [] } } : {}),
         },
         { upsert: !current, new: true, runValidators: true },
       ).lean();
-      if (result) return result;
+      if (result) {
+        broadcastEvent("crm_leads_changed", { companyCode: identity.companyCode });
+        return result;
+      }
     } catch (error) {
       // Another worker or a staff edit may have created or advanced this Lead.
       if ((error as { code?: number }).code !== 11000) throw error;

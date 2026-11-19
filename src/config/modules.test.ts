@@ -23,6 +23,13 @@ test("shows the architecture workspace only when the tenant enables it", () => {
   assert.equal(resolveEnabledTab("TRỢ LÝ KIẾN TRÚC", ["architect-assistant"]), "TRỢ LÝ KIẾN TRÚC");
 });
 
+test("shows the legal reference workspace only when the tenant enables it", () => {
+  assert.equal(MODULE_TAB_MAP["legal-reference"], "VĂN BẢN PHÁP LUẬT");
+  assert.deepEqual(MODULE_READ_PERMISSIONS["VĂN BẢN PHÁP LUẬT"], ["legal-reference:read", "legal-reference:manage"]);
+  assert.equal(resolveEnabledTab("VĂN BẢN PHÁP LUẬT", undefined), "TỔNG QUAN");
+  assert.equal(resolveEnabledTab("VĂN BẢN PHÁP LUẬT", ["legal-reference"]), "VĂN BẢN PHÁP LUẬT");
+});
+
 const tabs: TabType[] = [
   "TỔNG QUAN",
   "NHÂN SỰ",

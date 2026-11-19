@@ -8,11 +8,13 @@ import { DateInput24 } from "../../../../../components/common/TimeInput24";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
 import { LeadTelecomInvoices } from "./LeadTelecomInvoices";
+import { LeadContractPhotos } from "./LeadContractPhotos";
 import { COLLECTION_STATUS_META, LEAD_STATUS_META, parseMultiSelectValue, PLATFORM_LABELS, type LeadSocialPlatform } from "./leadSheetUtils";
 
 interface LeadDetailDrawerProps {
   lead: ExtendedLeadCard | null;
   configuredFields?: LeadIntakeField[];
+  sharedFields?: LeadIntakeField[];
   onClose: () => void;
   onUpdated: (updated: ExtendedLeadCard) => void;
   onOpenChat: (lead: ExtendedLeadCard) => void;
@@ -44,6 +46,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({ lead, ...res
 function LeadDetailDrawerPanel({
   lead,
   configuredFields = [],
+  sharedFields,
   onClose,
   onUpdated,
   onOpenChat,
@@ -87,7 +90,11 @@ function LeadDetailDrawerPanel({
 
   if (!lead) return null;
 
-  const fieldList = (lead.intakeFields && lead.intakeFields.length > 0) ? lead.intakeFields : configuredFields;
+  const snapshotFields = lead.intakeFields || [];
+  const sharedKeys = new Set(sharedFields?.map(field => field.key));
+  const fieldList = sharedFields
+    ? [...sharedFields, ...snapshotFields.filter(field => !sharedKeys.has(field.key))]
+    : snapshotFields.length > 0 ? snapshotFields : configuredFields;
   const fieldKeySet = new Set(fieldList.map(field => field.key));
   const extraAnswerKeys = Object.keys(answers).filter(key => !key.startsWith("__") && !fieldKeySet.has(key) && Boolean(answers[key]?.trim()));
 
@@ -190,6 +197,11 @@ function LeadDetailDrawerPanel({
 
             {lead.telecomSubscriberCode && <LeadTelecomInvoices leadId={lead.id} subscriberCode={lead.telecomSubscriberCode}
               onOpenSource={invoice => onOpenChat({ ...lead, sourceConversationId: invoice.conversationId, sourceAccountId: invoice.pageId, sourcePlatform: invoice.platform })} />}
+            {lead.hasContractPhotos && <section className="space-y-2">
+              <h4 className="text-balance text-sm font-semibold">Ảnh hợp đồng</h4>
+              <LeadContractPhotos leadId={lead.id} onOpenSource={photo =>
+                onOpenChat({ ...lead, sourceConversationId: photo.conversationId, sourceAccountId: photo.pageId, sourcePlatform: photo.platform })} />
+            </section>}
             {Boolean(lead.needs?.length) && <section aria-label="Nhu cầu đã ghi nhận" className="space-y-2">
               <h4 className="text-sm font-semibold">Nhu cầu đã ghi nhận</h4>
               <ul className="space-y-2">{lead.needs?.map(need => <li key={need.id} className="rounded-md border border-outline-variant p-3 text-sm">

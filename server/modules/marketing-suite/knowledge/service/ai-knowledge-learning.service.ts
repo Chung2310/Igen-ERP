@@ -207,6 +207,7 @@ YÊU CẦU ĐẦU RA (JSON FORMAT):
     try {
       const response = await openrouterChat({
         model: GEMINI_TEXT_MODEL,
+        keyScope: "chat-message",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

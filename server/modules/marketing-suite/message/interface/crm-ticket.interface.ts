@@ -49,6 +49,7 @@ export interface ICRMTicket extends Document {
   lastInteractionAt?: Date;
   customerId?: string;
   telecomSubscriberCode?: string;
+  hasContractPhotos?: boolean;
   telecomConversationId?: string;
   telecomPageId?: string;
   telecomPlatform?: TelecomInvoicePlatform;

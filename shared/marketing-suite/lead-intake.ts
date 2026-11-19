@@ -27,3 +27,4 @@ export type LeadNeed = { id: string; groupKey: string; groupLabel: string; title
 
 export type LeadCollectionStatus = "collecting" | "complete" | "needs_human";
 export type LeadTargetModule = "students" | "healthcare" | "workers";
+export type ZaloLeadIdentity = { oaId: string; uid: string };

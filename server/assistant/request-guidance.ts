@@ -11,6 +11,16 @@ function exampleFor(kind: ExampleKind, entity: string) {
   return `Cập nhật ${entity} [tên hoặc mã]: [thông tin cần sửa]`;
 }
 
+/** Only offer the two course types when both operations are available to this user. */
+export function assistantCourseChoiceGuidance(workflows: readonly AssistantWorkflow[], suggestedActionIds: readonly string[] = []): string {
+  const pair = [["training.create", "course.create"], ["training.delete", "course.delete"]]
+    .find(ids => ids.every(id => suggestedActionIds.includes(id)));
+  if (!pair) return "";
+  const options = pair.map(id => workflows.find(workflow => workflow.enabled && workflow.actionId === id));
+  if (options.some(option => !option)) return "";
+  return `Bạn đang muốn chọn loại khóa học nào? Mình có thể “${options[0]!.title}” (đào tạo nội bộ cho nhân sự) hoặc “${options[1]!.title}” (cho học viên).`;
+}
+
 /** Receives only workflows already scoped to the user's permissions and modules. */
 export function assistantRequestGuidance(text: string, workflows: readonly AssistantWorkflow[], hasAttachment = false): string {
   if (hasAttachment) return "Ví dụ cách viết: “Dùng tệp này để [việc cần làm] cho [đối tượng]”.";
@@ -65,7 +75,7 @@ export function assistantUnsupportedGuidance(text: string, workflows: readonly A
     : action === "update"
       ? ["Tìm đúng hồ sơ theo tên hoặc mã, mở hồ sơ và chọn Sửa/Cập nhật.", "Chỉ đổi nội dung cần thiết, rà soát lại rồi lưu."]
       : action === "delete"
-        ? ["Tìm đúng hồ sơ theo tên hoặc mã rồi mở chức năng Xóa.", "Đọc kỹ cảnh báo và dữ liệu liên quan; chỉ xác nhận nếu đúng hồ sơ cần xóa."]
+        ? ["Tìm đúng hồ sơ theo tên hoặc mã rồi mở chức năng Xóa.", "Đọc kỹ cảnh báo và dữ liệu liên quan. Chỉ xác nhận nếu đúng hồ sơ cần xóa."]
         : action === "read"
           ? ["Mở danh sách loại dữ liệu cần tra cứu.", "Tìm theo tên, mã hoặc bộ lọc phù hợp rồi mở kết quả để xem chi tiết."]
           : ["Mở màn hình có dữ liệu liên quan đến yêu cầu.", "Làm theo biểu mẫu trên màn hình và kiểm tra lại trước khi lưu hoặc xác nhận."];
@@ -74,7 +84,7 @@ export function assistantUnsupportedGuidance(text: string, workflows: readonly A
     : "1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác.";
   const boundary = moduleName
     ? "Nếu không thấy chức năng đó hoặc bị chặn, nhờ quản trị viên kiểm tra phân hệ và quyền truy cập."
-    : "Mình chưa xác định chắc chắn phân hệ trong tài khoản của bạn. Nếu bạn cho biết tên phân hệ, mình có thể chỉ đúng màn hình hơn; nếu không thấy chức năng, hãy nhờ quản trị viên kiểm tra quyền truy cập.";
+    : "Mình chưa xác định chắc chắn phân hệ trong tài khoản của bạn. Nếu bạn cho biết tên phân hệ, mình có thể chỉ đúng màn hình hơn. Nếu không thấy chức năng, hãy nhờ quản trị viên kiểm tra quyền truy cập.";
 
   return [
     "Mình hiểu bạn muốn thực hiện yêu cầu này. Hiện trợ lý chưa thể làm việc đó trong khung chat, nên chưa có dữ liệu nào được thay đổi.",

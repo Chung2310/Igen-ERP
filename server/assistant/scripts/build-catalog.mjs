@@ -1,6 +1,8 @@
 ﻿import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { reviewedContracts } from './reviewed-contracts.mjs';
+import { businessCompletionContracts } from './business-completion-contracts.mjs';
+Object.assign(reviewedContracts, businessCompletionContracts);
 const inventory=JSON.parse(fs.readFileSync('server/assistant/api-inventory.json','utf8'));
 const quotationRoutes=JSON.parse(fs.readFileSync('server/assistant/quotation-route-coverage.json','utf8'));
 for(const route of quotationRoutes.filter(item=>item.assistantUnsupported)){
@@ -88,8 +90,11 @@ function generatedTitle(e){
  const subject=subjectParts.map(translated).join(' ').replace(/\s+/g,' ').trim();
  return `${verb}${subject?` ${subject}`:''}`;
 }
+Object.assign(labels,{reportType:'Loại báo cáo',requestedStartDate:'Ngày phỏng vấn',requestedStartTime:'Giờ phỏng vấn'});
 const moduleFor=e=>{
  const f=e.file,p=e.path;
+ if(p.startsWith('/architect-assistant/'))return ['architect-assistant','/tro-ly-kien-truc'];
+ if(p.startsWith('/legal-reference/'))return ['legal-reference','/van-ban-phap-luat'];
  if((p==='/auth/branches'&&e.method!=='GET')||p==='/auth/branches/:id'||(p==='/auth/branches/:id/pending'&&e.method==='DELETE'))return ['hr','/nhan-su?sub=chi-nhanh'];
  if(p.startsWith('/permissions')||p.startsWith('/role-permissions'))return ['hr','/nhan-su'];
  if(p.startsWith('/company-email/'))return ['hr','/nhan-su'];
@@ -135,7 +140,7 @@ for(const e of inventory.endpoints){
  if(e.contracts.assistantUnsupported)reason=e.contracts.assistantUnsupported;
  else if(e.ambiguous&&!e.contracts.routeOrderVerified)reason='API trùng đường dẫn cần đối chiếu thứ tự middleware';
  else if(!mod)reason='Hạ tầng, xác thực hoặc chưa xác định phân hệ';
- else if((unsafePath.test(e.path)&&!e.contracts.safeUserScopedPath&&!e.contracts.safeCompanyScopedPath)||/upload\.|multer|sendFile|download/.test(e.handlers))reason='Cần tệp, xác thực hoặc luồng tích hợp riêng';
+ else if((unsafePath.test(e.path)&&!e.contracts.safeUserScopedPath&&!e.contracts.safeCompanyScopedPath)||/\bupload\.|\bmulter\b|\.\s*(?:sendFile|download)\s*\(/.test(e.handlers))reason='Cần tệp, xác thực hoặc luồng tích hợp riêng';
  else if(!(e.contracts.permissionGroups?.length||e.permissions.length))reason='Chưa có hợp đồng quyền tường minh';
  else if(mutation&&!e.contracts.body&&!(e.method==='DELETE'&&/:\w+/.test(e.path)))reason='Cần hợp đồng dữ liệu ghi trước khi kết nối';
  const body=fields(e.contracts.body,'body'),query=fields(e.contracts.query,'query');

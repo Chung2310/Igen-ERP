@@ -21,7 +21,7 @@ function setup(data = board, options: { loading?: boolean; error?: string } = {}
 }
 test('groups ERP statuses into seven retail steps without losing approved or supplier tickets', () => {
   setup();
-  expect(screen.getByText('4 phiếu đang xử lý')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Tất cả 4$/ })).toBeTruthy();
   const repairing = screen.getByRole('region', { name: '4. Đang thực hiện' });
   expect(within(repairing).getByText('REP-A')).toBeTruthy(); expect(within(repairing).getByText('REP-B')).toBeTruthy();
   const waiting = screen.getByRole('region', { name: '5. Chờ vật tư / NCC' });

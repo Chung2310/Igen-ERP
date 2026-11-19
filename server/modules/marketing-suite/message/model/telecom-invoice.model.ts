@@ -9,16 +9,30 @@ const pageScope = {
 const conversationScope = { ...pageScope, conversationId: { type: String, required: true }, platform: { type: String, enum: ["facebook", "zalo"] } };
 const fieldList = { type: [String], enum: DEFAULT_TELECOM_INVOICE_FIELDS, required: true };
 
-const settingsFields = { enabled: { type: Boolean, required: true, default: false }, subscriberFieldKey: String };
+const settingsFields = {
+  enabled: { type: Boolean, required: true, default: false },
+  subscriberFieldKey: String,
+  mode: { type: String, enum: ["invoice", "contract"] },
+  contractFieldKey: String,
+  contractProvider: String,
+};
 // Keep existing Facebook settings on the root and store the Zalo settings independently.
 const settingsSchema = new Schema({ ...pageScope, ...settingsFields, zalo: { type: new Schema(settingsFields, { _id: false }) } });
 settingsSchema.index({ companyCode: 1, pageId: 1 }, { unique: true });
+settingsSchema.index({ pageId: 1 });
 export const TelecomInvoiceSettingsModel = model("TelecomInvoiceSettings", settingsSchema);
 
 export type TelecomInvoiceAccount = { companyCode: string; pageId: string; platform: TelecomInvoicePlatform };
 
+export function enabledLeadContractAccount({ pageId, platform }: Pick<TelecomInvoiceAccount, "pageId" | "platform">) {
+  return platform === "zalo" ? { pageId, "zalo.enabled": true, "zalo.mode": "contract" as const }
+    : { pageId, enabled: true, mode: "contract" as const };
+}
+
 export function enabledTelecomInvoiceAccount({ companyCode, pageId, platform }: TelecomInvoiceAccount) {
-  return { companyCode, pageId, ...(platform === "zalo" ? { "zalo.enabled": true } : { enabled: true }) };
+  return { companyCode, pageId, ...(platform === "zalo"
+    ? { "zalo.enabled": true, "zalo.mode": { $ne: "contract" } }
+    : { enabled: true, mode: { $ne: "contract" } }) };
 }
 
 const conversationSchema = new Schema({ ...conversationScope, sequence: { type: Number, required: true } });

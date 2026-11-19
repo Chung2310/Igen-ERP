@@ -37,8 +37,13 @@ export const companyWorkCalendarController = {
   async list(req: AuthenticatedRequest, res: Response) {
     try {
       const { companyCode } = assertCalendarAdmin(req.user);
-      const year = Number(req.query.year);
-      const data = await listCalendarDays(companyCode, year, req.query.appliedOnly === "true");
+      const year = Number(req.query.year || new Intl.DateTimeFormat("en", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric" }).format(new Date()));
+      const month = req.query.month === undefined ? undefined : Number(req.query.month);
+      const data = await listCalendarDays(companyCode, year, {
+        appliedOnly: req.query.appliedOnly === "true",
+        month,
+        holidaysOnly: req.query.holidaysOnly === "true",
+      });
       return res.json({ status: "success", data });
     } catch (error) { return respondError(res, error); }
   },

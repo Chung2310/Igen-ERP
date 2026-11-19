@@ -77,6 +77,7 @@ const baseMenuItems: MenuItem[] = [
   { label: "TRỢ LÝ KIẾN TRÚC", title: "Trợ lý kiến trúc", icon: Ruler, group: "operations" },
   { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
   { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: StethoscopeIcon, group: "operations" },
+  { label: "VĂN BẢN PHÁP LUẬT", title: "Văn bản pháp luật", icon: FileTextIcon, group: "tools" },
   { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {
@@ -218,8 +219,11 @@ export function getAvailableMenuItems(userProfile: UserProfile | null, hasPermis
       const isPartnerAdmin =
         ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
         (userProfile?.role === "admin" || userProfile?.role === "superadmin");
+      const isLegalReferenceAdmin =
+        item.label === "VĂN BẢN PHÁP LUẬT" &&
+        (userProfile?.role === "admin" || userProfile?.role === "superadmin");
       const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : item.label === "TRỢ LÝ AI" ? !hasPermission("chat:read") : requiredPerms
-        ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
+        ? !isPartnerAdmin && !isLegalReferenceAdmin && !requiredPerms.some((code) => hasPermission(code))
         : false;
       const moduleDisabled = !enabledTabs.has(item.label) || (item.label === "TÍCH HỢP MARKETING" && !userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)));
       return { ...item, locked: moduleDisabled || locked, lockReason: moduleDisabled ? "module" as const : locked ? "permission" as const : undefined };

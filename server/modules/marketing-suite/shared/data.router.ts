@@ -21,6 +21,11 @@ import { createMarketingContentDraft, deleteMarketingContentDraft, updateMarketi
 import { queueLeadSheet } from "../message/service/lead-sheet.service";
 import { PageChatFlowStateModel } from "../message/model/page-chat-flow.model";
 import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/service/lead-intake.service";
+import { leadContractRouter } from "../message/router/lead-contract.router";
+import { chatTestRouter } from "../message/router/chat-test.router";
+import { resetCompanyChat } from "../message/service/company-chat-reset.service";
+import { withLeadZaloIdentities } from "../message/service/lead-zalo-identity.service";
+import { broadcastEvent } from "./socket";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
 type AsyncHandler = (req: AuthenticatedRequest, res: Response) => Promise<unknown>;
@@ -69,6 +74,8 @@ function leadFieldSnapshot(value: unknown) {
 }
 
 export const suiteDataRouter = Router();
+suiteDataRouter.use("/omni-inbox", leadContractRouter);
+suiteDataRouter.use("/omni-inbox/chat-test", chatTestRouter);
 const ALLOWED_LEAD_SORT_KEYS = new Set([
   "customerName",
   "phone",
@@ -272,7 +279,23 @@ suiteDataRouter.get("/omni-inbox/leads", run(async (req, res) => {
     CRMTicketModel.find(filter).sort(`${sortKey} -_id`).skip((page - 1) * limit).limit(limit).lean(),
     CRMTicketModel.countDocuments(filter),
   ]);
-  return res.json({ status: "success", data: items.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
+  const rows = req.query.includeZaloUid === "true" ? await withLeadZaloIdentities(req.user!.companyCode!, items) : items;
+  return res.json({ status: "success", data: rows.map(item => publicRecord(item, false)), total, page, limit, totalPages: Math.ceil(total / limit) });
+}));
+
+suiteDataRouter.get("/omni-inbox/leads/by-conversation", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
+  const { channel, accountId, conversationId } = req.query;
+  if ((channel !== "facebook" && channel !== "zalo" && channel !== "tiktok") || typeof accountId !== "string" || typeof conversationId !== "string"
+    || !accountId.trim() || !conversationId.trim() || accountId.length > 200 || conversationId.length > 200) {
+    return res.status(400).json({ status: "error", message: "Hội thoại hoặc tài khoản không hợp lệ." });
+  }
+  const platform = channel === "facebook" ? "Facebook" : channel === "zalo" ? "Zalo" : "TikTok";
+  const companyCode = req.user!.companyCode;
+  await assertMarketingAccountOwnership(companyCode, platform, accountId.trim());
+  const lead = await CRMTicketModel.findOne({
+    companyCode, sourcePlatform: channel, sourceAccountId: accountId.trim(), sourceConversationId: conversationId.trim(),
+  }).select("collectionStatus moduleSync.targetModule customerTransfer.completedAt customerTransfer.destination").lean();
+  return res.json({ status: "success", data: lead });
 }));
 
 suiteDataRouter.get("/omni-inbox/leads/:id/telecom-invoices", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
@@ -311,6 +334,13 @@ suiteDataRouter.get("/omni-inbox/leads/:id/telecom-invoices", requirePermission(
   } });
 }));
 
+suiteDataRouter.get("/omni-inbox/leads/:id", requirePermission(["omni-inbox:read", "omni-inbox:manage"]), run(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
+  const lead = await CRMTicketModel.findOne({ companyCode: req.user!.companyCode, _id: req.params.id }).lean();
+  if (!lead) return res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
+  return res.json({ status: "success", data: publicRecord(lead, false) });
+}));
+
 suiteDataRouter.post("/omni-inbox/leads/export-google-sheets", requirePermission("omni-inbox:manage"), run(async (req, res) => {
   const data = payload(req.body);
   const rawIds = data.ids;
@@ -328,6 +358,44 @@ suiteDataRouter.post("/omni-inbox/leads/export-google-sheets", requirePermission
     if (didQueue) queued++;
   }
   return res.json({ status: "success", data: { queued, skipped: ids.length - queued } });
+}));
+
+suiteDataRouter.post("/omni-inbox/leads/bulk", requirePermission("omni-inbox:manage"), run(async (req, res) => {
+  const data = payload(req.body);
+  const rawIds = data.ids;
+  if (!Array.isArray(rawIds) || rawIds.length < 1 || rawIds.length > 100
+    || rawIds.some(id => typeof id !== "string" || !mongoose.isValidObjectId(id))) {
+    return res.status(400).json({ status: "error", message: "Chọn từ 1 đến 100 Lead hợp lệ." });
+  }
+
+  const ids = [...new Set((rawIds as string[]).map(id => id.toLowerCase()))];
+  const companyCode = req.user!.companyCode;
+  const scope = { companyCode, _id: { $in: ids } };
+  let affected = 0;
+  if (data.action === "delete") {
+    affected = (await CRMTicketModel.deleteMany(scope)).deletedCount;
+  } else if (data.action === "update") {
+    const { status, collectionStatus } = data;
+    if ((status === undefined && collectionStatus === undefined)
+      || (status !== undefined && (typeof status !== "string" || !leadStatusValues.has(status)))
+      || (collectionStatus !== undefined && (typeof collectionStatus !== "string" || !intakeStatusValues.has(collectionStatus)))) {
+      return res.status(400).json({ status: "error", message: "Chọn trạng thái Lead hoặc tình trạng Bot hợp lệ." });
+    }
+    const fields = {
+      ...(typeof status === "string" ? { status } : {}),
+      ...(typeof collectionStatus === "string" ? { collectionStatus } : {}),
+    };
+    const shouldChange = Object.entries(fields).map(([key, value]) => ({ [key]: { $ne: value } }));
+    affected = (await CRMTicketModel.updateMany({ ...scope, $or: shouldChange }, {
+      $set: { ...fields, lastInteractionAt: new Date() },
+      $inc: { intakeRevision: 1 },
+    }, { runValidators: true })).modifiedCount;
+  } else {
+    return res.status(400).json({ status: "error", message: "Thao tác hàng loạt không hợp lệ." });
+  }
+
+  if (affected) broadcastEvent("crm_leads_changed", { companyCode });
+  return res.json({ status: "success", data: { affected, skipped: ids.length - affected } });
 }));
 
 suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
@@ -392,6 +460,7 @@ suiteDataRouter.post("/omni-inbox/leads", run(async (req, res) => {
   }
   try {
     const item = await CRMTicketModel.create(input);
+    broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
     return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), false) });
   } catch (error) {
     if (!input.sourceConversationId || (error as { code?: number }).code !== 11000) throw error;
@@ -495,6 +564,7 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
     }
   }
 
+  broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
   return res.json({ status: "success", data: publicRecord(item, false) });
 }));
 
@@ -521,12 +591,14 @@ suiteDataRouter.post("/omni-inbox/leads/:id/module-sync", requirePermission("omn
   const moduleSync = { targetModule, targetRecordId, syncedAt: new Date(), syncedBy: req.user!.id };
   const item = await CRMTicketModel.findOneAndUpdate({ ...scope, moduleSync: { $exists: false } }, { $set: { moduleSync } }, { new: true }).lean();
   if (!item) return res.status(409).json({ status: "error", message: "Lead vừa được đồng bộ bởi người khác. Tải lại để kiểm tra." });
+  broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
   return res.json({ status: "success", data: item.moduleSync });
 }));
 
 suiteDataRouter.delete("/omni-inbox/leads/:id", run(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
   const item = await CRMTicketModel.findOneAndDelete({ _id: req.params.id, companyCode: req.user!.companyCode });
+  if (item) broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
   return item ? res.json({ status: "success", message: "Đã xóa Lead." }) : res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
 }));
 
@@ -568,6 +640,17 @@ const SecretReadAudit = mongoose.model("MarketingSecretReadAudit", new Schema({
   companyCode: { type: String, required: true }, userId: { type: String, required: true },
   integrationId: { type: String, required: true }, field: { type: String, required: true },
 }, { timestamps: true }), "marketing_secret_read_audits");
+suiteDataRouter.post("/social-integrations/reset-chat", requirePermission("social-integration:manage"), requirePermission("omni-inbox:manage"), run(async (req, res) => {
+  const companyCode = req.user?.companyCode;
+  if (!companyCode) return res.status(403).json({ status: "error", message: "Không xác định được doanh nghiệp." });
+  if (req.body?.confirmCompanyCode !== companyCode) {
+    return res.status(400).json({ status: "error", message: "Doanh nghiệp đang chọn đã thay đổi. Hãy mở lại hộp thoại xác nhận." });
+  }
+  const data = await resetCompanyChat(companyCode);
+  broadcastEvent("company_chat_reset", { companyCode });
+  return res.json({ status: "success", data });
+}));
+
 suiteDataRouter.post("/social-integrations/:id/reveal-secret", requirePermission("social-integration:manage"), run(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
   const item = await SocialIntegrationModel.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();

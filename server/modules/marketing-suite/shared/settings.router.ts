@@ -10,7 +10,9 @@ import { authController } from "./controller/auth.controller";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { requirePermission } from "../../../middleware/auth";
 import { TelecomInvoiceSettingsModel } from "../message/model/telecom-invoice.model";
-import { findSubscriberField, readActiveInvoiceLeadFields } from "../message/service/telecom-invoice-profile";
+import { findContractField, findSubscriberField, readActiveInvoiceLeadFields } from "../message/service/telecom-invoice-profile";
+import { normalizeLeadContractProvider } from "../../../../shared/marketing-suite/telecom-invoice";
+import { broadcastEvent } from "./socket";
 
 export const marketingSettingsRouter = Router();
 marketingSettingsRouter.get("/authors/:id", async (request, res, next) => {
@@ -73,26 +75,38 @@ const telecomSettings: RequestHandler = async (request, res, next) => {
     if (!connected) return res.status(404).json({ status: "error", message: "Tài khoản chưa được kết nối với doanh nghiệp." });
     const scope = { companyCode, pageId };
     const fields = await readActiveInvoiceLeadFields({ ...scope, platform });
-    const leadFields = fields.map(({ key, label }) => ({ key, label }));
+    const leadFields = fields.map(({ key, label, type }) => ({ key, label, type }));
     if (req.method === "GET" || req.method === "HEAD") {
-      const stored = await TelecomInvoiceSettingsModel.findOne(scope).select("enabled subscriberFieldKey zalo -_id").lean();
+      const stored = await TelecomInvoiceSettingsModel.findOne(scope).select("enabled subscriberFieldKey mode contractFieldKey contractProvider zalo -_id").lean();
       const config = platform === "zalo" ? stored?.zalo : stored;
       return res.json({ status: "success", data: { enabled: config?.enabled === true,
         subscriberFieldKey: findSubscriberField(fields, config?.subscriberFieldKey)?.key, leadFields,
+        mode: config?.mode ?? (config?.enabled ? "invoice" : "contract"),
+        contractFieldKey: findContractField(fields, config?.contractFieldKey)?.key, contractProvider: config?.contractProvider,
       } });
     }
     const enabled: unknown = req.body?.enabled;
     const selectedKey: unknown = req.body?.subscriberFieldKey;
-    if (typeof enabled !== "boolean" || (selectedKey !== undefined && typeof selectedKey !== "string")) {
-      return res.status(400).json({ status: "error", message: "Cấu hình đọc hóa đơn chưa hợp lệ." });
+    const mode = req.body?.mode ?? "invoice";
+    const selectedContractKey: unknown = req.body?.contractFieldKey;
+    if (typeof enabled !== "boolean" || (mode !== "invoice" && mode !== "contract")
+      || (selectedKey !== undefined && typeof selectedKey !== "string")
+      || (selectedContractKey !== undefined && typeof selectedContractKey !== "string")) {
+      return res.status(400).json({ status: "error", message: "Cấu hình đọc ảnh chưa hợp lệ." });
     }
     const subscriberFieldKey = findSubscriberField(fields, selectedKey as string | undefined)?.key;
-    if (enabled && !subscriberFieldKey) {
+    if (enabled && mode === "invoice" && !subscriberFieldKey) {
       return res.status(400).json({ status: "error", message: "Lưu bộ trường Lead và chọn cột Mã thuê bao trước khi bật đọc hóa đơn." });
     }
-    const config = { enabled, subscriberFieldKey: subscriberFieldKey ?? null };
+    const contractFieldKey = findContractField(fields, selectedContractKey as string | undefined)?.key;
+    const contractProvider = normalizeLeadContractProvider(req.body?.contractProvider);
+    if (enabled && mode === "contract" && (!contractFieldKey || !contractProvider)) {
+      return res.status(400).json({ status: "error", message: "Chọn cột Mã hợp đồng kiểu văn bản và nhập tên nhà cung cấp." });
+    }
+    const config = { enabled, mode, subscriberFieldKey: subscriberFieldKey ?? null,
+      contractFieldKey: contractFieldKey ?? null, contractProvider: contractProvider ?? null };
     await TelecomInvoiceSettingsModel.updateOne(scope, { $set: platform === "zalo" ? { zalo: config } : config }, { upsert: true, runValidators: true });
-    return res.json({ status: "success", data: { enabled, subscriberFieldKey, leadFields } });
+    return res.json({ status: "success", data: { enabled, mode, subscriberFieldKey, contractFieldKey, contractProvider, leadFields } });
   } catch (error) { next(error); }
 };
 const telecomSettingsPaths = ["/telecom-invoices/:platform/:pageId", "/telecom-invoices/:pageId"];
@@ -127,6 +141,11 @@ marketingSettingsRouter.post("/lead-intake-profiles/draft", requirePermission("o
     if (Boolean(platform) !== Boolean(accountId)) {
       return res.status(400).json({ status: "error", message: "Cần truyền đủ nền tảng và mã tài khoản, hoặc bỏ trống cả hai để cấu hình chung cho doanh nghiệp." });
     }
+    const applyToAllAccounts = req.body?.applyToAllAccounts;
+    if ((applyToAllAccounts !== undefined && typeof applyToAllAccounts !== "boolean")
+      || (applyToAllAccounts === true && (req.body?.platform !== undefined || accountId))) {
+      return res.status(400).json({ status: "error", message: "Chỉ bộ trường của doanh nghiệp mới có thể dùng chung cho mọi Page/OA." });
+    }
     const fields = normalizeIntakeFields(req.body?.fields);
     const valid = fields && typeof req.body?.goal === "string" && req.body.goal.trim().length > 0 && req.body.goal.length <= 300
       && typeof req.body?.completionMessage === "string" && req.body.completionMessage.trim().length > 0 && req.body.completionMessage.length <= 500;
@@ -147,6 +166,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/draft", requirePermission("o
     const profile = await LeadIntakeProfileModel.create({
       companyCode: req.user!.companyCode,
       ...(platform && accountId ? { platform, accountId } : {}),
+      ...(applyToAllAccounts === true ? { applyToAllAccounts } : {}),
       version: (latest?.version || 0) + 1,
       status: "draft",
       goal: req.body.goal.trim(),
@@ -177,6 +197,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/:version/activate", requireP
     profile.status = "active";
     await profile.save();
     await LeadIntakeProfileModel.updateMany({ ...scopeFilter, status: "active", _id: { $ne: profile._id } }, { $set: { status: "archived" } });
+    broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
     return res.json({ status: "success", data: profile });
   } catch (error) { next(error); }
 });
@@ -193,6 +214,7 @@ marketingSettingsRouter.post("/lead-intake-profiles/archive-active", requirePerm
       ? { companyCode: req.user!.companyCode, platform, accountId }
       : { companyCode: req.user!.companyCode, platform: { $exists: false } };
     const result = await LeadIntakeProfileModel.updateMany({ ...scopeFilter, status: "active" }, { $set: { status: "archived" } });
+    if (result.modifiedCount) broadcastEvent("crm_leads_changed", { companyCode: req.user!.companyCode });
     return res.json({ status: "success", data: { archived: result.modifiedCount } });
   } catch (error) { next(error); }
 });

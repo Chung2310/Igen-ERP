@@ -94,6 +94,7 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
   "CHIẾN DỊCH NỘI DUNG": { title: "Chiến dịch nội dung", description: "Quản lý chiến dịch nội dung", keywords: "", path: "/chien-dich-noi-dung", robots: "noindex, nofollow" },
   "OMNI INBOX": { title: "Hộp thư đa kênh", description: "Quản lý hội thoại khách hàng", keywords: "", path: "/omni-inbox", robots: "noindex, nofollow" },
   "KHO TRI THỨC": { title: "Kho tri thức doanh nghiệp", description: "Quản lý tri thức doanh nghiệp", keywords: "", path: "/kho-tri-thuc", robots: "noindex, nofollow" },
+  "VĂN BẢN PHÁP LUẬT": { title: "Văn bản pháp luật", description: "Tra cứu và quản lý kho văn bản pháp luật", keywords: "", path: "/van-ban-phap-luat", robots: "noindex, nofollow" },
   "TÍCH HỢP MARKETING": { title: "Tích hợp Marketing", description: "Kết nối tài khoản Marketing", keywords: "", path: "/tich-hop-marketing", robots: "noindex, nofollow" },
   "TỔNG QUAN": {
     title: "Tổng quan nhân sự - iGen ERP",
