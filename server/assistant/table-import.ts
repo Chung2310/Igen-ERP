@@ -1,10 +1,30 @@
 import type { AssistantDataShape, AssistantTableAttachment } from "../../src/shared/assistant-workflow";
 import type { AssistantOperation } from "./catalog";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 
 export interface MappedAssistantTable {
   fieldKey: string;
   rows: unknown[];
   rowCount: number;
+  ignoredColumns?: string[];
+}
+
+export function assistantTablePreview(op: AssistantOperation, fieldKey: string, value: unknown) {
+  const field = op.fields.find(candidate => candidate.key === fieldKey);
+  const keys = field?.structure?.items?.keys;
+  let rows: unknown;
+  try { rows = typeof value === "string" ? JSON.parse(value) : value; } catch { return []; }
+  if (!Array.isArray(rows)) return [];
+  const details = rows.slice(0, 20).map((row, index) => ({ label: `Dòng ${index + 1}`, value: row && typeof row === "object"
+    ? Object.entries(row).flatMap(([key, raw]) => {
+      const shape = keys?.[key];
+      if (!shape || /(?:password|secret|token|credential|permission|sourceRow|(?:^|_)id$|Id$)/.test(key)) return [];
+      const text = typeof raw === "object" ? JSON.stringify(raw) : String(raw ?? "");
+      return [`${shape.label || key}: ${["date", "datetime"].includes(shape.type) ? formatAssistantTemporalValue(text) || text : text}`];
+    }).join(" · ") || "Xem dữ liệu trong tệp nguồn"
+    : String(row ?? "") }));
+  if (rows.length > 20) details.push({ label: "Các dòng còn lại", value: `Còn ${rows.length - 20} dòng trong tệp. Xác nhận sẽ áp dụng cho đủ ${rows.length} dòng.` });
+  return details;
 }
 
 const aliases: Record<string, string[]> = {
@@ -238,7 +258,7 @@ export function mapAssistantTableAttachment(op: AssistantOperation, file: Assist
       if (top.field.key === "students" && top.shape.keys?.sourceRow) mapped.sourceRow = rowIndex + 2;
       return mapped;
     });
-    return { fieldKey: top.field.key, rows, rowCount: rows.length };
+    return { fieldKey: top.field.key, rows, rowCount: rows.length, ignoredColumns: ignored.map(item => item.header) };
   }
 
   const scalarCandidates = candidates.filter(field => field.structure!.items!.type !== "object");

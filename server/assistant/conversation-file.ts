@@ -29,7 +29,7 @@ export function isAssistantConversationFileName(fileName: string): boolean {
 
 export function isAssistantConversationFileAllowedForMode(fileName: string, mode: "work" | "qa" | undefined): boolean {
   if (mode === "qa") return isAssistantConversationFileName(fileName);
-  return mode === "work" && /\.(?:png|jpe?g|webp)$/i.test(fileName);
+  return mode === "work" && /\.(?:pdf|docx|txt|png|jpe?g|webp)$/i.test(fileName);
 }
 
 export function assistantConversationFileFilter(fileName: string, callback: (error: Error | null, acceptFile?: boolean) => void): void {

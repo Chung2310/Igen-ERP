@@ -3,16 +3,72 @@ const provider = vi.hoisted(() => vi.fn());
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: provider }));
 import { interpretRequest, validateRemainingRequests } from "./semantic-interpreter";
 import { defaultWorkflow, operationById } from "./catalog";
+import { quotationIntent } from "./quotation-intent";
 afterEach(() => provider.mockReset());
 const employee = defaultWorkflow(operationById("employee.update")!);
+describe("estimate versus budget routing", () => {
+  const workflows = ["quotation.budget.create", "quotation.request.create", "quotation.estimate.create", "quotation.estimate.from-customer"].map(id => defaultWorkflow(operationById(id)!));
+  it.each([
+    ["Tạo dự toán", "quotation.request.create"],
+    ["Lập dự toán lắp camera, ngân sách 100 triệu", "quotation.request.create"],
+    ["len du toan cho toi ngan sach 100 trieu", "quotation.request.create"],
+    ["Tôi cần một dự toán cho công trình", "quotation.request.create"],
+    ["Tạo dự toán, không tạo ngân sách", "quotation.request.create"],
+    ["Tạo dự toán từ báo giá BG-001 với ngân sách 100 triệu", "quotation.estimate.from-customer"],
+    ["Lập dự toán từ yêu cầu đã phân tích, ngân sách 100 triệu", "quotation.estimate.create"],
+  ])("corrects an incorrect model budget choice: %s", async (text, actionId) => {
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: { customerName: "An", budget: 100000000 }, remainingRequests: ["Tạo ngân sách"] }) });
+    expect(quotationIntent(text).actionId).toBe(actionId);
+    const result = await interpretRequest(text, workflows, null, []);
+    expect(result.actionId).toBe(actionId);
+    expect(result.values).not.toHaveProperty("budget");
+    expect(result.remainingRequests).toEqual([]);
+    if (actionId === "quotation.request.create") {
+      expect(result.values.requestText).toBe(text);
+      expect(result.values.customerName).toBe("An");
+    }
+  });
+  it("keeps a budget constraint on the pending estimate even if AI calls it a new request", async () => {
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {}, newRequest: true }) });
+    const result = await interpretRequest("Ngân sách 100 triệu nhé", workflows, { actionId: "quotation.request.create", values: { requestText: "Lắp 10 camera" } }, []);
+    expect(result).toMatchObject({ actionId: "quotation.request.create", newRequest: false, values: { requestText: "Lắp 10 camera\nNgân sách 100 triệu nhé" } });
+  });
+  it.each(["Tạo phương án dự toán ngân sách 100 triệu", "Lập ngân sách 100 triệu", "Đề xuất phương án ngân sách cho dự toán"])("preserves an explicit budget request: %s", async text => {
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {} }) });
+    expect((await interpretRequest(text, workflows, { actionId: "quotation.request.create" }, [])).actionId).toBe("quotation.budget.create");
+  });
+  it("does not substitute a budget when estimate permission is absent", async () => {
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {} }) });
+    expect((await interpretRequest("Tạo dự toán", workflows.slice(0, 1), null, [])).actionId).toBeNull();
+  });
+  it("preserves cancellation", async () => {
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {}, cancel: true }) });
+    expect(await interpretRequest("Không tạo dự toán nữa", workflows, null, [])).toMatchObject({ actionId: null, cancel: true });
+  });
+});
 describe("semantic interpretation", () => {
+  it.each(["worker.list", "student.list", "retail.partner.update"])("does not silently execute a partial request in %s", async id => {
+    const workflow = defaultWorkflow(operationById(id)!);
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: id, values: { unsupportedCondition: "sensitive-value" } }) });
+    const result = await interpretRequest("Xử lý đúng tất cả các điều kiện tôi vừa nêu", [workflow], null, []);
+    expect(result).toMatchObject({ actionId: null, intentType: "ambiguous", values: {} });
+    expect(JSON.stringify(result)).not.toContain("sensitive-value");
+  });
+  it("preserves equivalent schema names and refuses conflicting values", async () => {
+    const workflow = defaultWorkflow(operationById("worker.list")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: workflow.actionId, values: { search: "Lan" } }) });
+    expect((await interpretRequest("Tìm lao động Lan", [workflow], null, [])).values).toEqual({ query_search: "Lan" });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: workflow.actionId, values: { search: "Lan", query_search: "An" } }) });
+    expect((await interpretRequest("Tìm lao động Lan", [workflow], null, [])).actionId).toBeNull();
+  });
   it("does not turn a calendar date into authorization for a recurring schedule", async () => {
     const workflow = defaultWorkflow(operationById("payroll.reconciliation.schedule.update")!);
-    provider.mockResolvedValue({ text: JSON.stringify({ actionId: workflow.actionId, values: { dayOfMonth:5, hour:16, recurrence:"monthly" } }) });
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: workflow.actionId, values: { day:5, hour:16, recurrence:"monthly" } }) });
     const oneOff = await interpretRequest("Đổi lịch phát hành sang ngày 5/11 lúc 16 giờ", [workflow], null, []);
     expect(oneOff.values).not.toHaveProperty("recurrence");
     const recurring = await interpretRequest("Tôi xác nhận lặp hằng tháng vào ngày 5 lúc 16 giờ", [workflow], null, []);
     expect(recurring.values.recurrence).toBe("monthly");
+    expect(recurring.values.day).toBe(5);
   });
   it("drops null values so authenticated branch context can be applied", async () => {
     const workflow = defaultWorkflow(operationById("recruitment.interview.list")!);

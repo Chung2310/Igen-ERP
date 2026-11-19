@@ -54,6 +54,7 @@ export async function readAssistantTableFile(file: File): Promise<AssistantTable
   else {
     const XLSX = await import("xlsx");
     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+    if (workbook.SheetNames.length > 1) throw new Error("Tệp có nhiều trang tính. Bạn giữ lại trang cần nhập rồi gửi lại để tránh bỏ sót dữ liệu nhé.");
     const sheetName = workbook.SheetNames[0];
     const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
     if (!sheet) throw new Error("Mình chưa thấy trang tính nào trong tệp.");
@@ -76,10 +77,12 @@ export async function readAssistantTableFile(file: File): Promise<AssistantTable
   if (headers.length > maxColumns) throw new Error(`Mình chỉ nhận tối đa ${maxColumns} cột trong một lần.`);
   if (headers.some(header => header.length > 120)) throw new Error("Tên cột không được dài quá 120 ký tự.");
   const nonBlankHeaders = headers.filter(Boolean);
+  if (new Set(headers.map(header => header.toLocaleLowerCase("vi"))).size !== headers.length) throw new Error("Tên cột bị trùng. Bạn đặt tên riêng cho từng cột rồi gửi lại nhé.");
   if (nonBlankHeaders.length !== headers.length) throw new Error("Có cột chưa đặt tên. Bạn bổ sung tên ở dòng đầu tiên rồi tải lại nhé.");
 
   const rows: Array<Record<string, string>> = [];
   for (const sourceRow of matrix.slice(headerRow + 1)) {
+    if (sourceRow.slice(headers.length).some(value => String(value ?? "").trim())) throw new Error("Có dữ liệu ở cột chưa đặt tên. Bạn bổ sung tiêu đề cột rồi gửi lại nhé.");
     const row = sourceRow.slice(0, headers.length).map(value => value instanceof Date
       ? value.toISOString().slice(0, 10)
       : String(value ?? "").trim());

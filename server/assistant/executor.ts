@@ -283,6 +283,7 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  if (op.unavailableReason) throw new AssistantError(op.unavailableReason, 409);
   if (op.id === "student.batch.attendance.summary") {
     const detail = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "student.batch.detail")!;
     const response = await callOperation(req, detail, { path_id: input.path_id }, password, requestId);
@@ -1140,6 +1141,35 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
   const result = await response.json().catch(() => null) as any;
+  if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis
+    && ["partner.analysis", "api.get.78da159ec226e07e"].includes(op.id)) {
+    const rows = op.id === "partner.analysis" ? result.partners : result.data;
+    if (!Array.isArray(rows)) throw new AssistantError("Không đọc được danh sách đối tác đầy đủ.", 502);
+    const data = rows.map((row: any) => Object.fromEntries(Object.entries(op.analysis!.fields).map(([key, definition]) => {
+      const value = row?.[key];
+      if (definition.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
+      if (definition.type === "text" && typeof value !== "string") throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
+      return [key, value];
+    })));
+    return op.id === "partner.analysis"
+      ? { data, analysisPage: { total: result.total, page: result.page, keys: rows.map((row: any) => String(row._id || "")) } }
+      : { data, analysisComplete: true };
+  }
+  if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis && op.path === "/worker-management/partners/kpi") {
+    const source = result?.data;
+    if (!Array.isArray(source?.items)) throw new AssistantError("Không đọc được dữ liệu KPI đầy đủ.", 502);
+    const rows = source.items.map((row: any) => {
+      if (!row || typeof row.partner?.name !== "string" || !["achieved", "incomplete", "not_set"].includes(row.status)
+        || ![row.targetReferrals, row.actualReferrals].every(n => typeof n === "number" && Number.isFinite(n) && n >= 0)
+        || ![row.remainingReferrals, row.completionRate].every(n => n === null || (typeof n === "number" && Number.isFinite(n) && n >= 0))) {
+        throw new AssistantError("Dữ liệu KPI chưa đủ hoặc không hợp lệ để tính kết quả.", 502);
+      }
+      return { partnerName: row.partner.name, partnerCode: row.partner.code || "", targetReferrals: row.targetReferrals,
+        actualReferrals: row.actualReferrals, remainingReferrals: row.remainingReferrals, completionRate: row.completionRate, status: row.status };
+    });
+    // This endpoint returns the complete scoped partner population, without pagination.
+    return { data: rows, analysisComplete: true, periodStart: source.periodStart, periodEnd: source.periodEnd };
+  }
   if (response.ok && result?.success !== false && op.id === "student.resource.bookings.list") {
     const resource = result?.data && typeof result.data === "object" ? result.data : {};
     const bookings = Array.isArray(resource.bookings) ? resource.bookings : [];
@@ -1237,16 +1267,6 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       return safe;
     }) };
   }
-  if (op.id === "payroll.run.payslip.review-request.resolve") {
-    const request = result?.data || {};
-    return { ...result, data: {
-      employeeName: typeof request.employeeName === "string" ? request.employeeName : undefined,
-      periodKey: typeof request.periodKey === "string" ? request.periodKey : undefined,
-      status: request.status === "resolved" ? "resolved" : undefined,
-      response: typeof request.response === "string" ? request.response : undefined,
-      resolvedAt: typeof request.resolvedAt === "string" ? request.resolvedAt : undefined,
-    } };
-  }
   if (op.id === "student.email.send" && (!response.ok || !result || result.success === false || result.status === "error")) {
     if (response.status >= 500 || !result) throw new UncertainExecutionError("Chưa xác định được email đã gửi hay chưa. Hãy kiểm tra trước khi gửi yêu cầu mới; hệ thống không tự gửi lại.");
     throw new AssistantError("Không gửi được email. Hãy kiểm tra địa chỉ nhận và cấu hình gửi thư của công ty.", response.status >= 400 && response.status < 500 ? response.status : 502);
@@ -1290,6 +1310,17 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   if (!response.ok || !result || result.success === false || result.status === "error") {
     if (op.method !== "GET" && (response.status >= 500 || !result)) throw new UncertainExecutionError("API nghiệp vụ chưa xác nhận kết quả. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; yêu cầu này không được tự chạy lại.");
     throw new AssistantApiRejection(result, response.status >= 400 && response.status < 500 ? response.status : 502);
+  }
+  if (op.id === "payroll.run.payslip.review-request.resolve") {
+    const request = result?.data || {};
+    if (request.status !== "resolved") throw new UncertainExecutionError("API chưa xác nhận yêu cầu kiểm tra phiếu lương đã được xử lý. Hãy kiểm tra lại trước khi gửi phản hồi lần nữa.");
+    return { ...result, data: {
+      employeeName: typeof request.employeeName === "string" ? request.employeeName : undefined,
+      periodKey: typeof request.periodKey === "string" ? request.periodKey : undefined,
+      status: "resolved",
+      response: typeof request.response === "string" ? request.response : undefined,
+      resolvedAt: typeof request.resolvedAt === "string" ? request.resolvedAt : undefined,
+    } };
   }
   if (op.id === "student.exam.assigned-students.list") {
     const rows = Array.isArray(result?.data) ? result.data : [];
@@ -3050,6 +3081,8 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const count = typeof rawCount === "number" || (typeof rawCount === "string" && rawCount.trim()) ? Number(rawCount) : NaN;
     if (Number.isSafeInteger(count) && count >= 0) return { ...result, data: {
       count,
+      ...(input.createdFrom ? { createdFrom: input.createdFrom } : {}),
+      ...(input.createdTo ? { createdTo: input.createdTo } : {}),
       ...(typeof result.data.branchName === "string" ? { branchName: result.data.branchName } : {}),
       ...(typeof result.data.branchCode === "string" ? { branchCode: result.data.branchCode } : {}),
       ...(result.data.scope === "company" || result.data.scope === "branch" ? { scope: result.data.scope } : {}),
@@ -3140,6 +3173,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     const count = typeof rawCount === "number" || (typeof rawCount === "string" && rawCount.trim()) ? Number(rawCount) : NaN;
     return [{
       ...(Number.isSafeInteger(count) && count >= 0 ? { count } : {}),
+      ...(input.createdFrom || countRecord?.createdFrom ? { createdFrom: input.createdFrom || countRecord.createdFrom } : {}),
+      ...(input.createdTo || countRecord?.createdTo ? { createdTo: input.createdTo || countRecord.createdTo } : {}),
       ...(typeof countRecord?.branchName === "string" ? { branchName: countRecord.branchName } : {}),
       ...(typeof countRecord?.branchCode === "string" ? { branchCode: countRecord.branchCode } : {}),
       ...(countRecord?.scope === "company" || countRecord?.scope === "branch" ? { scope: countRecord.scope } : {}),
@@ -3366,6 +3401,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     const receipts = Array.isArray(responseData?.unregisteredReceipts) ? responseData.unregisteredReceipts.map((item: any) => ({ item, targetType: "unregisteredReceipt", code: item.receiptCode, name: item.supplierName, amount: item.subtotal, balance: item.subtotal, dueDate: item.receivedAt, status: "Chưa ghi công nợ" })) : [];
     return [...receivables, ...payables, ...receipts].map(({ item, ...row }: any) => ({
       id: String(item._id || item.id || ""),
+      branchId: String(item.branchId || input.targetBranch || req?.user?.branchId || ''),
       ...row,
     })).filter((item: any) => /^[a-f\d]{24}$/i.test(item.id));
   }
@@ -3596,6 +3632,9 @@ function referenceValues(record: Record<string, any>) {
   return [record.id, record._id, record.uid, record.studentId, record.installmentNo, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.amountDue, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
 }
 function referenceLabel(record: Record<string, any>) {
+  if ((record.config || record.partnerId !== undefined) && record.effectiveAt && typeof record.effectiveAt === "string") {
+    return `${record.partnerName || (record.partnerId ? "Chính sách đối tác" : "Chính sách chung")} — áp dụng ${formatAssistantTemporalValue(record.effectiveAt) || record.effectiveAt}`;
+  }
   if (typeof record.employeeName === "string" && typeof record.date === "string" && typeof record.status === "string"
     && (record.checkInTime !== undefined || record.checkOutTime !== undefined)) {
     const time = (value: unknown) => typeof value === "string" ? formatAssistantTemporalValue(value) || value : "";
@@ -4024,13 +4063,14 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
   try {
     let result = await callOperation(req, list, input);
     const requiresRecordProjection = list.id.startsWith("finance.treasury.")
+      || list.id === "finance.management.debts.list"
       || list.id === "hr.contract.list"
       || list.id === "hr.workflow.list"
       || list.id === "worker.partner.settlements.list"
       || list.id === "worker.partner.settlement.detail"
       || list.id === "finance.receivable.detail"
       || list.id === "marketing.video-caption.project.list";
-    let rows = requiresRecordProjection ? projectRecords(list, result, req) : rawRecords(result);
+    let rows = requiresRecordProjection ? projectRecords(list, result, req, input) : rawRecords(result);
     rows = rows.map(row => !row.id && row._id ? { ...row, id: String(row._id) } : row);
     if (list.id === "payroll.employee.me.reconciliation" || list.id === "payroll.employee.me.payslips") {
       rows = rows.map(row => ({ ...row, id: row.__assistantRef?.runId || row.runId || row.id }));
@@ -4372,7 +4412,9 @@ async function lookupReferenceCandidates(
       ...( /^\d{4}-(?:0[1-9]|1[0-2])$/.test(normalizedSearch) ? { query_periodKey: normalizedSearch } : {}),
     }
     : context;
-  let candidates = await lookupRecords(req, field.reference!, normalizedSearch, lookupContext);
+  // Private selector keys (e.g. payoutId) are intentionally non-enumerable.
+  // Let the caller match that declared key instead of losing it in text search.
+  let candidates = await lookupRecords(req, field.reference!, field.referenceValueKey && isRecordIdentifier(normalizedSearch) ? '' : normalizedSearch, lookupContext);
   if (field.reference === "batch.list" && !candidates.length && normalizedSearch.split(/\s+/).length >= 2) {
     const broaderClassSearch = normalizedSearch.split(/\s+/).slice(0, -1).join(" ");
     candidates = await lookupRecords(req, field.reference, broaderClassSearch, lookupContext);

@@ -31,7 +31,7 @@ const contractFields = [ref("quoteId", "Dự toán đã duyệt", "quote", true,
     if (["companyName", "companyAddress", "companyRepresentative", "depositAmount"].includes(field.key)) return { ...field, required: false, systemRequired: false };
     return { ...field, required: false, systemRequired: false, requiredWhen: { field: "quoteId", present: true } };
   });
-const editableContract = new Set(["scope", "paymentTerms", "deliveryTerms", "projectName", "projectAddress", "deliverables", "signingPlace", "bankDetails", "otherTerms", "signedDate"]);
+const editableContract = new Set(["scope", "paymentTerms", "deliveryTerms", "projectName", "projectAddress", "deliverables", "signingPlace", "bankDetails", "otherTerms", "signedDate", "depositAmount"]);
 const contractOutputs = ["contractNumber", "quoteNumber", "customerName", "customerEmail", "customerPhone", "customerAddress", "customerTaxId", "customerRepresentative", "companyName", "companyAddress", "companyTaxId", "companyPhone", "companyEmail", "companyRepresentative", "status", "projectName", "projectAddress", "scope", "paymentTerms", "deliveryTerms", "deliverables", "depositAmount", "bankDetails", "otherTerms", "signingPlace", "signedDate", "total", "currency"];
 const acceptanceAmountFields = [number("settlementAmount", "Giá trị quyết toán", false), number("amountPaid", "Số tiền đã thanh toán", false)];
 const acceptanceFields = [ref("contractId", "Hợp đồng đã ký", "contract", true, { status: "signed" }), ref("templateId", "Mẫu nghiệm thu", "template", false, { category: "acceptance" }), date("acceptedDate", "Ngày nghiệm thu", true), text("location", "Địa điểm nghiệm thu", true), text("result", "Kết quả nghiệm thu", true, 2000), text("notes", "Ghi chú nghiệm thu", false, 4000),
@@ -67,6 +67,11 @@ add("request.create", "Tạo yêu cầu lập dự toán", "/quote-requests", "P
 add("request.analyze", "Phân tích yêu cầu lập dự toán bằng AI", "/quote-requests/:id/analyze", "POST", [target("request", "Yêu cầu cần phân tích")], ["status", "missingFields", "items", "suggestedProducts"]);
 add("customer-quote.suggest", "Đề xuất sản phẩm cho báo giá khách hàng", "/customer-quotes/suggest", "POST", [text("prompt", "Yêu cầu báo giá khách hàng", true, 3000)], ["items", "missingProducts", "questions"], false);
 add("quote.list", "Tra cứu báo giá và dự toán", "/quotes", "GET", [query(options("kind", "Loại hồ sơ", ["customer", "estimate"])), query(options("status", "Trạng thái", ["draft", "needs_info", "pending_review", "approved", "rejected"])), query(text("search", "Mã báo giá hoặc tên khách hàng", false, 100)), query({ ...number("page", "Trang", false, 100000), min: 1, integer: true })]);
+QUOTATION_OPERATIONS.at(-1)!.fields.push(
+  { ...query(date("from", "Ngày lập từ")), requiredWhen: { field: "to", present: true } },
+  { ...query(date("to", "Ngày lập đến")), requiredWhen: { field: "from", present: true } },
+);
+QUOTATION_OPERATIONS.at(-1)!.description += " Lọc ngày lập bằng from/to theo ngày Việt Nam, bao gồm cả ngày cuối. Khi hỏi theo tháng phải có đủ khoảng ngày của tháng, không được bỏ kỳ. Danh sách có phân trang, không dùng một trang để kết luận tổng số hoặc tổng tiền toàn bộ.";
 add("quote.detail", "Xem chi tiết báo giá hoặc dự toán", "/quotes/:id", "GET", [target("quote", "Báo giá hoặc dự toán")], quoteDetailFields);
 add("customer-quote.create", "Lập báo giá khách hàng từ bảng giá", "/customer-quotes", "POST", [...contact, ref("templateId", "Mẫu báo giá khách hàng", "template", true, { category: "quote" }), { ...json("items", "Sản phẩm khách hàng cần báo giá", rows({ catalogItemId: product, unit: string("Đơn vị tính"), quantity: { ...quantity, required: false } }), true), alternativeField: "sourceRequirements" }, { ...text("sourceRequirements", "Yêu cầu khách hàng (để AI gợi ý sản phẩm)", false, 10000), alternativeField: "items" }]);
 QUOTATION_OPERATIONS.at(-1)!.completionUpdateId = "quotation.quote.update";
@@ -93,7 +98,7 @@ for (const [action, title, fields] of [
 add("contract.list", "Tra cứu hợp đồng trong Báo giá", "/contracts", "GET", [], contractOutputs);
 add("contract.detail", "Xem chi tiết hợp đồng Báo giá", "/contracts/:id", "GET", [target("contract", "Hợp đồng")], [...contractOutputs, "lines"]);
 add("contract.create", "Tạo hợp đồng từ dự toán đã duyệt", "/contracts", "POST", contractFields, contractOutputs);
-add("contract.update", "Cập nhật hợp đồng Báo giá đang nháp", "/contracts/:id", "PATCH", [target("contract", "Hợp đồng cần sửa"), ...optional(contractFields.filter(f => editableContract.has(f.key)))], contractOutputs);
+add("contract.update", "Cập nhật hợp đồng Báo giá đang nháp", "/contracts/:id", "PATCH", [target("contract", "Hợp đồng cần sửa"), ...optional(contractFields.filter(f => editableContract.has(f.key))).map(({ defaultValue: _default, ...field }) => field)], contractOutputs);
 add("contract.sign", "Xác nhận đã ký hợp đồng Báo giá", "/contracts/:id/sign", "POST", [target("contract", "Hợp đồng cần xác nhận đã ký"), date("signedDate", "Ngày ký thực tế", true)], contractOutputs);
 add("acceptance.list", "Tra cứu biên bản nghiệm thu", "/acceptance-records", "GET", [], acceptanceOutputs);
 add("acceptance.detail", "Xem chi tiết biên bản nghiệm thu", "/acceptance-records/:id", "GET", [target("acceptance", "Biên bản nghiệm thu")], acceptanceOutputs);

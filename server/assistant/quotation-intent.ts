@@ -1,10 +1,17 @@
 /** Code-owned disambiguation; the model still extracts user-supplied field values. */
+export function explicitlyRequestsBudgetCreation(text: string): boolean {
+  const t = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ");
+  const positive = t.replace(/\b(?:khong|dung|chua)\s+(?:can\s+|muon\s+)?(?:tao|lap|len|lam|de xuat)\s+(?:phuong an\s+)?ngan sach\b/g, "");
+  return /\b(?:tao|lap|len|lam|de xuat|goi y)\s+(?:(?:giup|cho)\s+(?:toi|minh)\s+)?(?:(?:mot|ban)\s+)?(?:ngan sach|phuong an)\b/.test(positive);
+}
+
 export function quotationIntent(text: string): { domain: boolean; actionId?: string } {
   const t = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
   if (/\b(?:sua chua|bao hanh|phieu sua|pos|ca ban hang|don ban le|lao dong|nhan su)\b/.test(t)) return { domain: false };
   const domain = /\b(?:bao gia|du toan|bang gia|nghiem thu|quyet toan)\b/.test(t) || /\b(?:bg|nt)-[\w-]+/i.test(t);
   if (!domain || /\b(?:la gi|huong dan|cach (?:tao|lap|su dung))\b/.test(t)) return { domain: false };
-  const create = /\b(?:tao|lap|them|nhap moi)\b/.test(t);
+  const create = /\b(?:tao|lap|them|nhap moi|len|soan|lam)\b/.test(t) || /\b(?:can|muon)\s+(?:mot\s+|ban\s+)?du toan\b/.test(t);
+  const explicitEstimate = create && /\bdu toan\b/.test(t) && !explicitlyRequestsBudgetCreation(text);
   const estimateFromQuote = /\b(?:tu|theo) bao gia\b/.test(t);
   const estimateFromAnalyzedRequest = /\byeu cau da (?:duoc )?phan tich\b/.test(t);
   const update = /\b(?:cap nhat|sua|chinh sua|bo sung|thay doi)\b/.test(t);
@@ -25,7 +32,7 @@ export function quotationIntent(text: string): { domain: boolean; actionId?: str
   else if (/\b(?:tai|download)\b/.test(t) && /\b(?:file|tep)\b/.test(t)) id = "file.download";
   else if (/\b(?:nghiem thu|quyet toan)\b/.test(t)) id = exportFile ? /\bquyet toan\b/.test(t) ? "acceptance.settlement" : "acceptance.export" : /\b(?:hoan tat|hoan thanh)\b/.test(t) ? "acceptance.complete" : update ? "acceptance.update" : create ? "acceptance.create" : /\bchi tiet\b/.test(t) ? "acceptance.detail" : "acceptance.list";
   else if (/\bhop dong\b/.test(t)) id = /\b(?:da ky|xac nhan ky|xac nhan.*ky)\b/.test(t) ? "contract.sign" : exportFile ? "contract.export" : update ? "contract.update" : create ? "contract.create" : /\bchi tiet\b/.test(t) ? "contract.detail" : "contract.list";
-  else if (/\b(?:ngan sach|phuong an)\b/.test(t)) id = exportFile ? "budget.export" : /\btinh lai\b/.test(t) ? "budget.recalculate" : /\bgia dinh\b/.test(t) && update ? "budget.assumption" : /\b(?:tra loi|cau hoi)\b/.test(t) && update ? "budget.answer" : /\bso luong\b/.test(t) && update ? "budget.quantity" : /\bhang muc.*thieu\b/.test(t) && update ? "budget.missing" : create || /\bde xuat\b/.test(t) ? "budget.create" : "budget.list";
+  else if (/\b(?:ngan sach|phuong an)\b/.test(t) && !explicitEstimate) id = exportFile ? "budget.export" : /\btinh lai\b/.test(t) ? "budget.recalculate" : /\bgia dinh\b/.test(t) && update ? "budget.assumption" : /\b(?:tra loi|cau hoi)\b/.test(t) && update ? "budget.answer" : /\bso luong\b/.test(t) && update ? "budget.quantity" : /\bhang muc.*thieu\b/.test(t) && update ? "budget.missing" : create || /\bde xuat\b/.test(t) ? "budget.create" : "budget.list";
   else if (/\byeu cau\b/.test(t) && !/\bda phan tich\b/.test(t) && /\b(?:phan tich|yeu cau lap du toan|yeu cau du toan)\b/.test(t)) id = /\bphan tich\b/.test(t) ? "request.analyze" : create ? "request.create" : "request.list";
   else if (/\bgui duyet\b/.test(t)) id = "quote.submit-review";
   else if (/\b(?:tra lai|tu choi)\b/.test(t)) id = "quote.reject";

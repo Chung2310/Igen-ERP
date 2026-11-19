@@ -1,4 +1,5 @@
 import { quoteApprovalBlockers, quoteHasApprovalBlockers } from "./quote-approval";
+import { quoteCreatedRange } from "./created-range";
 import { acceptanceFinancials, settlementContractContext } from "./acceptance-export";
 import { publicErrorMessage } from "./public-errors";
 import { registerCatalogRoutes } from "./catalog.routes";
@@ -1289,6 +1290,10 @@ app.get("/quotes", async (request, response) => {
   const collection = db.collection<Quote>("quotes");
   const status = request.query.status;
   const filter: Document = { companyId: user.companyId };
+  try {
+    const range = quoteCreatedRange(request.query.from, request.query.to);
+    if (range) filter.createdAt = range;
+  } catch (error) { return fail(response, (error as Error).message); }
   if (request.query.kind === "customer") filter.kind = "customer";
   else filter.kind = { $ne: "customer" };
   if (typeof status === "string" && ["draft", "needs_info", "pending_review", "approved", "rejected"].includes(status)) filter.status = status;
@@ -1321,7 +1326,7 @@ app.get("/quotes", async (request, response) => {
   const [total, statusRows] = await Promise.all([
     collection.countDocuments(filter),
     collection.aggregate<{ _id: QuoteStatus; count: number; revenue: number }>([
-      { $match: { companyId: user.companyId, kind: filter.kind, fileCreationPending: { $exists: true } } },
+      { $match: { companyId: user.companyId, kind: filter.kind, ...(filter.createdAt ? { createdAt: filter.createdAt } : {}), fileCreationPending: { $exists: true } } },
       { $group: { _id: "$status", count: { $sum: 1 }, revenue: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, "$total", 0] } } } },
     ]).toArray(),
   ]);

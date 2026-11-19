@@ -7,6 +7,7 @@ import { retailProfitReport } from "../services/retail-profit.service";
 import { RetailCommissionPolicyModel, RetailCommissionLedgerModel, RetailCommissionAccountModel } from "../models/retail-commission.model";
 import { RetailPartnerModel } from "../models/retail-partner.model";
 import { partnerStatement, payPartnerCommission, reconcilePartnerCommission } from "../services/retail-commission.service";
+import { retailPartnerPerformanceRows } from "../services/retail-partner-performance";
 
 export const retailFinanceRoutes = Router();
 const manage = requirePermission("retail:manage") as any;
@@ -51,14 +52,8 @@ retailFinanceRoutes.get("/commission/kpi", partnerManage, handle(async (req) => 
     { $group: { _id: "$partnerId", commission: { $sum: "$amount" }, sources: { $sum: 1 } } },
     { $sort: { commission: -1 } },
   ]);
-  const partners = await RetailPartnerModel.find({ companyCode: branch.companyCode, _id: { $in: items.map((item) => item._id) } })
+  const partners = await RetailPartnerModel.find({ companyCode: branch.companyCode, $or: [{ roles: "collaborator" }, { _id: { $in: items.map((item) => item._id) } }] })
     .select("_id code name")
     .lean();
-  const partnerById = new Map(partners.map((partner) => [String(partner._id), partner]));
-  return items.map((item) => ({
-    partnerName: partnerById.get(String(item._id))?.name || "Đối tác đã ngừng hoạt động",
-    partnerCode: partnerById.get(String(item._id))?.code || "",
-    commission: Number(item.commission || 0),
-    sources: Number(item.sources || 0),
-  }));
+  return retailPartnerPerformanceRows(items, partners);
 }));

@@ -4,8 +4,13 @@ import type { ModuleKey } from "../config/module-keys";
 import { TRAINING_CATEGORY_VALUES } from "../../src/shared/training-categories";
 import { HEALTHCARE_OPERATIONS, healthcareWorkflowInstructions } from "./healthcare-catalog";
 import { QUOTATION_OPERATIONS, quotationWorkflowInstructions } from "./quotation-catalog";
+import type { AnalysisContract } from "./list-analysis";
 
 export interface AssistantOperation {
+  unavailableReason?: string;
+  analysis?: AnalysisContract;
+  partialUpdate?: boolean;
+  partialUpdateArrayKeys?: Record<string, string>;
   id: string; title: string; description: string; module: ModuleKey;
   modules?: ModuleKey[];
   permissions: string[]; method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -19,6 +24,8 @@ export interface AssistantOperation {
   assistantOnlyFields?: string[];
   fixedPathValues?: Record<string, string>;
   fixedBodyValues?: Record<string, unknown>;
+  /** Explicit command endpoints whose mutation is fully specified by the route. */
+  allowEmptyUpdate?: boolean;
   optionalPathFields?: string[];
   systemBodyFields?: string[];
   mergeBodyWithReference?: boolean;
@@ -86,7 +93,7 @@ if (employeeList) operations.push({
   description: "Đếm nhân sự công ty/chi nhánh. Hỏi nhân sự mới trong tháng/khoảng thời gian: lọc createdFrom và createdTo theo ngày tạo hồ sơ; không phải số ứng viên tuyển dụng. Chỉ trả tổng số hồ sơ trong phạm vi được cấp quyền.",
   path: "/auth/users/count",
   fields: [...employeeList.fields.filter(field => field.apiKey === "branchId"), { ...date("createdFrom", "Hồ sơ tạo từ ngày"), source: "query", apiKey: "createdFrom" }, { ...date("createdTo", "Hồ sơ tạo đến ngày"), source: "query", apiKey: "createdTo" }],
-  resultFields: ["count", "branchName", "branchCode", "scope"],
+  resultFields: ["count", "branchName", "branchCode", "scope", "createdFrom", "createdTo"],
   readOnly: true,
 });
 const employeeDelete = operations.find(op => op.id === "employee.delete");
@@ -914,7 +921,7 @@ operations.push(...expandedOperations.map(op => {
     ...(financeVatList ? { id: "finance.vat.list", title: "Tra cứu hóa đơn VAT", resultFields: ["invoiceNumber", "series", "direction", "partyName", "taxId", "issuedOn", "taxableAmount", "vatAmount", "deductibleVat"] } : {}),
     ...(inventoryCatalogTitles[`${op.method} ${op.path}`] ? { title: inventoryCatalogTitles[`${op.method} ${op.path}`] } : {}),
     ...(inventoryCountTitles[`${op.method} ${op.path}`] ? { title: inventoryCountTitles[`${op.method} ${op.path}`] } : {}),
-    ...(markInstallmentPaid ? { title: "Đánh dấu đợt học phí đã thu", description: "Đánh dấu một đợt học phí đã thu cho học viên đã xác định. Thao tác cần xác nhận." } : {}),
+    ...(markInstallmentPaid ? { title: "Đánh dấu đợt học phí đã thu", description: "Đánh dấu một đợt học phí đã thu cho học viên đã xác định. Thao tác cần xác nhận.", allowEmptyUpdate: true } : {}),
     ...(partnerCreate ? { title: "Tạo cộng tác viên giới thiệu học viên", description: "Tạo cộng tác viên giới thiệu học viên; cần tên và số điện thoại. Cần xác nhận trước khi lưu." } : {}),
     ...(partnerBulkCreate ? {
       id: "partner.bulk.create",
@@ -1832,6 +1839,104 @@ operations.push({ ...trainingIncomplete, id: "hr.training.progress", title: "Bá
 
 operations.push(...HEALTHCARE_OPERATIONS);
 operations.push(...QUOTATION_OPERATIONS);
+const laborKpi = operations.find(op => op.method === "GET" && op.path === "/worker-management/partners/kpi");
+if (laborKpi) {
+  laborKpi.title = "Phân tích KPI và số lao động giới thiệu của đối tác";
+  laborKpi.analysis = { fields: {
+    partnerName: { label: "Đối tác", type: "text" },
+    partnerCode: { label: "Mã đối tác", type: "text" },
+    targetReferrals: { label: "Chỉ tiêu", type: "number" },
+    actualReferrals: { label: "Đã giới thiệu", type: "number" },
+    remainingReferrals: { label: "Còn thiếu", type: "number" },
+    completionRate: { label: "Tỷ lệ đạt (%)", type: "number" },
+    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" } },
+  } };
+  laborKpi.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+  laborKpi.assistantOnlyFields = ["analysis"];
+  laborKpi.description = `Tra cứu số lao động giới thiệu và KPI của TẤT CẢ đối tác trong một tháng, bao gồm đối tác 0 lao động. query_periodAnchor là ngày trong tháng cần xem. Nếu không nêu tháng, dùng tháng hiện tại theo giờ Việt Nam. status=not_set là chưa thiết lập KPI, không phải chưa đạt. analysis là JSON khai báo, không phải mã: filters:[{field,operator:eq|ne|gt|gte|lt|lte,value}], extreme:{field,direction:min|max} giữ tất cả đồng hạng, sort:{field,direction:asc|desc}, limit:1..1000, aggregate:{operation:count|sum|avg,field}, groupBy. Bộ lọc kết hợp AND. Không kết hợp aggregate với sort/extreme/limit. Trường cho phép: ${JSON.stringify(laborKpi.analysis.fields)}. Dùng phép phân tích phù hợp mọi yêu cầu tương tự, không thay bằng tổng quan tiền hoa hồng. Không hỗ trợ khoảng nhiều tháng trong một lần gọi, cần làm rõ kỳ nếu chưa xác định được.`;
+}
+for (const op of operations.filter(op => op.path === "/worker-management/partners/policies/:policyId" && op.method === "PATCH")) {
+  op.partialUpdate = true;
+  op.partialUpdateArrayKeys = { "official.milestones": "month" };
+  op.mergeBodyWithReference = true;
+  op.description += " Chỉnh sửa từng phần cấu hình chính sách đã chọn. Chỉ trích xuất trường người dùng muốn đổi, kể cả thuộc tính lồng nhau như official.maxMonths (Số mốc tháng). Máy chủ đọc cấu hình hiện tại và giữ phần không đổi. Không điền lại các trường chưa được yêu cầu. official.milestones cập nhật từng mục theo khóa month, chỉ nêu month và thuộc tính cần sửa, giữ các mốc khác. Giảm maxMonths loại bỏ mốc vượt giới hạn, tăng maxMonths cần thu thập tiền và điều kiện cho các mốc mới. Các mảng khác là thay thế toàn bộ và phải có đủ nội dung. Không tự đoán số tiền hoặc điều kiện. Nếu chưa có tên chính sách, để trống path_policyId để người dùng chọn.";
+}
+const studentPartners = operations.find(op => op.id === "partner.list")!;
+operations.push({ ...studentPartners, id: "partner.analysis", title: "Phân tích đối tác học viên", rawResponse: true,
+  description: "Phân tích LŨY KẾ số học viên giới thiệu, tổng học phí, hoa hồng và công nợ của đối tác học viên. Không có ngày giới thiệu trong số tổng này, KHÔNG dùng để trả lời theo tháng hoặc khoảng ngày. Khi được hỏi theo kỳ, giải thích giới hạn và hỏi có muốn xem lũy kế không. Không có chỉ tiêu KPI: nếu hỏi đạt/chưa đạt KPI mà chưa nêu chỉ tiêu, hỏi chỉ tiêu và ngưỡng. Không dùng cấp bậc hoa hồng làm KPI. Số hoa hồng lấy nguyên từ API nghiệp vụ, không tự tính lại.",
+  fields: [...studentPartners.fields, queryField({ ...number("page", "Trang"), defaultValue: 1 }), queryField({ ...number("limit", "Số dòng mỗi trang"), defaultValue: 500 })],
+  analysis: { scopeLabel: "lũy kế, không giới hạn theo tháng", pagination: { pageField: "page", sizeField: "limit" }, fields: {
+    name: { label: "Đối tác", type: "text" }, levelName: { label: "Cấp bậc hoa hồng", type: "text" },
+    referredStudentsCount: { label: "Học viên giới thiệu", type: "number" }, totalReferredTuition: { label: "Tổng học phí (VND)", type: "number" },
+    totalCommission: { label: "Hoa hồng (VND)", type: "number" }, totalPaid: { label: "Đã thanh toán (VND)", type: "number" }, unpaidBalance: { label: "Còn phải trả (VND)", type: "number" },
+  } }, resultFields: ["name", "levelName", "referredStudentsCount", "totalReferredTuition", "totalCommission", "totalPaid", "unpaidBalance"] });
+const retailPerformance = operations.find(op => op.path === "/retail/finance/commission/kpi" && op.method === "GET")!;
+retailPerformance.title = "Phân tích hoa hồng đối tác bán lẻ";
+retailPerformance.fields.push(queryField(date("from", "Từ ngày", true)), queryField(date("to", "Đến ngày", true)));
+retailPerformance.analysis = { fields: {
+  partnerName: { label: "Đối tác", type: "text" }, partnerCode: { label: "Mã đối tác", type: "text" },
+  commission: { label: "Hoa hồng ròng (VND)", type: "number" }, sources: { label: "Số bút toán hoa hồng", type: "number" },
+} };
+retailPerformance.description = "Phân tích hoa hồng ròng và số BÚT TOÁN hoa hồng trong khoảng ngày theo chi nhánh, bao gồm cộng tác viên không phát sinh. commission có thể âm do hoàn/đảo hoa hồng. sources KHÔNG phải số đơn hàng, số khách hoặc lượt giới thiệu. Không có chỉ tiêu KPI đạt/chưa đạt, cần hỏi ngưỡng nếu người dùng chưa nêu. Không đổi yêu cầu về đơn hàng/khách sang số bút toán. Tháng này dùng ngày đầu đến cuối tháng hiện tại theo Việt Nam. Chỉ dùng khoảng ngày API hỗ trợ.";
+for (const op of [operations.find(op => op.id === "partner.analysis")!, retailPerformance]) {
+  op.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+  op.assistantOnlyFields = [...(op.assistantOnlyFields || []), "analysis"];
+  op.description += ` Dùng analysis với filters:[{field,operator:eq|ne|gt|gte|lt|lte,value}], extreme:{field,direction:min|max}, sort:{field,direction:asc|desc}, limit, groupBy, aggregate:{operation:count|sum|avg,field}. Giữ mọi đồng hạng cho cực trị. Không kết hợp aggregate với sort/extreme/limit. Trường cho phép: ${JSON.stringify(op.analysis!.fields)}.`;
+}
+for (const op of operations.filter(op => op.method === "PATCH" && ["/partners/commission-levels/:id", "/retail/partners/commission-policies/:id"].includes(op.path))) {
+  op.partialUpdate = true;
+  op.mergeBodyWithReference = true;
+  op.description += " Chỉ gửi thuộc tính người dùng muốn sửa. Máy chủ đọc bản hiện tại và giữ các phần không đổi, kể cả thuộc tính lồng trong config. Chọn đúng bản ghi trước khi sửa và xác nhận trước khi lưu. Không tự tạo bản ghi mới khi người dùng yêu cầu sửa.";
+}
+const retailPolicyList = operations.find(op => op.id === "retail.partner.commission.policy.list")!;
+retailPolicyList.resultFields.push("partnerName");
+retailPolicyList.description += " Chính sách được phân biệt bằng ngày áp dụng và cộng tác viên (hoặc chính sách chung). Không tự chọn một bản khi chưa xác định được.";
+for (const op of operations.filter(op => /\/retail\/partners\/commission-policies/.test(op.path) && ["POST", "PATCH"].includes(op.method))) {
+  op.description += " config.phoneAmount là tiền VND (150000–300000). config.accessoryBps và config.repairBps là điểm cơ bản (1000–1500), 1%=100 điểm cơ bản. Đổi 12% thành 1200, không phải 12. Thiếu mức tiền hoặc tỷ lệ khi tạo mới thì hỏi, không tự đặt.";
+  const config = op.fields.find(field => field.key === "config");
+  if (config) { config.required = true; config.systemRequired = true; config.structure = { type: "object", keys: {
+    phoneAmount: { type: "number", label: "Hoa hồng điện thoại (VND)", required: true, min: 150000, max: 300000 },
+    accessoryBps: { type: "number", label: "Hoa hồng phụ kiện (điểm cơ bản)", required: true, min: 1000, max: 1500 },
+    repairBps: { type: "number", label: "Hoa hồng sửa chữa (điểm cơ bản)", required: true, min: 1000, max: 1500 },
+  } }; }
+}
+const studentIndividualCommission = operations.find(op => op.id === "partner.commission.update");
+const retailInvoiceDetail = operations.find(op => op.id === 'retail.invoice.detail');
+const retailInvoiceBranch = operations.find(op => op.id === 'retail.invoice.list')?.fields.find(field => field.source === 'query' && field.apiKey === 'branchId');
+if (retailInvoiceDetail && retailInvoiceBranch && !retailInvoiceDetail.fields.some(field => field.apiKey === 'branchId')) retailInvoiceDetail.fields.push({ ...retailInvoiceBranch });
+if (studentIndividualCommission) {
+  studentIndividualCommission.unavailableReason = "Hoa hồng đối tác học viên hiện được tính theo cấp bậc và tổng học phí giới thiệu. Lưu mức riêng trên hồ sơ không thay đổi kết quả tính. Mình chưa lưu. Bạn cần chọn cấp bậc hoa hồng muốn điều chỉnh.";
+  studentIndividualCommission.description = studentIndividualCommission.unavailableReason;
+}
+// Query contracts must expose business filters to both interpretation and execution.
+// Keep these keyed by route so changing a generated operation ID cannot lose filters.
+const boundedCount = (key: string, label: string, max: number): AssistantField => ({ ...number(key, label), min: 1, max, integer: true });
+const queryChoice = choice;
+const reportDates = (): AssistantField[] => [date("from", "Từ ngày", true), date("to", "Đến ngày", true)];
+const auditedQueryFields: Record<string, AssistantField[]> = {
+  "/repair/reports/revenue": [...reportDates(), queryChoice("groupBy", "Nhóm báo cáo theo", ["branch", "technician", "day"])],
+  "/repair/reports/part-usage": reportDates(),
+  "/repair/reports/technician-performance": reportDates(),
+  "/repair/reports/feedback-summary": reportDates(),
+  "/repair/history": [text("imei", "IMEI thiết bị"), text("phone", "Số điện thoại khách hàng"), { ...text("customerId", "Khách hàng"), type: "reference", reference: "customer.list" }],
+  "/repair/feedback": [{ ...text("technicianId", "Kỹ thuật viên"), type: "reference", reference: "employee.list" }, boundedCount("limit", "Số đánh giá", 200)],
+  "/customers/search": [text("q", "Tên hoặc số điện thoại khách hàng", true), boundedCount("limit", "Số khách hàng", 20)],
+  "/inventory/receiving/suppliers": [text("q", "Từ khóa nhà cung cấp"), queryChoice("status", "Trạng thái nhà cung cấp", ["active", "inactive"])],
+  "/marketing/runs": [boundedCount("limit", "Số lần chạy", 100)],
+  "/marketing/deliveries": [queryChoice("automationType", "Loại tự động hóa", ["thank_you", "birthday", "holiday", "remarketing"]), queryChoice("status", "Trạng thái gửi", ["queued", "sending", "sent", "skipped", "failed"]), boundedCount("limit", "Số lần gửi", 200)],
+  "/retail/finance/profit": reportDates(),
+  "/retail/finance/commission/me": reportDates(),
+  "/retail/finance/commission/partners/:id/statement": reportDates(),
+  "/retail/warranty/expiring": [queryChoice("scope", "Loại bảo hành", ["supplier", "customer"]), { ...number("days", "Số ngày tới khi hết bảo hành"), min: 1, integer: true }],
+};
+for (const op of operations) {
+  const fields = op.method === "GET" ? auditedQueryFields[op.path] : undefined;
+  if (!fields) continue;
+  for (const field of fields) {
+    if (!op.fields.some(existing => existing.source === "query" && existing.apiKey === field.key)) op.fields.push(queryField(field));
+  }
+  op.description += " Giữ đầy đủ bộ lọc người dùng đã nêu. Chọn bản ghi tham chiếu theo tên, không tự đoán mã. Khoảng ngày phải có đủ đầu và cuối kỳ, thiếu kỳ thì hỏi lại. Danh sách bị giới hạn số dòng không đại diện cho toàn bộ dữ liệu.";
+}
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
@@ -1859,5 +1964,5 @@ export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
         ? "Khi tra cứu danh sách, đọc đủ các điều kiện người dùng nêu như từ khóa, trạng thái, chi nhánh, người phụ trách và khoảng ngày; điền mọi trường lọc tương ứng và có thể kết hợp nhiều bộ lọc. Không tự thêm điều kiện người dùng chưa yêu cầu. Khi người dùng nói xem toàn bộ, không tự thêm từ khóa hoặc trạng thái."
       : "";
   return { actionId: op.id, title: op.title, module: op.module, description: op.description,
-    fields: structuredClone(op.fields).map(field => field.reference ? { ...field, defaultValue: undefined } : field), enabled: true, instructions, requireConfirmation: Boolean(op.confirmation), confirmationLocked: Boolean(op.confirmation), version: 0 };
+    fields: structuredClone(op.fields).map(field => field.reference ? { ...field, defaultValue: undefined } : field), enabled: !op.unavailableReason, instructions, requireConfirmation: Boolean(op.confirmation), confirmationLocked: Boolean(op.confirmation), version: 0 };
 }

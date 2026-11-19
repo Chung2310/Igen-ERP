@@ -14,14 +14,17 @@ import { getSettings } from "./settings";
 import { directStudentRecordActionId, directWorkerRecordActionId, isEmployeeDetailsIntent } from "./interpreter";
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
+import { missingReportConstraint } from "./report-constraints";
 import { presentAssistantReply } from "./reply-presentation";
 import { applyAssistantResponseRules } from "./reply-rules";
 import { assistantCourseChoiceGuidance, assistantRequestGuidance } from "./request-guidance";
+import { businessDiscoveryReply } from "./business-discovery";
 import { appendAssistantFallback, type FallbackReason } from "./fallback-guidance";
 import { autoSaveAssistantMemories } from "./auto-memory";
 import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
 import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
-import { mapAssistantTableAttachment } from "./table-import";
+import { assistantTablePreview, mapAssistantTableAttachment } from "./table-import";
+import { exportBusinessList, isBusinessExcelRequest } from "./business-export";
 import { normalizeAssistantReply } from "./general-answer";
 import { answerAssistantConversation } from "./documents";
 import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
@@ -29,6 +32,8 @@ import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { formatQuotationResult, quotationResultLink, quotationValue } from "./quotation-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
+import { collectAnalysisPages, renderListAnalysis, validateListAnalysis } from "./list-analysis";
+import { hydratePartialUpdate } from "./partial-update";
 import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
@@ -1910,6 +1915,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     fallbackOperation = op;
     const dispatch = async (resolved: Record<string, AssistantValue>, lookup?: () => Promise<any>) => {
       if (await control.cancelled?.()) throw new PlanCancelledError("Đã dừng theo yêu cầu. Các bước đã hoàn tất được giữ nguyên.");
+      const missingConstraint = missingReportConstraint(input.text || pending?.intent || "", op, resolved);
+      if (missingConstraint) throw new AssistantError(missingConstraint);
       const readOnly = op.method === "GET" || Boolean(op.readOnly);
       const fingerprint = budget.beforeCall(op.id, resolved, readOnly);
       steps.push({ requestId: stepRequestId, actionId: op.id, status: "executing" });
@@ -1960,6 +1967,26 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
     const checked = await resolveReferences(req, operationForRequest(op, requestIntent), input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
+    if (op.partialUpdate && input.decision?.confirmed && values.__assistantExistingRecord !== checked.values.__assistantExistingRecord) {
+      throw new AssistantError("Cấu hình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Bạn gửi lại yêu cầu để kiểm tra bản mới nhé.", 409);
+    }
+    if (op.analysis) {
+      const plan = validateListAnalysis(checked.values.analysis, op.analysis);
+      const result = await collectAnalysisPages(op.analysis, checked.values, dispatch);
+      const period = String(checked.values.query_periodAnchor || "");
+      const match = period.match(/^(\d{4})-(\d{2})/);
+      const range = [checked.values.from, checked.values.to].map(value => typeof value === "string" ? formatAssistantTemporalValue(value) || "" : "");
+      const summary = `${op.title}${match ? ` tháng ${match[2]}/${match[1]}` : range.every(Boolean) ? ` từ ${range[0]} đến ${range[1]}` : op.analysis.scopeLabel ? ` (${op.analysis.scopeLabel})` : ""}`;
+      pending = null;
+      return { status: "completed", reply: renderListAnalysis(op.analysis, result.data, plan, result.analysisComplete === true, summary), link: op.link };
+    }
+    // Quotation document exports have their own job/download lifecycle. Only
+    // list lookups may become generic workbooks, never export-job responses.
+    if (isBusinessExcelRequest(requestIntent) && (op.module !== "quotation" || op.id.endsWith(".list"))) {
+      return exportBusinessList(req, op, checked.values, dispatch, {
+        conversationId: input.conversationId, requestId: input.requestId, requestText: requestIntent,
+      });
+    }
     if (input.decision?.confirmed && op.id === "student.bulk.delete") {
       const expectedImpact = pending?.confirmationDetails?.studentDeleteImpact || [];
       const currentImpact = await previewStudentDeletion(req, checked.values);
@@ -2151,6 +2178,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   };
 
   const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
+    if (isBusinessExcelRequest(intent) && operationById(actionId)?.method !== "GET") {
+      throw new AssistantError("Bạn cho mình biết danh sách và bộ lọc cần xuất Excel nhé. Chưa thực hiện thay đổi dữ liệu nào.", 422);
+    }
+    if ((input.attachment || input.conversationUpload) && operationById(actionId)?.method !== "GET") forceConfirmation = true;
     if (input.attachment) {
       const targetOp = operationById(actionId);
       if (targetOp?.method === "POST" && targetOp.path === "/students") {
@@ -2182,9 +2213,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     const op = await assertOperation(req, actionId);
     provided = normalizeAcceptanceValues(op, provided, input.text || "");
     const workflow = await currentWorkflow(req, actionId);
-    const requestWorkflow = workflowForRequest(op, workflow, intent);
-    const requestOperation = operationForRequest(op, intent);
+    let requestWorkflow = workflowForRequest(op, workflow, intent);
+    let requestOperation = operationForRequest(op, intent);
     const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
+    forceConfirmation ||= Boolean(previousPending?.confirmationDetails?.attachmentReview);
     const explicitReferenceKeys = new Set(pending?.actionId === actionId ? pending.explicitReferenceKeys || [] : []);
     for (const key of selectedReferenceKeys) explicitReferenceKeys.add(key);
     const contextualValues = normalizeStructuredAssistantValues(op, provided, previousPending?.provided);
@@ -2214,9 +2246,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (isBlank(contextualValues[key])) contextualValues[key] = input.text.trim();
     }
     let attachmentSummary = previousPending?.attachmentSummary;
+    let ignoredAttachmentColumns: string[] = [];
     if (input.attachment) {
       try {
         const mapped = op.id === "healthcare.import.preview" ? healthcareAttachment(input.attachment) : mapAssistantTableAttachment(op, input.attachment);
+        ignoredAttachmentColumns = "ignoredColumns" in mapped ? mapped.ignoredColumns || [] : [];
         if (!mapped.rowCount) return { status: "unsupported", reply: `Tệp ${input.attachment.fileName} chưa có dòng dữ liệu để nhập. Chưa có dữ liệu nào thay đổi.` };
         contextualValues[mapped.fieldKey] = JSON.stringify(mapped.rows);
         if (op.id === "healthcare.import.preview") contextualValues.filename = input.attachment.fileName;
@@ -2261,8 +2295,31 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       selectedValues.periodAnchor = `${new Date().toISOString().slice(0, 7)}-01`;
     }
     requireExplicitReceiptItemSelections(op, selectedValues, explicitReferenceKeys);
+    if (op.analysis && op.fields.some(field => field.key === "query_periodAnchor") && isBlank(selectedValues.query_periodAnchor)) {
+      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+      selectedValues.query_periodAnchor = `${parts.find(part => part.type === "year")!.value}-${parts.find(part => part.type === "month")!.value}-01`;
+    }
+    let inheritedUpdateFields: string[] = [];
+    const requestedPartialChanges = op.partialUpdate ? structuredClone(selectedValues) : undefined;
+    const selectingPartialTarget = op.partialUpdate && op.fields.some(field => field.source === "path" && isBlank(selectedValues[field.key]));
+    if (selectingPartialTarget) {
+      // Select the record first. Its existing configuration supplies untouched required fields.
+      requestWorkflow = { ...requestWorkflow, fields: requestWorkflow.fields.filter(field => field.source === "path" || field.source === "query") };
+      requestOperation = { ...requestOperation, fields: requestOperation.fields.filter(field => field.source === "path" || field.source === "query") };
+    }
+    if (op.partialUpdate && op.fields.filter(field => field.source === "path").every(field => !isBlank(selectedValues[field.key]))) {
+      const existingReference = await resolveReferences(req, { ...op, fields: op.fields.filter(field => field.source === "path" || field.source === "query") }, selectedValues as Record<string, AssistantValue>);
+      if (existingReference.errors.length) throw new AssistantError(existingReference.errors.join("\n"));
+      let existing: Record<string, unknown>;
+      try { existing = JSON.parse(String(existingReference.values.__assistantExistingRecord || "")); }
+      catch { throw new AssistantError("Chưa đọc được cấu hình hiện tại để giữ nguyên các phần không thay đổi."); }
+      const hydrated = hydratePartialUpdate(op, existing, selectedValues as Record<string, AssistantValue>);
+      Object.assign(selectedValues, hydrated.values);
+      inheritedUpdateFields = hydrated.inherited;
+    }
     for (const key of populatedNestedReferenceKeys(op, selectedValues)) skippedReferenceKeys.delete(key);
-    const collected = collectValues(requestWorkflow, Object.fromEntries(Object.entries(selectedValues).filter(([key]) => !key.startsWith("__assistant"))));
+    const collected = collectValues(requestWorkflow, Object.fromEntries(Object.entries(selectedValues).filter(([key]) => !key.startsWith("__assistant") && (!selectingPartialTarget || requestWorkflow.fields.some(field => field.key === key)))));
+    collected.defaulted.push(...inheritedUpdateFields.filter(key => !collected.defaulted.includes(key)));
     if (kpiPeriodDefaulted && !collected.defaulted.includes("periodAnchor")) collected.defaulted.push("periodAnchor");
     const missingWorkHours = missingCustomWorkHoursLabels(op, collected.values);
     collected.missing.push(...missingWorkHours.filter(label => !collected.missing.includes(label)));
@@ -2298,6 +2355,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       } catch { /* structured validation will keep malformed values from reaching the route */ }
     }
     const confirmationDetails = references.confirmationDetails || {};
+    if (attachmentSummary) {
+      confirmationDetails.attachmentRows = assistantTablePreview(op, attachmentSummary.fieldKey, references.values[attachmentSummary.fieldKey]);
+      const previousIgnored = previousPending?.confirmationDetails?.ignoredAttachmentColumns;
+      if (ignoredAttachmentColumns.length) confirmationDetails.ignoredAttachmentColumns = [{ label: "Cột chưa nhập", value: ignoredAttachmentColumns.join(", ") }];
+      else if (previousIgnored) confirmationDetails.ignoredAttachmentColumns = previousIgnored;
+    }
+    if ((input.attachment || input.conversationUpload || previousPending?.confirmationDetails?.attachmentReview) && op.method !== "GET" && !op.readOnly) {
+      confirmationDetails.attachmentReview = [{ label: "Dữ liệu từ tệp", value: "Bạn kiểm tra nội dung đã đọc từ tệp trước khi xác nhận nhé." }];
+    }
     const acceptanceFinancialDetails = op.id === "quotation.acceptance.create"
       ? quotationAcceptanceFinancialDetails(references.values)
       : [];
@@ -2391,7 +2457,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       id,
       actionId,
       provided: {
-        ...Object.fromEntries(Object.entries(selectedValues).filter(([key]) => (key === "__assistantQuotationMode" || op.fields.some(field => field.key === key)) && !unresolvedReferenceKeys.has(key) && !collected.defaulted.includes(key))),
+        ...Object.fromEntries(Object.entries(requestedPartialChanges || selectedValues).filter(([key]) => (key === "__assistantQuotationMode" || op.fields.some(field => field.key === key)) && !unresolvedReferenceKeys.has(key) && !collected.defaulted.includes(key))),
         ...(typeof references.values.__assistantQuotationSuggested === "string" && !unresolvedReferenceKeys.has("sourceRequirements")
           ? { __assistantQuotationSuggested: references.values.__assistantQuotationSuggested }
           : {}),
@@ -2547,6 +2613,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         const operation = await assertOperation(req, pending.actionId);
         const confirmationValues = Object.fromEntries(Object.entries(pending.resolved)
           .filter(([key]) => operation.fields.some(field => field.key === key) && !operation.systemBodyFields?.includes(key)));
+        // Versions are pinned by the server after the user-facing JSON has been
+        // validated. They must remain in execution, but are not editable fields.
+        if (["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(operation.id) && typeof confirmationValues.rows === "string") {
+          try {
+            const rows = JSON.parse(confirmationValues.rows);
+            if (Array.isArray(rows)) confirmationValues.rows = JSON.stringify(rows.map((row: any) => {
+              const { expectedVersion: _expectedVersion, ...visible } = row;
+              return visible;
+            }));
+          } catch { /* collectValues reports invalid JSON */ }
+        }
         const confirmationValidation = collectValues(workflowForRequest(operation, workflow, pending.intent), confirmationValues);
         reply = workflow.version !== pending.workflowVersion
           ? await prepare(pending.actionId, pending.provided, true, pending.intent)
@@ -2612,7 +2689,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       const workerMissingInfo = isWorkerMissingInfoIntent(input.text || "")
         || Boolean(missingInfoQuestion && previousAction?.actionId && workerCreateActionIds.has(previousAction.actionId) && !isLaborPartnerMissingInfoIntent(input.text || ""));
       const attachmentIntentHint = input.attachment
-        ? `Thêm danh sách từ tệp excel ${input.attachment.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")}`
+        ? `Tệp bảng đính kèm: ${input.attachment.fileName.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")}`
         : "";
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
@@ -2621,20 +2698,21 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (interpreted.cancel || interpreted.newRequest) remainingRequests = [];
       if (interpreted.actionId || interpreted.newRequest) pendingMemoryProposal = "";
       if (interpreted.actionId && interpreted.remainingRequests && (!pending || interpreted.newRequest)) remainingRequests = interpreted.remainingRequests;
-      if (conversationFile?.visualAttachments?.length && interpreted.actionId) {
-        const selectedOperation = operationById(interpreted.actionId);
+      if (conversationFile && interpreted.actionId) {
+        const selectedOperation = await assertOperation(req, interpreted.actionId);
         if (selectedOperation) {
           const imageValues = await extractAssistantAttachmentValues({
             requestText: input.text || effectiveInputText,
             operation: selectedOperation,
-            attachments: conversationFile.visualAttachments,
+            attachments: conversationFile.visualAttachments || [],
+            ...(!conversationFile.visualAttachments?.length ? { documentContext: conversationFile.documentContext } : {}),
           });
           for (const [key, value] of Object.entries(imageValues)) {
             if (isBlank(interpreted.values[key])) interpreted.values[key] = value;
           }
         }
       }
-      if (input.attachment && !interpreted.actionId && !interpreted.cancel) {
+      if (input.attachment && !interpreted.actionId && !interpreted.cancel && !interpreted.businessDiscovery) {
         const combinedText = `${input.text || ""} ${attachmentIntentHint}`.trim();
         const fallbackActionId = directStudentRecordActionId(combinedText, workflows)
           || directWorkerRecordActionId(combinedText, workflows);
@@ -2775,7 +2853,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
           && interpreted.suggestedActionIds?.includes("payroll.policy.update");
         const courseChoice = interpreted.intentType === "ambiguous"
           ? assistantCourseChoiceGuidance(workflows, interpreted.suggestedActionIds) : "";
-        if (salaryChoice) {
+        if (interpreted.businessDiscovery) {
+          needsIntentClarification = true;
+          reply = { status: "collecting", reply: businessDiscoveryReply(interpreted.businessDiscovery, workflows, interpreted.clarification)
+            + (pending ? "\n\nYêu cầu trước vẫn được giữ." : "") };
+        } else if (salaryChoice) {
           needsIntentClarification = true;
           reply = { status: "collecting", reply: "Bạn muốn cập nhật lương của nhân viên hay lương cơ bản trong chính sách lương? Bạn cho mình tên nhân viên hoặc tên chính sách cần sửa nhé." };
         } else if (courseChoice) {

@@ -6,13 +6,13 @@ import PDFDocument from "pdfkit";
 import type { AssistantDocumentFormat } from "../../src/shared/assistant-document";
 import { AssistantError } from "./policy";
 import { renderDocumentWorkbook } from "./document-workbook";
-import { assistantDocumentCellAlignment, type AssistantDocumentAlignmentValue } from "./document-formatting";
+import { assistantDocumentCellAlignment, assistantDocumentParagraphAlignment, type AssistantDocumentAlignmentValue, type AssistantDocumentSectionRole } from "./document-formatting";
 
 type Cell = string | number | boolean | null;
 export interface AssistantDocumentContent {
   title: string;
   titleAlignment?: AssistantDocumentAlignmentValue;
-  sections: { heading: string; text: string; alignment?: AssistantDocumentAlignmentValue }[];
+  sections: { heading: string; text: string; alignment?: AssistantDocumentAlignmentValue; role?: AssistantDocumentSectionRole }[];
   sheets: {
     name: string;
     columns: string[];
@@ -28,7 +28,7 @@ const alignment = Joi.string().valid("left", "center", "right").allow(null);
 const contentSchema = Joi.object({
   title: Joi.string().trim().min(1).max(200).required(),
   titleAlignment: alignment.optional(),
-  sections: Joi.array().max(60).items(Joi.object({ heading: Joi.string().max(200).allow("").required(), text: Joi.string().max(12000).allow("").required(), alignment: alignment.optional() })).required(),
+  sections: Joi.array().max(60).items(Joi.object({ heading: Joi.string().max(200).allow("").required(), text: Joi.string().max(12000).allow("").required(), alignment: alignment.optional(), role: Joi.string().valid("body", "masthead", "subtitle", "date", "signature").optional() })).required(),
   sheets: Joi.array().max(8).items(Joi.object({
     name: Joi.string().trim().min(1).max(80).required(),
     columns: Joi.array().min(1).max(40).items(Joi.string().trim().min(1).max(200)).required(),
@@ -88,8 +88,9 @@ function documentText(document: AssistantDocumentContent, markdown: boolean) {
 }
 
 function wordDocument(document: AssistantDocumentContent) {
-  const paragraph = (text: string, style?: string, alignment?: AssistantDocumentAlignmentValue) => text.split(/\r?\n/).map(line => {
-    const properties = `${style ? `<w:pStyle w:val="${style}"/>` : ""}${alignment ? `<w:jc w:val="${alignment}"/>` : ""}`;
+  const paragraph = (text: string, style?: string, alignment?: AssistantDocumentAlignmentValue, useDefaults = true, role?: AssistantDocumentSectionRole) => text.split(/\r?\n/).map(line => {
+    const resolved = useDefaults ? assistantDocumentParagraphAlignment(document.title, line, alignment, style === "Title", role) : alignment;
+    const properties = `${style ? `<w:pStyle w:val="${style}"/>` : ""}${resolved ? `<w:jc w:val="${resolved}"/>` : ""}`;
     return `<w:p>${properties ? `<w:pPr>${properties}</w:pPr>` : ""}<w:r><w:t xml:space="preserve">${xml(line)}</w:t></w:r></w:p>`;
   }).join("");
   const table = (sheet: AssistantDocumentContent["sheets"][number]) => {
@@ -97,12 +98,12 @@ function wordDocument(document: AssistantDocumentContent) {
     const widths = sheet.columns.map((_column, index) => Math.floor(width / sheet.columns.length) + (index < width % sheet.columns.length ? 1 : 0));
     return `<w:tbl><w:tblPr><w:tblW w:w="${width}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${["top", "left", "bottom", "right", "insideH", "insideV"].map(side => `<w:${side} w:val="single" w:sz="4"/>`).join("")}</w:tblBorders></w:tblPr><w:tblGrid>${widths.map(value => `<w:gridCol w:w="${value}"/>`).join("")}</w:tblGrid>${[sheet.columns, ...sheet.rows].map((row, index) => `<w:tr>${index === 0 ? "<w:trPr><w:tblHeader/></w:trPr>" : ""}${row.map((value, column) => {
       const alignment = index === 0
-        ? sheet.headerAlignments?.[column]
-        : assistantDocumentCellAlignment(sheet.columnAlignments, sheet.cellAlignments, index - 1, column);
-      return `<w:tc><w:tcPr><w:tcW w:w="${widths[column]}" w:type="dxa"/></w:tcPr>${paragraph(String(value ?? ""), undefined, alignment)}</w:tc>`;
+        ? sheet.headerAlignments?.[column] === undefined ? "center" : sheet.headerAlignments[column]
+        : assistantDocumentCellAlignment(sheet.columnAlignments, sheet.cellAlignments, index - 1, column, value);
+      return `<w:tc><w:tcPr><w:tcW w:w="${widths[column]}" w:type="dxa"/></w:tcPr>${paragraph(String(value ?? ""), undefined, alignment, false)}</w:tc>`;
     }).join("")}</w:tr>`).join("")}</w:tbl>`;
   };
-  const body = [paragraph(document.title, "Title", document.titleAlignment), ...document.sections.flatMap(section => [section.heading ? paragraph(section.heading, "Heading1", section.alignment) : "", paragraph(section.text, undefined, section.alignment)]), ...document.sheets.flatMap(sheet => [
+  const body = [paragraph(document.title, "Title", document.titleAlignment), ...document.sections.flatMap(section => [section.heading ? paragraph(section.heading, "Heading1", section.alignment, true, section.role) : "", paragraph(section.text, undefined, section.alignment, true, section.role)]), ...document.sheets.flatMap(sheet => [
     paragraph(sheet.name, "Heading1"),
     table(sheet),
   ])].join("");
@@ -127,14 +128,18 @@ async function pdfDocument(document: AssistantDocumentContent): Promise<Buffer> 
     pdf.on("pageAdded", () => { if (++pages > 150) pdf.destroy(new Error("Tài liệu PDF vượt quá 150 trang.")); });
     pdf.registerFont("Regular", path.resolve("server/assets/fonts/Roboto-Regular.ttf"));
     pdf.registerFont("Bold", path.resolve("server/assets/fonts/Roboto-Bold.ttf"));
-    pdf.font("Bold").fontSize(18).text(document.title, document.titleAlignment ? { align: document.titleAlignment } : undefined).moveDown();
+    const titleAlignment = assistantDocumentParagraphAlignment(document.title, document.title, document.titleAlignment, true);
+    pdf.font("Bold").fontSize(18).text(document.title, { align: titleAlignment || "left" }).moveDown();
     for (const section of document.sections) {
       if (section.heading) {
         const headingHeight = pdf.font("Bold").fontSize(14).heightOfString(section.heading);
         if (pdf.y + headingHeight + 36 > pdf.page.height - pdf.page.margins.bottom) pdf.addPage();
-        pdf.font("Bold").fontSize(14).text(section.heading, section.alignment ? { align: section.alignment } : undefined).moveDown(0.4);
+        pdf.font("Bold").fontSize(14).text(section.heading, { align: assistantDocumentParagraphAlignment(document.title, section.heading, section.alignment, false, section.role) || "left" }).moveDown(0.4);
       }
-      pdf.font("Regular").fontSize(11).text(section.text, { lineGap: 3, ...(section.alignment ? { align: section.alignment } : {}) }).moveDown();
+      for (const line of section.text.split(/\r?\n/)) {
+        pdf.font("Regular").fontSize(11).text(line || " ", { lineGap: 3, align: assistantDocumentParagraphAlignment(document.title, line, section.alignment, false, section.role) || "left" });
+      }
+      pdf.moveDown();
     }
     for (const sheet of document.sheets) {
       const headingHeight = pdf.font("Bold").fontSize(13).heightOfString(sheet.name);
@@ -149,8 +154,8 @@ async function pdfDocument(document: AssistantDocumentContent): Promise<Buffer> 
         if (rowHeight <= usableHeight && pdf.y + rowHeight > pdf.page.height - pdf.page.margins.bottom) pdf.addPage();
         pdf.font("Bold").fontSize(11).text(`${index + 1}.`);
         row.forEach((value, column) => {
-          const alignment = assistantDocumentCellAlignment(sheet.columnAlignments, sheet.cellAlignments, index, column);
-          pdf.font("Regular").fontSize(10).text(`${sheet.columns[column]}: ${value ?? ""}`, { lineGap: 2, ...(alignment ? { align: alignment } : {}) });
+          const alignment = assistantDocumentCellAlignment(sheet.columnAlignments, sheet.cellAlignments, index, column, value);
+          pdf.font("Regular").fontSize(10).text(`${sheet.columns[column]}: ${value ?? ""}`, { lineGap: 2, align: alignment || "left" });
         });
         pdf.moveDown(0.6);
       });
