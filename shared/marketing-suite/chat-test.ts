@@ -15,6 +15,7 @@ export interface ChatTestSession {
   sourceAccountId?: string;
   directLeadWrites?: boolean;
   documentDomain?: "general" | "telecom";
+  leadSetup?: { ready: boolean; message?: string };
 }
 
 export interface ChatTestMessage {

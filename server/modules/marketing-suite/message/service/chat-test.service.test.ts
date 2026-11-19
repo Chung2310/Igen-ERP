@@ -21,6 +21,7 @@ import {
   addChatTestMessage, createChatTestSession, deleteChatTestSession, failChatTestMessage,
   processChatTestMessage, readChatTestSession, readChatTestState, retryChatTestMessage,
   saveChatTestConfig, previewChatTestReply,
+  changeChatTestDomain,
 } from "./chat-test.service";
 
 vi.mock("./ai-auto-reply.service", () => ({ resolveAutoReplyOwner: vi.fn() }));
@@ -92,6 +93,80 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it("changes only the owned conversation mode and refuses changes while a turn is pending", async () => {
+    const session = await start();
+    const changed = await changeChatTestDomain(companyCode, userId, session.id, "telecom");
+    expect(changed).toMatchObject({ id: session.id, documentDomain: "telecom", leadSetup: { ready: false } });
+    expect(await ChatTestSessionModel.countDocuments()).toBe(1);
+    expect(await ChatTestMessageModel.countDocuments()).toBe(0);
+    await expect(changeChatTestDomain("OTHER", userId, session.id, "general")).rejects.toMatchObject({ status: 404 });
+    await expect(changeChatTestDomain(companyCode, "other-user", session.id, "general")).rejects.toMatchObject({ status: 404 });
+    await expect(changeChatTestDomain(companyCode, userId, session.id, "invalid")).rejects.toMatchObject({ status: 400 });
+    await send(session.id, "Xin tư vấn", "pending-mode-message");
+    await expect(changeChatTestDomain(companyCode, userId, session.id, "general")).rejects.toMatchObject({ status: 409 });
+    expect((await readChatTestSession(companyCode, userId, session.id)).documentDomain).toBe("telecom");
+  });
+
+  it("blocks photo-only descriptions when all Lead profiles are archived, then saves after the existing Lead columns are applied", async () => {
+    await LeadIntakeProfileModel.updateMany({ companyCode }, { $set: { status: "archived" } });
+    const session = await start();
+    const changed = await changeChatTestDomain(companyCode, userId, session.id, "telecom");
+    expect(changed.leadSetup).toMatchObject({ ready: false, message: expect.stringContaining("đang áp dụng") });
+    const bytes = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    const imageData = `data:image/png;base64,${bytes.toString("base64")}`;
+    const input = { companyCode, userId, sessionId: session.id, clientMessageId: "apply-columns-photo", text: "", imageData };
+    await expect(addChatTestMessage(input)).rejects.toMatchObject({ code: "CHAT_TEST_LEAD_SETUP_REQUIRED", status: 400 });
+    expect(await ChatTestMessageModel.countDocuments()).toBe(0);
+    expect(await MessengerBackgroundJobModel.countDocuments()).toBe(0);
+    expect(await CRMTicketModel.countDocuments()).toBe(0);
+    expect(geminiService.chat).not.toHaveBeenCalled();
+    await LeadIntakeProfileModel.create({ companyCode, status: "active", version: 2, goal: "Đọc ảnh nhà mạng", completionMessage: "Đã nhận",
+      fields: [...fields.slice(0, 2), { key: "account", label: "Mã thuê bao", question: "Account?", type: "text", required: true }],
+    });
+    vi.mocked(generateReplyCompletion).mockImplementation(async () => ({ text: JSON.stringify({ kind: "document", fields: {
+      account: { status: "readable", text: "subscriber_001" }, name: { status: "readable", text: "Nguyễn An" }, phone: { status: "readable", text: "0901234567" },
+    } }) }) as never);
+    const messageId = await addChatTestMessage(input);
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.session).toMatchObject({ id: session.id, documentDomain: "telecom", leadSetup: { ready: true } });
+    expect(state.messages[0].status).toBe("completed");
+    expect(state.leads).toHaveLength(1);
+    expect(await CRMTicketModel.findById(state.leads[0].id).lean()).toMatchObject({
+      companyCode, telecomSubscriberCode: "SUBSCRIBER_001", telecomConversationId: session.id, phone: "0901234567", customerName: "Nguyễn An",
+    });
+    expect(await LeadIntakeProfileModel.countDocuments({ companyCode, version: 1, status: "archived" })).toBe(1);
+  });
+
+  it("requires a subscriber column only for telecom photo intake", async () => {
+    const session = await start(false, "telecom");
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.session.leadSetup).toMatchObject({ ready: false, message: expect.stringContaining("Account") });
+    await expect(send(session.id, "", "no-account-column", "data:image/png;base64,AA==")).rejects.toMatchObject({ code: "CHAT_TEST_LEAD_SETUP_REQUIRED" });
+    await changeChatTestDomain(companyCode, userId, session.id, "general");
+    expect((await readChatTestState(companyCode, userId, session.id)).session.leadSetup).toEqual({ ready: true });
+    await expect(send(session.id, "", "general-no-account", "data:image/png;base64,AA==")).resolves.toEqual(expect.any(String));
+  });
+
+  it("does not fall back to generic image chat if the Lead profile is archived after the upload was queued", async () => {
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $push: { fields: {
+      key: "account", label: "Account", question: "Mã?", type: "text", required: true,
+    } } });
+    const session = await start(false, "telecom");
+    const messageId = await send(session.id, "", "profile-archived-after-send", "data:image/png;base64,AA==");
+    await LeadIntakeProfileModel.updateMany({ companyCode }, { $set: { status: "archived" } });
+    let failure: unknown;
+    try { await processChatTestMessage({ sessionId: session.id, messageId }); } catch (error) { failure = error; }
+    expect(failure).toMatchObject({ code: "CHAT_TEST_LEAD_SETUP_REQUIRED" });
+    await failChatTestMessage({ sessionId: session.id, messageId }, failure);
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.messages[0]).toMatchObject({ status: "failed", phase: "lead", errorCode: "CHAT_TEST_LEAD_SETUP_REQUIRED",
+      error: expect.stringContaining("Thiết lập Lead") });
+    expect(geminiService.chat).not.toHaveBeenCalled();
+    expect(generateReplyCompletion).not.toHaveBeenCalled();
+    expect(await CRMTicketModel.countDocuments()).toBe(0);
+  });
+
   it("answers two documents with no Lead profile through the real visual parser without a sample-selection crash", async () => {
     await LeadIntakeProfileModel.deleteMany({ companyCode });
     await UserModel.updateOne({ _id: userId }, { $set: { "aiAutoReplyConfig.imageReplyEnabled": true } });

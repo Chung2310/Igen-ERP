@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { ImagePlus, Plus, Settings2, X } from "lucide-react";
 import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { ErpRefreshButton } from "../../../../../components/common/ErpRefreshButton";
@@ -32,6 +32,8 @@ export function ChatTestTab({ accounts, onConfigureLead, settingsRevision = 0, i
   const [source, setSource] = useState("personal");
   const [documentDomain, setDocumentDomain] = useState<"general" | "telecom">("general");
   const [creating, setCreating] = useState(false);
+  const [changingDomain, setChangingDomain] = useState(false);
+  const [sessionRevision, setSessionRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
@@ -55,12 +57,29 @@ export function ChatTestTab({ accounts, onConfigureLead, settingsRevision = 0, i
       const session = await chatTestService.create({
         channel: account?.platform === "zalo" ? "zalo" : "facebook",
         ...(account ? { sourceAccountId: account.accountId } : {}), ocrEnabled: false,
-        documentDomain,
+        documentDomain: selectedSession?.documentDomain || documentDomain,
       });
       setSessions(current => [session, ...current]);
       setSelectedId(session.id);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không tạo được hội thoại."); }
     finally { setCreating(false); }
+  }
+  const onSessionLoaded = useCallback((session: ChatTestSession) => {
+    setSessions(current => current.some(item => item.id === session.id)
+      ? current.map(item => item.id === session.id ? session : item) : [session, ...current]);
+  }, []);
+  async function changeDomain(value: string) {
+    const next = value === "telecom" ? "telecom" : "general";
+    if (!selectedId) { setDocumentDomain(next); return; }
+    if (next === (selectedSession?.documentDomain || "general")) return;
+    setChangingDomain(true); setError("");
+    try {
+      const saved = await chatTestService.setDomain(selectedId, next);
+      onSessionLoaded(saved);
+      setDocumentDomain(next);
+      setSessionRevision(current => current + 1);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không đổi được chế độ hội thoại."); }
+    finally { setChangingDomain(false); }
   }
   const customers = useMemo<CustomerInbox[]>(() => sessions.map(session => ({
     id: session.id, name: session.label, avatar: "NB", lastMessage: "", time: "",
@@ -75,15 +94,15 @@ export function ChatTestTab({ accounts, onConfigureLead, settingsRevision = 0, i
       {selectedSession && <span className="text-sm text-on-surface-variant" role="status">
         Đang thử: {selectedSession.documentDomain === "telecom" ? "Nhà mạng" : "Thông thường"}
       </span>}
-      <StyledSelect ariaLabel="Loại hội thoại mới" appearance="erp" value={documentDomain} disabled={creating}
+      <StyledSelect ariaLabel="Chế độ hội thoại" appearance="erp" value={selectedSession?.documentDomain || documentDomain} disabled={creating || changingDomain || loading || selectedSession?.pending}
         className="w-44 max-w-full" options={[{ value: "general", label: "Thông thường" }, { value: "telecom", label: "Nhà mạng" }]}
-        onChange={value => setDocumentDomain(value === "telecom" ? "telecom" : "general")} />
+        onChange={value => { void changeDomain(value); }} />
       <StyledSelect ariaLabel="Lấy cấu hình ban đầu từ" appearance="erp" value={source} onChange={setSource} disabled={creating}
         className="w-64" options={[{ value: "personal", label: "Cấu hình AI của tôi" },
           ...accounts.filter(account => account.platform !== "tiktok").map(account => ({
             value: `${account.platform}:${account.accountId}`, label: account.displayName,
           }))]} />
-      <button type="button" className={primaryCreateButtonClass} disabled={creating} onClick={() => void create()}>
+      <button type="button" className={primaryCreateButtonClass} disabled={creating || changingDomain} onClick={() => void create()}>
         <Plus className="size-4" aria-hidden="true" /> {creating ? "Đang tạo…" : "Hội thoại mới"}
       </button>
       <ErpRefreshButton loading={loading} onClick={() => { setLoading(true); setReload(value => value + 1); }} />
@@ -91,14 +110,16 @@ export function ChatTestTab({ accounts, onConfigureLead, settingsRevision = 0, i
     {error && <p role="alert" className="px-3 py-2 text-pretty text-sm text-error">{error}</p>}
     <div className="min-h-0 flex-1 overflow-hidden">
       <DirectConversation key={selectedId || "empty"} id={selectedId} customers={customers} loading={loading}
-        onSelect={setSelectedId} onConfigureLead={onConfigureLead} settingsRevision={settingsRevision} />
+        onSelect={setSelectedId} onConfigureLead={onConfigureLead} settingsRevision={settingsRevision}
+        sessionRevision={sessionRevision + reload} switchingDomain={changingDomain} onSessionLoaded={onSessionLoaded} />
     </div>
   </div>;
 }
 
-function DirectConversation({ id, customers, loading, onSelect, onConfigureLead, settingsRevision }: {
+function DirectConversation({ id, customers, loading, onSelect, onConfigureLead, settingsRevision, sessionRevision, switchingDomain, onSessionLoaded }: {
   id: string; customers: CustomerInbox[]; loading: boolean; onSelect: (id: string) => void;
-  onConfigureLead: (scope: string) => void; settingsRevision: number;
+  onConfigureLead: (scope: string) => void; settingsRevision: number; sessionRevision: number; switchingDomain: boolean;
+  onSessionLoaded: (session: ChatTestSession) => void;
 }) {
   const [data, setData] = useState<ChatTestState>();
   const [draft, setDraft] = useState("");
@@ -125,13 +146,14 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
         const next = await chatTestService.read(id, controller.signal);
         if (controller.signal.aborted) return;
         setData(next);
+        onSessionLoaded(next.session);
         setError("");
         if (next.session.pending) timer = setTimeout(load, 1500);
       } catch (cause) { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Không tải được hội thoại."); }
     }
     void load();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [id, refresh, settingsRevision]);
+  }, [id, refresh, settingsRevision, sessionRevision, onSessionLoaded]);
   const imageKey = data?.messages.flatMap(message => Array.from({ length: message.imageCount ?? (message.hasImage ? 1 : 0) }, (_, index) => `${message.id}:${index}`)).join(",") || "";
   useEffect(() => {
     const controller = new AbortController();
@@ -154,6 +176,7 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
     return () => urls.forEach(URL.revokeObjectURL);
   }, [files]);
   const pending = data?.session.pending === true;
+  const busy = sending || pending || switchingDomain;
   const last = data?.messages.at(-1);
   const history: ChatMessage[] = data?.messages.flatMap(message => [
     { id: message.id, sender: "user" as const, text: message.text, timestamp: new Date(message.createdAt),
@@ -163,7 +186,7 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
   ]) || [];
   function choose(incoming: File[]) {
     if (!incoming.length) return;
-    if (!id || !data || sending || pending) {
+    if (!id || !data || busy) {
       setError("Chờ hội thoại sẵn sàng và chatbot trả lời xong trước khi thêm ảnh."); return;
     }
     const next = [...new Set([...files, ...incoming])];
@@ -183,7 +206,7 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
   }
   async function send(event: FormEvent) {
     event.preventDefault();
-    if (!id || sending || pending || (!draft.trim() && !files.length)) return;
+    if (!id || busy || (!draft.trim() && !files.length)) return;
     const request = pendingSend.current?.text === draft && pendingSend.current.files === files
       ? pendingSend.current : { key: crypto.randomUUID(), text: draft, files };
     pendingSend.current = request; setSending(true); setError("");
@@ -203,7 +226,7 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
   return <>
     <OmniChatTab inboxCustomers={customers} activeCustomer={active} chatHistory={history}
       chatPagination={{ limit: 100, hasMore: false, nextBefore: null, loadingMore: false }}
-      typeMessage={draft} setTypeMessage={setDraft} aiWaiting={sending || pending}
+      typeMessage={draft} setTypeMessage={setDraft} aiWaiting={busy}
       aiConfig={data?.aiConfig || defaultConfig} setAIConfig={async config => {
         const saved = await chatTestService.saveConfig(id, config);
         setData(current => current ? { ...current, aiConfig: saved } : current);
@@ -239,12 +262,12 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
           if (!hasDraggedFiles(event.dataTransfer)) return;
           event.preventDefault();
           dragDepth.current++;
-          if (id && data && !sending && !pending) setDraggingImage(true);
+          if (id && data && !busy) setDraggingImage(true);
         },
         onDragOver: event => {
           if (!hasDraggedFiles(event.dataTransfer)) return;
           event.preventDefault();
-          event.dataTransfer.dropEffect = id && data && !sending && !pending ? "copy" : "none";
+          event.dataTransfer.dropEffect = id && data && !busy ? "copy" : "none";
         },
         onDragLeave: event => {
           event.preventDefault();
@@ -263,25 +286,33 @@ function DirectConversation({ id, customers, loading, onSelect, onConfigureLead,
         </div>,
         composer: <div className="mb-2 flex flex-wrap items-center gap-2">
           <input type="file" multiple ref={upload} className="sr-only" tabIndex={-1} accept="image/jpeg,image/png,image/webp,image/gif"
-            aria-label="Chọn ảnh gửi cho chatbot" aria-describedby={attachmentHintId} disabled={sending || pending} onChange={event => choose(Array.from(event.target.files || []))} />
-          <button type="button" className={buttonClass} aria-describedby={attachmentHintId} disabled={sending || pending} onClick={() => upload.current?.click()}>
+            aria-label="Chọn ảnh gửi cho chatbot" aria-describedby={attachmentHintId} disabled={busy} onChange={event => choose(Array.from(event.target.files || []))} />
+          <button type="button" className={buttonClass} aria-describedby={attachmentHintId} disabled={busy} onClick={() => upload.current?.click()}>
             <ImagePlus className="size-4" aria-hidden="true" /> Gửi ảnh
           </button>
           <p id={attachmentHintId} className="text-pretty text-xs text-on-surface-variant">Kéo thả hoặc Ctrl+V để thêm ảnh · Tối đa 3 ảnh, tổng 8 MB mỗi lượt</p>
           {previews.map((preview, index) => <div key={index} className="flex items-center gap-1">
             <img src={preview} alt={index === 0 ? "Ảnh sắp gửi" : `Ảnh sắp gửi ${index + 1}`} className="size-14 rounded object-contain" />
-            <button type="button" className={buttonClass} disabled={sending || pending} aria-label={`Bỏ ảnh ${index + 1}`}
+            <button type="button" className={buttonClass} disabled={busy} aria-label={`Bỏ ảnh ${index + 1}`}
               onClick={() => { setFiles(current => current.filter((_, position) => position !== index)); if (upload.current) upload.current.value = ""; }}>
               <X className="size-4" aria-hidden="true" />
             </button>
           </div>)}
         </div>,
         status: <div className="mb-2 space-y-1 text-xs">
+          {switchingDomain && <p role="status" className="text-on-surface-variant">Đang đổi chế độ hội thoại…</p>}
+          {data?.session.documentDomain === "telecom" && data.session.leadSetup?.ready === false && <div className="space-y-2 rounded-xl border border-outline-variant bg-surface-container-low p-3">
+            <p role="status" className="text-pretty text-on-surface">{data.session.leadSetup.message} Ảnh chưa được lưu vào Lead khi chưa có bộ cột phù hợp.</p>
+            <button type="button" className={buttonClass} aria-haspopup="dialog" onClick={() =>
+              onConfigureLead(data.session.sourceAccountId ? `${data.session.channel}:${data.session.sourceAccountId}` : "company")}>
+              Mở thiết lập cột Lead
+            </button>
+          </div>}
           {error && <p role="alert" className="text-pretty text-error">{error}</p>}
           {last?.status === "completed" && last.error && <p role="status" className="text-on-surface-variant">{last.error}</p>}
           {pending && <p role="status" className="text-on-surface-variant">{phases[last?.phase || ""] || "Đang chờ chatbot…"}</p>}
           {last?.status === "failed" && <div><p role="alert" className="text-error">{last.error}</p>
-            <button type="button" className={buttonClass} disabled={sending || pending} onClick={() => {
+            <button type="button" className={buttonClass} disabled={busy} onClick={() => {
               void chatTestService.retry(id, last.id).then(() => setRefresh(value => value + 1))
                 .catch(cause => setError(cause instanceof Error ? cause.message : "Không thử lại được."));
             }}>Thử lại</button></div>}

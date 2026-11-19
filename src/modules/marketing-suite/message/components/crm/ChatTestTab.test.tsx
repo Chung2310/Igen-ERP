@@ -9,7 +9,7 @@ import type { AIChatConfig } from "../../types/crm";
 
 vi.mock("../../services/chatTestService", () => ({
   chatTestService: { list: vi.fn(), create: vi.fn(), read: vi.fn(), send: vi.fn(), image: vi.fn(), retry: vi.fn(),
-    saveConfig: vi.fn(), preview: vi.fn(), createLead: vi.fn() },
+    saveConfig: vi.fn(), preview: vi.fn(), createLead: vi.fn(), setDomain: vi.fn() },
 }));
 vi.mock("../../../shared/api/gemini", () => ({
   geminiApi: { getKnowledgeHealth: vi.fn(), fetchAIReplyLogs: vi.fn() },
@@ -35,6 +35,11 @@ beforeEach(() => {
   vi.mocked(chatTestService.create).mockResolvedValue(session);
   vi.mocked(chatTestService.read).mockResolvedValue({ session, aiConfig, messages: [], leads: [] });
   vi.mocked(chatTestService.saveConfig).mockImplementation(async (_id, config) => config);
+  vi.mocked(chatTestService.setDomain).mockImplementation(async (_id, documentDomain) => {
+    const changed = { ...session, documentDomain };
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: changed, aiConfig, messages: [], leads: [] });
+    return changed;
+  });
   vi.mocked(geminiApi.getKnowledgeHealth).mockResolvedValue({ documents: [] } as never);
   vi.mocked(geminiApi.fetchAIReplyLogs).mockResolvedValue([]);
 });
@@ -173,15 +178,103 @@ describe("Direct CRM chat", () => {
   });
 
   it("only enables the telecom document flow when explicitly creating a Nhà mạng conversation", async () => {
-    vi.mocked(chatTestService.create).mockResolvedValue({ ...session, documentDomain: "telecom" });
+    vi.mocked(chatTestService.list).mockResolvedValue([]);
+    const changed: ChatTestSession = { ...session, documentDomain: "telecom" };
+    vi.mocked(chatTestService.create).mockResolvedValue(changed);
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: changed, aiConfig, messages: [], leads: [] });
     render(<ChatTestTab accounts={[]} onConfigureLead={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Loại hội thoại mới" }));
+    const mode = screen.getByRole("button", { name: "Chế độ hội thoại" });
+    await waitFor(() => expect(mode).toHaveProperty("disabled", false));
+    fireEvent.click(mode);
     fireEvent.click(await screen.findByRole("option", { name: "Nhà mạng" }));
     fireEvent.click(screen.getByRole("button", { name: "Hội thoại mới" }));
     await waitFor(() => expect(chatTestService.create).toHaveBeenCalledWith({
       channel: "facebook", ocrEnabled: false, documentDomain: "telecom",
     }));
     expect(await screen.findByText("Đang thử: Nhà mạng")).toBeTruthy();
+    expect(chatTestService.setDomain).not.toHaveBeenCalled();
+  });
+
+  it("changes the existing conversation mode immediately and keeps its message draft and photos", async () => {
+    const { textbox } = await renderReadyChat();
+    const file = new File(["image"], "pending.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Chọn ảnh gửi cho chatbot"), { target: { files: [file] } });
+    fireEvent.change(textbox, { target: { value: "Thông tin cần lưu" } });
+    let resolveMode!: (value: ChatTestSession) => void;
+    vi.mocked(chatTestService.setDomain).mockReturnValue(new Promise(resolve => { resolveMode = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Chế độ hội thoại" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Nhà mạng" }));
+    await waitFor(() => expect(chatTestService.setDomain).toHaveBeenCalledWith("session-1", "telecom"));
+    expect(textbox).toHaveProperty("disabled", true);
+    expect(screen.getByText("Đang thử: Thông thường")).toBeTruthy();
+    const changed: ChatTestSession = { ...session, documentDomain: "telecom", leadSetup: { ready: true } };
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: changed, aiConfig, messages: [], leads: [] });
+    resolveMode(changed);
+    await screen.findByText("Đang thử: Nhà mạng");
+    await waitFor(() => expect(textbox).toHaveProperty("disabled", false));
+    expect(screen.getByRole("button", { name: "Chế độ hội thoại" }).textContent).toContain("Nhà mạng");
+    expect(textbox).toHaveProperty("value", "Thông tin cần lưu");
+    expect(screen.getByAltText("Ảnh sắp gửi")).toBeTruthy();
+    expect(chatTestService.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps the displayed mode unchanged if saving the change fails", async () => {
+    await renderReadyChat();
+    vi.mocked(chatTestService.setDomain).mockRejectedValueOnce(new Error("Chờ lượt đang xử lý"));
+    fireEvent.click(screen.getByRole("button", { name: "Chế độ hội thoại" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Nhà mạng" }));
+    await screen.findByText("Chờ lượt đang xử lý");
+    expect(screen.getByText("Đang thử: Thông thường")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Chế độ hội thoại" }).textContent).toContain("Thông thường");
+  });
+
+  it("restores the saved mode and uses it when starting another conversation", async () => {
+    const changed: ChatTestSession = { ...session, documentDomain: "telecom" };
+    vi.mocked(chatTestService.list).mockResolvedValue([changed]);
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: changed, aiConfig, messages: [], leads: [] });
+    await renderReadyChat();
+    expect(screen.getByRole("button", { name: "Chế độ hội thoại" }).textContent).toContain("Nhà mạng");
+    fireEvent.click(screen.getByRole("button", { name: "Hội thoại mới" }));
+    await waitFor(() => expect(chatTestService.create).toHaveBeenCalledWith(expect.objectContaining({ documentDomain: "telecom" })));
+  });
+
+  it("shows the missing Lead setup, opens its existing builder, and preserves photos until the columns are applied", async () => {
+    const setupMessage = "Chưa có bộ trường Lead đang áp dụng.";
+    const blocked: ChatTestSession = { ...session, documentDomain: "telecom", fields: [], leadSetup: { ready: false, message: setupMessage } };
+    vi.mocked(chatTestService.list).mockResolvedValue([blocked]);
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: blocked, aiConfig, messages: [], leads: [] });
+    const onConfigureLead = vi.fn();
+    const rendered = render(<ChatTestTab accounts={[]} onConfigureLead={onConfigureLead} />);
+    const upload = await screen.findByLabelText("Chọn ảnh gửi cho chatbot");
+    await waitFor(() => expect(upload).toHaveProperty("disabled", false));
+    expect(screen.getByText(/Ảnh chưa được lưu vào Lead/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mở thiết lập cột Lead" }));
+    expect(onConfigureLead).toHaveBeenCalledWith("company");
+    const file = new File(["image"], "pending.png", { type: "image/png" });
+    fireEvent.change(upload, { target: { files: [file] } });
+    vi.mocked(chatTestService.send).mockRejectedValueOnce(new Error(setupMessage));
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await screen.findByRole("alert");
+    expect(screen.getByAltText("Ảnh sắp gửi")).toBeTruthy();
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: { ...blocked, fields: session.fields, leadSetup: { ready: true } }, aiConfig, messages: [], leads: [] });
+    rendered.rerender(<ChatTestTab accounts={[]} onConfigureLead={onConfigureLead} settingsRevision={1} />);
+    await waitFor(() => expect(screen.queryByText(/Ảnh chưa được lưu vào Lead/)).toBeNull());
+    expect(screen.getByAltText("Ảnh sắp gửi")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Gửi tin nhắn" }));
+    await waitFor(() => expect(chatTestService.send).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(chatTestService.send).mock.calls[0]).toEqual(vi.mocked(chatTestService.send).mock.calls[1]);
+  });
+
+  it("refreshes the effective Lead columns when Làm mới is pressed", async () => {
+    const blocked: ChatTestSession = { ...session, documentDomain: "telecom", fields: [],
+      leadSetup: { ready: false, message: "Cần áp dụng bộ trường Lead." } };
+    vi.mocked(chatTestService.list).mockResolvedValue([blocked]);
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: blocked, aiConfig, messages: [], leads: [] });
+    await renderReadyChat();
+    expect(screen.getByText(/Ảnh chưa được lưu vào Lead/)).toBeTruthy();
+    vi.mocked(chatTestService.read).mockResolvedValue({ session: { ...blocked, fields: session.fields, leadSetup: { ready: true } }, aiConfig, messages: [], leads: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Làm mới" }));
+    await waitFor(() => expect(screen.queryByText(/Ảnh chưa được lưu vào Lead/)).toBeNull());
   });
 
   it("loads and saves rules through the same AI settings panel as the inbox", async () => {

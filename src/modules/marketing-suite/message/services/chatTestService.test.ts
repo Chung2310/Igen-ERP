@@ -10,6 +10,13 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it("updates the current conversation mode rather than creating a replacement conversation", async () => {
+  await chatTestService.setDomain("existing-session", "telecom");
+  expect(fetcher).toHaveBeenCalledWith("/api/v1/omni-inbox/chat-test/existing-session/domain", expect.objectContaining({
+    method: "PATCH", body: JSON.stringify({ documentDomain: "telecom" }),
+  }));
+});
+
 it("sends the whole image batch as repeated multipart image fields", async () => {
   const files = ["one", "two", "three"].map(name => new File([name], name + ".png", { type: "image/png" }));
   await chatTestService.send("session", "client-message", "Nội dung", files);

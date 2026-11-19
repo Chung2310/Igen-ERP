@@ -29,6 +29,9 @@ export const chatTestService = {
     return request<ChatTestSession>("", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   },
   read(id: string, signal?: AbortSignal) { return request<ChatTestState>(`/${id}`, { signal }); },
+  setDomain(id: string, documentDomain: "general" | "telecom") {
+    return request<ChatTestSession>(`/${id}/domain`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ documentDomain }) });
+  },
   send(id: string, clientMessageId: string, text: string, file?: File | File[]) {
     const body = new FormData();
     body.set("clientMessageId", clientMessageId);

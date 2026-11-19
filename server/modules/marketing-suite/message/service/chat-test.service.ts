@@ -106,6 +106,31 @@ export async function readChatTestSession(companyCode: string, userId: string, i
   return session;
 }
 
+function chatTestLeadSetup(domain: string | undefined, fields: LeadIntakeField[]) {
+  if (domain !== "telecom") return { ready: true };
+  if (!fields.length) return { ready: false, message: "Chưa có bộ trường Lead đang áp dụng. Mở Thiết lập Lead, chọn các cột cần lưu rồi Lưu và áp dụng." };
+  const subscriber = findSubscriberField(fields);
+  if (!subscriber || (subscriber.type && subscriber.type !== "text")) return { ready: false,
+    message: "Bộ trường Lead cần một cột Mã thuê bao hoặc Account kiểu văn bản để nhận diện và lưu từng hồ sơ nhà mạng." };
+  return { ready: true };
+}
+
+function requireChatTestLeadSetup(domain: string | undefined, fields: LeadIntakeField[]) {
+  const setup = chatTestLeadSetup(domain, fields);
+  if (!setup.ready) throw Object.assign(chatTestError(setup.message!), { code: "CHAT_TEST_LEAD_SETUP_REQUIRED" });
+}
+
+export async function changeChatTestDomain(companyCode: string, userId: string, id: string, documentDomain: unknown) {
+  if (documentDomain !== "general" && documentDomain !== "telecom") throw chatTestError("Chế độ hội thoại không hợp lệ.");
+  const session = await readChatTestSession(companyCode, userId, id);
+  const profile = await readChatTestProfile(session);
+  const saved = await ChatTestSessionModel.findOneAndUpdate({ _id: id, companyCode, userId, archived: { $ne: true },
+    pendingMessageId: { $exists: false } }, { $set: { documentDomain } }, { runValidators: true, returnDocument: "after" }).lean();
+  if (!saved) throw chatTestError("Chờ chatbot trả lời xong trước khi đổi chế độ.", 409);
+  const fields = session.directLeadWrites ? profile?.fields || [] : session.fields;
+  return { ...publicChatTestSession(saved), fields, leadSetup: chatTestLeadSetup(documentDomain, fields) };
+}
+
 export async function readChatTestState(companyCode: string, userId: string, id: string) {
   const session = await readChatTestSession(companyCode, userId, id);
   const storageCompanyCode = session.directLeadWrites ? companyCode : session.sandboxCompanyCode;
@@ -124,7 +149,8 @@ export async function readChatTestState(companyCode: string, userId: string, id:
     { _id: { $in: photos.flatMap(photo => photo.leadId ? [photo.leadId] : []) } },
   ] }).sort({ lastInteractionAt: -1 }).limit(100).lean();
   return {
-    session: { ...publicChatTestSession(session), fields: session.directLeadWrites ? profile?.fields || [] : session.fields },
+    session: { ...publicChatTestSession(session), fields: session.directLeadWrites ? profile?.fields || [] : session.fields,
+      leadSetup: chatTestLeadSetup(session.documentDomain, session.directLeadWrites ? profile?.fields || [] : session.fields) },
     aiConfig,
     messages: messages.reverse().map((message): ChatTestMessage => {
       const photo = photos.find(item => item.messageId === String(message._id))
@@ -182,6 +208,10 @@ export async function addChatTestMessage(input: {
   assertChatTestImages(images);
   const session = await readChatTestSession(input.companyCode, input.userId, input.sessionId);
   if (session.archived) throw chatTestError("Hội thoại đã được ẩn.", 409);
+  if (images.length && session.documentDomain === "telecom") {
+    const profile = await readChatTestProfile(session);
+    requireChatTestLeadSetup(session.documentDomain, profile?.fields || []);
+  }
   const aiConfig = await readChatTestAiConfig(session);
   return ChatTestSessionModel.db.transaction(async transaction => {
     const existing = await ChatTestMessageModel.findOne({
@@ -243,6 +273,7 @@ export async function createChatTestLead(companyCode: string, userId: string, id
   const session = await readChatTestSession(companyCode, userId, id);
   if (!session.directLeadWrites || session.archived) throw chatTestError("Hội thoại chưa hỗ trợ ghi Lead trực tiếp.");
   const profile = await readChatTestProfile(session);
+  requireChatTestLeadSetup(session.documentDomain, profile?.fields || []);
   const lead = await CRMTicketModel.findOneAndUpdate({
     companyCode, sourcePlatform: session.channel, sourceAccountId: session.sourceAccountId || `chat-test:${id}`, sourceConversationId: id,
   }, { $setOnInsert: { customerName: "Khách nội bộ", intakeFields: profile?.fields || [],
@@ -355,6 +386,10 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
     const uploadedImages = message.imageFiles?.length ? message.imageFiles
       : message.imageData ? [{ data: message.imageData, hash: message.imageHash }] : [];
     const hasImages = uploadedImages.length > 0;
+    if (hasImages && !chatTestLeadSetup(session.documentDomain, leadFields).ready) {
+      await ChatTestMessageModel.updateOne({ _id: message._id }, { $set: { phase: "lead" } });
+      requireChatTestLeadSetup(session.documentDomain, leadFields);
+    }
     let verifiedImageValues: Record<string, string> = {};
     let readings: ChatTestReading[] = [];
     const profileHash = createHash("sha256").update(JSON.stringify({ fields: leadFields, domain: session.documentDomain || "general" })).digest("hex");
@@ -513,6 +548,7 @@ export async function failChatTestMessage(job: { sessionId: string; messageId: s
   if (timedOut) detail = "AI xử lý quá thời gian cho lượt này. Bạn có thể bấm Thử lại; các ảnh đã gửi vẫn được giữ.";
   if (failure?.code === "CHAT_MESSAGE_OPENROUTER_KEY_MISSING") detail = "Chưa cấu hình API key của Chat Message.";
   if (failure?.code === "AI_SUBSCRIPTION_LIMIT") detail = failure.message || "Gói AI đã hết lượt.";
+  if (failure?.code === "CHAT_TEST_LEAD_SETUP_REQUIRED") detail = failure.message || "Mở Thiết lập Lead và lưu bộ trường trước khi đọc ảnh nhà mạng.";
   if (failure?.status === 429 || failure?.statusCode === 429) detail = "Dịch vụ AI đang giới hạn tần suất. Chờ một lúc rồi thử lại.";
   await ChatTestSessionModel.db.transaction(async transaction => {
     await ChatTestMessageModel.updateOne({ _id: job.messageId, sessionId: job.sessionId, status: { $ne: "completed" } }, {

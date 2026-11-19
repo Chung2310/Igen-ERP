@@ -11,6 +11,7 @@ import {
   publicChatTestSession, readChatTestSession, readChatTestState, retryChatTestMessage,
   saveChatTestConfig, readChatTestOcrConfig, saveChatTestOcrConfig, previewChatTestReply,
   createChatTestLead,
+  changeChatTestDomain,
 } from "../service/chat-test.service";
 
 export const chatTestRouter = Router();
@@ -40,6 +41,8 @@ chatTestRouter.get("/:id", run(async (req, res) =>
 
 chatTestRouter.patch("/:id/config", run(async (req, res) =>
   res.json({ status: "success", data: await saveChatTestConfig(req.user!.companyCode, req.user!.id, req.params.id, req.body?.aiConfig) })));
+chatTestRouter.patch("/:id/domain", run(async (req, res) =>
+  res.json({ status: "success", data: await changeChatTestDomain(req.user!.companyCode, req.user!.id, req.params.id, req.body?.documentDomain) })));
 chatTestRouter.post("/:id/lead", run(async (req, res) =>
   res.json({ status: "success", data: await createChatTestLead(req.user!.companyCode, req.user!.id, req.params.id) })));
 chatTestRouter.get("/:id/ocr-config", run(async (req, res) =>
