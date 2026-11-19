@@ -75,6 +75,7 @@ export async function resetCompanyChat(companyCode: string) {
     const chatStateScope = { companyCode: { $in: [companyCode, ...tests.map(test => test.sandboxCompanyCode)] } };
 
     const background = { $or: [
+      { kind: "facebook-webhook" as const, "payload.pageId": { $in: facebookIds } },
       { kind: "zalo-webhook" as const, "payload.oa_id": { $in: zaloIds } },
       { kind: { $in: ["lead-intake", "lead-contract-ocr"] as const }, "payload.companyCode": companyCode },
       { kind: "chat-test" as const, "payload.sessionId": { $in: testIds.map(String) } },

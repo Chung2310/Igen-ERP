@@ -241,6 +241,13 @@ function appendCustomGuidance(
     .join(String.fromCharCode(10));
 }
 
+export class BusinessRuleReviewError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BusinessRuleReviewError";
+  }
+}
+
 async function applyAdvancedRules(
   model: string,
   ruleText: unknown,
@@ -286,7 +293,7 @@ async function applyAdvancedRules(
       : {
           type: "object",
           properties: { compliant: { type: "boolean" }, violations: { type: "array", items: { type: "string" } } },
-          required: ["compliant"],
+          required: ["compliant", "violations"],
         };
     const response = await generateText(
       model,
@@ -316,7 +323,7 @@ async function applyAdvancedRules(
           "Read the full conversationContext to answer the latest customer turn, honor the latest correction (including a changed recipient), and avoid repeating questions already answered. If the customer acknowledges a concrete offer in the previous assistant turn, carry it out using available companyKnowledge; do not reply only with a generic acknowledgement or ask again whether to do it.",
           includeCorrection
             ? "Return JSON with compliant and correctedParts. If all replies comply, set compliant=true and copy every reply unchanged. Otherwise correct every noncompliant reply while preserving meaning and array length. Make the smallest changes needed, preserve grounded facts, natural warm conversational language, and the original voice; do not add canned greetings or questions. Set compliant=true only if every correctedParts item follows every rule and is factually grounded; set false if you cannot make them comply."
-            : "Return JSON with compliant only. Set it true only if every supplied reply follows every business rule and factual-grounding requirement.",
+            : "Return JSON with compliant and violations. If every reply follows the applicable business rules and is factually grounded, return true and an empty violations array. Otherwise return false and list only the specific rule or unsupported claim that needs to be corrected.",
         ].join("\n"),
         temperature: 0,
         responseSchema,
@@ -328,11 +335,15 @@ async function applyAdvancedRules(
       }
     );
 
-    return safeParseJson(response.text) as {
-      compliant?: boolean;
-      correctedParts?: unknown;
-      violations?: unknown;
-    };
+    try {
+      const result = safeParseJson(response.text);
+      if (typeof result?.compliant === "boolean") {
+        return result as { compliant: boolean; correctedParts?: unknown; violations?: unknown };
+      }
+    } catch {
+      throw new BusinessRuleReviewError("Business-rule review returned invalid JSON.");
+    }
+    throw new BusinessRuleReviewError("Business-rule review returned no compliance decision.");
   };
 
   const firstReview = await review(candidateParts, true);
@@ -344,7 +355,7 @@ async function applyAdvancedRules(
       typeof part !== "string" || (!part.trim() && Boolean(candidateParts[index].trim()))
     )
   ) {
-    throw new Error("Business-rule review could not produce a valid corrected reply.");
+    throw new BusinessRuleReviewError("Business-rule review could not produce a valid corrected reply.");
   }
 
   const correctedParts = (firstReview.correctedParts as string[]).map(part => applyCustomerAddressStyle(part, preferredAddressStyle));
@@ -370,7 +381,7 @@ async function applyAdvancedRules(
     } catch {
       // Retain the original failure contract if repair or verification fails.
     }
-    throw new Error("Business-rule review could not confirm a compliant reply.");
+    throw new BusinessRuleReviewError("Business-rule review could not confirm a compliant reply.");
   }
   // Return exactly the checked output; substitutions after review can break rules.
   return correctedParts;
