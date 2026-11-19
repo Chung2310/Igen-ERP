@@ -317,6 +317,7 @@ export default function UserAdminTab() {
     if (userProfile?.role === "superadmin") {
       defaultRoles.push(
         { role: "admin", displayName: getRoleDisplayName("admin"), level: 2 },
+        { role: "gym_admin", displayName: getRoleDisplayName("gym_admin"), level: 2 },
         { role: "superadmin", displayName: getRoleDisplayName("superadmin"), level: 1 }
       );
     } else if (userProfile?.role === "admin") {
@@ -327,7 +328,7 @@ export default function UserAdminTab() {
 
     // Merge with custom roles
     const customRoles = rolePermissionsList
-      .filter(rp => !["user", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
+      .filter(rp => !["user", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin", "gym_admin", "gym_pt"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
         displayName: getRoleDisplayName(rp.role, rp.displayName),
@@ -344,6 +345,7 @@ export default function UserAdminTab() {
   // - Superadmin: see all, filter by selectedCompanyCode
   // - Admin: see all users in the same company (except superadmins)
   const visibleUsers = usersList.filter((usr) => {
+    if (usr.role === "gym_pt") return false;
     // 1. Lọc theo Doanh nghiệp
     if (userProfile?.role === "superadmin") {
       if (selectedCompanyCode !== "all" && usr.companyCode !== selectedCompanyCode) {
@@ -837,7 +839,9 @@ export default function UserAdminTab() {
                     "finance-receivable:read"
                   ],
                   teacher: ["people:read", "people:manage"],
-                  pos_cashier: ["pos:manage"]
+                  pos_cashier: ["pos:manage"],
+                  gym_admin: ["gym-admin:manage"],
+                  gym_pt: ["gym-pt:manage"],
                 };
 
                 const defaultRolesList = [
@@ -846,10 +850,12 @@ export default function UserAdminTab() {
                   { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
                   { role: "pos_cashier", displayName: getRoleDisplayName("pos_cashier"), level: 5, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.pos_cashier },
                   { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.teacher },
-                  { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
+                  { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user },
+                  { role: "gym_admin", displayName: getRoleDisplayName("gym_admin"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.gym_admin },
+                  { role: "gym_pt", displayName: getRoleDisplayName("gym_pt"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.gym_pt },
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user", "pos_cashier"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user", "pos_cashier", "gym_admin", "gym_pt"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {

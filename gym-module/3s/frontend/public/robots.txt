@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /portal/
+Disallow: /login
+Disallow: /api/
+
+Sitemap: https://3s.igentechnology.net/sitemap.xml

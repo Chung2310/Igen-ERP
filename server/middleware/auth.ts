@@ -64,7 +64,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   // Giảng viên chỉ làm việc trong khu vực học viên. Quyền people:manage
   // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
-  teacher: ["people:manage"]
+  teacher: ["people:manage"],
+  gym_admin: ["gym-admin:manage"],
+  gym_pt: ["gym-pt:manage"],
 };
 DEFAULT_ROLE_PERMISSIONS.admin.push("retail-partner:manage", "retail-partner-policy:manage", "retail-partner-payout:manage", "retail-shift-approve:manage", "retail-shift-assign:manage", "retail-payment-review:manage", "retail-coupon:manage", "retail-points:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
@@ -89,6 +91,8 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   user: 4,
   teacher: 4,
   pos_cashier: 5,
+  gym_admin: 2,
+  gym_pt: 4,
 };
 
 /**

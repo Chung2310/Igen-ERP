@@ -1,0 +1,2 @@
+interface CareLog { _id: string; kind?: string; result?: string; createdAt?: string }
+export default function CareLogPanel({ logs }: { logs: CareLog[] }) { return <section className="panel"><h2>Nhật ký chăm sóc</h2>{logs.length ? logs.map((log) => <article className="published-card" key={log._id}><strong>{log.kind}</strong><p>{log.result}</p></article>) : <div className="empty-state">Chưa có nhật ký.</div>}</section>; }

@@ -61,6 +61,9 @@ RUN --mount=type=cache,target=/home/node/.cache/yarn,uid=1000,gid=1000 \
 # directory — it is never served over HTTP)
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/dist-server ./dist-server
+COPY --from=builder --chown=node:node /app/gym-module/3s/package.json /app/gym-module/3s/package-lock.json ./gym-module/3s/
+COPY --from=builder --chown=node:node /app/gym-module/3s/dist ./gym-module/3s/dist
+RUN npm ci --omit=dev --prefix gym-module/3s
 COPY --from=builder --chown=node:node /app/server/assets/fonts ./server/assets/fonts
 COPY --from=builder --chown=node:node /app/server/modules/marketing-suite/campaign/service/agents/skills ./server/modules/marketing-suite/campaign/service/agents/skills
 

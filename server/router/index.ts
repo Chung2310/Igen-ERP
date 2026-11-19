@@ -53,10 +53,13 @@ import { repairFeedbackRoutes } from "../modules/repair/repair-feedback.routes";
 import { financeRouter } from "../modules/finance/router";
 import { customerRouter } from "../modules/customer-management/router";
 import { marketingRouter } from "../modules/marketing/router";
+import { gymCallbackRouter, gymProxyRouter } from "../modules/gym/proxy";
 export const apiRouter = Router();
 apiRouter.use(marketingSuiteRouter);
 apiRouter.use("/quotation", requireAuth as any, requireModule("quotation"), quotationRouter);
 apiRouter.use("/healthcare", requireAuth as any, requireModule("healthcare"), healthcareRouter);
+apiRouter.use("/gym/callback", gymCallbackRouter);
+apiRouter.use("/gym", requireAuth as any, requireModule("gym"), gymProxyRouter);
 apiRouter.use("/architect-assistant", requireAuth as any, requireModule("architect-assistant"), architectAssistantRouter);
 apiRouter.use("/legal-reference", requireAuth as any, requireModule("legal-reference"), legalReferenceRouter);
 

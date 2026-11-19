@@ -11,6 +11,7 @@ firebase-applet-config
 .agent
 temp_key
 package-lock.json
+!gym-module/3s/package-lock.json
 claude-render.hyperframe-tmp
 nginx/*
 !nginx/igenerp.conf

@@ -37,6 +37,8 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
   feature("quotation-contract", "Hợp đồng thương mại", "Báo giá"),
   feature("quotation-acceptance", "Nghiệm thu và quyết toán", "Báo giá"),
   feature("healthcare", "Hồ sơ bệnh nhân", "Quản lý y tế"),
+  feature("gym-admin", "Admin GYM", "Chuỗi GYM"),
+  feature("gym-pt", "PT", "Chuỗi GYM"),
   feature("healthcare-visits", "Lượt khám", "Quản lý y tế"),
   feature("healthcare-appointments", "Lịch hẹn", "Quản lý y tế"),
   feature("healthcare-care", "Chăm sóc bệnh nhân", "Quản lý y tế"),

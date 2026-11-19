@@ -325,7 +325,8 @@ export const authService = {
    * Lấy danh sách người dùng theo bộ lọc, tự động seed cấu trúc sơ đồ mẫu nếu doanh nghiệp mới trống
    */
   async getUsers(filter: { companyCode?: string; [key: string]: any } = {}): Promise<IUser[]> {
-    let users = await UserModel.find(filter).select("-password").sort({ createdAt: -1 });
+    const personnelFilter = { $and: [filter, { role: { $ne: "gym_pt" } }] };
+    let users = await UserModel.find(personnelFilter).select("-password").sort({ createdAt: -1 });
 
     // Tự động seed sơ đồ tổ chức mẫu nếu cấu hình SEED_MOCK_USERS=true và có <= 1 thành viên
     if (process.env.SEED_MOCK_USERS === "true" && filter.companyCode && filter.companyCode !== "SYSTEM" && users.length <= 1) {
@@ -443,7 +444,7 @@ export const authService = {
         });
         await csKh.save();
 
-        users = await UserModel.find(filter).select("-password").sort({ createdAt: -1 });
+        users = await UserModel.find(personnelFilter).select("-password").sort({ createdAt: -1 });
       }
     }
 
@@ -609,6 +610,8 @@ export const authService = {
     } = data;
 
     const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
+    if (role === "gym_pt") throw new Error("Tài khoản PT được tạo trong phân hệ Chuỗi GYM.");
+    if (role === "gym_admin" && callerRole !== "superadmin") throw new Error("Chỉ Superadmin được cấp tài khoản Admin GYM.");
     const emailLower = email.toLowerCase().trim();
     const existingUser = await UserModel.findOne({ email: emailLower });
     if (existingUser) {
@@ -744,7 +747,7 @@ export const authService = {
     let orgChartRelationships: Array<{ id: string; parentId?: string }> = [];
     if (updateData.parentId !== undefined) {
       shouldClearParent = updateData.parentId === null || updateData.parentId === "";
-      orgChartRelationships = (await UserModel.find({ companyCode: user.companyCode, disabledAt: null, isActive: { $ne: false }, role: { $ne: "superadmin" } })
+      orgChartRelationships = (await UserModel.find({ companyCode: user.companyCode, disabledAt: null, isActive: { $ne: false }, role: { $nin: ["superadmin", "gym_pt"] } })
         .select("_id parentId level")
         .lean()).map((record: any) => ({ id: String(record._id), parentId: record.parentId ? String(record.parentId) : undefined }));
       if (shouldClearParent) {
@@ -783,6 +786,8 @@ export const authService = {
       if (!activeBranch) throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
     }
 
+    if (updateData.role === "gym_pt") throw new Error("Tài khoản PT được quản lý trong phân hệ Chuỗi GYM.");
+    if (updateData.role === "gym_admin" && callerRole !== "superadmin") throw new Error("Chỉ Superadmin được cấp vai trò Admin GYM.");
     if (updateData.role && callerRole !== "superadmin") {
       if (callerRole !== "admin") {
         throw new Error("Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.");
@@ -870,6 +875,8 @@ export const authService = {
         }
       }
 
+      if (data.role === "gym_pt") throw new Error("Tài khoản PT được quản lý trong phân hệ Chuỗi GYM.");
+      if (data.role === "gym_admin" && callerRole !== "superadmin") throw new Error("Chỉ Superadmin được cấp vai trò Admin GYM.");
       if (data.role && callerRole !== "superadmin") {
         if (callerRole !== "admin") {
           throw new Error("Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.");

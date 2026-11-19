@@ -333,6 +333,13 @@ async function startServer() {
   app.use("/api/v1", apiNotFound);
   app.use(apiErrorHandler);
 
+  // 3S giữ nguyên giao diện trong một ứng dụng con, tách CSS và điều hướng khỏi ERP.
+  const gymDistPath = path.join(process.cwd(), "dist", "chuoi-gym");
+  app.use("/chuoi-gym", express.static(gymDistPath));
+  app.get("/chuoi-gym/*", (req, res, next) => {
+    res.sendFile(path.join(gymDistPath, "index.html"), (error) => { if (error) next(error); });
+  });
+
   // 4. Cấu hình phục vụ tệp tĩnh (Vite Dev Server hoặc Static production files)
   if (process.env.NODE_ENV !== "production") {
     // Dynamic import để tránh require vite trong production bundle

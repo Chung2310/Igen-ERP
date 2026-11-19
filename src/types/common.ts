@@ -3,6 +3,7 @@ export type TabType =
   | "TRỢ LÝ KIẾN TRÚC"
   | "BÁO GIÁ"
   | "QUẢN LÝ Y TẾ"
+  | "CHUỖI GYM"
   | "QUẢN LÝ LAO ĐỘNG"
   | "QUẢN LÝ KHÁCH HÀNG"
   | "BÁN LẺ"

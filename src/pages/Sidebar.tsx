@@ -54,6 +54,7 @@ import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { canViewAiSubscription, filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
 import { MARKETING_SUITE_MENU } from "../modules/marketing-suite/navigation";
+import GymModuleIcon from "../modules/gym/GymModuleIcon";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -77,6 +78,7 @@ const baseMenuItems: MenuItem[] = [
   { label: "TRỢ LÝ KIẾN TRÚC", title: "Trợ lý kiến trúc", icon: Ruler, group: "operations" },
   { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
   { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: StethoscopeIcon, group: "operations" },
+  { label: "CHUỖI GYM", title: "Chuỗi GYM", icon: GymModuleIcon, group: "operations" },
   { label: "VĂN BẢN PHÁP LUẬT", title: "Văn bản pháp luật", icon: FileTextIcon, group: "tools" },
   { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
@@ -209,6 +211,9 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
 };
 
 export function getAvailableMenuItems(userProfile: UserProfile | null, hasPermission: (permission: string) => boolean, includeDisabled = false): MenuItem[] {
+  if (userProfile?.role === "gym_admin" || userProfile?.role === "gym_pt") {
+    return [{ label: "CHUỖI GYM", title: "Chuỗi GYM", icon: GymModuleIcon, group: "operations" }];
+  }
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => includeDisabled || enabledTabs.has(item.label))

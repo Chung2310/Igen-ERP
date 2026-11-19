@@ -145,6 +145,7 @@ const UserSchema = new Schema<IUser>({
   isLeader: { type: Boolean, default: false },
   division: { type: String },
   companyCode: { type: String, index: true },
+  gymAccountId: { type: String, unique: true, sparse: true },
   companyName: { type: String },
   branchId: { type: String, index: true },
   activeSessionId: { type: String, default: "" },

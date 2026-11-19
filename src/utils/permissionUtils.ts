@@ -35,6 +35,8 @@ export function getRoleDisplayName(role: string, customDisplayName?: string): st
     user: "Nhân viên",
     staff: "Nhân viên",
     teacher: "Giáo viên",
+    gym_admin: "Admin GYM",
+    gym_pt: "PT",
     accountant: "Kế toán",
   };
   return roleMap[role?.toLowerCase()] || role || "Nhân viên";
