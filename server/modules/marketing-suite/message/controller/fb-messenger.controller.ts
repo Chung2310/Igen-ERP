@@ -103,19 +103,20 @@ async function verifyFacebookWebhookSignature(req: Request) {
 
   if (!rawBody || !signatureMatch || pageIds.length === 0) return false;
 
-  const [companySecrets, personalSecrets] = await Promise.all([
-    SocialIntegrationModel.distinct("appSecret", {
+  const [companyIntegrations, personalSecrets] = await Promise.all([
+    // Read through the model so its secret getters decrypt the stored App Secret.
+    SocialIntegrationModel.find({
       platform: "Facebook",
       isConnected: true,
       username: { $in: pageIds },
-    }),
+    }).select("appSecret"),
     UserModel.distinct("facebookIntegration.appSecret", {
       "facebookIntegration.isConnected": true,
       "facebookIntegration.pageId": { $in: pageIds },
     }),
   ]);
   const secrets = Array.from(new Set([
-    ...companySecrets,
+    ...companyIntegrations.map(integration => integration.appSecret),
     ...personalSecrets,
     process.env.FB_APP_SECRET || "",
   ].filter((secret): secret is string => typeof secret === "string" && !!secret)));
