@@ -241,6 +241,13 @@ function appendCustomGuidance(
     .join(String.fromCharCode(10));
 }
 
+export class BusinessRuleReviewError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BusinessRuleReviewError";
+  }
+}
+
 async function applyAdvancedRules(
   model: string,
   ruleText: unknown,
@@ -286,7 +293,7 @@ async function applyAdvancedRules(
       : {
           type: "object",
           properties: { compliant: { type: "boolean" }, violations: { type: "array", items: { type: "string" } } },
-          required: ["compliant"],
+          required: ["compliant", "violations"],
         };
     const response = await generateText(
       model,
@@ -316,7 +323,7 @@ async function applyAdvancedRules(
           "Read the full conversationContext to answer the latest customer turn, honor the latest correction (including a changed recipient), and avoid repeating questions already answered. If the customer acknowledges a concrete offer in the previous assistant turn, carry it out using available companyKnowledge; do not reply only with a generic acknowledgement or ask again whether to do it.",
           includeCorrection
             ? "Return JSON with compliant and correctedParts. If all replies comply, set compliant=true and copy every reply unchanged. Otherwise correct every noncompliant reply while preserving meaning and array length. Make the smallest changes needed, preserve grounded facts, natural warm conversational language, and the original voice; do not add canned greetings or questions. Set compliant=true only if every correctedParts item follows every rule and is factually grounded; set false if you cannot make them comply."
-            : "Return JSON with compliant only. Set it true only if every supplied reply follows every business rule and factual-grounding requirement.",
+            : "Return JSON with compliant and violations. If every reply follows the applicable business rules and is factually grounded, return true and an empty violations array. Otherwise return false and list only the specific rule or unsupported claim that needs to be corrected.",
         ].join("\n"),
         temperature: 0,
         responseSchema,
@@ -328,11 +335,15 @@ async function applyAdvancedRules(
       }
     );
 
-    return safeParseJson(response.text) as {
-      compliant?: boolean;
-      correctedParts?: unknown;
-      violations?: unknown;
-    };
+    try {
+      const result = safeParseJson(response.text);
+      if (typeof result?.compliant === "boolean") {
+        return result as { compliant: boolean; correctedParts?: unknown; violations?: unknown };
+      }
+    } catch {
+      throw new BusinessRuleReviewError("Business-rule review returned invalid JSON.");
+    }
+    throw new BusinessRuleReviewError("Business-rule review returned no compliance decision.");
   };
 
   const firstReview = await review(candidateParts, true);
@@ -344,7 +355,7 @@ async function applyAdvancedRules(
       typeof part !== "string" || (!part.trim() && Boolean(candidateParts[index].trim()))
     )
   ) {
-    throw new Error("Business-rule review could not produce a valid corrected reply.");
+    throw new BusinessRuleReviewError("Business-rule review could not produce a valid corrected reply.");
   }
 
   const correctedParts = (firstReview.correctedParts as string[]).map(part => applyCustomerAddressStyle(part, preferredAddressStyle));
@@ -370,7 +381,7 @@ async function applyAdvancedRules(
     } catch {
       // Retain the original failure contract if repair or verification fails.
     }
-    throw new Error("Business-rule review could not confirm a compliant reply.");
+    throw new BusinessRuleReviewError("Business-rule review could not confirm a compliant reply.");
   }
   // Return exactly the checked output; substitutions after review can break rules.
   return correctedParts;
@@ -467,6 +478,7 @@ export class GeminiChatService {
     const customerServiceScript = String(aiConfig?.customerServiceScript || "").trim();
     const scenarioGuidance = combineChatScenarios(ragContext?.scenarioContextText, customerServiceScript);
     const leadGuidance = leadIntake ? [
+      ...(leadIntake.collectionMode === "document" ? ["Đây là lượt đọc tài liệu nhà mạng để cập nhật Lead, không phải phỏng vấn thu thập đủ bộ cột. Mỗi ảnh là một loại màn hình và chỉ có một phần thông tin. Dùng dữ liệu đọc được để trả lời ngắn, tự nhiên về hồ sơ vừa xử lý; không chỉ nói đã nhận ảnh rồi hỏi thêm. Chỉ nói đã lưu hoặc cập nhật hồ sơ khi kết quả xử lý trong ngữ cảnh xác nhận điều đó. Không hỏi Mã yêu cầu, Tổng tiền, Mã trạm hay bất kỳ cột nào vắng mặt chỉ để điền đủ. Chỉ hỏi thông tin trong missingRequiredFields khi chưa xác định được hồ sơ. Nhiều Account chưa rõ quan hệ thì hỏi Account chính hoặc đề nghị tách ảnh, không tự chọn hay gộp. Không coi việc xử lý ảnh xong là hoàn tất lắp đặt hoặc hoàn tất toàn bộ hồ sơ."] : []),
       "Trả lời điều khách vừa hỏi trước, dựa trên hội thoại và dữ liệu doanh nghiệp. Viết như nhân viên đang tiếp nối cuộc trò chuyện: ghi nhận điều khách vừa nói, giải thích ngắn vì sao cần hỏi thêm nếu hữu ích, rồi hỏi tự nhiên. Tránh nhảy thẳng sang một câu hỏi rời rạc, lặp lại lời chào hay đọc nguyên câu mẫu.",
       "missingRequiredFields và missingOptionalFields là hai danh sách trường được phép chủ động hỏi để thu thập Lead; ưu tiên các danh sách này hơn rule, kịch bản, FAQ và câu hỏi cũ của bot. missingRequiredFields là nguồn duy nhất cho các thông tin bắt buộc. Nếu cả hai danh sách trống thì tiếp tục hỗ trợ bình thường. Vẫn trả lời câu khách hỏi về quy trình hoặc dịch vụ.",
       "Đọc câu hỏi ngay trước đó để hiểu câu trả lời ngắn. Khi khách muốn tiếp tục một việc cụ thể như đặt lịch, đăng ký hoặc nhận tư vấn, ưu tiên một trường bắt buộc còn thiếu giúp tiến hành việc đó. Thứ tự cấu hình chỉ dùng khi các trường phù hợp như nhau. Khi khách đang tìm hiểu, giải đáp điều họ hỏi trước. Nếu khách mới chào hoặc chưa rõ muốn gì, mở lời hỗ trợ để hiểu nhu cầu trước khi xin thông tin cá nhân.",
@@ -753,7 +765,7 @@ ${customerAddressStyle ? `Cách gọi khách ưu tiên cao nhất: “${customer
         response.text = parsed.text;
         visual = parsed.visual;
         // Quote only an existing compatible price row; never manufacture image prices.
-        if (visual.readable && !visual.needsSelection && isImagePriceInquiry(message)
+        if ((!visual.subjectType || visual.subjectType === "product") && visual.readable && !visual.needsSelection && isImagePriceInquiry(message)
           && extractImageQuoteRows(ragContext?.pricingContextText || "").length) {
           const observation = visualToImageObservation(visual, visualInput.images);
           const quote = observation.status === "ready" && observation.shapeConfidence === "high"

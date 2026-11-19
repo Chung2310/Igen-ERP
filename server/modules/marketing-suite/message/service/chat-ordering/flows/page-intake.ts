@@ -96,7 +96,7 @@ async function extractValues(input: ChatOrderFlowInput, fields: Field[], known: 
 
 function intakeReply(
   flow: { version: number; goal: string; fields: Field[] },
-  optionalFields: Field[], values: Record<string, string>, message: string, hasLeadIntent: boolean, alreadyComplete = false,
+  optionalFields: Field[], values: Record<string, string>, message: string, hasLeadIntent: boolean, alreadyComplete = false, documentIntake = false,
 ): ChatOrderFlowReply {
   const describeMissingFields = (fields: Field[]) => hasLeadIntent ? fields
     .filter(field => !values[field.key]?.trim())
@@ -116,6 +116,7 @@ function intakeReply(
   }
   // Lead intake supplies conversation context. The chatbot writes the message.
   return { text: "", isMock: false, draftId: "", revision: flow.version, leadIntake: {
+    ...(documentIntake ? { collectionMode: "document" as const } : {}),
     goal: flow.goal, collected: values, missingRequiredFields,
     ...(missingOptionalFields.length ? { missingOptionalFields } : {}),
     ...(receivedContact.size ? { receivedContact: [...receivedContact] } : {}),
@@ -149,8 +150,13 @@ export const pageIntakeFlow: ChatOrderFlow = {
     const allFields = flow.fields as Field[];
     const groups = ("needGroups" in flow ? flow.needGroups : []) as LeadNeedGroup[] | undefined;
     const groupedFieldKeys = new Set(groups?.flatMap(group => group.fieldKeys));
-    const fields = allFields.map(field => groupedFieldKeys.has(field.key) && !isLeadContactField(getIntakeStandardField(field))
-      ? { ...field, required: false } : field);
+    // Telecom screenshots are partial documents. Only their verified subscriber identity
+    // is needed to attach them; missing columns belong to other kinds of screenshots.
+    const documentIntake = Boolean(input.subscriberIdentity);
+    const fields = allFields.map(field => documentIntake
+      ? { ...field, required: field.key === input.subscriberIdentity!.fieldKey }
+      : groupedFieldKeys.has(field.key) && !isLeadContactField(getIntakeStandardField(field))
+        ? { ...field, required: false } : field);
     const imageValues = Object.fromEntries(fields.flatMap(field => {
       const value = normalizeIntakeValue(field, input.verifiedImageValues?.[field.key]);
       return value && (getIntakeStandardField(field) !== "name" || isLeadName(value)) ? [[field.key, value]] : [];
@@ -170,7 +176,7 @@ export const pageIntakeFlow: ChatOrderFlow = {
     const known = Object.fromEntries(Object.entries({ ...storedValues, ...currentLead?.answers })
       .filter((entry): entry is [string, string] => allowedKeys.has(entry[0]) && typeof entry[1] === "string" && Boolean(entry[1].trim())));
     const protectedFields = new Set(currentLead?.intakeStaffFields);
-    const optionalFields = allFields.filter(field => field.required === false && !protectedFields.has(`answers.${field.key}`)
+    const optionalFields = documentIntake ? [] : allFields.filter(field => field.required === false && !protectedFields.has(`answers.${field.key}`)
       && (!groupedFieldKeys.has(field.key) || isLeadContactField(getIntakeStandardField(field))));
     const ignoreStoredName = (field: Field, value?: string) => Boolean(value && getIntakeStandardField(field) === "name"
       && (!currentLead?.answers?.[field.key] || currentLead.intakeRevision != null)
@@ -189,7 +195,7 @@ export const pageIntakeFlow: ChatOrderFlow = {
         else delete extracted.values[field.key];
       }
       return intakeReply({ ...flow, fields }, optionalFields, extracted.values, input.message, Boolean(currentLead || existing?.hasLeadIntent || extracted.hasLeadIntent),
-        Boolean(sameProfile && existing?.completedAt));
+        Boolean(sameProfile && existing?.completedAt), documentIntake);
     }
     const isNewerTurn = (messageAt?: Date | null, messageId?: string | null) => Boolean(
       input.messageAt && messageAt && (messageAt > input.messageAt ||
@@ -201,7 +207,7 @@ export const pageIntakeFlow: ChatOrderFlow = {
     if (existing?.lastMessageId === input.messageId) {
       return intakeReply({ ...flow, fields }, optionalFields, known, input.message,
         Boolean(currentLead || existing.hasLeadIntent || existing.lastReplyUsesIntake !== false),
-        Boolean(sameProfile && existing.completedAt && existing.lastReplyCompletedIntake !== true));
+        Boolean(sameProfile && existing.completedAt && existing.lastReplyCompletedIntake !== true), documentIntake);
     }
     const alreadySaved = currentLead?.lastIntakeMessageId === input.messageId;
     const extracted = alreadySaved ? { values: { ...known }, needs: [], hasLeadIntent: true }
@@ -253,7 +259,7 @@ export const pageIntakeFlow: ChatOrderFlow = {
       if (key.startsWith("answers.") && !lead?.answers?.[key.slice(8)]) delete savedValues[key.slice(8)];
     }
     const isComplete = fields.every(field => field.required === false || Boolean(savedValues[field.key]?.trim()));
-    const reply = intakeReply({ ...flow, fields }, optionalFields, savedValues, input.message, hasLeadIntent, Boolean(sameProfile && existing?.completedAt));
+    const reply = intakeReply({ ...flow, fields }, optionalFields, savedValues, input.message, hasLeadIntent, Boolean(sameProfile && existing?.completedAt), documentIntake);
     const checkpoint = {
       ...stateKey,
       ...(existing ? { _id: existing._id, lastMessageId: existing.lastMessageId || { $in: ["", null] } } : {}),

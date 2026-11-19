@@ -25,6 +25,7 @@ import { leadContractRouter } from "../message/router/lead-contract.router";
 import { chatTestRouter } from "../message/router/chat-test.router";
 import { resetCompanyChat } from "../message/service/company-chat-reset.service";
 import { withLeadZaloIdentities } from "../message/service/lead-zalo-identity.service";
+import { requireFacebookWebhookSubscription } from "./service/facebook-webhook-subscription";
 import { broadcastEvent } from "./socket";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
@@ -690,6 +691,9 @@ for (const [path, rawModel] of [
     if (path === "/marketing-contents") await assertCampaignContentLinks(req.user!.companyCode!, data);
     if (integration && (typeof data.username !== "string" || !data.username.trim())) return res.status(400).json({ status: "error", message: "Thiếu định danh tài khoản mạng xã hội." });
     if (integration) await assertMarketingAccountOwnership(req.user!.companyCode!, String(data.platform), String(data.username));
+    if (integration && data.platform === "Facebook" && data.isConnected !== false) {
+      await requireFacebookWebhookSubscription(data.username, data.accessToken);
+    }
     const item = await model.create({ ...data, companyCode: req.user!.companyCode, createdBy: req.user!.id });
     if (path === "/marketing-contents") await syncCampaignContentMedia(item.toObject(), data);
     return res.status(201).json({ status: "success", data: publicRecord(item.toObject(), integration) });
@@ -711,9 +715,16 @@ for (const [path, rawModel] of [
     if (integration) {
       const existing = await model.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();
       if (!existing) return res.status(404).json({ status: "error", message: "Không tìm thấy dữ liệu." });
-      await assertMarketingAccountOwnership(req.user!.companyCode!, String(data.platform || existing.platform), String(data.username || existing.username));
-      if (existing.platform === "Facebook" && ["platform", "username", "fbAppId", "appSecret", "accessToken"]
-        .some(key => key in data && data[key] !== existing[key])) data.facebookUserId = "";
+      const platform = data.platform || existing.platform;
+      const username = "username" in data ? data.username : existing.username;
+      await assertMarketingAccountOwnership(req.user!.companyCode!, String(platform), String(data.username || existing.username));
+      const credentialsChanged = ["platform", "username", "fbAppId", "appSecret", "accessToken"]
+        .some(key => key in data && data[key] !== existing[key]);
+      if (existing.platform === "Facebook" && credentialsChanged) data.facebookUserId = "";
+      const isConnected = "isConnected" in data ? data.isConnected : existing.isConnected;
+      if (platform === "Facebook" && isConnected !== false && (existing.isConnected !== true || credentialsChanged)) {
+        await requireFacebookWebhookSubscription(username, "accessToken" in data ? data.accessToken : existing.accessToken);
+      }
     }
     const persist = async (session?: mongoose.ClientSession) => {
       const protectFacebookResult = data.status === "scheduled" && campaignContent?.channel === "Facebook";

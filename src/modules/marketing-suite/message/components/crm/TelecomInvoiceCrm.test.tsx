@@ -13,6 +13,32 @@ vi.mock("../../services/crmService", () => ({ crmService: {
 } }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
+it("shows VNPT customer differences side by side without requiring OCR setup or displaying charges", async () => {
+  vi.mocked(crmService.getLeadContractProviders).mockResolvedValue([]);
+  vi.mocked(crmService.reconcileLeadContracts).mockResolvedValue({
+    excelCount: 1, duplicates: 0, invalidRows: [], provider: "VNPT", identityLabel: "Mã khách hàng / Account", sheetName: "Q1.2026", period: "Quý 1/2026", sourceRowCount: 1,
+    rows: [{ code: "ABC001", status: "different", customerName: "Nguyễn An", sourceRows: [10],
+      excel: { customerName: "Nguyễn An", address: "Căn 101", services: ["Fiber"], activatedAt: "7/2023" },
+      lead: { customerName: "Nguyễn An", address: "Căn 202", services: ["Internet"], activatedAt: "2023-07-04" },
+      differences: [{ field: "address", label: "Địa chỉ", excel: "Căn 101", lead: "Căn 202", reason: "different" }],
+    }],
+  });
+  render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
+  const file = new File(["workbook"], "vnpt.xlsx");
+  fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText("Nhà mạng"), { target: { value: "VNPT" } });
+  fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
+  fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
+  fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
+  expect(await screen.findByRole("cell", { name: "Khác thông tin" })).toBeTruthy();
+  expect(screen.getByText("Địa chỉ: khác nhau.")).toBeTruthy();
+  expect(screen.getByText("Căn 101")).toBeTruthy();
+  expect(screen.getByText("Căn 202")).toBeTruthy();
+  expect(screen.getByText("04/07/2023")).toBeTruthy();
+  expect(screen.queryByText(/Hoa hồng|Tổng tiền/i)).toBeNull();
+  expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "VNPT", 2026, 1, expect.any(AbortSignal));
+});
+
 it.each([["facebook", "Page"], ["zalo", "Zalo OA"]] as const)("uses the selected %s account's Lead fields for the subscriber mapping", async (platform, label) => {
   const leadFields = [{ key: "ref", label: "Mã dịch vụ" }, { key: "address", label: "Địa chỉ" }];
   vi.mocked(crmService.getTelecomInvoiceSettings).mockResolvedValue({ enabled: false, leadFields });
@@ -75,8 +101,8 @@ it("submits the selected period and file and filters the results by contract sta
   fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
   fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
-  fireEvent.submit(screen.getByRole("button", { name: "Đối soát mã hợp đồng" }).closest("form")!);
-  expect(await screen.findByText("2 mã trong Excel · Bỏ qua 4 dòng lặp")).toBeTruthy();
+  fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
+  expect(await screen.findByText("2 mã trong Excel · 2 dòng · 4 dòng có thông tin lặp")).toBeTruthy();
   expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "FPT", 2026, 1, expect.any(AbortSignal));
   fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "excel_only" } });
   expect(screen.queryByText("001")).toBeNull();

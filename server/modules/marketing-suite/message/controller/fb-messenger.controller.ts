@@ -103,19 +103,20 @@ async function verifyFacebookWebhookSignature(req: Request) {
 
   if (!rawBody || !signatureMatch || pageIds.length === 0) return false;
 
-  const [companySecrets, personalSecrets] = await Promise.all([
-    SocialIntegrationModel.distinct("appSecret", {
+  const [companyIntegrations, personalSecrets] = await Promise.all([
+    // Read through the model so its secret getters decrypt the stored App Secret.
+    SocialIntegrationModel.find({
       platform: "Facebook",
       isConnected: true,
       username: { $in: pageIds },
-    }),
+    }).select("appSecret"),
     UserModel.distinct("facebookIntegration.appSecret", {
       "facebookIntegration.isConnected": true,
       "facebookIntegration.pageId": { $in: pageIds },
     }),
   ]);
   const secrets = Array.from(new Set([
-    ...companySecrets,
+    ...companyIntegrations.map(integration => integration.appSecret),
     ...personalSecrets,
     process.env.FB_APP_SECRET || "",
   ].filter((secret): secret is string => typeof secret === "string" && !!secret)));
@@ -172,21 +173,16 @@ export const fbMessengerController = {
         return res.status(401).send("INVALID_SIGNATURE");
       }
 
-      // Persist comment events before acknowledging the webhook so Meta retries if MongoDB is unavailable.
-      await fbMessengerService.enqueueIncomingCommentEvents(body);
-      
-      // Phản hồi nhanh chóng cho Meta để tránh timeout
-      res.status(200).send("EVENT_RECEIVED");
-
-      // Xử lý không đồng bộ dưới background
+      // Acknowledge only after the jobs have been saved so Meta can retry a failed write.
+      await Promise.all([
+        fbMessengerService.enqueueIncomingMessengerEvents(body),
+        fbMessengerService.enqueueIncomingCommentEvents(body),
+      ]);
       void fbMessengerService.processPendingComments();
-      fbMessengerService.handleWebhookEvent(body, { commentsAlreadyQueued: true }).catch((err) => {
-        console.error("[Facebook Webhook Event] Lỗi nghiêm trọng khi xử lý event dưới nền:", err);
-      });
+      return res.status(200).send("EVENT_RECEIVED");
     } catch (error: any) {
       console.error("[Facebook Webhook Event] Lỗi tiếp nhận webhook:", error);
       if (!res.headersSent) return res.status(503).send("WEBHOOK_TEMPORARILY_UNAVAILABLE");
-      return res.status(200).send("EVENT_RECEIVED_WITH_ERROR");
     }
   },
 

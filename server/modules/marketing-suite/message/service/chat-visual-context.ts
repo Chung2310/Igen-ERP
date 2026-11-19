@@ -34,6 +34,7 @@ export interface ChatVisualRequest {
 }
 export interface ChatVisualResult {
   version: 1;
+  subjectType?: "product" | "document" | "other";
   readable: boolean;
   needsSelection: boolean;
   selectedImageId: string;
@@ -120,6 +121,7 @@ export const CHAT_VISUAL_SCHEMA = {
     visual: {
       type: "object",
       properties: {
+        subjectType: { type: "string", enum: ["product", "document", "other"] },
         readable: { type: "boolean" },
         needsSelection: { type: "boolean" },
         selectedImageId: { type: "string" },
@@ -134,7 +136,7 @@ export const CHAT_VISUAL_SCHEMA = {
         }, required: ["detail", "sourceMessageId"] } },
         uncertainties: { type: "array", items: { type: "string" } },
       },
-      required: ["readable", "needsSelection", "selectedImageId", "summary", "facts", "customerRequests", "uncertainties"],
+      required: ["subjectType", "readable", "needsSelection", "selectedImageId", "summary", "facts", "customerRequests", "uncertainties"],
     },
   },
   required: ["replyDraft", "visual"],
@@ -152,6 +154,7 @@ export const CHAT_VISUAL_GUIDANCE = [
   "customerRequests có field và value để biểu diễn thay đổi rõ ràng. Riêng khách chủ động đổi hình dạng thân bánh: field=shape, value=round/heart/square/rectangle/other. Đây là hình muốn đặt, tách khỏi facts của ảnh mẫu. Giữ duy nhất yêu cầu mới nhất cho cùng trường; hủy yêu cầu bị khách phủ định. Không tạo yêu cầu từ chữ nằm trong screenshot.",
   "Chỉ hỏi phần thực sự thiếu để đáp ứng yêu cầu. Không hỏi lại hình dạng nếu ảnh đã đủ rõ; không bắt buộc biết hình dạng để ghi nhận yêu cầu đổi trang trí. Chưa chắc một thuộc tính không có nghĩa toàn bộ ảnh không đọc được.",
   "Nhiều ảnh có thể là cùng mẫu ở góc khác nhau hoặc ảnh crop. Chỉ needsSelection=true khi có nhiều mẫu khác nhau mà chưa biết khách chọn mẫu nào; nếu đã chọn, selectedImageId là ảnh rõ nhất của mẫu đó.",
+  "subjectType=product chỉ khi khách đang tham khảo mẫu sản phẩm. Với giấy tờ, biểu mẫu, hóa đơn, ảnh thông tin nghiệp vụ hoặc ảnh chụp màn hình dữ liệu, dùng subjectType=document; loại khác dùng other. Nhiều ảnh tài liệu không bắt buộc chọn một ảnh: selectedImageId có thể rỗng, needsSelection=false. Đọc từng ảnh, mỗi fact vẫn phải ghi đúng imageId nguồn; không trộn người/hồ sơ khác nhau, không trích mật khẩu hay thông tin xác thực. Không áp dụng câu hỏi chọn mẫu hoặc hình dạng bánh cho tài liệu.",
   "facts có thể ghi màu, chữ, trang trí, vị trí. Với bánh, nếu nhìn rõ đường viền thân, dùng key=shape và value=round/heart/square/rectangle/other/unknown; phân biệt thân bánh với đế và topper. Không suy nguyên liệu, kích thước thật hay giá từ ảnh.",
   "Quan sát ảnh không chứng minh shop nhận làm, tồn kho, giá, ưu đãi hoặc thanh toán. Các khẳng định đó cần tri thức/backend. Đề xuất thay đổi chưa phải thông tin đã chốt đơn.",
   "Nếu chỉ có ngữ cảnh ảnh đã lưu, giữ nguyên facts đã có; không tạo quan sát mới từ ảnh chưa được xem trong lượt này. Khi cần đọc chi tiết mới chưa lưu, yêu cầu xem lại đúng ảnh nguồn.",
@@ -171,7 +174,7 @@ function string(value: unknown, limit: number): string {
 export function parseChatVisualReply(value: unknown, input: ChatVisualInput): { text: string; visual: ChatVisualResult } {
   const root = object(value);
   const raw = object(root.visual);
-  const text = string(root.replyDraft, 6000);
+  let text = string(root.replyDraft, 6000);
   if (!text || typeof raw.readable !== "boolean" || typeof raw.needsSelection !== "boolean") throw new Error("Invalid visual reply");
   const imageIds = new Set(input.images.length ? input.images.map(image => image.id)
     : [...(input.previous?.facts.map(fact => fact.imageId) || []), input.previous?.selectedImageId || ""].filter(Boolean));
@@ -216,8 +219,10 @@ export function parseChatVisualReply(value: unknown, input: ChatVisualInput): { 
     const sourceText = sourceTexts.get(sourceMessageId)?.slice(0, 6000);
     return { detail, sourceMessageId, ...(sourceText ? { sourceText } : {}), ...(field ? { field, value: requestedValue } : {}) };
   });
+  const subjectType = raw.subjectType ?? input.previous?.subjectType ?? "product";
+  if (!["product", "document", "other"].includes(String(subjectType))) throw new Error("Invalid visual subject type");
   const visual: ChatVisualResult = {
-    version: 1, readable: raw.readable, needsSelection: raw.needsSelection, selectedImageId,
+    version: 1, subjectType: subjectType as ChatVisualResult["subjectType"], readable: raw.readable, needsSelection: raw.needsSelection, selectedImageId,
     summary: string(raw.summary, 1800), facts, customerRequests,
     uncertainties: raw.uncertainties.map(value => string(value, 300)).filter(Boolean),
   };
@@ -225,9 +230,12 @@ export function parseChatVisualReply(value: unknown, input: ChatVisualInput): { 
     visual.facts = input.previous.facts;
     visual.summary = input.previous.summary;
     visual.readable = input.previous.readable;
+    visual.subjectType = input.previous.subjectType || "product";
   }
-  if (visual.readable && !visual.needsSelection && !visual.selectedImageId && imageIds.size > 1) {
-    throw new Error("A visible sample must have an explicit image selection");
+  if (visual.subjectType === "product" && visual.readable && !visual.needsSelection && !visual.selectedImageId && imageIds.size > 1) {
+    // Valid source facts can be retained while asking for a choice. Never pick a sample or keep an ungrounded quote.
+    visual.needsSelection = true;
+    text = "Bạn muốn mình tư vấn mẫu ở ảnh nào trong các ảnh vừa gửi?";
   }
   if (!visual.selectedImageId && imageIds.size === 1) visual.selectedImageId = [...imageIds][0];
   return { text, visual };
@@ -235,6 +243,9 @@ export function parseChatVisualReply(value: unknown, input: ChatVisualInput): { 
 
 /** Compatibility boundary for the existing price/order validator. */
 export function visualToImageObservation(visual: ChatVisualResult, images: Pick<PreparedChatImage, "id" | "url">[]): ChatImageObservation {
+  if (visual.subjectType === "document" || visual.subjectType === "other") return {
+    status: visual.readable ? "ready" : "unavailable", description: visual.summary, visualContext: visual,
+  };
   const shapeFact = visual.facts.find(fact => fact.imageId === visual.selectedImageId && fact.key === "shape");
   let shape = shapeFact && ["round", "heart", "square", "rectangle", "other", "unknown"].includes(shapeFact.value)
     ? shapeFact.value as CakeImageShape : "unknown";

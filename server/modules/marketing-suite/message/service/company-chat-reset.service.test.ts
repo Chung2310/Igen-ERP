@@ -64,6 +64,8 @@ it("clears tenant chat histories, sandbox messages, and queued payloads while re
   ]);
   await CRMTicketModel.collection.insertOne({ companyCode: "ALPHA", customerName: "Lead đã lưu" });
   await MessengerBackgroundJobModel.create([
+    { _id: "facebook-a", kind: "facebook-webhook", payload: { pageId: "page-a", messaging: [{}] }, status: "pending", attempts: 0, dueAt: new Date() },
+    { _id: "facebook-b", kind: "facebook-webhook", payload: { pageId: "page-b", messaging: [{}] }, status: "pending", attempts: 0, dueAt: new Date() },
     { _id: "zalo-a", kind: "zalo-webhook", payload: { oa_id: "oa-a", message: { text: "Tin cũ" } }, status: "pending", attempts: 0, dueAt: new Date() },
     { _id: "zalo-b", kind: "zalo-webhook", payload: { oa_id: "oa-b", message: { text: "Tin của B" } }, status: "pending", attempts: 0, dueAt: new Date() },
   ]);
@@ -79,6 +81,10 @@ it("clears tenant chat histories, sandbox messages, and queued payloads while re
   expect(await PageChatFlowStateModel.distinct("companyCode")).toEqual(["BETA"]);
   expect(await SocialIntegrationModel.countDocuments()).toBe(4);
   expect(await CRMTicketModel.exists({ companyCode: "ALPHA" })).toBeTruthy();
+  const facebookJob = await MessengerBackgroundJobModel.findById("facebook-a").lean();
+  expect(facebookJob?.status).toBe("completed");
+  expect(facebookJob?.payload).toBeUndefined();
+  expect(await MessengerBackgroundJobModel.findById("facebook-b").lean()).toMatchObject({ status: "pending", payload: { pageId: "page-b" } });
   const job = await MessengerBackgroundJobModel.findById("zalo-a").lean();
   expect(job?.status).toBe("completed");
   expect(job?.payload).toBeUndefined();

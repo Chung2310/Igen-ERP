@@ -12,7 +12,8 @@ import { messengerOrderService } from "./messenger-order.service.ts";
 import { companyProductCatalogService } from "./company-product-catalog.service.ts";
 import { AmbiguousAutoReplyOwnerError, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { facebookSendRequest } from "../../shared/service/facebook-send-request";
-import { enqueueLeadContractOcr } from "./messenger-background-jobs";
+import { subscribePageWebhooks } from "../../shared/service/facebook-webhook-subscription";
+import { enqueueFacebookWebhook, enqueueLeadContractOcr } from "./messenger-background-jobs";
 import {
   FacebookMessengerError,
   createFacebookIntegrationNotFoundError,
@@ -26,7 +27,6 @@ const profileRequests = new Map<string, Promise<any>>();
 const PROFILE_DENIAL_TTL_MS = 30 * 60_000;
 const PROFILE_DENIAL_CACHE_LIMIT = 4096;
 const FACEBOOK_SENDER_ACTION_TIMEOUT_MS = 1500;
-const pageWebhookSubscriptions = new Map<string, number>();
 
 export type FacebookTokenContext = {
   companyCode?: string;
@@ -61,7 +61,7 @@ export const fbMessengerService = {
         recipient: { id: sampleValue.recipient.id },
         timestamp: Number.isFinite(timestampNumber) ? timestampNumber * 1000 : Date.now(),
         message: {
-          mid: sampleValue.message?.mid || `sample_${Date.now()}`,
+          mid: sampleValue.message?.mid || `sample_${createHash("sha256").update(JSON.stringify(sampleValue)).digest("hex")}`,
           text: sampleValue.message?.text || "",
           attachments: sampleValue.message?.attachments || [],
           is_echo: sampleValue.message?.is_echo || false,
@@ -126,16 +126,37 @@ export const fbMessengerService = {
   /**
    * Xử lý dữ liệu Webhook Event (POST request) từ Facebook gửi tới khi có tin nhắn mới
    */
+  async enqueueIncomingMessengerEvents(body: any) {
+    const normalizedBody = this.normalizeWebhookBody(body);
+    if (normalizedBody?.object !== "page") return;
+    const { canProcessMessengerWebhook } = await import("../webhook-access");
+    for (const entry of normalizedBody.entry || []) {
+      const pageId = normalizeFacebookId(entry?.id);
+      if (!pageId || !Array.isArray(entry?.messaging)) continue;
+      const messaging = entry.messaging.filter((event: any) => event?.message || event?.postback || event?.read);
+      if (!messaging.length) continue;
+      if (!await canProcessMessengerWebhook("Facebook", pageId)) {
+        console.warn("[Facebook Webhook Event] Skipped Page entry", {
+          pageId, reason: "page_access_denied", messageEvents: messaging.length,
+        });
+        continue;
+      }
+      await enqueueFacebookWebhook(pageId, messaging);
+      console.info("[Facebook Webhook Event][MESSENGER_QUEUED]", { pageId, messageEvents: messaging.length });
+    }
+  },
+
   async enqueueIncomingCommentEvents(body: any) {
     const normalizedBody = this.normalizeWebhookBody(body);
     if (normalizedBody.object !== "page") return;
     const { canProcessMessengerWebhook } = await import("../webhook-access");
     for (const entry of normalizedBody.entry || []) {
-      if (!await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) continue;
-      for (const change of entry.changes || []) {
-        if (change.field === "feed" && change.value?.item === "comment" && change.value?.verb === "add") {
-          await facebookCommentService.enqueueIncomingComment(String(entry.id || ""), change.value);
-        }
+      if (!Array.isArray(entry?.changes)) continue;
+      const comments = entry.changes.filter((change: any) =>
+        change?.field === "feed" && change.value?.item === "comment" && change.value?.verb === "add");
+      if (!comments.length || !await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) continue;
+      for (const change of comments) {
+        await facebookCommentService.enqueueIncomingComment(String(entry.id || ""), change.value);
       }
     }
   },
@@ -282,33 +303,7 @@ export const fbMessengerService = {
     return null;
   },
 
-  async subscribePageWebhooks(pageId: string, token: string): Promise<any> {
-    const cleanPageId = normalizeFacebookId(pageId);
-    const isMockPage = cleanPageId.startsWith("mock_") || cleanPageId === "unknown_page" || cleanPageId === "123456";
-    if (isMockPage) {
-      console.log(`[FB Service subscribePageWebhooks] Bỏ qua subscribe cho Page giả lập: ${cleanPageId}`);
-      return { success: true, message: "Mock Page bypass" };
-    }
-
-    const subscriptionKey = `${cleanPageId}:${createHash("sha256").update(token).digest("hex")}`;
-    if ((pageWebhookSubscriptions.get(subscriptionKey) || 0) > Date.now()) return { success: true, cached: true };
-    const fields = "feed,messages,message_echoes,messaging_postbacks,message_deliveries,message_reads";
-    const url = `https://graph.facebook.com/v25.0/${cleanPageId}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`;
-    console.log(`[FB Service subscribePageWebhooks] Đang đăng ký webhook cho Page ID: ${cleanPageId}...`);
-
-    try {
-      const response = await (globalThis as any).fetch(url, {
-        method: "POST",
-      });
-      const data = await response.json();
-      if (response.ok && data.success) pageWebhookSubscriptions.set(subscriptionKey, Date.now() + 60 * 60 * 1000);
-      console.log(`[FB Service subscribePageWebhooks] Kết quả đăng ký từ Facebook Graph API:`, data);
-      return data;
-    } catch (error: any) {
-      console.error(`[FB Service subscribePageWebhooks] Lỗi khi đăng ký webhook cho Page ID ${cleanPageId}:`, error.message || error);
-      return { error: error.message || error };
-    }
-  },
+  subscribePageWebhooks,
 
   async enrichConversationProfile(pageId: string, senderId: string, conversationId: string) {
     try {
@@ -383,7 +378,8 @@ export const fbMessengerService = {
       return;
     }
     const message = event.message;
-    const messageId = String(message?.mid || `fb_in_${recipientId}_${senderId}_${randomUUID()}`).trim();
+    const messageId = normalizeFacebookId(message?.mid) || `fb_in_${createHash("sha256")
+      .update(JSON.stringify([recipientId, senderId, event.timestamp, message])).digest("hex")}`;
     const eventTimestamp = Number(event.timestamp);
     const timestamp = Number.isFinite(eventTimestamp) ? new Date(eventTimestamp) : new Date();
 

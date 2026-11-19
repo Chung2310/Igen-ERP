@@ -166,15 +166,15 @@ describe("Lead contract OCR and reconciliation", () => {
     const report = await reconcileLeadContracts(company, "FPT", 2026, 1, contractWorkbook([
       [1, " ab-001 ", "Internet"], [2, "AB-001", "Truyền hình"], [3, "0002", "Internet"],
     ]));
-    expect(report).toMatchObject({ excelCount: 2, duplicates: 1, invalidRows: [] });
-    expect(report.rows).toEqual([
+    expect(report).toMatchObject({ excelCount: 2, duplicates: 0, invalidRows: [] });
+    expect(report.rows).toMatchObject([
       { code: "0002", status: "excel_only" },
-      { code: "AB-001", status: "matched", leadId: String(leads[0]._id), customerName: "Khách A" },
+      { code: "AB-001", status: "incomplete", leadId: String(leads[0]._id), customerName: "Khách A" },
     ]);
     expect((await reconcileLeadContracts("OTHER", "FPT", 2026, 1, contractWorkbook([[1, "AB-001"]]))).rows[0].status).toBe("excel_only");
   });
 
-  it("retains unreadable contracts for staff review, reuses existing Leads and respects the selected quarter", async () => {
+  it("retains unreadable contracts for staff review, reuses existing Leads and retains historical customers in later quarters", async () => {
     await enableContractChannels();
     const existing = await CRMTicketModel.create({ companyCode: company, customerName: "Khách cũ", sourcePlatform: "zalo",
       sourceAccountId: zaloContract.pageId, answers: { ma_hop_dong: "old001" } });
@@ -187,8 +187,8 @@ describe("Lead contract OCR and reconciliation", () => {
     expect((await CRMTicketModel.findById(existing._id).lean())?.answers?.address).toBe("Địa chỉ mới");
     const bytes = contractWorkbook([[1, "UNSEEN"]]);
     expect((await reconcileLeadContracts(company, "FPT", 2026, 1, bytes)).rows)
-      .toContainEqual({ code: "OLD001", customerName: "Khách cũ", leadId: String(existing._id), status: "lead_only" });
-    expect((await reconcileLeadContracts(company, "FPT", 2026, 2, bytes)).rows).toEqual([{ code: "UNSEEN", status: "excel_only" }]);
+      .toContainEqual(expect.objectContaining({ code: "OLD001", customerName: "Khách cũ", leadId: String(existing._id), status: "lead_only" }));
+    expect((await reconcileLeadContracts(company, "FPT", 2026, 2, bytes)).rows).toMatchObject([{ code: "OLD001", status: "lead_only" }, { code: "UNSEEN", status: "excel_only" }]);
     const secondSave = await recordLeadContractPhoto(draft, { ma_hop_dong: "NEW001", customer_name: "Khách khác" }, true);
     expect(secondSave.issue).toContain("đã được xử lý");
   });
@@ -207,7 +207,7 @@ describe("Lead contract OCR and reconciliation", () => {
     expect(await LeadContractPhotoModel.countDocuments({ status: "other" })).toBe(1);
     const bytes = contractWorkbook([[1, "A00"], [2, null], [3, "mã lỗi"], ["Tổng", null]]);
     expect(readLeadContractWorkbook(bytes)).toMatchObject({ codes: new Set(["A00"]), invalidRows: [5, 6], duplicates: 0 });
-    expect((await reconcileLeadContracts(company, "FPT", 2026, 1, bytes)).rows).toEqual([{ code: "A00", status: "needs_review" }]);
+    expect((await reconcileLeadContracts(company, "FPT", 2026, 1, bytes)).rows).toMatchObject([{ code: "A00", status: "needs_review" }]);
   });
 });
 
