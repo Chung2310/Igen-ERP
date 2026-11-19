@@ -1227,7 +1227,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           {canReconcileContracts && <button type="button" aria-haspopup="dialog" className={secondaryBtnClass}
             onClick={() => setReconciliationOpen(true)}>
             <FileCheck2 aria-hidden="true" className="size-3.5" />
-            Đối soát hợp đồng
+            Đối soát khách hàng nhà mạng
           </button>}
           <button
             type="button"

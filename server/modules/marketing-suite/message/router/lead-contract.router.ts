@@ -13,7 +13,7 @@ import { recordLeadContractPhoto, type StoredContractPhoto } from "../service/le
 export const leadContractRouter = Router();
 const manage = requirePermission("omni-inbox:manage");
 const read = requirePermission(["omni-inbox:read", "omni-inbox:manage"]);
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 3, fieldSize: 1024 } }).single("file");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 3, fieldSize: 1024 } }).single("file");
 const reviewFilter = () => ({ $or: [{ status: "review" as const }, { status: "reading" as const, leaseUntil: { $lte: new Date() } }] });
 
 function run(action: (req: AuthenticatedRequest, res: Response) => Promise<unknown>) {
@@ -34,14 +34,14 @@ leadContractRouter.get("/lead-contracts/providers", read, run(async (req, res) =
     TelecomInvoiceSettingsModel.distinct("zalo.contractProvider", { ...scope, "zalo.mode": "contract" }),
     LeadContractModel.distinct("provider", scope),
   ]);
-  const providers = [...new Set(groups.flat().flatMap(value => normalizeLeadContractProvider(value) ?? []))].sort((a, b) => a.localeCompare(b, "vi"));
+  const providers = [...new Set(["FPT", "VNPT", ...groups.flat().flatMap(value => normalizeLeadContractProvider(value) ?? [])])].sort((a, b) => a.localeCompare(b, "vi"));
   return res.json({ status: "success", data: providers });
 }));
 
 leadContractRouter.post("/lead-contracts/reconcile", manage, (req, res, next) => {
   upload(req, res, error => {
     if (error) return res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400)
-      .json({ status: "error", message: "Chọn một file .xlsx tối đa 5 MB." });
+      .json({ status: "error", message: "Chọn một file .xlsx tối đa 10 MB." });
     next();
   });
 }, run(async (req, res) => {
