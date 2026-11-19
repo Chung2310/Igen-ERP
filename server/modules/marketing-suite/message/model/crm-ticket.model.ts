@@ -79,6 +79,7 @@ CRMTicketSchema.index({ companyCode: 1, sourcePlatform: 1, sourceAccountId: 1, s
   },
 });
 CRMTicketSchema.index({ companyCode: 1, lastInteractionAt: -1, _id: -1 });
+CRMTicketSchema.index({ companyCode: 1, createdAt: 1 });
 CRMTicketSchema.index({ companyCode: 1, telecomSubscriberCode: 1 }, {
   unique: true, partialFilterExpression: { telecomSubscriberCode: { $type: "string" } },
 });

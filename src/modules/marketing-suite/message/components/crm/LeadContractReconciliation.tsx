@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import type { LeadContractPhoto, LeadContractReport, LeadContractStatus, TelecomCustomerInfo } from "../../../../../../shared/marketing-suite/telecom-invoice";
+import type { LeadContractPhoto, LeadContractReport, LeadContractStatus, LeadReconciliationScope, TelecomCustomerInfo } from "../../../../../../shared/marketing-suite/telecom-invoice";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import { TablePagination } from "../../../../../components/common/TablePagination";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
@@ -9,13 +9,20 @@ import { LeadContractPhotos } from "./LeadContractPhotos";
 const fieldClass = "min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm outline-none focus:border-primary";
 const linkClass = "rounded text-left text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
 const statuses: Record<LeadContractStatus, string> = {
-  matched: "Khớp thông tin",
+  matched: "Đầy đủ, khớp thông tin",
   different: "Khác thông tin",
   incomplete: "Chưa đủ thông tin để so",
   excel_only: "Chỉ có trong Excel",
   lead_only: "Chỉ có trên ERP",
-  needs_review: "Cần kiểm tra mã",
+  needs_review: "Cần kiểm tra",
+  out_of_scope: "Ngoài phạm vi ngày tạo Lead",
 };
+
+function vietnamToday() {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  return ["year", "month", "day"].map(key => parts.find(part => part.type === key)!.value).join("-");
+}
+const displayDay = (value: string) => value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1");
 
 export function LeadContractReconciliation({
   onClose, onOpenLead, onOpenSource, onSaved,
@@ -40,11 +47,16 @@ export function LeadContractReconciliation({
 }
 
 function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) => void }) {
-  const now = new Date();
+  const today = vietnamToday();
   const [providers, setProviders] = useState<string[]>();
   const [provider, setProvider] = useState("");
-  const [year, setYear] = useState(String(now.getFullYear()));
-  const [quarter, setQuarter] = useState(String(Math.floor(now.getMonth() / 3) + 1));
+  const [year, setYear] = useState(today.slice(0, 4));
+  const [quarter, setQuarter] = useState(String(Math.ceil(Number(today.slice(5, 7)) / 3)));
+  const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);
+  const [to, setTo] = useState(today);
+  const [scopeResult, setScopeResult] = useState<{ key: string; data: LeadReconciliationScope }>();
+  const [counting, setCounting] = useState(false);
+  const [scopeError, setScopeError] = useState("");
   const [file, setFile] = useState<File>();
   const [report, setReport] = useState<LeadContractReport>();
   const [filter, setFilter] = useState<LeadContractStatus | "all">("all");
@@ -56,7 +68,12 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
   const [attempt, setAttempt] = useState(0);
   const errorId = useId();
   const fileHintId = useId();
+  const rangeHintId = useId();
+  const scopeErrorId = useId();
   const request = useRef<AbortController>(null);
+  const scopeRequest = useRef<AbortController>(null);
+  const scopeKey = `${provider}:${from}:${to}`;
+  const scope = scopeResult?.key === scopeKey ? scopeResult.data : undefined;
   useEffect(() => {
     const controller = new AbortController();
     void crmService.getLeadContractProviders(controller.signal).then(items => {
@@ -64,19 +81,34 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
     }).catch(cause => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Không tải được nhà cung cấp.");
     });
-    return () => { controller.abort(); request.current?.abort(); };
+    return () => { controller.abort(); request.current?.abort(); scopeRequest.current?.abort(); };
   }, [attempt]);
+
+  async function previewScope() {
+    scopeRequest.current?.abort();
+    setScopeResult(undefined); setScopeError(""); setReport(undefined);
+    if (!from || !to || from > to) { setScopeError("Chọn khoảng ngày hợp lệ; Từ ngày không được sau Đến ngày."); return; }
+    const controller = new AbortController();
+    scopeRequest.current = controller;
+    setCounting(true);
+    try {
+      const data = await crmService.getLeadReconciliationScope(provider, from, to, controller.signal);
+      if (!controller.signal.aborted) setScopeResult({ key: scopeKey, data });
+    } catch (cause) {
+      if (!controller.signal.aborted) setScopeError(cause instanceof Error ? cause.message : "Không đếm được Lead. Thử lại bằng nút Xem số Lead.");
+    } finally { if (!controller.signal.aborted) setCounting(false); }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!file || working) return;
+    if (!file || working || !scope) return;
     const controller = new AbortController();
     request.current = controller;
     setWorking(true);
     setError("");
     setReport(undefined);
     try {
-      const result = await crmService.reconcileLeadContracts(file, provider, Number(year), Number(quarter), controller.signal);
+      const result = await crmService.reconcileLeadContracts(file, provider, Number(year), Number(quarter), { from, to }, controller.signal);
       if (!controller.signal.aborted) { setReport(result); setFilter("all"); setPage(1); }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Không đối soát được file Excel.");
@@ -98,7 +130,7 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
     }
   }
   const comparisonRows = report ? report.excelRows
-    ? [...report.excelRows, ...report.rows.filter(row => row.status === "lead_only")] : report.rows : [];
+    ? [...report.excelRows, ...report.rows.filter(row => row.status === "lead_only" || (row.status === "needs_review" && !row.sourceRows?.length))] : report.rows : [];
   const visible = comparisonRows.filter(row => filter === "all" || row.status === filter);
   if (!providers && !error) return <p role="status" className="text-pretty text-sm text-on-surface-variant">Đang tải nhà cung cấp…</p>;
   if (!providers) return <div className="space-y-2">
@@ -107,11 +139,11 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
   </div>;
 
   return <div className="space-y-3">
-    <form onSubmit={submit} className="space-y-3" aria-busy={working}>
+    <form onSubmit={submit} className="space-y-3" aria-busy={working || counting}>
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="min-w-0 space-y-1 text-sm">
           <span>Nhà mạng</span>
-          <select className={fieldClass} value={provider} disabled={working} onChange={event => { setProvider(event.target.value); setReport(undefined); }}>
+          <select className={fieldClass} value={provider} disabled={working || counting} onChange={event => { setProvider(event.target.value); setReport(undefined); }}>
             {providers.map(item => <option key={item}>{item}</option>)}
           </select>
         </label>
@@ -127,11 +159,34 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
             onChange={event => { setYear(event.target.value); setReport(undefined); }} />
         </label>
       </div>
+      <fieldset className="space-y-2 rounded-md border border-outline-variant p-3" disabled={working || counting}>
+        <legend className="px-1 text-sm font-medium">Phạm vi Lead theo ngày tạo</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="space-y-1 text-sm"><span>Từ ngày tạo Lead</span>
+            <input type="date" required min="2000-01-01" max={to || "2100-12-31"} value={from} className={fieldClass}
+              aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
+              onChange={event => { setFrom(event.target.value); setScopeError(""); setReport(undefined); }} />
+          </label>
+          <label className="space-y-1 text-sm"><span>Đến ngày tạo Lead</span>
+            <input type="date" required min={from || "2000-01-01"} max="2100-12-31" value={to} className={fieldClass}
+              aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
+              onChange={event => { setTo(event.target.value); setScopeError(""); setReport(undefined); }} />
+          </label>
+        </div>
+        <p id={rangeHintId} className="text-pretty text-xs text-on-surface-variant">Tính đủ ngày đầu và ngày cuối theo giờ Việt Nam. Ngày hòa mạng và kỳ trong Excel không dùng để lọc ngày tạo Lead.</p>
+        <button type="button" className={linkClass} onClick={() => void previewScope()}>{counting ? "Đang đếm Lead…" : "Xem số Lead"}</button>
+      </fieldset>
+      {scopeError && <p id={scopeErrorId} role="alert" className="text-pretty text-sm text-error">{scopeError}</p>}
+      {scope && <div role="status" className="space-y-1 text-sm tabular-nums">
+        <p className="text-pretty">{scope.leadCount} Lead trong phạm vi {displayDay(scope.from)} – {displayDay(scope.to)}.</p>
+        {scope.invalidCodeCount > 0 && <p className="text-pretty text-error">{scope.invalidCodeCount} Lead thiếu hoặc sai mã, cần kiểm tra trước khi ghép.</p>}
+        {scope.missingDateCount > 0 && <p className="text-pretty text-error">{scope.missingDateCount} Lead thiếu ngày tạo, chưa thể xác định phạm vi.</p>}
+      </div>}
       <p className="text-pretty text-xs text-on-surface-variant">FPT ghép bằng Số hợp đồng, VNPT bằng Mã khách hàng/Account. So tên, địa chỉ, dịch vụ và mốc hòa mạng; giữ nguyên từng dòng và thứ tự trong Excel, kể cả các dòng lặp.</p>
       <label className="block space-y-1 text-sm">
         <span>File bảng kê (.xlsx)</span>
         <input type="file" className="block w-full rounded-md border border-outline-variant p-2 text-sm outline-none focus:border-primary"
-          required accept=".xlsx" disabled={working} aria-describedby={`${fileHintId}${error ? ` ${errorId}` : ""}`}
+          required accept=".xlsx" disabled={working || !scope} aria-invalid={Boolean(error)} aria-describedby={`${fileHintId}${error ? ` ${errorId}` : ""}`}
           onChange={event => {
             const candidate = event.target.files?.[0];
             setReport(undefined);
@@ -139,15 +194,16 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
             setFile(candidate); setError("");
           }} />
       </label>
-      <p id={fileHintId} className="text-pretty text-xs text-on-surface-variant">Tối đa 10 MB. File có nhiều sheet sẽ chọn Bảng kê của FPT hoặc sheet đúng quý/năm của VNPT.</p>
-      <button type="submit" className={primaryCreateButtonClass} disabled={working}>{working ? "Đang đối soát…" : "Đối soát thông tin khách hàng"}</button>
+      <p id={fileHintId} className="text-pretty text-xs text-on-surface-variant">{!scope ? "Bấm Xem số Lead trước khi chọn file. " : ""}Tối đa 10 MB. Chọn quý/năm theo kỳ trong file Excel, độc lập với khoảng ngày tạo Lead.</p>
+      <button type="submit" className={primaryCreateButtonClass} disabled={working || !scope || !file}>{working ? "Đang đối soát…" : "Đối soát thông tin khách hàng"}</button>
     </form>
     {error && <p id={errorId} role="alert" className="text-pretty text-sm text-error">{error}</p>}
     {report && <section aria-label="Kết quả đối soát" className="space-y-2">
       <p role="status" className="text-pretty text-sm tabular-nums">
         {report.excelCount} mã trong Excel · {report.sourceRowCount ?? report.excelCount} dòng · {report.duplicates} dòng có thông tin lặp (vẫn giữ đủ)
       </p>
-      {report.sheetName && <p className="text-pretty text-xs text-on-surface-variant">Bảng: {report.sheetName} · {report.period}. Bao gồm hồ sơ hòa mạng từ các kỳ trước; không dùng ngày gửi ảnh làm kỳ đối soát.</p>}
+      {report.scope && <p className="text-pretty text-sm tabular-nums">Đã xét {report.scope.leadCount} Lead tạo từ {displayDay(report.scope.from)} đến {displayDay(report.scope.to)}. Hồ sơ ngoài phạm vi chưa được so thông tin.</p>}
+      {report.sheetName && <p className="text-pretty text-xs text-on-surface-variant">Bảng: {report.sheetName} · {report.period}. Mốc hòa mạng được so riêng, kể cả khách hòa mạng từ các năm trước.</p>}
       {report.invalidRows.length > 0 && <p className="text-pretty text-sm text-error">
         {report.invalidRows.length} dòng thiếu mã hoặc mã sai định dạng (dòng {report.invalidRows.slice(0, 12).join(", ")}{report.invalidRows.length > 12 ? "…" : ""}).
       </p>}
@@ -168,7 +224,7 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
                 <th key={label} scope="col" className="px-3 py-2 font-medium">{label}</th>)}</tr>
             </thead>
             <tbody>{visible.slice((page - 1) * pageSize, page * pageSize).map(row =>
-              <tr key={`${row.sourceRows?.join("-") || "lead"}:${row.code}`} className="border-t border-outline-variant">
+              <tr key={`${row.sourceRows?.join("-") || row.leadId || "lead"}:${row.code}`} className="border-t border-outline-variant">
                 <td className="px-3 py-2 align-top tabular-nums">
                   <p>{row.sourceSerial || "—"}</p>
                   <p className="text-pretty text-xs text-on-surface-variant">{row.sourceRows?.length ? `Dòng ${row.sourceRows.join(", ")}` : "Ngoài Excel"}</p>
@@ -183,13 +239,16 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
                 </td>
                 <td className="px-3 py-2 align-top">
                   <p className="text-pretty">{statuses[row.status]}</p>
+                  {row.leadCreatedAt && <p className="mt-1 text-pretty text-xs text-on-surface-variant">Tạo Lead: {new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(row.leadCreatedAt))}</p>}
                   {row.issue && <p className="mt-1 text-pretty text-xs text-on-surface-variant">{row.issue}</p>}
+                  {row.differences?.length ? <ul className="mt-2 list-inside list-disc space-y-1 text-xs">{row.differences.map(item => <li key={item.field}>
+                    {item.label}: {item.reason === "different" ? `Excel “${item.excel}” · Lead “${item.lead}”` : item.reason === "missing_both" ? "cả Excel và Lead đều thiếu dữ liệu" : item.reason === "missing_lead" ? "Lead chưa có dữ liệu" : "Excel chưa có dữ liệu"}.
+                  </li>)}</ul> : null}
                   {row.leadId ? <button type="button" className={linkClass} disabled={Boolean(opening)}
                     onClick={() => void openLead(row.leadId!)}>{opening === row.leadId ? "Đang mở…" : row.customerName || "Mở Lead"}</button> : "—"}
                   {(row.excel || row.lead) && <details className="mt-2">
                     <summary className="cursor-pointer rounded text-primary focus-visible:outline-1 focus-visible:outline-primary">So sánh {row.sourceRows?.length ? `dòng ${row.sourceRows.join(", ")}` : "hồ sơ"} · {row.code}</summary>
                     <CustomerComparison excel={row.excel} lead={row.lead} />
-                    {row.differences?.length ? <ul className="mt-2 list-inside list-disc space-y-1 text-xs">{row.differences.map(item => <li key={item.field}>{item.label}: {item.reason === "different" ? "khác nhau" : item.reason === "missing_lead" ? "Lead chưa có dữ liệu" : "Excel chưa có dữ liệu"}.</li>)}</ul> : null}
                     {row.sourceRows?.length ? <p className="mt-2 text-pretty text-xs tabular-nums">Dòng Excel: {row.sourceRows.join(", ")}</p> : null}
                   </details>}
                 </td>

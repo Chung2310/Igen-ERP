@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { crmService } from "../../services/crmService";
 import { LeadTelecomInvoices } from "./LeadTelecomInvoices";
 import { LeadContractReconciliation } from "./LeadContractReconciliation";
@@ -10,8 +10,93 @@ vi.mock("../../services/crmService", () => ({ crmService: {
   getTelecomInvoiceSettings: vi.fn(), saveTelecomInvoiceSettings: vi.fn(), getLeadTelecomInvoices: vi.fn(),
   getLeadContractProviders: vi.fn(), reconcileLeadContracts: vi.fn(), getLeadContractPhotos: vi.fn(),
   confirmLeadContractPhoto: vi.fn(),
+  getLeadReconciliationScope: vi.fn(),
 } }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+beforeEach(() => {
+  vi.mocked(crmService.getLeadReconciliationScope).mockImplementation(async (_provider, from, to) => ({
+    from, to, dateField: "createdAt", leadCount: 2, missingDateCount: 0, invalidCodeCount: 0,
+  }));
+});
+async function previewRange() {
+  await screen.findByLabelText("File bảng kê (.xlsx)");
+  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-01-01" } });
+  fireEvent.change(screen.getByLabelText("Đến ngày tạo Lead"), { target: { value: "2026-03-31" } });
+  fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
+  await screen.findByText("2 Lead trong phạm vi 01/01/2026 – 31/03/2026.");
+}
+
+it("previews the selected Lead creation dates and invalidates the preview and report when dates change", async () => {
+  vi.mocked(crmService.getLeadContractProviders).mockResolvedValue(["FPT"]);
+  vi.mocked(crmService.reconcileLeadContracts).mockResolvedValue({ excelCount: 1, duplicates: 0, invalidRows: [], rows: [
+    { code: "SCOPED", status: "matched" },
+  ] });
+  render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
+  const upload = await screen.findByLabelText<HTMLInputElement>("File bảng kê (.xlsx)");
+  expect(upload.disabled).toBe(true);
+  expect(crmService.getLeadReconciliationScope).not.toHaveBeenCalled();
+  await previewRange();
+  expect(crmService.getLeadReconciliationScope).toHaveBeenCalledWith("FPT", "2026-01-01", "2026-03-31", expect.any(AbortSignal));
+  expect(upload.disabled).toBe(false);
+  fireEvent.change(upload, { target: { files: [new File(["file"], "scope.xlsx")] } });
+  fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
+  expect(await screen.findByText("SCOPED")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-02-01" } });
+  expect(screen.queryByText("SCOPED")).toBeNull();
+  expect(upload.disabled).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: "Đối soát thông tin khách hàng" }).disabled).toBe(true);
+  expect(crmService.getLeadReconciliationScope).toHaveBeenCalledTimes(1);
+});
+
+it("rejects reversed dates and allows a failed preview to be retried", async () => {
+  vi.mocked(crmService.getLeadContractProviders).mockResolvedValue(["FPT"]);
+  render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
+  await screen.findByLabelText("File bảng kê (.xlsx)");
+  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-04-01" } });
+  fireEvent.change(screen.getByLabelText("Đến ngày tạo Lead"), { target: { value: "2026-03-01" } });
+  fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("Từ ngày không được sau Đến ngày");
+  expect(crmService.getLeadReconciliationScope).not.toHaveBeenCalled();
+  vi.mocked(crmService.getLeadReconciliationScope).mockRejectedValueOnce(new Error("Không kết nối được dữ liệu"));
+  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-01-01" } });
+  fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("Không kết nối được dữ liệu");
+  fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
+  expect(await screen.findByText("2 Lead trong phạm vi 01/01/2026 – 01/03/2026.")).toBeTruthy();
+});
+
+it("shows missing field reasons, date warnings and outside-range results without marking them as missing ERP Leads", async () => {
+  vi.mocked(crmService.getLeadContractProviders).mockResolvedValue(["FPT"]);
+  vi.mocked(crmService.getLeadReconciliationScope).mockResolvedValue({ from: "2026-01-01", to: "2026-03-31", dateField: "createdAt", leadCount: 2, missingDateCount: 1, invalidCodeCount: 1 });
+  vi.mocked(crmService.reconcileLeadContracts).mockResolvedValue({ excelCount: 2, duplicates: 0, invalidRows: [], rows: [
+    { code: "OLD", status: "out_of_scope", sourceRows: [2], leadCreatedAt: "2025-12-01T00:00:00Z", issue: "Đã có trên ERP nhưng ngoài khoảng ngày" },
+    { code: "INCOMPLETE", status: "incomplete", sourceRows: [3], differences: [
+      { field: "address", label: "Địa chỉ", reason: "missing_lead", excel: "Căn 101", lead: "" },
+      { field: "customerName", label: "Tên khách hàng", reason: "missing_both", excel: "", lead: "" },
+    ] },
+    { code: "Chưa có mã", status: "needs_review", leadId: "review", issue: "Thiếu mã đối soát" },
+  ], excelRows: [
+    { code: "OLD", status: "out_of_scope", sourceRows: [2], issue: "Đã có trên ERP nhưng ngoài khoảng ngày" },
+    { code: "INCOMPLETE", status: "incomplete", sourceRows: [3], differences: [
+      { field: "address", label: "Địa chỉ", reason: "missing_lead", excel: "Căn 101", lead: "" },
+      { field: "customerName", label: "Tên khách hàng", reason: "missing_both", excel: "", lead: "" },
+    ] },
+  ] });
+  render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
+  await previewRange();
+  expect(screen.getByText(/1 Lead thiếu ngày tạo/)).toBeTruthy();
+  expect(screen.getByText(/1 Lead thiếu hoặc sai mã/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("File bảng kê (.xlsx)"), { target: { files: [new File(["file"], "test.xlsx")] } });
+  fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
+  expect(await screen.findByText("Ngoài phạm vi ngày tạo Lead")).toBeTruthy();
+  expect(screen.getByText("Địa chỉ: Lead chưa có dữ liệu.")).toBeTruthy();
+  expect(screen.getByText("Tên khách hàng: cả Excel và Lead đều thiếu dữ liệu.")).toBeTruthy();
+  expect(screen.getByText("Thiếu mã đối soát")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "out_of_scope" } });
+  const table = screen.getByRole<HTMLTableElement>("table", { name: "Đối soát theo từng dòng Excel" });
+  expect(table.tBodies[0].rows).toHaveLength(1);
+  expect(table.tBodies[0].rows[0].cells[1].textContent).toBe("OLD");
+});
 
 it("renders repeated Excel lines in their original order with adjacent customer columns", async () => {
   vi.mocked(crmService.getLeadContractProviders).mockResolvedValue(["FPT"]);
@@ -27,6 +112,7 @@ it("renders repeated Excel lines in their original order with adjacent customer 
     ],
   });
   render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
+  await previewRange();
   fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [new File(["workbook"], "bang-ke.xlsx")] } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
   const table = await screen.findByRole<HTMLTableElement>("table", { name: "Đối soát theo từng dòng Excel" });
@@ -55,18 +141,19 @@ it("shows VNPT customer differences side by side without requiring OCR setup or 
   });
   render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
   const file = new File(["workbook"], "vnpt.xlsx");
-  fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
-  fireEvent.change(screen.getByLabelText("Nhà mạng"), { target: { value: "VNPT" } });
+  fireEvent.change(await screen.findByLabelText("Nhà mạng"), { target: { value: "VNPT" } });
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
   fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
+  await previewRange();
+  fireEvent.change(screen.getByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
   expect(await screen.findByText("Khác thông tin")).toBeTruthy();
-  expect(screen.getByText("Địa chỉ: khác nhau.")).toBeTruthy();
+  expect(screen.getByText("Địa chỉ: Excel “Căn 101” · Lead “Căn 202”.")).toBeTruthy();
   expect(screen.getAllByText("Căn 101").length).toBeGreaterThan(0);
   expect(screen.getByText("Căn 202")).toBeTruthy();
   expect(screen.getByText("04/07/2023")).toBeTruthy();
   expect(screen.queryByText(/Hoa hồng|Tổng tiền/i)).toBeNull();
-  expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "VNPT", 2026, 1, expect.any(AbortSignal));
+  expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "VNPT", 2026, 1, { from: "2026-01-01", to: "2026-03-31" }, expect.any(AbortSignal));
 });
 
 it.each([["facebook", "Page"], ["zalo", "Zalo OA"]] as const)("uses the selected %s account's Lead fields for the subscriber mapping", async (platform, label) => {
@@ -128,12 +215,13 @@ it("submits the selected period and file and filters the results by contract sta
   });
   render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
   const file = new File(["workbook"], "bang-ke.xlsx");
+  await previewRange();
   fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
   fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
   expect(await screen.findByText("2 mã trong Excel · 2 dòng · 4 dòng có thông tin lặp (vẫn giữ đủ)")).toBeTruthy();
-  expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "FPT", 2026, 1, expect.any(AbortSignal));
+  expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "FPT", 2026, 1, { from: "2026-01-01", to: "2026-03-31" }, expect.any(AbortSignal));
   fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "excel_only" } });
   expect(screen.queryByText("001")).toBeNull();
   expect(screen.getByText("002")).toBeTruthy();

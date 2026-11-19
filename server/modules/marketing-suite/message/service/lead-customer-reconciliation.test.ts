@@ -6,7 +6,7 @@ import { CRMTicketModel } from "../model/crm-ticket.model";
 import { LeadContractModel } from "../model/lead-contract.model";
 import { LeadIntakeProfileModel } from "../model/lead-intake-profile.model";
 import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
-import { readLeadContractWorkbook, reconcileLeadContracts } from "./lead-contract-reconciliation";
+import { previewLeadReconciliation, readLeadReconciliationRange, readLeadContractWorkbook, reconcileLeadContracts } from "./lead-contract-reconciliation";
 
 let mongo: MongoMemoryServer;
 const models = [CRMTicketModel, LeadContractModel, LeadIntakeProfileModel, TelecomInvoiceSettingsModel];
@@ -32,6 +32,82 @@ async function lead(code: string, overrides: Record<string, unknown> = {}, compa
 }
 
 describe("Customer information reconciliation", () => {
+  it("selects full Vietnam calendar days by Lead creation and reports Excel matches outside the range separately", async () => {
+    const range = { from: "2026-01-01", to: "2026-03-31" };
+    const dates = { START: "2025-12-31T17:00:00.000Z", LAST: "2026-03-31T16:59:59.999Z",
+      BEFORE: "2025-12-31T16:59:59.999Z", AFTER: "2026-03-31T17:00:00.000Z", ERP_ONLY: "2026-02-02T00:00:00Z" };
+    for (const [code, createdAt] of Object.entries(dates)) {
+      const item = await lead(code, { dich_vu: "Internet", moc_hoa_mang: code === "ERP_ONLY" ? "2027-01" : "2023-07-04" });
+      await CRMTicketModel.collection.updateOne({ _id: item._id }, { $set: { createdAt: new Date(createdAt) } });
+    }
+    await lead("OTHER_PROVIDER", { nha_mang: "VNPT" });
+    await lead("OTHER_COMPANY", {}, "OTHER");
+    expect(await previewLeadReconciliation("CUSTOMERS", "FPT", range)).toMatchObject({ ...range, dateField: "createdAt", leadCount: 3, invalidCodeCount: 0, missingDateCount: 0 });
+    const bytes = workbook([headers, ...["START", "LAST", "BEFORE", "AFTER", "MISSING"].map((code, index) =>
+      [index + 1, code, "Nguyễn An", "Căn 101 Green Pearl", "Internet", "04/07/2023"])]);
+    const before = await CRMTicketModel.find({}).sort({ _id: 1 }).lean();
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, bytes, range);
+    expect(report.scope?.leadCount).toBe(3);
+    expect(Object.fromEntries(report.rows.map(row => [row.code, row.status]))).toEqual({
+      AFTER: "out_of_scope", BEFORE: "out_of_scope", ERP_ONLY: "lead_only", LAST: "matched", MISSING: "excel_only", START: "matched",
+    });
+    expect(report.excelRows?.map(row => row.status)).toEqual(["matched", "matched", "out_of_scope", "out_of_scope", "excel_only"]);
+    expect(report.rows.find(row => row.code === "BEFORE")).toMatchObject({ leadCreatedAt: dates.BEFORE, issue: expect.stringContaining("ngoài khoảng ngày") });
+    expect(await CRMTicketModel.find({}).sort({ _id: 1 }).lean()).toEqual(before);
+  });
+
+  it("holds missing dates, missing identity codes and duplicate codes for review rather than reporting them as absent", async () => {
+    const range = { from: "2026-01-01", to: "2026-12-31" };
+    const noDate = await lead("NO_DATE");
+    await CRMTicketModel.collection.updateOne({ _id: noDate._id }, { $unset: { createdAt: 1 } });
+    const noCode = await lead("", { so_hop_dong: "", dich_vu: "Internet" });
+    await CRMTicketModel.collection.updateOne({ _id: noCode._id }, { $set: { createdAt: new Date("2026-02-01") } });
+    for (const createdAt of ["2025-01-01", "2026-02-01"]) {
+      const duplicate = await lead("DUP");
+      await CRMTicketModel.collection.updateOne({ _id: duplicate._id }, { $set: { createdAt: new Date(createdAt) } });
+    }
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, workbook([headers, [1, "NO_DATE"], [2, "DUP"]]), range);
+    expect(report.rows).toHaveLength(3);
+    expect(report.rows.every(row => row.status === "needs_review")).toBe(true);
+    expect(report.rows.find(row => row.code === "NO_DATE")?.issue).toContain("thiếu ngày tạo");
+    expect(report.rows.find(row => row.code === "DUP")?.issue).toContain("nhiều Lead");
+    expect(report.rows.find(row => row.code === "Chưa có mã")?.issue).toContain("thiếu hoặc sai định dạng mã");
+    expect(await previewLeadReconciliation("CUSTOMERS", "FPT", range)).toMatchObject({ leadCount: 2, missingDateCount: 1, invalidCodeCount: 1 });
+  });
+
+  it("recognizes outside-range identities with archived custom field snapshots and case-insensitive codes", async () => {
+    await CRMTicketModel.collection.insertOne({ companyCode: "CUSTOMERS", createdAt: new Date("2020-01-01"),
+      customerName: "Nguyễn An", answers: { old_id: " lowercase.id ", old_provider: "FPT" },
+      intakeFields: [{ key: "old_id", label: "Số hợp đồng" }, { key: "old_provider", label: "Nhà mạng" }] });
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, workbook([headers, [1, "LOWERCASE.ID"]]), { from: "2026-01-01", to: "2026-03-31" });
+    expect(report.rows).toMatchObject([{ code: "LOWERCASE.ID", status: "out_of_scope" }]);
+    expect(report.scope?.leadCount).toBe(0);
+  });
+
+  it("reports missing fields on both sides and does not use an autogenerated subscriber label as a customer name", async () => {
+    const item = await lead("EMPTY", { ho_va_ten: "", dia_chi_lap_dat: "", dich_vu: "" });
+    await CRMTicketModel.collection.updateOne({ _id: item._id }, { $set: { customerName: "Thuê bao EMPTY", createdAt: new Date("2026-02-01") } });
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, workbook([headers, [1, "EMPTY"]]), { from: "2026-01-01", to: "2026-03-31" });
+    expect(report.rows[0].status).toBe("incomplete");
+    expect(report.rows[0].differences).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "customerName", reason: "missing_both" }),
+      expect.objectContaining({ field: "address", reason: "missing_both" }),
+      expect.objectContaining({ field: "services", reason: "missing_both" }),
+    ]));
+  });
+
+  it("does not call every row complete when an ERP service is absent from all Excel rows", async () => {
+    await lead("EXTRA_SERVICE", { dich_vu: "Internet; Truyền hình" });
+    const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, workbook([headers,
+      [1, "EXTRA_SERVICE", "Nguyễn An", "Căn 101 Green Pearl", "Internet", "04/07/2023"],
+    ]));
+    expect(report.rows[0].status).toBe("different");
+    expect(report.excelRows?.[0]).toMatchObject({ status: "different", differences: [expect.objectContaining({ field: "services", excel: "Internet", lead: "Internet; Truyền hình" })] });
+  });
+
+  it.each([["2026-02-30", "2026-03-01"], ["2026-1-01", "2026-03-01"], ["2026-02-01", "2026-01-01"], [undefined, "2026-01-01"], ["2026-01-01", { bad: true }]])("rejects invalid or reversed Lead date ranges %s – %s", (from, to) => {
+    expect(() => readLeadReconciliationRange(from, to)).toThrow();
+  });
   it("preserves source order, repeated STT/customer cells and even identical lines while matching services individually", async () => {
     await lead("B002");
     await lead("A001", { dich_vu: "Internet" });
@@ -113,7 +189,9 @@ describe("Customer information reconciliation", () => {
     ]);
     const report = await reconcileLeadContracts("CUSTOMERS", "FPT", 2026, 1, bytes);
     expect(report.rows.map(row => row.status)).toEqual(["needs_review", "needs_review", "needs_review"]);
-    expect(report.rows.every(row => !row.leadId)).toBe(true);
+    expect(report.rows.find(row => row.code === "A")?.leadId).toBeUndefined();
+    expect(report.rows.find(row => row.code === "B")?.leadId).toBeTruthy();
+    expect(report.rows.find(row => row.code === "C")?.leadId).toBeTruthy();
   });
 
   it("uses configured custom field names and includes old subscribers without using message dates", async () => {

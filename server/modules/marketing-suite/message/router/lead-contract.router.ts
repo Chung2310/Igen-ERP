@@ -7,13 +7,13 @@ import { CRMTicketModel } from "../model/crm-ticket.model";
 import { LeadContractModel, LeadContractPhotoModel } from "../model/lead-contract.model";
 import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 import { normalizeContractPhotoValues } from "../service/lead-contract-ocr";
-import { reconcileLeadContracts } from "../service/lead-contract-reconciliation";
+import { previewLeadReconciliation, readLeadReconciliationRange, reconcileLeadContracts } from "../service/lead-contract-reconciliation";
 import { recordLeadContractPhoto, type StoredContractPhoto } from "../service/lead-contract.service";
 
 export const leadContractRouter = Router();
 const manage = requirePermission("omni-inbox:manage");
 const read = requirePermission(["omni-inbox:read", "omni-inbox:manage"]);
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 3, fieldSize: 1024 } }).single("file");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 5, fieldSize: 1024 } }).single("file");
 const reviewFilter = () => ({ $or: [{ status: "review" as const }, { status: "reading" as const, leaseUntil: { $lte: new Date() } }] });
 
 function run(action: (req: AuthenticatedRequest, res: Response) => Promise<unknown>) {
@@ -38,10 +38,16 @@ leadContractRouter.get("/lead-contracts/providers", read, run(async (req, res) =
   return res.json({ status: "success", data: providers });
 }));
 
+leadContractRouter.get("/lead-contracts/scope", manage, run(async (req, res) => {
+  const { from, to } = readLeadReconciliationRange(req.query.from, req.query.to);
+  const data = await previewLeadReconciliation(req.user!.companyCode, String(req.query.provider || ""), { from, to });
+  return res.json({ status: "success", data });
+}));
+
 leadContractRouter.post("/lead-contracts/reconcile", manage, (req, res, next) => {
   upload(req, res, error => {
     if (error) return res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400)
-      .json({ status: "error", message: "Chọn một file .xlsx tối đa 10 MB." });
+      .json({ status: "error", message: error.code === "LIMIT_FILE_SIZE" ? "Chọn một file .xlsx tối đa 10 MB." : "File hoặc các trường đối soát chưa hợp lệ." });
     next();
   });
 }, run(async (req, res) => {
@@ -49,7 +55,8 @@ leadContractRouter.post("/lead-contracts/reconcile", manage, (req, res, next) =>
   if (!provider || !req.file?.originalname.toLowerCase().endsWith(".xlsx")) {
     return res.status(400).json({ status: "error", message: "Chọn nhà cung cấp và file bảng kê .xlsx." });
   }
-  const data = await reconcileLeadContracts(req.user!.companyCode, provider, Number(req.body.year), Number(req.body.quarter), req.file.buffer);
+  const { from, to } = readLeadReconciliationRange(req.body.from, req.body.to);
+  const data = await reconcileLeadContracts(req.user!.companyCode, provider, Number(req.body.year), Number(req.body.quarter), req.file.buffer, { from, to });
   return res.json({ status: "success", data });
 }));
 
