@@ -384,6 +384,24 @@ function LeadIntakeBuilderModalBody({
     }
   }
 
+  function applyTemplate(replace = false) {
+    if (cannotEdit || !selectedTemplate) return;
+    const replacing = replace || !hasBaseProfile;
+    const additions = replacing ? selectedTemplate.fields : missingTemplateFields(fields, selectedTemplate);
+    if (!replacing && fields.length + additions.length > 30) {
+      setError("Bộ cột sẽ vượt quá 30 cột. Bỏ bớt cột trước khi thêm mẫu."); return;
+    }
+    setError("");
+    if (!replacing && !additions.length) {
+      setNotice("Bộ hiện tại đã có đủ các cột trong mẫu."); return;
+    }
+    setFields(current => replacing ? normalizeEditableFields(additions) : [...current, ...normalizeEditableFields(additions)]);
+    if (replacing || !goal.trim()) setGoal(selectedTemplate.goal);
+    if (replacing) { setNeedGroups([]); setSourceDocumentIds([]); }
+    setExpandedFieldId(undefined);
+    setNotice(`Đã đưa mẫu ${selectedTemplate.name} vào bản đang chỉnh. Xem lại rồi bấm Lưu & áp dụng.`);
+  }
+
   const cannotEdit = Boolean(busy) || loading || loadFailed || inheritsSharedProfile;
   const columnLayout = "sm:grid-cols-[minmax(0,1fr)_5rem_4.5rem]";
 
@@ -448,26 +466,14 @@ function LeadIntakeBuilderModalBody({
                 onChange={setTemplateId} className="h-9 rounded-xl text-xs" />
             </div>
             {selectedTemplate && <button type="button" className={secondaryBtnClass} disabled={cannotEdit} onClick={() => {
-              if (cannotEdit) return;
-              const additions = hasBaseProfile ? missingTemplateFields(fields, selectedTemplate) : selectedTemplate.fields;
-              if (hasBaseProfile && fields.length + additions.length > 30) {
-                setError("Bộ cột sẽ vượt quá 30 cột. Bỏ bớt cột trước khi thêm mẫu."); return;
-              }
-              setError("");
-              if (hasBaseProfile && !additions.length) {
-                setNotice("Bộ hiện tại đã có đủ các cột trong mẫu."); return;
-              }
-              setFields(current => hasBaseProfile ? [...current, ...normalizeEditableFields(additions)] : normalizeEditableFields(additions));
-              if (!hasBaseProfile || !goal.trim()) setGoal(selectedTemplate.goal);
-              if (!hasBaseProfile) setNeedGroups([]);
-              setExpandedFieldId(undefined);
-              setNotice(`Đã đưa mẫu ${selectedTemplate.name} vào bản đang chỉnh. Xem lại rồi bấm Lưu & áp dụng.`);
+              applyTemplate();
             }}>{hasBaseProfile ? "Thêm cột từ mẫu" : "Dùng mẫu"}</button>}
+            {selectedTemplate && hasBaseProfile && <button type="button" className={secondaryBtnClass} disabled={cannotEdit} onClick={() => applyTemplate(true)}>Thay bộ cột bằng mẫu</button>}
           </div>
           {selectedTemplate && <div className="space-y-1 text-xs text-on-surface-variant">
             <p className="text-pretty">{selectedTemplate.description}</p>
             <p className="text-pretty">Các cột: {selectedTemplate.fields.map(field => field.label).join(", ")}.</p>
-            <p className="text-pretty">{hasBaseProfile ? "Chỉ thêm cột còn thiếu; giữ nguyên các cột và nhóm đang có." : "Dùng mẫu sẽ thay bộ cột đang chỉnh."} Chỉ áp dụng sau khi bấm Lưu & áp dụng.</p>
+            <p className="text-pretty">{hasBaseProfile ? "Thêm cột từ mẫu giữ các cột đang có. Thay bộ cột bằng mẫu sẽ dùng đúng các cột của mẫu; dữ liệu Lead đã lưu vẫn được giữ." : "Dùng mẫu sẽ thay bộ cột đang chỉnh."} Chỉ áp dụng sau khi bấm Lưu & áp dụng.</p>
           </div>}
         </section>}
         <div className="flex flex-wrap items-center justify-between gap-2">
