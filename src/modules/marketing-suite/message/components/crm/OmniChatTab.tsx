@@ -47,7 +47,12 @@ type OmniChatTabProps = {
     configScopeLabel?: string;
     composer?: React.ReactNode;
     hasAttachment?: boolean;
-    onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
+    onPaste?: React.ClipboardEventHandler<HTMLDivElement>;
+    onDragEnter?: React.DragEventHandler<HTMLDivElement>;
+    onDragOver?: React.DragEventHandler<HTMLDivElement>;
+    onDragLeave?: React.DragEventHandler<HTMLDivElement>;
+    onDrop?: React.DragEventHandler<HTMLDivElement>;
+    dropOverlay?: React.ReactNode;
     headerActions?: React.ReactNode;
     sidebarActions?: React.ReactNode;
     status?: React.ReactNode;
@@ -872,7 +877,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       </div>}
 
       {/* M-Col: Active Conversation details */}
-      <div className="flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area">
+      <div className="relative flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area"
+        onPaste={directChat?.onPaste} onDragEnter={directChat?.onDragEnter} onDragOver={directChat?.onDragOver}
+        onDragLeave={directChat?.onDragLeave} onDrop={directChat?.onDrop}>
+        {directChat?.dropOverlay}
         {isInboxLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-[#00ADFC] mb-3" />
@@ -1007,6 +1015,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   const attachments = h.attachments || [];
                   const primaryAttachment = attachments[0];
                   const hasImageAttachment = primaryAttachment?.url && ["image", "sticker"].includes(primaryAttachment.type);
+                  const visibleImages = directChat ? attachments.filter(attachment => attachment.url && ["image", "sticker"].includes(attachment.type))
+                    : hasImageAttachment ? [primaryAttachment] : [];
                   const displayText = h.text || (attachments.length > 0 ? (primaryAttachment?.type === "sticker" ? "[Biểu tượng]" : "[Đính kèm]") : "");
 
                   // Kiểm tra hiển thị phân cách ngày
@@ -1069,16 +1079,17 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                                 <Sparkles size={10} />{isSystem ? "Hệ thống AI tự động chốt sales" : "iGen AI Assistant (Trả lời tự động)"}
                               </span>
                             )}
-                            {hasImageAttachment && (
+                            {visibleImages.map((attachment, imageIndex) => <button key={`${attachment.url}:${imageIndex}`} type="button"
+                              aria-label={`Xem ảnh đính kèm ${imageIndex + 1}`} className="mb-2 block max-w-full rounded-2xl focus-visible:outline-2 focus-visible:outline-primary"
+                              onClick={() => setLightboxImage(attachment.url)}>
                               <img
-                                src={primaryAttachment.url}
-                                alt={primaryAttachment.type === "sticker" ? "Facebook sticker" : "Facebook attachment"}
+                                src={attachment.url}
+                                alt={attachment.type === "sticker" ? "Biểu tượng đính kèm" : `Ảnh đính kèm ${imageIndex + 1}`}
                                 className="max-w-[220px] max-h-[220px] rounded-2xl mb-2 object-contain bg-white/70 cursor-zoom-in hover:brightness-95 active:scale-98 transition-all duration-200 border border-slate-150/40 shadow-xs"
                                 loading="lazy"
                                 referrerPolicy="no-referrer"
-                                onClick={() => setLightboxImage(primaryAttachment.url)}
                               />
-                            )}
+                            </button>)}
                             {displayText ? (
                               <p className="leading-relaxed whitespace-pre-wrap select-text">{displayText}</p>
                             ) : null}
@@ -1170,7 +1181,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   value={typeMessage}
                   onChange={(e) => setTypeMessage(e.target.value)}
                   disabled={aiWaiting}
-                  onPaste={directChat?.onPaste}
                 />
                 <button
                   type="submit"

@@ -3,12 +3,15 @@ import mongoose from "mongoose";
 import multer from "multer";
 import { requirePermission, type AuthenticatedRequest } from "../../../../middleware/auth";
 import { ChatTestSessionModel, ChatTestMessageModel } from "../model/chat-test.model";
-import { prepareChatImages, MAX_CHAT_IMAGE_BYTES } from "../service/chat-visual-context";
+import { MAX_CHAT_IMAGE_BYTES } from "../service/chat-visual-context";
+import { CHAT_TEST_MAX_IMAGES } from "../../../../../shared/marketing-suite/chat-test";
+import { prepareChatTestUploads } from "../service/chat-test-images";
 import {
   addChatTestMessage, chatTestError, createChatTestSession, deleteChatTestSession,
   publicChatTestSession, readChatTestSession, readChatTestState, retryChatTestMessage,
   saveChatTestConfig, readChatTestOcrConfig, saveChatTestOcrConfig, previewChatTestReply,
   createChatTestLead,
+  changeChatTestDomain,
 } from "../service/chat-test.service";
 
 export const chatTestRouter = Router();
@@ -18,8 +21,8 @@ function run(handler: (req: AuthenticatedRequest, res: Response) => Promise<unkn
 }
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_CHAT_IMAGE_BYTES, files: 1, fields: 2, fieldSize: 20_000 },
-}).single("image");
+  limits: { fileSize: MAX_CHAT_IMAGE_BYTES, files: CHAT_TEST_MAX_IMAGES, fields: 2, fieldSize: 20_000 },
+}).array("image", CHAT_TEST_MAX_IMAGES);
 
 chatTestRouter.get("/", run(async (req, res) => {
   const sessions = await ChatTestSessionModel.find({ companyCode: req.user!.companyCode, userId: req.user!.id,
@@ -38,6 +41,8 @@ chatTestRouter.get("/:id", run(async (req, res) =>
 
 chatTestRouter.patch("/:id/config", run(async (req, res) =>
   res.json({ status: "success", data: await saveChatTestConfig(req.user!.companyCode, req.user!.id, req.params.id, req.body?.aiConfig) })));
+chatTestRouter.patch("/:id/domain", run(async (req, res) =>
+  res.json({ status: "success", data: await changeChatTestDomain(req.user!.companyCode, req.user!.id, req.params.id, req.body?.documentDomain) })));
 chatTestRouter.post("/:id/lead", run(async (req, res) =>
   res.json({ status: "success", data: await createChatTestLead(req.user!.companyCode, req.user!.id, req.params.id) })));
 chatTestRouter.get("/:id/ocr-config", run(async (req, res) =>
@@ -54,27 +59,20 @@ chatTestRouter.post("/:id/preview", run(async (req, res) => {
 chatTestRouter.post("/:id/messages", (req, res, next) => {
   void readChatTestSession((req as AuthenticatedRequest).user!.companyCode, (req as AuthenticatedRequest).user!.id, req.params.id)
     .then(() => upload(req, res, error => error
-      ? res.status(400).json({ status: "error", message: "Mỗi lượt gửi một ảnh JPEG, PNG, WebP hoặc GIF tối đa 8 MB." })
+      ? res.status(400).json({ status: "error", message: "Mỗi lượt tối đa 3 ảnh JPEG, PNG, WebP hoặc GIF, tổng dung lượng tối đa 8 MB." })
       : next())).catch(next);
 }, run(async (req, res) => {
   const { text = "", clientMessageId } = req.body || {};
+  const files = Array.isArray(req.files) ? req.files : [];
   if (typeof text !== "string" || text.length > 5000
     || typeof clientMessageId !== "string" || !/^[A-Za-z0-9_-]{12,80}$/.test(clientMessageId)
-    || (!text.trim() && !req.file)) {
+    || (!text.trim() && !files.length)) {
     throw chatTestError("Nhập tin nhắn tối đa 5.000 ký tự hoặc chọn ảnh để gửi.");
   }
-  let imageData: string | undefined;
-  let imageHash: string | undefined;
-  if (req.file) {
-    const candidate = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
-    const prepared = await prepareChatImages([{ dataUrl: candidate, messageId: clientMessageId }]);
-    if (!prepared.images.length || prepared.failure) throw chatTestError("Ảnh không hợp lệ. Chọn ảnh JPEG, PNG, WebP hoặc GIF.");
-    imageData = prepared.images[0].dataUrl;
-    imageHash = prepared.images[0].hash;
-  }
+  const imageFiles = await prepareChatTestUploads(files);
   const id = await addChatTestMessage({
     companyCode: req.user!.companyCode, userId: req.user!.id, sessionId: req.params.id,
-    clientMessageId, text: text.trim(), imageData, imageHash, fileName: req.file?.originalname.slice(0, 200),
+    clientMessageId, text: text.trim(), imageFiles,
   });
   return res.status(202).json({ status: "success", data: { id } });
 }));
@@ -87,9 +85,12 @@ chatTestRouter.post("/:id/messages/:messageId/retry", run(async (req, res) => {
 chatTestRouter.get("/:id/messages/:messageId/image", run(async (req, res) => {
   const session = await readChatTestSession(req.user!.companyCode, req.user!.id, req.params.id);
   if (!mongoose.isValidObjectId(req.params.messageId)) throw chatTestError("Ảnh không hợp lệ.");
-  const message = await ChatTestMessageModel.findOne({ _id: req.params.messageId, sessionId: session._id }).select("+imageData").lean();
-  if (!message?.imageData) throw chatTestError("Không tìm thấy ảnh.", 404);
-  const [header, base64] = message.imageData.split(",");
+  const index = req.query.index === undefined ? 0 : typeof req.query.index === "string" && /^[0-2]$/.test(req.query.index) ? Number(req.query.index) : -1;
+  if (index < 0) throw chatTestError("Vị trí ảnh không hợp lệ.");
+  const message = await ChatTestMessageModel.findOne({ _id: req.params.messageId, sessionId: session._id }).select("+imageData +imageFiles").lean();
+  const data = message?.imageFiles?.[index]?.data || (index === 0 ? message?.imageData : undefined);
+  if (!data) throw chatTestError("Không tìm thấy ảnh.", 404);
+  const [header, base64] = data.split(",");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   return res.type(header.slice(5, header.indexOf(";"))).send(Buffer.from(base64, "base64"));

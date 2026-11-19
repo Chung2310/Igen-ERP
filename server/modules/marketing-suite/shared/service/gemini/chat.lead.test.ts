@@ -19,6 +19,25 @@ const leadIntake = {
   missingRequiredFields: [{ label: "Số điện thoại", type: "phone" }],
 };
 
+it("tells generation and review to summarize a partial telecom document without interviewing for absent columns", async () => {
+  vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
+  const corrected = "Ảnh có thông tin công việc của thuê bao SUBSCRIBER_001. Em đã cập nhật các thông tin đọc được vào hồ sơ này nhé.";
+  vi.mocked(generateText)
+    .mockResolvedValueOnce({ text: "Mã yêu cầu đấu nối trong ảnh là gì ạ?" } as never)
+    .mockResolvedValueOnce({ text: JSON.stringify({ compliant: false, correctedParts: [corrected] }) } as never)
+    .mockResolvedValueOnce({ text: JSON.stringify({ compliant: true }) } as never);
+  const result = await geminiChatService.chat("[Ảnh]", [], {}, { leadIntake: {
+    collectionMode: "document", goal: "Đã cập nhật Lead thuê bao từ ảnh công việc", status: "just_completed",
+    collected: { account: "SUBSCRIBER_001", ho_va_ten: "Nguyễn An" }, missingRequiredFields: [],
+  } });
+  expect(result.text).toBe(corrected);
+  const rule = "Không hỏi Mã yêu cầu, Tổng tiền, Mã trạm hay bất kỳ cột nào vắng mặt chỉ để điền đủ";
+  expect(vi.mocked(generateText).mock.calls[0][2]?.systemInstruction).toContain(rule);
+  const review = JSON.parse(String(vi.mocked(generateText).mock.calls[1][1]));
+  expect(JSON.stringify(review.rules)).toContain(rule);
+  expect(review.conversationContext).toContain('"collectionMode":"document"');
+});
+
 it("passes verified contact context to both generation and review without assuming a booking", async () => {
   vi.stubEnv("OPENROUTER_CHAT_MESSAGE_API_KEY", "test");
   const replyText = "Em nhận được số điện thoại của mình rồi ạ, mình đang cần bên em hỗ trợ gì để em tư vấn đúng hơn nhé?";
