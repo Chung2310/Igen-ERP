@@ -1,13 +1,16 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { FileSpreadsheet, UploadCloud } from "lucide-react";
 import type { LeadContractPhoto, LeadContractReport, LeadContractStatus, LeadReconciliationScope, TelecomCustomerInfo } from "../../../../../../shared/marketing-suite/telecom-invoice";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import { TablePagination } from "../../../../../components/common/TablePagination";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
 import { LeadContractPhotos } from "./LeadContractPhotos";
+import { cn } from "../../../../student-management/lib/utils";
 
 const fieldClass = "min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm outline-none focus:border-primary";
 const linkClass = "rounded text-left text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
+const secondaryClass = "inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
 const statuses: Record<LeadContractStatus, string> = {
   matched: "Đầy đủ, khớp thông tin",
   different: "Khác thông tin",
@@ -33,7 +36,7 @@ export function LeadContractReconciliation({
   onSaved: () => void;
 }) {
   const [view, setView] = useState<"excel" | "review">("excel");
-  return <ErpModal native maxWidth="max-w-3xl" title="Đối soát khách hàng nhà mạng" onClose={onClose}>
+  return <ErpModal native maxWidth="max-w-6xl" title="Đối soát khách hàng nhà mạng" onClose={onClose}>
     <div className="flex flex-wrap gap-2" role="group" aria-label="Nội dung đối soát">
       {([["excel", "Đối soát Excel"], ["review", "Ảnh chờ kiểm tra"]] as const).map(([value, label]) =>
         <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}
@@ -58,6 +61,8 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
   const [counting, setCounting] = useState(false);
   const [scopeError, setScopeError] = useState("");
   const [file, setFile] = useState<File>();
+  const [fileError, setFileError] = useState("");
+  const [dragging, setDragging] = useState(false);
   const [report, setReport] = useState<LeadContractReport>();
   const [filter, setFilter] = useState<LeadContractStatus | "all">("all");
   const [page, setPage] = useState(1);
@@ -70,6 +75,8 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
   const fileHintId = useId();
   const rangeHintId = useId();
   const scopeErrorId = useId();
+  const fileErrorId = useId();
+  const fileInput = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController>(null);
   const scopeRequest = useRef<AbortController>(null);
   const scopeKey = `${provider}:${from}:${to}`;
@@ -101,7 +108,9 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!file || working || !scope) return;
+    if (!file || working) return;
+    if (!from || !to || from > to) { setScopeError("Chọn khoảng ngày hợp lệ; Từ ngày không được sau Đến ngày."); return; }
+    scopeRequest.current?.abort(); setCounting(false); setScopeError("");
     const controller = new AbortController();
     request.current = controller;
     setWorking(true);
@@ -115,6 +124,15 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
     } finally {
       if (!controller.signal.aborted) setWorking(false);
     }
+  }
+
+  function selectFile(files: File[]) {
+    if (!files.length || working) return;
+    setReport(undefined); setError("");
+    if (files.length !== 1 || !/\.xlsx$/i.test(files[0].name) || files[0].size > 10 * 1024 * 1024) {
+      setFile(undefined); setFileError("Chọn một file .xlsx tối đa 10 MB."); return;
+    }
+    setFile(files[0]); setFileError("");
   }
 
   async function openLead(id: string) {
@@ -139,63 +157,72 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
   </div>;
 
   return <div className="space-y-3">
-    <form onSubmit={submit} className="space-y-3" aria-busy={working || counting}>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <label className="min-w-0 space-y-1 text-sm">
-          <span>Nhà mạng</span>
-          <select className={fieldClass} value={provider} disabled={working || counting} onChange={event => { setProvider(event.target.value); setReport(undefined); }}>
-            {providers.map(item => <option key={item}>{item}</option>)}
-          </select>
-        </label>
-        <label className="min-w-0 space-y-1 text-sm">
-          <span>Quý</span>
-          <select className={fieldClass} value={quarter} disabled={working} onChange={event => { setQuarter(event.target.value); setReport(undefined); }}>
-            {[1, 2, 3, 4].map(item => <option key={item} value={item}>Quý {item}</option>)}
-          </select>
-        </label>
-        <label className="min-w-0 space-y-1 text-sm">
-          <span>Năm</span>
-          <input type="number" className={fieldClass} value={year} min={2000} max={2100} required disabled={working}
-            onChange={event => { setYear(event.target.value); setReport(undefined); }} />
-        </label>
+    <form onSubmit={submit} className="space-y-4" aria-busy={working}>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section aria-label="Phạm vi Lead" className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
+          <h3 className="text-balance text-sm font-medium">Phạm vi Lead</h3>
+          <label className="block space-y-1.5 text-sm"><span>Nhà mạng</span>
+            <select className={fieldClass} value={provider} disabled={working || counting} onChange={event => { setProvider(event.target.value); setReport(undefined); }}>
+              {providers.map(item => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5 text-sm"><span>Từ ngày tạo Lead</span>
+              <input type="date" required disabled={working || counting} min="2000-01-01" max={to || "2100-12-31"} value={from} className={fieldClass}
+                aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
+                onChange={event => { setFrom(event.target.value); setScopeError(""); setReport(undefined); }} />
+            </label>
+            <label className="space-y-1.5 text-sm"><span>Đến ngày tạo Lead</span>
+              <input type="date" required disabled={working || counting} min={from || "2000-01-01"} max="2100-12-31" value={to} className={fieldClass}
+                aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
+                onChange={event => { setTo(event.target.value); setScopeError(""); setReport(undefined); }} />
+            </label>
+          </div>
+          <p id={rangeHintId} className="text-pretty text-xs text-on-surface-variant">Theo ngày tạo Lead, tính đủ hai đầu ngày theo giờ Việt Nam.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={working || counting} className={secondaryClass} onClick={() => void previewScope()}>{counting ? "Đang đếm Lead…" : "Xem số Lead"}</button>
+            <span className="text-xs text-on-surface-variant">Xem trước, không bắt buộc</span>
+          </div>
+          {scopeError && <p id={scopeErrorId} role="alert" className="text-pretty text-sm text-error">{scopeError}</p>}
+          {scope && <div role="status" className="space-y-1 rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-sm tabular-nums">
+            <p className="text-pretty">{scope.leadCount} Lead trong phạm vi {displayDay(scope.from)} – {displayDay(scope.to)}.</p>
+            {scope.invalidCodeCount > 0 && <p className="text-pretty text-error">{scope.invalidCodeCount} Lead thiếu hoặc sai mã, cần kiểm tra trước khi ghép.</p>}
+            {scope.missingDateCount > 0 && <p className="text-pretty text-error">{scope.missingDateCount} Lead thiếu ngày tạo, chưa thể xác định phạm vi.</p>}
+          </div>}
+        </section>
+        <section aria-label="File Excel đối soát" className="space-y-4 rounded-xl border border-outline-variant p-4">
+          <h3 className="text-balance text-sm font-medium">File Excel đối soát</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5 text-sm"><span>Quý</span>
+              <select className={fieldClass} value={quarter} disabled={working} onChange={event => { setQuarter(event.target.value); setReport(undefined); }}>
+                {[1, 2, 3, 4].map(item => <option key={item} value={item}>Quý {item}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1.5 text-sm"><span>Năm</span>
+              <input type="number" className={fieldClass} value={year} min={2000} max={2100} required disabled={working}
+                onChange={event => { setYear(event.target.value); setReport(undefined); }} />
+            </label>
+          </div>
+          <div role="group" aria-label="Vùng kéo thả Excel" className={cn("flex min-h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center", dragging ? "border-primary bg-primary/10" : "border-outline-variant bg-surface-container-low")}
+            onDragOver={event => { event.preventDefault(); if (!working) setDragging(true); }}
+            onDragLeave={event => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setDragging(false); }}
+            onDrop={event => { event.preventDefault(); setDragging(false); selectFile(Array.from(event.dataTransfer.files)); }}>
+            {file ? <FileSpreadsheet aria-hidden="true" className="size-7 text-primary" /> : <UploadCloud aria-hidden="true" className="size-7 text-on-surface-variant" />}
+            <p className="max-w-full wrap-anywhere text-pretty text-sm font-medium">{file?.name || "Kéo thả file Excel vào đây"}</p>
+            {file && <p className="text-xs tabular-nums text-on-surface-variant">{(file.size / 1024 / 1024).toFixed(2)} MB</p>}
+            <button type="button" disabled={working} className={secondaryClass} onClick={() => fileInput.current?.click()}>{file ? "Đổi file Excel" : "Chọn file Excel"}</button>
+            <input ref={fileInput} aria-label="File bảng kê (.xlsx)" type="file" className="sr-only" tabIndex={-1} accept=".xlsx" disabled={working}
+              aria-invalid={Boolean(fileError)} aria-describedby={`${fileHintId}${fileError ? ` ${fileErrorId}` : ""}`}
+              onChange={event => { selectFile(Array.from(event.target.files || [])); event.target.value = ""; }} />
+          </div>
+          <p id={fileHintId} className="text-pretty text-xs text-on-surface-variant">Một file .xlsx, tối đa 10 MB. Quý/năm là kỳ trong Excel, độc lập với ngày tạo Lead.</p>
+          {fileError && <p id={fileErrorId} role="alert" className="text-pretty text-sm text-error">{fileError}</p>}
+        </section>
       </div>
-      <fieldset className="space-y-2 rounded-md border border-outline-variant p-3" disabled={working || counting}>
-        <legend className="px-1 text-sm font-medium">Phạm vi Lead theo ngày tạo</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="space-y-1 text-sm"><span>Từ ngày tạo Lead</span>
-            <input type="date" required min="2000-01-01" max={to || "2100-12-31"} value={from} className={fieldClass}
-              aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
-              onChange={event => { setFrom(event.target.value); setScopeError(""); setReport(undefined); }} />
-          </label>
-          <label className="space-y-1 text-sm"><span>Đến ngày tạo Lead</span>
-            <input type="date" required min={from || "2000-01-01"} max="2100-12-31" value={to} className={fieldClass}
-              aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
-              onChange={event => { setTo(event.target.value); setScopeError(""); setReport(undefined); }} />
-          </label>
-        </div>
-        <p id={rangeHintId} className="text-pretty text-xs text-on-surface-variant">Tính đủ ngày đầu và ngày cuối theo giờ Việt Nam. Ngày hòa mạng và kỳ trong Excel không dùng để lọc ngày tạo Lead.</p>
-        <button type="button" className={linkClass} onClick={() => void previewScope()}>{counting ? "Đang đếm Lead…" : "Xem số Lead"}</button>
-      </fieldset>
-      {scopeError && <p id={scopeErrorId} role="alert" className="text-pretty text-sm text-error">{scopeError}</p>}
-      {scope && <div role="status" className="space-y-1 text-sm tabular-nums">
-        <p className="text-pretty">{scope.leadCount} Lead trong phạm vi {displayDay(scope.from)} – {displayDay(scope.to)}.</p>
-        {scope.invalidCodeCount > 0 && <p className="text-pretty text-error">{scope.invalidCodeCount} Lead thiếu hoặc sai mã, cần kiểm tra trước khi ghép.</p>}
-        {scope.missingDateCount > 0 && <p className="text-pretty text-error">{scope.missingDateCount} Lead thiếu ngày tạo, chưa thể xác định phạm vi.</p>}
-      </div>}
-      <p className="text-pretty text-xs text-on-surface-variant">FPT ghép bằng Số hợp đồng, VNPT bằng Mã khách hàng/Account. So tên, địa chỉ, dịch vụ và mốc hòa mạng; giữ nguyên từng dòng và thứ tự trong Excel, kể cả các dòng lặp.</p>
-      <label className="block space-y-1 text-sm">
-        <span>File bảng kê (.xlsx)</span>
-        <input type="file" className="block w-full rounded-md border border-outline-variant p-2 text-sm outline-none focus:border-primary"
-          required accept=".xlsx" disabled={working || !scope} aria-invalid={Boolean(error)} aria-describedby={`${fileHintId}${error ? ` ${errorId}` : ""}`}
-          onChange={event => {
-            const candidate = event.target.files?.[0];
-            setReport(undefined);
-            if (candidate && candidate.size > 10 * 1024 * 1024) { setFile(undefined); setError("Chọn một file .xlsx tối đa 10 MB."); return; }
-            setFile(candidate); setError("");
-          }} />
-      </label>
-      <p id={fileHintId} className="text-pretty text-xs text-on-surface-variant">{!scope ? "Bấm Xem số Lead trước khi chọn file. " : ""}Tối đa 10 MB. Chọn quý/năm theo kỳ trong file Excel, độc lập với khoảng ngày tạo Lead.</p>
-      <button type="submit" className={primaryCreateButtonClass} disabled={working || !scope || !file}>{working ? "Đang đối soát…" : "Đối soát thông tin khách hàng"}</button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant pt-4">
+        <p className="max-w-xl text-pretty text-xs text-on-surface-variant">So tên, địa chỉ, dịch vụ và mốc thời gian. Giữ nguyên các dòng Excel lặp, không đối chiếu tiền.</p>
+        <button type="submit" className={primaryCreateButtonClass} disabled={working || !file}>{working ? "Đang đối soát…" : "Đối soát thông tin khách hàng"}</button>
+      </div>
     </form>
     {error && <p id={errorId} role="alert" className="text-pretty text-sm text-error">{error}</p>}
     {report && <section aria-label="Kết quả đối soát" className="space-y-2">
