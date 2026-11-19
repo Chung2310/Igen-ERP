@@ -38,12 +38,15 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
   switch (module) {
     case "CHUỖI GYM":
       art = <>
-        <path d="M8 14h32M8 14v8m32-8v8" stroke={a.mint} strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx="8" cy="12" r="4" fill={a.gold} /><circle cx="24" cy="12" r="4" fill={a.coral} /><circle cx="40" cy="12" r="4" fill={a.gold} />
-        <rect x="11" y="24" width="26" height="14" rx="7" fill={a.blue} />
-        <path d="M18 31h12" stroke="#003B70" strokeWidth="3" strokeLinecap="round" />
-        <rect x="12" y="25" width="5" height="12" rx="2.5" fill={a.coral} /><rect x="31" y="25" width="5" height="12" rx="2.5" fill={a.coral} />
-        <rect x="7" y="27" width="4" height="8" rx="2" fill={a.mint} /><rect x="37" y="27" width="4" height="8" rx="2" fill={a.mint} />
+        <path d="M9 27h30" stroke={a.gold} strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M3 22h11v17H3zM34 22h11v17H34z" fill={a.blue} />
+        <path d="m2 22 6.5-5 6.5 5m18 0 6.5-5 6.5 5" fill={a.coral} stroke={a.coral} strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M6 28h5m-5 5h5m26-5h5m-5 5h5" stroke="#003B70" strokeWidth="2" strokeLinecap="round" />
+        <path d="M14 17h20v23H14z" fill={a.blue} />
+        <path d="m12 17 12-9 12 9z" fill={a.coral} />
+        <path d="M20 13h8" stroke={a.gold} strokeWidth="2" strokeLinecap="round" />
+        <path d="M19 29h10m-12-5v10m3-12v14m8-14v14m3-12v10" stroke="#003B70" strokeWidth="2.6" strokeLinecap="round" />
+        <path d="M17 39h14" stroke={a.mint} strokeWidth="2" strokeLinecap="round" />
       </>; break;
     case "TRỢ LÝ KIẾN TRÚC":
       art = <><rect x="8" y="5" width="32" height="38" rx="4" fill={a.blue}/><path d="M13 12h17M13 16h11" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><path d="M13 23h9v7h-9zm11 0h11v13H24zm-11 9h9v4h-9z" fill={a.mint}/><path d="M14 22h9v8m0-8v-5h6l7 5v14" fill="none" stroke={a.coral} strokeWidth="2" strokeLinejoin="round"/><path d="M27 29h4v7h-4z" fill={a.gold}/><path d="m31 14 7-7 4 4-7 7-5 1z" fill={a.coral}/><path d="m31 14 4 4m-5 1 2-2" stroke={a.gold} strokeWidth="1.5" strokeLinecap="round"/></>; break;
