@@ -19,6 +19,8 @@
     "lint": "oxlint backend frontend vite.config.ts vitest.config.ts",
     "test": "vitest run --config vitest.config.ts",
     "db:migrate": "tsx backend/scripts/migrate.ts up",
+    "db:local": "node local-mongo.mjs",
+    "db:local:check": "node local-mongo-check.mjs",
     "db:migrate:production": "node dist/backend/scripts/migrate.js up",
     "db:migrate:down": "tsx backend/scripts/migrate.ts down",
     "db:migrate:status": "tsx backend/scripts/migrate.ts status",

@@ -17,3 +17,29 @@ Hồ sơ và nghiệp vụ PT nằm trong cơ sở dữ liệu riêng của GYM.
 Nếu bật thanh toán 3S, cấu hình URL callback ở nhà cung cấp tới `/api/v1/gym/callback/sepay/webhook`, `/payos/webhook`, `/vnpay/ipn`, `/vnpay/return`, hoặc `/momo/ipn` tương ứng. URL đưa người dùng trở lại giao diện là `/chuoi-gym/wallet/payment-result`.
 
 Build ERP gọi `npm run build:gym` để biên dịch giao diện vào `dist/chuoi-gym` và backend vào `gym-module/3s/dist/backend`.
+
+## MongoDB local không cần Docker
+
+Từ thư mục ERP, chạy `npm run db:local --prefix gym-module/3s`. Lệnh này tải binary MongoDB khi chạy lần đầu, mở replica set một nút tại `127.0.0.1:27018` và lưu dữ liệu bền vững trong `tmp/gym-mongo` (đã được Git bỏ qua). Giữ cửa sổ lệnh mở khi dùng database; nhấn Ctrl+C để dừng. Lần sau chạy lại cùng lệnh, dữ liệu vẫn còn.
+
+Dùng hai database riêng trên cùng server local:
+
+```dotenv
+MONGODB_URI=mongodb://127.0.0.1:27018/igen_erp_dev?replicaSet=gym-local
+GYM_MONGODB_URI=mongodb://127.0.0.1:27018/igen_gym_dev?replicaSet=gym-local
+```
+
+Lệnh `npm run db:local:check --prefix gym-module/3s -- write` ghi một bản ghi kiểm tra; sau khi khởi động lại MongoDB, chạy `npm run db:local:check --prefix gym-module/3s` để xác nhận dữ liệu còn và xóa bản ghi kiểm tra.
+
+Để chạy backend GYM local trong một cửa sổ PowerShell khác:
+
+```powershell
+$env:GYM_EMBEDDED = "1"
+$env:MONGODB_URI = "mongodb://127.0.0.1:27018/igen_gym_dev?replicaSet=gym-local"
+$env:GYM_BRIDGE_SECRET = "local-only-change-this-32-char-secret"
+$env:JWT_SECRET = $env:GYM_BRIDGE_SECRET
+$env:PORT = "3018"
+npm run start --prefix gym-module/3s
+```
+
+Đặt cùng `GYM_BRIDGE_SECRET` và `GYM_BACKEND_URL=http://127.0.0.1:3018` cho ERP local. Nếu thử tính năng AI, thêm `OPENROUTER_API_KEY` trong cửa sổ chạy backend GYM. Giá trị secret minh họa ở trên chỉ dành cho máy local.
