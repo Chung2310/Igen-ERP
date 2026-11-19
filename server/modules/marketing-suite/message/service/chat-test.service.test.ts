@@ -18,6 +18,8 @@ import { generateReplyCompletion } from "./ai-reply-provider";
 import { geminiService } from "../../shared/service/gemini.service";
 import { prepareChatImages, parseChatVisualReply } from "./chat-visual-context";
 import { LEAD_INTAKE_TEMPLATES } from "../../../../../src/modules/marketing-suite/message/components/crm/leadIntakeTemplates";
+import { reconcileLeadContracts } from "./lead-contract-reconciliation";
+import * as XLSX from "xlsx";
 import {
   addChatTestMessage, createChatTestSession, deleteChatTestSession, failChatTestMessage,
   processChatTestMessage, readChatTestSession, readChatTestState, retryChatTestMessage,
@@ -94,6 +96,113 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it("supplements one FPT contract across conversations, preserves text updates and reconciles customer data", async () => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields } });
+    const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    const imageData = `data:image/png;base64,${image.toString("base64")}`;
+    const rows = [
+      { nha_mang: "FPT", so_hop_dong: "FPT.TEST.002", dich_vu: "Internet", moc_hoa_mang: "07/2023", ky_doi_soat: "Quý 1/2026" },
+      { nha_mang: "FPT", so_hop_dong: "FPT.TEST.002", ho_va_ten: "Nguyễn An", dia_chi_lap_dat: "Căn 101" },
+    ];
+    const sessions = [];
+    for (const [index, values] of rows.entries()) {
+      const session = await start(false, "telecom"); sessions.push(session);
+      vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields:
+        Object.fromEntries(Object.entries(values).map(([key, text]) => [key, { status: "readable", text }])),
+      }) } as never);
+      const messageId = await send(session.id, "", `fpt-sequential-${index}`, imageData);
+      await processChatTestMessage({ sessionId: session.id, messageId });
+    }
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ __lead_intent: true, so_dien_thoai: "0901234567" }) } as never);
+    const textMessage = await send(sessions[1].id, "0901234567", "fpt-text-phone");
+    await processChatTestMessage({ sessionId: sessions[1].id, messageId: textMessage });
+    expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(1);
+    const saved = await CRMTicketModel.findOne({ companyCode }).lean();
+    expect(saved).toMatchObject({ customerName: "Nguyễn An", phone: "0901234567", answers: { so_hop_dong: "FPT.TEST.002", dich_vu: "Internet", dia_chi_lap_dat: "Căn 101" } });
+    for (const session of sessions) expect((await readChatTestState(companyCode, userId, session.id)).leads.map(item => item.id)).toEqual([String(saved!._id)]);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+      ["STT", "Số HĐ", "Tên khách hàng", "Địa chỉ", "Dịch vụ", "Online"],
+      [1, "FPT.TEST.002", "Nguyen An", "Can 101", "Cuoc Internet", "04/07/2023"],
+    ]), "Bảng kê");
+    const report = await reconcileLeadContracts(companyCode, "FPT", 2026, 1, XLSX.write(book, { type: "buffer", bookType: "xlsx" }));
+    expect(report.rows).toMatchObject([{ code: "FPT.TEST.002", status: "matched", leadId: String(saved!._id) }]);
+    await CRMTicketModel.updateOne({ _id: saved!._id }, { $set: { "answers.dia_chi_lap_dat": "Căn 999" } });
+    expect((await reconcileLeadContracts(companyCode, "FPT", 2026, 1, XLSX.write(book, { type: "buffer", bookType: "xlsx" }))).rows[0]).toMatchObject({ status: "different", differences: [expect.objectContaining({ field: "address" })] });
+  });
+
+  it("keeps FPT and VNPT separate when a mixed image batch has the same identifier text", async () => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields } });
+    const session = await start(false, "telecom");
+    const imageFiles = await Promise.all(["red", "green", "blue"].map(async color => ({
+      data: `data:image/png;base64,${(await sharp({ create: { width: 3, height: 3, channels: 3, background: color } }).png().toBuffer()).toString("base64")}`,
+    })));
+    const rows = [
+      { nha_mang: "FPT", so_hop_dong: "SAME001", ho_va_ten: "Nguyễn An" },
+      { nha_mang: "VNPT", account: "SAME001", ho_va_ten: "Trần Bình" },
+      { nha_mang: "FPT", so_hop_dong: "SAME001", dia_chi_lap_dat: "Căn 101" },
+    ];
+    vi.mocked(generateReplyCompletion).mockImplementation(async () => ({ text: JSON.stringify({ kind: "document", fields:
+      Object.fromEntries(Object.entries(rows.shift()!).map(([key, text]) => [key, { status: "readable", text }])),
+    }) }) as never);
+    const messageId = await addChatTestMessage({ companyCode, userId, sessionId: session.id, text: "", clientMessageId: "mixed-providers", imageFiles });
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.leads).toHaveLength(2);
+    expect(await CRMTicketModel.findOne({ companyCode, telecomSubscriberCode: "SAME001" }).lean()).toMatchObject({ customerName: "Trần Bình", answers: { nha_mang: "VNPT" } });
+    expect(await CRMTicketModel.findOne({ companyCode, "answers.so_hop_dong": "SAME001" }).lean()).toMatchObject({ customerName: "Nguyễn An", answers: { nha_mang: "FPT", dia_chi_lap_dat: "Căn 101" } });
+    const ambiguous = await send(session.id, "NEW001", "mixed-unknown-code");
+    await processChatTestMessage({ sessionId: session.id, messageId: ambiguous });
+    expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(2);
+    expect(vi.mocked(geminiService.chat).mock.calls.at(-1)?.[3]?.leadIntake?.missingRequiredFields.length).toBeGreaterThan(0);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: "{}" } as never);
+    const specific = await send(session.id, "Số hợp đồng SAME001", "mixed-specific-contract");
+    await processChatTestMessage({ sessionId: session.id, messageId: specific });
+    expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(2);
+    expect((await ChatTestMessageModel.findById(specific).lean())?.leadContractCode).toBe("SAME001");
+  });
+
+  it("reuses an existing FPT Lead with a literal dotted contract code and known provider", async () => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields } });
+    const existing = await CRMTicketModel.create({ companyCode, customerName: "Nguyễn An", answers: { nha_mang: "FPT", so_hop_dong: "FPT.LEGACY.001" } });
+    const session = await start(false, "telecom");
+    const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields: {
+      nha_mang: { status: "readable", text: "FPT" }, so_hop_dong: { status: "readable", text: "FPT.LEGACY.001" }, dia_chi_lap_dat: { status: "readable", text: "Căn 101" },
+    } }) } as never);
+    const messageId = await send(session.id, "", "legacy-fpt", `data:image/png;base64,${image.toString("base64")}`);
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(1);
+    expect((await readChatTestState(companyCode, userId, session.id)).leads[0].id).toBe(String(existing._id));
+  });
+
+  it("saves two FPT screenshots by contract number without asking for an Account", async () => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields } });
+    const session = await start(false, "telecom");
+    const imageFiles = await Promise.all(["red", "blue"].map(async color => ({
+      data: `data:image/png;base64,${(await sharp({ create: { width: 3, height: 3, channels: 3, background: color } }).png().toBuffer()).toString("base64")}`,
+    })));
+    const readings = [
+      { nha_mang: "FPT", so_hop_dong: "FPT-TEST-001", ho_va_ten: "Nguyễn An", dia_chi_lap_dat: "Căn 101" },
+      { nha_mang: "FPT", so_hop_dong: "FPT-TEST-001", dich_vu: "Internet; Truyền hình", moc_hoa_mang: "04/07/2023", ky_doi_soat: "Quý 1/2026" },
+    ];
+    vi.mocked(generateReplyCompletion).mockImplementation(async () => ({ text: JSON.stringify({ kind: "document", fields:
+      Object.fromEntries(Object.entries(readings.shift()!).map(([key, text]) => [key, { status: "readable", text }])),
+    }) }) as never);
+    const messageId = await addChatTestMessage({ companyCode, userId, sessionId: session.id, text: "", clientMessageId: "fpt-customer-pair", imageFiles });
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.leads).toHaveLength(1);
+    expect(await CRMTicketModel.findById(state.leads[0].id).lean()).toMatchObject({
+      customerName: "Nguyễn An", answers: { so_hop_dong: "FPT-TEST-001", dich_vu: "Internet; Truyền hình" },
+    });
+    expect(vi.mocked(geminiService.chat).mock.calls.at(-1)?.[3]?.leadIntake?.missingRequiredFields).toEqual([]);
+  });
+
   it.each([
     ["work", { ho_va_ten: "Nguyễn An", so_dien_thoai: "0901234567", dich_vu: "Internet" }],
     ["subscriber", { ho_va_ten: "Nguyễn An", so_dien_thoai: "0901234567", dia_chi_lap_dat: "Địa chỉ thuê bao" }],

@@ -47,6 +47,7 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
   lastInteractionAt: { type: Date, index: true },
   customerId: { type: String },
   telecomSubscriberCode: { type: String },
+  telecomDocumentKey: { type: String },
   hasContractPhotos: Boolean,
   telecomConversationId: { type: String },
   telecomPageId: { type: String },
@@ -80,6 +81,9 @@ CRMTicketSchema.index({ companyCode: 1, sourcePlatform: 1, sourceAccountId: 1, s
 CRMTicketSchema.index({ companyCode: 1, lastInteractionAt: -1, _id: -1 });
 CRMTicketSchema.index({ companyCode: 1, telecomSubscriberCode: 1 }, {
   unique: true, partialFilterExpression: { telecomSubscriberCode: { $type: "string" } },
+});
+CRMTicketSchema.index({ companyCode: 1, telecomDocumentKey: 1 }, {
+  unique: true, partialFilterExpression: { telecomDocumentKey: { $type: "string" } },
 });
 CRMTicketSchema.index({ companyCode: 1, customerId: 1, lastInteractionAt: -1 });
 
