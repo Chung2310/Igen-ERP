@@ -4,6 +4,8 @@ import { IPayment } from "../interfaces/payment.interface";
 import { logger } from "../config/logger";
 import { parsePaymentDate } from "../utils/payment-date.util";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import type { ClientSession } from "mongoose";
+import { runStudentPaymentTransaction } from "./payment-transaction";
 
 interface PaymentFilters {
   page?: number | string;
@@ -49,7 +51,32 @@ function escapeRegex(value: string) {
 }
 
 export class PaymentService {
+  static async reconcileStudent(ownerId: string | string[], studentId: string, branchId?: string) {
+    const scope = { ...buildBranchScopeQuery(branchId), ...(ownerId === "ALL" ? {} : { ownerId: Array.isArray(ownerId) ? { $in: ownerId } : ownerId }) };
+    const student = await Student.findOne({ _id: studentId, ...scope }).lean();
+    if (!student) throw Object.assign(new Error("Không tìm thấy học viên trong phạm vi được phép."), { status: 404 });
+    const receiptSummary = await Payment.aggregate<{ total: number; count: number }>([
+      { $match: { studentId, ...scope } },
+      { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]);
+    const receiptTotal = receiptSummary[0]?.total || 0;
+    const historyTotal = (student.paymentHistory || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const recordedPaidAmount = Number(student.paidAmount || 0);
+    const totalFee = Number(String(student.fee || "0").replace(/\D/g, ""));
+    const matched = receiptTotal === recordedPaidAmount && historyTotal === recordedPaidAmount;
+    return { studentName: student.fullName, totalFee, recordedPaidAmount, receiptTotal, historyTotal,
+      remainingAmount: totalFee - recordedPaidAmount, paymentDifference: receiptTotal - recordedPaidAmount,
+      receiptCount: receiptSummary[0]?.count || 0,
+      reconciliationStatus: matched ? "Số liệu khớp" : "Có chênh lệch, cần kiểm tra chứng từ. Chưa xác định nguyên nhân và chưa điều chỉnh dữ liệu.",
+      scopeDescription: "Đối chiếu toàn bộ lịch sử của học viên trong chi nhánh hiện tại, không phải số thu riêng một kỳ.",
+    };
+  }
+
   static async createPayment(ownerId: string | string[], data: PaymentCreateData, branchId?: string): Promise<IPayment> {
+    return runStudentPaymentTransaction(session => this.createPaymentInTransaction(ownerId, data, branchId, session));
+  }
+
+  private static async createPaymentInTransaction(ownerId: string | string[], data: PaymentCreateData, branchId: string | undefined, session: ClientSession): Promise<IPayment> {
     logger.info(`[Payment] Creating payment: studentId=${data.studentId}, ownerId=${ownerId}, amount=${data.amount}`);
     
     const studentQuery: Record<string, unknown> = {
@@ -59,15 +86,17 @@ export class PaymentService {
     if (ownerId !== "ALL") {
       studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     }
-    const student = await Student.findOne(studentQuery);
+    const student = await Student.findOne(studentQuery, null, { session });
     if (!student) {
       logger.warn(`[Payment] Create payment failed - Student ${data.studentId} not found for ownerId=${ownerId}`);
       throw new Error("Không tìm thấy học viên.");
     }
 
-    const payAmount = parseInt(String(data.amount));
+    const payAmount = Number(data.amount);
+    if (!Number.isSafeInteger(payAmount) || payAmount <= 0) throw new Error("Số tiền thu phải là số nguyên dương hợp lệ.");
     const totalFee = parseInt(student.fee.replace(/\D/g, ""));
     const paidSoFar = student.paidAmount || 0;
+    if (!Number.isSafeInteger(totalFee) || totalFee < 0 || !Number.isSafeInteger(paidSoFar) || paidSoFar < 0) throw new Error("Học phí hoặc số đã đóng trên hồ sơ không hợp lệ. Cần kiểm tra trước khi thu.");
     const remaining = totalFee - paidSoFar;
 
     if (payAmount > remaining) {
@@ -86,7 +115,7 @@ export class PaymentService {
       ownerId: student.ownerId,
       branchId: student.branchId,
     });
-    const savedPayment = await payment.save();
+    const savedPayment = await payment.save({ session });
     logger.info(`[Payment] Giao dịch thanh toán đã tạo: id=${savedPayment._id}, studentId=${savedPayment.studentId}`);
 
     // Update student paidAmount and append to paymentHistory array
@@ -110,7 +139,7 @@ export class PaymentService {
 
       // Chiến lược 1: Khớp chính xác số tiền đợt chưa thu (ưu tiên quét QR)
       const exactMatch = student.installmentStatus.find(
-        (inst) => inst.status !== 'Đã thu' && Math.abs(inst.amountDue - allocated) <= 1000
+        (inst) => inst.status !== 'Đã thu' && inst.amountDue === allocated
       );
 
       if (exactMatch) {
@@ -149,7 +178,7 @@ export class PaymentService {
           installmentStatus: student.installmentStatus,
         },
       },
-      { runValidators: true },
+      { runValidators: true, session },
     );
     logger.info(`[Payment] Cập nhật thông tin học phí thành công cho học viên: id=${student._id}, đã đóng=${student.paidAmount}`);
 

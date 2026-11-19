@@ -422,7 +422,7 @@ export async function analyzeRequest(requestText: string, items: CatalogItem[], 
 
 export class TemplateAiCreditError extends Error {
   constructor() {
-    super(AI_PROVIDER_TEMPORARY_ERROR);
+    super("Dịch vụ AI không đủ tín dụng để xử lý tài liệu (402). Bạn kiểm tra số dư tài khoản AI rồi thử lại nhé.");
     this.name = "TemplateAiCreditError";
   }
 }

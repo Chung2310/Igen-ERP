@@ -1,7 +1,8 @@
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 /** Opt-in evidence from mocked conversation tests, never production telemetry. */
-export function conversationAudit(module: string) {
+export function conversationAudit(module: string, limits = "AI provider and business HTTP are mocked. No real database writes. Permissions and response rewriting are mocked in these fixtures.") {
   let turns: unknown[] = [];
   let requests: unknown[] = [];
   return {
@@ -32,9 +33,10 @@ export function conversationAudit(module: string) {
       const outputs = async (mock: any) => Promise.all(mock.mock.results.map(async (result: any) => {
         try { return { type: result.type, value: await result.value }; } catch (error) { return { type: "rejected", error: String(error) }; }
       }));
+      mkdirSync(dirname(process.env.ASSISTANT_CONVERSATION_AUDIT_OUTPUT), { recursive: true });
       appendFileSync(process.env.ASSISTANT_CONVERSATION_AUDIT_OUTPUT, JSON.stringify({ module, name: context.task.name, status: context.task.result?.state, simulation: true,
         turns, apiCalls: requests, records, aiProviderOutputs: await outputs(mocks.provider), interpreterOutputs: await outputs(mocks.interpret),
-        limits: "AI provider and business HTTP are mocked. No real database writes. Permissions and response rewriting are mocked in these fixtures." }) + "\n", "utf8");
+        limits }) + "\n", "utf8");
     },
   };
 }

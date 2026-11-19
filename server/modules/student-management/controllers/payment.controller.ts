@@ -4,6 +4,13 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 
 export class PaymentController {
+  static async reconcileStudent(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const owners = await getAllowedOwnerIds(req.user!);
+      res.json({ success: true, data: await PaymentService.reconcileStudent(owners, req.params.id, req.user!.branchId) });
+    } catch (error) { next(error); }
+  }
+
   static async create(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
@@ -11,7 +18,8 @@ export class PaymentController {
       res.status(201).json({ success: true, data: payment });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
-      res.status(400).json({ success: false, error: msg });
+      const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 

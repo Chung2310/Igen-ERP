@@ -3,6 +3,17 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { operationById } from "./catalog";
 import { formatFriendlyAssistantResult } from "./result-format";
 
+it("renders an uncoded retail draft as a document rather than its line items", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.order.draft.create")!, { data: {
+    _id: "private-order", status: "draft", grandTotal: 100000, dueAmount: 100000, version: 0,
+    items: [{ productId: "private-product", name: "Điện thoại", quantity: 1 }],
+  } });
+  expect(parseAssistantResultTable(reply)?.rows).toHaveLength(1);
+  expect(reply).toContain("100.000");
+  expect(reply).not.toContain("private-order");
+  expect(reply).not.toContain("private-product");
+});
+
 it("counts all report rows before limiting the visible table", () => {
   const rows = Array.from({length:18}, (_, i) => ({ projectName: "Kho vận", workerName: `Lao động ${i}`, date: "2026-11-18", status: "Present" }));
   const reply = formatFriendlyAssistantResult(operationById("worker.report")!, rows);

@@ -7,6 +7,15 @@ import { defaultWorkflow, operationById } from "./catalog";
 afterEach(() => provider.mockReset());
 
 describe("customer notes interpretation", () => {
+  it.each(["filter", "executionCondition", "Điều kiện cập nhật", "phạm vi"])("does not store execution constraints as customer notes (%s)", async key => {
+    const workflow = defaultWorkflow(operationById("customer.update")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: workflow.actionId, values: {
+      path_id: "KH-001", phone: "0901234567", [key]: "chỉ khi chưa có công nợ",
+    } }) });
+    const result = await interpretRequest("Đổi số điện thoại khách KH-001, chỉ khi chưa có công nợ", [workflow], null, []);
+    expect(result.actionId).toBeNull();
+    expect(result.values).toEqual({});
+  });
   it("preserves customer facts without dedicated fields as labeled notes", async () => {
     const workflow = defaultWorkflow(operationById("customer.create")!);
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: workflow.actionId, values: {

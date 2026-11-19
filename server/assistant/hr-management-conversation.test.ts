@@ -728,6 +728,21 @@ it("retains unfinished steps when interpretation fails", async () => {
   expect(state.turns[0].steps).toHaveLength(1);
 });
 
+it.each([400, 422, 500])("a rejected new goal cannot resurrect the previous goal's queued steps (%s)", async status => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow" });
+  await turn({ text: "Đếm nhân viên" });
+  state.session.remainingRequests = ["Sửa số điện thoại La Văn Sến"];
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (...args) => new URL(String(args[0])).pathname === "/api/v1/auth/users/count"
+    ? new Response(JSON.stringify({ message: "Phạm vi thống kê chưa hợp lệ" }), { status, headers: { "Content-Type": "application/json" } })
+    : original(...args));
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", newRequest: true });
+  const reply = await turn({ text: "Bỏ yêu cầu trước, đếm lại nhân viên thôi" });
+  expect(reply.status).toBe("failed");
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+});
+
 it("stops before a write in a multi-step goal and preserves its preview", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", remainingRequests: ["Sửa số điện thoại La Văn Sến"] });
   state.interpret.mockResolvedValueOnce({ actionId: "employee.update", values: { id: "La Văn Sến", phone: "0902222333" }, intentType: "workflow" });

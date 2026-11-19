@@ -98,10 +98,12 @@ describe("manual guide catalog", () => {
   });
 
   it("keeps all cited controls present in the current source", () => {
+    const sources = new Map<string, string>();
     for (const recipe of [...MANUAL_PROCEDURES, ...SUPPLEMENTAL_GUIDES]) for (const e of recipe.evidence) {
-      expect(fs.readFileSync(e.file, "utf8"), `${recipe.id}: ${e.file}`).toContain(e.contains);
+      if (!sources.has(e.file)) sources.set(e.file, fs.readFileSync(e.file, "utf8"));
+      expect(sources.get(e.file)!.includes(e.contains), `${recipe.id}: ${e.file} missing ${e.contains}`).toBe(true);
     }
-  });
+  }, 30000);
 
   it.each(["student.payment.create", "inventory.transfer.create", "quotation.contract.sign", "retail.order.cancel"])("never instructs replay of %s after an uncertain write", id => {
     const op = operationById(id)!;

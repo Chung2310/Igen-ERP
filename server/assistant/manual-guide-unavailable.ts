@@ -3,6 +3,7 @@ export const MANUAL_GUIDE_UNAVAILABLE: Record<string, { reason: string; files: s
 function unavailable(ids: string, reason: string, ...files: string[]) {
   for (const id of ids.split(" ")) MANUAL_GUIDE_UNAVAILABLE[id] = { reason, files };
 }
+unavailable("student.payment.reconcile", "Chưa có màn hình đối chiếu tự động đồng thời phiếu thu, lịch sử thanh toán và số đã đóng trên hồ sơ. Có thể xem từng nguồn tại Học phí nhưng không dùng Thu tiền hoặc Sửa học phí để thay cho yêu cầu chỉ đối chiếu.", "src/modules/student-management/pages/Fees/FeesPage.tsx");
 unavailable("retail.partner.product.commission.products", "Bộ chọn policy-products nằm trong RetailPartnerPolicyDialog cũ chưa được nối vào ứng dụng. Hoa hồng sản phẩm hiện dùng danh mục khác. Chưa có luồng tra cứu tương đương danh sách sản phẩm chính sách này.", "src/modules/retail/components/RetailPartnerPolicyDialog.tsx", "src/modules/retail/components/RetailProductCommissionsPanel.tsx");
 unavailable("student.schedule.list", "Lịch tổng hợp ScheduleCalendar có mã gọi API nhưng chưa được gắn vào ứng dụng hiện hành. Xem lịch của từng lớp hoặc từng phòng là phạm vi hẹp hơn, không thay thế toàn bộ lịch tổng hợp.", "src/modules/student-management/components/Dashboard/ScheduleCalendar.tsx");
 unavailable("quotation.request.list", "Màn hình hiện tập trung danh sách chứng từ, chưa có danh sách yêu cầu lập dự toán độc lập. Danh sách dự toán không bao gồm đầy đủ yêu cầu chưa tạo chứng từ.", "src/modules/quotation/App.tsx");

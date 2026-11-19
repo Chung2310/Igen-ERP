@@ -3468,6 +3468,9 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     const id = String(item._id || item.id || item.uid || item.__assistantRef?.id || ((op.id === "payroll.employee.me.reconciliation" || op.id === "payroll.employee.me.payslips") ? item.__assistantRef?.runId || item.runId : "") || "");
     if (op.module === "architect-assistant" && Number.isSafeInteger(item.revision) && item.revision > 0) Object.defineProperty(safe, "revision", { value: item.revision, enumerable: false });
     if (/^[a-f\d]{24}$/i.test(id) || (op.module === "architect-assistant" && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id)) || (op.id === "resource.google-drive.list" && /^[A-Za-z0-9_-]{10,200}$/.test(id))) safe.id = id;
+    // Contracts may refer to Mongo's _id while projection exposes id for lookup.
+    // Preserve the alias privately so selecting the displayed option can resolve it.
+    if (safe.id) Object.defineProperty(safe, "_id", { value: safe.id, enumerable: false });
     if (op.id === "chat.room.members.list" && ["admin", "deputy", "member"].includes(String(item.role))) {
       Object.defineProperty(safe, "role", { value: item.role, enumerable: false });
     }
@@ -3620,6 +3623,12 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     // Keep branch scope internally so name resolution can disambiguate records;
     // response redaction and list rendering remove this internal field.
     if (!companyWideCategoryOperation && typeof item.branchId === "string") safe.branchId = item.branchId;
+    // Transfers belong to both endpoint branches, unlike single-branch records.
+    // Preserve the selected, verified endpoint for the shared parent filter.
+    if (op.path === "/inventory/transfers") {
+      const branch = String(input.targetBranch || req.user?.branchId || "");
+      if (branch && [String(item.fromBranchId || ""), String(item.toBranchId || "")].includes(branch)) safe.branchId = branch;
+    }
     if (op.id === "inventory.serial.list" && typeof item.transferToBranchId === "string") safe.transferToBranchId = item.transferToBranchId;
     if (Number.isSafeInteger(item.__v) && item.__v >= 0) {
       Object.defineProperty(safe, "__assistantRefVersion", { value: item.__v, enumerable: false });
@@ -5199,7 +5208,9 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     const needsVersion = Boolean(op.systemBodyFields?.includes("version") && !isRecruitmentOperation(op));
     const needsRevision = Boolean(op.systemBodyFields?.includes("revision"));
     const needsReferenceRecord = needsExpectedVersion || needsExpectedRevision || needsVersion || needsRevision || Boolean(op.mergeBodyWithReference) || op.id === "hr.workflow.update";
-    if (isRecordIdentifier(search) && !needsReferenceRecord) continue;
+    // A declared reference may resolve to a version, code or other non-ObjectId.
+    // Do not re-resolve it as a generic collection ID after the scoped lookup succeeded.
+    if ((isRecordIdentifier(search) || resolvedReferences[field.key]) && !needsReferenceRecord) continue;
     const reference = await loadPathReferenceRows(req, op, field, resolved);
     if (!reference) continue;
     const acceptingIncomingSerial = op.id === "inventory.serial.transfer.accept";
