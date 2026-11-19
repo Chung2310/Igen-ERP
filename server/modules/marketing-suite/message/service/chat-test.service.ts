@@ -514,6 +514,7 @@ export async function processChatTestMessage(job: { sessionId: string; messageId
       if (documents.length !== 1 || !subscriberCode) intake = {
         text: "", isMock: false, draftId: "", revision: profile?.version || 1,
         leadIntake: {
+          collectionMode: "document",
           goal: `Đã xử lý riêng từng hồ sơ: ${JSON.stringify(results)}. Ảnh chưa xác định được account và chưa ghi vào Lead: ${JSON.stringify(waitingDocuments)}. Không trộn dữ liệu giữa account. Chỉ nói đã cập nhật hồ sơ có kết quả. Với ảnh đang chờ, hỏi account của đúng ảnh; nếu nhiều ảnh thiếu mã thì đề nghị gửi riêng từng ảnh kèm account. Không nói đã lưu ảnh đang chờ.`,
           collected: documents.length === 1 ? verifiedImageValues : {},
           status: waitingDocuments.length || results.some(item => item.intake?.status === "collecting") ? "collecting" : "complete",

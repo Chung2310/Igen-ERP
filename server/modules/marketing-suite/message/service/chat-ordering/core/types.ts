@@ -53,6 +53,7 @@ export interface ChatOrderFlowReply {
 }
 
 export interface LeadIntakeContext {
+  collectionMode?: "document";
   goal: string;
   collected: Record<string, string>;
   receivedContact?: import("../../lead-intake-contact").LeadContactField[];

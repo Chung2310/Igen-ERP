@@ -94,6 +94,63 @@ function send(sessionId: string, text: string, clientMessageId = mongoose.Types.
 }
 
 describe("Persistent chatbot test sessions", () => {
+  it.each([
+    ["work", { ho_va_ten: "Nguyễn An", so_dien_thoai: "0901234567", ma_ket_cuoi: "BNH0683-GN31-SN12-SP01", trang_thai_cong_viec: "Đang triển khai" }],
+    ["subscriber", { ho_va_ten: "Nguyễn An", so_dien_thoai: "0901234567", dia_chi_lap_dat: "Địa chỉ thuê bao" }],
+    ["request", { so_dien_thoai: "0901234567", dia_chi_lap_dat: "Địa chỉ yêu cầu", ma_ket_cuoi: "BNH0683-GN41-SN11-SP01" }],
+    ["connected", { ma_yeu_cau: "69022501", tong_tien: "2760000", nhan_vien_ky_thuat: "Nguyễn Văn Bình" }],
+  ])("saves the partial %s screenshot without asking for columns only present on other screens", async (kind, values) => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    // Existing customer profiles may mark every column required. Document intake
+    // must still attach a partial screenshot without changing that configuration.
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields.map(field => ({ ...field, required: true })) } });
+    const session = await start(false, "telecom");
+    const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    const read = { account: "subscriber_001", ...values };
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields:
+      Object.fromEntries(Object.entries(read).map(([key, text]) => [key, { status: "readable", text }])),
+    }) } as never);
+    const messageId = await send(session.id, "", `partial-${kind}`, `data:image/png;base64,${image.toString("base64")}`);
+    await processChatTestMessage({ sessionId: session.id, messageId });
+    const state = await readChatTestState(companyCode, userId, session.id);
+    expect(state.messages[0].status).toBe("completed");
+    expect(state.leads).toHaveLength(1);
+    expect(await CRMTicketModel.findById(state.leads[0].id).lean()).toMatchObject({
+      telecomSubscriberCode: "SUBSCRIBER_001", collectionStatus: "complete", answers: values,
+    });
+    const intake = vi.mocked(geminiService.chat).mock.calls.at(-1)?.[3]?.leadIntake;
+    expect(intake).toMatchObject({ collectionMode: "document", status: "just_completed", missingRequiredFields: [] });
+    expect(intake?.missingOptionalFields || []).toEqual([]);
+    const original = await LeadIntakeProfileModel.findOne({ companyCode }).lean();
+    expect(original?.fields.every(field => field.required)).toBe(true);
+  });
+
+  it("adds data from a different screen to the same subscriber without erasing earlier image fields", async () => {
+    const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
+    await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields } });
+    const session = await start(false, "telecom");
+    const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "white" } }).png().toBuffer();
+    const imageData = `data:image/png;base64,${image.toString("base64")}`;
+    for (const [index, values] of [
+      { account: "subscriber_001", ho_va_ten: "Nguyễn An", so_dien_thoai: "0901234567" },
+      { account: "subscriber_001", ma_yeu_cau: "69022501", tong_tien: "2760000" },
+    ].entries()) {
+      vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ kind: "document", fields:
+        Object.fromEntries(Object.entries(values).map(([key, text]) => [key, { status: "readable", text }])),
+      }) } as never);
+      const messageId = await send(session.id, "", `supplement-${index}`, imageData);
+      await processChatTestMessage({ sessionId: session.id, messageId });
+    }
+    expect(await CRMTicketModel.countDocuments({ companyCode })).toBe(1);
+    expect(await CRMTicketModel.findOne({ companyCode }).lean()).toMatchObject({
+      customerName: "Nguyễn An", phone: "0901234567", telecomSubscriberCode: "SUBSCRIBER_001",
+      answers: { ma_yeu_cau: "69022501", tong_tien: "2760000", ho_va_ten: "Nguyễn An" },
+    });
+    const intake = vi.mocked(geminiService.chat).mock.calls.at(-1)?.[3]?.leadIntake;
+    expect(intake).toMatchObject({ collectionMode: "document", status: "complete", missingRequiredFields: [] });
+    expect(intake?.missingOptionalFields || []).toEqual([]);
+  });
+
   it("saves the ready-made telecom template to a Lead and keeps the technician phone separate from the customer phone", async () => {
     const template = LEAD_INTAKE_TEMPLATES.find(item => item.id === "telecom")!;
     await LeadIntakeProfileModel.updateOne({ companyCode }, { $set: { fields: template.fields, goal: template.goal } });
