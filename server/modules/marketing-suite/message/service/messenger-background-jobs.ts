@@ -25,6 +25,12 @@ async function enqueue(kind: MessengerBackgroundJobKind, key: string[], payload:
   }
 }
 
+type FacebookWebhookPayload = { pageId: string; messaging: unknown[] };
+
+export function enqueueFacebookWebhook(pageId: string, messaging: unknown[]) {
+  return enqueue("facebook-webhook", [pageId, hash(JSON.stringify(messaging))], { pageId, messaging });
+}
+
 type ZaloWebhookPayload = {
   event_name?: string;
   oa_id?: string;
@@ -74,6 +80,12 @@ export async function enqueueLeadContractOcr(input: Omit<LeadContractMessageJob,
 }
 
 async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
+  if (kind === "facebook-webhook") {
+    const { pageId, messaging } = payload as FacebookWebhookPayload;
+    const { fbMessengerService } = await import("./fb-messenger.service");
+    await fbMessengerService.handleWebhookEvent({ object: "page", entry: [{ id: pageId, messaging }] }, { commentsAlreadyQueued: true });
+    return;
+  }
   if (kind === "chat-test") {
     const { processChatTestMessage } = await import("./chat-test.service");
     await processChatTestMessage(payload as { sessionId: string; messageId: string });
@@ -199,6 +211,7 @@ async function runJobs(kind: MessengerBackgroundJobKind) {
 
 export function startMessengerBackgroundWorkers() {
   const timers = [
+    startQueueRecovery(() => runJobs("facebook-webhook"), 1_000),
     startQueueRecovery(() => runJobs("zalo-webhook"), 1_000),
     startQueueRecovery(async () => {
       const { recoverZaloAutoReplyJobs } = await import("./ai-auto-reply.service");

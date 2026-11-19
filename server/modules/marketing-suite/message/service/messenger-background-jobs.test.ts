@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { zaloMessengerController } from "../controller/zalo-messenger.controller";
+import { fbMessengerController } from "../controller/fb-messenger.controller";
 import { MessengerBackgroundJobModel } from "../model/messenger-background-job.model";
 import { FacebookAutoReplyJobModel } from "../model/facebook-auto-reply-job.model";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model";
@@ -12,6 +13,7 @@ import { enqueueLeadIntakeRetry, enqueueZaloWebhook, startMessengerBackgroundWor
 import { UserModel } from "../../../../model/user.model";
 import { claimMessengerReply, enqueueMessengerReply, expireMessengerReplyJobs, markMessengerReplySending } from "./facebook-auto-reply-queue";
 import { zaloMessengerService } from "./zalo-messenger.service";
+import { fbMessengerService } from "./fb-messenger.service";
 import { assertZaloDeliveryCurrent, beginZaloFollowUpDelivery, expireZaloFollowUpDeliveries,
   readZaloFollowUpMessages, ZaloReplyCancelledError } from "./zalo-reply-context";
 import { CRMTicketModel } from "../model/crm-ticket.model";
@@ -29,7 +31,10 @@ vi.mock("./lead-contract-ocr", async importOriginal => ({
   processLeadContractMessage: mocks.contractOcr,
 }));
 vi.mock("./chat-ordering/registry", () => ({
-  chatOrderFlowRegistry: { resolveForCompanyPage: async () => ({ key: "page-intake", process: mocks.intake }) },
+  chatOrderFlowRegistry: {
+    resolveForCompanyPage: async () => ({ key: "page-intake", process: mocks.intake }),
+    resolveForPage: async () => undefined,
+  },
 }));
 
 let mongo: MongoMemoryServer;
@@ -74,6 +79,50 @@ function webhook(timestamp = Date.now()) {
   const submit = () => zaloMessengerController.receiveWebhookEvent(req, res as unknown as Response);
   return { req, res, submit };
 }
+
+it("saves a signed Facebook webhook before acknowledging and retries an interrupted inbound write", async () => {
+  vi.stubEnv("FB_APP_SECRET", "test-facebook-secret");
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue(null);
+  mocks.dispatch.mockResolvedValue(undefined);
+  const timestamp = Date.now();
+  const body = { object: "page", entry: [{ id: "facebook-page", messaging: [{
+    sender: { id: "facebook-customer" }, recipient: { id: "facebook-page" }, timestamp,
+    message: { mid: "mid.incoming", text: "Chào shop" },
+  }] }] };
+  const rawBody = JSON.stringify(body);
+  const signature = createHmac("sha256", "test-facebook-secret").update(rawBody).digest("hex");
+  const req = { body, rawBody, get: () => `sha256=${signature}` } as unknown as Request;
+  const res = { status: vi.fn().mockReturnThis(), send: vi.fn() };
+  const receive = () => fbMessengerController.receiveWebhookEvent(req, res as unknown as Response);
+  const jobFilter = { kind: "facebook-webhook" as const };
+
+  // When the durable write fails, Meta must receive a retriable status.
+  const failedEnqueue = vi.spyOn(MessengerBackgroundJobModel, "updateOne").mockRejectedValueOnce(new Error("read ECONNRESET"));
+  await receive();
+  expect(res.status).toHaveBeenLastCalledWith(503);
+  failedEnqueue.mockRestore();
+
+  await receive();
+  await receive();
+  expect(res.status).toHaveBeenLastCalledWith(200);
+  expect(await MessengerBackgroundJobModel.countDocuments({ ...jobFilter, status: "pending" })).toBe(1);
+  expect(await FBMessageModel.countDocuments()).toBe(0);
+
+  const failedInbound = vi.spyOn(FBMessageModel, "updateOne").mockRejectedValueOnce(new Error("read ECONNRESET"));
+  stopWorkers = startMessengerBackgroundWorkers();
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.findOne(jobFilter).lean()).toMatchObject({ status: "pending", attempts: 1 });
+  }, { timeout: 5_000 });
+  failedInbound.mockRestore();
+  await MessengerBackgroundJobModel.updateOne(jobFilter, { $set: { dueAt: new Date(0) } });
+
+  await vi.waitFor(async () => {
+    expect(await MessengerBackgroundJobModel.findOne(jobFilter).lean()).toMatchObject({ status: "completed", attempts: 2 });
+    expect(await FBMessageModel.countDocuments({ messageId: "mid.incoming", direction: "inbound" })).toBe(1);
+    expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith("facebook", "facebook-page",
+      expect.any(String), "Chào shop", "mid.incoming", { propagateError: true });
+  }, { timeout: 5_000 });
+});
 
 it("acknowledges only after persisting and deduplicates a Zalo webhook without a message ID", async () => {
   const { res, submit } = webhook();
