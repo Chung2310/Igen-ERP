@@ -9,6 +9,8 @@ import { TablePagination } from "../../components/common/TablePagination";
 import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
 import type { HealthcareTab as Tab } from "../../router/subTabRoutes";
+import HealthcareEquipmentPage from "./HealthcareEquipmentPage";
+import HealthcareMaterialsPage from "./HealthcareMaterialsPage";
 import { emptyDatePeriodFilter, getDatePeriodRange } from "../../utils/datePeriodFilter";
 import type { Appointment, CareTask, CatalogItem, HealthcareList, HealthcarePatientList, HealthcareStaff, ImportKind, Patient, Visit } from "../../../shared/healthcare";
 import { healthcareApi } from "./api";
@@ -28,6 +30,8 @@ const sections = [
   { key: "appointments", label: "Lịch hẹn" },
   { key: "care", label: "Chăm sóc" },
   { key: "settings", label: "Danh mục" },
+  { key: "materials", label: "Vật tư" },
+  { key: "equipment", label: "Thiết bị" },
 ] as const;
 type ListRow = Patient | Visit | Appointment | CareTask;
 type Withdrawal =
@@ -41,7 +45,7 @@ type PatientDeleteImpactItem = Pick<Patient, "_id" | "code" | "name" | "phone" |
 type PatientDeleteResult = { deletedCount: number; deletedVisits: number; deletedAppointments: number; deletedCare: number };
 const withdrawalLabels = { visits: "Hủy lượt khám", appointments: "Hủy lịch hẹn", care: "Hủy việc chăm sóc", catalog: "Ngừng sử dụng" };
 const canFeature = (has: (permission: string) => boolean, tab: Tab, mode: "read" | "manage") => {
-  const feature = tab === "patients" ? "healthcare" : `healthcare-${tab}`;
+  const feature = tab === "patients" || tab === "materials" || tab === "equipment" ? "healthcare" : `healthcare-${tab}`;
   return has(`${feature}:${mode}`) || (mode === "read" && has(`${feature}:manage`));
 };
 const labels = { visits: visitLabels, appointments: appointmentLabels, care: careLabels };
@@ -83,11 +87,11 @@ export default function HealthcarePage() {
     <Feedback error={branch.error || "Chọn chi nhánh đang hoạt động để sử dụng Quản lý y tế."} onRetry={branch.error ? branch.retry : undefined} />
   </div>;
   return <HealthcareWorkspace key={`${userProfile?.uid}:${userProfile?.companyCode}:${branch.activeBranchId}`}
-    branchId={branch.activeBranchId} hasPermission={hasPermission} />;
+    branchId={branch.activeBranchId} hasPermission={hasPermission} userId={userProfile?.uid} />;
 }
 
-export function HealthcareWorkspace({ branchId, hasPermission }: {
-  branchId: string; hasPermission: (permission: string) => boolean;
+export function HealthcareWorkspace({ branchId, hasPermission, userId }: {
+  branchId: string; hasPermission: (permission: string) => boolean; userId?: string;
 }) {
   const api = useMemo(() => healthcareApi(branchId), [branchId]);
   const [location, setLocation] = useState(() =>
@@ -308,6 +312,18 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   }
 
   const tabs = sections.filter(section => canFeature(hasPermission, section.key, "read"));
+  if (tab === "materials" || tab === "equipment") {
+    return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+      <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
+        {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} onClick={() => navigate(key)}>{label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
+      <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
+        {tab === "materials"
+          ? <HealthcareMaterialsPage api={api} canManage={canFeature(hasPermission, "materials", "manage")} />
+          : <HealthcareEquipmentPage api={api} canManage={canFeature(hasPermission, "equipment", "manage")} userId={userId} />}
+      </div>
+    </div>;
+  }
   const pageTitle = tab === "settings" ? "Danh mục y tế" : sections.find(section => section.key === tab)?.label;
   const createLabel = { patients: "Thêm bệnh nhân", visits: "Ghi lượt khám", appointments: "Đặt lịch hẹn", care: "Tạo việc chăm sóc", settings: "Thêm danh mục" };
   const listHeaders = sectionHeaders[tab];

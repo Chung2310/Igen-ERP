@@ -32,7 +32,7 @@ export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
   { slug: "y-te", value: "Y_TE" },
 ];
 
-export type HealthcareTab = "patients" | "visits" | "appointments" | "care" | "settings";
+export type HealthcareTab = "patients" | "visits" | "appointments" | "care" | "settings" | "materials" | "equipment";
 
 export const HEALTHCARE_SUB_TAB_ROUTES: SubTabRouteMap<HealthcareTab> = [
   { slug: "benh-nhan", value: "patients" },
@@ -40,6 +40,8 @@ export const HEALTHCARE_SUB_TAB_ROUTES: SubTabRouteMap<HealthcareTab> = [
   { slug: "lich-hen", value: "appointments" },
   { slug: "cham-soc", value: "care" },
   { slug: "danh-muc", value: "settings" },
+  { slug: "vat-tu", value: "materials" },
+  { slug: "thiet-bi", value: "equipment" },
 ];
 
 // Nguồn slug ?sub= duy nhất cho toàn app — các trang và điều hướng toàn cục

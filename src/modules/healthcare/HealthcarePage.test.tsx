@@ -231,7 +231,7 @@ it("does not request a record from another branch or a section without permissio
   render(<HealthcareWorkspace branchId="branch-a" hasPermission={code => code === "healthcare:read"} />);
   expect(await screen.findByText("Chưa có dữ liệu phù hợp.")).toBeTruthy();
   const menu = within(screen.getByRole("navigation", { name: "Nghiệp vụ y tế" }));
-  expect(menu.getAllByRole("button")).toHaveLength(1);
+  expect(menu.getAllByRole("button")).toHaveLength(3);
   expect(menu.getByRole("button", { name: "Bệnh nhân" }).getAttribute("aria-current")).toBe("page");
   expect(calls).toEqual(["/api/v1/healthcare/patients/search"]);
 });

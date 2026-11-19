@@ -9,10 +9,13 @@ import { getImportJob, importHistory, importTemplate, listImportRows, queueImpor
 import { calendarDay, dateRangeFilter, dayBounds, healthcareScope, healthcareStaff, listFilter, prepareAppointment, prepareCare, prepareVisit } from "./operations";
 import { createGeneratedPatient, createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor, type StoredAppointment } from "./store";
 import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, patientCreateInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
+import { healthcareEquipmentRouter, healthcareMaterialsRouter } from "./resource-router";
 
 export const healthcareRouter = Router();
 healthcareRouter.use(requirePermission("healthcare:read") as RequestHandler);
 healthcareRouter.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
+healthcareRouter.use("/materials", healthcareMaterialsRouter);
+healthcareRouter.use("/equipment", healthcareEquipmentRouter);
 
 type Handler = (req: AuthenticatedRequest, res: Response, db: Db, actor: HealthcareActor) => Promise<unknown>;
 function route(handler: Handler): RequestHandler {

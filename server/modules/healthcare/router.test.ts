@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import * as XLSX from "xlsx";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { hospitalReportColumns, type Appointment, type CareTask, type CatalogItem, type ImportJob, type Patient, type Visit } from "../../../shared/healthcare";
+import { hospitalReportColumns, type Appointment, type CareTask, type CatalogItem, type HealthcareEquipment, type HealthcareEquipmentRequest, type HealthcareMaterial, type ImportJob, type Patient, type Visit } from "../../../shared/healthcare";
 import { requireModule } from "../../middleware/require-module";
 import { BranchModel } from "../../model/branch.model";
 import { CompanyModel } from "../../model/company.model";
@@ -140,6 +140,47 @@ it("limits read and write by module, company, branch and capability", async () =
   expect(fetched).toMatchObject({ _id: patient._id, name: patient.name });
   expect(fetched).not.toHaveProperty("audit");
   expect((await request(`/patients/${patient._id}`, { code: "NEW-ID", name: patient.name, revision: patient.revision }, { method: "PATCH" })).status).toBe(400);
+});
+
+it("scopes medical supplies and preserves stock plus equipment borrow and return workflows", async () => {
+  const material = await created<HealthcareMaterial>("/materials", {
+    code: "GLOVE-QA", name: "Găng tay thử", category: "Vật tư tiêu hao", unit: "hộp", lotCode: "LOT-QA-1",
+    expiryDate: "2027-12-31", minimumQuantity: 2, unitCost: 12000, supplier: "Nhà cung cấp thử", notes: "",
+  });
+  expect(material).toMatchObject({ code: "GLOVE-QA", quantity: 0, lotCode: "LOT-QA-1", revision: 1 });
+  expect((await request("/materials", { code: "NO-WRITE", name: "Không được ghi", category: "Y tế", unit: "hộp" }, { actor: "viewer" })).status).toBe(403);
+  expect(await (await request("/materials", undefined, { branchId: String(otherBranch) })).json()).toMatchObject({ total: 0, items: [] });
+
+  const receipt = await request(`/materials/${material._id}/movements`, { type: "receipt", quantity: 5, unitCost: 12000, note: "Nhập lô" });
+  expect(receipt.status).toBe(201);
+  expect(await receipt.json()).toMatchObject({ material: { quantity: 5, revision: 2 }, movement: { type: "receipt", quantity: 5 } });
+  const issue = await request(`/materials/${material._id}/movements`, { type: "issue", quantity: 2, note: "Cấp sử dụng" });
+  expect(issue.status).toBe(201);
+  expect(await issue.json()).toMatchObject({ material: { quantity: 3, revision: 3 }, movement: { type: "issue", quantity: 2 } });
+  expect((await request(`/materials/${material._id}/movements`, { type: "issue", quantity: 4 })).status).toBe(400);
+  expect(await (await request(`/materials/${material._id}/movements?limit=10`)).json()).toMatchObject({ items: expect.arrayContaining([
+    expect.objectContaining({ type: "receipt", quantity: 5 }), expect.objectContaining({ type: "issue", quantity: 2 }),
+  ]) });
+
+  const equipment = await created<HealthcareEquipment>("/equipment", {
+    code: "MON-QA", name: "Monitor thử", category: "Theo dõi", location: "Phòng khám", purchaseDate: "2026-01-01", notes: "",
+  });
+  expect(equipment).toMatchObject({ status: "available", revision: 1 });
+  const borrow = await request(`/equipment/${equipment._id}/borrow-requests`, { reason: "Theo dõi bệnh nhân" }, { actor: "viewer" });
+  expect(borrow.status).toBe(201);
+  const borrowRequest = await borrow.json() as HealthcareEquipmentRequest;
+  expect(await (await request(`/equipment/${equipment._id}`)).json()).toMatchObject({ status: "requested" });
+  expect((await request(`/equipment/requests/${borrowRequest._id}`, { decision: "approved" }, { method: "PATCH" })).status).toBe(200);
+  expect(await (await request(`/equipment/${equipment._id}`)).json()).toMatchObject({ status: "in-use", currentBorrowerId: actors.viewer.id });
+
+  const returned = await request(`/equipment/${equipment._id}/return-requests`, { note: "Đã sử dụng xong" }, { actor: "viewer" });
+  expect(returned.status).toBe(201);
+  const returnRequest = await returned.json() as HealthcareEquipmentRequest;
+  expect((await request(`/equipment/requests/${returnRequest._id}`, { decision: "approved" }, { method: "PATCH" })).status).toBe(200);
+  expect(await (await request(`/equipment/${equipment._id}`)).json()).toMatchObject({ status: "available" });
+  expect(await (await request(`/equipment/${equipment._id}/history`)).json()).toMatchObject({ items: expect.arrayContaining([
+    expect.objectContaining({ requestType: "borrow", status: "approved" }), expect.objectContaining({ requestType: "return", status: "approved" }),
+  ]) });
 });
 
 it("creates the visit to follow-up to care flow and prevents concurrent interval collisions", async () => {

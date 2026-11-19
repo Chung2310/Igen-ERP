@@ -94,6 +94,61 @@ export interface CatalogItem extends HealthcareRecord {
   active: boolean;
 }
 
+export type HealthcareMaterialStatus = "active" | "inactive";
+export type HealthcareMaterialMovementType = "receipt" | "issue";
+export interface HealthcareMaterial extends HealthcareRecord {
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  lotCode: string;
+  expiryDate: string;
+  quantity: number;
+  minimumQuantity: number;
+  unitCost: number;
+  supplier: string;
+  notes: string;
+  status: HealthcareMaterialStatus;
+}
+export interface HealthcareMaterialMovement extends HealthcareRecord {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  type: HealthcareMaterialMovementType;
+  quantity: number;
+  unitCost: number;
+  note: string;
+  createdByName: string;
+}
+
+export type HealthcareEquipmentStatus = "available" | "requested" | "in-use" | "maintenance" | "retired";
+export type HealthcareEquipmentRequestType = "borrow" | "return";
+export type HealthcareEquipmentRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export interface HealthcareEquipment extends HealthcareRecord {
+  code: string;
+  name: string;
+  category: string;
+  status: HealthcareEquipmentStatus;
+  location: string;
+  purchaseDate: string;
+  notes: string;
+  currentBorrowerId?: string;
+  currentBorrowerName?: string;
+  expectedReturnAt?: string;
+}
+export interface HealthcareEquipmentRequest extends HealthcareRecord {
+  equipmentId: string;
+  equipmentCode: string;
+  equipmentName: string;
+  employeeId: string;
+  employeeName: string;
+  requestType: HealthcareEquipmentRequestType;
+  status: HealthcareEquipmentRequestStatus;
+  reason: string;
+  expectedReturnAt: string;
+  rejectionReason: string;
+}
+
 export type RecordInput<T extends HealthcareRecord> = Omit<T, keyof HealthcareRecord>;
 export type HealthcareList<T> = { items: T[]; total: number; page: number; pageSize: number };
 export type HealthcareStaff = { _id: string; name: string };
