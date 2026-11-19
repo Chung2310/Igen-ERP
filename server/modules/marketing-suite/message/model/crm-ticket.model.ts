@@ -68,7 +68,7 @@ const CRMTicketSchema = new Schema<ICRMTicket>({
     syncedAt: { type: Date },
     syncedBy: { type: String },
   },
-});
+}, { timestamps: true });
 
 CRMTicketSchema.index({ companyCode: 1, sourcePlatform: 1, sourceAccountId: 1, sourceConversationId: 1 }, {
   unique: true,
