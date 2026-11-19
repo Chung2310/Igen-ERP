@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { Request, Response } from "express";
 import { facebookPostService } from "../service/facebook-post.service.ts";
-import { fbMessengerService } from "../../message/service/fb-messenger.service.ts";
+import { FacebookWebhookSubscriptionError, requireFacebookWebhookSubscription } from "../service/facebook-webhook-subscription";
 import { SocialIntegrationModel } from "../model/social-integration.model.ts";
 import { UserDataDeletionModel } from "../model/user-data-deletion.model.ts";
 import { assertMarketingAccountOwnership } from "../account-ownership";
@@ -348,7 +348,7 @@ export const facebookPostController = {
       }
 
       // Tự động lưu các pages vào DB ngay tại backend (đảm bảo đồng bộ 100% không phụ thuộc trình duyệt)
-      let successCount = 0;
+      let webhookFailure: FacebookWebhookSubscriptionError | undefined;
       const savedPages: typeof pages = [];
       if (companyCode) {
         console.log(`[FB OAuth Callback] Bắt đầu tự động lưu ${pages.length} Pages vào DB cho company: ${companyCode}...`);
@@ -356,6 +356,7 @@ export const facebookPostController = {
           if (!page.id || !page.access_token || !page.facebookUserId) continue;
           try {
             await assertMarketingAccountOwnership(companyCode, "Facebook", page.id);
+            await requireFacebookWebhookSubscription(page.id, page.access_token);
             await SocialIntegrationModel.findOneAndUpdate(
               { companyCode, platform: "Facebook", username: page.id },
               {
@@ -373,24 +374,19 @@ export const facebookPostController = {
               },
               { upsert: true, new: true }
             );
-            try {
-              await fbMessengerService.subscribePageWebhooks(page.id, page.access_token);
-            } catch (webhookError: any) {
-              console.warn(`[FB OAuth Callback] Không thể đăng ký webhook cho Page ${page.id}:`, webhookError.message || webhookError);
-            }
-            successCount++;
             savedPages.push({ ...page, access_token: "" });
-          } catch (dbErr: any) {
-            console.error(`[FB OAuth Callback] Lỗi ghi DB cho page ID ${page.id}:`, dbErr.message || dbErr);
+          } catch (pageError: unknown) {
+            if (pageError instanceof FacebookWebhookSubscriptionError) webhookFailure = pageError;
+            console.error(`[FB OAuth Callback] Kết nối Page ${page.id} thất bại:`, pageError instanceof Error ? pageError.name : typeof pageError);
           }
         }
-        console.log(`[FB OAuth Callback] Đã lưu thành công ${successCount}/${pages.length} Pages vào DB.`);
+        console.log(`[FB OAuth Callback] Đã lưu thành công ${savedPages.length}/${pages.length} Pages vào DB.`);
       } else {
         console.warn(`[FB OAuth Callback] Bỏ qua lưu tự động do không xác định được companyCode.`);
       }
 
-      if (successCount === 0) {
-        return sendErrorHtml("Không thể lưu Fanpage vào hệ thống. Vui lòng thử lại.");
+      if (savedPages.length === 0) {
+        return sendErrorHtml(webhookFailure?.message || "Không thể lưu Fanpage vào hệ thống. Vui lòng thử lại.");
       }
 
       // Trả về giao diện đồng bộ tự động và thông báo thành công
@@ -449,7 +445,7 @@ export const facebookPostController = {
           <div class="box">
             <div class="spinner"></div>
             <h3>Đăng nhập Facebook thành công</h3>
-            <p>Dữ liệu các Trang đã được đồng bộ với hệ thống ERP.</p>
+            <p>${savedPages.length}/${pages.length} Fanpage đã kết nối với ERP.</p>
             <p style="font-size: 11px; margin-top: 8px; color: #a0a0a0;">Cửa sổ này sẽ tự động đóng sau giây lát...</p>
           </div>
           <script>
