@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
+import { CompanyModel } from "../model/company.model";
 import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
@@ -202,7 +203,7 @@ export async function getEffectivePermissions(
   }
 
   const userDoc = userId
-    ? await UserModel.findById(userId).select("permissions").lean()
+    ? await UserModel.findById(userId).select("permissions email companyCode role").lean()
     : null;
   const customPermissions = userDoc?.permissions || [];
 
@@ -234,6 +235,19 @@ export async function getEffectivePermissions(
   // company-specific role-permission record that predates this module.
   if (role === "admin" && !rolePermissions.includes("legal-reference:manage")) {
     rolePermissions = [...rolePermissions, "legal-reference:manage"];
+  }
+
+  // The email supplied when creating a company belongs to its owner. Grant
+  // that account Gym administration while the company has the module enabled,
+  // including companies that enabled Gym before this rule was introduced.
+  if (role === "admin" && companyCode && userDoc?.role === "admin" && userDoc.companyCode === companyCode) {
+    const company = await CompanyModel.findOne({ code: companyCode })
+      .select("ownerEmail enabledModules")
+      .lean();
+    if (company?.enabledModules?.includes("gym") &&
+        company.ownerEmail?.trim().toLowerCase() === userDoc.email?.trim().toLowerCase()) {
+      rolePermissions = [...rolePermissions, "gym-admin:manage"];
+    }
   }
 
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));

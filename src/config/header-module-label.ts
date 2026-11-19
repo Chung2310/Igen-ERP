@@ -5,6 +5,7 @@ export const HEADER_MODULE_LABELS: Record<TabType, string> = {
   "TRỢ LÝ KIẾN TRÚC": "KIẾN TRÚC",
   "BÁO GIÁ": "BÁO GIÁ",
   "QUẢN LÝ Y TẾ": "QUẢN LÝ Y TẾ",
+  "CHUỖI GYM": "CHUỖI GYM",
   "TỔNG QUAN": "TỔNG QUAN",
   "NHÂN SỰ": "NHÂN SỰ",
   "QUẢN LÝ HỌC VIÊN": "HỌC VIÊN",
