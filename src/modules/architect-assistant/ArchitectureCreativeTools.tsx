@@ -489,7 +489,7 @@ function ArchitectureImageTool({ page, project, api, assets, assetUrls, canUseAi
         }
       }
       if (!generatedCount) throw firstSceneError || new Error("Không tạo được ảnh.");
-      setNotice(syncCharacter ? `Đã đồng bộ nhân vật vào ${generatedCount}/${jobs.length} bối cảnh và lưu kết quả vào thư viện dự án.` : page.id === "utilities" && utilityTool === "mood" ? `Đã tạo ${generatedCount}/4 phương án mood và lưu vào thư viện dự án.` : variantCount > 1 ? `Đã tạo ${generatedCount}/${variantCount} phương án và lưu vào thư viện dự án.` : "Đã tạo phương án và lưu vào thư viện dự án.");
+      setNotice(syncCharacter ? `Đã đồng bộ nhân vật vào ${generatedCount}/${jobs.length} bối cảnh và lưu ảnh vào thư viện kiến trúc.` : page.id === "utilities" && utilityTool === "mood" ? `Đã tạo ${generatedCount}/4 phương án mood và lưu ảnh vào thư viện kiến trúc.` : variantCount > 1 ? `Đã tạo ${generatedCount}/${variantCount} phương án và lưu ảnh vào thư viện kiến trúc.` : "Đã tạo ảnh và lưu vào thư viện kiến trúc.");
     } catch (cause) { setError(friendlyError(cause)); }
     finally { setBusy(false); }
   };
