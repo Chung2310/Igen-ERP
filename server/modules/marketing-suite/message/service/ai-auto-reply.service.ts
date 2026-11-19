@@ -16,6 +16,7 @@ import { claimFacebookFollowUp, renewFacebookFollowUp, isFacebookFollowUpCurrent
 import { TikTokConversationModel, TikTokMessageModel } from "../model/tiktok-messenger.model.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { geminiService } from "../../shared/service/gemini.service.ts";
+import { BusinessRuleReviewError } from "../../shared/service/gemini/chat.service";
 import { zaloMessengerService } from "./zalo-messenger.service.ts";
 import { fbMessengerService, type FacebookTokenContext } from "./fb-messenger.service.ts";
 import { tiktokMessengerService } from "./tiktok-messenger.service.ts";
@@ -48,6 +49,7 @@ const FACEBOOK_REPLY_WORKER_INTERVAL_MS = 10 * 1000;
 let facebookReplyWorkerTimer: NodeJS.Timeout | undefined;
 let facebookReplyWorkerRunning = false;
 const HUMAN_INTERVENTION_GUARD_ENABLED = true;
+const FACEBOOK_REVIEW_ACKNOWLEDGEMENT = "Dạ, bên em đã nhận được tin nhắn ạ.";
 
 function getFacebookAIContextText(text: unknown, actionPayload: unknown): string {
   const messageText = String(text || "").trim();
@@ -1163,6 +1165,7 @@ export const aiAutoReplyService = {
             const invoiceAccount = channel === "facebook" || channel === "zalo"
               ? { companyCode, pageId: resolvedPlatformId, platform: channel } : undefined;
             const aiTrace = channel === "facebook" || aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
+            let reviewFailure: BusinessRuleReviewError | undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, invoiceReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
               const invoiceReply = invoiceAccount && await processTelecomInvoiceTurn({
                 ...invoiceAccount, conversationId, messageId: latestDbMessage.messageId,
@@ -1316,6 +1319,16 @@ export const aiAutoReplyService = {
                 channel, conversationId, messageId: incomingMessageId, attempts: claimedAttempts,
                 ...describeChatAiTrace(aiTrace),
               }));
+            }).catch((error: unknown) => {
+              if (channel !== "facebook" || !queueLeaseToken || !(error instanceof BusinessRuleReviewError)) throw error;
+              reviewFailure = error;
+              if (facebookTiming) facebookTiming.stopReason = "business_rule_review_failed";
+              return {
+                aiResponse: { text: FACEBOOK_REVIEW_ACKNOWLEDGEMENT },
+                effectiveRagContext: { contextText: "", scenarioContextText: "", matches: 0 },
+                orderFlow: undefined, customerSession: undefined, preparedReplyContext: undefined,
+                visualContext: undefined, checkoutReply: undefined, invoiceReply: undefined,
+              };
             });
 
             if (!aiResponse || !aiResponse.text) {
@@ -1377,7 +1390,7 @@ export const aiAutoReplyService = {
                 ? orderFlow?.splitReply?.(aiResponse.text) || splitReplyIntoMessageBubbles(aiResponse.text)
                 : splitReplyIntoMessageBubbles(aiResponse.text);
               const fallbackReply = aiResponse.text.trim();
-              const messagesToSend = replyBubbles.length > 0 ? replyBubbles : [fallbackReply];
+              const messagesToSend = reviewFailure || !replyBubbles.length ? [fallbackReply] : replyBubbles;
               const beforeFacebookDelivery = async () => {
                 typingAction?.abort();
                 const owner = await resolveAutoReplyOwner("facebook", resolvedPlatformId);
@@ -1488,6 +1501,12 @@ export const aiAutoReplyService = {
                   }
                   await new Promise((resolve) => setTimeout(resolve, getBubbleDelayMs()));
                 }
+              }
+
+              if (reviewFailure) {
+                // The acknowledgement used the delivery lease. The failed job still needs staff attention.
+                executionError = reviewFailure;
+                return;
               }
 
               if (invoiceReply?.presentations.length) {
