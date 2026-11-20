@@ -5,6 +5,10 @@ export interface ICompanyElevenLabsConfig {
   apiKey: string;
 }
 
+export interface ICompanyHeyGenConfig {
+  apiKey?: string;
+}
+
 export interface ICompanyTelegramOrderConfig {
   enabled: boolean;
   notifyNewOrder: boolean;
@@ -52,6 +56,7 @@ export interface ICompany extends Document {
   createdAt: Date;
   ownerEmail: string;
   elevenlabsConfig?: ICompanyElevenLabsConfig;
+  heygenConfig?: ICompanyHeyGenConfig;
   telegramOrderConfig?: ICompanyTelegramOrderConfig;
   sepayConfig?: ICompanySepayConfig;
   productCatalogConfig?: ICompanyProductCatalogConfig;

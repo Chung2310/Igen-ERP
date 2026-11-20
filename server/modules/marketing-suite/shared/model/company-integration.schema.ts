@@ -10,6 +10,13 @@ const CompanyElevenLabsConfigSchema = new Schema(
   { _id: false }
 );
 
+const CompanyHeyGenConfigSchema = new Schema(
+  {
+    apiKey: { type: String, default: "", select: false },
+  },
+  { _id: false }
+);
+
 const CompanyTelegramOrderConfigSchema = new Schema(
   {
     enabled: { type: Boolean, default: false },
@@ -62,11 +69,12 @@ const CompanyProductCatalogConfigSchema = new Schema(
 export function addMarketingCompanyFields(schema: Schema) {
   schema.add({
     elevenlabsConfig: { type: CompanyElevenLabsConfigSchema, default: () => ({}) },
+    heygenConfig: { type: CompanyHeyGenConfigSchema, default: () => ({}) },
     telegramOrderConfig: { type: CompanyTelegramOrderConfigSchema, default: () => ({}) },
     sepayConfig: { type: CompanySepayConfigSchema, default: () => ({}) },
     productCatalogConfig: { type: CompanyProductCatalogConfigSchema, default: () => ({}) },
     cakeCatalogConfig: { type: CompanyProductCatalogConfigSchema, default: () => ({}) },
   });
   schema.index({ "sepayConfig.webhookId": 1 }, { unique: true, sparse: true });
-  protectMarketingSecrets(schema, ["elevenlabsConfig.apiKey"], { revealLean: false });
+  protectMarketingSecrets(schema, ["elevenlabsConfig.apiKey", "heygenConfig.apiKey"], { revealLean: false });
 }

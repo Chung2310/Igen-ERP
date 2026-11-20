@@ -92,6 +92,7 @@ export interface IWorkHoursConfig {
 
 export interface IUser extends Document {
   elevenlabsAccess?: { apiKey?: string } | null;
+  heygenAccess?: { apiKey?: string; avatarId?: string; avatarIds?: string[]; voiceId?: string } | null;
   canvaIntegration?: import("../modules/marketing-suite/shared/interface/user.interface").ICanvaIntegration | null;
   workHoursConfig?: IWorkHoursConfig;
   employmentStatus?: "official" | "probation" | "internship";

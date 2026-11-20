@@ -46,9 +46,10 @@ function TelecomInvoiceSettingsForm({ platform, accountId }: InvoiceSettingsAcco
     setNotice("");
     try {
       const { enabled, subscriberFieldKey, mode, contractFieldKey, contractProvider } = settings;
-      const saved = await crmService.saveTelecomInvoiceSettings(platform, accountId, mode === "contract"
+      const input = mode === "contract"
         ? { enabled, mode, contractFieldKey, contractProvider }
-        : { enabled, subscriberFieldKey });
+        : { enabled, subscriberFieldKey };
+      const saved = await crmService.saveTelecomInvoiceSettings(platform, accountId, input);
       setSettings(saved);
       setNotice(`Đã ${saved.enabled ? "bật" : "tắt"} đọc ${saved.mode === "contract" ? "ảnh hợp đồng" : "hóa đơn"} cho ${accountLabel} này.`);
     } catch (cause) {
