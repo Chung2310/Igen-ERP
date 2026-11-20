@@ -19,12 +19,17 @@ vi.mock("./SepayConfigCard", () => ({
   ),
 }));
 
-it("renders both Telegram and SePay config cards with userProfile", () => {
-  const profile = { email: "admin@erp.test", role: "admin", companyCode: "ERP" } as any;
+vi.mock("./CompanyHeyGenConfigCard", () => ({
+  default: () => <div data-testid="heygen-card">HeyGen company API key</div>,
+}));
+
+it("renders Telegram, SePay, and HeyGen config cards with userProfile", () => {
+  const profile = { email: "admin@erp.test", role: "admin", companyCode: "ERP", permissions: ["social-integration:read", "social-integration:manage"] } as any;
   render(<IntegrationSettingsTab userProfile={profile} />);
 
   expect(screen.getByTestId("telegram-card")).toBeDefined();
   expect(screen.getByTestId("sepay-card")).toBeDefined();
+  expect(screen.getByTestId("heygen-card")).toBeDefined();
   expect(screen.getByText(/Telegram Card for/)).toBeDefined();
   expect(screen.getByText(/Sepay Card for/)).toBeDefined();
   expect(screen.queryByText("Quản lý dữ liệu chat")).toBeNull();

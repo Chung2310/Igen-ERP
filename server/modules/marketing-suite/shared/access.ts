@@ -8,7 +8,7 @@ import { SocialIntegrationModel } from "./model/social-integration.model";
 import { UserModel } from "../../../model/user.model";
 import { assertMarketingAccountOwnership } from "./account-ownership";
 
-const PREFIXES = ["/marketing-campaigns", "/marketing-contents", "/omni-inbox", "/social-integrations", "/company-knowledge", "/company-telegram-order", "/company-sepay", "/company-cake-catalog", "/company-product-catalog", "/order-sheets", "/gemini", "/elevenlabs", "/heygen", "/kling", "/opusclip", "/facebook", "/zalo", "/tiktok", "/tiktok-business", "/scheduler", "/video-caption-projects", "/bulk-create", "/canva", "/webhooks", "/marketing-media", "/marketing-wallet", "/marketing-settings"];
+const PREFIXES = ["/marketing-campaigns", "/marketing-contents", "/omni-inbox", "/social-integrations", "/company-knowledge", "/company-telegram-order", "/company-heygen", "/company-sepay", "/company-cake-catalog", "/company-product-catalog", "/order-sheets", "/gemini", "/elevenlabs", "/heygen", "/kling", "/opusclip", "/facebook", "/zalo", "/tiktok", "/tiktok-business", "/scheduler", "/video-caption-projects", "/bulk-create", "/canva", "/webhooks", "/marketing-media", "/marketing-wallet", "/marketing-settings"];
 export function isMarketingSuitePath(path: string) {
   if (path === "/webhooks" || path.startsWith("/webhooks/")) return /^\/webhooks\/(?:tiktok|sepay\/[^/]+)\/?$/.test(path);
   if (["/marketing-subscription"].some((prefix) => path === prefix || path.startsWith(prefix + "/"))) return true;
@@ -58,7 +58,7 @@ async function authorizeSuiteRequest(req: AuthenticatedRequest, res: Response, n
   const personalAiSettings = /^\/marketing-settings\/auto-reply\/?$/.test(path);
   const campaignSettings = /^\/marketing-settings\/authors\/[^/]+\/?$/.test(path);
   const leadIntakeSettings = /^\/marketing-settings\/(?:lead-intake-profiles|chat-flows)(?:\/|$)/.test(path);
-  const integrations = !personalAiSettings && !campaignSettings && !leadIntakeSettings && /social-integrations|company-(?:telegram|sepay|cake|product)|marketing-settings|validate-token|validate-integration|save-integration|order-sheets|oauth|facebook\/config/.test(path);
+  const integrations = !personalAiSettings && !campaignSettings && !leadIntakeSettings && /social-integrations|company-(?:telegram|heygen|sepay|cake|product)|marketing-settings|validate-token|validate-integration|save-integration|order-sheets|oauth|facebook\/config/.test(path);
   const knowledge = path.startsWith("/company-knowledge") || /^\/gemini\/(?:knowledge-health|clear-knowledge|customer-service-scenario|sync-drive|upload-document)/.test(path);
   const inbox = personalAiSettings || leadIntakeSettings || /^\/(?:omni-inbox|zalo|tiktok\/messenger)/.test(path) || /^\/facebook\/(?:messenger|debug-ai-logs|comments)/.test(path) || /^\/gemini\/(?:chat|chat-comment|follow-up|test-reply|ai-reply-logs|extract-scenario)/.test(path);
   const module: ModuleKey = knowledge ? "company-knowledge" : inbox ? "omni-inbox" : "social-marketing";

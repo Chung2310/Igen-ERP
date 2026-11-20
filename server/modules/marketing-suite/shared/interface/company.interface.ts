@@ -56,6 +56,7 @@ export interface ICompany extends Document {
   createdAt: Date;
   ownerEmail: string;
   elevenlabsConfig?: ICompanyElevenLabsConfig;
+  heygenConfig?: ICompanyHeyGenConfig;
   telegramOrderConfig?: ICompanyTelegramOrderConfig;
   sepayConfig?: ICompanySepayConfig;
   productCatalogConfig?: ICompanyProductCatalogConfig;

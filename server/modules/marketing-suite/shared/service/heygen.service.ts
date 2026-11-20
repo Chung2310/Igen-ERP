@@ -302,7 +302,7 @@ export async function getCompanyHeyGenLibrary(companyCode: string, apiKey: strin
 
 export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAccessContext> {
   const user = await UserModel.findById(userId)
-    .select("role heygenAccess companyCode +heygenAccess.apiKey")
+    .select("role companyCode heygenAccess.avatarId heygenAccess.avatarIds heygenAccess.voiceId +heygenAccess.apiKey")
     .lean();
 
   if (!user) {
@@ -314,11 +314,11 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
     : [];
   let legacyAvatarId = String(user.heygenAccess?.avatarId || "").trim();
   let voiceId = String(user.heygenAccess?.voiceId || "").trim();
-  let apiKey = String(user.heygenAccess?.apiKey || "").trim();
-  let apiKeySource: HeyGenAccessContext["apiKeySource"] = apiKey ? "user" : "missing";
+  let apiKey = "";
+  let apiKeySource: HeyGenAccessContext["apiKeySource"] = "missing";
 
-  // FALLBACK TO COMPANY CONFIG
-  if (!apiKey && user.companyCode && user.companyCode !== "SYSTEM") {
+  // The company key is shared by Studio; use a legacy user key only as fallback.
+  if (user.companyCode && user.companyCode !== "SYSTEM") {
     try {
       const { CompanyModel } = await import("../../../../model/company.model");
       const company = await CompanyModel.findOne({ code: user.companyCode.toUpperCase() })
@@ -330,6 +330,11 @@ export async function getHeyGenAccessContext(userId: string): Promise<HeyGenAcce
     } catch (err) {
       console.error("[getHeyGenAccessContext] Failed to load company HeyGen config:", err);
     }
+  }
+
+  if (!apiKey) {
+    apiKey = String(user.heygenAccess?.apiKey || "").trim();
+    if (apiKey) apiKeySource = "user";
   }
 
   if (!apiKey) {

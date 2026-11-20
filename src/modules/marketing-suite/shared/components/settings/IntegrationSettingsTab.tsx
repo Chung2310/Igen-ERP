@@ -1,4 +1,5 @@
 import React from "react";
+import CompanyHeyGenConfigCard from "./CompanyHeyGenConfigCard";
 import CompanyChatResetCard from "./CompanyChatResetCard";
 import LeadDestinationSettingsCard from "./LeadDestinationSettingsCard";
 import TelegramOrderConfigCard from "./TelegramOrderConfigCard";
@@ -19,6 +20,13 @@ export default function IntegrationSettingsTab({ userProfile }: IntegrationSetti
     <div className="space-y-3">
       {canReadIntegrations && userProfile?.companyCode && (
         <LeadDestinationSettingsCard key={userProfile.companyCode} canEdit={canManageIntegrations} />
+      )}
+      {canReadIntegrations && userProfile?.companyCode && (
+        <CompanyHeyGenConfigCard
+          key={userProfile.companyCode}
+          companyCode={userProfile.companyCode}
+          canEdit={canManageIntegrations && (userProfile.role === "admin" || userProfile.role === "superadmin")}
+        />
       )}
       <TelegramOrderConfigCard userProfile={userProfile} />
       <SepayConfigCard userProfile={userProfile} />
