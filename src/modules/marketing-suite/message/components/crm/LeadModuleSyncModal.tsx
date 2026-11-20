@@ -1,15 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { ErpModal } from "../../../../../components/common/ErpModal";
 import type { LeadTargetModule } from "../../../../../../shared/marketing-suite/lead-intake";
+import { leadModuleTargets, type LeadModuleDestination } from "../../../../../../shared/marketing-suite/lead-module-destination";
 import { getAccessToken } from "../../../shared/services/authService";
+import { leadModuleDestinationService } from "../../../shared/services/leadModuleDestinationService";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
 
-const modules: Array<{ value: LeadTargetModule; moduleKey: string; label: string; description: string }> = [
-  { value: "students", moduleKey: "student", label: "Học viên", description: "Tạo hồ sơ học viên cho người đã đăng ký học." },
-  { value: "healthcare", moduleKey: "healthcare", label: "Bệnh nhân", description: "Tạo hồ sơ bệnh nhân trong module y tế." },
-  { value: "workers", moduleKey: "worker", label: "Lao động", description: "Tạo hồ sơ lao động trong module quản lý lao động." },
-];
+const recordLabels: Record<LeadTargetModule, string> = {
+  students: "học viên",
+  healthcare: "bệnh nhân",
+  workers: "lao động",
+};
 const inputClass = "min-h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus-visible:outline-1 focus-visible:outline-primary";
 const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -67,18 +69,33 @@ function recordId(value: unknown): string {
 }
 
 export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModules, onClose, onCompleted }: Props) {
-  const availableModules = useMemo(() => enabledModules ? modules.filter(module => enabledModules.includes(module.moduleKey)) : modules, [enabledModules]);
-  const [targetModule, setTargetModule] = useState<LeadTargetModule>(() => availableModules[0]?.value || "students");
+  const [destination, setDestination] = useState<LeadModuleDestination>();
+  const [destinationFailed, setDestinationFailed] = useState(false);
+  const [targetModule, setTargetModule] = useState<LeadTargetModule | "">("");
   const [values, setValues] = useState(() => initialValues(lead));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [createdTarget, setCreatedTarget] = useState<{ targetModule: LeadTargetModule; targetRecordId: string } | null>(null);
   const notes = useMemo(() => collectedNotes(lead), [lead]);
-  const selected = availableModules.find(module => module.value === targetModule) || availableModules[0];
-  const activeTargetModule = selected?.value || targetModule;
+  const loadingDestination = !destination && !destinationFailed;
+  const availableModules = leadModuleTargets.filter(module => destination
+    ? destination.availableModules.includes(module.value) : enabledModules?.includes(module.moduleKey));
+  const activeTargetModule = availableModules.find(module => module.value === targetModule)?.value;
   const setValue = (key: keyof Values, value: string) => setValues(current => ({ ...current, [key]: value }));
 
-  async function createTargetRecord() {
+  useEffect(() => {
+    const controller = new AbortController();
+    void leadModuleDestinationService.resolveForLead(lead.id, controller.signal).then(result => {
+      if (controller.signal.aborted) return;
+      setDestination(result);
+      setTargetModule(result.targetModule && result.availableModules.includes(result.targetModule) ? result.targetModule : "");
+    }).catch(() => {
+      if (!controller.signal.aborted) setDestinationFailed(true);
+    });
+    return () => controller.abort();
+  }, [lead.id]);
+
+  async function createTargetRecord(activeTargetModule: LeadTargetModule) {
     if (activeTargetModule === "students") {
       return recordId(await postJson("/api/v1/students", {
         fullName: values.fullName.trim(), phone: values.phone.trim(), email: values.email.trim(),
@@ -101,9 +118,10 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
   }
 
   async function submit() {
+    if (!activeTargetModule || busy || missingRequired) return;
     setBusy(true); setError("");
     try {
-      const target = createdTarget || { targetModule: activeTargetModule, targetRecordId: await createTargetRecord() };
+      const target = createdTarget || { targetModule: activeTargetModule, targetRecordId: await createTargetRecord(activeTargetModule) };
       if (!createdTarget) setCreatedTarget(target);
       const linked = await crmService.markLeadModuleSynced(lead.id, target);
       onCompleted(linked);
@@ -113,15 +131,24 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
     } finally { setBusy(false); }
   }
 
-  const missingRequired = !selected || !values.fullName.trim() || (activeTargetModule === "students" && (!values.phone.trim() || !values.email.trim() || !values.registrationDate));
-  return <ErpModal title={`Đồng bộ Lead: ${lead.customerName}`} onClose={onClose} maxWidth="max-w-2xl" closeDisabled={busy}>
-    <p className="text-sm text-on-surface-variant">Lead sẽ được giữ nguyên trong Marketing. Xác nhận thông tin rồi tạo hồ sơ mới trong module đích.</p>
-    <label className="block space-y-1 text-sm font-medium">Module đích
-      <select className={inputClass} value={selected?.value || ""} onChange={event => setTargetModule(event.target.value as LeadTargetModule)} disabled={busy || Boolean(createdTarget) || !availableModules.length}>
+  const missingRequired = loadingDestination || !activeTargetModule || !values.fullName.trim() || (activeTargetModule === "students" && (!values.phone.trim() || !values.email.trim() || !values.registrationDate));
+  return <ErpModal native title={`Đồng bộ Lead: ${lead.customerName}`} onClose={onClose} maxWidth="max-w-2xl" closeDisabled={busy}>
+    <p className="text-pretty text-sm text-on-surface-variant">Kiểm tra thông tin rồi xác nhận tạo hồ sơ trong phân hệ đích.</p>
+    <label className="block space-y-1 text-sm font-medium">Phân hệ đích
+      <select className={inputClass} value={activeTargetModule || ""} onChange={event => setTargetModule(event.target.value as LeadTargetModule)}
+        disabled={loadingDestination || busy || Boolean(createdTarget) || !availableModules.length}>
+        <option value="" disabled>Chọn phân hệ</option>
         {availableModules.map(module => <option key={module.value} value={module.value}>{module.label}</option>)}
       </select>
     </label>
-    {selected ? <p className="text-xs text-on-surface-variant">{selected.description}</p> : <p className="rounded-md bg-surface-container p-3 text-sm text-on-surface-variant">Doanh nghiệp chưa bật module Học viên, Y tế hoặc Lao động để nhận Lead.</p>}
+    {loadingDestination && <p role="status" className="text-xs text-on-surface-variant">Đang tải phân hệ đích…</p>}
+    {destinationFailed && <p role="status" className="text-xs text-on-surface-variant">Chưa tải được cấu hình kênh nguồn. Bạn có thể chọn phân hệ đang bật.</p>}
+    {destination?.targetModule && activeTargetModule === destination.targetModule && (
+      <p className="text-xs text-on-surface-variant">Đã chọn sẵn theo cấu hình kênh nguồn.</p>
+    )}
+    {!loadingDestination && !availableModules.length && (
+      <p className="rounded-md bg-surface-container p-3 text-sm text-on-surface-variant">Cần bật phân hệ Học viên, Y tế hoặc Lao động để nhận Lead.</p>
+    )}
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="block space-y-1 text-sm">Họ và tên *
         <input className={inputClass} value={values.fullName} onChange={event => setValue("fullName", event.target.value)} autoComplete="name" />
@@ -135,7 +162,7 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
       <label className="block space-y-1 text-sm">Ngày sinh
         <input className={inputClass} type="date" value={values.dateOfBirth} onChange={event => setValue("dateOfBirth", event.target.value)} />
       </label>
-      {targetModule === "students" && <label className="block space-y-1 text-sm">Ngày đăng ký *
+      {activeTargetModule === "students" && <label className="block space-y-1 text-sm">Ngày đăng ký *
         <input className={inputClass} type="date" value={values.registrationDate} onChange={event => setValue("registrationDate", event.target.value)} />
       </label>}
       <label className="block space-y-1 text-sm sm:col-span-2">Địa chỉ
@@ -156,7 +183,7 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
       <button type="button" className={buttonClass} onClick={onClose} disabled={busy}>Hủy</button>
       <button type="button" className={`${buttonClass} border-primary bg-primary text-on-primary hover:opacity-90`} onClick={() => void submit()} disabled={busy || missingRequired}>
         {busy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <ArrowRight aria-hidden="true" className="size-4" />}
-        {busy ? "Đang đồng bộ…" : createdTarget ? "Hoàn tất liên kết Lead" : `Tạo hồ sơ ${selected?.label || "module"}`}
+        {busy ? "Đang đồng bộ…" : createdTarget ? "Hoàn tất liên kết Lead" : activeTargetModule ? `Tạo hồ sơ ${recordLabels[activeTargetModule]}` : "Tạo hồ sơ"}
       </button>
     </div>
   </ErpModal>;

@@ -80,8 +80,12 @@ export const openrouterVideoService = {
     durationSeconds: number,
     options?: OpenRouterVideoCreateOptions
   ): Promise<{ jobId: string; pollingUrl?: string }> {
+    const inputImageUris = (options?.referenceImageUris || []).filter(Boolean);
+    if (options?.frameMode === "first_last" && inputImageUris.length < 2) {
+      throw new Error("Chế độ khung hình đầu/cuối cần đủ hai ảnh tham chiếu.");
+    }
     const referenceImages = await Promise.all(
-      (options?.referenceImageUris || []).filter(Boolean).map(async (uri) => {
+      inputImageUris.map(async (uri) => {
         if (!uri.startsWith("data:")) return uri;
         return cloudinaryService.uploadMedia(uri, "igen_erp/marketing/openrouter-video-inputs");
       })

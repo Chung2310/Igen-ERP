@@ -1137,7 +1137,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   try {
     response = await fetch(url, { method: op.method, headers, redirect: "error", signal: AbortSignal.timeout(45_000), ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
   } catch {
-    if (op.method !== "GET") throw new UncertainExecutionError("Chưa xác định được thao tác đã hoàn tất hay chưa. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; hệ thống sẽ không tự chạy lại.");
+    if (op.method !== "GET" && !op.readOnly) throw new UncertainExecutionError("Chưa xác định được thao tác đã hoàn tất hay chưa. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; hệ thống sẽ không tự chạy lại.");
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
   const result = await response.json().catch(() => null) as any;
@@ -1308,7 +1308,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     throw new AssistantError("Không thể thu hồi phiếu lương. Hãy kiểm tra quyền thanh toán và thông tin lượt lương.", response.status >= 400 && response.status < 500 ? response.status : 502);
   }
   if (!response.ok || !result || result.success === false || result.status === "error") {
-    if (op.method !== "GET" && (response.status >= 500 || !result)) throw new UncertainExecutionError("API nghiệp vụ chưa xác nhận kết quả. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; yêu cầu này không được tự chạy lại.");
+    if (op.method !== "GET" && !op.readOnly && (response.status >= 500 || !result)) throw new UncertainExecutionError("API nghiệp vụ chưa xác nhận kết quả. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; yêu cầu này không được tự chạy lại.");
     throw new AssistantApiRejection(result, response.status >= 400 && response.status < 500 ? response.status : 502);
   }
   if (op.id === "payroll.run.payslip.review-request.resolve") {

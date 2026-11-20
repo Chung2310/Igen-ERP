@@ -5,6 +5,10 @@ export interface ICompanyElevenLabsConfig {
   apiKey: string;
 }
 
+export interface ICompanyHeyGenConfig {
+  apiKey?: string;
+}
+
 export interface ICompanyTelegramOrderConfig {
   enabled: boolean;
   notifyNewOrder: boolean;

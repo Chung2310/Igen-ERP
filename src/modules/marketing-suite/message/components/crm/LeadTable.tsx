@@ -2285,6 +2285,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       {/* Sync Lead to Education / Healthcare / Workers Module */}
       {syncLead && (
         <LeadModuleSyncModal
+          key={syncLead.id}
           lead={syncLead}
           companyCode={companyCode}
           branchId={branchId}
