@@ -1,0 +1,597 @@
+{
+  "scope": "44 điều kiện nghiệp vụ của 10 công việc học viên đã chốt. Đây là mức kiểm chứng kỹ thuật, không phải độ chính xác AI thật hoặc tỷ lệ bao phủ toàn ERP.",
+  "liveModel": "not_verified",
+  "authenticationEndToEnd": "not_verified",
+  "criteria": [
+    {
+      "id": "ST-B01.1",
+      "job": "Bắt đầu dùng phần học viên",
+      "description": "Giới thiệu đúng chức năng tài khoản có quyền dùng",
+      "evidence": [
+        {
+          "file": "business-discovery.test.ts",
+          "pattern": "grounds discovery in permitted capabilities",
+          "layer": "real logic with mocked dependencies"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B01.2",
+      "job": "Bắt đầu dùng phần học viên",
+      "description": "Hỏi mục tiêu còn thiếu bằng ngôn ngữ thông thường",
+      "evidence": [],
+      "unverifiedReason": "Phụ thuộc khả năng hiểu hoặc giải thích của mô hình thật, chưa chạy mô hình."
+    },
+    {
+      "id": "ST-B01.3",
+      "job": "Bắt đầu dùng phần học viên",
+      "description": "Không tự đọc hoặc ghi dữ liệu khi mới tìm hiểu",
+      "evidence": [
+        {
+          "file": "student-profile-conversation.test.ts",
+          "pattern": "owner discovery stays",
+          "layer": "conversation with simulated AI/API"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B02.1",
+      "job": "Tạo hồ sơ rồi bổ sung cùng học viên",
+      "description": "Không mất số điện thoại đã cung cấp",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B02 real DB",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B02.2",
+      "job": "Tạo hồ sơ rồi bổ sung cùng học viên",
+      "description": "Xác nhận trước khi ghi",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B02 real DB",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B02.3",
+      "job": "Tạo hồ sơ rồi bổ sung cùng học viên",
+      "description": "Bổ sung đúng hồ sơ vừa tạo, không tạo hồ sơ thứ hai",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B02 real DB",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B02.4",
+      "job": "Tạo hồ sơ rồi bổ sung cùng học viên",
+      "description": "Đọc lại thông tin khớp và không lộ mã nội bộ",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B02 real DB",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B03.1",
+      "job": "Thu học phí và đối chiếu số nợ",
+      "description": "Phiếu thu và lịch sử bằng đúng tiền nhận",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B03 real DB: collect",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "concurrent collections",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "failure updating",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B03.2",
+      "job": "Thu học phí và đối chiếu số nợ",
+      "description": "Tổng học phí không thay đổi",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B03 real DB: collect",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "concurrent collections",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "failure updating",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B03.3",
+      "job": "Thu học phí và đối chiếu số nợ",
+      "description": "Số đã đóng tăng đúng tiền nhận",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B03 real DB: collect",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "concurrent collections",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "failure updating",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B03.4",
+      "job": "Thu học phí và đối chiếu số nợ",
+      "description": "Tổng nợ các đợt giảm đúng tiền nhận",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B03 real DB: collect",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "concurrent collections",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "failure updating",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B03.5",
+      "job": "Thu học phí và đối chiếu số nợ",
+      "description": "Không đánh dấu đã thu nếu vẫn còn thiếu",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B03 real DB: collect",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "concurrent collections",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "failure updating",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B04.1",
+      "job": "Kiểm tra học viên nói đã đóng nhưng còn nợ",
+      "description": "Tìm đúng học viên khi trùng tên",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "duplicate names require selecting",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B04.2",
+      "job": "Kiểm tra học viên nói đã đóng nhưng còn nợ",
+      "description": "Đối chiếu phiếu thu, lịch sử và số nợ trong cùng kỳ",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B04 real DB: reconcile",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B04.3",
+      "job": "Kiểm tra học viên nói đã đóng nhưng còn nợ",
+      "description": "Không tạo khoản thu để làm hết nợ",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B04 real DB: reconcile",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B04.4",
+      "job": "Kiểm tra học viên nói đã đóng nhưng còn nợ",
+      "description": "Nêu chênh lệch có bằng chứng, không suy đoán nguyên nhân",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B04 real DB: reconcile",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B05.1",
+      "job": "Nhập danh sách Excel rồi kiểm tra kết quả",
+      "description": "Hỏi mục đích nếu chưa rõ nhập hay cập nhật",
+      "evidence": [
+        {
+          "file": "student-profile-conversation.test.ts",
+          "pattern": "unexplained spreadsheet",
+          "layer": "conversation with simulated AI/API"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B05.2",
+      "job": "Nhập danh sách Excel rồi kiểm tra kết quả",
+      "description": "Giữ số điện thoại và học phí đúng định dạng",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "actual Excel bytes",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B05.3",
+      "job": "Nhập danh sách Excel rồi kiểm tra kết quả",
+      "description": "Báo đúng số dòng sai và lý do",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "bulk import records exact fees",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B05.4",
+      "job": "Nhập danh sách Excel rồi kiểm tra kết quả",
+      "description": "Tính sức chứa lớp cả các dòng trước trong cùng tệp",
+      "evidence": [
+        {
+          "file": "student-import-validation.test.ts",
+          "pattern": "checks class capacity including earlier rows",
+          "layer": "real logic with mocked dependencies"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B05.5",
+      "job": "Nhập danh sách Excel rồi kiểm tra kết quả",
+      "description": "Đọc lại số hồ sơ được lưu và không báo thành công cho dòng bị từ chối",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "actual Excel bytes",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "bulk import records exact fees",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B06.1",
+      "job": "Chuyển lớp tối, giữ nguyên học phí",
+      "description": "Xác định đúng học viên, lớp cũ và lớp mới",
+      "evidence": [],
+      "unverifiedReason": "Chưa có luồng chuyển lớp an toàn giữ nguyên học phí được kiểm chứng."
+    },
+    {
+      "id": "ST-B06.2",
+      "job": "Chuyển lớp tối, giữ nguyên học phí",
+      "description": "Kiểm tra sĩ số và phạm vi chi nhánh trước khi chuyển",
+      "evidence": [],
+      "unverifiedReason": "Chưa có luồng chuyển lớp an toàn giữ nguyên học phí được kiểm chứng."
+    },
+    {
+      "id": "ST-B06.3",
+      "job": "Chuyển lớp tối, giữ nguyên học phí",
+      "description": "Giữ nguyên học phí, tiền đã đóng và lịch sử",
+      "evidence": [],
+      "unverifiedReason": "Chưa có luồng chuyển lớp an toàn giữ nguyên học phí được kiểm chứng."
+    },
+    {
+      "id": "ST-B06.4",
+      "job": "Chuyển lớp tối, giữ nguyên học phí",
+      "description": "Không mất lớp cũ nếu bước thêm vào lớp mới thất bại",
+      "evidence": [],
+      "unverifiedReason": "Chưa có luồng chuyển lớp an toàn giữ nguyên học phí được kiểm chứng."
+    },
+    {
+      "id": "ST-B06.5",
+      "job": "Chuyển lớp tối, giữ nguyên học phí",
+      "description": "Đọc lại lớp và tài chính sau chuyển",
+      "evidence": [],
+      "unverifiedReason": "Chưa có luồng chuyển lớp an toàn giữ nguyên học phí được kiểm chứng."
+    },
+    {
+      "id": "ST-B07.1",
+      "job": "Báo cáo tình hình tháng và giải thích thu thấp",
+      "description": "Nêu rõ kỳ, chi nhánh và chỉ số",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "monthly report includes all 530",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B07.2",
+      "job": "Báo cáo tình hình tháng và giải thích thu thấp",
+      "description": "Tách tiền thu thực tế khỏi học phí phải thu",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "monthly report includes all 530",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B07.3",
+      "job": "Báo cáo tình hình tháng và giải thích thu thấp",
+      "description": "So sánh các kỳ dùng cùng cách tính",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "monthly report includes all 530",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B07.4",
+      "job": "Báo cáo tình hình tháng và giải thích thu thấp",
+      "description": "Không lấy danh sách một trang làm toàn bộ dữ liệu",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "monthly report includes all 530",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B07.5",
+      "job": "Báo cáo tình hình tháng và giải thích thu thấp",
+      "description": "Phân biệt chênh lệch quan sát được với nguyên nhân chưa xác định",
+      "evidence": [],
+      "unverifiedReason": "Phụ thuộc khả năng hiểu hoặc giải thích của mô hình thật, chưa chạy mô hình."
+    },
+    {
+      "id": "ST-B08.1",
+      "job": "Điều chỉnh lịch đóng học phí",
+      "description": "Chỉ đổi hạn được yêu cầu",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "change a due date",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B08.2",
+      "job": "Điều chỉnh lịch đóng học phí",
+      "description": "Giữ nguyên tiền đã đóng và tổng học phí khi chỉ đổi hạn",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "change a due date",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B08.3",
+      "job": "Điều chỉnh lịch đóng học phí",
+      "description": "Không đổi số tiền đợt đã thu một phần trái quy tắc",
+      "evidence": [
+        {
+          "file": "student-installment.service.test.ts",
+          "pattern": "blocks amount edits on paid, partially paid, or legacy installments",
+          "layer": "real logic with mocked dependencies"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B08.4",
+      "job": "Điều chỉnh lịch đóng học phí",
+      "description": "Không sửa học viên cùng tên ở chi nhánh khác",
+      "evidence": [
+        {
+          "file": "student-installment.service.test.ts",
+          "pattern": "another branch",
+          "layer": "real logic with mocked dependencies"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B09.1",
+      "job": "Tra cứu và thu tiền đúng chi nhánh",
+      "description": "Tìm kiếm và ghi trong chi nhánh được cấp quyền",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "same owner in another branch",
+          "layer": "conversation/service + real isolated MongoDB"
+        },
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "actual permission middleware",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B09.2",
+      "job": "Tra cứu và thu tiền đúng chi nhánh",
+      "description": "Yêu cầu chọn khi trùng tên",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "duplicate names require selecting",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B09.3",
+      "job": "Tra cứu và thu tiền đúng chi nhánh",
+      "description": "Không dùng chung chủ sở hữu làm lý do vượt phạm vi chi nhánh",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "same owner in another branch",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B09.4",
+      "job": "Tra cứu và thu tiền đúng chi nhánh",
+      "description": "Không ghi trước khi xác nhận đúng người",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "ST-B03 real DB: collect",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B10.1",
+      "job": "Đổi ý, dừng hoặc chuyển sang việc khác",
+      "description": "Đổi mục tiêu làm hết hiệu lực xác nhận cũ",
+      "evidence": [
+        {
+          "file": "student-business-database.test.ts",
+          "pattern": "invalidates a payment preview",
+          "layer": "conversation/service + real isolated MongoDB"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B10.2",
+      "job": "Đổi ý, dừng hoặc chuyển sang việc khác",
+      "description": "Không dùng lại số tiền của người trước",
+      "evidence": [
+        {
+          "file": "student-profile-conversation.test.ts",
+          "pattern": "starting another payment",
+          "layer": "conversation with simulated AI/API"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B10.3",
+      "job": "Đổi ý, dừng hoặc chuyển sang việc khác",
+      "description": "Mất kết nối AI không tự xóa bản nháp",
+      "evidence": [
+        {
+          "file": "student-profile-conversation.test.ts",
+          "pattern": "interpretation outage",
+          "layer": "conversation with simulated AI/API"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B10.4",
+      "job": "Đổi ý, dừng hoặc chuyển sang việc khác",
+      "description": "Hủy không bị diễn đạt thành hoàn tác tiền đã lưu",
+      "evidence": [
+        {
+          "file": "student-profile-conversation.test.ts",
+          "pattern": "cancelling after a completed payment",
+          "layer": "conversation with simulated AI/API"
+        }
+      ],
+      "unverifiedReason": null
+    },
+    {
+      "id": "ST-B10.5",
+      "job": "Đổi ý, dừng hoặc chuyển sang việc khác",
+      "description": "Không khôi phục bước cũ khi việc mới thất bại",
+      "evidence": [
+        {
+          "file": "hr-management-conversation.test.ts",
+          "pattern": "a rejected new goal cannot resurrect",
+          "layer": "real logic with mocked dependencies"
+        }
+      ],
+      "unverifiedReason": null
+    }
+  ]
+}

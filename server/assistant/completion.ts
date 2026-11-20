@@ -13,6 +13,7 @@ export interface AssistantCompletion {
 
 /** Scope, selected targets and private snapshots never count as requested edits. */
 export function hasAssistantUpdatePayload(op: AssistantOperation, values: Record<string, unknown>): boolean {
+  if (op.allowEmptyUpdate === true) return true;
   if (op.id === "payroll.reconciliation.schedule.update") {
     return ["enabled", "day", "hour", "minute", "periodOffset"].some(key => values[key] !== undefined);
   }

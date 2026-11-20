@@ -8,6 +8,11 @@ const CUSTOMER_FIELDS = new Set([
   "pointsBalance", "totalPointsEarned", "totalPointsRedeemed", "allowSharedPhone",
 ]);
 
+export function hasCustomerExecutionConditions(fields: Record<string, unknown>): boolean {
+  return Object.keys(fields).some(key => /\b(?:filters?|conditions?|predicates?|scope|where|dieu kien|bo loc|pham vi)\b/i.test(
+    key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d")));
+}
+
 export function appendCustomerNotes(current: string | undefined, additions: readonly string[]): string {
   let notes = String(current ?? "").replace(/\r\n/g, "\n").trim();
   for (const addition of additions) {

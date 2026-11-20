@@ -30,6 +30,7 @@ export interface ChatOrderFlowInput extends ChatOrderScope {
   verifiedImageValues?: Record<string, string>;
   // Set by the document reader, never by model-generated intake output.
   subscriberIdentity?: { fieldKey: string; code: string };
+  contractIdentity?: import("../../telecom-document-identity").ContractLeadIdentity;
   retryIntake?: boolean;
   freshImage?: boolean;
   replyDeadlineAt?: number;

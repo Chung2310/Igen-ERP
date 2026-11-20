@@ -114,6 +114,28 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it('preserves a date-only appointment when changing its doctor', async () => {
+  patients.push({_id:patientId,revision:1,code:'BN-QA',name:'QA',phone:''});
+  appointments.push({_id:appointmentId,revision:1,patientId,scheduledOn:'2026-11-20',startsAt:'',endsAt:'',doctorId:'',doctorName:'Bác sĩ cũ',roomId:'',visitId:'',status:'scheduled',note:''});
+  const original=fetcher.getMockImplementation()! as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url:URL,init?:RequestInit)=>{
+    if(new URL(String(url)).pathname===`/api/v1/healthcare/appointments/${appointmentId}` && init?.method==='PATCH') {
+      const body=JSON.parse(String(init.body));
+      expect(body).toMatchObject({scheduledOn:'2026-11-20',startsAt:'',endsAt:'',doctorName:'Bác sĩ mới',revision:1});
+      Object.assign(appointments[0],body,{revision:2});
+      return json(appointments[0]);
+    }
+    return original(url,init);
+  });
+  state.interpret.mockResolvedValue({actionId:'healthcare.appointment.update',values:{path_id:appointmentId,doctorName:'Bác sĩ mới'},intentType:'workflow'});
+  const preview=await turn({text:'Đổi bác sĩ lịch hẹn của QA thành Bác sĩ mới'});
+  expect(preview.status,JSON.stringify(preview)).toBe('confirmation');
+  const result=await turn({decision:{id:preview.action!.id,confirmed:true}});
+  expect(result.status,JSON.stringify(result)).toBe('completed');
+  expect(appointments).toHaveLength(1);
+  expect(appointments[0]).toMatchObject({scheduledOn:'2026-11-20',revision:2,doctorName:'Bác sĩ mới'});
+});
+
 it("understands a patient profile question by name and renders a readable table", async () => {
   patients = [
     { _id: patientId, revision: 1, code: "BN-031", name: "La Văn Sến", phone: "0987217127", dateOfBirth: "1990-02-03", address: "Cần Thơ", note: "" },

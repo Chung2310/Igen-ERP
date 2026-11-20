@@ -34,13 +34,20 @@ export function normalizeLeadContractProvider(value: unknown): string | undefine
   return provider.length > 0 && provider.length <= 80 && !/\p{C}/u.test(provider) ? provider : undefined;
 }
 
-export type LeadContractStatus = "matched" | "excel_only" | "lead_only" | "needs_review" | "different" | "incomplete";
+export type LeadContractStatus = "matched" | "excel_only" | "lead_only" | "needs_review" | "different" | "incomplete" | "out_of_scope";
+export type LeadReconciliationRange = { from: string; to: string };
+export type LeadReconciliationScope = LeadReconciliationRange & {
+  dateField: "createdAt";
+  leadCount: number;
+  missingDateCount: number;
+  invalidCodeCount: number;
+};
 export type TelecomCustomerInfo = {
   customerName?: string; address?: string; services?: string[]; activatedAt?: string; periods?: string[];
 };
 export type TelecomCustomerDifference = {
   field: string; label: string; excel: string; lead: string;
-  reason: "different" | "missing_excel" | "missing_lead";
+  reason: "different" | "missing_excel" | "missing_lead" | "missing_both";
 };
 export type LeadContractComparison = {
   code: string;
@@ -51,10 +58,14 @@ export type LeadContractComparison = {
   lead?: TelecomCustomerInfo;
   differences?: TelecomCustomerDifference[];
   sourceRows?: number[];
+  sourceSerial?: string;
+  excelCode?: string;
   issue?: string;
+  leadCreatedAt?: string;
 };
 export type LeadContractReport = {
   rows: LeadContractComparison[];
+  excelRows?: LeadContractComparison[];
   excelCount: number;
   duplicates: number;
   invalidRows: number[];
@@ -63,6 +74,7 @@ export type LeadContractReport = {
   sheetName?: string;
   period?: string;
   sourceRowCount?: number;
+  scope?: LeadReconciliationScope;
 };
 export type LeadContractPhoto = {
   id: string;

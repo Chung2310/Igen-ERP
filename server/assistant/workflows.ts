@@ -20,6 +20,7 @@ export async function allowedOperations(req: AuthenticatedRequest): Promise<Assi
 export async function assertOperation(req: AuthenticatedRequest, actionId: string) {
   const operation = (await allowedOperations(req)).find(op => op.id === actionId);
   if (!operation) throw new AssistantError("Bạn không có quyền dùng thao tác này hoặc phân hệ chưa được bật.", 403);
+  if (operation.unavailableReason) throw new AssistantError(operation.unavailableReason, 409);
   return operation;
 }
 export async function listWorkflows(req: AuthenticatedRequest): Promise<AssistantWorkflow[]> {
@@ -57,7 +58,7 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
     const instructions = baseWorkflow.instructions && !savedInstructions.startsWith(baseWorkflow.instructions)
       ? [baseWorkflow.instructions, savedInstructions].filter(Boolean).join("\n")
       : savedInstructions;
-    return { ...baseWorkflow, sourceText: config.sourceText, enabled: config.enabled, instructions, requireConfirmation: Boolean(op.confirmation || config.requireConfirmation), fields, version: stored!.version };
+    return { ...baseWorkflow, sourceText: config.sourceText, enabled: config.enabled && !op.unavailableReason, instructions, requireConfirmation: Boolean(op.confirmation || config.requireConfirmation), fields, version: stored!.version };
   });
 }
 export async function saveWorkflow(req: AuthenticatedRequest, actionId: string, update: AssistantWorkflowUpdate, reset = false) {

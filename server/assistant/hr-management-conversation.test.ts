@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { conversationAudit } from "./testing/conversation-audit";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), saveMemory: vi.fn(), memoryEnabled: false, includeStudentCourses: false, includeRecruitmentReport: true }));
@@ -80,8 +81,82 @@ const nextMonthBirthday = () => {
   return `1990-${String(current === 12 ? 1 : current + 1).padStart(2, "0")}-04`;
 };
 const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", companyCode: "TEST", branchId: "507f1f77bcf86cd799439012", role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
-const turn = (input: any) => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input });
+const audit = conversationAudit("hr");
+const turn = (input: any) => audit.turn(input, () => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input }));
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+
+it.each([
+  ["Cho tôi tổng số nhân sự được thêm từ 01/11 đến 30/11/2026", "employee.count", { createdFrom: "2026-11-01", createdTo: "2026-11-30" }, "/auth/users/count", "12"],
+  ["Báo cáo những người đi trễ nhiều nhất tháng 11 năm 2026", "timekeeping.records.monthly.most-late", { month: 11, year: 2026 }, "/timekeeping/monthly-report", "Nguyễn Anh"],
+  ["Cho xem phép còn lại của nhân viên năm 2026", "leave.balances.report", { query_year: 2026 }, "/leave/balances", "Phạm Gia Hân"],
+] as const)("simulated AI report: %s", async (text, actionId, values, path, expected) => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId, values }) });
+  const reply = await turn({ text });
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(reply.reply).toContain(expected);
+  if (actionId === "employee.count") {
+    expect(reply.reply).toContain("01/11/2026");
+    expect(reply.reply).toContain("30/11/2026");
+    expect(reply.reply).toContain("hồ sơ được tạo");
+  }
+  const call = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname.endsWith(path));
+  expect(call).toBeDefined();
+  const params = new URL(String(call![0])).searchParams;
+  for (const [key, value] of Object.entries(values)) expect(params.get(key.replace(/^query_/, ""))).toBe(String(value));
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
+
+it("refuses a simulated HR report condition that has no supported field instead of dropping it", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.count", values: { salaryGreaterThan: 20000000 } }) });
+  const reply = await turn({ text: "Có bao nhiêu nhân viên lương trên 20 triệu?" });
+  expect(reply.status).not.toBe("completed");
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("must not answer an unfiltered headcount when simulated AI omits the user's salary condition", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.count", values: {} }) });
+  const reply = await turn({ text: "Có bao nhiêu nhân viên lương trên 20 triệu?" });
+  expect(reply.status, JSON.stringify(reply)).not.toBe("completed");
+});
+
+it("simulated AI reads the overall business report with an explicit date range", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "dashboard.business-overview", values: { query_filter: "custom", query_startDate: "2026-11-01", query_endDate: "2026-11-30" } }) });
+  fetcher.mockImplementation(async (url: URL) => {
+    expect(new URL(String(url)).pathname).toBe("/api/v1/dashboard/business-overview");
+    return json({ status: "success", data: { businessType: "education", range: { from: "2026-11-01", to: "2026-11-30" }, generatedAt: "2026-11-19T03:00:00.000Z", access: { education: true, hr: true }, errors: [],
+      education: { students: 43, newStudents: 5, activeClasses: 3, tuition: 12500000, previousTuition: 9000000, series: [], classes: [], topClasses: [], missingTeachers: 0, unpaidStudents: 7 },
+      hr: { employees: 12, checkedIn: 10, late: 2, tasks: { todo: 3, doing: 4, done: 5, total: 12 }, overdueTasks: 1, pendingApprovals: 2, expiringContracts: 0 },
+      labor: null, partners: null, inventory: null, repair: null, finance: null, customer: null } });
+  });
+  const reply = await turn({ text: "Báo cáo tổng quan các thông tin kinh doanh từ 01/11 đến 30/11/2026" });
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(reply.reply).toContain("43");
+  expect(reply.reply).not.toContain("[object Object]");
+  const query = Object.fromEntries(new URL(String(fetcher.mock.calls[0][0])).searchParams);
+  expect(query).toMatchObject({ filter: "custom", startDate: "2026-11-01", endDate: "2026-11-30" });
+  // Business-level check: task counts must never be presented as assets or money.
+  expect(reply.reply).not.toContain("Tổng tài sản");
+  expect(reply.reply).not.toContain("Trình độ học vấn");
+  expect(reply.reply).not.toContain("Thông tin: Thông tin:");
+});
+
+it.each(["invalid-json", "invalid-action", "provider-rejected"])("simulated report handles AI failure without business API calls: %s", async scenario => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  if (scenario === "provider-rejected") state.provider.mockRejectedValue(new Error("Mock provider: insufficient credits"));
+  else state.provider.mockResolvedValue({ text: scenario === "invalid-json" ? "not JSON" : JSON.stringify({ actionId: "invented.report", values: {} }) });
+  const reply = await turn({ text: "Báo cáo tình hình nhân sự giúp tôi" });
+  expect(reply.status).not.toBe("completed");
+  expect(fetcher).not.toHaveBeenCalled();
+});
 const payrollRunId = "507f1f77bcf86cd799439701";
 const payrollOctoberRunId = "507f1f77bcf86cd799439703";
 const payrollPolicyId = "507f1f77bcf86cd799439702";
@@ -307,6 +382,7 @@ it("asks which schedule setting to change when none was supplied", async () => {
 let fetcher: ReturnType<typeof vi.fn>;
 let trainingCourses: Array<Record<string, unknown>>;
 beforeEach(() => {
+  audit.reset();
   state.memoryEnabled = false; state.saveMemory.mockReset();
   vi.mocked(completeAssistantOperation).mockClear();
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();
@@ -498,6 +574,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+afterEach(context => audit.write(context, state, { persistedMockTurns: state.turns, pending: state.session?.pending }));
 
 it.each([true, false])("creates an architecture project and handles optional data without duplicate creation: supplement=%s", async supplement => {
   const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
@@ -649,6 +726,21 @@ it("retains unfinished steps when interpretation fails", async () => {
   expect(failed.status).toBe("failed");
   expect(state.session.remainingRequests).toEqual(["Đếm lại"]);
   expect(state.turns[0].steps).toHaveLength(1);
+});
+
+it.each([400, 422, 500])("a rejected new goal cannot resurrect the previous goal's queued steps (%s)", async status => {
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow" });
+  await turn({ text: "Đếm nhân viên" });
+  state.session.remainingRequests = ["Sửa số điện thoại La Văn Sến"];
+  const original = fetcher.getMockImplementation() as (...args: any[]) => Promise<Response>;
+  fetcher.mockImplementation(async (...args) => new URL(String(args[0])).pathname === "/api/v1/auth/users/count"
+    ? new Response(JSON.stringify({ message: "Phạm vi thống kê chưa hợp lệ" }), { status, headers: { "Content-Type": "application/json" } })
+    : original(...args));
+  state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", newRequest: true });
+  const reply = await turn({ text: "Bỏ yêu cầu trước, đếm lại nhân viên thôi" });
+  expect(reply.status).toBe("failed");
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
 });
 
 it("stops before a write in a multi-step goal and preserves its preview", async () => {

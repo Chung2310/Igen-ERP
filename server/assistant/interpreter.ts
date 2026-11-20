@@ -2,7 +2,7 @@ import { openrouterChat } from "../service/openrouter.service";
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { AssistantError } from "./policy";
 import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
-import { additionalCustomerNotes, appendCustomerNotes } from "../modules/customer-management/customer-notes";
+import { additionalCustomerNotes, appendCustomerNotes, hasCustomerExecutionConditions } from "../modules/customer-management/customer-notes";
 import { quotationIntent } from "./quotation-intent";
 import { directPayrollRequest } from "./payroll-intent";
 export interface AssistantInterpretation { actionId: string | null; values: Record<string, unknown>; intentType?: "general_question" | "workflow" | "ambiguous" | "unsupported"; cancel?: boolean; newRequest?: boolean; suggestedActionIds?: string[]; unsupportedModule?: string; }
@@ -2546,6 +2546,7 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
     const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === selectedWorkflow.actionId);
     if (operation?.id === "customer.create" || (operation?.method === "PATCH" && operation.path === "/customers/:id")) {
       const extraFields = Object.fromEntries(Object.entries(parsed.values).filter(([key]) => !selectedWorkflow.fields.some(field => field.key === key)));
+      if (hasCustomerExecutionConditions(extraFields)) return { actionId: null, values: {}, intentType: "ambiguous" };
       const previous = pending as { actionId?: string; values?: Record<string, unknown> } | null;
       const sameCustomer = selectedWorkflow.fields.filter(field => field.source === "path").every(field =>
         parsed.values[field.key] === undefined || previous?.values?.[field.key] === undefined || parsed.values[field.key] === previous.values[field.key]);

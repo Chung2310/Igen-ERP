@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Download, ImagePlus, LoaderCircle, Play, RefreshCw, SkipBack, SkipForward, Sparkles, WandSparkles } from "lucide-react";
+import { HrPageTitle } from "../../components/hr/HrPageTitle";
 import type { ArchitectureProject, ArchitectureVideoJob } from "../../shared/architecture-assistant";
 import type { ArchitectAssistantApi } from "./api";
 
@@ -110,10 +111,10 @@ export default function ArchitectureVideoWorkspace({ project, api, assetUrls, ca
   const formatTime = (value: number) => `${Math.floor(value / 60).toString().padStart(2, "0")}:${Math.floor(value % 60).toString().padStart(2, "0")}`;
   const preview = reference || "https://lh3.googleusercontent.com/aida-public/AB6AXuBraYQ5_wq5YovRc4XkkNrW1JbA2wMT2d8_NkObLgw_3nxzJonFvjhVW1Mj4sooXOfrinSb3_9ic9K7xzFMsAz0s7Vo8yZ-kKViWnB4wcHLrW8bf8K5O9XWvgVfljd9RsdEWSdklFm28kqPd3q4c1iFJPP2T0yhu4-IoPJFrrqbtH2RiNjcYu3zQon35P2qiZFrnVKoyw9N7QNpNXLpmBTBp92yUJq0tcmaNcUwO2Q0j_4Ufjx_5zSaHPbG7ryR2hjIuznDMIXQsSCy";
 
-  return <section className="space-y-5" aria-busy={busy}>
-    <header className="flex flex-col justify-between gap-3 border-b border-outline-variant/50 pb-4 sm:flex-row sm:items-end">
-      <div><h2 className="text-2xl font-semibold tracking-tight text-on-surface">Video kiến trúc</h2><p className="mt-1 max-w-2xl text-sm text-on-surface-variant">Tạo kịch bản và video chuyển động cho không gian kiến trúc.</p></div>
-      <span className="text-xs font-semibold uppercase tracking-widest text-primary">iGen Architecture Studio</span>
+  return <section className="space-y-3" aria-busy={busy}>
+    <header className="flex flex-col justify-between gap-2 border-b border-outline-variant/50 pb-3 sm:flex-row sm:items-end">
+      <div><HrPageTitle level={2}>Video kiến trúc</HrPageTitle><p className="mt-1 max-w-2xl text-pretty text-sm text-on-surface-variant">Tạo kịch bản và video chuyển động cho không gian kiến trúc.</p></div>
+      <span className="text-xs font-semibold uppercase text-primary">iGen Architecture Studio</span>
     </header>
     {!canUseAi && <p className="rounded-lg border border-outline-variant bg-surface-container p-3 text-sm text-on-surface-variant" role="status">Cần quyền architect-ai:manage để tạo video bằng AI.</p>}
     {error && <p className="rounded-lg border border-error/40 bg-error-container/20 px-3 py-2 text-sm text-on-surface" role="alert">{error}</p>}
@@ -122,7 +123,7 @@ export default function ArchitectureVideoWorkspace({ project, api, assetUrls, ca
     <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-6 xl:grid-cols-12">
       <aside className="xl:col-span-3">
         <form onSubmit={create} className="space-y-6 rounded-xl bg-surface-container-lowest p-5 shadow-sm sm:p-6">
-          <h3 className="text-lg font-bold text-on-surface">Cấu hình Video</h3>
+          <h3 data-typography="section-title" className="text-balance text-lg font-semibold leading-7 text-on-surface">Cấu hình Video</h3>
           <div className="space-y-2">
             <label htmlFor="architecture-video-image" className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Ảnh khung hình đầu</label>
             <label htmlFor="architecture-video-image" className="group flex aspect-video cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border-2 border-dashed border-outline-variant bg-surface-container-low text-center text-xs text-on-surface-variant transition-colors hover:border-primary hover:text-primary">
@@ -139,9 +140,9 @@ export default function ArchitectureVideoWorkspace({ project, api, assetUrls, ca
           </div>
           <div className="grid gap-2">
             <button type="button" onClick={() => void optimize()} disabled={!canUseAi || busy || prompt.trim().length < 3} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 text-xs font-semibold text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><WandSparkles className="size-4" aria-hidden="true" />Tối ưu kịch bản</button>
-            <button type="submit" disabled={!canUseAi || busy} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-on-surface px-4 text-sm font-bold text-surface-container-lowest shadow-lg hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}{busy ? "Đang gửi…" : "Tạo video"}</button>
+            <button type="submit" disabled={!canUseAi || busy} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}{busy ? "Đang gửi…" : "Tạo video"}</button>
           </div>
-          <p className="text-center text-[10px] leading-relaxed text-on-surface-variant">Tác vụ video được lưu theo dự án và có thể mất vài phút để hoàn tất.</p>
+          <p className="text-center text-pretty text-xs leading-relaxed text-on-surface-variant">Tác vụ video được lưu theo dự án và có thể mất vài phút để hoàn tất.</p>
         </form>
       </aside>
 

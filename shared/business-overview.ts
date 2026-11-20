@@ -7,6 +7,8 @@ export interface BusinessOverview {
   businessType: 'education' | 'labor';
   primary?: 'education' | 'labor' | 'retail' | null;
   range: { from: string; to: string };
+  comparisonRange?: { from: string; to: string };
+  scopeLabel?: string;
   generatedAt: string;
   access: Record<OverviewSection, boolean>;
   errors: OverviewSection[];

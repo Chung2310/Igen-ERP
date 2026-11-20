@@ -119,6 +119,9 @@ export async function getBusinessOverview(user: DashboardUser, range: DashboardR
   const primary = access[preferred] ? preferred : access[alternative] ? alternative : access.retail ? 'retail' : null;
   // Business type selects priority, while independently enabled/authorized modules determine availability.
   const result: BusinessOverview = { businessType, primary, range: { from: dateKey(range.start), to: dateKey(range.end) }, generatedAt: new Date().toISOString(), access, errors: [], education: null, labor: null, retail: null, partners: null, hr: null, inventory: null, repair: null, finance: null, customer: null };
+  const comparison = overviewComparison(range);
+  result.comparisonRange = { from: dateKey(comparison.start), to: dateKey(comparison.end) };
+  result.scopeLabel = user.branchId ? "Chi nhánh đang chọn của tài khoản" : "Các chi nhánh được phép trong doanh nghiệp";
   const read = async <K extends OverviewSection>(key: K, load: () => Promise<BusinessOverview[K]>) => {
     if (!access[key]) return;
     if ((key === 'education' || key === 'labor') && key !== primary) return;

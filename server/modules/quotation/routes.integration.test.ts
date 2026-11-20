@@ -53,6 +53,27 @@ describe("quotation routes use ERP scope and capability checks", () => {
   const request = (path: string, actor = "manager", init: RequestInit = {}) => fetch(`${base}${path}`, { ...init, headers: { "Content-Type": "application/json", "x-test-actor": actor, ...init.headers } });
   const scope = () => ({ companyCode, branchId: branch, companyId: quotationScopeId(companyCode, branch) });
   const collection = (name: string) => mongoose.connection.db!.collection(quotationCollectionName(name));
+  it("filters quote lists and statistics by Vietnamese creation dates without crossing branches", async () => {
+    const source = await collection("quotes").findOne({ _id: quoteId });
+    const ids = [new ObjectId(), new ObjectId(), new ObjectId(), new ObjectId()];
+    await collection("quotes").insertMany([
+      { ...source, _id: ids[0], quoteNumber: "DATE-START", status: "approved", fileCreationPending: false, createdAt: new Date("2026-10-31T17:00:00.000Z") },
+      { ...source, _id: ids[1], quoteNumber: "DATE-BEFORE", status: "approved", fileCreationPending: false, createdAt: new Date("2026-10-31T16:59:59.999Z") },
+      { ...source, _id: ids[2], quoteNumber: "DATE-AFTER", status: "approved", fileCreationPending: false, createdAt: new Date("2026-11-30T17:00:00.000Z") },
+      { ...source, _id: ids[3], quoteNumber: "DATE-OTHER-BRANCH", branchId: otherBranch, companyId: quotationScopeId(companyCode, otherBranch), status: "approved", fileCreationPending: false, createdAt: new Date("2026-11-15T00:00:00.000Z") },
+    ]);
+    try {
+      for (const pagination of ["", "&page=1"]) {
+        const response = await request(`/quotes?kind=estimate&from=2026-11-01&to=2026-11-30${pagination}`);
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.quotes.map((quote: any) => quote.quoteNumber)).toEqual(["DATE-START"]);
+        if (pagination) { expect(body.total).toBe(1); expect(body.stats.total).toBe(1); }
+      }
+      expect((await request("/quotes?from=2026-11-01")).status).toBe(400);
+      expect((await request("/quotes?from=2026-02-30&to=2026-03-01")).status).toBe(400);
+    } finally { await collection("quotes").deleteMany({ _id: { $in: ids } }); }
+  });
   it("scopes overview by branch and hides document metrics without their permissions", async () => {
     const viewerResponse = await request("/overview?from=1970-01-01&to=1970-01-01", "viewer");
     expect(viewerResponse.status).toBe(200);

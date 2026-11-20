@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { conversationAudit } from "./testing/conversation-audit";
+import { quoteCreatedRange } from "../modules/quotation/created-range";
+import { appendFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), documents: vi.fn() }));
+const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), documents: vi.fn(), provider: vi.fn() }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
     for (const [key, value] of Object.entries(updates.$set || {})) {
@@ -49,14 +53,155 @@ const req = { user: { id: "actor", companyCode: "TEST", branchId, role: "admin" 
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
 let products: any[], quotes: any[], contracts: any[], acceptances: any[];
 let fetcher: ReturnType<typeof vi.fn>;
-const turn = (input: any) => processTurn(req, { conversationId: "conversation", requestId: randomUUID(), ...input });
+let auditTurns: Array<{ input: unknown; reply: unknown }> = [];
+const audit = conversationAudit("quotation");
+const turn = async (input: any) => {
+  const reply = await audit.turn(input, () => processTurn(req, { conversationId: "conversation", requestId: randomUUID(), ...input }));
+  auditTurns.push({ input: structuredClone(input), reply: structuredClone(reply) });
+  return reply;
+};
 const interpreted = (action: string, values: Record<string, unknown>) => state.interpret.mockResolvedValueOnce({ actionId: `quotation.${action}`, values, intentType: "workflow", newRequest: false });
 const confirm = (reply: any) => turn({ decision: { id: reply.action.id, confirmed: true } });
+
+it.each(["Cho xem dự toán đã duyệt của An", "Tìm các dự toán khách An đã được duyệt"])("simulated AI quotation report: %s", async text => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.quote.list", values: { kind: "estimate", status: "approved", search: "An", page: 2 } }) });
+  quotes = [{ _id: quoteId, quoteNumber: "DT-2026-0001", kind: "estimate", status: "approved", customerName: "An", total: 1500000, currency: "VND" }];
+  const reply = await turn({ text: text + ", trang 2" });
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(reply.reply).toContain("DT-2026-0001");
+  const call = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname.endsWith("/quotes"));
+  const query = Object.fromEntries(new URL(String(call![0])).searchParams);
+  expect(query).toMatchObject({ kind: "estimate", status: "approved", search: "An", page: "2" });
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+});
+
+it("filters quotation creation dates to the requested month with Vietnamese day boundaries", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.quote.list", values: { from: "2026-11-01", to: "2026-11-30" } }) });
+  quotes = [
+    { _id: quoteId, quoteNumber: "DT-NOV", kind: "estimate", customerName: "An", createdAt: "2026-10-31T17:00:00.000Z" },
+    { _id: productId, quoteNumber: "DT-OCT", kind: "estimate", customerName: "An", createdAt: "2026-10-31T16:59:59.999Z" },
+    { _id: templateId, quoteNumber: "DT-DEC", kind: "estimate", customerName: "An", createdAt: "2026-11-30T17:00:00.000Z" },
+  ];
+  const reply = await turn({ text: "Danh sách dự toán lập trong tháng 11/2026" });
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(reply.reply).toContain("DT-NOV");
+  expect(reply.reply).not.toContain("DT-OCT");
+  expect(reply.reply).not.toContain("DT-DEC");
+  const calls = fetcher.mock.calls.filter(([url]) => new URL(String(url)).pathname.endsWith("/quotes"));
+  expect(calls.length).toBeGreaterThan(0);
+  for (const [url] of calls) expect(Object.fromEntries(new URL(String(url)).searchParams)).toMatchObject({ from: "2026-11-01", to: "2026-11-30" });
+});
+
+it("must not report an unfiltered quotation list when simulated AI omits the requested month", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.quote.list", values: { kind: "estimate" } }) });
+  quotes = [{ _id: quoteId, quoteNumber: "DT-2026-0001", kind: "estimate", status: "approved", customerName: "An", total: 1500000, createdAt: "2026-10-01T00:00:00.000Z" }];
+  const reply = await turn({ text: "Danh sách dự toán lập trong tháng 11/2026" });
+  expect(reply.status, JSON.stringify(reply)).not.toBe("completed");
+});
+
+it("creates an estimate request after correcting the model's budget choice", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: { templateId, customerName: "An" } }) });
+  const saved: any[] = [];
+  const original = fetcher.getMockImplementation()! as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => {
+    const path = new URL(String(url)).pathname;
+    if (path.endsWith("/quote-templates")) return json({ templates: [{ id: templateId, name: "Mẫu dự toán", category: "estimate" }] });
+    if (path.endsWith("/price-lists")) return json({ priceLists: [] });
+    if (path.endsWith("/quote-requests") && init?.method === "POST") {
+      const request = { _id: quoteId, ...JSON.parse(String(init.body)), status: "draft" };
+      saved.push(request);
+      return json({ request });
+    }
+    return original(url, init);
+  });
+  const text = "Tạo dự toán cho An theo mẫu dự toán, ngân sách 100 triệu";
+  let preview = await turn({ text });
+  if (preview.status !== "confirmation") preview = await turn({ skipReferenceKeys: ["priceListId"] });
+  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
+  expect(state.session.pending.actionId).toBe("quotation.request.create");
+  const result = await confirm(preview);
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(saved).toHaveLength(1);
+  expect(saved[0].requestText).toBe(text);
+  expect(fetcher.mock.calls.some(([url]) => String(url).includes("/budget"))).toBe(false);
+});
+
+it("keeps the quotation export job flow when the user explicitly requests Excel", async () => {
+  quotes.push({ _id: quoteId, quoteNumber: "BG-2026-00001", kind: "estimate", status: "approved", customerName: "An", updatedAt: "2026-11-11T01:00:00.000Z", lines: [] });
+  const original = fetcher.getMockImplementation()! as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => new URL(String(url)).pathname.endsWith(`/quotes/${quoteId}/export`)
+    ? json({ status: "queued" }) : original(url, init));
+  interpreted("quote.export", { path_id: quoteId, draft: true, excel: true });
+  const preview = await turn({ text: "Xuất Excel bản nháp dự toán BG-2026-00001" });
+  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
+  const reply = await confirm(preview);
+  expect(reply.status).toBe("completed");
+  expect(reply.reply).toContain("Đang chờ xử lý");
+  expect(reply.reply).toContain("File đang được xử lý");
+  expect(reply.files).toBeUndefined();
+  expect(reply.reply).not.toContain("Không có dữ liệu");
+  expect(state.documents).not.toHaveBeenCalled();
+});
+it("exports a quotation list as Excel without confusing it with a document export", async () => {
+  quotes.push({ _id: quoteId, quoteNumber: "BG-2026-00001", kind: "estimate", status: "draft", customerName: "An", total: 250000, currency: "VND", updatedAt: "2026-11-11T01:00:00.000Z" });
+  const original = fetcher.getMockImplementation()! as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => new URL(String(url)).pathname.endsWith("/quotes")
+    ? json({ quotes: quotes.filter(quote => !new URL(String(url)).searchParams.get("kind") || quote.kind === new URL(String(url)).searchParams.get("kind")) }) : original(url, init));
+  interpreted("quote.list", {});
+  const reply = await turn({ text: "Xuất danh sách báo giá ra Excel" });
+  expect(reply.status).toBe("completed");
+  expect(reply.files).toHaveLength(1);
+  expect(reply.files?.[0].format).toBe("xlsx");
+  const content = JSON.stringify(state.documents.mock.calls[0][0].content);
+  expect(content, content).toContain("BG-2026-00001");
+  expect(content).not.toContain(quoteId);
+  expect(state.documents.mock.calls[0][0].content.sheets[0].rows).toHaveLength(1);
+  expect(state.session.messages.at(-1).files).toEqual(reply.files);
+});
+
+it("shows the actual business rejection after confirmation without claiming creation", async () => {
+  const original = fetcher.getMockImplementation()! as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => new URL(String(url)).pathname.endsWith("/catalog") && init?.method === "POST"
+    ? new Response(JSON.stringify({ error: "Mã hàng ML01 đã tồn tại." }), { status: 409, headers: { "Content-Type": "application/json" } }) : original(url, init));
+  interpreted("catalog.create", { sku: "ML01", name: "Máy lọc", unit: "cái", price: 250000 });
+  const preview = await turn({ text: "Thêm Máy lọc mã ML01, đơn vị cái, giá 250000 vào bảng giá" });
+  expect(preview.status).toBe("confirmation");
+  const reply = await confirm(preview);
+  expect(reply.status).toBe("failed");
+  expect(reply.reply).toContain("Mã hàng ML01 đã tồn tại");
+  expect(products).toHaveLength(0);
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+});
+
+it("cancels a catalog creation without sending a write", async () => {
+  interpreted("catalog.create", { sku: "ML01", name: "Máy lọc", unit: "cái", price: 250000 });
+  const preview = await turn({ text: "Thêm sản phẩm Máy lọc vào bảng giá" });
+  expect(preview.status).toBe("confirmation");
+  const reply = await turn({ decision: { id: preview.action!.id, confirmed: false } });
+  expect(reply.status).toBe("cancelled");
+  expect(products).toHaveLength(0);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+});
 beforeEach(() => {
+  audit.reset();
+  state.provider.mockReset();
+  auditTurns = [];
   state.session = null; state.turns = []; state.interpret.mockReset(); state.documents.mockReset(); products = []; quotes = []; contracts = []; acceptances = [];
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const path = new URL(String(url)).pathname, body = init?.body ? JSON.parse(String(init.body)) : {};
     if (path.endsWith("/quote-templates")) return json({ templates: [{ id: templateId, name: "Mẫu chuẩn", category: "quote", createdAt: "2026-11-01T00:00:00.000Z" }] });
+    if (path.endsWith(`/contracts/${contractId}`) && init?.method === "PATCH") {
+      Object.assign(contracts[0], body);
+      return json({ contract: contracts[0] });
+    }
     if (path.endsWith(`/contracts/${contractId}`)) return json({ contract: contracts[0] });
     if (path.endsWith("/contracts")) return json({ contracts });
     if (path.endsWith("/acceptance-records") && init?.method === "POST") {
@@ -81,12 +226,39 @@ beforeEach(() => {
     }
     if (path.endsWith(`/quotes/${quoteId}`) && init?.method === "PATCH") { Object.assign(quotes[0], body, { updatedAt: "2026-11-11T02:00:00.000Z" }); return json({ quote: quotes[0] }); }
     if (path.endsWith(`/quotes/${quoteId}`)) return json({ quote: { ...quotes[0], requestText: "" } });
-    if (path.endsWith("/quotes")) return json({ quotes });
+    if (path.endsWith("/quotes")) {
+      const query = new URL(String(url)).searchParams;
+      const range = quoteCreatedRange(query.get("from") ?? undefined, query.get("to") ?? undefined);
+      return json({ quotes: quotes.filter(quote => (!query.get("kind") || quote.kind === query.get("kind")) && (!range || new Date(quote.createdAt) >= range.$gte && new Date(quote.createdAt) < range.$lt)) });
+    }
     throw new Error(`Unexpected API: ${init?.method} ${path}`);
   });
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+afterEach(context => audit.write(context, state, { products, quotes, contracts, acceptances, pending: state.session?.pending }));
+afterEach(context => {
+  if (!process.env.ASSISTANT_AUDIT_OUTPUT) return;
+  appendFileSync(process.env.ASSISTANT_AUDIT_OUTPUT, JSON.stringify({
+    name: context.task.name, turns: auditTurns, records: { products, quotes, contracts, acceptances },
+    apiCalls: fetcher.mock.calls.map(([url, init]) => ({ path: new URL(String(url)).pathname, query: new URL(String(url)).search, method: init?.method || "GET", ...(init?.body ? { body: JSON.parse(String(init.body)) } : {}) })),
+    storedFiles: state.documents.mock.calls.map(([document]) => ({ title: document.title, content: document.content, files: document.files?.map(({ bytes: _bytes, ...file }: any) => file) })),
+  }) + "\n", "utf8");
+});
+
+it.each([0, 500000, undefined])("updates only requested contract fields and preserves deposit when omitted: %s", async depositAmount => {
+  contracts.push({ _id: contractId, contractNumber: "HD-2026-0001", status: "draft", total: 1500000, depositAmount: 300000,
+    scope: "Lắp đặt", projectName: "Công trình A", projectAddress: "Hà Nội", deliverables: "Hồ sơ bàn giao", paymentTerms: "Hai đợt",
+    deliveryTerms: "30 ngày", signingPlace: "Hà Nội", signedDate: "2026-11-01", bankDetails: "", otherTerms: "", updatedAt: "2026-11-01T00:00:00.000Z" });
+  interpreted("contract.update", { path_id: contractId, ...(depositAmount === undefined ? { projectName: "Công trình B" } : { depositAmount }) });
+  const preview = await turn({ text: depositAmount === undefined ? "Đổi tên công trình thành Công trình B" : `Sửa tiền đặt cọc hợp đồng HD-2026-0001 thành ${depositAmount} đồng` });
+  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
+  const reply = await confirm(preview);
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(contracts).toHaveLength(1);
+  expect(contracts[0]).toMatchObject({ depositAmount: depositAmount ?? 300000, paymentTerms: "Hai đợt", deliveryTerms: "30 ngày", projectName: depositAmount === undefined ? "Công trình B" : "Công trình A" });
+  expect(fetcher.mock.calls.filter(([url, init]) => String(url).includes(`/contracts/${contractId}`) && init?.method === "PATCH")).toHaveLength(1);
+});
 
 it("shows signed-contract products and amounts in acceptance chat, then creates one record with the submitted line quantities", async () => {
   contracts.push({

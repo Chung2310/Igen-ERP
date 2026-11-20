@@ -5,6 +5,7 @@ import { PaymentController } from "../controllers/payment.controller";
 import { Payment } from "../models/payment.model";
 import { Student } from "../models/student.model";
 import { PaymentService } from "./payment.service";
+vi.mock("./payment-transaction", () => ({ runStudentPaymentTransaction: async (work: (session: undefined) => Promise<unknown>) => work(undefined) }));
 
 const ownerScope = ["shared-owner"];
 const branchA = "branch-a";

@@ -24,6 +24,7 @@ const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
   "TÍCH HỢP MARKETING": "blue", "GÓI AI & LƯỢT SỬ DỤNG": "violet",
   "QUẢN LÝ TÀI NGUYÊN": "orange", "TRÒ CHUYỆN": "violet",
   "QUẢN TRỊ USER": "blue", "CÀI ĐẶT": "teal",
+  "VĂN BẢN PHÁP LUẬT": "blue",
 };
 
 export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
@@ -84,6 +85,8 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
       art = <><path d="m24 5 17 7v12c0 11-7 16-17 20C14 40 7 35 7 24V12z" fill={a.blue}/><circle cx="24" cy="19" r="6" fill={a.gold}/><path d="M13 34c1-7 5-10 11-10s10 3 11 10" fill={a.mint}/></>; break;
     case "CÀI ĐẶT":
       art = <><path d="M20 4h8l2 6 5 2 6-3 5 7-4 5v6l4 5-5 7-6-3-5 2-2 6h-8l-2-6-5-2-6 3-5-7 4-5v-6l-4-5 5-7 6 3 5-2z" fill={a.blue}/><circle cx="24" cy="24" r="12" fill={a.mint}/><circle cx="24" cy="24" r="7" fill={a.white}/><circle cx="24" cy="24" r="4" fill={a.gold}/></>; break;
+    case "VĂN BẢN PHÁP LUẬT":
+      art = <><path d="M24 8v27m-15-20h30M12 16 6 27m6-11 6 11m18-11-6 11m6-11 6 11" fill="none" stroke={a.blue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="24" cy="8" r="3" fill={a.gold}/><path d="M5 27h14c-1 4-3.5 6-7 6s-6-2-7-6Zm24 0h14c-1 4-3.5 6-7 6s-6-2-7-6Z" fill={a.mint}/><path d="M18 37h12m-9-3h6" stroke={a.gold} strokeWidth="2.5" strokeLinecap="round"/><path d="M22 35h4v2h-4z" fill={a.white}/></>; break;
     default:
       art = <><rect x="10" y="10" width="28" height="28" rx="7" fill={a.blue}/><circle cx="24" cy="24" r="9" fill={a.gold}/><circle cx="24" cy="24" r="4" fill={a.white}/><path d="M22 4h4v6h-4zM22 38h4v6h-4zM4 22h6v4H4zM38 22h6v4h-6z" fill={a.mint}/></>;
   }

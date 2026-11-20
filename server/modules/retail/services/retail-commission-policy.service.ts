@@ -28,7 +28,10 @@ export async function listRetailBasePolicies(companyCode: string) {
     RetailCommissionBasePolicyModel.find({ companyCode }).sort({ effectiveAt: -1 }).limit(200).lean(),
     RetailCommissionPolicyModel.find({ companyCode }).sort({ partnerId: 1, kind: 1, sku: 1 }).lean(),
   ]);
-  return { items, legacy };
+  const partnerIds = [...new Set(items.map(item => String(item.partnerId || "")).filter(id => Types.ObjectId.isValid(id)))];
+  const partners = partnerIds.length ? await RetailPartnerModel.find({ companyCode, _id: { $in: partnerIds } }).select("_id name code").lean() : [];
+  const partnerNames = new Map(partners.map(partner => [String(partner._id), partner.name]));
+  return { items: items.map(item => ({ ...item, partnerName: item.partnerId ? partnerNames.get(String(item.partnerId)) || "Đối tác đã ngừng hoạt động" : "Chính sách chung" })), legacy };
 }
 
 export async function saveRetailBasePolicy(companyCode: string, actorId: string, input: any, id?: string) {

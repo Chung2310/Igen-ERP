@@ -25,7 +25,7 @@ export function validateField(field: AssistantField, value: unknown): AssistantV
   if (!["string", "number", "boolean"].includes(typeof value)) throw new AssistantError(`${field.label}: giá trị không hợp lệ.`);
   if (field.type === "json") { try { return validateStructuredField(field, value); } catch (error) { throw new AssistantError((error as Error).message); } }
   const normalized = typeof value === "string" ? value.trim() : value as AssistantValue;
-  if (typeof normalized === "string" && normalized.length > 4000) throw new AssistantError(`${field.label}: tối đa 4.000 ký tự.`);
+  if (typeof normalized === "string" && field.max === undefined && normalized.length > 4000) throw new AssistantError(`${field.label}: tối đa 4.000 ký tự.`);
   if (typeof normalized === "string" && field.max !== undefined && normalized.length > field.max) throw new AssistantError(`${field.label}: tối đa ${field.max} ký tự.`);
   if (field.type === "number" && (typeof normalized !== "number" || !Number.isFinite(normalized) || normalized < (field.min ?? -Infinity))) throw new AssistantError(`${field.label}: cần một số hợp lệ, không nhỏ hơn ${field.min ?? 0}.`);
   if (field.type === "number" && field.max !== undefined && Number(normalized) > field.max) throw new AssistantError(`${field.label}: vượt quá ${field.max}.`);
@@ -38,7 +38,14 @@ export function validateField(field: AssistantField, value: unknown): AssistantV
   if (field.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) throw new AssistantError(`${field.label}: email không hợp lệ.`);
   if (field.type === "phone" && !/^(?:0|\+84|84)[0-9]{9}$/.test(str)) throw new AssistantError(`${field.label}: dùng số điện thoại Việt Nam, ví dụ 0987654321.`);
   if (field.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(str) || !Number.isFinite(Date.parse(str)) || new Date(str).toISOString().slice(0, 10) !== str)) throw new AssistantError(`${field.label}: dùng ngày có thực theo định dạng YYYY-MM-DD.`);
-  if (field.type === "datetime" && (!/^\d{4}-\d{2}-\d{2}T/.test(str) || !Number.isFinite(Date.parse(str)))) throw new AssistantError(`${field.label}: cần ngày giờ hợp lệ.`);
+  if (field.type === "datetime") {
+    const parts = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/.exec(str);
+    const calendar = parts ? new Date(`${parts[1]}T00:00:00Z`) : null;
+    if (!parts || !calendar || !Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== parts[1]
+      || Number(parts[2]) > 23 || Number(parts[3]) > 59 || Number(parts[4] || 0) > 59 || !Number.isFinite(Date.parse(str))) {
+      throw new AssistantError(`${field.label}: cần ngày giờ có thực và hợp lệ.`);
+    }
+  }
   if (["birthDate", "dateOfBirth"].includes(field.key) && str > new Date().toISOString().slice(0, 10)) throw new AssistantError(`${field.label}: không được ở tương lai.`);
   if (field.options && !field.options.includes(str)) throw new AssistantError(`${field.label}: chọn ${field.options.join(", ")}.`);
   return normalized as AssistantValue;

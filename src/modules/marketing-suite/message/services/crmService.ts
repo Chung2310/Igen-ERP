@@ -5,7 +5,7 @@ import { createInboxRefreshQueue } from "./inboxRefreshQueue";
 import { LeadCard } from "../../shared/types/index";
 import type { LeadCollectionStatus, LeadIntakeField, LeadNeed, LeadNeedGroup, LeadTargetModule, ZaloLeadIdentity } from "../../../../../shared/marketing-suite/lead-intake";
 import type { LeadCustomerTransfer } from "../../../../../shared/marketing-suite/lead-customer-transfer";
-import type { ConfirmedTelecomInvoice, LeadContractPhoto, LeadContractReport, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
+import type { ConfirmedTelecomInvoice, LeadContractPhoto, LeadContractReport, LeadReconciliationRange, LeadReconciliationScope, TelecomInvoicePlatform, TelecomInvoiceSettings, TelecomInvoiceSettingsInput } from "../../../../../shared/marketing-suite/telecom-invoice";
 
 export interface LeadProductSelection {
   productId: string;
@@ -243,12 +243,21 @@ export const crmService = {
     return data;
   },
 
-  async reconcileLeadContracts(file: File, provider: string, year: number, quarter: number, signal?: AbortSignal) {
+  async getLeadReconciliationScope(provider: string, from: string, to: string, signal?: AbortSignal) {
+    const { data } = await apiFetch<{ data: LeadReconciliationScope }>(
+      "/omni-inbox/lead-contracts/scope", { params: { provider, from, to }, signal },
+    );
+    return data;
+  },
+
+  async reconcileLeadContracts(file: File, provider: string, year: number, quarter: number, range: LeadReconciliationRange, signal?: AbortSignal) {
     const body = new FormData();
     body.append("file", file);
     body.append("provider", provider);
     body.append("year", String(year));
     body.append("quarter", String(quarter));
+    body.append("from", range.from);
+    body.append("to", range.to);
     const { data } = await apiFetch<{ data: LeadContractReport }>("/omni-inbox/lead-contracts/reconcile", { method: "POST", body, signal });
     return data;
   },
