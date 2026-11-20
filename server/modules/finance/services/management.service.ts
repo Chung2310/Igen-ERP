@@ -17,6 +17,7 @@ import { FinanceDebtModel } from "../models/financial-reporting.model";
 import type { FinanceBranchScope } from "../contracts";
 import { businessDay, daysBetween, agingBand, breakEven, saleLines } from "./management-calculations";
 import { validateManagement } from "../validations/management.validation";
+import { financeCashSources } from "./finance-cash-sources.service";
 function fail(message: string, status = 400): never { throw Object.assign(new Error(message), { status, expose: true }); }
 const sum = (rows: any[], field: string) => rows.reduce((s, r) => s + Number(r[field] || 0), 0);
 async function rows(query: any): Promise<any[]> { const result = await query.limit(10001).lean(); if (result.length > 10000)
@@ -131,6 +132,23 @@ export async function financeReport(scope: FinanceBranchScope, query: any) {
     }
     for (const a of aftersales.filter(a => a.type === "buyback"))
         cash.push({ code: a.code, kind: "payment", amount: a.totalAmount, date: a.businessDate, method: a.paymentMethod, source: "buyback", category: "inventory", counterparty: a.customerName, createdByName: a.createdByName });
+    const alreadyIncludedSourceTypes = new Set(["retail", "buyback", "receivable"]);
+    for (const source of await financeCashSources(scope)) {
+        if (!inRange(source.occurredOn, range) || alreadyIncludedSourceTypes.has(source.sourceType)) continue;
+        if (source.sourceType === "debt") {
+            const representedByManagementVoucher = vouchers.some((voucher: any) => String(voucher.payableId || "") === source.sourceId && (
+                source.key.endsWith(`:voucher:${voucher.idempotencyKey}`) ||
+                Boolean(voucher.reversalOf && source.key.endsWith(`:voucher-reversal:${voucher.reversalOf}`))
+            ));
+            if (representedByManagementVoucher) continue;
+        }
+        const category = source.sourceType === "goods-receipt" ? "supplier"
+            : source.sourceType === "payroll" ? "salary"
+            : source.sourceType === "repair-refund" ? "refund"
+            : source.sourceType;
+        const receipt = source.sourceType === "goods-receipt" ? receipts.find(row => String(row._id) === source.sourceId) : undefined;
+        cash.push({ code: receipt?.receiptCode || source.description, kind: source.amount > 0 ? "receipt" : "payment", category, amount: Math.abs(source.amount), date: source.occurredOn, method: source.method, counterparty: receipt?.supplierName, createdByName: receipt?.confirmedByName, source: source.sourceType });
+    }
     cash.sort((a, b) => b.date.localeCompare(a.date));
     const inventory = serials.map(s => {
         const matches = (i: any) => (i.serialNumbers || []).includes(s.serialNumber) || (i.unitDetails || []).some((u: any) => u.serialNumber === s.serialNumber || u.internalBarcode === s.internalBarcode);

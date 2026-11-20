@@ -119,6 +119,8 @@ export interface MarkAttendanceInput {
   projectId: string;
   companyCode: string | string[];
   branchId?: string;
+  /** Explicitly enabled only for authenticated managers who can record attendance on another worker's behalf. */
+  allowManual?: boolean;
   latitude?: number;
   longitude?: number;
   deviceInfo?: string;
@@ -142,6 +144,14 @@ function buildCompanyQuery(companyCode: string | string[]): Record<string, unkno
   return { companyCode: Array.isArray(companyCode) ? { $in: companyCode } : companyCode };
 }
 
+function buildProjectScopeQuery(companyCode: string | string[], branchId?: string): Record<string, unknown> {
+  return {
+    ...buildCompanyQuery(companyCode),
+    ...(branchId ? { branchId: new Types.ObjectId(branchId) } : {}),
+    deletedAt: null,
+  };
+}
+
 export class WorkerAttendanceService {
   /**
    * Ghi một lần bấm. Lần đầu trong ngày là giờ vào, lần sau là giờ về.
@@ -152,7 +162,7 @@ export class WorkerAttendanceService {
 
     const project = await WorkerProjectModel.findOne({
       _id: new Types.ObjectId(input.projectId),
-      ...buildCompanyQuery(input.companyCode),
+      ...buildProjectScopeQuery(input.companyCode, input.branchId),
     });
     if (!project) {
       throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
@@ -164,7 +174,7 @@ export class WorkerAttendanceService {
 
     let distanceMeters: number | undefined;
     // Bỏ qua kiểm định vị trí bắt buộc nếu chấm công thủ công (bởi admin/manager - có recordedBy)
-    if (!input.recordedBy) {
+    if (!input.allowManual) {
       distanceMeters = assertWithinProjectRadius(project.geoLocation, input.latitude, input.longitude);
     } else if (
       project.geoLocation?.latitude != null &&
@@ -190,31 +200,43 @@ export class WorkerAttendanceService {
       recordedBy: input.recordedBy || "",
     };
 
-    const existing = await WorkerAttendanceLogModel.findOne({
+    const attendanceKey = {
       workerId: workerObjectId,
       projectId: project._id,
       date,
-    });
+    };
+    let existing = await WorkerAttendanceLogModel.findOne(attendanceKey);
 
     if (!existing) {
-      const created = await WorkerAttendanceLogModel.create({
-        workerId: workerObjectId,
-        projectId: project._id,
-        companyCode: String(project.companyCode),
-        branchId: input.branchId ? new Types.ObjectId(input.branchId) : project.branchId,
-        date,
-        checkIn: mark,
-        status: resolveAttendanceStatus(now, null, project.startTime, project.endTime),
-      });
-      logger.info(`[WorkerAttendance] check-in: worker=${input.workerId} project=${input.projectId} date=${date}`);
-      return { kind: "check-in", date, status: created.status, distanceMeters };
+      try {
+        const created = await WorkerAttendanceLogModel.create({
+          workerId: workerObjectId,
+          projectId: project._id,
+          companyCode: String(project.companyCode),
+          branchId: project.branchId,
+          date,
+          checkIn: mark,
+          status: resolveAttendanceStatus(now, null, project.startTime, project.endTime),
+        });
+        logger.info(`[WorkerAttendance] check-in: worker=${input.workerId} project=${input.projectId} date=${date}`);
+        return { kind: "check-in", date, status: created.status, distanceMeters };
+      } catch (error: any) {
+        // Two taps can both observe an empty day. The unique index chooses one
+        // winner; reload that record and apply the normal minimum-gap rule.
+        if (error?.code !== 11000) throw error;
+        existing = await WorkerAttendanceLogModel.findOne(attendanceKey);
+        if (!existing) throw error;
+      }
     }
 
     if (!existing.checkIn) {
-      existing.checkIn = mark;
-      existing.status = resolveAttendanceStatus(now, existing.checkOut?.time ?? null, project.startTime, project.endTime);
-      await existing.save();
-      return { kind: "check-in", date, status: existing.status, distanceMeters };
+      const updated = await WorkerAttendanceLogModel.findOneAndUpdate(
+        { _id: existing._id, checkIn: null, checkOut: null },
+        { $set: { checkIn: mark, status: resolveAttendanceStatus(now, null, project.startTime, project.endTime) } },
+        { new: true }
+      );
+      if (!updated) throw new WorkerAttendanceError("already_completed", "Bản ghi chấm công vừa được cập nhật. Vui lòng tải lại.");
+      return { kind: "check-in", date, status: updated.status, distanceMeters };
     }
 
     if (existing.checkOut) {
@@ -232,26 +254,41 @@ export class WorkerAttendanceService {
       );
     }
 
-    existing.checkOut = mark;
-    existing.workedMinutes = calculateWorkedMinutes(new Date(existing.checkIn.time), now);
-    existing.status = resolveAttendanceStatus(new Date(existing.checkIn.time), now, project.startTime, project.endTime);
-    await existing.save();
+    const workedMinutes = calculateWorkedMinutes(new Date(existing.checkIn.time), now);
+    const status = resolveAttendanceStatus(new Date(existing.checkIn.time), now, project.startTime, project.endTime);
+    const updated = await WorkerAttendanceLogModel.findOneAndUpdate(
+      { _id: existing._id, checkOut: null, "checkIn.time": existing.checkIn.time },
+      { $set: { checkOut: mark, workedMinutes, status } },
+      { new: true }
+    );
+    if (!updated) {
+      throw new WorkerAttendanceError(
+        "already_completed",
+        "Bản ghi chấm công vừa được cập nhật. Vui lòng tải lại."
+      );
+    }
 
     logger.info(`[WorkerAttendance] check-out: worker=${input.workerId} project=${input.projectId} date=${date}`);
     return {
       kind: "check-out",
       date,
-      status: existing.status,
-      workedMinutes: existing.workedMinutes,
+      status: updated.status,
+      workedMinutes: updated.workedMinutes,
       distanceMeters,
     };
   }
 
   /** Bảng chấm công của một dự án trong một ngày. */
-  static async listByProjectDate(companyCode: string | string[], projectId: string, date: string) {
+  static async listByProjectDate(companyCode: string | string[], projectId: string, date: string, branchId?: string) {
+    const project = await WorkerProjectModel.findOne({
+      _id: new Types.ObjectId(projectId),
+      ...buildProjectScopeQuery(companyCode, branchId),
+    }).select("_id companyCode").lean();
+    if (!project) throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
+
     return WorkerAttendanceLogModel.find({
-      ...buildCompanyQuery(companyCode),
-      projectId: new Types.ObjectId(projectId),
+      companyCode: project.companyCode,
+      projectId: project._id,
       date,
     })
       .sort({ "checkIn.time": 1 })
@@ -259,10 +296,19 @@ export class WorkerAttendanceService {
   }
 
   /** Lịch sử chấm công của một dự án trong khoảng ngày, để tổng hợp công. */
-  static async listByProjectRange(companyCode: string | string[], projectId: string, from: string, to: string) {
+  static async listByProjectRange(companyCode: string | string[], projectId: string, from: string, to: string, branchId?: string) {
+    if (from > to) {
+      throw new WorkerAttendanceError("invalid_range", "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.");
+    }
+    const project = await WorkerProjectModel.findOne({
+      _id: new Types.ObjectId(projectId),
+      ...buildProjectScopeQuery(companyCode, branchId),
+    }).select("_id companyCode").lean();
+    if (!project) throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
+
     return WorkerAttendanceLogModel.find({
-      ...buildCompanyQuery(companyCode),
-      projectId: new Types.ObjectId(projectId),
+      companyCode: project.companyCode,
+      projectId: project._id,
       date: { $gte: from, $lte: to },
     })
       .sort({ date: -1 })
@@ -277,17 +323,43 @@ export class WorkerAttendanceService {
     logId: string,
     projectId: string,
     changes: { checkInAt?: string | null; checkOutAt?: string | null; note?: string },
-    actorId: string
+    actorId: string,
+    branchId?: string
   ) {
+    const project = await WorkerProjectModel.findOne({
+      _id: new Types.ObjectId(projectId),
+      ...buildProjectScopeQuery(companyCode, branchId),
+    });
+    if (!project) throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
+
     const log = await WorkerAttendanceLogModel.findOne({
       _id: new Types.ObjectId(logId),
-      projectId: new Types.ObjectId(projectId),
-      ...buildCompanyQuery(companyCode),
+      projectId: project._id,
+      companyCode: String(project.companyCode),
     });
     if (!log) throw new WorkerAttendanceError("log_not_found", "Không tìm thấy bản ghi chấm công.");
 
-    const project = await WorkerProjectModel.findById(log.projectId);
-    if (!project) throw new WorkerAttendanceError("project_not_found", "Không tìm thấy dự án.");
+    const parseChangedTime = (value: string | null | undefined, current?: Date | null) => {
+      if (value === undefined) return current ? new Date(current) : null;
+      if (value === null) return null;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new WorkerAttendanceError("invalid_time", "Mốc giờ chấm công không hợp lệ.");
+      }
+      return parsed;
+    };
+
+    const nextCheckIn = parseChangedTime(changes.checkInAt, log.checkIn?.time);
+    const nextCheckOut = parseChangedTime(changes.checkOutAt, log.checkOut?.time);
+    if (nextCheckIn && vietnamWorkDate(nextCheckIn) !== log.date) {
+      throw new WorkerAttendanceError("invalid_work_date", "Giờ vào phải thuộc đúng ngày chấm công theo giờ Việt Nam.");
+    }
+    if (nextCheckOut && !nextCheckIn) {
+      throw new WorkerAttendanceError("invalid_range", "Cần có giờ vào trước khi ghi nhận giờ về.");
+    }
+    if (nextCheckIn && nextCheckOut && nextCheckOut < nextCheckIn) {
+      throw new WorkerAttendanceError("invalid_range", "Giờ về phải sau giờ vào.");
+    }
 
     if (changes.checkInAt !== undefined) {
       log.checkIn = changes.checkInAt
@@ -300,10 +372,6 @@ export class WorkerAttendanceService {
         : null;
     }
     if (changes.note !== undefined) log.note = changes.note;
-
-    if (log.checkIn?.time && log.checkOut?.time && log.checkOut.time < log.checkIn.time) {
-      throw new WorkerAttendanceError("invalid_range", "Giờ về phải sau giờ vào.");
-    }
 
     log.workedMinutes =
       log.checkIn?.time && log.checkOut?.time

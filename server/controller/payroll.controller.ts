@@ -63,6 +63,8 @@ import type { PayrollWorkflowAction } from "../service/payroll-run-workflow.serv
 import { PayrollPeriodProcessingError, processPayrollPeriod } from "../service/payroll-period-processing.service";
 import { resetPayrollPeriod } from "../service/payroll-period-reset.service";
 import { runPayrollAtomicTransaction } from "../service/payroll-transaction.service";
+import type { ClientSession } from "mongoose";
+import { runReservedPayrollScopeMutation } from "../service/attendance-period-mutation.service";
 import {
   auditQuerySchema,
   calculateRunSchema,
@@ -83,7 +85,6 @@ import {
 
 const tenant = (req: AuthenticatedRequest) => req.user?.companyCode || "";
 const PAYROLL_TIME_ZONE = "Asia/Ho_Chi_Minh";
-const timeToMinutes = (value: string) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; };
 const formatInPayrollTimeZone = (value: Date | string, kind: "date" | "time") => {
   const options: Intl.DateTimeFormatOptions = kind === "date"
     ? { timeZone: PAYROLL_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }
@@ -98,13 +99,6 @@ const normalizePayrollLogDate = (value: unknown): string | null => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return formatInPayrollTimeZone(parsed, "date");
-};
-const computeStandardDailyMinutes = (checkInLimit?: string, checkOutLimit?: string, lunchBreakStart?: string, lunchBreakEnd?: string) => {
-  if (!checkInLimit || !checkOutLimit) return 480;
-  const gross = timeToMinutes(checkOutLimit) - timeToMinutes(checkInLimit);
-  const lunch = lunchBreakStart && lunchBreakEnd ? Math.max(0, timeToMinutes(lunchBreakEnd) - timeToMinutes(lunchBreakStart)) : 0;
-  const net = gross - lunch;
-  return net > 0 ? net : 480;
 };
 const countStandardDays = (period: string, workingDays: number[], calendarRules: Map<string, any[]>) => {
   const [year, month] = period.split("-").map(Number);
@@ -165,6 +159,12 @@ const revisionBackedRunFailure = (res: Response) => res.status(409).json({
   message: "This payroll run is revision-backed; use the run workflow endpoints",
 });
 const audit = (req: AuthenticatedRequest, periodKey: string, action: any, metadata?: Record<string, unknown>) => PayrollAuditModel.create({ companyCode: tenant(req), branchId: req.user?.branchId || "", periodKey, action, actorId: req.user!.id, metadata });
+const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
+const auditInSession = async (req: AuthenticatedRequest, periodKey: string, action: any, metadata: Record<string, unknown>, session?: ClientSession) => {
+  const document = { companyCode: tenant(req), branchId: req.user?.branchId || "", periodKey, action, actorId: req.user!.id, metadata };
+  if (session) return PayrollAuditModel.create([document], { session });
+  return PayrollAuditModel.create(document);
+};
 const snapshotPayrollPayment = (profile: any) => profile ? ({
   method: profile.paymentMethod ?? "transfer",
   ...(profile.bankName ? { bankName: profile.bankName } : {}),
@@ -430,18 +430,53 @@ export const payrollController = {
     });
   },
   async createSnapshot(req: AuthenticatedRequest, res: Response) {
+    if (req.body?.employees !== undefined && (
+      !Array.isArray(req.body.employees)
+      || req.body.employees.length > 5000
+      || req.body.employees.some((employee: any) => !employee || typeof employee !== "object" || typeof employee.employeeId !== "string")
+    )) {
+      return res.status(400).json({ status: "error", message: "Danh sách nhân sự gửi lên không hợp lệ." });
+    }
     const requestedEmployees = req.body?.employees as { employeeId: string; employeeName?: string; monthlySalary: number }[] | undefined;
     const period = req.params.periodKey;
     if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ status: "error", message: "Ky luong phai co dang YYYY-MM." });
     const periodScope = legacyPeriodScope(req);
-    const existingRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
-    if (existingRun?.status === "closed") return res.status(409).json({ status: "error", message: "Ky luong da chot. Hay reset ky truoc khi dong bo lai cham cong." });
-    const company = await CompanyModel.findOne({ code: tenant(req) }).select("locationConfig").lean();
-    const companyWorkingDays = Array.isArray(company?.locationConfig?.workingDays) && company.locationConfig.workingDays.length ? company.locationConfig.workingDays : [1, 2, 3, 4, 5];
-    const companyDailyMinutes = computeStandardDailyMinutes(company?.locationConfig?.checkInLimit, company?.locationConfig?.checkOutLimit, company?.locationConfig?.lunchBreakStart, company?.locationConfig?.lunchBreakEnd);
-    const employees = requestedEmployees?.length
-      ? requestedEmployees.map((employee) => ({ ...employee, workingDays: companyWorkingDays, standardDailyMinutes: companyDailyMinutes, checkInLimit: company?.locationConfig?.checkInLimit || "08:30", checkOutLimit: company?.locationConfig?.checkOutLimit || "17:30", lunchBreakStart: company?.locationConfig?.lunchBreakStart, lunchBreakEnd: company?.locationConfig?.lunchBreakEnd }))
-      : await Promise.all((await UserModel.find({ companyCode: tenant(req), branchId: periodScope.branchId, isActive: { $ne: false }, monthlySalary: { $gte: 0 } }).select("_id displayName monthlySalary workHoursConfig").lean()).map(async (user) => {
+    if (!periodScope.branchId) return res.status(400).json({ status: "error", message: "Cần chọn chi nhánh trước khi đồng bộ công." });
+    try {
+    const results = await runReservedPayrollScopeMutation(
+      { companyCode: periodScope.companyCode, branchId: periodScope.branchId },
+      async (session) => {
+    const existingRun: any = await withSession(PayrollRunModel.findOne(legacyRegularRunFilter(req)), session).sort(LEGACY_RUN_ORDER).lean();
+    if (existingRun && existingRun.status !== "draft") throw Object.assign(new Error("Kỳ lương đã bắt đầu duyệt hoặc đã chốt. Hãy mở lại kỳ trước khi đồng bộ công."), { statusCode: 409 });
+    const lockedResult = await withSession(AttendancePeriodResultModel.findOne({ ...periodScope, status: "locked" }), session).lean();
+    if (lockedResult) throw Object.assign(new Error("Kết quả chấm công đã khóa. Hãy mở kỳ trước khi đồng bộ lại."), { statusCode: 409 });
+    if (existingRun) {
+      const updatedRun = await PayrollRunModel.findOneAndUpdate(
+        { _id: existingRun._id, ...legacyRegularRunFilter(req), status: "draft", version: Number(existingRun.version ?? 0) },
+        { $set: { needsInputRefresh: true }, $inc: { version: 1 } },
+        { returnDocument: "after", ...(session ? { session } : {}) },
+      ).lean();
+      if (!updatedRun) throw Object.assign(new Error("Kỳ lương vừa thay đổi. Vui lòng tải lại trước khi đồng bộ công."), { statusCode: 409 });
+    }
+    const company = await withSession(CompanyModel.findOne({ code: tenant(req) }), session).select("locationConfig").lean();
+    const requestedEmployeeIds = requestedEmployees?.length
+      ? [...new Set(requestedEmployees.map((employee) => String(employee.employeeId || "").trim()).filter(Boolean))]
+      : undefined;
+    if (requestedEmployees?.length && requestedEmployeeIds!.length !== requestedEmployees.length) {
+      throw Object.assign(new Error("Danh sách nhân sự gửi lên không hợp lệ."), { statusCode: 400 });
+    }
+    const rosterQuery = UserModel.find({
+      companyCode: tenant(req),
+      branchId: periodScope.branchId,
+      isActive: { $ne: false },
+      monthlySalary: { $gte: 0 },
+      ...(requestedEmployeeIds ? { _id: { $in: requestedEmployeeIds } } : {}),
+    });
+    const roster: any[] = await withSession(rosterQuery, session).select("_id displayName monthlySalary workHoursConfig").lean();
+    if (requestedEmployeeIds && roster.length !== requestedEmployeeIds.length) {
+      throw Object.assign(new Error("Một hoặc nhiều nhân sự không thuộc chi nhánh hiện tại hoặc không đủ điều kiện tính lương."), { statusCode: 400 });
+    }
+    const employees = await Promise.all(roster.map(async (user) => {
           const resolved = await resolveShift(tenant(req), String(user._id), `${period}-01`);
           const shift = resolved.shift;
           const unpaidBreak = shift.breakPeriods?.find((item: any) => !item.paid);
@@ -460,11 +495,11 @@ export const payrollController = {
     if (!employees.length) return res.status(400).json({ status: "error", message: "Chưa có nhân viên được cấu hình lương." });
     const start = `${period}-01`; const endDate = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 0); const end = `${period}-${String(endDate.getDate()).padStart(2, "0")}`;
     const logBranchFilter = periodScope.branchId ? { $in: [periodScope.branchId, null, undefined] } : { $in: [null, undefined, ""] };
-    const logs = await TimekeepingLogModel.find({ companyCode: tenant(req), branchId: logBranchFilter, date: { $gte: start, $lte: end } }).lean();
-    const calendarDays = await CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), branchId: logBranchFilter, date: { $gte: start, $lte: end }, isApplied: true }).lean();
+    const logs = await withSession(TimekeepingLogModel.find({ companyCode: tenant(req), branchId: logBranchFilter, date: { $gte: start, $lte: end } }), session).lean();
+    const calendarDays = await withSession(CompanyWorkCalendarDayModel.find({ companyCode: tenant(req), branchId: logBranchFilter, date: { $gte: start, $lte: end }, isApplied: true }), session).lean();
     const calendarRules = new Map<string, any[]>();
     for (const rule of calendarDays) calendarRules.set(rule.date, [...(calendarRules.get(rule.date) || []), rule]);
-    const leaves = await HRLeaveApplicationModel.find({ companyCode: tenant(req), branchId: logBranchFilter, status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }).lean();
+    const leaves = await withSession(HRLeaveApplicationModel.find({ companyCode: tenant(req), branchId: logBranchFilter, status: "approved", startDate: { $lte: new Date(`${end}T23:59:59`) }, endDate: { $gte: new Date(`${start}T00:00:00`) } }), session).lean();
     const today = formatInPayrollTimeZone(new Date(), "date");
     const results = [];
     for (const employee of employees) {
@@ -492,11 +527,18 @@ export const payrollController = {
         employeeLogs.push({ date, status: "Absent", checkIn: "", checkOut: "" });
       }
       const summary = summarizeAttendanceForPayroll({ standardDailyMinutes: employee.standardDailyMinutes, lunchBreakStart: employee.lunchBreakStart, lunchBreakEnd: employee.lunchBreakEnd, logs: employeeLogs, paidLeaves: [], overtime: [] });
-      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ ...periodScope, employeeId: employee.employeeId }, { $set: { ...periodScope, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }));
+      results.push(await AttendancePeriodResultModel.findOneAndUpdate({ ...periodScope, employeeId: employee.employeeId }, { $set: { ...periodScope, employeeId: employee.employeeId, employeeName: employee.employeeName || "", monthlySalary: employee.monthlySalary, standardHours, standardDays, workedMinutes: summary.workedMinutes, shortageMinutes: summary.shortageMinutes, workedDays: summary.workedDays, shortageDays: summary.shortageDays, paidLeaveMinutesByRate: summary.paidLeaveMinutesByRate, overtime: summary.overtime, status: "draft", needsRecalculation: false } }, { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, ...(session ? { session } : {}) }));
       console.log(`[payroll.snapshot] ${employee.employeeName} (${employee.employeeId}) rawLogsMatched=${logs.filter((log) => log.uid === employee.employeeId).length} totalLogsInPeriod=${logs.length} presentDays=${employeeLogs.filter((l) => l.status !== "Absent").length} absentGenerated=${employeeLogs.filter((l) => l.status === "Absent").length} standardDailyMinutes=${employee.standardDailyMinutes} workingDays=${JSON.stringify(employee.workingDays)} workedMinutes=${summary.workedMinutes} shortageMinutes=${summary.shortageMinutes}`);
     }
-    await audit(req, period, "snapshot", { count: results.length });
+    await auditInSession(req, period, "snapshot", { count: results.length }, session);
+    return results;
+      },
+    );
     return res.status(201).json({ status: "success", data: results });
+    } catch (error: any) {
+      const status = Number(error?.statusCode || error?.status) || 500;
+      return res.status(status).json({ status: "error", message: status === 500 ? "Không thể đồng bộ công cho kỳ này." : error.message });
+    }
   },
   async listAudit(req: AuthenticatedRequest, res: Response) { const data = await PayrollAuditModel.find(legacyPeriodScope(req)).sort({ createdAt: -1 }).lean(); return res.json({ status: "success", data }); },
   async listResults(req: AuthenticatedRequest, res: Response) {
@@ -509,16 +551,41 @@ export const payrollController = {
   },
   async lockResults(req: AuthenticatedRequest, res: Response) {
     const periodScope = legacyPeriodScope(req);
-    const existingRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
-    if (existingRun?.status === "closed") return res.status(409).json({ status: "error", message: "Ky luong da chot. Hay reset ky truoc khi khoa lai cham cong." });
-    const stale = await AttendancePeriodResultModel.exists({ ...periodScope, needsRecalculation: true });
-    if (stale) return res.status(409).json({ status: "error", message: "Lịch sử chấm công đã thay đổi. Hãy đồng bộ công trước khi khóa." });
-    const result = await AttendancePeriodResultModel.updateMany(
-      { ...periodScope, status: "draft" },
-      { $set: { status: "locked", lockedAt: new Date(), lockedBy: req.user!.id } },
-    );
-    await audit(req, req.params.periodKey, "lock", { count: result.modifiedCount });
-    return res.json({ status: "success", lockedCount: result.modifiedCount });
+    if (!periodScope.branchId) return res.status(400).json({ status: "error", message: "Cần chọn chi nhánh trước khi khóa kỳ công." });
+    try {
+      const result = await runReservedPayrollScopeMutation(
+        { companyCode: periodScope.companyCode, branchId: periodScope.branchId },
+        async (session) => {
+          const existingRun: any = await withSession(PayrollRunModel.findOne(legacyRegularRunFilter(req)), session)
+            .sort(LEGACY_RUN_ORDER)
+            .lean();
+          if (existingRun && existingRun.status !== "draft") {
+            throw Object.assign(new Error("Bảng lương đã bắt đầu duyệt hoặc đã chốt. Hãy mở lại kỳ trước khi khóa công."), { statusCode: 409 });
+          }
+          const stale = await withSession(AttendancePeriodResultModel.exists({ ...periodScope, needsRecalculation: true }), session);
+          if (stale) throw Object.assign(new Error("Lịch sử chấm công đã thay đổi. Hãy đồng bộ công trước khi khóa."), { statusCode: 409 });
+          const locked = await AttendancePeriodResultModel.updateMany(
+            { ...periodScope, status: "draft" },
+            { $set: { status: "locked", lockedAt: new Date(), lockedBy: req.user!.id } },
+            session ? { session } : {},
+          );
+          if (existingRun && locked.modifiedCount > 0) {
+            const updatedRun = await PayrollRunModel.findOneAndUpdate(
+              { _id: existingRun._id, ...legacyRegularRunFilter(req), status: "draft", version: Number(existingRun.version ?? 0) },
+              { $set: { needsInputRefresh: true }, $inc: { version: 1 } },
+              { returnDocument: "after", ...(session ? { session } : {}) },
+            ).lean();
+            if (!updatedRun) throw Object.assign(new Error("Kỳ lương vừa thay đổi. Vui lòng tải lại trước khi khóa công."), { statusCode: 409 });
+          }
+          await auditInSession(req, req.params.periodKey, "lock", { count: locked.modifiedCount }, session);
+          return locked;
+        },
+      );
+      return res.json({ status: "success", lockedCount: result.modifiedCount });
+    } catch (error: any) {
+      const status = Number(error?.statusCode || error?.status) || 500;
+      return res.status(status).json({ status: "error", message: status === 500 ? "Không thể khóa kỳ công." : error.message });
+    }
   },
   async createRun(req: AuthenticatedRequest, res: Response) {
     const branchId = req.user?.branchId;

@@ -121,14 +121,15 @@ export async function cancelRepairTicket(scope: RepairScope, id: string, reason:
     for (const part of await listRepairParts(scope, id, session)) if (part.status === 'issued') await returnRepairPart(scope, id, String(part._id), `Hủy phiếu: ${note}`, actor, session);
     await recordRepairSerialLifecycle(ticket, 'cancelled', actor, session);
   }
-  assertRepairTransition(ticket.status, "cancelled"); const from = ticket.status; ticket.status = "cancelled"; ticket.statusHistory.push({ from, to: "cancelled", at: new Date(), by: actor.id, byName: actor.name, note, customerNotified: false }); await ticket.save(session ? { session } : {});
-  if (ticket.intakeSource) return ticket.toObject();
-  // Huỷ phiếu thì linh kiện đã xuất phải quay về kho, nếu không kho âm dần theo mỗi phiếu huỷ.
-  const { listRepairParts, returnRepairPart } = await import("./repair-part.service");
-  for (const part of await listRepairParts(scope, id)) {
-    if ((part as any).status !== "issued") continue;
-    await returnRepairPart(scope, id, String((part as any)._id), `Huỷ phiếu: ${note}`, actor).catch(() => undefined);
-  } return ticket.toObject();
+  assertRepairTransition(ticket.status, "cancelled"); const from = ticket.status;
+  if (!ticket.intakeSource) {
+    const { listRepairParts, returnRepairPart } = await import("./repair-part.service");
+    for (const part of await listRepairParts(scope, id)) {
+      if (part.status === "issued") await returnRepairPart(scope, id, String(part._id), note, actor);
+    }
+  }
+  ticket.status = "cancelled"; ticket.statusHistory.push({ from, to: "cancelled", at: new Date(), by: actor.id, byName: actor.name, note, customerNotified: false }); await ticket.save(session ? { session } : {});
+  return ticket.toObject();
 }
 
 export async function createFeedbackQr(scope: RepairScope, id: string) {

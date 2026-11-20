@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import mongoose from "mongoose";
-import { ObjectId } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { Queue, Worker } from "bullmq";
 import { quotationContext, quotationContexts } from "./context";
 import { resolveQuotationJobContext } from "./access";
@@ -32,6 +32,15 @@ const sourceCollection = (kind: string) => kind === "budget" ? "budgetPlans" : k
 export function quotationDocumentHash(value: any): string {
   const { templateFillPlan, xlsxTemplateFillPlan, fileCreationPending, ...content } = value || {};
   return createHash("sha256").update(JSON.stringify(content)).digest("hex");
+}
+export async function clearEstimateDraftExportMarker(db: Db, sourceId: string) {
+  try {
+    await db.collection("quotes").updateOne({ _id: new ObjectId(sourceId) }, { $unset: { fileCreationPending: "" } });
+    return true;
+  } catch (error) {
+    console.error("[quotation-worker] Export completed but draft marker cleanup failed:", error instanceof Error ? error.message : error);
+    return false;
+  }
 }
 export async function quotationSourceHash(kind: string, id: string): Promise<string> {
   const source = await (await connectDatabase()).collection(sourceCollection(kind)).findOne({ _id: new ObjectId(id) });
@@ -77,7 +86,11 @@ export async function queueQuotationExport(kind: string, sourceId: string) {
     }
     if (!usesLocalQuotationQueue() && process.env.NODE_ENV !== "production") {
       const fallbackTimer = setTimeout(async () => {
-        if (await jobs.findOne({ _id: job!._id, status: "queued" })) await processLocally("No worker claimed the local export job.");
+        try {
+          if (await jobs.findOne({ _id: job!._id, status: "queued" })) await processLocally("No worker claimed the local export job.");
+        } catch (error) {
+          console.error("[quotation-queue] Fallback lookup failed:", error instanceof Error ? error.message : error);
+        }
       }, 5_000);
       fallbackTimer.unref();
     }
@@ -125,14 +138,23 @@ export async function processQuotationJob(id: string) {
       for (const permission of quotationRoutePermissions("GET", job.command.path)) assertQuotationPermission(permission);
       assertQuotationPermission("quotation-ai:manage");
       if (await quotationSourceHash(job.kind, job.sourceId) !== job.sourceHash) throw new Error("Chứng từ đã thay đổi. Hãy tạo lại file cho phiên bản hiện tại.");
-      await invokeExport(job);
       const current = quotationContext();
+      const db = await connectDatabase();
+      const priorArtifact = await db.collection("companyFiles").findOne({
+        jobId: id,
+        companyId: current.user.companyId,
+        sourceId: job.sourceId,
+        kind: job.kind,
+      });
+      if (priorArtifact) current.artifactId = String(priorArtifact._id);
+      else await invokeExport(job);
       if (!current.artifactId) throw new Error("Tác vụ chưa lưu được file đầu ra hợp lệ.");
       if (await quotationSourceHash(job.kind, job.sourceId) !== job.sourceHash) throw new Error("Chứng từ đã thay đổi trong khi tạo file. Hãy tạo lại file cho phiên bản hiện tại.");
-      const db = await connectDatabase();
       const file = await db.collection("companyFiles").findOne({ _id: new ObjectId(current.artifactId) });
       await native.updateOne({ _id: job._id, status: "running" }, { $set: { status: "completed", fileId: current.artifactId, filename: file?.originalFilename, updatedAt: new Date() }, $unset: { error: "" } });
-      if (job.kind === "estimate_draft") await db.collection("quotes").updateOne({ _id: new ObjectId(job.sourceId) }, { $unset: { fileCreationPending: "" } });
+      if (job.kind === "estimate_draft") {
+        await clearEstimateDraftExportMarker(db, job.sourceId);
+      }
     });
   } catch (error) {
     await native.updateOne({ _id: job._id }, { $set: { status: "failed", error: error instanceof Error ? error.message.slice(0, 1000) : "Không tạo được tài liệu.", updatedAt: new Date() } });

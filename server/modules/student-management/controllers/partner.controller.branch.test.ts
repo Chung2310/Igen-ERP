@@ -43,3 +43,30 @@ test("admin creates a partner under the resolved owner of the active branch", as
     (PartnerService as any).createPartner = originalCreate;
   }
 });
+
+test("partner updates stay scoped to the active branch", async () => {
+  const originalFind = User.find;
+  const originalUpdate = PartnerService.updatePartner;
+  let updateArgs: unknown[] = [];
+  (User as any).find = () => ({ select: async () => [] });
+  (PartnerService as any).updatePartner = async (...args: unknown[]) => {
+    updateArgs = args;
+    return { _id: "partner-1" };
+  };
+  const res = { json() { return this; } } as any;
+
+  try {
+    await PartnerController.update({
+      user: { uid: "admin-id", id: "admin-id", email: "admin@example.com", role: "admin", centerId: "ACME", companyCode: "ACME", branchId: "branch-a" },
+      body: { name: "Partner A" },
+      params: { id: "partner-1" },
+      query: {},
+    } as any, res, ((error: unknown) => { throw error; }) as any);
+
+    assert.equal(updateArgs[1], "partner-1");
+    assert.equal(updateArgs[4], "branch-a");
+  } finally {
+    (User as any).find = originalFind;
+    (PartnerService as any).updatePartner = originalUpdate;
+  }
+});

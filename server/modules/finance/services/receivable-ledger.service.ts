@@ -3,7 +3,7 @@ import type { FinanceBranchScope } from "../contracts";
 import type { ReceivableEntryType } from "../interfaces/receivable.interface";
 import { ReceivableEntryModel } from "../models/receivable-entry.model";
 import { ReceivableModel } from "../models/receivable.model";
-import { assertReceivableOperation, deriveReceivableStatus } from "./receivable-rules";
+import { assertReceivableOperation, deriveReceivableStatus, signedReceivableAmount } from "./receivable-rules";
 import { publishReceivableSettled } from "../consumers/receivable.consumer";
 import { ConflictError, NotFoundError, ValidationError } from "../../../errors/app-error";
 
@@ -43,6 +43,30 @@ function requireText(value: unknown, code: string): string {
   return normalized;
 }
 
+type ReplayExpectation = {
+  receivableId: string;
+  type: ReceivableEntryType;
+  amount?: number;
+  reason?: string;
+  paymentMethod?: string;
+  reference?: string;
+  reversalOfEntryId?: string;
+  newDueDate?: Date;
+};
+
+function assertIdempotentReplayMatches(entry: any, expected: ReplayExpectation) {
+  const sameText = (left: unknown, right: unknown) => String(left ?? "").trim() === String(right ?? "").trim();
+  const matches = String(entry?.receivableId || "") === expected.receivableId
+    && entry?.type === expected.type
+    && (expected.amount === undefined || Number(entry?.amount) === expected.amount)
+    && (!Object.hasOwn(expected, "reason") || sameText(entry?.reason, expected.reason))
+    && (!Object.hasOwn(expected, "paymentMethod") || sameText(entry?.paymentMethod, expected.paymentMethod))
+    && (!Object.hasOwn(expected, "reference") || sameText(entry?.reference, expected.reference))
+    && (!Object.hasOwn(expected, "reversalOfEntryId") || sameText(entry?.reversalOfEntryId, expected.reversalOfEntryId))
+    && (!expected.newDueDate || new Date(entry?.newDueDate).valueOf() === expected.newDueDate.valueOf());
+  if (!matches) throw new ConflictError("IDEMPOTENCY_CONFLICT", "Mã chống trùng đã được dùng cho một thao tác khác. Hãy kiểm tra lịch sử khoản phải thu trước khi thử lại.");
+}
+
 export function createReceivableLedgerService(
   repository: ReceivableLedgerRepository,
   afterSettled?: (receivable: any) => Promise<void>,
@@ -54,18 +78,29 @@ export function createReceivableLedgerService(
     actor: Actor,
   ) {
     const result = await repository.transaction(async (session) => {
+      const idempotencyKey = requireText(input.idempotencyKey, "IDEMPOTENCY_KEY_REQUIRED");
       const prior = repository.findByIdempotency
-        ? await repository.findByIdempotency(scope, requireText(input.idempotencyKey, "IDEMPOTENCY_KEY_REQUIRED"), session)
+        ? await repository.findByIdempotency(scope, idempotencyKey, session)
         : null;
       if (prior) {
         const existing = await repository.findById(scope, receivableId, session);
+        if (!existing) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+        assertIdempotentReplayMatches(prior, {
+          receivableId: String(receivableId), type: input.type,
+          ...(input.type !== "write_off" ? { amount: signedReceivableAmount(input.type, input.amount, input) } : {}),
+          ...(input.reason !== undefined ? { reason: input.reason.trim() } : {}),
+          ...(input.paymentMethod !== undefined ? { paymentMethod: input.paymentMethod.trim() } : {}),
+          ...(input.reference !== undefined ? { reference: input.reference.trim() } : {}),
+          ...(input.reversalOfEntryId !== undefined ? { reversalOfEntryId: input.reversalOfEntryId } : {}),
+        });
         return { receivable: existing, entry: prior, settledTransition: false };
       }
       const receivable = await repository.findById(scope, receivableId, session);
       if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
       if (["settled", "void", "written_off"].includes(receivable.status)) throw new ConflictError("RECEIVABLE_ALREADY_SETTLED", "RECEIVABLE_ALREADY_SETTLED");
+      const operationAmount = input.type === "write_off" ? receivable.balance : input.amount;
       const amount = assertReceivableOperation({
-        type: input.type, balance: receivable.balance, amount: input.amount, reason: input.reason,
+        type: input.type, balance: receivable.balance, amount: operationAmount, reason: input.reason,
         direction: input.direction, originalSignedAmount: input.originalSignedAmount,
       });
       const balance = receivable.balance + amount;
@@ -75,7 +110,7 @@ export function createReceivableLedgerService(
       const entry = await repository.createEntry({
         ...scope, receivableId, customerId: receivable.customerId, type: input.type, amount, balanceAfter: balance,
         reason: input.reason?.trim(), paymentMethod: input.paymentMethod, reference: input.reference,
-        idempotencyKey: input.idempotencyKey.trim(), reversalOfEntryId: input.reversalOfEntryId, ...actorSnapshot(actor),
+        idempotencyKey, reversalOfEntryId: input.reversalOfEntryId, ...actorSnapshot(actor),
       }, session);
       const status = deriveReceivableStatus({ originalAmount: receivable.originalAmount, paidAmount, balance, terminal: input.terminal });
       const updated = await repository.updateReceivable(scope, receivableId, { balance, paidAmount, adjustedAmount, status }, session);
@@ -117,13 +152,25 @@ export function createReceivableLedgerService(
     },
     async reverse(scope: FinanceBranchScope, id: string, entryId: string, input: ReverseInput, actor: Actor) {
       const original = await repository.transaction(async (session) => {
+        const key = requireText(input.idempotencyKey, "IDEMPOTENCY_KEY_REQUIRED");
+        const prior = repository.findByIdempotency ? await repository.findByIdempotency(scope, key, session) : null;
+        if (prior) {
+          const receivable = await repository.findById(scope, id, session);
+          if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+          assertIdempotentReplayMatches(prior, {
+            receivableId: String(id), type: "reversal", reason: requireText(input.reason, "REASON_REQUIRED"), reversalOfEntryId: String(entryId),
+          });
+          return { replay: { receivable, entry: prior } };
+        }
         if (await repository.findReversal(scope, id, entryId, session)) throw new ConflictError("ENTRY_ALREADY_REVERSED", "ENTRY_ALREADY_REVERSED");
         const found = await repository.findEntry(scope, id, entryId, session);
         if (!found) throw new Error("ENTRY_NOT_FOUND");
-        return found;
+        return { original: found };
       });
+      if ("replay" in original) return original.replay;
+      const entry = original.original;
       return append(scope, id, {
-        ...input, type: "reversal", amount: Math.abs(original.amount), originalSignedAmount: original.amount, originalType: original.type,
+        ...input, type: "reversal", amount: Math.abs(entry.amount), originalSignedAmount: entry.amount, originalType: entry.type,
         reversalOfEntryId: entryId,
       }, actor);
     },
@@ -133,8 +180,21 @@ export function createReceivableLedgerService(
       return append(scope, String(receivable._id), { ...input, type: "payment" }, actor);
     },
     async voidFromEvent(scope: FinanceBranchScope, sourceType: string, sourceId: string, input: { remainingDebt: number; refundedAmount: number; reason: string; idempotencyKey: string }, actor: Actor) {
-      const receivable = await repository.transaction((session) => repository.findBySource(scope, sourceType, sourceId, session));
-      if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+      const replay = await repository.transaction(async (session) => {
+        const key = requireText(input.idempotencyKey, "IDEMPOTENCY_KEY_REQUIRED");
+        const prior = repository.findByIdempotency ? await repository.findByIdempotency(scope, key, session) : null;
+        const receivable = await repository.findBySource(scope, sourceType, sourceId, session);
+        if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
+        if (!prior) return { receivable };
+        assertIdempotentReplayMatches(prior, {
+          receivableId: String(receivable._id), type: "reversal", amount: -Number(input.remainingDebt),
+          reason: requireText(input.reason, "REASON_REQUIRED"),
+        });
+        if (receivable.status !== "void") throw new ConflictError("IDEMPOTENCY_CONFLICT", "Mã chống trùng không khớp trạng thái khoản phải thu.");
+        return { receivable, entry: prior };
+      });
+      if (replay.entry) return { receivable: replay.receivable, entry: replay.entry };
+      const receivable = replay.receivable;
       if (Number(input.remainingDebt) !== receivable.balance) throw new Error("RECEIVABLE_SOURCE_BALANCE_MISMATCH");
       return append(scope, String(receivable._id), {
         type: "reversal", amount: receivable.balance, originalSignedAmount: receivable.balance,
@@ -155,7 +215,12 @@ export function createReceivableLedgerService(
         const prior = repository.findByIdempotency ? await repository.findByIdempotency(scope, key, session) : null;
         const receivable = await repository.findById(scope, id, session);
         if (!receivable) throw new NotFoundError("RECEIVABLE_NOT_FOUND", "RECEIVABLE_NOT_FOUND");
-        if (prior) return { receivable, entry: prior };
+        if (prior) {
+          assertIdempotentReplayMatches(prior, {
+            receivableId: String(id), type: "due_date_extension", reason: requireText(input.reason, "REASON_REQUIRED"), newDueDate: input.dueDate,
+          });
+          return { receivable, entry: prior };
+        }
         if (["settled", "void", "written_off"].includes(receivable.status)) throw new ConflictError("RECEIVABLE_ALREADY_SETTLED", "RECEIVABLE_ALREADY_SETTLED");
         if (
           !(input.dueDate instanceof Date)
@@ -215,7 +280,9 @@ const mongooseRepository: ReceivableLedgerRepository = {
   async createEntry(values, session) { const [item] = await ReceivableEntryModel.create([values], { session: session as ClientSession }); return item.toObject(); },
   findEntry: (scope, receivableId, entryId, session) => ReceivableEntryModel.findOne({ ...scope, receivableId, _id: entryId }).session(session as ClientSession).lean(),
   findReversal: (scope, receivableId, entryId, session) => ReceivableEntryModel.findOne({ ...scope, receivableId, reversalOfEntryId: entryId }).session(session as ClientSession).lean(),
-  findByIdempotency: (scope, idempotencyKey, session) => ReceivableEntryModel.findOne({ ...scope, idempotencyKey }).session(session as ClientSession).lean(),
+  // The unique index is company-wide, so replay lookup must use the same scope
+  // or a key reused in another branch will fall through to a duplicate-key error.
+  findByIdempotency: (scope, idempotencyKey, session) => ReceivableEntryModel.findOne({ companyCode: scope.companyCode, idempotencyKey }).session(session as ClientSession).lean(),
 };
 
 export const ReceivableLedgerService = createReceivableLedgerService(mongooseRepository, publishReceivableSettled);

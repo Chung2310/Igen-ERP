@@ -62,7 +62,7 @@ import { beforeAll, afterAll } from 'vitest';
 import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { financeTreasuryService as treasury } from '../modules/finance/services/finance-treasury.service';
-import { FinanceCashAccountModel as Account, FinanceCashVoucherModel as Voucher } from '../modules/finance/models/finance-treasury.model';
+import { FinanceCashAccountModel as Account, FinanceCashVoucherModel as Voucher, FinanceBankLineModel as BankLine } from '../modules/finance/models/finance-treasury.model';
 
 const branchId = '507f1f77bcf86cd799439012';
 const scope = { companyCode: 'TEST', branchId };
@@ -156,4 +156,26 @@ it('shows insufficient-funds rejection from the service without changing cash or
   expect(rejected.reply).toContain('không đủ tiền');
   expect((await Account.findById(account._id))!.balance).toBe(1000);
   expect((await Voucher.findById(voucher._id))!.status).toBe('pending');
+});
+it('lists only unmatched bank lines and never exposes the linked voucher id',async()=>{
+  const account=await treasury.createAccount(scope,{name:'Ngân hàng đối soát',kind:'bank',openingOn:'2026-01-01',openingBalance:2000},'actor');
+  const voucher=await treasury.createVoucher(scope,{key:'matched-voucher',kind:'receipt',amount:500,occurredOn:'2026-11-19',description:'Tiền khách chuyển',accountId:String(account._id)},'actor');
+  await treasury.decide(scope,String(voucher._id),{action:'approve',version:0},'actor');
+  const matched=await treasury.bankLine(scope,{accountId:String(account._id),bankKey:'BANK-MATCHED',amount:500,occurredOn:'2026-11-19',description:'Khách chuyển tiền'},'actor');
+  await treasury.matchBankLine(scope,String(matched._id),{voucherId:String(voucher._id)},'actor');
+  await treasury.bankLine(scope,{accountId:String(account._id),bankKey:'BANK-OPEN',amount:-300,occurredOn:'2026-11-20',description:'Phí ngân hàng'},'actor');
+
+  state.interpret.mockResolvedValue({actionId:'finance.treasury.bank-lines.list',newRequest:true,values:{targetBranch:branchId}});
+  const reply:any=await turn({text:'Show bank transactions waiting to be reconciled'});
+  expect(reply.status,JSON.stringify(reply)).toBe('completed');
+  const table=parseAssistantResultTable(reply.reply);
+  expect(table?.rows).toHaveLength(1);
+  expect(reply.reply).toContain('BANK-OPEN');
+  expect(reply.reply).not.toContain('BANK-MATCHED');
+  expect(reply.reply).not.toContain(String(voucher._id));
+
+  state.interpret.mockResolvedValue({actionId:'finance.treasury.accounts.list',newRequest:true,values:{targetBranch:branchId}});
+  const accounts:any=await turn({text:'List cash and bank balances'});
+  expect(accounts.status,JSON.stringify(accounts)).toBe('completed');
+  expect(accounts.reply).not.toContain('Phiên bản');
 });

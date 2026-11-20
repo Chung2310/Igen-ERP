@@ -68,6 +68,25 @@ it("scopes student list and count queries to the selected branch when owners ove
   assert.deepEqual(sort.mock.calls[0], [{ createdAt: -1, _id: -1 }]);
 });
 
+it("searches students by email as well as name and phone within the selected branch", async () => {
+  const search = "learner@example.com";
+  const filter = expectedOwnerAndBranchScope({ $or: [
+    { fullName: new RegExp(search, "i") },
+    { phone: new RegExp(search, "i") },
+    { email: new RegExp(search, "i") },
+  ] });
+  const countDocuments = vi.spyOn(Student as any, "countDocuments").mockResolvedValue(1);
+  const limit = vi.fn(async () => []);
+  const skip = vi.fn(() => ({ limit }));
+  const sort = vi.fn(() => ({ skip }));
+  const find = vi.spyOn(Student as any, "find").mockImplementation(() => ({ sort }));
+
+  await StudentService.getStudents(ownerScope, { search }, branchA);
+
+  assert.deepEqual(countDocuments.mock.calls[0]?.[0], filter);
+  assert.deepEqual(find.mock.calls[0]?.[0], filter);
+});
+
 it("does not select a same-owner student from another branch", async () => {
   const findOne = vi.spyOn(Student as any, "findOne").mockImplementation(async (query: Record<string, unknown>) => (
     query.branchId === branchA ? { _id: "student-a" } : null
