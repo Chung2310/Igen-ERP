@@ -27,6 +27,7 @@ import { companyKnowledgeRouter } from "./knowledge/router/company-knowledge.rou
 import { mediaRouter } from "./shared/router/media.router";
 import { orderSheetRouter } from "./message/router/order-sheet.router";
 import { companyTelegramOrderRouter } from "./message/router/company-telegram-order.router";
+import { companyHeyGenRouter } from "./shared/router/company-heygen.router";
 import { companyCakeCatalogRouter } from "./message/router/company-cake-catalog.router";
 import { companyProductCatalogRouter } from "./message/router/company-cake-catalog.router";
 import { companySepayRouter } from "./message/router/company-sepay.router";
@@ -69,6 +70,7 @@ marketingSuiteRouter.use("/company-knowledge", companyKnowledgeRouter);
 marketingSuiteRouter.use("/marketing-media", mediaRouter);
 marketingSuiteRouter.use("/order-sheets", orderSheetRouter);
 marketingSuiteRouter.use("/company-telegram-order", companyTelegramOrderRouter);
+marketingSuiteRouter.use("/company-heygen", companyHeyGenRouter);
 marketingSuiteRouter.use("/company-cake-catalog", companyCakeCatalogRouter);
 marketingSuiteRouter.use("/company-product-catalog", companyProductCatalogRouter);
 marketingSuiteRouter.use(companySepayRouter);
