@@ -38,6 +38,7 @@ import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
 import { extractAssistantAttachmentValues } from "./attachment-values";
+import { legalAnswerReply, legalQuestionValues } from "./legal-reference";
 export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
 export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
@@ -2018,6 +2019,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, pending?.provided || validationValues)) throw new AssistantError(updateDetailsQuestion(op, input.text || pending?.intent || "", checked.values));
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "executing", actionId: op.id, workflowVersion: workflow.version, payload: checked.values } });
     hasDispatched ||= !op.readOnly && (op.method !== "GET" || op.module === "quotation");
+    if (op.id === "legal.document.answer") {
+      const result = await dispatch(checked.values);
+      pending = null;
+      return legalAnswerReply(result);
+    }
     if (op.module === "quotation") {
       const result = await dispatch(checked.values);
       pending = null;
@@ -2581,7 +2587,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         const saved = await saveAssistantMemory(req, memoryCommand, "explicit");
         reply = { status: "completed", reply: `${saved.created ? "Mình đã ghi nhớ" : "Mình đã cập nhật ghi nhớ"} cho tài khoản của bạn: ${saved.item.content}. Bạn có thể xem, sửa hoặc xóa trong Cài đặt trợ lý > Ghi nhớ.` };
       }
-    } else if (assistantMode === "qa") {
+    } else if (!pending && !pendingDocumentRequest && !input.decision && !input.attachment && !conversationFile
+      && input.text && legalQuestionValues(input.text, session.messages, session.lastReply?.link)) {
+      reply = await prepare("legal.document.answer", legalQuestionValues(input.text, session.messages, session.lastReply?.link)!, false, input.text);
+    } else if (assistantMode === "qa" && pending?.actionId !== "legal.document.answer") {
       const conversationReply = await answerAssistantConversation(req, {
           conversationId: input.conversationId,
           requestId: input.requestId,

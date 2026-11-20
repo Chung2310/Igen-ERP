@@ -30,6 +30,14 @@ New source records are de-duplicated by tenant and source ID/symbol. File hashes
 
 Embeddings use the ERP's deterministic 96-dimension token-hash method and combine with keyword matching. They provide an inexpensive local ranking signal; they are not a hosted transformer embedding model. The answer route calls the configured OpenRouter/FreeLLM text service and instructs it to cite retrieved source entries.
 
+## ERP assistant integration
+
+Legal knowledge questions in both assistant modes (`work` and `qa`) are routed to the existing `legal.document.answer` operation. This uses the common assistant dispatch/completion path and checks module access, `legal-reference:read`, and the user's workflow configuration before calling the tenant-scoped `/legal-reference/answer` endpoint.
+
+The assistant displays the grounded answer with a shared source table containing citation labels, document symbols/titles, articles/clauses, issuing authorities and safe source URLs. Empty retrieval and API errors do not fall back to a general web answer. Explicit application dates such as `tại ngày 01/07/2025` are validated and sent as ISO dates. Short follow-up questions retain the preceding legal topic and application date. Document mutations and questions about uploaded files keep their existing paths.
+
+Conversation regression coverage: `server/assistant/legal-reference-conversation.test.ts` (mocked business HTTP and session storage; no live legal database or model calls).
+
 ## Official references
 
 - [MOJ data sharing services](https://data.moj.gov.vn/dich-vu-chia-se)
