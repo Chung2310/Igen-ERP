@@ -1,5 +1,5 @@
 import { authService as erpAuthService } from "../../../../services/authService";
-import { UserProfile, CompanyProfile, TelegramLinkStatus, CompanyTelegramOrderConfig, CompanySepayConfig, CompanyProductCatalogConfig } from "../types";
+import { UserProfile, CompanyProfile, TelegramLinkStatus, CompanyTelegramOrderConfig, CompanyHeyGenConfig, CompanySepayConfig, CompanyProductCatalogConfig } from "../types";
 
 export function getAccessToken(): string | null {
   return localStorage.getItem("accessToken");
@@ -332,6 +332,30 @@ const sourceAuthService = {
 
 
 
+
+  async getCompanyHeyGenConfig(): Promise<CompanyHeyGenConfig> {
+    const res = await fetch("/api/v1/company-heygen", {
+      headers: { Authorization: "Bearer " + getAccessToken() },
+    });
+    return (await parseJson<{ data: CompanyHeyGenConfig }>(res, "Không thể tải cấu hình HeyGen")).data;
+  },
+
+  async updateCompanyHeyGenConfig(apiKey: string): Promise<CompanyHeyGenConfig> {
+    const res = await fetch("/api/v1/company-heygen", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + getAccessToken() },
+      body: JSON.stringify({ apiKey }),
+    });
+    return (await parseJson<{ data: CompanyHeyGenConfig }>(res, "Không thể lưu cấu hình HeyGen")).data;
+  },
+
+  async clearCompanyHeyGenConfig(): Promise<CompanyHeyGenConfig> {
+    const res = await fetch("/api/v1/company-heygen", {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + getAccessToken() },
+    });
+    return (await parseJson<{ data: CompanyHeyGenConfig }>(res, "Không thể xóa cấu hình HeyGen")).data;
+  },
 
   async getCompanyTelegramOrderConfig(): Promise<CompanyTelegramOrderConfig> {
     const res = await fetch("/api/v1/company-telegram-order", {

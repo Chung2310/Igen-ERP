@@ -37,15 +37,34 @@ function parserPair(limit: string): RequestHandler {
 
 const generalParser = parserPair(ddosConfig.generalBodyLimit);
 const largeParser = parserPair(ddosConfig.largeBodyLimit);
+const klingMotionParser = parserPair("90mb");
+const studioVideoReferenceParser = parserPair("12mb");
 const studioImageParser = parserPair("8mb");
 const studioImageEditParser = parserPair("22mb");
 const studioSlideEditParser = parserPair("10mb");
 const architectureImageParser = parserPair("8mb");
 const architectureGenerationParser = parserPair("22mb");
 
+const STUDIO_VIDEO_REFERENCE_ROUTES = [
+  "/api/v1/gemini/generate-video",
+  "/api/v1/gemini/optimize-video-prompt",
+];
+
+export function isStudioVideoReferenceRoute(pathname: string): boolean {
+  return STUDIO_VIDEO_REFERENCE_ROUTES.includes(pathname);
+}
+
+export function isKlingMotionRoute(pathname: string): boolean {
+  return pathname === "/api/v1/kling/motion-control";
+}
+
 export const selectiveBodyParser: RequestHandler = (req, res, next) => {
   const parser = /^\/api\/v1\/chatbot\/assistant\/studio\/slides\/[a-f0-9]{24}$/i.test(req.path)
     ? studioSlideEditParser
+    : isKlingMotionRoute(req.path)
+    ? klingMotionParser
+    : isStudioVideoReferenceRoute(req.path)
+    ? studioVideoReferenceParser
     : /^\/api\/v1\/architect-assistant\/projects\/[^/]+\/(?:generate-image|analyze-sync)$/i.test(req.path)
     ? architectureGenerationParser
     : /^\/api\/v1\/architect-assistant\/projects\/[^/]+\/videos$/i.test(req.path)

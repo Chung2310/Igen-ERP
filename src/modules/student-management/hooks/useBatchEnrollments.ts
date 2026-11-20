@@ -18,7 +18,12 @@ export function useBatchEnrollments(batchId?: string | null) {
     setLoading(true);
     try {
       const res = await apiFetch(`/batches/${batchId}/enrollments`);
-      setEnrollments(Array.isArray(res?.data) ? res.data : []);
+      setEnrollments(Array.isArray(res?.data)
+        ? (res.data as BatchEnrollment[]).map((enrollment) => ({
+            ...enrollment,
+            remainingSessions: Math.max(0, enrollment.allowedSessions - enrollment.attendedSessions),
+          }))
+        : []);
     } catch (error) {
       // Sổ buổi chỉ là thông tin bổ trợ — lỗi ở đây không được chặn UI điểm danh
       console.error('Không tải được sổ buổi học:', error);
