@@ -1205,7 +1205,7 @@ export async function listBatchEnrollments(ownerId: string | string[], batchId: 
     batchId: String(batch._id),
     ...buildOwnerQuery(ownerId),
     ...buildBranchScopeQuery(branchId),
-  }).lean({ virtuals: true });
+  }).lean();
   const students = await Student.find({
     _id: { $in: [...new Set(enrollments.map((enrollment) => enrollment.studentId))] },
     ...buildOwnerQuery(ownerId),
@@ -1216,6 +1216,7 @@ export async function listBatchEnrollments(ownerId: string | string[], batchId: 
     const student = studentById.get(enrollment.studentId);
     return {
       ...enrollment,
+      remainingSessions: Math.max(0, enrollment.allowedSessions - enrollment.attendedSessions),
       studentName: student?.fullName || "",
       studentPhone: student?.phone || "",
     };
