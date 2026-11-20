@@ -323,6 +323,11 @@ function storedConversation(key: string): string {
 
 function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId, creatorName, mode, headerPanel, openRequest, assistantMode, initialConversationId, onAssistantModeChange }: { storageScope: string; launcherStorageScope: string; branchId: string; deviceId?: string; creatorName?: string; mode: "popup" | "standalone"; headerPanel: boolean; openRequest: number; assistantMode: AssistantMode; initialConversationId: string | null; onAssistantModeChange: (mode: AssistantMode, conversationId?: string) => void }) {
   const { userProfile } = useAuth();
+  const marketingPermissions = userProfile?.role === "admin" || userProfile?.role === "superadmin"
+    ? ["*"]
+    : userProfile?.permissions || [];
+  const canUseMarketingTools = (marketingPermissions.includes("*") || marketingPermissions.includes("marketing:manage"))
+    && Boolean(userProfile?.enabledModules?.includes("social-marketing"));
   const greetingName = userProfile?.displayName || "bạn";
   const isStandaloneChatHome = mode === "standalone" && assistantMode === "qa";
   const chatGreeting = `Chào ${greetingName}, tôi có thể giúp gì cho bạn?`;
@@ -372,7 +377,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [conversationPreferences, setConversationPreferences] = useState<AssistantConversationPreferences>(() => readAssistantConversationPreferences(conversationPreferencesKey));
   const conversationPreferencesRef = useRef(conversationPreferences);
   const { favoriteIds: favoriteStudioToolIds, toggleFavorite: toggleStudioToolFavorite } = useAssistantStudioToolFavorites();
-  const favoriteStudioTools = assistantStudioFavoriteTools.filter(tool => favoriteStudioToolIds.includes(tool.id));
+  const favoriteStudioTools = assistantStudioFavoriteTools.filter(tool => favoriteStudioToolIds.includes(tool.id) && (!tool.requiresMarketingAccess || canUseMarketingTools));
   const [studioFavoritesExpanded, setStudioFavoritesExpanded] = useState(true);
   const projectsKey = `igen_ai_assistant_projects:${storageScope}`;
   const [projects, setProjectsState] = useState<AssistantProject[]>(() => readAssistantProjects(projectsKey));
@@ -1889,7 +1894,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               <button type="button" aria-haspopup="dialog" aria-expanded={isSettingsDialogOpen} aria-controls="assistant-settings-dialog" onClick={openSettings} className={cn("min-w-0 flex-1 rounded-xl px-1 py-2 text-sm", isSettingsDialogOpen && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><Settings2 className="size-4 shrink-0" aria-hidden="true" />Cài đặt</span></button>
             </nav>
             <div hidden={view !== "studio"} className={cn("min-h-0 flex-1 flex-col", view === "studio" && "flex")}>
-              <AssistantStudio historyItem={studioHistoryItem} initialToolRequest={studioToolRequest} onHistoryItemBack={() => setStudioHistoryItem(null)} favoriteToolIds={favoriteStudioToolIds} onToggleToolFavorite={toggleStudioToolFavorite} />
+              <AssistantStudio historyItem={studioHistoryItem} initialToolRequest={studioToolRequest} onHistoryItemBack={() => setStudioHistoryItem(null)} favoriteToolIds={favoriteStudioToolIds} onToggleToolFavorite={toggleStudioToolFavorite} canUseMarketingTools={canUseMarketingTools} />
             </div>
             <div hidden={view !== "notebook"} className={cn("min-h-0 flex-1 flex-col", view === "notebook" && "flex")}>
               <AssistantNotebook active={view === "notebook"} greetingName={creatorName} />

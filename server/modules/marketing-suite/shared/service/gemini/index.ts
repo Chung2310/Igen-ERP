@@ -68,6 +68,7 @@ export const geminiService = {
   // Prompt Optimization & Document Extraction
   optimizeScript: geminiPromptOptimizerService.optimizeScript.bind(geminiPromptOptimizerService),
   optimizeImagePrompt: geminiPromptOptimizerService.optimizeImagePrompt.bind(geminiPromptOptimizerService),
+  optimizeVideoPrompt: geminiPromptOptimizerService.optimizeVideoPrompt.bind(geminiPromptOptimizerService),
   extractTextFromPdf: geminiPromptOptimizerService.extractTextFromPdf.bind(geminiPromptOptimizerService),
 
   // Media History

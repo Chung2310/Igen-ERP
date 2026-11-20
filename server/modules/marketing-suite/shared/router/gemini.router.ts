@@ -106,6 +106,20 @@ const generateImageSchema = {
   }),
 };
 
+const generateVideoSchema = {
+  body: Joi.object({
+    prompt: Joi.string().trim().min(1).max(30_000).required(),
+    durationSeconds: Joi.number().integer().min(1).max(30).optional(),
+    aspectRatio: Joi.string().valid("16:9", "9:16", "1:1").optional(),
+    modelName: Joi.string().valid("google/veo-3.1-fast", "bytedance/seedance-2.0", "google/veo-3.1-lite").optional(),
+    resolution: Joi.string().valid("720p", "1080p").optional(),
+    referenceVideoUri: Joi.string().max(2_000_000).allow("").optional(),
+    referenceImageUris: Joi.array().items(Joi.string().max(2_000_000)).max(2).optional(),
+    frameMode: Joi.string().valid("standard", "first_last").optional(),
+    activeCardId: Joi.string().max(100).allow("").optional(),
+  }),
+};
+
 const normalizedImageRegionSchema = Joi.object({
   x: Joi.number().min(0).max(1).required(),
   y: Joi.number().min(0).max(1).required(),
@@ -166,6 +180,13 @@ const optimizePromptSchema = {
     description: Joi.string().trim().min(1).max(30_000).required(),
     imageUris: Joi.array().items(Joi.string().max(2_000_000)).max(3).optional(),
     modelName: Joi.string().max(100).optional(),
+  }),
+};
+
+const optimizeVideoPromptSchema = {
+  body: Joi.object({
+    description: Joi.string().trim().min(1).max(30_000).required(),
+    imageUris: Joi.array().items(Joi.string().max(2_000_000)).max(3).optional(),
   }),
 };
 
@@ -290,9 +311,11 @@ geminiRouter.post("/extract-scenario", requireAuth as any, requirePermission("om
 
 // Media của Campaign (requireAuth bảo vệ tài khoản lưu lịch sử)
 geminiRouter.post("/generate-image", requireAuth as any, validateRequest(generateImageSchema), geminiController.generateImage);
+geminiRouter.post("/generate-video", requireAuth as any, requirePermission("marketing:manage") as any, validateRequest(generateVideoSchema), geminiController.generateVideo as any);
 geminiRouter.post("/edit-image", requireAuth as any, validateRequest(editImageSchema), geminiController.editImage);
 geminiRouter.post("/optimize-script", requireAuth as any, validateRequest(optimizeScriptSchema), geminiController.optimizeScript);
 geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimizePromptSchema), geminiController.optimizeImagePrompt);
+geminiRouter.post("/optimize-video-prompt", requireAuth as any, requirePermission("marketing:manage") as any, validateRequest(optimizeVideoPromptSchema), geminiController.optimizeVideoPrompt as any);
 
 geminiRouter.get("/media-history", requireAuth as any, requirePermission("marketing:read") as any, validateRequest(getHistorySchema), geminiController.getMediaHistory);
 geminiRouter.delete("/media-history/:id", requireAuth as any, requirePermission("marketing:manage") as any, validateRequest(deleteHistorySchema), geminiController.deleteMediaHistory);

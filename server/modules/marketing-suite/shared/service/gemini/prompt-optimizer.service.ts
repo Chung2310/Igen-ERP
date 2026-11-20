@@ -148,6 +148,49 @@ Do not include markdown blocks or any text other than the JSON object.`
   /**
    * Tối ưu prompt video (cấu trúc JSON)
    */
+  async optimizeVideoPrompt(description: string, imageUris?: string[]) {
+    const normalizedDescription = String(description || "").trim();
+    const localFallback = () => ({
+      motion_analysis: "Natural, controlled motion that keeps the main subject recognizable and consistent.",
+      camera_movement: "A smooth, restrained camera move that keeps the subject clearly framed.",
+      optimized_english_prompt: `Create a clear, coherent video that faithfully represents: ${normalizedDescription || "the provided concept"}. Preserve the subject, context, and details from the brief. Use natural motion and a steady composition.`,
+      should_include_source_image: Boolean(imageUris?.length),
+      source_image_role: imageUris?.length ? "hero" : "reference_only",
+      detected_language: "",
+      ordered_content_units: [],
+      isLocalFallback: true,
+    });
+
+    if (!normalizedDescription || !process.env.OPENROUTER_API_KEY) {
+      return localFallback();
+    }
+
+    try {
+      const response = await generateText(
+        GEMINI_TEXT_MODEL,
+        `Translate and optimize this video brief into English. Preserve its exact subject, context, audience, sequence, and factual details: ${normalizedDescription}`,
+        {
+          systemInstruction: `You are an expert prompt engineer for AI video generation. Turn the user's brief into a precise, visually actionable video prompt. Preserve its exact meaning and do not add unrelated subjects, props, claims, locations, or generic cinematic filler. Describe the subject, action over time, setting, lighting, and visual style only when grounded in the brief. Specify motion and camera movement clearly, with a coherent beginning-to-end action. If reference images are supplied, treat them as visual constraints and decide whether the source subject should appear in the result. Return only valid JSON with this shape: {"motion_analysis":"...","camera_movement":"...","optimized_english_prompt":"...","should_include_source_image":true,"source_image_role":"hero","detected_language":"Vietnamese","ordered_content_units":[]}. Use source_image_role from background, hero, logo, overlay, reference_only. Do not transcribe image text unless it is a meaningful part of the requested video.`,
+          responseMimeType: "application/json",
+          images: imageUris?.filter((uri) => typeof uri === "string" && uri.trim()),
+          maxTokens: 1_600,
+          maxRetries: 1,
+        }
+      );
+      const parsed = safeParseJson(response.text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return localFallback();
+      }
+      return {
+        ...localFallback(),
+        ...parsed,
+        isLocalFallback: false,
+      };
+    } catch (error: any) {
+      console.error("[geminiService.optimizeVideoPrompt] Error, using local prompt optimizer:", error);
+      return localFallback();
+    }
+  }
 
   async extractTextFromPdf(base64Pdf: string): Promise<string> {
     try {

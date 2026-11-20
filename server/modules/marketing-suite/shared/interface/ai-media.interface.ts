@@ -11,6 +11,13 @@ export interface IAIMedia extends Document {
     aspectRatio?: string;
     resolution?: string;
     originalVeoUrl?: string;
+    heygenVideoId?: string;
+    heygenAvatarId?: string;
+    heygenVoiceId?: string;
+    heygenAudioUrl?: string;
+    heygenAudioRecordId?: string;
+    heygenLastWebhookEvent?: string;
+    heygenWebhookUpdatedAt?: string;
     provider?: string;
     modelName?: string;
     negativePrompt?: string;

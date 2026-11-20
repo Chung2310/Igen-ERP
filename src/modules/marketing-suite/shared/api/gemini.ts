@@ -330,6 +330,31 @@ export const geminiApi = {
     return response.json();
   },
 
+  async generateVideo(
+    prompt: string,
+    durationSeconds?: number,
+    options?: {
+      aspectRatio?: string;
+      modelName?: string;
+      resolution?: string;
+      referenceVideoUri?: string;
+      referenceImageUris?: string[];
+      frameMode?: "standard" | "first_last";
+      activeCardId?: string;
+    }
+  ): Promise<{ url: string; isMock: boolean; record?: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/generate-video', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt, durationSeconds, ...options }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi sinh video AI');
+    }
+    return response.json();
+  },
+
   async editImage(input: {
     sourceImageUrl: string;
     sourceMediaId?: string;
@@ -381,6 +406,19 @@ export const geminiApi = {
     });
     if (!response.ok) {
       await handleErrorResponse(response, 'Lỗi khi tối ưu prompt ảnh');
+    }
+    return response.json();
+  },
+
+  async optimizeVideoPrompt(description: string, imageUris?: string[]): Promise<any> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-video-prompt', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ description, imageUris }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi tối ưu prompt video');
     }
     return response.json();
   },
