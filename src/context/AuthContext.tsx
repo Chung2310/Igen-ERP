@@ -124,6 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!event || event.companyCode !== companyCode) return;
       setUser((current) => current ? ({ ...current, enabledModules: event.enabledModules } as any) : current);
       setUserProfile((current) => current ? ({ ...current, enabledModules: event.enabledModules }) : current);
+      // Enabling Gym also changes the company owner's effective permissions.
+      void authService.getMe().then((profile) => {
+        if (!profile) return;
+        setUser(profile as any);
+        setUserProfile(profile);
+      }).catch((error) => console.error('Không thể cập nhật quyền truy cập module:', error));
       toast.success("Quyền truy cập module của doanh nghiệp vừa được cập nhật.");
     });
   }, [userProfile?.companyCode]);

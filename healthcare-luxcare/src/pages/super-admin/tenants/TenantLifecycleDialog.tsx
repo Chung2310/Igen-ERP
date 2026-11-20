@@ -1,0 +1,26 @@
+import React from "react";
+import { superAdminTenantService } from "../../../services/superAdminTenantService";
+import { toast } from "../../Toast";
+export function TenantLifecycleDialog({ code, onDone }: { code: string; onDone: () => void }) {
+  const [reason, setReason] = React.useState("");
+  const [error, setError] = React.useState("");
+  const submit = async () => {
+    try {
+      await superAdminTenantService.scheduleDeletion(code, { reason, password: "", token: "", step: 0 });
+      onDone();
+    } catch (e: any) {
+      toast.error(`${e.message}${e.correlationId ? ` (${e.correlationId})` : ""}`);
+    }
+  };
+  return (
+    <section>
+      <label>
+        Reason
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <button disabled={!reason.trim()} onClick={submit}>
+        Schedule deletion
+      </button>
+    </section>
+  );
+}

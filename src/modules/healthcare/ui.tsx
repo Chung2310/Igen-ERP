@@ -5,14 +5,15 @@ import { Dropdown } from "../../components/common/Dropdown";
 import { ErpTableHead } from "../../components/common/ErpTableHead";
 import { HrEmptyIllustration, type HrEmptyIllustrationKind } from "../../components/hr/HrEmptyIllustration";
 import { HrStatusBadge } from "../../components/hr/HrStatusBadge";
+import { primaryCreateButtonClass } from "../../components/common/primaryCreateButton";
 import { cn } from "../student-management/lib/utils";
 import { ApiClientError } from "../../services/apiClientError";
 import type { HealthcareApi } from "./api";
 
-export const panelClass = "min-w-0 space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5";
-export const controlClass = "h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm text-on-surface transition-colors placeholder:text-on-surface-variant/70 focus-visible:border-primary focus-visible:outline-none disabled:bg-surface-container-low disabled:text-on-surface-variant";
-export const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
-export const primaryClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-primary bg-primary-container px-4 py-2 text-sm font-semibold text-on-primary-container hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
+export const panelClass = "min-w-0 space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs";
+export const controlClass = "h-11 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm text-on-surface transition-colors placeholder:text-on-surface-variant/70 focus-visible:border-primary focus-visible:outline-none disabled:bg-surface-container-low disabled:text-on-surface-variant";
+export const buttonClass = "inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-1 focus-visible:outline-primary disabled:opacity-50";
+export const primaryClass = `${primaryCreateButtonClass} min-h-9`;
 
 export const visitLabels = { registered: "Đã tiếp đón", in_progress: "Đang khám", completed: "Hoàn tất", cancelled: "Đã hủy", imported: "Đã nhập Excel" };
 export const appointmentLabels = { scheduled: "Chờ xác nhận", confirmed: "Đã xác nhận", arrived: "Đã đến", completed: "Hoàn tất", cancelled: "Đã hủy", no_show: "Vắng hẹn" };
@@ -77,7 +78,7 @@ export function Table({ headers, children, empty, emptyKind = "search", selectAl
     <HrEmptyIllustration kind={emptyKind} className="h-14 w-24" />
     <p className="text-pretty text-sm text-on-surface-variant">{empty}</p>
   </div>;
-  return <div className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
+  return <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
     <table className={cn(columnWidths ? "w-full table-fixed" : "min-w-full", "border-collapse text-left text-sm tabular-nums")}
       style={minWidth ? { minWidth } : undefined}>
       {columnWidths && <colgroup>
@@ -146,7 +147,7 @@ export function Field({ label, name, value, error, options, onSelectChange, ...p
   const invalid = error?.fields.includes(name);
   const attrs = { id, name, defaultValue: value, required: props.required, disabled: props.disabled, "aria-invalid": invalid, "aria-describedby": invalid ? `${id}-error` : undefined };
   if (props.type === "date" || props.type === "datetime-local") {
-    const pickerClass = cn("!h-11 !min-h-11 !w-full !rounded-xl !border-outline-variant !bg-surface-container-lowest !px-3 focus-within:!border-primary focus-within:!ring-2 focus-within:!ring-primary/15", invalid && "!border-error");
+    const pickerClass = cn("!h-11 !min-h-11 !w-full !rounded-md !border-outline-variant !bg-surface-container-lowest !px-3 focus-within:!border-primary focus-within:!ring-0", invalid && "!border-error");
     return <div className="min-w-0 space-y-1">
       <label className="block text-sm font-medium text-on-surface">{label}{props.required && <span aria-hidden="true"> *</span>}</label>
       <div aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-error` : undefined}>

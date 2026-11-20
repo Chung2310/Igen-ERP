@@ -2,11 +2,12 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { resolveUserAdminBranchId } from "../components/user-admin/userBranchScope";
 import { authService } from "../services/authService";
+import { gymPtAccountService } from "../services/gymPtAccountService";
 import { branchService, BranchRecord } from "../services/branchService";
 import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
@@ -26,7 +27,7 @@ import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { HrEmptyIllustration } from "../components/hr/HrEmptyIllustration";
 import { primaryCreateButtonClass } from "../components/common/primaryCreateButton";
-import { DEFAULT_MODULE_KEYS, normalizeModuleKeys } from "../config/modules";
+import { DEFAULT_MODULE_KEYS, isModuleEnabled, normalizeModuleKeys } from "../config/modules";
 import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 import { UserActivityTimeline } from "./super-admin/users/UserActivityTimeline";
 
@@ -107,6 +108,7 @@ export default function UserAdminTab() {
   const [userJobDescriptionUploadToken, setUserJobDescriptionUploadToken] = useState("");
   const [userMonthlySalary, setUserMonthlySalary] = useState("");
   const [submittingUser, setSubmittingUser] = useState(false);
+  const submittingUserRef = useRef(false);
 
   const resetUserForm = () => {
     setEditingUser(null);
@@ -218,10 +220,10 @@ export default function UserAdminTab() {
     try {
       let data: UserProfile[] = [];
       if (userProfile?.role === "superadmin") {
-        data = await authService.getAllUsers();
+        data = await authService.getAllUsers(true);
       } else if (userProfile?.companyCode && userProfile?.companyCode !== "SYSTEM") {
         const branchId = resolveUserAdminBranchId(userProfile.role, activeBranchId, userProfile.branchId);
-        data = await authService.getUsersByCompany(userProfile.companyCode, branchId);
+        data = await authService.getUsersByCompany(userProfile.companyCode, branchId, true);
       }
       setUsersList(data);
     } catch (error) {
@@ -327,7 +329,7 @@ export default function UserAdminTab() {
 
     // Merge with custom roles
     const customRoles = rolePermissionsList
-      .filter(rp => !["user", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
+      .filter(rp => !["user", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin", "gym_admin", "gym_pt"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
         displayName: getRoleDisplayName(rp.role, rp.displayName),
@@ -395,6 +397,10 @@ export default function UserAdminTab() {
   );
 
   const handleRoleChange = async (targetUid: string, targetName: string, newRole: string) => {
+    if (newRole === "gym_pt" || usersList.some((user) => user.uid === targetUid && user.role === "gym_pt")) {
+      toast.warning("Vai trò PT được quản lý bằng tài khoản Quản lý phòng Gym.");
+      return;
+    }
     if (targetUid === userProfile?.uid) {
       toast.warning("Bạn không thể tự thay đổi vai trò của chính mình!");
       return;
@@ -540,6 +546,7 @@ export default function UserAdminTab() {
 
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingUserRef.current) return;
     if (!userDisplayName.trim() || !userEmail.trim() || !userCompanyCode) {
       toast.warning("Vui lòng điền đầy đủ thông tin người dùng!");
       return;
@@ -547,6 +554,24 @@ export default function UserAdminTab() {
     if (!editingUser && userPassword.length < 6) {
       toast.warning("Mật khẩu phải từ 6 ký tự trở lên!");
       return;
+    }
+    if (userRole === "gym_pt") {
+      if (userProfile?.role !== "admin" || userCompanyCode !== userProfile.companyCode || !isModuleEnabled(userProfile.enabledModules, "gym")) {
+        toast.error("Chỉ Admin của doanh nghiệp có Quản lý phòng Gym được quản lý tài khoản PT.");
+        return;
+      }
+      if (!userPhone.trim()) {
+        toast.warning("Vui lòng nhập số điện thoại cho PT.");
+        return;
+      }
+      if (userPassword && userPassword.length < 8) {
+        toast.warning("Mật khẩu PT cần ít nhất 8 ký tự.");
+        return;
+      }
+      if (editingUser && !editingUser.gymAccountId) {
+        toast.error("Tài khoản PT chưa được liên kết với Quản lý phòng Gym.");
+        return;
+      }
     }
     if (userProfile?.role === "admin" && userRole === "admin") {
       toast.warning("Chủ doanh nghiệp không được phép tạo tài khoản có vai trò Admin!");
@@ -557,6 +582,7 @@ export default function UserAdminTab() {
       return;
     }
 
+    submittingUserRef.current = true;
     setSubmittingUser(true);
     try {
       let compName = "";
@@ -570,7 +596,17 @@ export default function UserAdminTab() {
       // Tìm level của người quản lý để tính level nhân viên mới
       const managerProfile = userParentId ? usersList.find(u => u.uid === userParentId) : null;
 
-      if (editingUser) {
+      if (userRole === "gym_pt") {
+        const fields = {
+          fullName: userDisplayName,
+          email: userEmail,
+          phone: userPhone,
+          password: userPassword,
+        };
+        if (editingUser?.gymAccountId) await gymPtAccountService.update(editingUser.gymAccountId, fields);
+        else await gymPtAccountService.create({ ...fields, password: userPassword });
+        toast.success(editingUser ? `Đã cập nhật tài khoản PT "${userDisplayName}".` : `Đã tạo tài khoản PT "${userDisplayName}".`);
+      } else if (editingUser) {
         await authService.updateUser(editingUser.uid, {
           displayName: userDisplayName.trim(),
           role: userRole,
@@ -628,6 +664,7 @@ export default function UserAdminTab() {
       );
       toast.error(errMsg);
     } finally {
+      submittingUserRef.current = false;
       setSubmittingUser(false);
     }
   };
@@ -688,7 +725,12 @@ export default function UserAdminTab() {
 
   const deleteUserConfirmed = async (user: UserProfile) => {
     try {
-      await authService.deleteUser(user.uid);
+      if (user.role === "gym_pt") {
+        if (!user.gymAccountId) throw new Error("Tài khoản PT chưa được liên kết với Quản lý phòng Gym.");
+        await gymPtAccountService.remove(user.gymAccountId);
+      } else {
+        await authService.deleteUser(user.uid);
+      }
       setUsersList((prev) => prev.filter((item) => item.uid !== user.uid));
       toast.success(`Đã xóa người dùng "${user.displayName}".`);
     } catch (error: any) {
@@ -732,6 +774,12 @@ export default function UserAdminTab() {
       <UserAdminTabs activeTab={activeTab} onChange={setActiveTab} userProfile={userProfile} />
       {activeTab === "users" ? (
         <>
+          <div className="flex justify-end border-b border-outline-variant bg-surface-container-lowest px-3 py-2">
+            <button type="button" onClick={openCreateUserModal} className={`${primaryCreateButtonClass} user-admin-create-button min-h-9`}>
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Thêm tài khoản
+            </button>
+          </div>
           <UserFiltersBar
             searchQuery={searchQuery}
             filterStartDate={filterStartDate}
@@ -837,7 +885,9 @@ export default function UserAdminTab() {
                     "finance-receivable:read"
                   ],
                   teacher: ["people:read", "people:manage"],
-                  pos_cashier: ["pos:manage"]
+                  pos_cashier: ["pos:manage"],
+                  gym_admin: ["gym-admin:manage"],
+                  gym_pt: ["gym-pt:manage"],
                 };
 
                 const defaultRolesList = [
@@ -846,10 +896,11 @@ export default function UserAdminTab() {
                   { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
                   { role: "pos_cashier", displayName: getRoleDisplayName("pos_cashier"), level: 5, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.pos_cashier },
                   { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.teacher },
-                  { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
+                  { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user },
+                  ...(isModuleEnabled(userProfile?.enabledModules, "gym") ? [{ role: "gym_pt", displayName: getRoleDisplayName("gym_pt"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.gym_pt }] : []),
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user", "pos_cashier"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user", "pos_cashier", "gym_admin", "gym_pt"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {
@@ -876,7 +927,7 @@ export default function UserAdminTab() {
 
                 const canEditRole = (roleInfo: { role: string; level: number }) => {
                   const currentRole = userProfile?.role;
-                  if (!currentRole || roleInfo.role === "superadmin") return false;
+                  if (!currentRole || roleInfo.role === "superadmin" || roleInfo.role === "gym_pt") return false;
                   if (currentRole === "superadmin" || currentRole === "admin") {
                     return roleInfo.role !== "admin";
                   }
@@ -1022,13 +1073,20 @@ export default function UserAdminTab() {
         setUserMonthlySalary={setUserMonthlySalary}
         setUserJobDescriptionLink={setUserJobDescriptionLink}
         setUserJobDescriptionUploadToken={setUserJobDescriptionUploadToken}
-        getAvailableRoles={getAvailableRoles}
+        getAvailableRoles={() => editingUser
+          ? editingUser.role === "gym_pt" ? [{ role: "gym_pt", displayName: getRoleDisplayName("gym_pt"), level: 4 }] : getAvailableRoles()
+          : userProfile?.role === "admin" && isModuleEnabled(userProfile.enabledModules, "gym")
+            ? [...getAvailableRoles(), { role: "gym_pt", displayName: getRoleDisplayName("gym_pt"), level: 4 }]
+            : getAvailableRoles()}
         userProfile={userProfile}
         companies={companies}
         branches={branches}
         usersList={usersList}
         onSubmit={handleRegisterUser}
         submittingUser={submittingUser}
+        lockRole={editingUser?.role === "gym_pt"}
+        lockCompany={editingUser?.role === "gym_pt"}
+        lockBranch={editingUser?.role === "gym_pt"}
       />
 
 

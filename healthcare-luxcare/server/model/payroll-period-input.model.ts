@@ -1,0 +1,5 @@
+import { Schema, model } from "mongoose";
+import type { IPayrollPeriodInput } from "../interface/payroll-period-input.interface";
+const schema = new Schema<IPayrollPeriodInput>({ companyCode: { type: String, required: true, index: true }, branchId: { type: String, required: true, index: true }, periodKey: { type: String, required: true }, employeeId: { type: String, required: true }, agreedSalary: { type: Number, min: 0 }, reconciledDays: { type: Number, min: 0 }, reconciledHours: { type: Number, min: 0 }, allowance: { type: Number, min: 0 }, bonus: { type: Number, min: 0 }, deduction: { type: Number, min: 0 }, customValues: { type: Map, of: Number, default: {} }, reason: { type: String, required: true, trim: true }, version: { type: Number, required: true, default: 0 }, updatedBy: { type: String, required: true } }, { timestamps: true });
+schema.index({ companyCode: 1, branchId: 1, periodKey: 1, employeeId: 1 }, { unique: true });
+export const PayrollPeriodInputModel = model<IPayrollPeriodInput>("PayrollPeriodInput", schema);

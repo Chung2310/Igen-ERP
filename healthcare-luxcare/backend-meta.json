@@ -1,0 +1,2519 @@
+{
+  "inputs": {
+    "healthcare-luxcare/server/model/branch.model.ts": {
+      "bytes": 1832,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../interface/branch.interface",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/middleware/supply-scope.ts": {
+      "bytes": 1946,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/branch.model.ts",
+          "kind": "import-statement",
+          "original": "../model/branch.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/middleware/request-context.ts": {
+      "bytes": 1842,
+      "imports": [
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:async_hooks",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/config/logger.ts": {
+      "bytes": 6455,
+      "imports": [
+        {
+          "path": "dotenv/config",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:os",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:util",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pino",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/request-context.ts",
+          "kind": "import-statement",
+          "original": "../middleware/request-context"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/middleware/request-logger.ts": {
+      "bytes": 2250,
+      "imports": [
+        {
+          "path": "node:perf_hooks",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/request-context.ts",
+          "kind": "import-statement",
+          "original": "./request-context"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/user.model.ts": {
+      "bytes": 8272,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../interface/user.interface",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/role-permission.model.ts": {
+      "bytes": 799,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../interface/role-permission.interface",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/config/env.ts": {
+      "bytes": 2600,
+      "imports": [
+        {
+          "path": "dotenv/config",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/security/auth-client.ts": {
+      "bytes": 609,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/shared/supply-inventory.ts": {
+      "bytes": 1388,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/shared/permissions.ts": {
+      "bytes": 11898,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/shared/supply-inventory.ts",
+          "kind": "import-statement",
+          "original": "./supply-inventory"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/shared/onboarding.ts": {
+      "bytes": 2251,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/config/module-keys.ts": {
+      "bytes": 786,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/company.model.ts": {
+      "bytes": 5457,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "../interface/company.interface",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/config/module-keys.ts",
+          "kind": "import-statement",
+          "original": "../config/module-keys"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/middleware/auth.ts": {
+      "bytes": 19621,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/request-logger.ts",
+          "kind": "import-statement",
+          "original": "./request-logger"
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/model/user.model.ts",
+          "kind": "import-statement",
+          "original": "../model/user.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/branch.model.ts",
+          "kind": "import-statement",
+          "original": "../model/branch.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/role-permission.model.ts",
+          "kind": "import-statement",
+          "original": "../model/role-permission.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/config/env.ts",
+          "kind": "import-statement",
+          "original": "../config/env"
+        },
+        {
+          "path": "healthcare-luxcare/server/security/auth-client.ts",
+          "kind": "import-statement",
+          "original": "../security/auth-client"
+        },
+        {
+          "path": "healthcare-luxcare/shared/permissions.ts",
+          "kind": "import-statement",
+          "original": "../../shared/permissions"
+        },
+        {
+          "path": "healthcare-luxcare/shared/permissions.ts",
+          "kind": "import-statement",
+          "original": "../../shared/permissions"
+        },
+        {
+          "path": "healthcare-luxcare/shared/onboarding.ts",
+          "kind": "import-statement",
+          "original": "../../shared/onboarding"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/company.model.ts",
+          "kind": "import-statement",
+          "original": "../model/company.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/errors.ts": {
+      "bytes": 784,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/shared/supply-stock.ts": {
+      "bytes": 2089,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supply-inventory.model.ts": {
+      "bytes": 8072,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-availability.ts": {
+      "bytes": 2223,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/department.model.ts": {
+      "bytes": 1011,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/recipient-department.ts": {
+      "bytes": 733,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/department.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/department.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/warehouse.model.ts": {
+      "bytes": 1053,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-access.ts": {
+      "bytes": 5127,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/warehouse.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/warehouse.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supply.model.ts": {
+      "bytes": 2640,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supply-transaction.model.ts": {
+      "bytes": 1458,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supply-audit.model.ts": {
+      "bytes": 521,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/room.model.ts": {
+      "bytes": 1078,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supplier.model.ts": {
+      "bytes": 1122,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supply-operation.model.ts": {
+      "bytes": 532,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/atomic.ts": {
+      "bytes": 4559,
+      "imports": [
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-operation.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-operation.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/quantity.ts": {
+      "bytes": 2645,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-indexes.ts": {
+      "bytes": 3785,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/supply-operation.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-operation.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-document.service.ts": {
+      "bytes": 14108,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/recipient-department.ts",
+          "kind": "import-statement",
+          "original": "./recipient-department"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supplier.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supplier.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/atomic.ts",
+          "kind": "import-statement",
+          "original": "./atomic"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/quantity.ts",
+          "kind": "import-statement",
+          "original": "./quantity"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "./inventory-access"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-indexes.ts",
+          "kind": "import-statement",
+          "original": "./inventory-indexes"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-posting.service.ts": {
+      "bytes": 14695,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/recipient-department.ts",
+          "kind": "import-statement",
+          "original": "./recipient-department"
+        },
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-transaction.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/atomic.ts",
+          "kind": "import-statement",
+          "original": "./atomic"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/quantity.ts",
+          "kind": "import-statement",
+          "original": "./quantity"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "./inventory-access"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-document.service.ts",
+          "kind": "import-statement",
+          "original": "./inventory-document.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-indexes.ts",
+          "kind": "import-statement",
+          "original": "./inventory-indexes"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-legacy-bridge.service.ts": {
+      "bytes": 8011,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/atomic.ts",
+          "kind": "import-statement",
+          "original": "./atomic"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-transaction.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/warehouse.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/warehouse.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/department.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/department.model"
+        },
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-document.service.ts",
+          "kind": "import-statement",
+          "original": "./inventory-document.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-posting.service.ts",
+          "kind": "import-statement",
+          "original": "./inventory-posting.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/legacy-write.service.ts": {
+      "bytes": 21846,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/recipient-department.ts",
+          "kind": "import-statement",
+          "original": "./recipient-department"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "./inventory-access"
+        },
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-transaction.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-audit.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-audit.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/warehouse.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/warehouse.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/room.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/room.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supplier.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supplier.model"
+        },
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/atomic.ts",
+          "kind": "import-statement",
+          "original": "./atomic"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-legacy-bridge.service.ts",
+          "kind": "dynamic-import",
+          "original": "./inventory-legacy-bridge.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/supply-voucher.model.ts": {
+      "bytes": 1658,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply.service.ts": {
+      "bytes": 15904,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-availability.ts",
+          "kind": "import-statement",
+          "original": "./supply/inventory-availability"
+        },
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../shared/supply-stock"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/legacy-write.service.ts",
+          "kind": "import-statement",
+          "original": "./supply/legacy-write.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply-transaction.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-voucher.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply-voucher.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/voucher.service.ts": {
+      "bytes": 6349,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/atomic.ts",
+          "kind": "import-statement",
+          "original": "./atomic"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/recipient-department.ts",
+          "kind": "import-statement",
+          "original": "./recipient-department"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-transaction.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-voucher.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-voucher.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/legacy-write.service.ts",
+          "kind": "import-statement",
+          "original": "./legacy-write.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/supply.controller.ts": {
+      "bytes": 17811,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/errors"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/voucher.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/voucher.service"
+        },
+        {
+          "path": "xlsx",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/middleware/validation.ts": {
+      "bytes": 2305,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/supply.validation.ts": {
+      "bytes": 10090,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/supply.router.ts": {
+      "bytes": 4120,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/middleware/supply-scope.ts",
+          "kind": "import-statement",
+          "original": "../middleware/supply-scope"
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "multer",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/supply.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/supply.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/supply.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/supply.validation"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-read.service.ts": {
+      "bytes": 3238,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "./inventory-access"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-workspace.service.ts": {
+      "bytes": 4751,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/warehouse.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/warehouse.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "./inventory-access"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-document.service.ts",
+          "kind": "import-statement",
+          "original": "./inventory-document.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-read.service.ts",
+          "kind": "import-statement",
+          "original": "./inventory-read.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-backfill.service.ts": {
+      "bytes": 10553,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-transaction.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/warehouse.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/warehouse.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supply/inventory-profile.service.ts": {
+      "bytes": 4323,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-indexes.ts",
+          "kind": "import-statement",
+          "original": "./inventory-indexes"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/atomic.ts",
+          "kind": "import-statement",
+          "original": "./atomic"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "./inventory-access"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/quantity.ts",
+          "kind": "import-statement",
+          "original": "./quantity"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "./errors"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/supply-inventory.validation.ts": {
+      "bytes": 2156,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/supply-inventory.router.ts": {
+      "bytes": 5954,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-workspace.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-workspace.service"
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/supply-scope.ts",
+          "kind": "import-statement",
+          "original": "../middleware/supply-scope"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/errors.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/errors"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-backfill.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-backfill.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-document.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-document.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-posting.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-posting.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-profile.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-profile.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-read.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-read.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/supply/inventory-access.ts",
+          "kind": "import-statement",
+          "original": "../service/supply/inventory-access"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/supply-inventory.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/supply-inventory.validation"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/equipment.model.ts": {
+      "bytes": 3252,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/equipment-inspection.model.ts": {
+      "bytes": 2096,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/equipment.service.ts": {
+      "bytes": 18530,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/equipment.model.ts",
+          "kind": "import-statement",
+          "original": "../model/equipment.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/equipment-inspection.model.ts",
+          "kind": "import-statement",
+          "original": "../model/equipment-inspection.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/branch.model.ts",
+          "kind": "import-statement",
+          "original": "../model/branch.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/department.model.ts",
+          "kind": "import-statement",
+          "original": "../model/department.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/config/resource-source-registry.ts": {
+      "bytes": 8780,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/pending-upload.model.ts": {
+      "bytes": 1873,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/cloudinary.service.ts": {
+      "bytes": 11635,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "cloudinary",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/resource-item.model.ts": {
+      "bytes": 5473,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/resource-indexing.service.ts": {
+      "bytes": 16042,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/resource-source-registry.ts",
+          "kind": "import-statement",
+          "original": "../config/resource-source-registry"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/resource-item.model.ts",
+          "kind": "import-statement",
+          "original": "../model/resource-item.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/managed-upload.service.ts": {
+      "bytes": 12850,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "node:crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/config/resource-source-registry.ts",
+          "kind": "import-statement",
+          "original": "../config/resource-source-registry"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/pending-upload.model.ts",
+          "kind": "import-statement",
+          "original": "../model/pending-upload.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/cloudinary.service.ts",
+          "kind": "import-statement",
+          "original": "./cloudinary.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/resource-indexing.service.ts",
+          "kind": "import-statement",
+          "original": "./resource-indexing.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/equipment.controller.ts": {
+      "bytes": 14566,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/equipment.service.ts",
+          "kind": "import-statement",
+          "original": "../service/equipment.service"
+        },
+        {
+          "path": "xlsx",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/service/managed-upload.service.ts",
+          "kind": "import-statement",
+          "original": "../service/managed-upload.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/resource-indexing.service.ts",
+          "kind": "import-statement",
+          "original": "../service/resource-indexing.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/equipment-borrow-transaction.model.ts": {
+      "bytes": 1443,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/equipment-borrow.service.ts": {
+      "bytes": 10221,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/model/equipment.model.ts",
+          "kind": "import-statement",
+          "original": "../model/equipment.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/equipment-borrow-transaction.model.ts",
+          "kind": "import-statement",
+          "original": "../model/equipment-borrow-transaction.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/equipment-borrow.controller.ts": {
+      "bytes": 3350,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/user.model.ts",
+          "kind": "import-statement",
+          "original": "../model/user.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/equipment-borrow.service.ts",
+          "kind": "import-statement",
+          "original": "../service/equipment-borrow.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/equipment.validation.ts": {
+      "bytes": 18349,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/equipment-borrow.validation.ts": {
+      "bytes": 2600,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/equipment.router.ts": {
+      "bytes": 4320,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "multer",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/equipment.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/equipment.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/equipment-borrow.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/equipment-borrow.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/equipment.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/equipment.validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/equipment-borrow.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/equipment-borrow.validation"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/supplier.service.ts": {
+      "bytes": 7470,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/supplier.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supplier.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/supplier.controller.ts": {
+      "bytes": 2466,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/supplier.service.ts",
+          "kind": "import-statement",
+          "original": "../service/supplier.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/supplier.validation.ts": {
+      "bytes": 2927,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/supplier.router.ts": {
+      "bytes": 1296,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/supplier.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/supplier.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/supplier.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/supplier.validation"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/warehouse.service.ts": {
+      "bytes": 8047,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/supply-inventory.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply-inventory.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/warehouse.model.ts",
+          "kind": "import-statement",
+          "original": "../model/warehouse.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/warehouse.controller.ts": {
+      "bytes": 2710,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/warehouse.service.ts",
+          "kind": "import-statement",
+          "original": "../service/warehouse.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/warehouse.validation.ts": {
+      "bytes": 2485,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/warehouse.router.ts": {
+      "bytes": 1321,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/warehouse.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/warehouse.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/warehouse.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/warehouse.validation"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/model/category.model.ts": {
+      "bytes": 881,
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/category.service.ts": {
+      "bytes": 7630,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/category.model.ts",
+          "kind": "import-statement",
+          "original": "../model/category.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/supply.model.ts",
+          "kind": "import-statement",
+          "original": "../model/supply.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/category.controller.ts": {
+      "bytes": 2476,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/category.service.ts",
+          "kind": "import-statement",
+          "original": "../service/category.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/validation/category.validation.ts": {
+      "bytes": 2257,
+      "imports": [
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/category.router.ts": {
+      "bytes": 1296,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/category.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/category.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/validation/category.validation.ts",
+          "kind": "import-statement",
+          "original": "../validation/category.validation"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/department-legacy-pattern.ts": {
+      "bytes": 156,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/department.service.ts": {
+      "bytes": 9324,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/department.model.ts",
+          "kind": "import-statement",
+          "original": "../model/department.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/equipment.model.ts",
+          "kind": "import-statement",
+          "original": "../model/equipment.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/user.model.ts",
+          "kind": "import-statement",
+          "original": "../model/user.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/department-legacy-pattern.ts",
+          "kind": "import-statement",
+          "original": "./department-legacy-pattern"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/department.controller.ts": {
+      "bytes": 4078,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/department.service.ts",
+          "kind": "import-statement",
+          "original": "../service/department.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/department.router.ts": {
+      "bytes": 728,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/department.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/department.controller"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/service/room.service.ts": {
+      "bytes": 8383,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/model/room.model.ts",
+          "kind": "import-statement",
+          "original": "../model/room.model"
+        },
+        {
+          "path": "healthcare-luxcare/server/model/equipment.model.ts",
+          "kind": "import-statement",
+          "original": "../model/equipment.model"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/room.controller.ts": {
+      "bytes": 4465,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/service/room.service.ts",
+          "kind": "import-statement",
+          "original": "../service/room.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/room.router.ts": {
+      "bytes": 620,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/room.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/room.controller"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/controller/media.controller.ts": {
+      "bytes": 2110,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/service/cloudinary.service.ts",
+          "kind": "import-statement",
+          "original": "../service/cloudinary.service"
+        },
+        {
+          "path": "healthcare-luxcare/server/service/managed-upload.service.ts",
+          "kind": "import-statement",
+          "original": "../service/managed-upload.service"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/server/router/media.router.ts": {
+      "bytes": 9994,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/server/config/logger.ts",
+          "kind": "import-statement",
+          "original": "../config/logger"
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/controller/media.controller.ts",
+          "kind": "import-statement",
+          "original": "../controller/media.controller"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/validation.ts",
+          "kind": "import-statement",
+          "original": "../middleware/validation"
+        },
+        {
+          "path": "healthcare-luxcare/server/middleware/auth.ts",
+          "kind": "import-statement",
+          "original": "../middleware/auth"
+        },
+        {
+          "path": "https",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "cloudinary",
+          "kind": "dynamic-import",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/feature-server.ts": {
+      "bytes": 2806,
+      "imports": [
+        {
+          "path": "dotenv/config",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/server/router/supply.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/supply.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/supply-inventory.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/supply-inventory.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/equipment.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/equipment.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/supplier.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/supplier.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/warehouse.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/warehouse.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/category.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/category.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/department.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/department.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/room.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/room.router"
+        },
+        {
+          "path": "healthcare-luxcare/server/router/media.router.ts",
+          "kind": "import-statement",
+          "original": "./server/router/media.router"
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "healthcare-luxcare/dist-feature/server.cjs": {
+      "imports": [
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "dotenv/config",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "multer",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "dotenv/config",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:os",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:util",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "pino",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:async_hooks",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:perf_hooks",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "jsonwebtoken",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "dotenv/config",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "xlsx",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "multer",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "xlsx",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "node:crypto",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "cloudinary",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "mongoose",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "joi",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "https",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "require-call",
+          "external": true
+        },
+        {
+          "path": "cloudinary",
+          "kind": "dynamic-import",
+          "external": true
+        }
+      ],
+      "exports": [],
+      "entryPoint": "healthcare-luxcare/feature-server.ts",
+      "inputs": {
+        "healthcare-luxcare/server/service/supply/errors.ts": {
+          "bytesInOutput": 945
+        },
+        "healthcare-luxcare/shared/supply-stock.ts": {
+          "bytesInOutput": 1146
+        },
+        "healthcare-luxcare/server/model/supply-inventory.model.ts": {
+          "bytesInOutput": 9568
+        },
+        "healthcare-luxcare/server/model/department.model.ts": {
+          "bytesInOutput": 1140
+        },
+        "healthcare-luxcare/server/service/supply/recipient-department.ts": {
+          "bytesInOutput": 707
+        },
+        "healthcare-luxcare/server/model/warehouse.model.ts": {
+          "bytesInOutput": 1182
+        },
+        "healthcare-luxcare/server/service/supply/inventory-access.ts": {
+          "bytesInOutput": 4279
+        },
+        "healthcare-luxcare/server/model/supply.model.ts": {
+          "bytesInOutput": 2962
+        },
+        "healthcare-luxcare/server/model/supply-transaction.model.ts": {
+          "bytesInOutput": 1622
+        },
+        "healthcare-luxcare/server/model/supplier.model.ts": {
+          "bytesInOutput": 1261
+        },
+        "healthcare-luxcare/server/model/supply-operation.model.ts": {
+          "bytesInOutput": 696
+        },
+        "healthcare-luxcare/server/service/supply/atomic.ts": {
+          "bytesInOutput": 4040
+        },
+        "healthcare-luxcare/server/service/supply/quantity.ts": {
+          "bytesInOutput": 2702
+        },
+        "healthcare-luxcare/server/service/supply/inventory-indexes.ts": {
+          "bytesInOutput": 3427
+        },
+        "healthcare-luxcare/server/service/supply/inventory-document.service.ts": {
+          "bytesInOutput": 13321
+        },
+        "healthcare-luxcare/server/service/supply/inventory-posting.service.ts": {
+          "bytesInOutput": 13805
+        },
+        "healthcare-luxcare/server/service/supply/inventory-legacy-bridge.service.ts": {
+          "bytesInOutput": 7151
+        },
+        "healthcare-luxcare/feature-server.ts": {
+          "bytesInOutput": 2299
+        },
+        "healthcare-luxcare/server/model/branch.model.ts": {
+          "bytesInOutput": 1740
+        },
+        "healthcare-luxcare/server/middleware/supply-scope.ts": {
+          "bytesInOutput": 1672
+        },
+        "healthcare-luxcare/server/router/supply.router.ts": {
+          "bytesInOutput": 3394
+        },
+        "healthcare-luxcare/server/config/logger.ts": {
+          "bytesInOutput": 5548
+        },
+        "healthcare-luxcare/server/middleware/request-context.ts": {
+          "bytesInOutput": 985
+        },
+        "healthcare-luxcare/server/middleware/request-logger.ts": {
+          "bytesInOutput": 1937
+        },
+        "healthcare-luxcare/server/middleware/auth.ts": {
+          "bytesInOutput": 8987
+        },
+        "healthcare-luxcare/server/model/user.model.ts": {
+          "bytesInOutput": 8096
+        },
+        "healthcare-luxcare/server/model/role-permission.model.ts": {
+          "bytesInOutput": 611
+        },
+        "healthcare-luxcare/server/config/env.ts": {
+          "bytesInOutput": 570
+        },
+        "healthcare-luxcare/server/security/auth-client.ts": {
+          "bytesInOutput": 360
+        },
+        "healthcare-luxcare/shared/supply-inventory.ts": {
+          "bytesInOutput": 839
+        },
+        "healthcare-luxcare/shared/permissions.ts": {
+          "bytesInOutput": 12073
+        },
+        "healthcare-luxcare/shared/onboarding.ts": {
+          "bytesInOutput": 478
+        },
+        "healthcare-luxcare/server/model/company.model.ts": {
+          "bytesInOutput": 5363
+        },
+        "healthcare-luxcare/server/config/module-keys.ts": {
+          "bytesInOutput": 69
+        },
+        "healthcare-luxcare/server/controller/supply.controller.ts": {
+          "bytesInOutput": 16983
+        },
+        "healthcare-luxcare/server/service/supply/inventory-availability.ts": {
+          "bytesInOutput": 1723
+        },
+        "healthcare-luxcare/server/service/supply.service.ts": {
+          "bytesInOutput": 13400
+        },
+        "healthcare-luxcare/server/service/supply/legacy-write.service.ts": {
+          "bytesInOutput": 20126
+        },
+        "healthcare-luxcare/server/model/supply-audit.model.ts": {
+          "bytesInOutput": 576
+        },
+        "healthcare-luxcare/server/model/room.model.ts": {
+          "bytesInOutput": 1007
+        },
+        "healthcare-luxcare/server/model/supply-voucher.model.ts": {
+          "bytesInOutput": 1658
+        },
+        "healthcare-luxcare/server/service/supply/voucher.service.ts": {
+          "bytesInOutput": 5797
+        },
+        "healthcare-luxcare/server/middleware/validation.ts": {
+          "bytesInOutput": 1979
+        },
+        "healthcare-luxcare/server/validation/supply.validation.ts": {
+          "bytesInOutput": 12258
+        },
+        "healthcare-luxcare/server/service/supply/inventory-workspace.service.ts": {
+          "bytesInOutput": 3943
+        },
+        "healthcare-luxcare/server/service/supply/inventory-read.service.ts": {
+          "bytesInOutput": 2575
+        },
+        "healthcare-luxcare/server/router/supply-inventory.router.ts": {
+          "bytesInOutput": 4405
+        },
+        "healthcare-luxcare/server/service/supply/inventory-backfill.service.ts": {
+          "bytesInOutput": 9265
+        },
+        "healthcare-luxcare/server/service/supply/inventory-profile.service.ts": {
+          "bytesInOutput": 3819
+        },
+        "healthcare-luxcare/server/validation/supply-inventory.validation.ts": {
+          "bytesInOutput": 2416
+        },
+        "healthcare-luxcare/server/router/equipment.router.ts": {
+          "bytesInOutput": 3127
+        },
+        "healthcare-luxcare/server/model/equipment.model.ts": {
+          "bytesInOutput": 3097
+        },
+        "healthcare-luxcare/server/model/equipment-inspection.model.ts": {
+          "bytesInOutput": 1346
+        },
+        "healthcare-luxcare/server/service/equipment.service.ts": {
+          "bytesInOutput": 15649
+        },
+        "healthcare-luxcare/server/controller/equipment.controller.ts": {
+          "bytesInOutput": 13993
+        },
+        "healthcare-luxcare/server/service/managed-upload.service.ts": {
+          "bytesInOutput": 9325
+        },
+        "healthcare-luxcare/server/config/resource-source-registry.ts": {
+          "bytesInOutput": 8376
+        },
+        "healthcare-luxcare/server/model/pending-upload.model.ts": {
+          "bytesInOutput": 1263
+        },
+        "healthcare-luxcare/server/service/cloudinary.service.ts": {
+          "bytesInOutput": 10490
+        },
+        "healthcare-luxcare/server/model/resource-item.model.ts": {
+          "bytesInOutput": 3341
+        },
+        "healthcare-luxcare/server/service/resource-indexing.service.ts": {
+          "bytesInOutput": 11934
+        },
+        "healthcare-luxcare/server/service/equipment-borrow.service.ts": {
+          "bytesInOutput": 9592
+        },
+        "healthcare-luxcare/server/model/equipment-borrow-transaction.model.ts": {
+          "bytesInOutput": 1274
+        },
+        "healthcare-luxcare/server/controller/equipment-borrow.controller.ts": {
+          "bytesInOutput": 3059
+        },
+        "healthcare-luxcare/server/validation/equipment.validation.ts": {
+          "bytesInOutput": 22061
+        },
+        "healthcare-luxcare/server/validation/equipment-borrow.validation.ts": {
+          "bytesInOutput": 2786
+        },
+        "healthcare-luxcare/server/router/supplier.router.ts": {
+          "bytesInOutput": 813
+        },
+        "healthcare-luxcare/server/service/supplier.service.ts": {
+          "bytesInOutput": 6572
+        },
+        "healthcare-luxcare/server/controller/supplier.controller.ts": {
+          "bytesInOutput": 2021
+        },
+        "healthcare-luxcare/server/validation/supplier.validation.ts": {
+          "bytesInOutput": 3531
+        },
+        "healthcare-luxcare/server/router/warehouse.router.ts": {
+          "bytesInOutput": 830
+        },
+        "healthcare-luxcare/server/service/warehouse.service.ts": {
+          "bytesInOutput": 7329
+        },
+        "healthcare-luxcare/server/controller/warehouse.controller.ts": {
+          "bytesInOutput": 2242
+        },
+        "healthcare-luxcare/server/validation/warehouse.validation.ts": {
+          "bytesInOutput": 2984
+        },
+        "healthcare-luxcare/server/router/category.router.ts": {
+          "bytesInOutput": 813
+        },
+        "healthcare-luxcare/server/model/category.model.ts": {
+          "bytesInOutput": 802
+        },
+        "healthcare-luxcare/server/service/category.service.ts": {
+          "bytesInOutput": 7089
+        },
+        "healthcare-luxcare/server/controller/category.controller.ts": {
+          "bytesInOutput": 2037
+        },
+        "healthcare-luxcare/server/validation/category.validation.ts": {
+          "bytesInOutput": 2731
+        },
+        "healthcare-luxcare/server/router/department.router.ts": {
+          "bytesInOutput": 548
+        },
+        "healthcare-luxcare/server/service/department.service.ts": {
+          "bytesInOutput": 8241
+        },
+        "healthcare-luxcare/server/service/department-legacy-pattern.ts": {
+          "bytesInOutput": 136
+        },
+        "healthcare-luxcare/server/controller/department.controller.ts": {
+          "bytesInOutput": 3560
+        },
+        "healthcare-luxcare/server/router/room.router.ts": {
+          "bytesInOutput": 452
+        },
+        "healthcare-luxcare/server/service/room.service.ts": {
+          "bytesInOutput": 7337
+        },
+        "healthcare-luxcare/server/controller/room.controller.ts": {
+          "bytesInOutput": 3937
+        },
+        "healthcare-luxcare/server/router/media.router.ts": {
+          "bytesInOutput": 8397
+        },
+        "healthcare-luxcare/server/controller/media.controller.ts": {
+          "bytesInOutput": 1618
+        }
+      },
+      "bytes": 429820
+    }
+  }
+}

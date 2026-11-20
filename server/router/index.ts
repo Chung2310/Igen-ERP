@@ -1,5 +1,6 @@
 import quotationRouter from "../modules/quotation/router";
 import { healthcareRouter } from "../modules/healthcare/router";
+import { luxcareProxy } from "../modules/healthcare/luxcare-proxy";
 import { architectAssistantRouter } from "../modules/architect-assistant/router";
 import { legalReferenceRouter } from "../modules/legal-reference/router";
 import { Router } from "express";
@@ -24,7 +25,7 @@ import { pushRouter } from "./push.router";
 import { mediaRouter } from "./media.router";
 import { notificationRouter } from "./notification.router";
 import { kanbanRouter } from "./kanban.router";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
 import { expensiveApiRateLimiter, publicApiRateLimiter } from "../middleware/rate-limit";
 import { superAdminRouter } from "./super-admin.router";
@@ -53,10 +54,29 @@ import { repairFeedbackRoutes } from "../modules/repair/repair-feedback.routes";
 import { financeRouter } from "../modules/finance/router";
 import { customerRouter } from "../modules/customer-management/router";
 import { marketingRouter } from "../modules/marketing/router";
+import { gymCallbackRouter, gymProxyRouter } from "../modules/gym/proxy";
+import { gymCreditRouter } from "../modules/gym/credit";
+import { walletRouter } from "./wallet.router";
 export const apiRouter = Router();
 apiRouter.use(marketingSuiteRouter);
 apiRouter.use("/quotation", requireAuth as any, requireModule("quotation"), quotationRouter);
 apiRouter.use("/healthcare", requireAuth as any, requireModule("healthcare"), healthcareRouter);
+apiRouter.use(
+  ["/supplies", "/supply-inventory", "/suppliers", "/warehouses", "/categories"],
+  requireAuth as any, requireModule("healthcare"), requirePermission(["healthcare:read", "healthcare:manage", "healthcare-supplies:read", "healthcare-supplies:manage"]) as any, luxcareProxy,
+);
+apiRouter.use(
+  ["/equipment", "/equipment-media"],
+  requireAuth as any, requireModule("healthcare"), requirePermission(["healthcare:read", "healthcare:manage", "healthcare-equipment:read", "healthcare-equipment:manage"]) as any, luxcareProxy,
+);
+apiRouter.use(
+  ["/departments", "/rooms"],
+  requireAuth as any, requireModule("healthcare"), requirePermission(["healthcare:read", "healthcare:manage", "healthcare-supplies:read", "healthcare-supplies:manage", "healthcare-equipment:read", "healthcare-equipment:manage"]) as any, luxcareProxy,
+);
+apiRouter.use("/gym/callback", gymCallbackRouter);
+apiRouter.use("/gym-credit/internal", gymCreditRouter);
+apiRouter.use("/wallet", walletRouter);
+apiRouter.use("/gym", requireAuth as any, requireModule("gym"), gymProxyRouter);
 apiRouter.use("/architect-assistant", requireAuth as any, requireModule("architect-assistant"), architectAssistantRouter);
 apiRouter.use("/legal-reference", requireAuth as any, requireModule("legal-reference"), legalReferenceRouter);
 

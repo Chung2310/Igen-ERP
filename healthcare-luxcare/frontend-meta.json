@@ -1,0 +1,2435 @@
+{
+  "inputs": {
+    "healthcare-luxcare/src/pages/Toast.tsx": {
+      "bytes": 11111,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/superAdminRequest.ts": {
+      "bytes": 4492,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../pages/Toast"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/serviceTransport.ts": {
+      "bytes": 371,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/apiClientError.ts": {
+      "bytes": 2666,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/rosterService.ts": {
+      "bytes": 2897,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/serviceTransport.ts",
+          "kind": "import-statement",
+          "original": "./serviceTransport"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/apiClientError.ts",
+          "kind": "import-statement",
+          "original": "./apiClientError"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/accountService.ts": {
+      "bytes": 1581,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/serviceTransport.ts",
+          "kind": "import-statement",
+          "original": "./serviceTransport"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/apiClientError.ts",
+          "kind": "import-statement",
+          "original": "./apiClientError"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/authService.ts": {
+      "bytes": 17644,
+      "imports": [
+        {
+          "path": "../types",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/superAdminRequest.ts",
+          "kind": "import-statement",
+          "original": "./superAdminRequest"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/rosterService.ts",
+          "kind": "import-statement",
+          "original": "./rosterService"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/accountService.ts",
+          "kind": "import-statement",
+          "original": "./accountService"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/apiClientError.ts",
+          "kind": "import-statement",
+          "original": "./apiClientError"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/supplyInventoryService.ts": {
+      "bytes": 4703,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyRecordDetailModal.tsx": {
+      "bytes": 4366,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyInventoryWorkspace.tsx": {
+      "bytes": 50553,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplyInventoryService.ts",
+          "kind": "import-statement",
+          "original": "../../services/supplyInventoryService"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyRecordDetailModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyRecordDetailModal"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/utils/vietnameseErrorMessage.ts": {
+      "bytes": 4703,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/utils/errorMessage.ts": {
+      "bytes": 367,
+      "imports": [
+        {
+          "path": "src/utils/vietnameseErrorMessage.ts",
+          "kind": "import-statement",
+          "original": "./vietnameseErrorMessage"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/modules/student-management/lib/utils.ts": {
+      "bytes": 7229,
+      "imports": [
+        {
+          "path": "clsx",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "tailwind-merge",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/pages/Toast.tsx": {
+      "bytes": 9669,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/utils/errorMessage.ts",
+          "kind": "import-statement",
+          "original": "../utils/errorMessage"
+        },
+        {
+          "path": "src/modules/student-management/lib/utils.ts",
+          "kind": "import-statement",
+          "original": "../modules/student-management/lib/utils"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/services/superAdminRequest.ts": {
+      "bytes": 4273,
+      "imports": [
+        {
+          "path": "src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../pages/Toast"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/utils/requestTimeout.ts": {
+      "bytes": 1153,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/services/sessionRefresh.ts": {
+      "bytes": 2142,
+      "imports": [
+        {
+          "path": "src/utils/requestTimeout.ts",
+          "kind": "import-statement",
+          "original": "../utils/requestTimeout"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/services/authService.ts": {
+      "bytes": 23599,
+      "imports": [
+        {
+          "path": "../types",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/services/superAdminRequest.ts",
+          "kind": "import-statement",
+          "original": "./superAdminRequest"
+        },
+        {
+          "path": "src/utils/requestTimeout.ts",
+          "kind": "import-statement",
+          "original": "../utils/requestTimeout"
+        },
+        {
+          "path": "src/services/sessionRefresh.ts",
+          "kind": "import-statement",
+          "original": "./sessionRefresh"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/utils/firebaseErrorParser.ts": {
+      "bytes": 6753,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/config/modules.ts": {
+      "bytes": 11989,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/services/socketService.ts": {
+      "bytes": 8186,
+      "imports": [
+        {
+          "path": "socket.io-client",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/context/companyModuleSync.ts": {
+      "bytes": 1375,
+      "imports": [
+        {
+          "path": "src/config/modules.ts",
+          "kind": "import-statement",
+          "original": "../config/modules"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/services/apiClientError.ts": {
+      "bytes": 3254,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/modules/student-management/lib/api.ts": {
+      "bytes": 3067,
+      "imports": [
+        {
+          "path": "src/services/apiClientError.ts",
+          "kind": "import-statement",
+          "original": "../../../services/apiClientError"
+        },
+        {
+          "path": "src/services/sessionRefresh.ts",
+          "kind": "import-statement",
+          "original": "../../../services/sessionRefresh"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/modules/student-management/api/moduleSettings.api.ts": {
+      "bytes": 959,
+      "imports": [
+        {
+          "path": "src/modules/student-management/lib/api.ts",
+          "kind": "import-statement",
+          "original": "../lib/api"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/modules/student-management/config/entityLabels.ts": {
+      "bytes": 4043,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/modules/student-management/hooks/entityPresetStore.ts": {
+      "bytes": 6805,
+      "imports": [
+        {
+          "path": "src/modules/student-management/api/moduleSettings.api.ts",
+          "kind": "import-statement",
+          "original": "../api/moduleSettings.api"
+        },
+        {
+          "path": "src/modules/student-management/config/entityLabels.ts",
+          "kind": "import-statement",
+          "original": "../config/entityLabels"
+        },
+        {
+          "path": "src/services/socketService.ts",
+          "kind": "import-statement",
+          "original": "../../../services/socketService"
+        },
+        {
+          "path": "src/utils/requestTimeout.ts",
+          "kind": "import-statement",
+          "original": "../../../utils/requestTimeout"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/context/AuthContext.tsx": {
+      "bytes": 14583,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "../services/authService"
+        },
+        {
+          "path": "../types",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../pages/Toast"
+        },
+        {
+          "path": "src/utils/errorMessage.ts",
+          "kind": "import-statement",
+          "original": "../utils/errorMessage"
+        },
+        {
+          "path": "src/utils/firebaseErrorParser.ts",
+          "kind": "import-statement",
+          "original": "../utils/firebaseErrorParser"
+        },
+        {
+          "path": "src/config/modules.ts",
+          "kind": "import-statement",
+          "original": "../config/modules"
+        },
+        {
+          "path": "src/services/socketService.ts",
+          "kind": "import-statement",
+          "original": "../services/socketService"
+        },
+        {
+          "path": "src/context/companyModuleSync.ts",
+          "kind": "import-statement",
+          "original": "./companyModuleSync"
+        },
+        {
+          "path": "src/modules/student-management/hooks/entityPresetStore.ts",
+          "kind": "import-statement",
+          "original": "../modules/student-management/hooks/entityPresetStore"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "src/services/branchService.ts": {
+      "bytes": 6244,
+      "imports": [
+        {
+          "path": "src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        },
+        {
+          "path": "src/services/sessionRefresh.ts",
+          "kind": "import-statement",
+          "original": "./sessionRefresh"
+        },
+        {
+          "path": "src/utils/requestTimeout.ts",
+          "kind": "import-statement",
+          "original": "../utils/requestTimeout"
+        }
+      ],
+      "format": "esm"
+    },
+    "src/context/branchFetch.ts": {
+      "bytes": 760,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/context/branchSelection.ts": {
+      "bytes": 281,
+      "imports": [],
+      "format": "esm"
+    },
+    "src/context/BranchContext.tsx": {
+      "bytes": 5159,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "src/context/AuthContext.tsx",
+          "kind": "import-statement",
+          "original": "./AuthContext"
+        },
+        {
+          "path": "src/services/branchService.ts",
+          "kind": "import-statement",
+          "original": "../services/branchService"
+        },
+        {
+          "path": "src/context/branchFetch.ts",
+          "kind": "import-statement",
+          "original": "./branchFetch"
+        },
+        {
+          "path": "src/context/branchSelection.ts",
+          "kind": "import-statement",
+          "original": "./branchSelection"
+        },
+        {
+          "path": "src/utils/requestTimeout.ts",
+          "kind": "import-statement",
+          "original": "../utils/requestTimeout"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/context/BranchContext.tsx": {
+      "bytes": 156,
+      "imports": [
+        {
+          "path": "src/context/BranchContext.tsx",
+          "kind": "import-statement",
+          "original": "../../../src/context/BranchContext"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/context/AuthContext.tsx": {
+      "bytes": 731,
+      "imports": [
+        {
+          "path": "src/context/AuthContext.tsx",
+          "kind": "import-statement",
+          "original": "../../../src/context/AuthContext"
+        },
+        {
+          "path": "src/context/AuthContext.tsx",
+          "kind": "import-statement",
+          "original": "../../../src/context/AuthContext"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/supplyService.ts": {
+      "bytes": 12240,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/supplierService.ts": {
+      "bytes": 2420,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/warehouseService.ts": {
+      "bytes": 2709,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/categoryService.ts": {
+      "bytes": 2475,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/departmentService.ts": {
+      "bytes": 2765,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/serviceTransport.ts",
+          "kind": "import-statement",
+          "original": "./serviceTransport"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyStatsCards.tsx": {
+      "bytes": 3302,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyFiltersBar.tsx": {
+      "bytes": 17692,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/shared/supply-stock.ts": {
+      "bytes": 2089,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyTable.tsx": {
+      "bytes": 13594,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/roomService.ts": {
+      "bytes": 3340,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/serviceTransport.ts",
+          "kind": "import-statement",
+          "original": "./serviceTransport"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/common/RoomSelect.tsx": {
+      "bytes": 9558,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/roomService.ts",
+          "kind": "import-statement",
+          "original": "../../services/roomService"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplierSelect.tsx": {
+      "bytes": 19809,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react-dom",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplierService.ts",
+          "kind": "import-statement",
+          "original": "../../services/supplierService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/WarehouseSelect.tsx": {
+      "bytes": 18089,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react-dom",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/warehouseService.ts",
+          "kind": "import-statement",
+          "original": "../../services/warehouseService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/CategorySelect.tsx": {
+      "bytes": 16897,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react-dom",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/categoryService.ts",
+          "kind": "import-statement",
+          "original": "../../services/categoryService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyCameraModal.tsx": {
+      "bytes": 12988,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyAddEditModal.tsx": {
+      "bytes": 32950,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/components/common/RoomSelect.tsx",
+          "kind": "import-statement",
+          "original": "../common/RoomSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplierSelect.tsx",
+          "kind": "import-statement",
+          "original": "./SupplierSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/WarehouseSelect.tsx",
+          "kind": "import-statement",
+          "original": "./WarehouseSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/CategorySelect.tsx",
+          "kind": "import-statement",
+          "original": "./CategorySelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyCameraModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyCameraModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplyService.ts",
+          "kind": "import-statement",
+          "original": "../../services/supplyService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyStockModal.tsx": {
+      "bytes": 8711,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyHistoryModal.tsx": {
+      "bytes": 3930,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyDocumentsModal.tsx": {
+      "bytes": 14852,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyLightboxModal.tsx": {
+      "bytes": 607,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplierManagementView.tsx": {
+      "bytes": 30520,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplierService.ts",
+          "kind": "import-statement",
+          "original": "../../services/supplierService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyRecordDetailModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyRecordDetailModal"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/WarehouseManagementView.tsx": {
+      "bytes": 27443,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/warehouseService.ts",
+          "kind": "import-statement",
+          "original": "../../services/warehouseService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyRecordDetailModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyRecordDetailModal"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/CategoryManagementView.tsx": {
+      "bytes": 26164,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/categoryService.ts",
+          "kind": "import-statement",
+          "original": "../../services/categoryService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyRecordDetailModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyRecordDetailModal"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyTransactionsView.tsx": {
+      "bytes": 34615,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplyService.ts",
+          "kind": "import-statement",
+          "original": "../../services/supplyService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyDetailModal.tsx": {
+      "bytes": 27236,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplyService.ts",
+          "kind": "import-statement",
+          "original": "../../services/supplyService"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyLinePicker.tsx": {
+      "bytes": 4754,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/SupplyBatchStockModal.tsx": {
+      "bytes": 32502,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyLinePicker.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyLinePicker"
+        },
+        {
+          "path": "healthcare-luxcare/shared/supply-stock.ts",
+          "kind": "import-statement",
+          "original": "../../../shared/supply-stock"
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/supply/index.ts": {
+      "bytes": 1074,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyStatsCards.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyStatsCards"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyFiltersBar.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyFiltersBar"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyTable.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyTable"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyAddEditModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyAddEditModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyStockModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyStockModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyHistoryModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyHistoryModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyDocumentsModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyDocumentsModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyLightboxModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyLightboxModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplierSelect.tsx",
+          "kind": "import-statement",
+          "original": "./SupplierSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/WarehouseSelect.tsx",
+          "kind": "import-statement",
+          "original": "./WarehouseSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplierManagementView.tsx",
+          "kind": "import-statement",
+          "original": "./SupplierManagementView"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/WarehouseManagementView.tsx",
+          "kind": "import-statement",
+          "original": "./WarehouseManagementView"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/CategorySelect.tsx",
+          "kind": "import-statement",
+          "original": "./CategorySelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/CategoryManagementView.tsx",
+          "kind": "import-statement",
+          "original": "./CategoryManagementView"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyTransactionsView.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyTransactionsView"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyDetailModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyDetailModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyBatchStockModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyBatchStockModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyCameraModal.tsx",
+          "kind": "import-statement",
+          "original": "./SupplyCameraModal"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/pages/SupplyTab.tsx": {
+      "bytes": 35429,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/components/supply/SupplyInventoryWorkspace.tsx",
+          "kind": "import-statement",
+          "original": "../components/supply/SupplyInventoryWorkspace"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplyInventoryService.ts",
+          "kind": "import-statement",
+          "original": "../services/supplyInventoryService"
+        },
+        {
+          "path": "../../shared/supply-stock",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/context/BranchContext.tsx",
+          "kind": "import-statement",
+          "original": "../context/BranchContext"
+        },
+        {
+          "path": "healthcare-luxcare/src/context/AuthContext.tsx",
+          "kind": "import-statement",
+          "original": "../context/AuthContext"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplyService.ts",
+          "kind": "import-statement",
+          "original": "../services/supplyService"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/supplierService.ts",
+          "kind": "import-statement",
+          "original": "../services/supplierService"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/warehouseService.ts",
+          "kind": "import-statement",
+          "original": "../services/warehouseService"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/categoryService.ts",
+          "kind": "import-statement",
+          "original": "../services/categoryService"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/departmentService.ts",
+          "kind": "import-statement",
+          "original": "../services/departmentService"
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "./Toast"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/supply/index.ts",
+          "kind": "import-statement",
+          "original": "../components/supply"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/pages/EquipmentInventoryView.tsx": {
+      "bytes": 183,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/common/Pagination.tsx": {
+      "bytes": 4377,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/pages/EquipmentRequestsView.tsx": {
+      "bytes": 12140,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/components/common/Pagination.tsx",
+          "kind": "import-statement",
+          "original": "../components/common/Pagination"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/pages/equipmentTabNavigation.ts": {
+      "bytes": 621,
+      "imports": [],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/common/DepartmentSelect.tsx": {
+      "bytes": 8981,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/departmentService.ts",
+          "kind": "import-statement",
+          "original": "../../services/departmentService"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/common/ConfirmDialog.tsx": {
+      "bytes": 3235,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/services/equipmentComplianceService.ts": {
+      "bytes": 6296,
+      "imports": [
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "./authService"
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/components/equipment/EquipmentComplianceModal.tsx": {
+      "bytes": 60372,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/equipmentComplianceService.ts",
+          "kind": "import-statement",
+          "original": "../../services/equipmentComplianceService"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "../../pages/Toast"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/common/ConfirmDialog.tsx",
+          "kind": "import-statement",
+          "original": "../common/ConfirmDialog"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "healthcare-luxcare/src/pages/EquipmentTab.tsx": {
+      "bytes": 144485,
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/services/authService.ts",
+          "kind": "import-statement",
+          "original": "../services/authService"
+        },
+        {
+          "path": "healthcare-luxcare/src/context/BranchContext.tsx",
+          "kind": "import-statement",
+          "original": "../context/BranchContext"
+        },
+        {
+          "path": "healthcare-luxcare/src/context/AuthContext.tsx",
+          "kind": "import-statement",
+          "original": "../context/AuthContext"
+        },
+        {
+          "path": "./equipmentBorrowUi",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/EquipmentInventoryView.tsx",
+          "kind": "import-statement",
+          "original": "./EquipmentInventoryView"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/EquipmentRequestsView.tsx",
+          "kind": "import-statement",
+          "original": "./EquipmentRequestsView"
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/equipmentTabNavigation.ts",
+          "kind": "import-statement",
+          "original": "./equipmentTabNavigation"
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "healthcare-luxcare/src/pages/Toast.tsx",
+          "kind": "import-statement",
+          "original": "./Toast"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/common/RoomSelect.tsx",
+          "kind": "import-statement",
+          "original": "../components/common/RoomSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/common/DepartmentSelect.tsx",
+          "kind": "import-statement",
+          "original": "../components/common/DepartmentSelect"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/departmentService.ts",
+          "kind": "import-statement",
+          "original": "../services/departmentService"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/common/ConfirmDialog.tsx",
+          "kind": "import-statement",
+          "original": "../components/common/ConfirmDialog"
+        },
+        {
+          "path": "healthcare-luxcare/src/components/equipment/EquipmentComplianceModal.tsx",
+          "kind": "import-statement",
+          "original": "../components/equipment/EquipmentComplianceModal"
+        },
+        {
+          "path": "healthcare-luxcare/src/services/equipmentComplianceService.ts",
+          "kind": "import-statement",
+          "original": "../services/equipmentComplianceService"
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "healthcare-luxcare/dist-feature/ui/SupplyTab.js": {
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "clsx",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "tailwind-merge",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "socket.io-client",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react-dom",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react-dom",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react-dom",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "exports": [
+        "default"
+      ],
+      "entryPoint": "healthcare-luxcare/src/pages/SupplyTab.tsx",
+      "inputs": {
+        "healthcare-luxcare/src/components/supply/SupplyInventoryWorkspace.tsx": {
+          "bytesInOutput": 52565
+        },
+        "healthcare-luxcare/src/pages/Toast.tsx": {
+          "bytesInOutput": 2043
+        },
+        "healthcare-luxcare/src/services/serviceTransport.ts": {
+          "bytesInOutput": 147
+        },
+        "healthcare-luxcare/src/services/apiClientError.ts": {
+          "bytesInOutput": 1934
+        },
+        "healthcare-luxcare/src/services/rosterService.ts": {
+          "bytesInOutput": 1868
+        },
+        "healthcare-luxcare/src/services/accountService.ts": {
+          "bytesInOutput": 1210
+        },
+        "healthcare-luxcare/src/services/authService.ts": {
+          "bytesInOutput": 76
+        },
+        "healthcare-luxcare/src/services/supplyInventoryService.ts": {
+          "bytesInOutput": 1870
+        },
+        "healthcare-luxcare/src/components/supply/SupplyRecordDetailModal.tsx": {
+          "bytesInOutput": 5033
+        },
+        "healthcare-luxcare/src/pages/SupplyTab.tsx": {
+          "bytesInOutput": 33823
+        },
+        "src/context/BranchContext.tsx": {
+          "bytesInOutput": 445
+        },
+        "src/context/AuthContext.tsx": {
+          "bytesInOutput": 423
+        },
+        "src/pages/Toast.tsx": {
+          "bytesInOutput": 312
+        },
+        "src/modules/student-management/lib/utils.ts": {
+          "bytesInOutput": 71
+        },
+        "src/config/modules.ts": {
+          "bytesInOutput": 3718
+        },
+        "src/services/socketService.ts": {
+          "bytesInOutput": 6565
+        },
+        "src/modules/student-management/config/entityLabels.ts": {
+          "bytesInOutput": 1834
+        },
+        "healthcare-luxcare/src/context/BranchContext.tsx": {
+          "bytesInOutput": 0
+        },
+        "healthcare-luxcare/src/context/AuthContext.tsx": {
+          "bytesInOutput": 586
+        },
+        "healthcare-luxcare/src/services/supplyService.ts": {
+          "bytesInOutput": 9781
+        },
+        "healthcare-luxcare/src/services/supplierService.ts": {
+          "bytesInOutput": 2015
+        },
+        "healthcare-luxcare/src/services/warehouseService.ts": {
+          "bytesInOutput": 2239
+        },
+        "healthcare-luxcare/src/services/categoryService.ts": {
+          "bytesInOutput": 2100
+        },
+        "healthcare-luxcare/src/services/departmentService.ts": {
+          "bytesInOutput": 1691
+        },
+        "healthcare-luxcare/src/components/supply/SupplyStatsCards.tsx": {
+          "bytesInOutput": 4255
+        },
+        "healthcare-luxcare/src/components/supply/index.ts": {
+          "bytesInOutput": 0
+        },
+        "healthcare-luxcare/src/components/supply/SupplyFiltersBar.tsx": {
+          "bytesInOutput": 17031
+        },
+        "healthcare-luxcare/shared/supply-stock.ts": {
+          "bytesInOutput": 1046
+        },
+        "healthcare-luxcare/src/components/supply/SupplyTable.tsx": {
+          "bytesInOutput": 13974
+        },
+        "healthcare-luxcare/src/components/supply/SupplyAddEditModal.tsx": {
+          "bytesInOutput": 36609
+        },
+        "healthcare-luxcare/src/components/common/RoomSelect.tsx": {
+          "bytesInOutput": 9367
+        },
+        "healthcare-luxcare/src/services/roomService.ts": {
+          "bytesInOutput": 2165
+        },
+        "healthcare-luxcare/src/components/supply/SupplierSelect.tsx": {
+          "bytesInOutput": 20722
+        },
+        "healthcare-luxcare/src/components/supply/WarehouseSelect.tsx": {
+          "bytesInOutput": 18908
+        },
+        "healthcare-luxcare/src/components/supply/CategorySelect.tsx": {
+          "bytesInOutput": 17111
+        },
+        "healthcare-luxcare/src/components/supply/SupplyCameraModal.tsx": {
+          "bytesInOutput": 13059
+        },
+        "healthcare-luxcare/src/components/supply/SupplyStockModal.tsx": {
+          "bytesInOutput": 208
+        },
+        "healthcare-luxcare/src/components/supply/SupplyHistoryModal.tsx": {
+          "bytesInOutput": 4024
+        },
+        "healthcare-luxcare/src/components/supply/SupplyDocumentsModal.tsx": {
+          "bytesInOutput": 17382
+        },
+        "healthcare-luxcare/src/components/supply/SupplyLightboxModal.tsx": {
+          "bytesInOutput": 599
+        },
+        "healthcare-luxcare/src/components/supply/SupplierManagementView.tsx": {
+          "bytesInOutput": 32425
+        },
+        "healthcare-luxcare/src/components/supply/WarehouseManagementView.tsx": {
+          "bytesInOutput": 29076
+        },
+        "healthcare-luxcare/src/components/supply/CategoryManagementView.tsx": {
+          "bytesInOutput": 27139
+        },
+        "healthcare-luxcare/src/components/supply/SupplyTransactionsView.tsx": {
+          "bytesInOutput": 39106
+        },
+        "healthcare-luxcare/src/components/supply/SupplyDetailModal.tsx": {
+          "bytesInOutput": 31225
+        },
+        "healthcare-luxcare/src/components/supply/SupplyLinePicker.tsx": {
+          "bytesInOutput": 5428
+        },
+        "healthcare-luxcare/src/components/supply/SupplyBatchStockModal.tsx": {
+          "bytesInOutput": 36357
+        }
+      },
+      "bytes": 512579
+    },
+    "healthcare-luxcare/dist-feature/ui/EquipmentTab.js": {
+      "imports": [
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "clsx",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "tailwind-merge",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "socket.io-client",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "lucide-react",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "react/jsx-runtime",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "exports": [
+        "default"
+      ],
+      "entryPoint": "healthcare-luxcare/src/pages/EquipmentTab.tsx",
+      "inputs": {
+        "healthcare-luxcare/src/pages/EquipmentTab.tsx": {
+          "bytesInOutput": 148758
+        },
+        "healthcare-luxcare/src/pages/Toast.tsx": {
+          "bytesInOutput": 2005
+        },
+        "healthcare-luxcare/src/services/serviceTransport.ts": {
+          "bytesInOutput": 145
+        },
+        "healthcare-luxcare/src/services/apiClientError.ts": {
+          "bytesInOutput": 1934
+        },
+        "healthcare-luxcare/src/services/rosterService.ts": {
+          "bytesInOutput": 1858
+        },
+        "healthcare-luxcare/src/services/accountService.ts": {
+          "bytesInOutput": 1204
+        },
+        "healthcare-luxcare/src/services/authService.ts": {
+          "bytesInOutput": 76
+        },
+        "src/context/BranchContext.tsx": {
+          "bytesInOutput": 445
+        },
+        "src/context/AuthContext.tsx": {
+          "bytesInOutput": 423
+        },
+        "src/pages/Toast.tsx": {
+          "bytesInOutput": 301
+        },
+        "src/modules/student-management/lib/utils.ts": {
+          "bytesInOutput": 71
+        },
+        "src/config/modules.ts": {
+          "bytesInOutput": 3718
+        },
+        "src/services/socketService.ts": {
+          "bytesInOutput": 6565
+        },
+        "src/modules/student-management/config/entityLabels.ts": {
+          "bytesInOutput": 1834
+        },
+        "healthcare-luxcare/src/context/BranchContext.tsx": {
+          "bytesInOutput": 0
+        },
+        "healthcare-luxcare/src/context/AuthContext.tsx": {
+          "bytesInOutput": 586
+        },
+        "healthcare-luxcare/src/pages/EquipmentInventoryView.tsx": {
+          "bytesInOutput": 175
+        },
+        "healthcare-luxcare/src/pages/EquipmentRequestsView.tsx": {
+          "bytesInOutput": 15404
+        },
+        "healthcare-luxcare/src/components/common/Pagination.tsx": {
+          "bytesInOutput": 4815
+        },
+        "healthcare-luxcare/src/pages/equipmentTabNavigation.ts": {
+          "bytesInOutput": 415
+        },
+        "healthcare-luxcare/src/components/common/RoomSelect.tsx": {
+          "bytesInOutput": 9328
+        },
+        "healthcare-luxcare/src/services/roomService.ts": {
+          "bytesInOutput": 2153
+        },
+        "healthcare-luxcare/src/components/common/DepartmentSelect.tsx": {
+          "bytesInOutput": 8524
+        },
+        "healthcare-luxcare/src/services/departmentService.ts": {
+          "bytesInOutput": 1679
+        },
+        "healthcare-luxcare/src/components/common/ConfirmDialog.tsx": {
+          "bytesInOutput": 3538
+        },
+        "healthcare-luxcare/src/components/equipment/EquipmentComplianceModal.tsx": {
+          "bytesInOutput": 63909
+        },
+        "healthcare-luxcare/src/services/equipmentComplianceService.ts": {
+          "bytesInOutput": 4030
+        }
+      },
+      "bytes": 285728
+    }
+  }
+}

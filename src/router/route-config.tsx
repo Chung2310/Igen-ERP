@@ -24,9 +24,10 @@ export type AppRoute = {
 };
 
 export const APP_ROUTES: AppRoute[] = [
+  { tab: "CHUỖI GYM", component: lazy(() => import("../modules/gym/GymModule")), canAccess: (user) => ["gym_admin", "gym_pt", "gym_customer"].includes(user.role) || Boolean(user.permissions?.some((code) => ["*", "gym-admin:manage", "gym-pt:read", "gym-pt:manage", "gym-customer:read", "gym-customer:manage"].includes(code))) },
   { tab: "TRỢ LÝ KIẾN TRÚC", component: lazy(() => import("../modules/architect-assistant/ArchitectureAssistantPage")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "architect-assistant:read", "architect-assistant:manage"].includes(code))) },
   { tab: "BÁO GIÁ", component: lazy(() => import("../modules/quotation/QuotationTab")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "quotation:read", "quotation:manage"].includes(code))) },
-  { tab: "QUẢN LÝ Y TẾ", component: lazy(() => import("../modules/healthcare/HealthcarePage")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "healthcare:read", "healthcare:manage"].includes(code))) },
+  { tab: "QUẢN LÝ Y TẾ", component: lazy(() => import("../modules/healthcare/HealthcarePage")), canAccess: (user) => Boolean(user.permissions?.some(code => ["*", "healthcare:read", "healthcare:manage", "healthcare-supplies:read", "healthcare-supplies:manage", "healthcare-equipment:read", "healthcare-equipment:manage"].includes(code))) },
   { tab: "OMNI INBOX", component: lazy(() => import("../modules/marketing-suite/message/pages/CRMTab")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "omni-inbox:read", "omni-inbox:manage"].includes(value))) },
   { tab: "KHO TRI THỨC", component: lazy(() => import("../modules/marketing-suite/knowledge/pages/CompanyKnowledgePage")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "company-knowledge:read", "company-knowledge:manage"].includes(value))) },
   { tab: "VĂN BẢN PHÁP LUẬT", component: lazy(() => import("../modules/legal-reference/LegalReferencePage")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "legal-reference:read", "legal-reference:manage"].includes(value))) },

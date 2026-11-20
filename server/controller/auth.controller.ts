@@ -523,7 +523,8 @@ export const authController = {
         includeUnassignedBranchUsers = String(branch.code || "").toUpperCase() === "MAIN";
       }
       const filter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers, String(req.query.search || ""));
-      const users = await authService.getUsers(filter);
+      const includeGymPt = req.query.includeGymPt === "true" && ["admin", "superadmin"].includes(req.user?.role || "");
+      const users = await authService.getUsers(filter, includeGymPt);
       const departmentQuery = String(req.query.department || "").trim();
       const departmentUsers = departmentQuery
         ? users.filter(user => matchesDepartmentName(user.department, departmentQuery))

@@ -1,0 +1,443 @@
+/* Chuỗi GYM dùng cùng nhịp chữ, nền và điều hướng với Nhân sự ERP. */
+:root {
+  --gym-erp-primary: #00adfc;
+  --gym-erp-ink: #071629;
+  --gym-erp-muted: #475569;
+  --gym-erp-surface: #f6f8fd;
+  --gym-erp-card: #fff;
+  --gym-erp-outline: #d8e2f0;
+  --gym-erp-font: Inter, 'Be Vietnam Pro', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --color-primary: #00adfc;
+  --color-gym-bg: #f6f8fd;
+  --color-gym-dark: #071629;
+  --color-gym-gray: #475569;
+  --primary-color: #071629;
+  --secondary-color: #00adfc;
+  --bg-color: #f6f8fd;
+  --text-dark: #071629;
+  --text-light: #475569;
+}
+
+body:has(.portal-shell) {
+  background: var(--gym-erp-surface);
+  background-image: none;
+  font-family: var(--gym-erp-font);
+}
+
+.portal-shell {
+  min-height: 100dvh;
+  grid-template-columns: 256px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+  background: var(--gym-erp-surface);
+  color: var(--gym-erp-ink);
+  font-family: var(--gym-erp-font);
+}
+
+.portal-shell.sidebar-collapsed { grid-template-columns: 80px minmax(0, 1fr); }
+
+.portal-shell :is(button, input, select, textarea, table) {
+  font-family: var(--gym-erp-font) !important;
+}
+
+.portal-shell :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--gym-erp-font) !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+.portal-shell h1 { font-size: 18px !important; line-height: 28px !important; }
+.portal-shell [style*='font-weight: 900'] { font-weight: 700 !important; }
+.portal-shell [style*='font-weight: 800'],
+.portal-shell [style*='font-weight: 750'],
+.portal-shell [style*='font-weight: 700'],
+.portal-shell .font-black,
+.portal-shell .font-extrabold,
+.portal-shell .font-bold { font-weight: 600 !important; }
+
+.portal-shell .portal-sidebar {
+  top: 8px;
+  height: calc(100dvh - 16px);
+  padding: 0;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 12px;
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  overflow: visible;
+}
+
+.portal-shell .portal-navigation { display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 0; padding: 8px; }
+.portal-shell .portal-nav-section { gap: 4px; margin-bottom: 0; }
+.portal-shell .portal-nav-heading {
+  padding: 0 12px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+}
+
+.portal-shell .portal-sidebar nav a {
+  min-height: 40px;
+  padding: 8px 12px;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--gym-erp-muted);
+  font-family: var(--gym-erp-font);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.portal-shell .portal-sidebar nav a .gym-nav-icon {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: var(--gym-erp-primary);
+}
+.portal-shell .gym-nav-icon svg { position: absolute; inset: 0; }
+.portal-shell .portal-sidebar nav a:hover,
+.portal-shell .portal-sidebar nav a:focus-visible {
+  background: #f1f5fb;
+  color: var(--gym-erp-ink);
+}
+.portal-shell .portal-sidebar nav a.active {
+  border: 0;
+  background: #f1f5fb;
+  color: var(--gym-erp-primary);
+  box-shadow: none;
+  font-weight: 600;
+}
+.portal-shell .gym-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gym-erp-ink);
+}
+.portal-shell .portal-sidebar nav a[aria-current="page"] .gym-nav-label {
+  color: var(--gym-erp-primary);
+  background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.portal-shell .gym-nav-active-dot { width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: var(--gym-erp-primary); }
+.portal-shell .portal-sidebar-top {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 0;
+  position: relative;
+  z-index: 5;
+}
+.portal-shell .portal-sidebar.sidebar-collapsed .portal-sidebar-top { justify-content: space-between; gap: 2px; padding-inline: 4px; }
+.portal-shell .portal-sidebar.sidebar-collapsed :is(.portal-collapse-toggle, .portal-search-trigger) { width: 30px; }
+.portal-shell .portal-sidebar.sidebar-collapsed .portal-navigation { padding: 8px; }
+.portal-shell .portal-sidebar.sidebar-collapsed .portal-nav-section { gap: 4px; margin-bottom: 0; }
+.portal-shell .portal-sidebar.sidebar-collapsed nav a { justify-content: center; min-height: 40px; padding: 8px; border: 0; }
+.portal-shell .portal-sidebar nav a:focus-visible,
+.portal-shell .portal-logout-btn:focus-visible,
+.portal-shell .mobile-close:focus-visible,
+.portal-shell .mobile-menu:focus-visible,
+.portal-shell .portal-collapse-toggle:focus-visible,
+.portal-shell .portal-search-trigger:focus-visible,
+.portal-shell .portal-search-close:focus-visible,
+.portal-shell .portal-search-result:focus-visible {
+  outline: 2px solid var(--gym-erp-primary);
+  outline-offset: 2px;
+}
+
+.portal-shell .portal-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+.portal-shell .portal-logout-wrap { width: 100%; margin: 0; padding: 0; border: 0; }
+.portal-shell .portal-sidebar.sidebar-collapsed .portal-logout-wrap { width: 100%; margin: 0; padding: 0; border: 0; }
+.portal-shell .portal-logout-btn {
+  height: 40px;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px;
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.portal-shell .portal-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gym-erp-muted);
+  box-shadow: none;
+  cursor: pointer;
+}
+.portal-shell .portal-collapse-toggle:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--gym-erp-ink) 5%, var(--gym-erp-card));
+  color: var(--gym-erp-primary);
+}
+.portal-shell .portal-search { position: relative; }
+.portal-shell .portal-search-trigger,
+.portal-shell .portal-search-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gym-erp-muted);
+  cursor: pointer;
+}
+.portal-shell .portal-search-trigger:is(:hover, :focus-visible),
+.portal-shell .portal-search-close:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--gym-erp-ink) 5%, var(--gym-erp-card));
+  color: var(--gym-erp-primary);
+}
+.portal-shell .portal-search-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 1100;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 12px;
+  background: var(--gym-erp-card);
+  box-shadow: 0 16px 40px rgb(7 22 41 / 16%);
+}
+.portal-shell .portal-search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+  color: var(--gym-erp-muted);
+}
+.portal-shell .portal-search-field > svg { flex: none; }
+.portal-shell .portal-search-input {
+  min-width: 0;
+  flex: 1;
+  height: 36px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  outline: 0;
+}
+.portal-shell .portal-search-input:focus-visible { border: 0 !important; box-shadow: none !important; }
+.portal-shell .portal-search-close { flex: none; }
+.portal-shell .portal-search-results { max-height: 320px; overflow-y: auto; }
+.portal-shell .portal-search-count {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+  background: var(--gym-erp-surface);
+  color: var(--gym-erp-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.portal-shell .portal-search-result {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--gym-erp-outline);
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+}
+.portal-shell .portal-search-result:last-child { border-bottom: 0; }
+.portal-shell .portal-search-result:hover { background: var(--gym-erp-surface); color: var(--gym-erp-primary); }
+.portal-shell .portal-search-empty { margin: 0; padding: 18px; color: var(--gym-erp-muted); font-size: 14px; text-align: center; }
+.portal-shell .portal-sidebar.sidebar-collapsed .portal-logout-btn { justify-content: center; width: 44px; height: 44px; margin: 0 auto; padding: 0; }
+.portal-shell .portal-logout-btn:hover {
+  border-color: var(--gym-erp-outline);
+  background: #eff8fd;
+  color: #007fba;
+}
+
+.portal-shell .portal-main {
+  min-height: calc(100dvh - 16px);
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 12px;
+  background: var(--gym-erp-card);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  overflow: hidden;
+}
+.portal-shell .portal-header {
+  border-bottom: 1px solid var(--gym-erp-outline);
+  background: var(--gym-erp-card);
+}
+.portal-shell .portal-breadcrumb { color: var(--gym-erp-muted); font-size: 13px; }
+.portal-shell .portal-breadcrumb strong { color: var(--gym-erp-ink); font-weight: 600; }
+.portal-shell .portal-content { width: 100%; max-width: none; min-height: calc(100dvh - 18px); padding: 16px; background: var(--gym-erp-surface); }
+.portal-shell #admin-dashboard-title {
+  padding-left: 10px;
+  border-left: 4px solid var(--gym-erp-primary);
+  color: var(--gym-erp-ink) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+
+.portal-shell :is(.panel, .admin-stat-card, .feature-flag-card, .customer-tab-panel, .modal-content, .confirm-modal) {
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px;
+  background: var(--gym-erp-card);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+.portal-shell :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl),
+.portal-shell [style*='border-radius: 10px'],
+.portal-shell [style*='border-radius: 12px'],
+.portal-shell [style*='border-radius: 14px'],
+.portal-shell [style*='border-radius: 16px'],
+.portal-shell [style*='border-radius: 20px'] { border-radius: 6px !important; }
+
+/* Nút thao tác trong GYM dùng cùng nhịp với nút Nhân sự của ERP. */
+body:has(.App) .button {
+  min-height: 36px;
+  height: auto;
+  padding: 8px 16px;
+  border-radius: 12px !important;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  box-shadow: none;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+body:has(.App) .button-primary {
+  border: 1px solid transparent;
+  background: var(--gym-erp-primary);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+body:has(.App) .button-primary:hover {
+  background: #0095d9;
+  opacity: 1;
+  transform: none;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+body:has(.App) .button-primary:active { background: #0085c2; }
+body:has(.App) .button-secondary,
+body:has(.App) .button-filter-reset {
+  min-height: 36px;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px !important;
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: none;
+}
+body:has(.App) .button-secondary:hover,
+body:has(.App) .button-filter-reset:hover {
+  border-color: var(--gym-erp-outline);
+  background: color-mix(in srgb, var(--gym-erp-primary) 5%, var(--gym-erp-card));
+  color: var(--gym-erp-ink);
+  transform: none;
+}
+body:has(.App) .button-danger {
+  border: 1px solid transparent;
+  background: #dc2626;
+  color: #fff;
+}
+body:has(.App) .button-danger:hover { background: #b91c1c; transform: none; }
+body:has(.App) .button:focus-visible,
+body:has(.App) .button-filter-reset:focus-visible,
+body:has(.App) .inline-actions .text-button:focus-visible {
+  outline: 2px solid var(--gym-erp-primary);
+  outline-offset: 2px;
+}
+body:has(.App) .button:disabled,
+body:has(.App) .button-filter-reset:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+  transform: none;
+}
+body:has(.App) .text-button {
+  border-radius: 6px !important;
+  color: var(--gym-erp-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+body:has(.App) .text-button:hover { background: color-mix(in srgb, var(--gym-erp-primary) 5%, var(--gym-erp-card)); }
+body:has(.App) .text-button:disabled { cursor: not-allowed; opacity: .5; }
+body:has(.App) .inline-actions .text-button {
+  min-height: 36px;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px !important;
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+body:has(.App) .inline-actions .text-button:hover {
+  border-color: var(--gym-erp-outline);
+  background: color-mix(in srgb, var(--gym-erp-primary) 5%, var(--gym-erp-card));
+  color: var(--gym-erp-ink);
+}
+body:has(.App) .inline-actions .text-button.text-danger { color: #dc2626; }
+body:has(.App) .inline-actions .text-button.text-danger:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.portal-shell :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  border-color: var(--gym-erp-outline);
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+  font-weight: 400 !important;
+}
+.portal-shell label { font-weight: 500 !important; }
+.portal-shell :is(input, select, textarea):focus-visible {
+  outline: none;
+  border-color: var(--gym-erp-primary) !important;
+  box-shadow: none !important;
+}
+.portal-shell .customer-browser-tabs button { font-weight: 500; }
+.portal-shell .customer-browser-tabs button.active {
+  color: var(--gym-erp-ink);
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .portal-shell { padding: 0; }
+  .portal-shell .portal-sidebar { top: 0; width: min(290px, 88vw); height: 100dvh; border-radius: 0 12px 12px 0; }
+  .portal-shell .portal-main { min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+  .portal-shell .portal-sidebar-top { position: absolute; top: 4px; left: 8px; display: flex; padding: 0; }
+  .portal-shell .portal-collapse-toggle { display: none; }
+  .portal-shell .mobile-close { margin: 4px 8px 0 auto; }
+  .portal-shell .mobile-close { color: var(--gym-erp-muted); }
+  .portal-shell .mobile-menu { color: var(--gym-erp-ink); font-weight: 600; }
+  .portal-shell .portal-content { padding: 12px; }
+  .portal-shell .portal-bottom-nav {
+    border-top: 1px solid var(--gym-erp-outline);
+    background: var(--gym-erp-card);
+    box-shadow: 0 -1px 3px rgb(15 23 42 / 6%);
+  }
+  .portal-shell .portal-bottom-nav-item { color: var(--gym-erp-muted); font-weight: 500; }
+  .portal-shell .portal-bottom-nav-item.active,
+  .portal-shell .portal-bottom-nav-item.active svg { color: #007fba; }
+}

@@ -74,7 +74,9 @@ function AppContent() {
   const teacherSafeTab = userProfile?.role === "teacher" && activeTab === "NHÂN SỰ"
     ? "QUẢN LÝ HỌC VIÊN" as TabType
     : activeTab;
-  const resolvedActiveTab = resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
+  const resolvedActiveTab = ["gym_admin", "gym_pt", "gym_customer"].includes(userProfile?.role || "")
+    ? "CHUỖI GYM" as TabType
+    : resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
 
   React.useEffect(() => {
     if (resolvedActiveTab !== "TRỢ LÝ AI") return;

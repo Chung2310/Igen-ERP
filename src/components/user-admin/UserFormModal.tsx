@@ -212,13 +212,15 @@ export function UserFormModal({
               </div>
 
               <div className="min-w-0 space-y-1 text-left">
-                <label className="block text-xs font-medium text-on-surface-variant">Số điện thoại</label>
-                <input aria-label="Số điện thoại" type="tel" name="phone" autoComplete="off" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                <label className="block text-xs font-medium text-on-surface-variant">Số điện thoại{userRole === "gym_pt" ? " *" : ""}</label>
+                <input aria-label="Số điện thoại" type="tel" name="phone" autoComplete="off" required={userRole === "gym_pt"} value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
               </div>
 
-              <div className="min-w-0 space-y-1 text-left">
-                <AdminDatePicker label="Ngày sinh" value={userBirthDate} onChange={setUserBirthDate} max={new Date().toLocaleDateString("sv-SE")} />
-              </div>
+              {userRole !== "gym_pt" && (
+                <div className="min-w-0 space-y-1 text-left">
+                  <AdminDatePicker label="Ngày sinh" value={userBirthDate} onChange={setUserBirthDate} max={new Date().toLocaleDateString("sv-SE")} />
+                </div>
+              )}
 
               {/* Mật khẩu */}
               <div className="min-w-0 space-y-1 text-left">
@@ -229,6 +231,7 @@ export function UserFormModal({
                     aria-label="Mật khẩu"
                     type="password" autoComplete="off"
                     required={!editingUser}
+                    minLength={userRole === "gym_pt" ? 8 : 6}
                     value={userPassword}
                     onChange={(e) => setUserPassword(e.target.value)}
                     className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
@@ -238,6 +241,7 @@ export function UserFormModal({
                       Để trống nếu không cần đổi mật khẩu.
                     </p>
                   )}
+                  {userRole === "gym_pt" && <p className="mt-1 text-xs text-on-surface-variant">Mật khẩu PT cần ít nhất 8 ký tự.</p>}
                 </div>
               </div>
             </div>
@@ -295,7 +299,7 @@ export function UserFormModal({
               <p className="text-xs text-amber-700">Vai trò thu ngân POS chỉ dùng trong một doanh nghiệp có chi nhánh.</p>
             )}
 
-            {userCompanyCode && userCompanyCode !== "SYSTEM" && (
+            {userRole !== "gym_pt" && userCompanyCode && userCompanyCode !== "SYSTEM" && (
               <div className="min-w-0 space-y-1 text-left">
                 <label className="block text-xs font-medium text-on-surface-variant">Chi nhánh{userRole === "pos_cashier" ? " *" : ""}</label>
                 <select aria-label="Chi nhánh" required={userRole === "pos_cashier"} disabled={lockBranch} value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="h-10 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:bg-surface">
@@ -377,17 +381,21 @@ export function UserFormModal({
               </div>
             )}
 
-            <div className="min-w-0 space-y-1 text-left">
-              <label className="block text-xs font-medium text-on-surface-variant">Trình độ</label>
-              <input aria-label="Trình độ" type="text" value={userQualification} onChange={(e) => setUserQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-            </div>
-            <div className="min-w-0 space-y-1 text-left">
-              <label className="block text-xs font-medium text-on-surface-variant">Lương tháng (VNĐ)</label>
-              <input aria-label="Lương tháng (VNĐ)" type="number" min="0" step="1000" value={userMonthlySalary} onChange={(e) => setUserMonthlySalary(e.target.value)} className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" placeholder="26000000" />
-            </div>
+            {userRole !== "gym_pt" && (
+              <>
+                <div className="min-w-0 space-y-1 text-left">
+                  <label className="block text-xs font-medium text-on-surface-variant">Trình độ</label>
+                  <input aria-label="Trình độ" type="text" value={userQualification} onChange={(e) => setUserQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <div className="min-w-0 space-y-1 text-left">
+                  <label className="block text-xs font-medium text-on-surface-variant">Lương tháng (VNĐ)</label>
+                  <input aria-label="Lương tháng (VNĐ)" type="number" min="0" step="1000" value={userMonthlySalary} onChange={(e) => setUserMonthlySalary(e.target.value)} className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" placeholder="26000000" />
+                </div>
+              </>
+            )}
 
             {/* Mô tả công việc */}
-            <div className="min-w-0 space-y-1 text-left sm:col-span-2 lg:col-span-3">
+            {userRole !== "gym_pt" && <div className="min-w-0 space-y-1 text-left sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-on-surface-variant">Link mô tả công việc</label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -433,7 +441,7 @@ export function UserFormModal({
                   </button>
                 )}
               </div>
-            </div>
+            </div>}
 
           </div>
 

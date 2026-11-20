@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { UserModel } from "../model/user.model";
+import { CompanyModel } from "../model/company.model";
 import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
@@ -64,7 +65,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   // Giảng viên chỉ làm việc trong khu vực học viên. Quyền people:manage
   // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
-  teacher: ["people:manage"]
+  teacher: ["people:manage"],
+  gym_admin: ["gym-admin:manage"],
+  gym_pt: ["gym-pt:manage"],
+  gym_customer: ["gym-customer:read"],
 };
 DEFAULT_ROLE_PERMISSIONS.admin.push("retail-partner:manage", "retail-partner-policy:manage", "retail-partner-payout:manage", "retail-shift-approve:manage", "retail-shift-assign:manage", "retail-payment-review:manage", "retail-coupon:manage", "retail-points:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
@@ -89,6 +93,9 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   user: 4,
   teacher: 4,
   pos_cashier: 5,
+  gym_admin: 2,
+  gym_pt: 4,
+  gym_customer: 5,
 };
 
 /**
@@ -198,7 +205,7 @@ export async function getEffectivePermissions(
   }
 
   const userDoc = userId
-    ? await UserModel.findById(userId).select("permissions").lean()
+    ? await UserModel.findById(userId).select("permissions email companyCode role").lean()
     : null;
   const customPermissions = userDoc?.permissions || [];
 
@@ -230,6 +237,19 @@ export async function getEffectivePermissions(
   // company-specific role-permission record that predates this module.
   if (role === "admin" && !rolePermissions.includes("legal-reference:manage")) {
     rolePermissions = [...rolePermissions, "legal-reference:manage"];
+  }
+
+  // The email supplied when creating a company belongs to its owner. Grant
+  // that account Gym administration while the company has the module enabled,
+  // including companies that enabled Gym before this rule was introduced.
+  if (role === "admin" && companyCode && userDoc?.role === "admin" && userDoc.companyCode === companyCode) {
+    const company = await CompanyModel.findOne({ code: companyCode })
+      .select("ownerEmail enabledModules")
+      .lean();
+    if (company?.enabledModules?.includes("gym") &&
+        company.ownerEmail?.trim().toLowerCase() === userDoc.email?.trim().toLowerCase()) {
+      rolePermissions = [...rolePermissions, "gym-admin:manage"];
+    }
   }
 
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));

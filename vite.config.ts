@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => {
         ...configDefaults.exclude,
         '**/.worktrees/**',
         '**/.claude/worktrees/**',
+        '**/healthcare-luxcare/**',
       ],
     },
     resolve: {

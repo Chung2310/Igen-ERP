@@ -9,7 +9,7 @@ walletRouter.get("/admin/balances", requireAuth, requireRole(["superadmin"]), wa
 walletRouter.get("/admin/transactions/:userId", requireAuth, requireRole(["superadmin"]), walletController.getAdminUserTransactions);
 walletRouter.post("/admin/balance", requireAuth, requireRole(["superadmin"]), requirePermission("finance-wallet:manage"), walletController.adminSetBalance);
 walletRouter.get("/transactions", requireAuth, walletController.getTransactionHistory);
-walletRouter.post("/deposit", requireAuth, requirePermission("finance-wallet:manage"), walletController.createDepositLink);
+walletRouter.post("/deposit", requireAuth, walletController.createDepositLink);
 walletRouter.post("/webhook", walletController.handlePayOSWebhook);
-walletRouter.post("/webhook-mock", requireAuth, requirePermission("finance-wallet:manage"), walletController.handleMockWebhook);
+walletRouter.post("/webhook-mock", requireAuth, walletController.handleMockWebhook);
 walletRouter.get("/check/:orderCode", requireAuth, walletController.checkTransactionStatus);

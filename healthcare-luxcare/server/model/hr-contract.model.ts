@@ -1,0 +1,104 @@
+import { Schema, model } from "mongoose";
+import { IHRContract, IHRSalaryTerm, IHRContractExtension, IHRContractFile } from "../interface/hr-contract.interface";
+
+const HRContractFileSchema = new Schema<IHRContractFile>(
+  {
+    url: { type: String, required: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    mimeType: { type: String, trim: true },
+    size: { type: Number, min: 0 },
+    resourceId: { type: String, index: true },
+    uploadToken: { type: String, trim: true },
+  },
+  { _id: false },
+);
+
+const HRSalaryTermSchema = new Schema<IHRSalaryTerm>(
+  {
+    salaryEffectiveFrom: { type: Date, required: true },
+    salaryEffectiveTo: Date,
+    contractSalary: { type: Number, required: true, min: 0 },
+    insuranceSalary: { type: Number, required: true, min: 0 },
+    payrollSalary: { type: Number, required: true, min: 0 },
+    salaryType: { type: String, enum: ["monthly", "daily", "hourly"], required: true, default: "monthly" },
+    probation: { type: Boolean, default: false },
+    probationSalary: { type: Number, min: 0 },
+    probationRate: { type: Number, min: 0, max: 1 },
+    currency: { type: String, required: true, default: "VND", trim: true },
+  },
+  { _id: false },
+);
+
+const HRContractSchema = new Schema<IHRContract>(
+  {
+    companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
+    contractType: { type: String, required: true, trim: true, index: true },
+    employeeId: { type: String, required: true, index: true },
+    employeeName: { type: String, required: true, trim: true },
+    startDate: { type: Date, required: true, index: true },
+    endDate: { type: Date, required: true, index: true },
+    status: {
+      type: String,
+      enum: ["draft", "active", "expired", "terminated"],
+      default: "active",
+      index: true,
+    },
+    salaryTerms: { type: [HRSalaryTermSchema], default: undefined },
+    contractFileUrl: { type: String, trim: true },
+    contractFileName: { type: String, trim: true },
+    contractFileMimeType: { type: String, trim: true },
+    contractFileSize: { type: Number, min: 0 },
+    contractResourceId: { type: String, index: true },
+    contractFiles: { type: [HRContractFileSchema], default: [] },
+    signedImageUrl: { type: String, trim: true },
+    signedImageName: { type: String, trim: true },
+    signedImageMimeType: { type: String, trim: true },
+    signedImageSize: { type: Number, min: 0 },
+    signedImageResourceId: { type: String, index: true },
+    signedImages: { type: [HRContractFileSchema], default: [] },
+    note: { type: String, trim: true },
+    createdBy: { type: String, required: true },
+    updatedBy: String,
+  },
+  { timestamps: true },
+);
+
+HRContractSchema.index({ companyCode: 1, employeeId: 1, endDate: -1 });
+
+const HRContractExtensionSchema = new Schema<IHRContractExtension>(
+  {
+    companyCode: { type: String, required: true, index: true },
+    branchId: { type: String, index: true },
+    contractId: { type: String, required: true, index: true },
+    employeeId: { type: String, required: true, index: true },
+    employeeName: { type: String, required: true },
+    previousEndDate: { type: Date, required: true },
+    newEndDate: { type: Date, required: true },
+    extensionDate: { type: Date, required: true, default: Date.now },
+    reason: { type: String, trim: true },
+    extensionFileUrl: { type: String, trim: true },
+    extensionFileName: { type: String, trim: true },
+    extensionFileMimeType: { type: String, trim: true },
+    extensionFileSize: { type: Number, min: 0 },
+    extensionResourceId: { type: String, index: true },
+    extensionFiles: { type: [HRContractFileSchema], default: [] },
+    signedImageUrl: { type: String, trim: true },
+    signedImageName: { type: String, trim: true },
+    signedImageMimeType: { type: String, trim: true },
+    signedImageSize: { type: Number, min: 0 },
+    signedImageResourceId: { type: String, index: true },
+    signedImages: { type: [HRContractFileSchema], default: [] },
+    createdBy: { type: String, required: true },
+  },
+  { timestamps: true },
+);
+
+HRContractExtensionSchema.index({
+  companyCode: 1,
+  contractId: 1,
+  extensionDate: -1,
+});
+
+export const HRContractModel = model<IHRContract>("HRContract", HRContractSchema);
+export const HRContractExtensionModel = model<IHRContractExtension>("HRContractExtension", HRContractExtensionSchema);

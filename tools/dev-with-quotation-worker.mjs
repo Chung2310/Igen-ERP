@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import { connect } from "node:net";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const tsxCli = require.resolve("tsx/cli");
@@ -12,13 +14,70 @@ const env = {
   QUOTATION_QUEUE_PREFIX: process.env.QUOTATION_QUEUE_PREFIX?.trim() || "igen-local-quotation",
 };
 const commands = [
-  ["ERP server", ["watch", "--exclude", "**/tmp/**", "--exclude", "**/dist/**", "--exclude", "**/dist-server/**", "server.ts"]],
+  {
+    name: "ERP server",
+    args: ["watch", "--exclude", "**/tmp/**", "--exclude", "**/dist/**", "--exclude", "**/dist-server/**", "server.ts"],
+    env,
+  },
 ];
+
+const gymBridgeSecret = env.GYM_BRIDGE_SECRET?.trim();
+let gymBackendUrl;
+try {
+  gymBackendUrl = new URL(env.GYM_BACKEND_URL || "http://127.0.0.1:3018");
+} catch {
+  gymBackendUrl = null;
+}
+const localGymHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const shouldStartLocalGym = Boolean(
+  env.GYM_MONGODB_URI?.trim()
+  && gymBridgeSecret
+  && gymBridgeSecret.length >= 32
+  && gymBackendUrl
+  && gymBackendUrl.protocol === "http:"
+  && localGymHosts.has(gymBackendUrl.hostname)
+  && (gymBackendUrl.port || "80") === "3018",
+);
+
+function isGymPortReachable() {
+  return new Promise((resolve) => {
+    const socket = connect({
+      host: gymBackendUrl.hostname.replace(/^\[|\]$/g, ""),
+      port: Number(gymBackendUrl.port || 80),
+    });
+    const finish = (reachable) => {
+      socket.destroy();
+      resolve(reachable);
+    };
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+    socket.setTimeout(1000, () => finish(false));
+  });
+}
+
+if (shouldStartLocalGym && !await isGymPortReachable()) {
+  commands.push({
+    name: "GYM API",
+    args: ["watch", "--exclude", "**/tmp/**", "--exclude", "**/dist/**", "backend/dev.ts"],
+    env: {
+      ...env,
+      NODE_ENV: "development",
+      GYM_EMBEDDED: "1",
+      MONGODB_URI: env.GYM_MONGODB_URI,
+      MONGODB_USER: env.GYM_MONGODB_USER,
+      MONGODB_PASSWORD: env.GYM_MONGODB_PASSWORD,
+      MONGODB_AUTH_SOURCE: env.GYM_MONGODB_AUTH_SOURCE,
+      JWT_SECRET: gymBridgeSecret,
+      PORT: "3018",
+    },
+    cwd: path.resolve(process.cwd(), "gym-module", "3s"),
+  });
+}
 
 let stopping = false;
 let exitCode = 0;
-const children = commands.map(([name, args]) => {
-  const child = spawn(process.execPath, [tsxCli, ...args], { cwd: process.cwd(), env, stdio: "inherit" });
+const children = commands.map(({ name, args, env: childEnv, cwd = process.cwd() }) => {
+  const child = spawn(process.execPath, [tsxCli, ...args], { cwd, env: childEnv, stdio: "inherit" });
   child.on("error", (error) => {
     console.error(`[${name}] ${error.message}`);
     exitCode = 1;

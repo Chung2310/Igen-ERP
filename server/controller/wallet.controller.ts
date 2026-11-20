@@ -161,6 +161,10 @@ export const walletController = {
 
       const amountCredits = amountVND / 100; // 100 VND = 1 Credit
 
+      if (process.env.NODE_ENV === "production" && (!isPayOSConfigured || !payOS)) {
+        return res.status(503).json({ status: "error", message: "Cổng nạp Credit ERP chưa được cấu hình." });
+      }
+
       let orderCode: number;
       let existing: any;
       do {
@@ -172,8 +176,9 @@ export const walletController = {
       const origin = req.headers.origin || req.headers.referer || "http://localhost:3000";
       const clientOrigin = origin.endsWith("/") ? origin.slice(0, -1) : origin;
 
-      const cancelUrl = `${clientOrigin}/vi-nap-tien?status=cancelled&orderCode=${orderCode}`;
-      const returnUrl = `${clientOrigin}/vi-nap-tien?status=success&orderCode=${orderCode}`;
+      const returnPath = req.body.context === "gym" ? "/chuoi-gym/wallet" : "/vi-nap-tien";
+      const cancelUrl = `${clientOrigin}${returnPath}?status=cancelled&orderCode=${orderCode}`;
+      const returnUrl = `${clientOrigin}${returnPath}?status=success&orderCode=${orderCode}`;
 
       let checkoutUrl = "";
       let paymentLinkId = "";
@@ -198,7 +203,7 @@ export const walletController = {
           });
         }
       } else {
-        checkoutUrl = `${clientOrigin}/vi-nap-tien?mock=1&orderCode=${orderCode}&amount=${amountCredits}&amountVND=${amountVND}`;
+        checkoutUrl = `${clientOrigin}${returnPath}?mock=1&orderCode=${orderCode}&amount=${amountCredits}&amountVND=${amountVND}`;
         paymentLinkId = `mock_link_${orderCode}`;
       }
 
@@ -274,15 +279,7 @@ export const walletController = {
         return res.status(200).json({ status: "success", message: "Giao dịch đã hoàn tất." });
       }
 
-      transaction.status = "success";
-      transaction.completedAt = new Date();
-      await transaction.save();
-
-      await WalletModel.findOneAndUpdate(
-        { userId: transaction.userId },
-        { $inc: { balance: transaction.amount }, $set: { updatedAt: new Date() } },
-        { upsert: true, returnDocument: "after" }
-      );
+      await walletService.settlePendingDeposit(orderCode);
 
       console.log(
         `[PayOS Webhook] Nap tien thanh cong cho User ID: ${transaction.userId}, So tien: +${transaction.amount} Credit (${amount} VND)`
@@ -330,15 +327,7 @@ export const walletController = {
         return res.status(200).json({ status: "success", message: "Giao dịch đã được thanh toán trước đó." });
       }
 
-      transaction.status = "success";
-      transaction.completedAt = new Date();
-      await transaction.save();
-
-      await WalletModel.findOneAndUpdate(
-        { userId: transaction.userId },
-        { $inc: { balance: transaction.amount }, $set: { updatedAt: new Date() } },
-        { upsert: true, returnDocument: "after" }
-      );
+      await walletService.settlePendingDeposit(Number(orderCode), userId);
 
       console.log(`[Mock Webhook] Cong tien gia lap thanh cong: +${transaction.amount} Credit cho User ${transaction.userId}`);
 
@@ -382,15 +371,7 @@ export const walletController = {
         try {
           const payosStatus: any = await payOS.paymentRequests.get(transaction.orderCode);
           if (payosStatus.status === "PAID") {
-            transaction.status = "success";
-            transaction.completedAt = new Date();
-            await transaction.save();
-
-            await WalletModel.findOneAndUpdate(
-              { userId: transaction.userId },
-              { $inc: { balance: transaction.amount }, $set: { updatedAt: new Date() } },
-              { upsert: true, returnDocument: "after" }
-            );
+            await walletService.settlePendingDeposit(transaction.orderCode, userId);
 
             return res.status(200).json({
               status: "success",

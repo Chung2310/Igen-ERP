@@ -24,7 +24,7 @@ export default function HospitalReportDetails({ visit, api, onClose }: { visit: 
             : ["ngay_sinh", "ngay_hen_tai_kham"].includes(key) && /^\d{4}-\d{2}-\d{2}$/.test(value)
               ? value.split("-").reverse().join("/")
               : value;
-          return <div key={key} className={`min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 ${wideFields.has(key) ? "sm:col-span-2" : ""}`}>
+          return <div key={key} className={`min-w-0 rounded-md border border-outline-variant bg-surface-container-lowest p-3 ${wideFields.has(key) ? "sm:col-span-2" : ""}`}>
             <dt className="text-xs font-medium text-on-surface-variant">{hospitalReportColumns[key]}</dt>
             <dd className="mt-1 whitespace-pre-wrap break-words text-sm font-medium leading-5 text-on-surface">{displayValue}</dd>
           </div>;

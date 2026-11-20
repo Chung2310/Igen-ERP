@@ -142,7 +142,7 @@ export default function ImportPanel({ api, canImport, initialKind, onClose, onCo
               { value: "hospital-report", title: "Toàn bộ workbook y tế", description: `Đọc mọi sheet tháng và giữ đủ ${Object.keys(hospitalReportColumns).length} cột thông tin.` },
             ] as const).map(option => <button key={option.value} type="button" aria-pressed={kind === option.value}
               onClick={() => { setKind(option.value); setFile(undefined); setReportSheets([]); setOtherDataSheets([]); setError(""); if (fileInput.current) fileInput.current.value = ""; }}
-              className={`min-w-0 rounded-xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${kind === option.value ? "border-primary bg-primary-container/30 ring-1 ring-primary" : "border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low"}`}>
+              className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${kind === option.value ? "border-primary bg-primary-container/30" : "border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low"}`}>
               <span className="block text-sm font-semibold text-on-surface">{option.title}</span>
               <span className="mt-1 block text-pretty text-xs text-on-surface-variant">{option.description}</span>
             </button>)}
@@ -154,7 +154,7 @@ export default function ImportPanel({ api, canImport, initialKind, onClose, onCo
           </button>}
         </div>
 
-        {canImport && <div className="min-w-0 space-y-3 rounded-xl border border-outline-variant bg-surface-container-low p-4">
+        {canImport && <div className="min-w-0 space-y-3 rounded-md border border-outline-variant bg-surface-container-low p-4">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
               <FileSpreadsheet className="size-5" aria-hidden="true" />
@@ -171,7 +171,7 @@ export default function ImportPanel({ api, canImport, initialKind, onClose, onCo
           </div>
           <input ref={fileInput} key={kind} id={id + "-input"} type="file" accept=".xlsx" aria-describedby={id + "-hint"} disabled={Boolean(busy) || isInspecting}
             className="sr-only" onChange={event => { void selectFile(event.target.files?.[0]); }} />
-          {file ? <div className="flex min-w-0 items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
+          {file ? <div className="flex min-w-0 items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
               <FileSpreadsheet className="size-5" aria-hidden="true" />
             </span>
@@ -188,7 +188,7 @@ export default function ImportPanel({ api, canImport, initialKind, onClose, onCo
             onDragOver={event => { event.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={event => { event.preventDefault(); setIsDragging(false); void selectFile(event.dataTransfer.files[0]); }}
-            className={`flex min-h-40 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait ${isDragging ? "border-primary bg-primary-container/30" : "border-outline-variant bg-surface-container-lowest hover:border-primary/60 hover:bg-surface-container-low"}`}>
+            className={`flex min-h-40 w-full flex-col items-center justify-center rounded-md border-2 border-dashed p-6 text-center transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait ${isDragging ? "border-primary bg-primary-container/30" : "border-outline-variant bg-surface-container-lowest hover:border-primary/60 hover:bg-surface-container-low"}`}>
             <span className="flex size-12 items-center justify-center rounded-full bg-surface-container text-primary">
               {isInspecting ? <Loader2 className="size-5 animate-spin" aria-hidden="true" /> : <Upload className="size-5" aria-hidden="true" />}
             </span>

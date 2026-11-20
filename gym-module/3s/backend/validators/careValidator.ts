@@ -1,0 +1,13 @@
+import Joi from 'joi';
+import type { RequestValidationSchema } from '../middlewares/validate.js';
+import { commonMessages, idParams, nonEmptyPatch, objectId, paginationQuery } from './commonValidator.js';
+export const recalculateCareSchema: RequestValidationSchema = { body: Joi.object({ asOf: Joi.date().iso() }).messages(commonMessages) };
+export const listCareAlertsSchema: RequestValidationSchema = { query: Joi.object({ ...paginationQuery, customerId: objectId, status: Joi.string().valid('OPEN', 'RESOLVED') }).messages(commonMessages) };
+export const careTodaySchema: RequestValidationSchema = { query: Joi.object({ date: Joi.date().iso() }).messages(commonMessages) };
+export const resolveCareAlertSchema: RequestValidationSchema = { params: idParams(), body: Joi.object({ result: Joi.string().trim().required() }).messages(commonMessages) };
+export const createCareTaskSchema: RequestValidationSchema = { body: Joi.object({ customerId: objectId.required(), title: Joi.string().trim().required(), dueAt: Joi.date().iso().required() }).messages(commonMessages) };
+export const listCareTasksSchema: RequestValidationSchema = { query: Joi.object({ ...paginationQuery, customerId: objectId, status: Joi.string().valid('OPEN', 'DONE') }).messages(commonMessages) };
+export const listCareLogsSchema: RequestValidationSchema = { query: Joi.object({ ...paginationQuery, customerId: objectId, kind: Joi.string() }).messages(commonMessages) };
+export const careTaskIdSchema: RequestValidationSchema = { params: idParams() };
+export const updateCareTaskSchema: RequestValidationSchema = { params: idParams(), body: nonEmptyPatch({ title: Joi.string().trim(), dueAt: Joi.date().iso(), status: Joi.string().valid('OPEN', 'DONE'), result: Joi.string().allow(''), customerId: Joi.forbidden(), assignedPtId: Joi.forbidden() }) };
+export const completeCareTaskSchema: RequestValidationSchema = { params: idParams(), body: Joi.object({ result: Joi.string().trim().required() }).messages(commonMessages) };

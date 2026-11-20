@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarPlus, CircleX, Eye, FileText, HeartHandshake, Pencil, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { CalendarPlus, CircleX, Eye, FileText, HeartHandshake, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Dropdown } from "../../components/common/Dropdown";
 import { ErpModal } from "../../components/common/ErpModal";
 import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { TableFilterToolbar } from "../../components/common/TableFilterToolbar";
 import { TablePagination } from "../../components/common/TablePagination";
+import { ErpRefreshButton } from "../../components/common/ErpRefreshButton";
+import { primaryCreateButtonClass } from "../../components/common/primaryCreateButton";
 import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
 import type { HealthcareTab as Tab } from "../../router/subTabRoutes";
 import { emptyDatePeriodFilter, getDatePeriodRange } from "../../utils/datePeriodFilter";
 import type { Appointment, CareTask, CatalogItem, HealthcareList, HealthcarePatientList, HealthcareStaff, ImportKind, Patient, Visit } from "../../../shared/healthcare";
 import { healthcareApi } from "./api";
-import { healthcareHref, healthcarePath, readHealthcareLocation } from "./navigation";
+import { healthcareHref, healthcarePath, navigateHealthcareSub, readHealthcareLocation } from "./navigation";
+import LuxcareLogisticsPage from "./LuxcareLogisticsPage";
+import HealthcareSidebarIcon from "./HealthcareSidebarIcon";
 import HospitalReportDetails from "./HospitalReportDetails";
 import ImportPanel from "./ImportPanel";
 import PatientDetailsModal from "./PatientDetailsModal";
@@ -74,14 +78,25 @@ const normalizeText = (value: string) =>
   value.trim().toLocaleLowerCase("vi").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
 const birthLabel = (patient: Patient) => patient.dateOfBirth ? dayLabel(patient.dateOfBirth) : patient.hospitalProfile?.birthYear || "—";
 const usesCatalog = (tab: Tab) => tab === "visits" || tab === "appointments" || tab === "settings";
+const subscribeToLocation = (listener: () => void) => {
+  window.addEventListener("popstate", listener);
+  return () => window.removeEventListener("popstate", listener);
+};
+const currentSearch = () => window.location.search;
 
 export default function HealthcarePage() {
   const { userProfile, hasPermission } = useAuth();
   const branch = useBranch();
+  const search = useSyncExternalStore(subscribeToLocation, currentSearch);
   if (branch.loading) return <div className={panelClass}><Feedback loading /></div>;
   if (!branch.activeBranchId) return <div className={panelClass}>
     <Feedback error={branch.error || "Chọn chi nhánh đang hoạt động để sử dụng Quản lý y tế."} onRetry={branch.error ? branch.retry : undefined} />
   </div>;
+  const logisticsSection = new URLSearchParams(search).get("sub");
+  if ((logisticsSection === "vat-tu" && (hasPermission("healthcare:read") || hasPermission("healthcare:manage") || hasPermission("healthcare-supplies:read") || hasPermission("healthcare-supplies:manage"))) ||
+      (logisticsSection === "thiet-bi" && (hasPermission("healthcare:read") || hasPermission("healthcare:manage") || hasPermission("healthcare-equipment:read") || hasPermission("healthcare-equipment:manage")))) {
+    return <LuxcareLogisticsPage section={logisticsSection} />;
+  }
   return <HealthcareWorkspace key={`${userProfile?.uid}:${userProfile?.companyCode}:${branch.activeBranchId}`}
     branchId={branch.activeBranchId} hasPermission={hasPermission} />;
 }
@@ -322,22 +337,30 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
       </>}
       {currentImportKind && canViewImports && <IconActionButton label={canImport ? "Nhập Excel" : "Mẫu Excel và lịch sử"} icon={Upload} ariaHaspopup
         onClick={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setImportKind(currentImportKind); }} />}
-      <IconActionButton label={activeQuery.refreshing || directory?.refreshing ? "Đang làm mới" : "Làm mới"} icon={RefreshCw}
-        disabled={activeQuery.refreshing || directory?.refreshing} onClick={() => {
+      <ErpRefreshButton loading={activeQuery.refreshing || directory?.refreshing} onClick={() => {
         activeQuery.refresh();
         if (!editor) directory?.refresh();
       }} />
-      {showCreate && <IconActionButton label={createLabel[tab]} icon={Plus} ariaHaspopup disabled={Boolean(patientId && !patient.data)} onClick={openNew} />}
+      {showCreate && <button type="button" aria-haspopup="dialog" disabled={Boolean(patientId && !patient.data)}
+        className={`${primaryCreateButtonClass} min-h-9`} onClick={openNew}>
+        <Plus size={15} aria-hidden="true" />{createLabel[tab]}
+      </button>}
     </div>
   );
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
-    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
-      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} onClick={() => navigate(key)}>
+    <h1 className="sr-only">Quản lý y tế - {pageTitle}</h1>
+    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab} className="mb-2 lg:mb-0">
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key}
+        icon={<HealthcareSidebarIcon kind={key} className="text-primary" />} preferProvidedIcon onClick={() => navigate(key)}>
         {label}
       </ModuleNavigationButton>)}
+      {(hasPermission("healthcare:read") || hasPermission("healthcare:manage") || hasPermission("healthcare-supplies:read") || hasPermission("healthcare-supplies:manage")) &&
+        <ModuleNavigationButton active={false} icon={<HealthcareSidebarIcon kind="supplies" className="text-primary" />} preferProvidedIcon onClick={() => navigateHealthcareSub("vat-tu")}>Vật tư</ModuleNavigationButton>}
+      {(hasPermission("healthcare:read") || hasPermission("healthcare:manage") || hasPermission("healthcare-equipment:read") || hasPermission("healthcare-equipment:manage")) &&
+        <ModuleNavigationButton active={false} icon={<HealthcareSidebarIcon kind="equipment" className="text-primary" />} preferProvidedIcon onClick={() => navigateHealthcareSub("thiet-bi")}>Thiết bị</ModuleNavigationButton>}
     </ModuleNavigation>
-    <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
+    <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto">
       {notice && <p role="status" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm">{notice}</p>}
       {editor && <RecordEditor key={`${editor.kind}:${editor.record?._id || "new"}`} editor={editor} api={api}
         catalog={catalog.data || []} staff={staff.data || []} directory={editorDirectory}
@@ -392,7 +415,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
+      <section className="min-w-0 space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4" aria-label={pageTitle}>
         {!hasTable && <div className="flex justify-end">{pageActions}</div>}
         {hasTable && <TableFilterToolbar
           appearance="plain"

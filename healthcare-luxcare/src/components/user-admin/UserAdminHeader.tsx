@@ -1,0 +1,111 @@
+import { Plus, RefreshCw, Users, Sparkles } from "lucide-react";
+import { CompanyProfile, UserProfile } from "../../types";
+
+interface Props {
+  userProfile?: UserProfile | null;
+  companies: CompanyProfile[];
+  selectedCompanyCode: string;
+  onSelectedCompanyCodeChange: (value: string) => void;
+  onOpenCompanyModal: () => void;
+  onOpenCreateUserModal: () => void;
+  onOpenBlogAuthorModal?: () => void;
+  onRefresh: () => void;
+  loading: boolean;
+}
+
+export function UserAdminHeader({
+  userProfile,
+  companies,
+  selectedCompanyCode,
+  onSelectedCompanyCodeChange,
+  onOpenCompanyModal,
+  onOpenCreateUserModal,
+  onOpenBlogAuthorModal,
+  onRefresh,
+  loading,
+}: Props) {
+  return (
+    <div
+      className="border-b border-gray-200 bg-gray-50/50 p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4 shrink-0"
+      id="user_admin_header"
+    >
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
+          <Users className="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <h1 className="font-extrabold text-cyan-700 text-xl lg:text-2xl tracking-tight">
+            Quản trị Tài khoản & Phân quyền
+          </h1>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Quản lý danh sách thành viên, phân quyền vai trò & số dư hệ thống
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        {userProfile?.role === "superadmin" && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-mono">
+                Doanh nghiệp:
+              </span>
+              <select
+                value={selectedCompanyCode}
+                onChange={(e) => onSelectedCompanyCodeChange(e.target.value)}
+                className="p-1.5 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+              >
+                <option value="all">Tất cả doanh nghiệp</option>
+                {companies.map((c) => (
+                  <option key={c.id || c.code} value={c.code}>
+                    {c.name} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenCompanyModal}
+              className="p-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Đăng ký doanh nghiệp
+            </button>
+
+            {onOpenBlogAuthorModal && (
+              <button
+                type="button"
+                onClick={onOpenBlogAuthorModal}
+                className="p-2 px-3.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Cấp tài khoản Ban biên tập hoặc phân quyền đăng bài cho nhân viên"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Tạo Ban Biên Tập Blog
+              </button>
+            )}
+          </>
+        )}
+
+        {(userProfile?.role === "superadmin" || userProfile?.role === "admin") && (
+          <button
+            onClick={onOpenCreateUserModal}
+            className="p-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/10 active:scale-95"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Thêm người dùng
+          </button>
+        )}
+
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className="p-2 px-3.5 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Tải lại danh sách
+        </button>
+      </div>
+    </div>
+  );
+}

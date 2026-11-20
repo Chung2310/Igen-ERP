@@ -36,7 +36,6 @@ import { ShieldIcon } from "@phosphor-icons/react/dist/csr/Shield";
 import { ShoppingCartIcon } from "@phosphor-icons/react/dist/csr/ShoppingCart";
 import { SparkleIcon } from "@phosphor-icons/react/dist/csr/Sparkle";
 import { StudentIcon } from "@phosphor-icons/react/dist/csr/Student";
-import { StethoscopeIcon } from "@phosphor-icons/react/dist/csr/Stethoscope";
 import { UsersIcon } from "@phosphor-icons/react/dist/csr/Users";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
@@ -55,6 +54,8 @@ import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { canViewAiSubscription, filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
 import { MARKETING_SUITE_MENU } from "../modules/marketing-suite/navigation";
+import GymModuleIcon from "../modules/gym/GymModuleIcon";
+import HealthcareModuleIcon from "../modules/healthcare/HealthcareModuleIcon";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -77,7 +78,8 @@ export interface MenuItem {
 const baseMenuItems: MenuItem[] = [
   { label: "TRỢ LÝ KIẾN TRÚC", title: "Trợ lý kiến trúc", icon: Ruler, group: "operations" },
   { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
-  { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: StethoscopeIcon, group: "operations" },
+  { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: HealthcareModuleIcon, group: "operations" },
+  { label: "CHUỖI GYM", title: "Quản lý phòng Gym", icon: GymModuleIcon, group: "operations" },
   { label: "VĂN BẢN PHÁP LUẬT", title: "Văn bản pháp luật", icon: Scale, group: "tools" },
   { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
@@ -195,7 +197,6 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "BÁN LẺ": ShoppingCartIcon,
   "ĐỐI TÁC BÁN LẺ": UsersThreeIcon,
   "BÁO GIÁ": FileTextIcon,
-  "QUẢN LÝ Y TẾ": StethoscopeIcon,
   "TÀI CHÍNH": FileTextIcon,
   "OMNI INBOX": ChatCircleIcon,
   "MARKETING": UsersThreeIcon,
@@ -210,6 +211,9 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
 };
 
 export function getAvailableMenuItems(userProfile: UserProfile | null, hasPermission: (permission: string) => boolean, includeDisabled = false): MenuItem[] {
+  if (["gym_admin", "gym_pt", "gym_customer"].includes(userProfile?.role || "")) {
+    return [{ label: "CHUỖI GYM", title: "Quản lý phòng Gym", icon: GymModuleIcon, group: "operations" }];
+  }
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => includeDisabled || enabledTabs.has(item.label))
@@ -375,9 +379,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        <span className={`relative size-6 shrink-0 transition-colors ${item.locked ? "text-on-surface-variant/50" : "text-on-surface group-hover:text-primary group-focus-visible:text-primary group-aria-[current=page]:text-primary"}`} aria-hidden="true">
-                          <Icon size={24} weight="regular" className={isActive ? "hidden" : item.locked ? "" : "group-hover:hidden group-focus-visible:hidden"} />
-                          {!item.locked && <Icon size={24} weight="fill" className={`${isActive ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />}
+                        <span className={`relative size-6 shrink-0 transition-colors ${item.locked ? "text-on-surface-variant/50" : item.label === "QUẢN LÝ Y TẾ" ? "text-primary" : "text-on-surface group-hover:text-primary group-focus-visible:text-primary group-aria-[current=page]:text-primary"}`} aria-hidden="true">
+                          {item.label === "QUẢN LÝ Y TẾ" ? <Icon size={24} weight="fill" /> : <>
+                            <Icon size={24} weight="regular" className={isActive ? "hidden" : item.locked ? "" : "group-hover:hidden group-focus-visible:hidden"} />
+                            {!item.locked && <Icon size={24} weight="fill" className={`${isActive ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />}
+                          </>}
                         </span>
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>

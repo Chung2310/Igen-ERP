@@ -4,6 +4,16 @@ import { tabToPath } from "../../seo/seo-config";
 export type HealthcareLocation = { tab: HealthcareTab; patientId?: string; recordId?: string };
 export const healthcarePath = tabToPath("QUẢN LÝ Y TẾ");
 
+export function navigateHealthcareSub(slug: string) {
+  const url = new URL(window.location.href);
+  url.pathname = healthcarePath;
+  url.search = new URLSearchParams({ sub: slug }).toString();
+  if (`${url.pathname}${url.search}` !== `${window.location.pathname}${window.location.search}`) {
+    window.history.pushState(window.history.state, "", url);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+}
+
 export function healthcareHref({ tab, patientId, recordId }: HealthcareLocation, branchId: string) {
   const params = new URLSearchParams({ sub: subTabToSlug("QUẢN LÝ Y TẾ", tab) });
   if (patientId || recordId) params.set("branch", branchId);

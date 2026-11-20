@@ -92,7 +92,7 @@ export function UserListTable({
                     <div className="flex items-center justify-end gap-2">
                       <StyledSelect
                         ariaLabel={`Vai trò của ${usr.displayName || usr.email}`}
-                        disabled={isSelf || usr.role === "superadmin" || (usr.role === "admin" && currentUser?.role === "admin")}
+                        disabled={isSelf || usr.role === "superadmin" || usr.role === "gym_pt" || (usr.role === "admin" && currentUser?.role === "admin")}
                         value={usr.role}
                         onChange={(value) => onRoleChange(usr.uid, usr.displayName, value as any)}
                         appearance="erp"
@@ -120,7 +120,7 @@ export function UserListTable({
                             <button
                               type="button"
                               onClick={() => onEditUser(usr)}
-                              disabled={usr.role === "superadmin" && !isSelf && currentUser?.role !== "superadmin"}
+                              disabled={(usr.role === "superadmin" && !isSelf && currentUser?.role !== "superadmin") || (usr.role === "gym_pt" && (currentUser?.role !== "admin" || currentUser.companyCode !== usr.companyCode))}
                               className="flex w-full items-center gap-2.5 border-b border-gray-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-700 transition hover:bg-indigo-50 disabled:opacity-50"
                             >
                               <Pencil className="h-3.5 w-3.5 text-indigo-600" />
@@ -129,7 +129,7 @@ export function UserListTable({
                             <button
                               type="button"
                               onClick={() => onDeleteUser(usr)}
-                              disabled={isSelf || usr.role === "superadmin"}
+                              disabled={isSelf || usr.role === "superadmin" || (usr.role === "gym_pt" && (currentUser?.role !== "admin" || currentUser.companyCode !== usr.companyCode))}
                               className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
                             >
                               <Trash2 className="h-3.5 w-3.5 text-rose-600" />

@@ -150,7 +150,7 @@ export default function ImportJobDetails({ api, initial, canImport, onBack, onCo
     <button type="button" className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" onClick={onBack} disabled={busy}>
       <ChevronLeft className="size-4" aria-hidden="true" /> Về lịch sử
     </button>
-    <section aria-label="Tiến độ nhập Excel" className="min-w-0 space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
+    <section aria-label="Tiến độ nhập Excel" className="min-w-0 space-y-4 rounded-md border border-outline-variant bg-surface-container-low p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h4 ref={title} tabIndex={-1} className="break-words text-balance text-sm font-semibold outline-none">{job.filename}</h4>

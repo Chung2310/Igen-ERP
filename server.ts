@@ -7,6 +7,7 @@ import { startMarketingEventRelay } from "./server/modules/marketing-suite/share
 import helmet from "helmet";
 import path from "path";
 import fs from "fs";
+import { spawn } from "node:child_process";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
@@ -333,6 +334,35 @@ async function startServer() {
   // Bộ xử lý lỗi dung lượng yêu cầu quá lớn (Payload Too Large)
   app.use("/api/v1", apiNotFound);
   app.use(apiErrorHandler);
+
+  // 3S giữ nguyên giao diện trong một ứng dụng con, tách CSS và điều hướng khỏi ERP.
+  const gymDistPath = path.join(process.cwd(), "dist", "chuoi-gym");
+  const gymIndexPath = path.join(gymDistPath, "index.html");
+  let gymFrontendBuild: Promise<void> | null = null;
+  app.use("/chuoi-gym", async (req, res, next) => {
+    if (process.env.NODE_ENV === "production" || !["GET", "HEAD"].includes(req.method) || fs.existsSync(gymIndexPath)) {
+      return next();
+    }
+    try {
+      gymFrontendBuild ??= new Promise<void>((resolve, reject) => {
+        const gymDirectory = path.join(process.cwd(), "gym-module", "3s");
+        const viteCli = path.join(gymDirectory, "node_modules", "vite", "bin", "vite.js");
+        const build = spawn(process.execPath, [viteCli, "build"], { cwd: gymDirectory, stdio: "inherit" });
+        build.once("error", reject);
+        build.once("exit", (code) => code === 0 ? resolve() : reject(new Error(`Gym frontend build failed (${code}).`)));
+      }).finally(() => { gymFrontendBuild = null; });
+      await gymFrontendBuild;
+      return next();
+    } catch (error) {
+      console.error("[gym] Could not build the frontend for local development:", error);
+      return res.status(503).send("Giao diện Chuỗi GYM chưa sẵn sàng. Chạy npm run build --prefix gym-module/3s rồi thử lại.");
+    }
+  });
+  app.use("/chuoi-gym", express.static(gymDistPath));
+  app.get("/chuoi-gym/*", (req, res, next) => {
+    if (!fs.existsSync(gymIndexPath)) return res.status(503).send("Giao diện Chuỗi GYM chưa được biên dịch.");
+    res.sendFile(gymIndexPath, (error) => { if (error) next(error); });
+  });
 
   // 4. Cấu hình phục vụ tệp tĩnh (Vite Dev Server hoặc Static production files)
   if (process.env.NODE_ENV !== "production") {

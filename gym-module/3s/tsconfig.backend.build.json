@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.backend.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "noEmitOnError": true,
+    "rootDir": "backend",
+    "outDir": "dist/backend",
+    "sourceMap": true,
+    "types": ["node"]
+  },
+  "include": ["backend/**/*.ts"],
+  "exclude": ["backend/tests/**/*.ts", "frontend", "node_modules", "dist"]
+}

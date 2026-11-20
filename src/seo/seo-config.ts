@@ -90,6 +90,7 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
   "TRỢ LÝ KIẾN TRÚC": { title: "Trợ lý kiến trúc", description: "Tư vấn và hỗ trợ nghiệp vụ kiến trúc", keywords: "", path: "/tro-ly-kien-truc", robots: "noindex, nofollow" },
   "BÁO GIÁ": { title: "Báo giá", description: "Báo giá, dự toán và chứng từ thương mại", keywords: "", path: "/bao-gia", robots: "noindex, nofollow" },
   "QUẢN LÝ Y TẾ": { title: "Quản lý y tế", description: "Bệnh nhân, lượt khám, lịch hẹn và chăm sóc", keywords: "", path: "/quan-ly-y-te", robots: "noindex, nofollow" },
+  "CHUỖI GYM": { title: "Quản lý phòng Gym", description: "Quản lý phòng tập và huấn luyện viên", keywords: "", path: "/quan-ly-chuoi-gym", robots: "noindex, nofollow" },
   "GÓI AI & LƯỢT SỬ DỤNG": { title: "Gói AI & lượt sử dụng", description: "Gói AI và hạn mức sử dụng chung của doanh nghiệp", keywords: "", path: "/goi-ai", robots: "noindex, nofollow" },
   "CHIẾN DỊCH NỘI DUNG": { title: "Chiến dịch nội dung", description: "Quản lý chiến dịch nội dung", keywords: "", path: "/chien-dich-noi-dung", robots: "noindex, nofollow" },
   "OMNI INBOX": { title: "Hộp thư đa kênh", description: "Quản lý hội thoại khách hàng", keywords: "", path: "/omni-inbox", robots: "noindex, nofollow" },

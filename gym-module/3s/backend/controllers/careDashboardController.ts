@@ -1,0 +1,17 @@
+import { asyncHandler } from '../middlewares/asyncHandler.js';
+import { success } from '../middlewares/response.js';
+import * as care from '../services/careService.js';
+import * as dashboard from '../services/dashboardService.js';
+const today = asyncHandler(async (req, res) => success(res, { message: 'Lấy công việc chăm sóc hôm nay thành công.', data: await care.getToday(req.user!, new Date(String(req.query.date || new Date().toISOString().slice(0, 10)))) }));
+const recalculate = asyncHandler(async (req, res) => success(res, { message: 'Tính lại cảnh báo thành công.', data: await care.recalculate(req.user!, new Date(req.body.asOf || Date.now())) }));
+const listAlerts = asyncHandler(async (req, res) => { const result = await care.list(req.user!, req.query); return success(res, { message: 'Lấy danh sách cảnh báo thành công.', data: result.items, meta: result.meta }); });
+const resolveAlert = asyncHandler(async (req, res) => success(res, { message: 'Xử lý cảnh báo thành công.', data: await care.resolve(req.user!, String(req.params.id), req.body.result) }));
+const ptDashboard = asyncHandler(async (req, res) => success(res, { message: 'Lấy dashboard PT thành công.', data: await dashboard.getPtDashboard(req.user!) }));
+const createTask = asyncHandler(async (req, res) => success(res, { status: 201, message: 'Tạo nhiệm vụ chăm sóc thành công.', data: await care.createTask(req.user!, req.body) }));
+const completeTask = asyncHandler(async (req, res) => success(res, { message: 'Hoàn tất nhiệm vụ chăm sóc thành công.', data: await care.completeTask(req.user!, String(req.params.id), req.body.result) }));
+const listTasks = asyncHandler(async (req, res) => { const r = await care.listTasks(req.user!, req.query); return success(res, { message: 'Lấy nhiệm vụ chăm sóc thành công.', data: r.items, meta: r.meta }); });
+const getTask = asyncHandler(async (req, res) => success(res, { message: 'Lấy nhiệm vụ chăm sóc thành công.', data: await care.getTask(req.user!, String(req.params.id)) }));
+const updateTask = asyncHandler(async (req, res) => success(res, { message: 'Cập nhật nhiệm vụ chăm sóc thành công.', data: await care.updateTask(req.user!, String(req.params.id), req.body) }));
+const deleteTask = asyncHandler(async (req, res) => success(res, { message: 'Xóa nhiệm vụ chăm sóc thành công.', data: await care.deleteTask(req.user!, String(req.params.id)) }));
+const listLogs = asyncHandler(async (req, res) => { const r = await care.listLogs(req.user!, req.query); return success(res, { message: 'Lấy nhật ký chăm sóc thành công.', data: r.items, meta: r.meta }); });
+export { recalculate, listAlerts, resolveAlert, ptDashboard, createTask, completeTask, listTasks, getTask, updateTask, deleteTask, listLogs, today };

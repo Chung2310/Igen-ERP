@@ -1,0 +1,9 @@
+import type { IntervalPrescription, IntervalResult } from '../../../types';
+import TrackingNumberField from './TrackingNumberField';
+
+interface Props { exerciseName: string; prescription: IntervalPrescription; value: IntervalResult; onChange: (value: IntervalResult) => void }
+
+export default function IntervalResultEditor({ exerciseName, prescription, value, onChange }: Props) {
+  const set = (field: keyof IntervalResult, next?: number) => onChange({ ...(value || {}), [field]: next });
+  return <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"><TrackingNumberField label="Số vòng" ariaLabel={`${exerciseName} số vòng`} value={value?.rounds} placeholder={prescription?.rounds} onChange={(next) => set('rounds', next)} /><TrackingNumberField label="Thời gian làm (giây)" ariaLabel={`${exerciseName} thời gian làm (giây)`} value={value?.workSeconds} placeholder={prescription?.workSeconds} onChange={(next) => set('workSeconds', next)} /><TrackingNumberField label="Thời gian nghỉ (giây)" ariaLabel={`${exerciseName} thời gian nghỉ (giây)`} value={value?.restSeconds} placeholder={prescription?.restSeconds} onChange={(next) => set('restSeconds', next)} /><TrackingNumberField label="Quãng đường/vòng (m)" ariaLabel={`${exerciseName} quãng đường mỗi vòng (m)`} value={value?.distanceMetersPerRound} placeholder={prescription?.distanceMetersPerRound} onChange={(next) => set('distanceMetersPerRound', next)} /><TrackingNumberField label="REPS/vòng" ariaLabel={`${exerciseName} REPS mỗi vòng`} value={value?.repsPerRound} placeholder={prescription?.repsPerRound} onChange={(next) => set('repsPerRound', next)} /><TrackingNumberField label="RPE" ariaLabel={`${exerciseName} RPE`} value={value?.rpe} placeholder={prescription?.targetRpe} max={10} step="0.1" onChange={(next) => set('rpe', next)} /></div>;
+}

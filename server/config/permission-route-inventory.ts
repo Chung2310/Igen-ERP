@@ -16,7 +16,9 @@ export const PUBLIC_ROUTE_EXCEPTIONS: readonly PublicRouteException[] = [
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "POST", path: "/checkin", reason: "public QR attendance scan" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "POST", path: "/device/forget", reason: "public QR attendance device flow" },
   { sourceFile: "server/modules/worker-management/routes/worker-qr-attendance.routes.ts", router: "workerQrAttendancePublicRoutes", mount: "/worker-management/qr-attendance", method: "GET", path: "/session-info", reason: "public QR attendance scan" },
-  { sourceFile: "server/router/wallet.router.ts", router: "walletRouter", mount: "", method: "POST", path: "/webhook", reason: "signed PayOS webhook" },
+  { sourceFile: "server/router/wallet.router.ts", router: "walletRouter", mount: "/wallet", method: "POST", path: "/webhook", reason: "signed PayOS webhook" },
+  { sourceFile: "server/router/wallet.router.ts", router: "walletRouter", mount: "/wallet", method: "POST", path: "/deposit", reason: "authenticated deposit creates a payment order only for the current user" },
+  { sourceFile: "server/router/wallet.router.ts", router: "walletRouter", mount: "/wallet", method: "POST", path: "/webhook-mock", reason: "development-only mock payment limited to the current user's order" },
 ] as const;
 
 const lineAt = (source: string, offset: number) => source.slice(0, offset).split(/\r?\n/).length;

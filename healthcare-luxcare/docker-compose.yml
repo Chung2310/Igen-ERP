@@ -1,0 +1,26 @@
+services:
+  lux-care:
+    image: ghcr.io/chung2310/lux-care:${IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_NAME:-lux-care}
+    restart: always
+    ports:
+      - "${PORT:-3007}:${PORT:-3007}"
+    env_file:
+      - .env
+    volumes:
+      - .env:/app/.env
+      - ./runtime-secrets:/app/runtime-secrets:ro
+    networks:
+      - default_network
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default_network:
+    external: true

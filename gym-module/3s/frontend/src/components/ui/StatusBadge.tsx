@@ -1,0 +1,2 @@
+const labels: Record<string, string> = { ACTIVE: 'Đang hoạt động', INACTIVE: 'Ngừng hoạt động', LOCKED: 'Đã khóa', DRAFT: 'Bản nháp', PUBLISHED: 'Đã công bố', PENDING: 'Chờ xác nhận', ACCEPTED: 'Đã nhận', REJECTED: 'Đã từ chối', ADMIN_FORCED: 'Admin chuyển' };
+export default function StatusBadge({ status }: { status?: string }) { const value = status || ''; return <span className={`status-badge status-${value.toLowerCase()}`}>{labels[value] || value}</span>; }

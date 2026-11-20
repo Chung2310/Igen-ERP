@@ -1,0 +1,7 @@
+version: "3.8"
+
+services:
+  lux-care:
+    build:
+      context: .
+      dockerfile: Dockerfile

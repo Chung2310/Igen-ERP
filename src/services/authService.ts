@@ -166,8 +166,8 @@ export const authService = {
   },
 
   // Lấy danh sách toàn bộ người dùng
-  async getAllUsers(): Promise<UserProfile[]> {
-    const res = await fetch("/api/v1/auth/users", {
+  async getAllUsers(includeGymPt = false): Promise<UserProfile[]> {
+    const res = await fetch(`/api/v1/auth/users${includeGymPt ? "?includeGymPt=true" : ""}`, {
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,
       },
@@ -186,9 +186,10 @@ export const authService = {
   },
 
   // Lấy danh sách người dùng theo Doanh nghiệp
-  async getUsersByCompany(companyCode: string, branchId?: string): Promise<UserProfile[]> {
+  async getUsersByCompany(companyCode: string, branchId?: string, includeGymPt = false): Promise<UserProfile[]> {
     const params = new URLSearchParams({ companyCode });
     if (branchId) params.set("branchId", branchId);
+    if (includeGymPt) params.set("includeGymPt", "true");
     const res = await fetch(`/api/v1/auth/users?${params.toString()}`, {
       headers: {
         "Authorization": `Bearer ${getAccessToken()}`,

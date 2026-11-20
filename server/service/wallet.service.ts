@@ -1,6 +1,7 @@
 import { TransactionModel } from "../model/transaction.model";
 import { UserModel } from "../model/user.model";
 import { WalletModel } from "../model/wallet.model";
+import mongoose from "mongoose";
 
 // Bang gia dich vu API (don vi: Credit)
 export const API_COSTS = {
@@ -32,6 +33,20 @@ type AdminTransactionFilters = {
 };
 
 export const walletService = {
+  async settlePendingDeposit(orderCode: number, userId?: string) {
+    const session = await mongoose.startSession();
+    try {
+      return await session.withTransaction(async () => {
+        const transaction = await TransactionModel.findOne({ orderCode, type: "deposit", status: "pending", ...(userId ? { userId } : {}) }).session(session);
+        if (!transaction) return false;
+        transaction.status = "success";
+        transaction.completedAt = new Date();
+        await transaction.save({ session });
+        await WalletModel.updateOne({ userId: transaction.userId }, { $inc: { balance: transaction.amount } }, { session, upsert: true });
+        return true;
+      });
+    } finally { await session.endSession(); }
+  },
   async getOrCreateWallet(userId: string) {
     let wallet = await WalletModel.findOne({ userId });
     if (!wallet) {
@@ -64,11 +79,18 @@ export const walletService = {
   async deductBalance(userId: string, amount: number, description: string): Promise<any> {
     if (amount <= 0) return null;
 
+    await this.getOrCreateWallet(userId);
+
     const wallet = await WalletModel.findOneAndUpdate(
-      { userId },
+      { userId, balance: { $gte: amount } },
       { $inc: { balance: -amount }, $set: { updatedAt: new Date() } },
-      { upsert: true, returnDocument: "after" }
+      { returnDocument: "after" }
     );
+    if (!wallet) {
+      const error: any = new Error("Số dư Credit ERP không đủ.");
+      error.statusCode = 402;
+      throw error;
+    }
 
     let orderCode: number;
     let existing: any;

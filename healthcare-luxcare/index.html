@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#059669" />
+    <meta name="application-name" content="Lux Care" />
+    <meta name="apple-mobile-web-app-title" content="Lux Care" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="vi" />
+    <meta name="author" content="Lux Care" />
+    <meta
+      name="keywords"
+      content="Lux Care, Y tế, Chăm sóc sức khỏe, Phòng khám Luxdefa, quản trị y tế, quản lý thiết bị y tế"
+    />
+    <meta
+      name="description"
+      content="Lux Care là nền tảng quản trị và chăm sóc sức khỏe thông minh, tối ưu hóa quy trình vận hành và quản lý thiết bị y tế."
+    />
+    <link rel="canonical" href="https://luxdefa.vn/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="vi_VN" />
+    <meta property="og:site_name" content="Lux Care" />
+    <meta property="og:url" content="https://luxdefa.vn/" />
+    <meta property="og:title" content="Lux Care - Hệ thống quản lý y tế và vận hành thông minh" />
+    <meta
+      property="og:description"
+      content="Giải pháp quản trị và chăm sóc sức khỏe thông minh, tối ưu hóa quy trình vận hành y tế."
+    />
+    <meta property="og:image" content="/brand-icon.png" />
+    <meta property="og:image:secure_url" content="/brand-icon.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Lux Care - Healthcare Management Platform" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lux Care - Hệ thống quản lý y tế và vận hành thông minh" />
+    <meta
+      name="twitter:description"
+      content="Giải pháp quản trị và chăm sóc sức khỏe thông minh, tối ưu hóa quy trình vận hành y tế."
+    />
+    <meta name="twitter:image" content="/brand-icon.png" />
+
+    <link rel="icon" href="/brand-icon.png" />
+    <link rel="apple-touch-icon" href="/brand-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <meta name="zalo-platform-site-verification" content="Re-R2Uw0DmKEYxm9YxWpFWwsYIVYm5nnEJOs" />
+    <title>Lux Care - Hệ thống quản lý y tế</title>
+    <script>
+      (function () {
+        const theme = localStorage.getItem("theme");
+        const token = localStorage.getItem("accessToken");
+        if (token && (theme === "dark" || (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches))) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

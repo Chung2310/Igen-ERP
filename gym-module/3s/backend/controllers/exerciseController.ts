@@ -1,0 +1,11 @@
+import { asyncHandler } from '../middlewares/asyncHandler.js';
+import { success } from '../middlewares/response.js';
+import * as service from '../services/exerciseService.js';
+export const checkDuplicates = asyncHandler(async (req, res) => success(res, { message: 'Đã kiểm tra tên bài tập.', data: { names: await service.findDuplicateNames(req.body.names) } }));
+const create = asyncHandler(async (req, res) => success(res, { status: 201, message: 'Tạo bài tập thành công.', data: await service.create(req.user!, req.body) }));
+const createBulk = asyncHandler(async (req, res) => success(res, { status: 201, message: `Đã lưu ${req.body.exercises.length} bài tập vào thư viện.`, data: await service.createBulk(req.user!, req.body.exercises) }));
+const list = asyncHandler(async (req, res) => { const result = await service.list(req.user!, req.query); return success(res, { message: 'Lấy thư viện bài tập thành công.', data: result.items, meta: result.meta }); });
+const update = asyncHandler(async (req, res) => success(res, { message: 'Cập nhật bài tập thành công.', data: await service.update(req.user!, String(req.params.id), req.body) }));
+const get = asyncHandler(async (req, res) => success(res, { message: 'Lấy bài tập thành công.', data: await service.get(req.user!, String(req.params.id)) }));
+const remove = asyncHandler(async (req, res) => { await service.remove(req.user!, String(req.params.id)); return success(res, { message: 'Xóa bài tập thành công.', data: null }); });
+export { create, createBulk, list, get, update, remove };

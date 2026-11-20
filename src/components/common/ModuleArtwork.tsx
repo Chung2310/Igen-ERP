@@ -10,12 +10,14 @@ const accentPalettes = {
   orange: { from: "#F6B363", bg: "#D77D19", mid: "#FFD087", light: "#FFF0D7", detail: "#7F4612" },
   teal: { from: "#57D4C5", bg: "#0A9F96", mid: "#92E4D6", light: "#E0FFF6", detail: "#FFDA88" },
   violet: { from: "#B39AE9", bg: "#7958C9", mid: "#CAB9F4", light: "#F0E9FF", detail: "#FFDC8D" },
+  gym: { from: "#003B70", bg: "#00A4E4", mid: "#8ADFFF", light: "#EAF8FF", detail: "#FF3366" },
 } as const;
 
 const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
   "BÁO GIÁ": "teal", "TỔNG QUAN": "blue", "TRỢ LÝ AI": "blue", "NHÂN SỰ": "coral", "ĐỐI TÁC LAO ĐỘNG": "orange",
   "ĐỐI TÁC": "violet", "KHO & SẢN PHẨM": "teal", "SỬA CHỮA & BẢO HÀNH": "orange",
   "QUẢN LÝ HỌC VIÊN": "blue", "QUẢN LÝ LAO ĐỘNG": "teal", "QUẢN LÝ Y TẾ": "teal",
+  "CHUỖI GYM": "gym",
   "QUẢN LÝ KHÁCH HÀNG": "coral", "BÁN LẺ": "orange",
   "ĐỐI TÁC BÁN LẺ": "teal", "TÀI CHÍNH": "blue",
   "TRỢ LÝ KIẾN TRÚC": "orange",
@@ -35,6 +37,17 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
   };
   let art: ReactNode;
   switch (module) {
+    case "CHUỖI GYM":
+      art = <>
+        <g transform="rotate(-28 24 24)">
+          <rect x="14" y="21" width="20" height="6" rx="2" fill={a.mint} />
+          <rect x="9" y="13" width="7" height="22" rx="2.5" fill={a.blue} />
+          <rect x="4" y="17" width="6" height="14" rx="2" fill={a.gold} />
+          <rect x="32" y="13" width="7" height="22" rx="2.5" fill={a.blue} />
+          <rect x="38" y="17" width="6" height="14" rx="2" fill={a.gold} />
+          <path d="M12.5 17v14m23-14v14" stroke={a.white} strokeWidth="1.5" strokeLinecap="round" opacity="0.55" />
+        </g>
+      </>; break;
     case "TRỢ LÝ KIẾN TRÚC":
       art = <><rect x="8" y="5" width="32" height="38" rx="4" fill={a.blue}/><path d="M13 12h17M13 16h11" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><path d="M13 23h9v7h-9zm11 0h11v13H24zm-11 9h9v4h-9z" fill={a.mint}/><path d="M14 22h9v8m0-8v-5h6l7 5v14" fill="none" stroke={a.coral} strokeWidth="2" strokeLinejoin="round"/><path d="M27 29h4v7h-4z" fill={a.gold}/><path d="m31 14 7-7 4 4-7 7-5 1z" fill={a.coral}/><path d="m31 14 4 4m-5 1 2-2" stroke={a.gold} strokeWidth="1.5" strokeLinecap="round"/></>; break;
     case "TỔNG QUAN":

@@ -124,6 +124,8 @@ export interface IUser extends Document {
   lockedAt?: Date | null;
   division?: string;
   companyCode?: string;
+  gymAccountId?: string;
+  gymCustomerId?: string;
   companyName?: string;
   branchId?: string;
   activeSessionId?: string;

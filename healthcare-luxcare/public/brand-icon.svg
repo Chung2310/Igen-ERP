@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Lux Care brand icon</title>
+  <desc id="desc">Rounded square green gradient icon with stylized healthcare heart and hand.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="heartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ecfdf5" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bg)" />
+  
+  <!-- Stylized Hand wrapping a Heart -->
+  <!-- Heart -->
+  <path
+    d="M256 170c-25-35 -80-35 -80 15c0 40 80 110 80 110s80-70 80-110c0-50 -55-50 -80-15Z"
+    fill="url(#heartGrad)"
+    opacity="0.95"
+  />
+  
+  <!-- Hand / Shield protecting the heart -->
+  <path
+    d="M256 360c-60 0 -110 -50 -110 -110c0 -30 12 -58 32 -78c8 -8 20 -8 28 0s8 20 0 28c-12 12 -20 30 -20 50c0 38 32 70 70 70s70 -32 70 -70c0 -10 -2 -20 -6 -28c-6 -10 -3 -24 7 -30c10 -6 24 -3 30 7c10 18 15 39 15 61c0 60 -50 110 -110 110Z"
+    fill="#ffffff"
+    opacity="0.9"
+  />
+  
+  <!-- Small Leaf / Sparkle at the top right -->
+  <path
+    d="M320 120c15 0 30 15 30 30c0 15 -15 30 -30 30c-15 0 -30 -15 -30 -30c0 -15 15 -30 30 -30Z"
+    fill="#a7f3d0"
+  />
+</svg>
