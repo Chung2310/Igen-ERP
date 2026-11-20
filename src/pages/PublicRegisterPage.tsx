@@ -79,28 +79,16 @@ interface IPublicPartner {
 }
 
 export default function PublicRegisterPage() {
-  const requestedPreset = useMemo(() => {
-    const value = new URLSearchParams(window.location.search).get("entityPreset");
-    return value === "worker" ? ("worker" as const) : null;
-  }, []);
-  const teacherId = useMemo(
-    () => new URLSearchParams(window.location.search).get("teacherId") || "",
-    [],
-  );
-  const registrationCompanyCode = useMemo(
-    () => new URLSearchParams(window.location.search).get("registrationCompanyCode") || "",
-    [],
-  );
-  const registrationBranchId = useMemo(
-    () => new URLSearchParams(window.location.search).get("registrationBranchId") || "",
+  const registrationToken = useMemo(
+    () => new URLSearchParams(window.location.search).get("registrationToken") || "",
     [],
   );
 
-  const [loading, setLoading] = useState(Boolean(teacherId));
-  const [configError, setConfigError] = useState("");
+  const [loading, setLoading] = useState(Boolean(registrationToken));
+  const [configError, setConfigError] = useState(registrationToken ? "" : "Liên kết đăng ký không hợp lệ hoặc đã hết hạn. Hãy xin mã QR mới.");
   const [fields, setFields] = useState<IPublicField[]>([]);
   const [partners, setPartners] = useState<IPublicPartner[]>([]);
-  const [preset, setPreset] = useState<EntityPreset>(requestedPreset || "student");
+  const [preset, setPreset] = useState<EntityPreset>("student");
   const [referralMode, setReferralMode] = useState<"none" | "partner" | "custom">("none");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
 
@@ -123,14 +111,11 @@ export default function PublicRegisterPage() {
   );
 
   useEffect(() => {
-    if (!teacherId) return;
+    if (!registrationToken) return;
     let cancelled = false;
     (async () => {
       try {
-        const params = new URLSearchParams({ teacherId });
-        if (registrationCompanyCode) params.set("registrationCompanyCode", registrationCompanyCode);
-        if (registrationBranchId) params.set("registrationBranchId", registrationBranchId);
-        if (requestedPreset) params.set("entityPreset", requestedPreset);
+        const params = new URLSearchParams({ registrationToken });
         const response = await fetch(
           `/api/v1/students/public-register-config?${params.toString()}`,
         );
@@ -144,7 +129,7 @@ export default function PublicRegisterPage() {
         if (cancelled) return;
         setFields((json.data.fields as IPublicField[]).filter((field) => field.isVisible));
         if (Array.isArray(json.data.partners)) setPartners(json.data.partners);
-        setPreset(requestedPreset || json.data.entityPreset as EntityPreset);
+        setPreset(json.data.entityPreset as EntityPreset);
       } catch (error) {
         if (!cancelled) setConfigError(getApiErrorMessage(error, "Không tải được biểu mẫu."));
       } finally {
@@ -152,7 +137,7 @@ export default function PublicRegisterPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [requestedPreset, teacherId, registrationCompanyCode, registrationBranchId]);
+  }, [registrationToken]);
 
   const handleUpload = async (field: FileField, file: File) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -164,7 +149,7 @@ export default function PublicRegisterPage() {
       const body = new FormData();
       body.append("file", file);
       const response = await fetch(
-        `/api/v1/students/public-register-upload?teacherId=${encodeURIComponent(teacherId)}`,
+        `/api/v1/students/public-register-upload?registrationToken=${encodeURIComponent(registrationToken)}`,
         { method: "POST", body },
       );
       const json = await response.json().catch(() => ({}));
@@ -190,10 +175,7 @@ export default function PublicRegisterPage() {
     setSubmitting(true);
     try {
       const payload: Record<string, unknown> = {
-        teacherId,
-        ...(requestedPreset ? { entityPreset: requestedPreset } : {}),
-        ...(registrationCompanyCode ? { registrationCompanyCode } : {}),
-        ...(registrationBranchId ? { registrationBranchId } : {}),
+        registrationToken,
         ...(isWorkerForm && partnerCode.trim() ? { partnerCode: partnerCode.trim().toUpperCase() } : {}),
       };
       fields.forEach((field) => {
@@ -238,14 +220,14 @@ export default function PublicRegisterPage() {
     );
   }
 
-  if (!teacherId || configError) {
+  if (!registrationToken || configError) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-xl sm:p-8">
           <AlertTriangle className="mx-auto mb-4 h-14 w-14 text-rose-500" />
           <h2 className="text-base font-bold text-slate-800">Không mở được biểu mẫu</h2>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            {configError || "Liên kết đăng ký thiếu mã người phụ trách. Vui lòng liên hệ trung tâm để nhận lại liên kết chính xác."}
+            {configError || "Liên kết đăng ký không hợp lệ hoặc đã hết hạn. Hãy xin mã QR mới."}
           </p>
         </div>
       </div>

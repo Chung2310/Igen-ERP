@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { ValidationError } from "../../../errors/app-error";
 import { StudentService } from "../services/student.service";
 import { StudentLearningHistoryService } from "../services/student-learning-history.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
@@ -14,6 +15,13 @@ import { WorkerService } from "../../worker-management/services/worker.service";
 import { WorkerReferralService } from "../../worker-management/labor-partners/services/worker-referral.service";
 import { LaborPartnerModel } from "../../worker-management/labor-partners/models/labor-partner.model";
 import { Partner } from "../models/partner.model";
+import { BranchModel } from "../../../model/branch.model";
+import { User } from "../models/user.model";
+import {
+  createPublicRegistrationToken,
+  type PublicRegistrationContext,
+  verifyPublicRegistrationToken,
+} from "../services/public-registration-context.service";
 import {
   findMissingPublicRegisterFields,
   resolvePublicRegisterFields,
@@ -27,6 +35,17 @@ async function resolveActorName(uid: string, fallbackEmail?: string): Promise<st
   } catch {
     return fallbackEmail || "";
   }
+}
+
+function publicRegistrationActorMatches(teacher: any, context: PublicRegistrationContext) {
+  if (!teacher || teacher.isActive === false) return false;
+  if (teacher.role !== "superadmin") {
+    const teacherCompanyCode = String(teacher.companyCode || teacher.centerId || "").trim().toUpperCase();
+    const teacherBranchId = String(teacher.branchId || "").trim();
+    if (teacherCompanyCode !== context.companyCode.toUpperCase()) return false;
+    if (teacherBranchId && teacherBranchId !== (context.branchId || "")) return false;
+  }
+  return true;
 }
 
 /** Resource indexing is secondary cleanup and must never make an already-completed student deletion fail. */
@@ -331,23 +350,63 @@ export class StudentController {
   }
 
   /**
-   * Chặn cửa cho các endpoint đăng ký công khai: chỉ cho đi tiếp khi ?teacherId=
-   * trỏ tới một giáo viên đang hoạt động. Chạy TRƯỚC multer để request rác không
-   * kịp đẩy file lên Cloudinary.
+   * Mint a signed public registration context from the authenticated user's scope.
+   * The public page never chooses its company or branch from editable URL fields.
+   */
+  static async createPublicRegistrationLink(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const actor = req.user!;
+      const rawRequestedCompanyCode = String(req.body.companyCode || "").trim().toUpperCase();
+      const requestedCompanyCode = rawRequestedCompanyCode === "ALL" ? "" : rawRequestedCompanyCode;
+      const actorCompanyCode = String(actor.companyCode || actor.centerId || "").trim().toUpperCase();
+      const companyCode = actor.role === "superadmin" ? requestedCompanyCode : actorCompanyCode;
+
+      if (!companyCode || companyCode === "ALL" || (actor.role !== "superadmin" && requestedCompanyCode && requestedCompanyCode !== actorCompanyCode)) {
+        throw new ValidationError("PUBLIC_REGISTRATION_SCOPE_INVALID", "Không thể tạo liên kết đăng ký cho công ty đã chọn.");
+      }
+
+      if (actor.role === "superadmin" && !await User.exists({ companyCode, role: { $ne: "superadmin" }, isActive: { $ne: false } })) {
+        throw new ValidationError("PUBLIC_REGISTRATION_SCOPE_INVALID", "Không tìm thấy công ty đang hoạt động.");
+      }
+
+      const requestedBranchId = String(req.body.branchId || "").trim();
+      const assignedBranchId = String(actor.branchId || "").trim();
+      if (assignedBranchId && requestedBranchId && requestedBranchId !== assignedBranchId) {
+        throw new ValidationError("PUBLIC_REGISTRATION_SCOPE_INVALID", "Tài khoản này chỉ được tạo liên kết cho chi nhánh đã gán.");
+      }
+      const branchId = assignedBranchId || requestedBranchId || undefined;
+      if (branchId) {
+        if (!/^[a-f\d]{24}$/i.test(branchId) || !await BranchModel.exists({ _id: branchId, companyCode, isActive: true })) {
+          throw new ValidationError("PUBLIC_REGISTRATION_SCOPE_INVALID", "Chi nhánh không tồn tại, đã ngừng hoạt động hoặc không thuộc công ty đã chọn.");
+        }
+      }
+
+      const registrationToken = createPublicRegistrationToken({
+        teacherId: actor.uid,
+        companyCode,
+        ...(branchId ? { branchId } : {}),
+        ...(req.body.entityPreset ? { entityPreset: req.body.entityPreset } : {}),
+      });
+      res.status(201).json({ success: true, data: { registrationToken } });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
+  /**
+   * Chặn request upload không có token đăng ký hợp lệ. Middleware chạy TRƯỚC multer
+   * để request giả mạo không đẩy tệp lên Cloudinary.
    */
   static async assertPublicTeacher(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId : "";
-      if (!teacherId) {
-        return res.status(400).json({ success: false, error: "Thiếu mã giáo viên trong đường dẫn đăng ký." });
-      }
-      const teacher = await AuthService.getUserProfile(teacherId);
-      if (!teacher || teacher.isActive === false) {
-        return res.status(400).json({ success: false, error: "Giáo viên không hợp lệ hoặc đã bị khóa." });
+      const context = verifyPublicRegistrationToken(req.query.registrationToken);
+      const teacher = await AuthService.getUserProfile(context.teacherId);
+      if (!publicRegistrationActorMatches(teacher, context)) {
+        return res.status(400).json({ success: false, error: "Liên kết đăng ký không hợp lệ hoặc đã hết hạn. Hãy xin mã QR mới." });
       }
       next();
     } catch {
-      res.status(400).json({ success: false, error: "Không xác thực được giáo viên." });
+      res.status(400).json({ success: false, error: "Liên kết đăng ký không hợp lệ hoặc đã hết hạn. Hãy xin mã QR mới." });
     }
   }
 
@@ -361,13 +420,13 @@ export class StudentController {
       return res.status(400).json({ success: false, error: "Không tìm thấy tệp tin nào được gửi." });
     }
     try {
-      const teacherId = String(req.query.teacherId || "");
-      const teacher = await AuthService.getUserProfile(teacherId);
-      if (!teacher) throw new Error("Giáo viên không hợp lệ.");
+      const context = verifyPublicRegistrationToken(req.query.registrationToken);
+      const teacher = await AuthService.getUserProfile(context.teacherId);
+      if (!publicRegistrationActorMatches(teacher, context)) throw new Error("Liên kết đăng ký không hợp lệ hoặc đã hết hạn.");
       const pending = await managedUploadService.recordPendingStoredAsset({
-        companyCode: teacher.companyCode || teacher.centerId,
-        branchId: teacher.branchId,
-        actorId: teacherId,
+        companyCode: context.companyCode,
+        branchId: context.branchId,
+        actorId: context.teacherId,
         actorName: teacher.displayName || teacher.email,
         trusted: true,
       }, {
@@ -396,31 +455,31 @@ export class StudentController {
    */
   static async publicRegisterConfig(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = String(req.query.teacherId);
-      const teacher = await AuthService.getUserProfile(teacherId);
-      if (!teacher || teacher.isActive === false) {
-        return res.status(400).json({ success: false, error: "Giáo viên không hợp lệ hoặc đã bị khóa." });
+      const context = verifyPublicRegistrationToken(req.query.registrationToken);
+      const teacher = await AuthService.getUserProfile(context.teacherId);
+      if (!publicRegistrationActorMatches(teacher, context)) {
+        return res.status(400).json({ success: false, error: "Liên kết đăng ký không hợp lệ hoặc đã hết hạn. Hãy xin mã QR mới." });
       }
 
-      const requestedCompanyCode = String(req.query.registrationCompanyCode || req.query.companyCode || "").trim();
-      const requestedEntityPreset = req.query.entityPreset;
-      const targetCompanyCode = requestedCompanyCode || teacher.companyCode || teacher.centerId || teacherId;
+      const targetCompanyCode = context.companyCode;
       const tenantId = await resolveCustomFieldTenantForOwner(targetCompanyCode);
       const partnerOwnerIds = await getCenterOwnerIds({
         uid: targetCompanyCode,
         role: "admin",
         centerId: targetCompanyCode,
         companyCode: targetCompanyCode,
+        branchId: context.branchId,
       });
       const settings = await new ModuleSettingsService().get(tenantId);
-      const entityPreset = requestedEntityPreset === "worker" || settings.entityPreset === "worker"
+      const entityPreset = context.entityPreset === "worker" || settings.entityPreset === "worker"
         ? "worker"
-        : settings.entityPreset;
+        : context.entityPreset || settings.entityPreset;
       const [fields, partners] = await Promise.all([
         resolvePublicRegisterFields(tenantId, entityPreset),
         Partner.find({
           ownerId: Array.isArray(partnerOwnerIds) ? { $in: partnerOwnerIds } : partnerOwnerIds,
           isActive: true,
+          ...(context.branchId ? { branchId: context.branchId } : {}),
         })
           .select("_id name phone")
           .sort({ name: 1 })
@@ -443,28 +502,23 @@ export class StudentController {
   static async publicRegister(req: Request, res: Response) {
     try {
       const {
-        teacherId,
-        entityPreset: requestedEntityPreset,
-        registrationCompanyCode,
-        registrationBranchId,
+        registrationToken,
         partnerCode,
         ...studentData
       } = req.body;
-      const teacher = await AuthService.getUserProfile(teacherId);
-      if (!teacher || teacher.isActive === false) {
-        return res.status(400).json({ success: false, error: "Giao vien khong hop le hoac da bi khoa." });
+      const context = verifyPublicRegistrationToken(registrationToken);
+      const teacher = await AuthService.getUserProfile(context.teacherId);
+      if (!publicRegistrationActorMatches(teacher, context)) {
+        return res.status(400).json({ success: false, error: "Liên kết đăng ký không hợp lệ hoặc đã hết hạn. Hãy xin mã QR mới." });
       }
 
-      const requestedCompanyCode = String(registrationCompanyCode || "").trim();
-      const requestedBranchId = String(registrationBranchId || "").trim();
-      const teacherCompanyCode = teacher.companyCode || teacher.centerId || teacherId;
-      const targetCompanyCode = requestedCompanyCode || teacherCompanyCode;
-      const targetBranchId = requestedBranchId || teacher.branchId;
+      const targetCompanyCode = context.companyCode;
+      const targetBranchId = context.branchId;
       const tenantId = await resolveCustomFieldTenantForOwner(targetCompanyCode);
       const settings = await new ModuleSettingsService().get(tenantId);
-      const entityPreset = requestedEntityPreset === "worker" || settings.entityPreset === "worker"
+      const entityPreset = context.entityPreset === "worker" || settings.entityPreset === "worker"
         ? "worker"
-        : settings.entityPreset;
+        : context.entityPreset || settings.entityPreset;
       const missing = await findMissingPublicRegisterFields(tenantId, studentData, entityPreset);
       if (missing.length > 0) {
         return res.status(400).json({
@@ -507,7 +561,7 @@ export class StudentController {
         await sourceUploadFinalizer.finalize({
           companyCode: targetCompanyCode,
           branchId: targetBranchId,
-          actorId: teacherId,
+          actorId: context.teacherId,
           actorName: teacher.displayName || teacher.email,
           trusted: true,
         }, {
@@ -530,7 +584,7 @@ export class StudentController {
                 partnerCode: referralPartnerCode,
                 registrationDate: worker.registrationDate,
               },
-              { id: teacherId, name: teacher.displayName || teacher.email },
+              { id: context.teacherId, name: teacher.displayName || teacher.email },
             );
           } catch (referralError) {
             // Hồ sơ đã lưu thành công, chỉ phần gắn đối tác lỗi (thường do thiếu
@@ -543,20 +597,18 @@ export class StudentController {
         return res.status(201).json({ success: true, data: worker, ...(referralWarning ? { warning: referralWarning } : {}) });
       }
 
-      let ownerId = teacherId;
+      let ownerId = context.teacherId;
       let teacherScope: string | string[] = "ALL";
       const teacherUser = {
-        uid: String(teacher._id || teacherId),
+        uid: context.teacherId,
         role: teacher.role,
-        centerId: teacher.companyCode || teacherId,
-        companyCode: teacher.companyCode,
-        branchId: teacher.branchId,
+        centerId: targetCompanyCode,
+        companyCode: targetCompanyCode,
+        branchId: targetBranchId,
       };
       if (teacher.role === "superadmin") {
-        if (requestedCompanyCode) {
-          ownerId = await resolveCreateOwnerId(teacherUser, requestedCompanyCode);
-          teacherScope = await getCenterOwnerIds({ uid: requestedCompanyCode, role: "admin", centerId: requestedCompanyCode, companyCode: requestedCompanyCode });
-        }
+        ownerId = await resolveCreateOwnerId(teacherUser, targetCompanyCode);
+        teacherScope = await getCenterOwnerIds({ uid: targetCompanyCode, role: "admin", centerId: targetCompanyCode, companyCode: targetCompanyCode, branchId: targetBranchId });
       } else {
         ownerId = await resolveCreateOwnerId(teacherUser);
         teacherScope = await getCenterOwnerIds(teacherUser);
@@ -568,9 +620,24 @@ export class StudentController {
         fee: "0",
         paidAmount: 0,
         status: ["Đang học"],
-        centerId: requestedCompanyCode || teacher.companyCode || teacher.centerId || undefined,
+        centerId: targetCompanyCode,
         partnerId: studentData.partnerId ? String(studentData.partnerId).trim() : undefined,
       };
+
+      if (payload.partnerId) {
+        const partnerOwnerQuery = Array.isArray(teacherScope)
+          ? { ownerId: { $in: teacherScope } }
+          : teacherScope === "ALL" ? {} : { ownerId: teacherScope };
+        const partner = await Partner.findOne({
+          _id: payload.partnerId,
+          ...partnerOwnerQuery,
+          ...(targetBranchId ? { branchId: targetBranchId } : {}),
+          isActive: true,
+        }).select("_id");
+        if (!partner) {
+          return res.status(400).json({ success: false, error: "Đối tác giới thiệu không hợp lệ hoặc không thuộc phạm vi đăng ký." });
+        }
+      }
 
       // Public registration has no dynamic-field UI and is intentionally exempt
       // from admin-form custom-field requirements.
@@ -579,14 +646,14 @@ export class StudentController {
         teacherScope,
         { ...payload, branchId: targetBranchId },
         undefined,
-        { uid: teacherId, name: teacher.displayName || teacher.email || "" },
+        { uid: context.teacherId, name: teacher.displayName || teacher.email || "" },
       );
 
       if ((studentData as any).idCardFrontFile || (studentData as any).idCardBackFile || (studentData as any).portraitFile) {
         await sourceUploadFinalizer.finalize({
           companyCode: targetCompanyCode,
           branchId: targetBranchId,
-          actorId: teacherId,
+          actorId: context.teacherId,
           actorName: teacher.displayName || teacher.email,
           trusted: true,
         }, {

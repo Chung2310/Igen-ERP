@@ -44,7 +44,7 @@ function memoryRepository(initial?: State) {
       return state.entries.find((item) => item.receivableId === receivableId && item.reversalOfEntryId === entryId && item.companyCode === scope.companyCode) || null;
     },
     async findByIdempotency(scope, idempotencyKey) {
-      return state.entries.find((item) => item.companyCode === scope.companyCode && item.branchId === scope.branchId && item.idempotencyKey === idempotencyKey) || null;
+      return state.entries.find((item) => item.companyCode === scope.companyCode && item.idempotencyKey === idempotencyKey) || null;
     },
   };
   return {
@@ -100,6 +100,31 @@ test("payment, adjustment, write-off, and reversal update caches without mutatin
   await assert.rejects(() => ledger.reverse(scope, opened._id, adjustment.entry._id, { reason: "Lặp", idempotencyKey: "rev-2" }, actor), /ENTRY_ALREADY_REVERSED/);
 });
 
+test("write-off uses the balance read inside its write transaction", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  const opened = await ledger.openFromEvent(scope, openInput, actor);
+  const findById = memory.repository.findById.bind(memory.repository);
+  let firstRead = true;
+  memory.repository.findById = async (...args) => {
+    const receivable = await findById(...args);
+    if (firstRead && receivable) {
+      firstRead = false;
+      await memory.repository.updateReceivable(scope, opened._id, { balance: 120_000 }, undefined);
+    }
+    return receivable;
+  };
+
+  const result = await ledger.writeOff(scope, opened._id, {
+    reason: "Đã được duyệt xóa nợ",
+    idempotencyKey: "write-off-after-balance-change",
+  }, actor);
+
+  assert.equal(result.receivable.balance, 0);
+  assert.equal(result.receivable.status, "written_off");
+  assert.equal(result.entry.amount, -120_000);
+});
+
 test("reversing a payment restores paid cache without changing adjusted cache", async () => {
   const memory = memoryRepository();
   const ledger = createReceivableLedgerService(memory.repository);
@@ -112,6 +137,50 @@ test("reversing a payment restores paid cache without changing adjusted cache", 
   assert.equal(reversed.receivable.status, "open");
 });
 
+test("idempotency keys cannot replay a payment against another receivable or different amount", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  const first = await ledger.openFromEvent(scope, openInput, actor);
+  const second = await ledger.openFromEvent(scope, {
+    ...openInput, receivableCode: "CN-0002", sourceId: "o2", sourceEventId: "event-confirm-2", sourceCode: "DH-2",
+  }, actor);
+  const otherBranchScope = { companyCode: "ACME", branchId: "B2" };
+  const otherBranch = await ledger.openFromEvent(otherBranchScope, {
+    ...openInput, receivableCode: "CN-0003", sourceId: "o3", sourceEventId: "event-confirm-3", sourceCode: "DH-3",
+  }, actor);
+  await ledger.collect(scope, first._id, { amount: 30_000, paymentMethod: "cash", idempotencyKey: "shared-payment-key" }, actor);
+
+  await assert.rejects(
+    () => ledger.collect(scope, first._id, { amount: 40_000, paymentMethod: "cash", idempotencyKey: "shared-payment-key" }, actor),
+    (error: any) => error.code === "IDEMPOTENCY_CONFLICT",
+  );
+  await assert.rejects(
+    () => ledger.collect(scope, second._id, { amount: 30_000, paymentMethod: "cash", idempotencyKey: "shared-payment-key" }, actor),
+    (error: any) => error.code === "IDEMPOTENCY_CONFLICT",
+  );
+  await assert.rejects(
+    () => ledger.collect(otherBranchScope, otherBranch._id, { amount: 30_000, paymentMethod: "cash", idempotencyKey: "shared-payment-key" }, actor),
+    (error: any) => error.code === "IDEMPOTENCY_CONFLICT",
+  );
+  assert.equal(memory.snapshot().receivables.find((item) => item._id === first._id).balance, 70_000);
+  assert.equal(memory.snapshot().receivables.find((item) => item._id === second._id).balance, 100_000);
+  assert.equal(memory.snapshot().receivables.find((item) => item._id === otherBranch._id).balance, 100_000);
+});
+
+test("replaying the same reversal returns the original ledger entry", async () => {
+  const memory = memoryRepository();
+  const ledger = createReceivableLedgerService(memory.repository);
+  const opened = await ledger.openFromEvent(scope, openInput, actor);
+  const payment = await ledger.collect(scope, opened._id, { amount: 30_000, paymentMethod: "cash", idempotencyKey: "reverse-payment-once" }, actor);
+  const command = { reason: "Ghi nhận nhầm", idempotencyKey: "reverse-payment-replay" };
+  const reversed = await ledger.reverse(scope, opened._id, payment.entry._id, command, actor);
+  const replay = await ledger.reverse(scope, opened._id, payment.entry._id, command, actor);
+
+  assert.equal(replay.entry._id, reversed.entry._id);
+  assert.equal(replay.receivable.balance, 100_000);
+  assert.equal(memory.snapshot().entries.length, 3);
+});
+
 test("source event commands collect and void without deleting ledger history", async () => {
   const memory = memoryRepository();
   const ledger = createReceivableLedgerService(memory.repository);
@@ -119,8 +188,10 @@ test("source event commands collect and void without deleting ledger history", a
   const paid = await ledger.settleFromEvent(scope, "retail_order", "o1", { amount: 30_000, paymentMethod: "retail", idempotencyKey: "evt-paid" }, actor);
   assert.equal(paid.receivable.balance, 70_000);
   const voided = await ledger.voidFromEvent(scope, "retail_order", "o1", { remainingDebt: 70_000, refundedAmount: 30_000, reason: "Hủy đơn", idempotencyKey: "evt-cancel" }, actor);
+  const voidedReplay = await ledger.voidFromEvent(scope, "retail_order", "o1", { remainingDebt: 70_000, refundedAmount: 30_000, reason: "Hủy đơn", idempotencyKey: "evt-cancel" }, actor);
   assert.equal(voided.receivable.balance, 0);
   assert.equal(voided.receivable.status, "void");
+  assert.equal(voidedReplay.entry._id, voided.entry._id);
   assert.deepEqual(memory.snapshot().entries.map((entry) => entry.type), ["charge", "payment", "reversal"]);
 });
 
@@ -169,6 +240,13 @@ test("extending a receivable updates its due date and appends immutable audit hi
   assert.equal(extended.receivable.status, "open");
   assert.equal(extended.receivable.reminderSuspendedUntil, null);
   const entry = memory.snapshot().entries.at(-1);
+  const replay = await ledger.extend(scope, opened._id, {
+    dueDate: newDueDate, reason: "Khách hẹn thanh toán cuối tháng", idempotencyKey: "extend-1",
+  }, actor);
+  assert.equal(replay.entry._id, entry._id);
+  await assert.rejects(() => ledger.extend(scope, opened._id, {
+    dueDate: new Date("2026-09-01T23:59:59.999Z"), reason: "Dùng lại mã", idempotencyKey: "extend-1",
+  }, actor), (error: any) => error.code === "IDEMPOTENCY_CONFLICT");
   assert.equal(entry.type, "due_date_extension");
   assert.equal(entry.amount, 0);
   assert.equal(entry.balanceAfter, 100_000);

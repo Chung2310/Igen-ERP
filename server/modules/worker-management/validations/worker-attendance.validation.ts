@@ -1,7 +1,7 @@
 import Joi from "joi";
 import { objectIdSchema } from "./worker-project.validation";
+import { calendarDateSchema } from "./calendar-date.validation";
 
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const markAttendanceSchema = Joi.object({
   projectId: objectIdSchema.required().messages({
@@ -22,16 +22,13 @@ export const listAttendanceQuerySchema = Joi.object({
     "any.required": "Mã dự án là bắt buộc.",
     "string.empty": "Mã dự án không được để trống.",
   }),
-  from: Joi.string().pattern(datePattern).optional().messages({
-    "string.pattern.base": "Định dạng ngày bắt đầu phải là YYYY-MM-DD.",
-  }),
-  to: Joi.string().pattern(datePattern).optional().messages({
-    "string.pattern.base": "Định dạng ngày kết thúc phải là YYYY-MM-DD.",
-  }),
-  date: Joi.string().pattern(datePattern).optional().messages({
-    "string.pattern.base": "Định dạng ngày phải là YYYY-MM-DD.",
-  }),
-});
+  from: calendarDateSchema("ngày bắt đầu").optional(),
+  to: calendarDateSchema("ngày kết thúc").optional(),
+  date: calendarDateSchema("ngày").optional(),
+})
+  .with("from", "to")
+  .with("to", "from")
+  .without("date", ["from", "to"]);
 
 export const adjustAttendanceSchema = Joi.object({
   projectId: objectIdSchema.required().messages({ "any.required": "Mã dự án là bắt buộc." }),

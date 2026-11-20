@@ -15,6 +15,8 @@ describe("estimate versus budget routing", () => {
     ["Tôi cần một dự toán cho công trình", "quotation.request.create"],
     ["Tạo dự toán, không tạo ngân sách", "quotation.request.create"],
     ["Tạo dự toán từ báo giá BG-001 với ngân sách 100 triệu", "quotation.estimate.from-customer"],
+    ["Lập dự toán dựa trên báo giá BG-2026-001", "quotation.estimate.from-customer"],
+    ["Tạo dự toán căn cứ vào BG-2026-001", "quotation.estimate.from-customer"],
     ["Lập dự toán từ yêu cầu đã phân tích, ngân sách 100 triệu", "quotation.estimate.create"],
   ])("corrects an incorrect model budget choice: %s", async (text, actionId) => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: { customerName: "An", budget: 100000000 }, remainingRequests: ["Tạo ngân sách"] }) });

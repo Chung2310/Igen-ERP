@@ -44,6 +44,7 @@ describe("labor partner commission calculation", () => {
     const workerId1 = "607c24e5a02041968f1a4813";
     const workerId2 = "607c24e5a02041968f1a4814";
     const policyId = "607c24e5a02041968f1a4815";
+    const branchId = "607c24e5a02041968f1a4816";
 
     const policy = {
       _id: policyId,
@@ -58,15 +59,15 @@ describe("labor partner commission calculation", () => {
     vi.spyOn(WorkerReferralModel, "find").mockReturnValue({
       populate: () => ({
         lean: async () => [
-          { _id: referralId1, workerId: workerId1, commissionScheme: "official_monthly", effectiveFrom: "2026-08-01", effectiveTo: "2026-08-31", policyId: policy },
-          { _id: referralId2, workerId: workerId2, commissionScheme: "official_monthly", effectiveFrom: "2026-08-01", effectiveTo: "2026-08-31", policyId: policy },
+          { _id: referralId1, workerId: workerId1, commissionScheme: "official_monthly", status: "ended", effectiveFrom: "2026-08-15", effectiveTo: "2026-08-20", policyId: policy },
+          { _id: referralId2, workerId: workerId2, commissionScheme: "official_monthly", status: "active", effectiveFrom: "2026-08-15", effectiveTo: "2026-08-20", policyId: policy },
         ],
       }),
     } as any);
     vi.spyOn(LaborPartnerSettlementModel as any, "findOne").mockReturnValue({ lean: async () => null });
-    vi.spyOn(WorkerAttendanceLogModel, "find").mockReturnValue({ lean: async () => [] } as any);
-    vi.spyOn(WorkerLaborContractModel, "find").mockReturnValue({ lean: async () => [] } as any);
-    vi.spyOn(LaborPartnerCommissionLineModel as any, "find").mockReturnValue({ select: () => ({ lean: async () => [] }) } as any);
+    const findAttendance = vi.spyOn(WorkerAttendanceLogModel, "find").mockReturnValue({ lean: async () => [] } as any);
+    const findContracts = vi.spyOn(WorkerLaborContractModel, "find").mockReturnValue({ lean: async () => [] } as any);
+    const findApprovedLines = vi.spyOn(LaborPartnerCommissionLineModel as any, "find").mockReturnValue({ select: () => ({ lean: async () => [] }) } as any);
 
     let createdSettlementDocs: any;
     let createdSettlementOpts: any;
@@ -89,7 +90,7 @@ describe("labor partner commission calculation", () => {
     vi.spyOn(db, "runInTransaction").mockImplementation(async (cb: any) => cb(mockSession));
 
     const result = await LaborPartnerSettlementCalculationService.calculate(
-      { companyCode: "TEST" },
+      { companyCode: "TEST", branchId },
       {
         partnerId,
         periodAnchor: "2026-08-01",
@@ -106,5 +107,10 @@ describe("labor partner commission calculation", () => {
     expect(insertedLineDocs).toHaveLength(2);
     expect(insertedLineOpts).toEqual({ session: mockSession, ordered: true });
     expect(createdSettlementOpts).toEqual({ session: mockSession, ordered: true });
+    expect(WorkerReferralModel.find).toHaveBeenCalledWith(expect.objectContaining({ status: { $in: ["active", "ended"] } }));
+    expect(insertedLineDocs.map((line: any) => String(line.referralId))).toEqual([referralId1, referralId2]);
+    expect(String((findAttendance.mock.calls[0][0] as any).branchId)).toBe(branchId);
+    expect(String((findContracts.mock.calls[0][0] as any).branchId)).toBe(branchId);
+    expect((findApprovedLines.mock.calls[0][0] as any).referralId.$in.map(String)).toEqual([referralId1, referralId2]);
   });
 });

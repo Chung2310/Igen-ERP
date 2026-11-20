@@ -19,12 +19,13 @@ function normalizeReferralInput(input: ReferralInput) {
   return { workerId: requiredObjectId(input.workerId), policyId: requiredObjectId(input.policyId), commissionScheme: commissionScheme as CommissionScheme, referredAt: normalizeDate(input.referredAt, "Ngày giới thiệu"), employmentStartDate: normalizeDate(input.employmentStartDate, "Ngày bắt đầu làm"), effectiveFrom, effectiveTo, confirmationSource: (["contract", "manual", "attendance"].includes(String(input.confirmationSource)) ? String(input.confirmationSource) : "manual") as "contract" | "manual" | "attendance", note: normalizeText(input.note) };
 }
 
-function importDateToIso(value: unknown) {
+export function importDateToIso(value: unknown) {
   const raw = normalizeText(value);
   const display = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw);
   if (display) return `${display[3]}-${display[2].padStart(2, "0")}-${display[1].padStart(2, "0")}`;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  return new Date().toISOString().slice(0, 10);
+  if (!raw) return new Date().toISOString().slice(0, 10);
+  throw new LaborPartnerError("INVALID_DATE", "Ngày đăng ký trong file nhập cần theo dạng DD/MM/YYYY hoặc YYYY-MM-DD.");
 }
 
 async function assertReferralResources(scope: LaborPartnerScope, partnerId: mongoose.Types.ObjectId, input: ReturnType<typeof normalizeReferralInput>) {
@@ -41,7 +42,7 @@ async function assertReferralResources(scope: LaborPartnerScope, partnerId: mong
 
 function overlapsQuery(scope: LaborPartnerScope, workerId: mongoose.Types.ObjectId, from: string, to: string | null): any {
   return {
-    ...scopeQuery(scope), workerId, status: { $in: ["pending", "active"] },
+    ...scopeQuery(scope), workerId, status: { $ne: "rejected" },
     effectiveFrom: { $lte: to || "9999-12-31" },
     $or: [{ effectiveTo: null }, { effectiveTo: "" }, { effectiveTo: { $gte: from } }],
   };
