@@ -24,6 +24,7 @@ import { mapIntakeStandardFields, parseLeadIntakeAmount } from "../message/servi
 import { leadContractRouter } from "../message/router/lead-contract.router";
 import { chatTestRouter } from "../message/router/chat-test.router";
 import { resetCompanyChat } from "../message/service/company-chat-reset.service";
+import { readLeadDestinationSettings, resolveLeadDestination, saveLeadDestination } from "../message/service/lead-module-destination.service";
 import { withLeadZaloIdentities } from "../message/service/lead-zalo-identity.service";
 import { requireFacebookWebhookSubscription } from "./service/facebook-webhook-subscription";
 import { broadcastEvent } from "./socket";
@@ -569,6 +570,12 @@ suiteDataRouter.patch("/omni-inbox/leads/:id", run(async (req, res) => {
   return res.json({ status: "success", data: publicRecord(item, false) });
 }));
 
+suiteDataRouter.get("/omni-inbox/leads/:id/module-destination", run(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
+  const data = await resolveLeadDestination(req.user!.companyCode!, String(req.params.id));
+  return data ? res.json({ status: "success", data }) : res.status(404).json({ status: "error", message: "Không tìm thấy Lead." });
+}));
+
 suiteDataRouter.post("/omni-inbox/leads/:id/module-sync", requirePermission("omni-inbox:manage"), run(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID Lead không hợp lệ." });
   const data = payload(req.body);
@@ -637,6 +644,16 @@ suiteDataRouter.patch("/omni-inbox/ai-reply-logs/:id", run(async (req, res) => {
   const item = await AIReplyLogModel.findOneAndUpdate({ _id: req.params.id, companyCode: req.user!.companyCode }, { $set: { feedback: req.body.feedback } }, { returnDocument: "after", runValidators: true }).lean();
   return item ? res.json({ status: "success", data: item }) : res.status(404).json({ status: "error", message: "Không tìm thấy nhật ký." });
 }));
+suiteDataRouter.get("/social-integrations/lead-destinations", run(async (req, res) => {
+  const data = await readLeadDestinationSettings(req.user!.companyCode!);
+  return res.json({ status: "success", data });
+}));
+
+suiteDataRouter.put("/social-integrations/lead-destinations", requirePermission("social-integration:manage"), run(async (req, res) => {
+  const data = await saveLeadDestination(req.user!.companyCode!, req.body ?? {});
+  return res.json({ status: "success", data });
+}));
+
 const SecretReadAudit = mongoose.model("MarketingSecretReadAudit", new Schema({
   companyCode: { type: String, required: true }, userId: { type: String, required: true },
   integrationId: { type: String, required: true }, field: { type: String, required: true },

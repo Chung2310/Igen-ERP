@@ -8,10 +8,10 @@ import { SocialIntegrationModel } from "./model/social-integration.model";
 import { UserModel } from "../../../model/user.model";
 import { assertMarketingAccountOwnership } from "./account-ownership";
 
-const PREFIXES = ["/marketing-campaigns", "/marketing-contents", "/omni-inbox", "/social-integrations", "/company-knowledge", "/company-telegram-order", "/company-sepay", "/company-cake-catalog", "/company-product-catalog", "/order-sheets", "/gemini", "/facebook", "/zalo", "/tiktok", "/tiktok-business", "/scheduler", "/video-caption-projects", "/bulk-create", "/canva", "/webhooks", "/marketing-media", "/marketing-wallet", "/marketing-settings"];
+const PREFIXES = ["/marketing-campaigns", "/marketing-contents", "/omni-inbox", "/social-integrations", "/company-knowledge", "/company-telegram-order", "/company-sepay", "/company-cake-catalog", "/company-product-catalog", "/order-sheets", "/gemini", "/elevenlabs", "/heygen", "/kling", "/opusclip", "/facebook", "/zalo", "/tiktok", "/tiktok-business", "/scheduler", "/video-caption-projects", "/bulk-create", "/canva", "/webhooks", "/marketing-media", "/marketing-wallet", "/marketing-settings"];
 export function isMarketingSuitePath(path: string) {
   if (path === "/webhooks" || path.startsWith("/webhooks/")) return /^\/webhooks\/(?:tiktok|sepay\/[^/]+)\/?$/.test(path);
-  if (["/elevenlabs", "/marketing-subscription"].some((prefix) => path === prefix || path.startsWith(prefix + "/"))) return true;
+  if (["/marketing-subscription"].some((prefix) => path === prefix || path.startsWith(prefix + "/"))) return true;
   return PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + "/"));
 }
 export async function companyModuleEnabled(companyCode: string, key: ModuleKey) {

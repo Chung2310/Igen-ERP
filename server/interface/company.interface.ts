@@ -43,6 +43,7 @@ export interface ICompanyContractConfig {
 
 export interface ICompany extends Document {
   elevenlabsConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyElevenLabsConfig;
+  heygenConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyHeyGenConfig;
   telegramOrderConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyTelegramOrderConfig;
   sepayConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanySepayConfig;
   productCatalogConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyProductCatalogConfig;
