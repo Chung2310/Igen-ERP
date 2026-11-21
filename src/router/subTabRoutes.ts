@@ -32,9 +32,11 @@ export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
   { slug: "y-te", value: "Y_TE" },
 ];
 
-export type HealthcareTab = "patients" | "visits" | "appointments" | "care" | "settings";
+export type HealthcareTab = "patients" | "visits" | "appointments" | "care" | "settings" | "equipment" | "supplies";
 
 export const HEALTHCARE_SUB_TAB_ROUTES: SubTabRouteMap<HealthcareTab> = [
+  { slug: "thiet-bi", value: "equipment" },
+  { slug: "vat-tu", value: "supplies" },
   { slug: "benh-nhan", value: "patients" },
   { slug: "luot-kham", value: "visits" },
   { slug: "lich-hen", value: "appointments" },

@@ -1,4 +1,7 @@
+import SupplyWorkspace from "./logistics/SupplyWorkspace";
+import HealthcareSidebarIcon from "./HealthcareSidebarIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
+import LogisticsPage from "./logistics/LogisticsPage";
 import { CalendarPlus, CircleX, Eye, FileText, HeartHandshake, Pencil, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Dropdown } from "../../components/common/Dropdown";
@@ -28,6 +31,8 @@ const sections = [
   { key: "appointments", label: "Lịch hẹn" },
   { key: "care", label: "Chăm sóc" },
   { key: "settings", label: "Danh mục" },
+  { key: "equipment", label: "Thiết bị" },
+  { key: "supplies", label: "Vật tư" },
 ] as const;
 type ListRow = Patient | Visit | Appointment | CareTask;
 type Withdrawal =
@@ -41,7 +46,7 @@ type PatientDeleteImpactItem = Pick<Patient, "_id" | "code" | "name" | "phone" |
 type PatientDeleteResult = { deletedCount: number; deletedVisits: number; deletedAppointments: number; deletedCare: number };
 const withdrawalLabels = { visits: "Hủy lượt khám", appointments: "Hủy lịch hẹn", care: "Hủy việc chăm sóc", catalog: "Ngừng sử dụng" };
 const canFeature = (has: (permission: string) => boolean, tab: Tab, mode: "read" | "manage") => {
-  const feature = tab === "patients" ? "healthcare" : `healthcare-${tab}`;
+  const feature = tab === "patients" || tab === "equipment" || tab === "supplies" ? "healthcare" : `healthcare-${tab}`;
   return has(`${feature}:${mode}`) || (mode === "read" && has(`${feature}:manage`));
 };
 const labels = { visits: visitLabels, appointments: appointmentLabels, care: careLabels };
@@ -308,6 +313,12 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   }
 
   const tabs = sections.filter(section => canFeature(hasPermission, section.key, "read"));
+  if (tab === "equipment" || tab === "supplies") return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} />} filledIcon={<HealthcareSidebarIcon name={key} />} preferProvidedIcon onClick={() => navigate(key)}>{label}</ModuleNavigationButton>)}
+    </ModuleNavigation>
+    {tab === "supplies" ? <SupplyWorkspace key={branchId} branchId={branchId} hasPermission={hasPermission} /> : <LogisticsPage key={`${branchId}:${tab}`} kind={tab} branchId={branchId} hasPermission={hasPermission} />}
+  </div>;
   const pageTitle = tab === "settings" ? "Danh mục y tế" : sections.find(section => section.key === tab)?.label;
   const createLabel = { patients: "Thêm bệnh nhân", visits: "Ghi lượt khám", appointments: "Đặt lịch hẹn", care: "Tạo việc chăm sóc", settings: "Thêm danh mục" };
   const listHeaders = sectionHeaders[tab];
@@ -333,7 +344,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
     <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
-      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} onClick={() => navigate(key)}>
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} />} filledIcon={<HealthcareSidebarIcon name={key} />} preferProvidedIcon onClick={() => navigate(key)}>
         {label}
       </ModuleNavigationButton>)}
     </ModuleNavigation>

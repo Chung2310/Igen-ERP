@@ -18,7 +18,7 @@ export function readHealthcareLocation(search: string, branchId: string, canRead
   const params = new URLSearchParams(search);
   const tab = HEALTHCARE_SUB_TAB_ROUTES.find(route => route.slug === params.get("sub"))?.value;
   if (!tab || !canRead(tab)) return { tab: "patients" };
-  if (tab === "settings" || params.get("branch") !== branchId) return { tab };
+  if (tab === "equipment" || tab === "supplies" || tab === "settings" || params.get("branch") !== branchId) return { tab };
   const patientId = params.get("patientId") || "";
   const recordId = params.get("id") || "";
   return {
