@@ -1,6 +1,5 @@
 import { ZaloConversationModel, ZaloMessageModel, type IZaloConversation } from "../model/zalo-messenger.model";
 import { MessengerBackgroundJobModel } from "../model/messenger-background-job.model";
-import { ZALO_OA_MESSAGE_EVENTS } from "./zalo-human-reply";
 
 export const zaloMessageOrder = { timestamp: -1, _id: -1 } as const;
 
@@ -47,14 +46,6 @@ export async function assertZaloDeliveryCurrent(
   expectedMessageId: string,
   followUp?: ZaloFollowUpTurn,
 ) {
-  // An accepted OA Admin webhook must stop delivery even before its worker runs.
-  const target = await ZaloConversationModel.findOne({ _id: conversationId, oaId }).select("recipientId").lean();
-  if (target && await MessengerBackgroundJobModel.exists({
-    kind: "zalo-webhook", status: { $in: ["pending", "processing"] },
-    "payload.oa_id": oaId, "payload.recipient.id": target.recipientId,
-    "payload.event_name": { $in: ZALO_OA_MESSAGE_EVENTS },
-    "payload.sender.admin_id": { $exists: true, $nin: [null, ""] },
-  })) throw new ZaloReplyCancelledError();
   // Read the webhook queue first so an inbound moving from the queue to the inbox is still checked below.
   if (followUp && await MessengerBackgroundJobModel.exists({
     kind: "zalo-webhook", status: { $in: ["pending", "processing"] },

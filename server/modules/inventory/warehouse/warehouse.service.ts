@@ -23,19 +23,13 @@ export async function ensureDefaultWarehouse(companyCode: string, branchId: stri
     { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
   );
   if (session) createQuery.session(session);
-  const assertActive = (warehouse: any) => {
-    if (warehouse && !warehouse.isActive) {
-      throw Object.assign(new Error("Kho mặc định đã ngừng hoạt động. Vui lòng chọn hoặc kích hoạt một kho đang hoạt động."), { statusCode: 409, code: "DEFAULT_WAREHOUSE_INACTIVE" });
-    }
-    return warehouse;
-  };
   try {
-    return assertActive(await createQuery.lean());
+    return await createQuery.lean();
   } catch (error: any) {
     if (error?.code !== 11000) throw error;
     const retryQuery = WarehouseModel.findOne({ companyCode: normalizedCompanyCode, branchId, isDefault: true });
     if (session) retryQuery.session(session);
-    return assertActive(await retryQuery.lean());
+    return retryQuery.lean();
   }
 }
 

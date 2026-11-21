@@ -1,13 +1,12 @@
 import { hasQuotationCapability } from "./api";
 import { userMessage } from "./user-message";
 import { useEffect, useState, type FormEvent } from "react";
-import { api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedExportStatus, type GeneratedFileRef } from "./api";
+import { api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedFileRef } from "./api";
 import { formatVndInputValue, parseVndInputValue, updateVndInput } from "./money-input";
 import type { AcceptanceRecord, Contract, Quote } from "./types";
 import { AcceptanceCreationDialog, ApprovedEstimatePickerDialog, ContractCreationDialog } from "./DocumentDialogs";
 import VietnameseDatePicker from "./VietnameseDatePicker";
 import ThemedSelect from "./ThemedSelect";
-import { TaskProgress } from "./Feedback";
 import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import "./contract-workflow.css";
 
@@ -63,8 +62,6 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
   const [downloading, setDownloading] = useState(false);
   const [generatingFile, setGeneratingFile] = useState(false);
   const [savedWordFile, setSavedWordFile] = useState<GeneratedFileRef | null>(null);
-  const [savedWordJob, setSavedWordJob] = useState<GeneratedExportStatus | null>(null);
-  const [fileGenerationStartedAt, setFileGenerationStartedAt] = useState<number | null>(null);
   const [loadingSavedFile, setLoadingSavedFile] = useState(Boolean(id));
 
   useEffect(() => {
@@ -121,21 +118,18 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
     void load();
   }, [view, id, notify]);
   useEffect(() => {
-    if (!id) { setSavedWordFile(null); setSavedWordJob(null); setLoadingSavedFile(false); return; }
+    if (!id) { setSavedWordFile(null); setLoadingSavedFile(false); return; }
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     setLoadingSavedFile(true);
-    setSavedWordFile(null);
-    setSavedWordJob(null);
     const wordKind = view === "contracts" ? "contract" : "acceptance";
     const poll = async () => {
       try {
         const { file, job } = await getLatestGeneratedFile(id, wordKind);
         if (!active) return;
         setSavedWordFile(file);
-        setSavedWordJob(job);
         if (job?.status === "queued" || job?.status === "running") timer = setTimeout(() => void poll(), 2000);
-      } catch { if (active) { setSavedWordFile(null); setSavedWordJob(null); } }
+      } catch { if (active) setSavedWordFile(null); }
       finally { if (active) setLoadingSavedFile(false); }
     };
     void poll();
@@ -237,21 +231,18 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
 
   const generateDocument = async () => {
     if (!id || generatingFile || busy) return;
-    setFileGenerationStartedAt(Date.now());
     setGeneratingFile(true);
     try {
       const file = await createGeneratedExport(`/api/${view === "contracts" ? "contracts" : "acceptance-records"}/${id}/file?background=1`);
       setSavedWordFile(file);
-      setSavedWordJob(null);
       notify("Đã tạo và lưu file từ nội dung chứng từ đã lưu.", "success");
     } catch (error) { notify(error instanceof Error ? error.message : "Chưa tạo được file. Chứng từ đã được giữ lại.", "error"); }
-    finally { setGeneratingFile(false); setFileGenerationStartedAt(null); }
+    finally { setGeneratingFile(false); }
   };
 
   const createContractFile = async (downloadAfterCreate = false) => {
     if (!contract || busy || downloading || generatingFile || loadingSavedFile || !hasQuotationCapability("quotation-ai:manage")) return;
     setBusy(true);
-    setFileGenerationStartedAt(Date.now());
     setGeneratingFile(true);
     setSavedWordFile(null);
     try {
@@ -261,20 +252,13 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       }
       const file = await createGeneratedExport(`/api/contracts/${contract._id}/file?background=1`);
       setSavedWordFile(file);
-      setSavedWordJob(null);
       if (downloadAfterCreate) await downloadSavedDocument(file);
       else notify("Đã tạo và lưu file hợp đồng theo mẫu đã chọn.", "success");
     } catch (error) { notify(`Hợp đồng vẫn được lưu. ${userMessage(error, "Chưa tạo được file. Vui lòng thử lại.")}`, "error"); }
-    finally { setBusy(false); setGeneratingFile(false); setFileGenerationStartedAt(null); }
+    finally { setBusy(false); setGeneratingFile(false); }
   };
 
   if (loading) return <div className="workflow-page"><div className="workflow-loading"><span className="spinner spinner-dark" />Đang tải dữ liệu…</div></div>;
-  const fileJobPending = savedWordJob?.status === "queued" || savedWordJob?.status === "running";
-  const fileProgressStatus = generatingFile ? "running" : savedWordJob?.status === "queued" || savedWordJob?.status === "running" ? savedWordJob.status : "queued";
-  const fileProgressStartedAt = generatingFile
-    ? fileGenerationStartedAt ?? savedWordJob?.startedAt ?? savedWordJob?.createdAt
-    : savedWordJob?.startedAt ?? savedWordJob?.createdAt ?? fileGenerationStartedAt ?? undefined;
-  const showFileProgress = generatingFile || fileJobPending;
   const sectionHeader = !id && view === "contracts" ? (
     <div className="workflow-list-actions">
       <button type="button" className="button button-primary" onClick={() => setShowEstimatePicker(true)} disabled={!hasQuotationCapability("quotation-contract:manage")}>Tạo hợp đồng từ dự toán</button>
@@ -333,8 +317,6 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
           {contract.status === "signed" && <button className="button button-soft" disabled={busy || !hasQuotationCapability("quotation-acceptance:manage")} onClick={() => void createAcceptance(contract)}>Tạo nghiệm thu</button>}
         </div>
       </div>
-
-      {showFileProgress && <TaskProgress label="Đang tạo file hợp đồng" detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất." estimated status={fileProgressStatus} startedAt={fileProgressStartedAt} />}
 
       <article className="workflow-document workflow-contract-document">
         <div className="workflow-document-top">
@@ -441,8 +423,6 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
         {hasQuotationCapability("quotation-contract:read") && <button className="button button-soft" onClick={() => navigate("contracts", contract._id)}>Xem hợp đồng</button>}
       </div>
     </div>
-
-    {showFileProgress && <TaskProgress label="Đang tạo file nghiệm thu" detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất." estimated status={fileProgressStatus} startedAt={fileProgressStartedAt} />}
 
     <article className="workflow-document workflow-acceptance-document">
       <div className="workflow-document-top">

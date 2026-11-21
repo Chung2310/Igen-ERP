@@ -18,10 +18,6 @@ import { AttendancePeriodResultModel } from "../model/attendance-period-result.m
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
 import { BranchModel } from "../model/branch.model";
-import { runAttendancePeriodMutation } from "../service/attendance-period-mutation.service";
-import type { ClientSession } from "mongoose";
-
-const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
 
 /**
  * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
@@ -434,7 +430,7 @@ export const crudController = {
             .sort({ createdAt: 1, _id: 1 })
             .lean(),
         ]);
-        if (lockedResult || (payrollRun && payrollRun.status !== "draft")) return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc bảng lương đã bắt đầu duyệt. Hãy mở/reset kỳ trước khi sửa chấm công." });
+        if (lockedResult || payrollRun?.status === "closed") return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
         delete req.body.editReason;
         req.body.manuallyAdjusted = true;
         req.body.adjustedAt = new Date();
@@ -548,59 +544,21 @@ export const crudController = {
         }
       }
 
-      let item: any;
-      if (modelName === "timekeeping-logs" && attendanceBefore) {
-        const periodKey = attendanceBefore.date.slice(0, 7);
-        const queryBranchId = String(attendanceBefore.branchId || branchId || "");
-        if (!queryBranchId) return res.status(400).json({ status: "error", message: "Bản ghi chấm công chưa được gán chi nhánh." });
-        item = await runAttendancePeriodMutation({ companyCode, branchId: queryBranchId }, periodKey, async (session) => {
-          const logBranchFilter = branchId ? { $in: [branchId, null, undefined] } : { $in: [null, undefined, ""] };
-          const current: any = await withSession(
-            TimekeepingLogModel.findOne({ _id: id, companyCode, branchId: logBranchFilter }),
-            session,
-          ).lean();
-          if (!current) throw Object.assign(new Error("Không tìm thấy lịch sử chấm công."), { statusCode: 404 });
-          if (current.date !== attendanceBefore.date || current.uid !== attendanceBefore.uid) {
-            throw Object.assign(new Error("Bản ghi chấm công đã thay đổi. Vui lòng tải lại trước khi sửa."), { statusCode: 409 });
-          }
-          const updated = await crudService.update(
-            modelName as SupportedModelName,
-            id,
-            req.body,
-            companyCode,
-            userRole,
-            req.user?.branchId,
-            { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email }, session },
-          );
-          if (updated) {
-            const audit = {
-              companyCode,
-              logId: current._id,
-              employeeId: current.uid,
-              date: current.date,
-              actorId: req.user!.id,
-              reason: attendanceReason,
-              before: current,
-              after: updated,
-            };
-            await TimekeepingAdjustmentAuditModel.create([audit], session ? { session } : {});
-            await AttendancePeriodResultModel.updateMany(
-              { companyCode, branchId: queryBranchId, periodKey, status: "draft" },
-              { $set: { needsRecalculation: true } },
-              session ? { session } : {},
-            );
-          }
-          return updated;
-        });
-      } else {
-        item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
-      }
+      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
       await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item, _id: (item as any)?._id || id }, {
         companyCode,
         branchId: req.user?.branchId,
         actorId: req.user?.id || "",
         actorName: req.user?.email,
       });
+
+      if (modelName === "timekeeping-logs" && attendanceBefore && item) {
+        const periodKey = attendanceBefore.date.slice(0, 7);
+        await Promise.all([
+          TimekeepingAdjustmentAuditModel.create({ companyCode, logId: attendanceBefore._id, employeeId: attendanceBefore.uid, date: attendanceBefore.date, actorId: req.user!.id, reason: attendanceReason, before: attendanceBefore, after: item }),
+          AttendancePeriodResultModel.updateMany({ companyCode, branchId, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+        ]);
+      }
 
       // Tự động đồng bộ sang hr-calendar-events khi đơn được duyệt — mỗi loại yêu cầu
       // sinh ra một sự kiện đúng loại trên tab Lịch trình.

@@ -40,11 +40,6 @@ export function createAssetInventoryService(repository: AssetInventoryRepository
     if (session.status !== "open") throw new ConflictError("INVENTORY_SESSION_CLOSED", "Phiên kiểm kê đã chốt, không thể ghi nhận thêm.");
   }
 
-  function assertUpdateSucceeded<T>(session: T | null) {
-    if (!session) throw new ConflictError("INVENTORY_SESSION_CLOSED", "Phiên kiểm kê đã thay đổi hoặc được chốt trong lúc xử lý. Hãy tải lại trước khi tiếp tục.");
-    return session;
-  }
-
   return {
     list: (scope: FinanceScope, query: any = {}) => repository.listSessions(scope, query?.status ? String(query.status) : undefined),
 
@@ -90,17 +85,17 @@ export function createAssetInventoryService(repository: AssetInventoryRepository
       const scanned = { scannedAt: new Date(), scannedBy: identity(actor) };
       const known = (session.items || []).find((item: any) => item.barcode === input.barcode);
       if (!known) {
-        return assertUpdateSucceeded(await repository.appendItem(id, {
+        return repository.appendItem(id, {
           assetCode: input.barcode, barcode: input.barcode, name: input.barcode,
           expectedBranchId: session.branchIds[0] || "", result: "surplus", ...scanned, ...(input.note ? { note: input.note } : {}),
-        }));
+        });
       }
-      return assertUpdateSucceeded(await repository.recordCount(id, input.barcode, {
+      return repository.recordCount(id, input.barcode, {
         "items.$[item].result": input.result,
         "items.$[item].scannedAt": scanned.scannedAt,
         "items.$[item].scannedBy": scanned.scannedBy,
         ...(input.note ? { "items.$[item].note": input.note } : {}),
-      }));
+      });
     },
 
     /** Closes the session, turning every never-scanned item into a missing finding. */
@@ -108,8 +103,7 @@ export function createAssetInventoryService(repository: AssetInventoryRepository
       const session = await loadSession(scope, id);
       assertOpen(session);
       const finalized = await repository.finalizeSession(id, identity(actor), new Date());
-      const saved = assertUpdateSucceeded(finalized);
-      return { session: saved, variance: summarizeVariance(saved) };
+      return { session: finalized, variance: summarizeVariance(finalized) };
     },
   };
 }

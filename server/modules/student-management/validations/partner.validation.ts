@@ -43,10 +43,9 @@ export const updatePartnerSchema = Joi.object({
 });
 
 export const createPayoutSchema = Joi.object({
-  amount: Joi.number().integer().min(1).max(Number.MAX_SAFE_INTEGER).required().messages({
+  amount: Joi.number().min(1).required().messages({
     "any.required": "Số tiền chi trả là bắt buộc.",
     "number.min": "Số tiền chi trả phải lớn hơn 0.",
-    "number.integer": "Số tiền chi trả phải là số nguyên VND.",
   }),
   date: Joi.string().required().messages({
     "any.required": "Ngày chi trả là bắt buộc.",

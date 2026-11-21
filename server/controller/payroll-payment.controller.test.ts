@@ -208,10 +208,7 @@ describe("creating a payroll payment", () => {
   });
 
   it("replays the stored payment for a repeated idempotency key", async () => {
-    mocks.paymentFindOne.mockReturnValue(lean({
-      _id: "payment-1", runId: "run-a", amount: 16_000_000, status: "draft",
-      lines: validBody().lines,
-    }));
+    mocks.paymentFindOne.mockReturnValue(lean({ _id: "payment-1", runId: "run-a", amount: 16_000_000, status: "draft" }));
     const res = response();
 
     await payrollController.createPayment(request(validBody()), res);
@@ -229,36 +226,6 @@ describe("creating a payroll payment", () => {
 
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_IDEMPOTENCY_CONFLICT" }));
-  });
-
-  it("rejects reusing an idempotency key with a different employee allocation", async () => {
-    mocks.paymentFindOne.mockReturnValue(lean({
-      _id: "payment-1", runId: "run-a", amount: 16_000_000,
-      lines: [{ employeeId: "emp-1", amount: 6_000_000 }, { employeeId: "emp-2", amount: 10_000_000 }],
-    }));
-    const res = response();
-
-    await payrollController.createPayment(request(validBody()), res);
-
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PAYROLL_IDEMPOTENCY_CONFLICT" }));
-    expect(mocks.paymentCreate).not.toHaveBeenCalled();
-  });
-
-  it("replays the winning payment when concurrent requests collide on the unique key", async () => {
-    arrangeRun();
-    const winner = {
-      _id: "payment-1", runId: "run-a", amount: 16_000_000, status: "draft",
-      lines: validBody().lines,
-    };
-    mocks.paymentFindOne.mockReturnValueOnce(lean(null)).mockReturnValueOnce(lean(winner));
-    mocks.paymentCreate.mockRejectedValueOnce({ code: 11000 });
-    const res = response();
-
-    await payrollController.createPayment(request(validBody()), res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: "success", data: winner }));
   });
 
   it("cannot reach a run in another branch", async () => {

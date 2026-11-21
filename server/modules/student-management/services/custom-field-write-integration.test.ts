@@ -8,7 +8,6 @@ import { ExamController } from "../controllers/exam.controller";
 import { ResourceController } from "../controllers/resource.controller";
 import { PartnerController } from "../controllers/partner.controller";
 import { StudentService } from "./student.service";
-import { createPublicRegistrationToken } from "./public-registration-context.service";
 import { CourseService } from "./course.service";
 import { BatchService } from "./batch.service";
 import { ExamService } from "./exam.service";
@@ -122,10 +121,9 @@ test("public student registration keeps the create-service path when required fi
     return { _id: "student-public" };
   });
   const res = responseCapture();
-  const registrationToken = createPublicRegistrationToken({ teacherId: "teacher-a", companyCode: "tenant-a", branchId: "branch-a", entityPreset: "student" });
 
   await StudentController.publicRegister({
-    body: { registrationToken, fullName: "Public", phone: "0900000000", email: "public@example.com" },
+    body: { teacherId: "teacher-a", fullName: "Public", phone: "0900000000", email: "public@example.com" },
   } as any, res as unknown as Response);
 
   assert.equal(res.statusCode, 201);
@@ -153,10 +151,9 @@ test("public registration creates a worker for a labor tenant", async (t) => {
     throw new Error("Student registration must not run for a labor tenant");
   });
   const res = responseCapture();
-  const registrationToken = createPublicRegistrationToken({ teacherId: "teacher-a", companyCode: "tenant-a", branchId: "branch-a" });
 
   await StudentController.publicRegister({
-    body: { registrationToken, fullName: "Public worker", phone: "0900000000", email: "worker@example.com" },
+    body: { teacherId: "teacher-a", fullName: "Public worker", phone: "0900000000", email: "worker@example.com" },
   } as any, res as unknown as Response);
 
   assert.equal(res.statusCode, 201);
@@ -180,19 +177,21 @@ test("public registration creates a worker when submitted from a worker QR", asy
     throw new Error("Worker QR registration must not create a student");
   });
   const res = responseCapture();
-  const registrationToken = createPublicRegistrationToken({ teacherId: "teacher-a", companyCode: "tenant-a", branchId: "branch-a", entityPreset: "worker" });
 
   await StudentController.publicRegister({
     body: {
-      registrationToken,
+      teacherId: "teacher-a",
       fullName: "Public worker",
       phone: "0900000000",
       email: "worker@example.com",
+      entityPreset: "worker",
+      registrationCompanyCode: "tenant-selected",
+      registrationBranchId: "branch-selected",
     },
   } as any, res as unknown as Response);
 
   assert.equal(res.statusCode, 201, JSON.stringify(res.body));
-  assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-a", branchId: "branch-a" });
+  assert.deepEqual(workerCalls[0]?.[0], { companyCode: "tenant-selected", branchId: "branch-selected" });
 });
 
 test("all six create services validate custom fields with create mode before persistence", async (t) => {

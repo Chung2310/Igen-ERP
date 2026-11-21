@@ -28,5 +28,4 @@ const MarketingDeliverySchema = new Schema({
 
 MarketingDeliverySchema.index({ companyCode: 1, createdAt: -1 });
 MarketingDeliverySchema.index({ companyCode: 1, automationType: 1, customerId: 1, createdAt: -1 });
-MarketingDeliverySchema.index({ status: 1, updatedAt: 1 });
 export const MarketingDeliveryModel = model("MarketingDelivery", MarketingDeliverySchema);

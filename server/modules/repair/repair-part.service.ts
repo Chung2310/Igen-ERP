@@ -73,7 +73,6 @@ export async function returnRepairPart(scope: RepairScope, ticketId: string, par
   const parentQuery = RepairTicketModel.findOne({ _id: ticketId, ...scope });
   const parent = await (session ? parentQuery.session(session) : parentQuery);
   if (parent?.intakeSource) return returnGeneralRepairPart(scope, ticketId, partId, reason, actor, session);
-  if (part.status === "returned" && part.returnReason === note) return part.toObject();
   if (part.status !== "issued") throw Object.assign(new Error("Linh kiện đã được hoàn hoặc hủy."), { statusCode: 409 });
   if (!part.manual) {
     await writeStockMovement({ ...scope, direction: "in", purpose: "other", sourceType: "repair-ticket", sourceId: ticketId, idempotencyKey: `repair:${ticketId}:part:${partId}:return`, operatorName: actor.name, items: [{ productId: part.productId, sku: part.sku, productName: part.productName, quantity: part.quantity, unitCost: part.unitCost, unitPrice: part.unitPrice, lineTotal: part.lineTotal }], reason: `Hoàn linh kiện phiếu ${ticketId}` });

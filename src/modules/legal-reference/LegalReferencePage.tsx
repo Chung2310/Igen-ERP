@@ -6,6 +6,7 @@ import { ModuleNavigation, ModuleNavigationButton } from "../../components/commo
 import { primaryCreateButtonClass } from "../../components/common/primaryCreateButton";
 import { StyledSelect } from "../../components/common/StyledSelect";
 import { HrEmptyIllustration } from "../../components/hr/HrEmptyIllustration";
+import { HrPageTitle } from "../../components/hr/HrPageTitle";
 import { HrStatusBadge } from "../../components/hr/HrStatusBadge";
 import "../../components/hr/HrDepartmentManager.css";
 import { useAuth } from "../../context/AuthContext";
@@ -232,7 +233,18 @@ export default function LegalReferencePage() {
       </ModuleNavigation>
 
       <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto px-2 pb-3 pt-1 lg:px-0">
-        <h1 className="sr-only">{sectionTitle}</h1>
+        <header className={cn(panelClass, "flex flex-wrap items-center justify-between gap-3")}>
+          <HrPageTitle level={1}>{sectionTitle}</HrPageTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <ErpRefreshButton onClick={() => void loadData()} loading={loading} />
+            {canManage && section === "documents" && (
+              <button type="button" onClick={openCreateModal} className={cn(primaryCreateButtonClass, "min-h-9 rounded-md")}>
+                <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
+                <span>{health && !health.syncConfigured ? "Nạp tệp thủ công" : "Thêm văn bản"}</span>
+              </button>
+            )}
+          </div>
+        </header>
 
         {loadError && (
           <div role="alert" className={cn(panelClass, "flex flex-wrap items-center justify-between gap-3 border-error/30")}>
@@ -322,16 +334,9 @@ export default function LegalReferencePage() {
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
                 <h2 id="legal-documents-title" className="sr-only">Danh mục văn bản</h2>
                 <span className="whitespace-nowrap tabular-nums text-xs text-on-surface-variant">{loading ? "—" : `${documents.length} văn bản`}</span>
-                <ErpRefreshButton onClick={() => void loadData()} loading={loading} />
-                {canManage && (
-                  <button type="button" onClick={openCreateModal} className={cn(primaryCreateButtonClass, "min-h-9 rounded-md")}>
-                    <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
-                    <span>{health && !health.syncConfigured ? "Nạp tệp thủ công" : "Thêm văn bản"}</span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -419,10 +424,9 @@ export default function LegalReferencePage() {
 
         {section === "review" && (
           <section className={cn(panelClass, "space-y-3")} aria-labelledby="legal-review-title">
-            <h2 id="legal-review-title" className="sr-only">Hàng rà soát</h2>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-pretty text-xs text-on-surface-variant">Tài liệu chưa nhận diện chắc cấu trúc hoặc phiên bản mới được giữ ngoài tra cứu cho đến khi xác nhận.</p>
-              <ErpRefreshButton onClick={() => void loadData()} loading={loading} />
+            <div>
+              <h2 id="legal-review-title" data-typography="section-title" className="text-balance text-base font-semibold text-on-surface">Hàng rà soát</h2>
+              <p className="mt-1 text-pretty text-xs text-on-surface-variant">Tài liệu chưa nhận diện chắc cấu trúc hoặc phiên bản mới được giữ ngoài tra cứu cho đến khi xác nhận.</p>
             </div>
             {loading ? (
               <p role="status" className="py-10 text-center text-sm text-on-surface-variant">Đang tải yêu cầu…</p>
@@ -490,7 +494,10 @@ export default function LegalReferencePage() {
 
         {section === "search" && (
           <section className={cn(panelClass, "space-y-4")} aria-labelledby="legal-search-title">
-            <h2 id="legal-search-title" className="sr-only">Tra cứu theo thời điểm áp dụng</h2>
+            <div>
+              <h2 id="legal-search-title" data-typography="section-title" className="text-balance text-base font-semibold text-on-surface">Tra cứu theo thời điểm áp dụng</h2>
+              <p className="mt-1 text-pretty text-xs text-on-surface-variant">Kết quả hiển thị đoạn Điều/Khoản/Điểm khớp và liên kết về văn bản nguồn.</p>
+            </div>
             <form onSubmit={(event) => void runSearch(event)} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Field label="Nội dung cần tra cứu">
                 <div className="relative">

@@ -1020,48 +1020,6 @@ function remainingTuition(record: ResultRecord): number | null {
 export function formatAssistantResult(operation: ResultOperation, input: unknown): string {
   if (operation.id === "dashboard.business-overview") return formatBusinessOverview(input);
   const redacted = redactAssistantResult(input);
-  if (["finance.asset.inventory.variance", "finance.asset.inventory.finalize"].includes(operation.id)) {
-    const wrapper = recordOf(redacted);
-    const result = recordOf(wrapper?.data) || wrapper || {};
-    const session = recordOf(result.session) || {};
-    const variance = recordOf(result.variance) || result;
-    const total = Number.isSafeInteger(Number(variance.total)) && Number(variance.total) >= 0 ? Number(variance.total) : 0;
-    const counts = recordOf(variance.counts) || {};
-    const count = (key: string) => Number.isSafeInteger(Number(counts[key])) && Number(counts[key]) >= 0 ? Number(counts[key]) : 0;
-    const countSummary = [
-      ["present", "Có mặt"], ["missing", "Thiếu"], ["damaged", "Hư hỏng"], ["surplus", "Thừa"], ["pending", "Chưa kiểm kê"],
-    ].map(([key, label]) => `${label}: ${count(key)}`).join(" · ");
-    const sessionCode = typeof session.sessionCode === "string" ? session.sessionCode.trim() : "";
-    const summary = operation.id === "finance.asset.inventory.finalize"
-      ? `Đã chốt phiên kiểm kê${sessionCode ? ` ${sessionCode}` : ""}.`
-      : "Kết quả chênh lệch kiểm kê tài sản.";
-    const context = [
-      ...(typeof session.name === "string" && session.name.trim() ? [`Phiên kiểm kê: ${session.name.trim()}`] : []),
-      ...(typeof session.inventoryDate === "string" ? [`Ngày kiểm kê: ${formatValue(operation, "inventoryDate", session.inventoryDate)}`] : []),
-      `Tổng tài sản: ${new Intl.NumberFormat("vi-VN").format(total)} · ${countSummary}`,
-    ];
-    const variances = Array.isArray(variance.variances) ? variance.variances : [];
-    const labels: Record<string, string> = { present: "Có mặt", missing: "Thiếu", damaged: "Hư hỏng", surplus: "Thừa", pending: "Chưa kiểm kê" };
-    const rows = variances.slice(0, 8).flatMap((value: unknown) => {
-      const item = recordOf(value);
-      if (!item) return [];
-      const row: Record<string, string> = Object.fromEntries([
-        ["assetCode", "Mã tài sản"], ["barcode", "Mã vạch"], ["name", "Tên tài sản"],
-      ].flatMap(([key, label]) => typeof item[key] === "string" && String(item[key]).trim()
-        ? [[label, String(item[key]).trim().slice(0, 160)]] : []));
-      if (typeof item.result === "string") row["Kết quả"] = labels[item.result] || item.result;
-      if (typeof item.expectedLocation === "string" && item.expectedLocation.trim()) row["Vị trí dự kiến"] = item.expectedLocation.trim();
-      if (typeof item.expectedCustodianName === "string" && item.expectedCustodianName.trim()) row["Người phụ trách"] = item.expectedCustodianName.trim();
-      if (typeof item.note === "string" && item.note.trim()) row["Ghi chú"] = item.note.trim().slice(0, 300);
-      return Object.keys(row).length ? [row] : [];
-    });
-    if (!variances.length) return [summary, ...context, "Không có tài sản thiếu, hư hỏng hoặc thừa."].join("\n");
-    if (!rows.length) return [summary, ...context, `Có ${variances.length} chênh lệch nhưng chưa đọc được chi tiết.`].join("\n");
-    return formatAssistantResultTable(summary, rows, [
-      ...context,
-      ...(variances.length > rows.length ? [`Còn ${new Intl.NumberFormat("vi-VN").format(variances.length - rows.length)} chênh lệch chưa hiển thị.`] : []),
-    ]);
-  }
   if (operation.id === "recruitment.report") {
     const wrapper = recordOf(redacted);
     const report = recordOf(wrapper?.data) || wrapper || {};

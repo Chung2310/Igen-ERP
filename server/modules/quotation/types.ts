@@ -36,7 +36,6 @@ export interface GeneratedExportJob {
   fileId?: string;
   error?: string;
   createdAt: Date;
-  startedAt?: Date;
   updatedAt: Date;
 }
 

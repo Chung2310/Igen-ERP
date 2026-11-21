@@ -1,5 +1,4 @@
 ﻿import { ConflictError, NotFoundError } from "../../../errors/app-error";
-import { ValidationError } from "../../../errors/app-error";
 import { Partner } from "../models/partner.model";
 import { Student } from "../models/student.model";
 import { CommissionLevel } from "../models/commission-level.model";
@@ -432,41 +431,21 @@ export class PartnerService {
     branchId?: string,
   ): Promise<EnrichedPartner> {
     logger.info(`[Partner] Adding payout for partner: id=${id}, amount=${payoutData.amount}`);
-
-    const amount = Number(payoutData.amount);
-    if (!Number.isSafeInteger(amount) || amount <= 0) {
-      throw new ValidationError("PARTNER_PAYOUT_AMOUNT_INVALID", "Số tiền chi trả phải là số nguyên VND lớn hơn 0.", { field: "amount" });
-    }
-
+    
     const partner = await Partner.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!partner) {
       throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác.");
     }
 
-    const current = (await enrichPartners([partner], branchId))[0];
-    if (amount > current.unpaidBalance) {
-      throw new ConflictError("PARTNER_PAYOUT_EXCEEDS_UNPAID", "Số tiền chi trả vượt quá hoa hồng còn nợ.", {
-        unpaidBalance: current.unpaidBalance,
-      });
-    }
-
     const newPayout = {
       id: new mongoose.Types.ObjectId().toString(),
       ...payoutData,
-      amount,
     };
 
-    const versionFilter = Number.isInteger((partner as any).__v)
-      ? { __v: (partner as any).__v }
-      : { __v: { $exists: false } };
-    const saved = await Partner.findOneAndUpdate(
-      { _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId), ...versionFilter },
-      { $push: { payoutHistory: newPayout }, $inc: { __v: 1 } },
-      { returnDocument: "after", runValidators: true },
-    );
-    if (!saved) {
-      throw new ConflictError("PARTNER_PAYOUT_CONFLICT", "Hồ sơ đối tác vừa được cập nhật. Hãy tải lại số dư trước khi chi trả.");
-    }
+    partner.payoutHistory = partner.payoutHistory || [];
+    partner.payoutHistory.push(newPayout);
+    
+    const saved = await partner.save();
     const enriched = await enrichPartners([saved], branchId);
     return enriched[0];
   }

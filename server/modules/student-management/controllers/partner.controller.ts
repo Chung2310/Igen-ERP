@@ -111,7 +111,7 @@ export class PartnerController {
         moduleKey: "partners",
         actorRole: req.user!.role,
         actorId: req.user!.uid, actorName: req.user!.email, branchId: req.user!.branchId,
-      }, req.user!.branchId);
+      });
       if (!partner) {
         throw new NotFoundError("PARTNER_NOT_FOUND", "Không tìm thấy đối tác để cập nhật.");
       }

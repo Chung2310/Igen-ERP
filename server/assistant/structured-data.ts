@@ -1,6 +1,6 @@
 ﻿import type { AssistantDataShape, AssistantField } from "../../src/shared/assistant-workflow";
 // Shared with request validation and result redaction. Scope and credentials are never model-owned.
-const protectedKey = /^(?:__proto__|prototype|constructor|companyCode|companyId|branchId|tenantId|createdBy|creatorUid|updatedBy|scannedBy|finalizedBy|role|permissions)$|password|secret|token|credential|authorization|api.?key|private.?key|signature|faceDescriptor|embedding|base64|ciphertext|encrypted|salt|hash|totp|recoveryCodes/i;
+const protectedKey = /^(?:__proto__|prototype|constructor|companyCode|companyId|branchId|tenantId|createdBy|creatorUid|updatedBy|role|permissions)$|password|secret|token|credential|authorization|api.?key|private.?key|signature|faceDescriptor|embedding|base64|ciphertext|encrypted|salt|hash|totp|recoveryCodes/i;
 export const isProtectedAssistantKey = (key: string) => protectedKey.test(key);
 const isInternalIdentifierKey = (key: string) => {
   const normalized = key.toLowerCase();

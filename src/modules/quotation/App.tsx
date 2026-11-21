@@ -10,7 +10,7 @@ import QuotationSettings from "./QuotationSettings";
 import { userMessage } from "./user-message";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
-import { ApiError, api, apiUploadWithProgress, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedExportStatus, type GeneratedFileRef } from "./api";
+import { ApiError, api, apiUploadWithProgress, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedFileRef } from "./api";
 
 import MoneyInput from "./MoneyInput";
 
@@ -1015,7 +1015,7 @@ function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuot
         method: "POST",
         body: JSON.stringify({ sourceQuoteId: currentSource._id, templateId, sourceRequirements: requirements, idempotencyKey }),
       });
-      const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất.", estimated: true, status: "running", startedAt: Date.now() }));
+      const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Đang đưa dữ liệu vào mẫu và lưu file kết quả lên Cloudinary…" }));
       onAiUsed?.();
       onCreated(quote._id, fileError);
     } catch (cause) {
@@ -1267,7 +1267,7 @@ function NewQuote({ options, onCreated, canManageTemplate, onManageTemplate, onB
           items: result.items.map(({ catalogItemId, quantity, unit, attributes }) => ({ catalogItemId, quantity, unit, attributes, catalogUpdatedAt: catalogSelectionVersion(candidates, catalogItemId) })),
         }),
       });
-      const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất.", estimated: true, status: "running", startedAt: Date.now() }));
+      const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Đang đưa dữ liệu dự toán vào mẫu và lưu file kết quả lên Cloudinary…" }));
       onAiUsed();
       onCreated(quote._id, fileError);
     } catch (cause) {
@@ -1301,7 +1301,7 @@ function NewQuote({ options, onCreated, canManageTemplate, onManageTemplate, onB
           items: selected.map(({ catalogItemId, quantity, unit, attributes }) => ({ catalogItemId, quantity, unit, attributes, catalogUpdatedAt: catalogSelectionVersion(catalog, catalogItemId) })),
         }),
       });
-      const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất.", estimated: true, status: "running", startedAt: Date.now() }));
+      const fileError = await createSavedDraftEstimateFile(quote._id, () => setTaskProgress({ label: "AI đang điền file dự toán", detail: "Đang đưa dữ liệu dự toán vào mẫu và lưu file kết quả lên Cloudinary…" }));
       onAiUsed();
       onCreated(quote._id, fileError);
     } catch (cause) {
@@ -1415,7 +1415,6 @@ function QuoteDetail({ id, user, onBack, onChanged, onAiUsed, onToast, confirm, 
   const [customerPhone, setCustomerPhone] = useState("");
   const [editingCustomer, setEditingCustomer] = useState(false);
   const [savedEstimateFile, setSavedEstimateFile] = useState<GeneratedFileRef | null>(null);
-  const [estimateExportJob, setEstimateExportJob] = useState<GeneratedExportStatus | null>(null);
   const [loadingSavedEstimateFile, setLoadingSavedEstimateFile] = useState(true);
   const [estimateFilePending, setEstimateFilePending] = useState(false);
 
@@ -1483,22 +1482,19 @@ function QuoteDetail({ id, user, onBack, onChanged, onAiUsed, onToast, confirm, 
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    if (!quote?._id) { setSavedEstimateFile(null); setEstimateExportJob(null); setEstimateFilePending(false); setLoadingSavedEstimateFile(false); return; }
+    if (!quote?._id) { setSavedEstimateFile(null); setLoadingSavedEstimateFile(false); return; }
     let active = true;
     setLoadingSavedEstimateFile(true);
-    setEstimateExportJob(null);
-    setEstimateFilePending(false);
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
         const { file, job } = await getLatestGeneratedFile(quote._id, quote.status === "approved" ? "estimate" : "estimate_draft");
         if (!active) return;
         setSavedEstimateFile(file);
-        setEstimateExportJob(job);
         const pending = job?.status === "queued" || job?.status === "running";
         setEstimateFilePending(pending);
         if (pending) timer = setTimeout(() => void poll(), 2000);
-      } catch { if (active) { setSavedEstimateFile(null); setEstimateExportJob(null); setEstimateFilePending(false); } }
+      } catch { if (active) { setSavedEstimateFile(null); setEstimateFilePending(false); } }
       finally { if (active) setLoadingSavedEstimateFile(false); }
     };
     void poll();
@@ -1719,7 +1715,7 @@ function QuoteDetail({ id, user, onBack, onChanged, onAiUsed, onToast, confirm, 
       await api(`/api/quotes/${quote._id}`, { method: "PATCH", body: JSON.stringify({ ...editPayload(true), recalculateWithAi: true }) });
       await load();
       onChanged();
-      setTaskProgress({ label: "Đang tạo file dự toán mới", detail: "Đang điền dữ liệu đã cập nhật vào mẫu tài liệu…", estimated: true, status: "running", startedAt: Date.now() });
+      setTaskProgress({ label: "Đang tạo file dự toán mới", detail: "Đang điền dữ liệu đã cập nhật vào mẫu tài liệu…" });
       try {
         const file = await createEstimateFile();
         setSavedEstimateFile(file);
@@ -1737,7 +1733,7 @@ function QuoteDetail({ id, user, onBack, onChanged, onAiUsed, onToast, confirm, 
     try {
       let file = savedEstimateFile;
       if (!file || estimateFileOutdated) {
-        setTaskProgress({ label: "Đang tạo file dự toán mới", detail: "Đang xuất theo dữ liệu đã lưu mới nhất…", estimated: true, status: "running", startedAt: Date.now() });
+        setTaskProgress({ label: "Đang tạo file dự toán mới", detail: "Đang xuất theo dữ liệu đã lưu mới nhất…" });
         file = await createEstimateFile();
         setSavedEstimateFile(file);
       }
@@ -1750,7 +1746,7 @@ function QuoteDetail({ id, user, onBack, onChanged, onAiUsed, onToast, confirm, 
   const generateEstimateFile = async () => {
     if (!quote || busy || estimateFilePending) return;
     setBusy(true);
-    setTaskProgress({ label: "Đang tạo file dự toán", detail: "Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất.", estimated: true, status: "running", startedAt: Date.now() });
+    setTaskProgress({ label: "Đang tạo file dự toán", detail: "Bản nháp đã được lưu. Bạn có thể mở lại chứng từ nếu quá trình tạo file bị gián đoạn." });
     try {
       const mode = quote.status === "approved" ? "excel=1" : "draft=1";
       const file = await createGeneratedExport(`/api/quotes/${quote._id}/export?${mode}&background=1`);
@@ -1775,13 +1771,6 @@ function QuoteDetail({ id, user, onBack, onChanged, onAiUsed, onToast, confirm, 
         </div>
       </div>
       {taskProgress && <TaskProgress {...taskProgress} />}
-      {!taskProgress && estimateFilePending && estimateExportJob && <TaskProgress
-        label="Đang tạo file dự toán"
-        detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất."
-        estimated
-        status={estimateExportJob.status}
-        startedAt={estimateExportJob.startedAt ?? estimateExportJob.createdAt}
-      />}
 
       {/* Main Header Card */}
       <header className="quote-detail-header-card">

@@ -1081,6 +1081,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       {/* QR để học viên tự đăng ký */}
       {isRegisterQROpen && <RegisterQRModal
         isOpen={isRegisterQROpen}
+        teacherId={userProfile?.uid || ''}
         companyCode={selectedCenter && selectedCenter !== 'all' ? selectedCenter : (userProfile?.companyCode || (userProfile && 'centerId' in userProfile && typeof userProfile.centerId === 'string' ? userProfile.centerId : ''))}
         branchId={activeBranchId || userProfile?.branchId || ''}
         entityPreset={entityLabel.preset}

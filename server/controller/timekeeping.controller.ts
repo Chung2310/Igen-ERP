@@ -16,12 +16,10 @@ import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 import { buildAttendanceReportRows } from "../utils/attendance-report";
 import { buildApprovedLeaveAttendanceLogs, buildMonthlyAttendanceReport } from "../utils/monthly-attendance-report";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
+import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
-import type { ClientSession } from "mongoose";
-import { runAttendancePeriodMutation } from "../service/attendance-period-mutation.service";
 
 const attendanceAction = (req: AuthenticatedRequest) => req.path.includes("check-out") ? "check-out" as const : "check-in" as const;
-const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
 async function enforceBranchAttendance(req: AuthenticatedRequest, latitude: number, longitude: number) {
   if ((req as any).attendanceBranchGate) return (req as any).attendanceBranchGate;
   const base = { uid: req.user!.id, companyCode: req.user?.companyCode || "SYSTEM", branchId: req.user?.branchId,
@@ -58,39 +56,6 @@ async function indexAttendanceEvidence(req: AuthenticatedRequest, log: any, acti
     mimeType: (req as any).file?.mimetype || "image/jpeg",
     evidence,
   });
-}
-
-async function recordAttendanceAttempt(attempt: Record<string, unknown>) {
-  try {
-    await AttendanceAttemptModel.create(attempt);
-    return true;
-  } catch (error) {
-    console.error("[timekeepingController] Unable to save attendance attempt:", error);
-    return false;
-  }
-}
-
-async function finalizeAcceptedAttendance(
-  req: AuthenticatedRequest,
-  gate: Awaited<ReturnType<typeof enforceBranchAttendance>>,
-  log: any,
-  action: "check-in" | "check-out",
-) {
-  let complete = true;
-  try {
-    await indexAttendanceEvidence(req, log, action);
-  } catch (error) {
-    complete = false;
-    console.error(`[timekeepingController.${action}] Unable to index attendance evidence:`, error);
-  }
-  const recorded = await recordAttendanceAttempt({
-    ...gate,
-    outcome: "accepted",
-    reasonCode: "verified",
-    evidence: (req as any).attendanceEvidence,
-    evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter,
-  });
-  return complete && recorded;
 }
 
 // Haversine formula to compute distance in meters
@@ -328,97 +293,97 @@ export const timekeepingController = {
       }).lean();
       if (!employee) return res.status(404).json({ status: "error", message: "Không tìm thấy nhân sự trong phạm vi được cấp quyền." });
 
-      const branchId = String(employee.branchId || req.user?.branchId || "");
-      if (!branchId) return res.status(400).json({ status: "error", message: "Nhân sự chưa được gán chi nhánh để quản lý kỳ công." });
+      const branchId = employee.branchId || req.user?.branchId || undefined;
+      const log = await TimekeepingLogModel.findOne({ uid: employeeId, companyCode, date });
+      if (log && req.user?.branchId && log.branchId && log.branchId !== req.user.branchId) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy bản ghi chấm công trong phạm vi được cấp quyền." });
+      }
       const periodKey = date.slice(0, 7);
+      const [lockedResult, payrollRun] = await Promise.all([
+        AttendancePeriodResultModel.findOne({ companyCode, branchId, periodKey, status: "locked" }).lean(),
+        PayrollRunModel.findOne({ companyCode, branchId, periodKey, type: "regular" })
+          .sort({ createdAt: 1, _id: 1 })
+          .lean(),
+      ]);
+      if (lockedResult || payrollRun?.status === "closed") {
+        return res.status(409).json({ status: "error", message: "Kỳ công đã khóa hoặc đã tính lương. Hãy reset/mở kỳ trước khi sửa chấm công." });
+      }
+
+      if (!log && !checkInTime) {
+        return res.status(400).json({ status: "error", message: "Chưa có bản ghi trong ngày; cần cung cấp giờ vào để tạo bản ghi điều chỉnh." });
+      }
+      if (log && !log.checkIn?.time && !checkInTime) {
+        return res.status(400).json({ status: "error", message: "Bản ghi chưa có giờ vào; cần cung cấp giờ vào để hoàn tất điều chỉnh." });
+      }
+
       const resolved = await resolveShift(companyCode, employeeId, date);
       const shiftWindowDefaults = shiftWindow(resolved.shift, date);
+      const scheduledStartAt = log?.scheduledStartAt || shiftWindowDefaults.scheduledStartAt;
+      const scheduledEndAt = log?.scheduledEndAt || shiftWindowDefaults.scheduledEndAt;
       const toLocalDateTime = (time: string, nextDay = false) => {
         const value = new Date(`${date}T${time}:00+07:00`);
         if (nextDay) value.setUTCDate(value.getUTCDate() + 1);
         return value;
       };
+      const before = log ? (typeof log.toObject === "function" ? log.toObject() : { ...log }) : {};
+      const previousCheckIn = log?.checkIn && typeof (log.checkIn as any).toObject === "function" ? (log.checkIn as any).toObject() : log?.checkIn;
+      const previousCheckOut = log?.checkOut && typeof (log.checkOut as any).toObject === "function" ? (log.checkOut as any).toObject() : log?.checkOut;
+      const nextCheckInTime = checkInTime ? toLocalDateTime(checkInTime) : new Date(log!.checkIn!.time);
+      const checkoutValue = checkOutTime || "";
+      const previousOut = previousCheckOut?.time ? new Date(previousCheckOut.time) : null;
+      const nextCheckOutTime = checkoutValue
+        ? toLocalDateTime(checkoutValue, Boolean(checkoutValue < new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(nextCheckInTime)))
+        : previousOut;
+      const detailDefaults = { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual attendance adjustment", ipAddress: "" };
+      const checkIn = checkInTime ? { ...detailDefaults, ...(previousCheckIn || {}), time: nextCheckInTime } : previousCheckIn;
+      const checkOut = checkoutValue ? { ...detailDefaults, ...(previousCheckOut || {}), time: nextCheckOutTime } : previousCheckOut;
+      const status = calculateShiftStatus(
+        nextCheckInTime,
+        nextCheckOutTime,
+        scheduledStartAt,
+        scheduledEndAt,
+        resolved.shift.allowedLateMinutes,
+        resolved.shift.allowedEarlyLeaveMinutes,
+      ) as any;
+      const item = log || new TimekeepingLogModel({ uid: employeeId, companyCode, branchId, date });
+      item.checkIn = checkIn as any;
+      item.checkOut = (checkOut || null) as any;
+      item.status = status;
+      item.branchId = item.branchId || branchId;
+      item.workDate = item.workDate || date;
+      item.scheduledStartAt = item.scheduledStartAt || scheduledStartAt;
+      item.scheduledEndAt = item.scheduledEndAt || scheduledEndAt;
+      item.shiftId = item.shiftId || (resolved.shift._id ? String(resolved.shift._id) : undefined);
+      item.shiftName = item.shiftName || resolved.shift.name;
+      item.shiftCode = item.shiftCode || resolved.shift.code;
+      item.standardMinutes = item.standardMinutes || resolved.shift.standardMinutes;
+      item.breakPeriods = item.breakPeriods || resolved.shift.breakPeriods;
+      item.assignmentSource = item.assignmentSource || resolved.source;
+      item.manuallyAdjusted = true;
+      item.adjustedAt = new Date();
+      item.adjustedBy = req.user?.id;
+      item.adjustmentReason = reason;
+      await item.save();
 
-      const item = await runAttendancePeriodMutation({ companyCode, branchId }, periodKey, async (session) => {
-        const log: any = await withSession(TimekeepingLogModel.findOne({ uid: employeeId, companyCode, date }), session);
-        if (log && req.user?.branchId && log.branchId && log.branchId !== req.user.branchId) {
-          throw Object.assign(new Error("Không tìm thấy bản ghi chấm công trong phạm vi được cấp quyền."), { statusCode: 404 });
-        }
-        if (!log && !checkInTime) {
-          throw Object.assign(new Error("Chưa có bản ghi trong ngày; cần cung cấp giờ vào để tạo bản ghi điều chỉnh."), { statusCode: 400 });
-        }
-        if (log && !log.checkIn?.time && !checkInTime) {
-          throw Object.assign(new Error("Bản ghi chưa có giờ vào; cần cung cấp giờ vào để hoàn tất điều chỉnh."), { statusCode: 400 });
-        }
-
-        const scheduledStartAt = log?.scheduledStartAt || shiftWindowDefaults.scheduledStartAt;
-        const scheduledEndAt = log?.scheduledEndAt || shiftWindowDefaults.scheduledEndAt;
-        const before = log ? (typeof log.toObject === "function" ? log.toObject() : { ...log }) : {};
-        const previousCheckIn = log?.checkIn && typeof log.checkIn.toObject === "function" ? log.checkIn.toObject() : log?.checkIn;
-        const previousCheckOut = log?.checkOut && typeof log.checkOut.toObject === "function" ? log.checkOut.toObject() : log?.checkOut;
-        const nextCheckInTime = checkInTime ? toLocalDateTime(checkInTime) : new Date(log!.checkIn!.time);
-        const checkoutValue = checkOutTime || "";
-        const previousOut = previousCheckOut?.time ? new Date(previousCheckOut.time) : null;
-        const nextCheckOutTime = checkoutValue
-          ? toLocalDateTime(checkoutValue, Boolean(checkoutValue < new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(nextCheckInTime)))
-          : previousOut;
-        const detailDefaults = { latitude: 0, longitude: 0, distance: 0, deviceInfo: "Manual attendance adjustment", ipAddress: "" };
-        const checkIn = checkInTime ? { ...detailDefaults, ...(previousCheckIn || {}), time: nextCheckInTime } : previousCheckIn;
-        const checkOut = checkoutValue ? { ...detailDefaults, ...(previousCheckOut || {}), time: nextCheckOutTime } : previousCheckOut;
-        const status = calculateShiftStatus(
-          nextCheckInTime,
-          nextCheckOutTime,
-          scheduledStartAt,
-          scheduledEndAt,
-          resolved.shift.allowedLateMinutes,
-          resolved.shift.allowedEarlyLeaveMinutes,
-        ) as any;
-        const adjustedLog = log || new TimekeepingLogModel({ uid: employeeId, companyCode, branchId, date });
-        adjustedLog.checkIn = checkIn as any;
-        adjustedLog.checkOut = (checkOut || null) as any;
-        adjustedLog.status = status;
-        adjustedLog.branchId = adjustedLog.branchId || branchId;
-        adjustedLog.workDate = adjustedLog.workDate || date;
-        adjustedLog.scheduledStartAt = adjustedLog.scheduledStartAt || scheduledStartAt;
-        adjustedLog.scheduledEndAt = adjustedLog.scheduledEndAt || scheduledEndAt;
-        adjustedLog.shiftId = adjustedLog.shiftId || (resolved.shift._id ? String(resolved.shift._id) : undefined);
-        adjustedLog.shiftName = adjustedLog.shiftName || resolved.shift.name;
-        adjustedLog.shiftCode = adjustedLog.shiftCode || resolved.shift.code;
-        adjustedLog.standardMinutes = adjustedLog.standardMinutes || resolved.shift.standardMinutes;
-        adjustedLog.breakPeriods = adjustedLog.breakPeriods || resolved.shift.breakPeriods;
-        adjustedLog.assignmentSource = adjustedLog.assignmentSource || resolved.source;
-        adjustedLog.manuallyAdjusted = true;
-        adjustedLog.adjustedAt = new Date();
-        adjustedLog.adjustedBy = req.user?.id;
-        adjustedLog.adjustmentReason = reason;
-        await adjustedLog.save(session ? { session } : undefined);
-
-        const after = typeof adjustedLog.toObject === "function" ? adjustedLog.toObject() : adjustedLog;
-        await TimekeepingAdjustmentAuditModel.create([{
+      const after = typeof item.toObject === "function" ? item.toObject() : item;
+      await Promise.all([
+        TimekeepingAdjustmentAuditModel.create({
           companyCode,
-          logId: adjustedLog._id,
+          logId: item._id,
           employeeId,
           date,
           actorId: req.user!.id,
           reason,
           before,
           after,
-        }], session ? { session } : {});
-        await AttendancePeriodResultModel.updateMany(
-          { companyCode, branchId, periodKey, status: "draft" },
-          { $set: { needsRecalculation: true } },
-          session ? { session } : {},
-        );
-        return adjustedLog;
-      });
+        }),
+        AttendancePeriodResultModel.updateMany({ companyCode, branchId, periodKey, status: "draft" }, { $set: { needsRecalculation: true } }),
+      ]);
       return res.status(200).json({ status: "success", message: "Đã điều chỉnh dữ liệu chấm công.", data: item });
     } catch (error: any) {
       console.error("[timekeepingController.adjustAttendanceRecord] Error:", error);
       if (error?.code === 11000) {
         return res.status(409).json({ status: "error", message: "Bản ghi chấm công vừa được tạo bởi thao tác khác. Hãy tải lại và thử điều chỉnh lần nữa." });
-      }
-      if (error?.statusCode || error?.status === 503) {
-        return res.status(error.statusCode || error.status).json({ status: "error", message: error.message });
       }
       return res.status(500).json({ status: "error", message: "Không thể điều chỉnh dữ liệu chấm công." });
     }
@@ -461,6 +426,7 @@ export const timekeepingController = {
       return res.status(500).json({
         status: "error",
         message: "Lỗi hệ thống khi lấy trạng thái chấm công hôm nay.",
+        details: error.message,
       });
     }
   },
@@ -494,10 +460,9 @@ export const timekeepingController = {
 
       const yesterday = vietnamWorkDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
       const candidate = await TimekeepingLogModel.findOne({ uid, companyCode, $or: [{ date: todayStr }, { date: yesterday, checkIn: { $ne: null }, checkOut: null }] }).sort({ date: -1 });
-      const hasActiveCandidate = isAttendanceLogActiveOnDate(candidate, todayStr);
-      let log = hasActiveCandidate ? candidate : null;
+      let log = isAttendanceLogActiveOnDate(candidate, todayStr) ? candidate : null;
       if (log && log.checkIn) {
-        await recordAttendanceAttempt({ ...gate, outcome: "rejected", reasonCode: "already_checked_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
+        await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "already_checked_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
           status: "error",
           message: "Bạn đã thực hiện check-in hôm nay rồi.",
@@ -537,44 +502,28 @@ export const timekeepingController = {
           assignmentSource: resolved.source,
         });
       } else {
-        const updated = await TimekeepingLogModel.findOneAndUpdate(
-          { _id: log._id, checkIn: null },
-          { $set: { checkIn: checkInDetail, status, ...(log.branchId || !req.user?.branchId ? {} : { branchId: req.user.branchId }) } },
-          { returnDocument: "after", runValidators: true },
-        );
-        if (!updated) {
-          await recordAttendanceAttempt({ ...gate, outcome: "rejected", reasonCode: "already_checked_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
-          return res.status(409).json({ status: "error", message: "Bản ghi chấm công vừa được cập nhật. Hãy tải lại trạng thái rồi thử lại." });
+        log.checkIn = checkInDetail;
+        log.status = status as any;
+        if (!log.branchId && req.user?.branchId) {
+          log.branchId = req.user.branchId;
         }
-        log = updated;
       }
 
-      if (!hasActiveCandidate) {
-        try {
-          await log.save();
-        } catch (error: any) {
-          if (error?.code === 11000) {
-            await recordAttendanceAttempt({ ...gate, outcome: "rejected", reasonCode: "already_checked_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
-            return res.status(409).json({ status: "error", message: "Bạn đã chấm công vào hôm nay. Hãy tải lại trạng thái để xem dữ liệu mới nhất." });
-          }
-          throw error;
-        }
-      }
-      const auditComplete = await finalizeAcceptedAttendance(req, gate, log, "check-in");
+      await log.save();
+      await indexAttendanceEvidence(req, log, "check-in");
+      await AttendanceAttemptModel.create({ ...gate, outcome: "accepted", reasonCode: "verified", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
 
       return res.status(200).json({
         status: "success",
-        message: auditComplete ? "Chấm công vào (Check-in) thành công!" : "Đã chấm công vào thành công. Nhật ký minh chứng chưa được ghi đầy đủ, vui lòng báo quản trị viên.",
+        message: "Chấm công vào (Check-in) thành công!",
         data: log,
       });
     } catch (error: any) {
       console.error("[timekeepingController.checkIn] Error:", error);
-      if (error?.code === 11000) {
-        return res.status(409).json({ status: "error", message: "Bạn đã chấm công vào hôm nay. Hãy tải lại trạng thái để xem dữ liệu mới nhất." });
-      }
       return res.status(500).json({
         status: "error",
         message: "Lỗi hệ thống khi check-in.",
+        details: error.message,
       });
     }
   },
@@ -610,7 +559,7 @@ export const timekeepingController = {
       const candidate = await TimekeepingLogModel.findOne({ uid, companyCode, date: { $in: [todayStr, yesterday] }, checkIn: { $ne: null }, checkOut: null }).sort({ date: -1 });
       const log = isAttendanceLogActiveOnDate(candidate, todayStr) ? candidate : null;
       if (!log || !log.checkIn) {
-        await recordAttendanceAttempt({ ...gate, outcome: "rejected", reasonCode: "missing_check_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
+        await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "missing_check_in", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
           status: "error",
           message: "Bạn chưa thực hiện Check-in hôm nay. Không thể Check-out.",
@@ -618,7 +567,7 @@ export const timekeepingController = {
       }
 
       if (log.checkOut) {
-        await recordAttendanceAttempt({ ...gate, outcome: "rejected", reasonCode: "already_checked_out", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
+        await AttendanceAttemptModel.create({ ...gate, outcome: "rejected", reasonCode: "already_checked_out", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
         return res.status(400).json({
           status: "error",
           message: "Bạn đã thực hiện check-out hôm nay rồi.",
@@ -626,7 +575,7 @@ export const timekeepingController = {
       }
 
       const checkOutTime = new Date();
-      const checkOutDetail = {
+      log.checkOut = {
         time: checkOutTime,
         latitude,
         longitude,
@@ -649,28 +598,25 @@ export const timekeepingController = {
         }) as any;
       }
 
-      const updated = await TimekeepingLogModel.findOneAndUpdate(
-        { _id: log._id, checkOut: null },
-        { $set: { checkOut: checkOutDetail, status: log.status, ...(log.branchId || !req.user?.branchId ? {} : { branchId: req.user.branchId }) } },
-        { returnDocument: "after", runValidators: true },
-      );
-      if (!updated) {
-        await recordAttendanceAttempt({ ...gate, outcome: "rejected", reasonCode: "already_checked_out", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
-        return res.status(409).json({ status: "error", message: "Bản ghi chấm công vừa được cập nhật. Hãy tải lại trạng thái rồi thử lại." });
+      if (!log.branchId && req.user?.branchId) {
+        log.branchId = req.user.branchId;
       }
-      const savedLog = updated;
-      const auditComplete = await finalizeAcceptedAttendance(req, gate, savedLog, "check-out");
+
+      await log.save();
+      await indexAttendanceEvidence(req, log, "check-out");
+      await AttendanceAttemptModel.create({ ...gate, outcome: "accepted", reasonCode: "verified", evidence: (req as any).attendanceEvidence, evidenceDeleteAfter: (req as any).attendanceEvidenceDeleteAfter });
 
       return res.status(200).json({
         status: "success",
-        message: auditComplete ? "Chấm công ra (Check-out) thành công!" : "Đã chấm công ra thành công. Nhật ký minh chứng chưa được ghi đầy đủ, vui lòng báo quản trị viên.",
-        data: savedLog,
+        message: "Chấm công ra (Check-out) thành công!",
+        data: log,
       });
     } catch (error: any) {
       console.error("[timekeepingController.checkOut] Error:", error);
       return res.status(500).json({
         status: "error",
         message: "Lỗi hệ thống khi check-out.",
+        details: error.message,
       });
     }
   },

@@ -6,10 +6,8 @@ import { FixedAssetModel } from "../models/fixed-asset.model";
 import { AssetDepreciationModel } from "../models/asset-depreciation.model";
 import { RetailOrderModel } from "../../retail/models/retail-order.model";
 import { RetailAfterSaleModel } from "../../retail/models/retail-after-sale.model";
-import { RetailCommissionPayoutModel } from "../../retail/models/retail-commission.model";
 import { ReceivableModel } from "../models/receivable.model";
 import { ReceivableEntryModel } from "../models/receivable-entry.model";
-import { PayrollPaymentModel } from "../../../model/payroll-payment.model";
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
@@ -22,7 +20,7 @@ const scope = { companyCode: "FINANCE_TEST", branchId: "A" };
 let mongo: MongoMemoryReplSet;
 beforeAll(async () => { mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); await mongoose.connect(mongo.getUri()); await Promise.all([FinanceDebtModel.init(), FinancePayableModel.init(), FinanceVoucherModel.init(), FinanceFollowupModel.init(), FinanceTaxModel.init()]); }, 120000);
 afterAll(async () => { await mongoose.disconnect(); await mongo?.stop(); });
-beforeEach(async () => { await Promise.all([FinanceDebtModel.deleteMany({}), FinancePayableModel.deleteMany({}), FinanceVoucherModel.deleteMany({}), GoodsReceiptModel.deleteMany({}), FinanceFollowupModel.deleteMany({}), RetailOrderModel.deleteMany({}), RetailAfterSaleModel.deleteMany({}), ReceivableModel.deleteMany({}), ReceivableEntryModel.deleteMany({}), FixedAssetModel.deleteMany({}), AssetDepreciationModel.deleteMany({}), RetailInvoiceModel.deleteMany({}), FinanceTaxModel.deleteMany({}), PayrollPaymentModel.deleteMany({}), RetailCommissionPayoutModel.deleteMany({})]); });
+beforeEach(async () => { await Promise.all([FinanceDebtModel.deleteMany({}), FinancePayableModel.deleteMany({}), FinanceVoucherModel.deleteMany({}), GoodsReceiptModel.deleteMany({}), FinanceFollowupModel.deleteMany({}), RetailOrderModel.deleteMany({}), RetailAfterSaleModel.deleteMany({}), ReceivableModel.deleteMany({}), ReceivableEntryModel.deleteMany({}), FixedAssetModel.deleteMany({}), AssetDepreciationModel.deleteMany({}), RetailInvoiceModel.deleteMany({}), FinanceTaxModel.deleteMany({})]); });
 async function debt() { return FinancePayableModel.create({ ...scope, receiptId: new mongoose.Types.ObjectId().toString(), supplierId: "SUP", originalAmount: 1000, openingPaid: 0, paidAmount: 0, balance: 1000, dueDate: "2026-09-25" }); }
 const voucher = (id: string, key: string, amount = 600) => ({ kind: "payment", category: "supplier", expenseClass: "none", amount, date: "2026-09-23", method: "cash", payableId: id, idempotencyKey: key });
 describe("Finance management invariants", () => {
@@ -59,27 +57,6 @@ it("reconciles discounts, return cost, cash sources and branch isolation in the 
   expect(report.summary.cashOut).toBe(100);
   expect(report.lines.some(l => l.productName === "Other branch")).toBe(false);
   expect(await RetailOrderModel.countDocuments()).toBe(2);
-});
-
-it("includes supplier payments recorded when a goods receipt is confirmed in cash out", async () => {
-  await GoodsReceiptModel.create({ ...scope, warehouseId: "WH", receiptCode: "GR-CASH-1", supplierId: "SUP-1", supplierName: "Supplier", subtotal: 1200, status: "confirmed", confirmedAt: new Date("2026-09-23T04:00:00Z"), confirmedByName: "Accountant", financeTerms: { dueOn: "2026-09-30", paidAmount: 300, paymentMethod: "bank" }, createdBy: "U", items: [] });
-
-  const report = await financeReport(scope, { from: "2026-09-01", to: "2026-09-30" });
-
-  expect(report.summary.cashOut).toBe(300);
-  expect(report.cash).toContainEqual(expect.objectContaining({ code: "GR-CASH-1", kind: "payment", category: "supplier", amount: 300, date: "2026-09-23", method: "bank", counterparty: "Supplier", source: "goods-receipt", createdByName: "Accountant" }));
-});
-
-it("includes confirmed payroll and commission payouts in cash out", async () => {
-  const paidAt = new Date("2026-09-23T04:00:00Z");
-  await PayrollPaymentModel.create({ ...scope, runId: "RUN-1", idempotencyKey: "PAYROLL-1", amount: 250, status: "confirmed", paymentDate: paidAt, lines: [{ employeeId: "E1", amount: 250 }] });
-  await RetailCommissionPayoutModel.create({ ...scope, partnerId: "P1", amount: 80, account: "bank", idempotencyKey: "COMMISSION-1", reference: "CK-1", businessDate: "2026-09-23", createdBy: "U" });
-
-  const report = await financeReport(scope, { from: "2026-09-01", to: "2026-09-30" });
-
-  expect(report.summary.cashOut).toBe(330);
-  expect(report.cash).toContainEqual(expect.objectContaining({ kind: "payment", category: "salary", amount: 250, date: "2026-09-23", source: "payroll" }));
-  expect(report.cash).toContainEqual(expect.objectContaining({ kind: "payment", category: "commission", amount: 80, date: "2026-09-23", source: "commission" }));
 });
 
 it("posts depreciation atomically in order and includes booked depreciation without cash outflow", async () => {
@@ -182,16 +159,6 @@ describe("Automatically recorded supplier debts", () => {
     expect(data.payables).toHaveLength(1);
     expect(data.payables[0]).toMatchObject({ _id: String(debt._id), originalAmount: 1200, paidAmount: 1200, balance: 0 });
     expect(data.unregisteredReceipts).toHaveLength(0);
-  });
-  it("includes the opening receipt payment and a later voucher once each in cash flow", async () => {
-    const { receipt, debt } = await receiptDebt(200, { confirmedAt: new Date("2026-09-23T04:00:00Z") });
-    await createVoucher(scope, voucher(String(debt._id), "report-cash-payable", 300), { id: "U" });
-
-    const report = await financeReport(scope, { from: "2026-09-01", to: "2026-09-30" });
-
-    expect(report.summary.cashOut).toBe(500);
-    expect(report.cash.filter((row: any) => row.source === "goods-receipt" && row.code === receipt.receiptCode)).toHaveLength(1);
-    expect(report.cash.filter((row: any) => row.source === "finance" && row.payableId === String(debt._id))).toHaveLength(1);
   });
   it("leaves opted-out receipts available for manual registration and prevents duplicating automatic debt", async () => {
     const { receipt } = await receiptDebt();

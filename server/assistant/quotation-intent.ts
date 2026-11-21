@@ -12,7 +12,7 @@ export function quotationIntent(text: string): { domain: boolean; actionId?: str
   if (!domain || /\b(?:la gi|huong dan|cach (?:tao|lap|su dung))\b/.test(t)) return { domain: false };
   const create = /\b(?:tao|lap|them|nhap moi|len|soan|lam)\b/.test(t) || /\b(?:can|muon)\s+(?:mot\s+|ban\s+)?du toan\b/.test(t);
   const explicitEstimate = create && /\bdu toan\b/.test(t) && !explicitlyRequestsBudgetCreation(text);
-  const estimateFromQuote = /\b(?:(?:tu|theo|dua tren|dua vao|can cu(?: vao)?)\s+(?:bao gia|bg-[\w-]+))\b/.test(t);
+  const estimateFromQuote = /\b(?:tu|theo) bao gia\b/.test(t);
   const estimateFromAnalyzedRequest = /\byeu cau da (?:duoc )?phan tich\b/.test(t);
   const update = /\b(?:cap nhat|sua|chinh sua|bo sung|thay doi)\b/.test(t);
   const remove = /\b(?:xoa|go bo)\b/.test(t);

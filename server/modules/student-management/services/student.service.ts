@@ -300,7 +300,7 @@ export class StudentService {
     if (filters.rank) query.rank = filters.rank;
     if (filters.search) {
       const searchRegex = new RegExp(filters.search, "i");
-      query.$or = [{ fullName: searchRegex }, { phone: searchRegex }, { email: searchRegex }];
+      query.$or = [{ fullName: searchRegex }, { phone: searchRegex }];
     }
 
     const total = await Student.countDocuments(query);

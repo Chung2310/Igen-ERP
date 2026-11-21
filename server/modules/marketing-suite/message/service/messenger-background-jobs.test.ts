@@ -22,7 +22,7 @@ import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 
 const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
 vi.mock("./ai-auto-reply.service.ts", () => ({
-  aiAutoReplyService: { triggerAutoReply: mocks.dispatch, cancelPendingReply: vi.fn() },
+  aiAutoReplyService: { triggerAutoReply: mocks.dispatch },
   recoverZaloAutoReplyJobs: vi.fn(),
 }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: vi.fn() }));
@@ -80,40 +80,6 @@ function webhook(timestamp = Date.now()) {
   const submit = () => zaloMessengerController.receiveWebhookEvent(req, res as unknown as Response);
   return { req, res, submit };
 }
-
-it.each(["oa_send_text", "oa_send_image", "oa_send_gif", "oa_send_list", "oa_send_file", "oa_send_sticker"])("pauses only the targeted OA conversation, cancels queued AI and deduplicates %s from OA Admin", async eventName => {
-  const timestamp = Date.now();
-  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer", lastMessageAt: new Date(timestamp - 1000) });
-  const other = await ZaloConversationModel.create({ oaId: "oa", recipientId: "other" });
-  const conversationId = String(conversation._id);
-  await ZaloMessageModel.create({ conversationId, senderId: "customer", recipientId: "oa", direction: "inbound", messageId: "incoming", timestamp: new Date(timestamp - 1000) });
-  await enqueueMessengerReply({ conversationId, pageId: "oa", messageId: "incoming", companyCode: "TEST", text: "Hello", messageTimestamp: new Date(timestamp - 1000), messageCreatedAt: new Date(timestamp - 1000), nextAttemptAt: new Date() }, "zalo");
-  const body = { event_name: eventName, sender: { id: "oa", admin_id: "staff" }, recipient: { id: "customer" }, timestamp, message: { msg_id: "staff-message", text: "Tôi sẽ hỗ trợ" } };
-  await enqueueZaloWebhook(body);
-  await enqueueZaloWebhook(body);
-  expect(await MessengerBackgroundJobModel.countDocuments({ kind: "zalo-webhook" })).toBe(1);
-  await expect(assertZaloDeliveryCurrent(conversationId, "oa", "incoming")).rejects.toBeInstanceOf(ZaloReplyCancelledError);
-  await zaloMessengerService.handleWebhookEvent(body);
-  await zaloMessengerService.handleWebhookEvent(body);
-  expect(await ZaloMessageModel.countDocuments({ messageId: "staff-message", direction: "outbound" })).toBe(1);
-  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(timestamp + 30 * 60 * 1000);
-  expect((await ZaloConversationModel.findById(other._id))?.aiPausedUntil).toBeNull();
-  expect(await FacebookAutoReplyJobModel.exists({ channel: "zalo", conversationId, status: "cancelled" })).toBeTruthy();
-  await zaloMessengerService.resumeAIAutoReply("oa", conversationId);
-  await zaloMessengerService.handleWebhookEvent(body);
-  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil).toBeFalsy();
-  expect(mocks.dispatch).not.toHaveBeenCalled();
-});
-
-it("ignores API echoes so the chatbot does not pause itself", async () => {
-  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
-  const body = { event_name: "oa_send_text", sender: { id: "oa" }, recipient: { id: "customer" }, timestamp: Date.now(), message: { msg_id: "bot-message", text: "Hello" } };
-  await enqueueZaloWebhook(body);
-  await zaloMessengerService.handleWebhookEvent(body);
-  expect(await MessengerBackgroundJobModel.countDocuments({})).toBe(0);
-  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil).toBeNull();
-  expect(mocks.dispatch).not.toHaveBeenCalled();
-});
 
 it("verifies the Facebook callback with a company Verify Token stored encrypted", async () => {
   vi.stubEnv("SUPERADMIN_ENCRYPTION_KEY", "a".repeat(64));

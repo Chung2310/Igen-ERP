@@ -2,7 +2,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { WorkerProjectModel } from "../models/worker-project.model";
 import { WorkerModel } from "../models/worker.model";
-import { WorkerAttendanceService, WorkerAttendanceError, vietnamWorkDate } from "./worker-attendance.service";
+import { WorkerAttendanceService, WorkerAttendanceError } from "./worker-attendance.service";
 import { getJwtAccessSecret } from "../../../config/env";
 import { emitToCompany } from "../../../socket";
 import { logger } from "../../../config/logger";
@@ -32,7 +32,6 @@ export interface WorkerQRSession {
   projectName: string;
   date: string;
   companyCode: string;
-  branchId?: string;
   durationMinutes: number;
   createdAt: number;
   expiresAt: number;
@@ -61,43 +60,23 @@ export const WorkerQrAttendanceService = {
     projectId: string,
     date: string,
     durationMinutes: number = 60,
-    companyCode: string,
-    branchId?: string
+    companyCode: string
   ): Promise<WorkerQRSession> {
     logger.info(`[Worker-QR] Creating session for projectId=${projectId}, date=${date}, companyCode=${companyCode}`);
 
-    // Phải giới hạn theo công ty, nếu không quản lý công ty này có thể mở phiên
-    // điểm danh trên dự án của công ty khác và lộ mã/tên dự án đó.
-    const project = await WorkerProjectModel.findOne({
-      _id: projectId,
-      ...(companyCode === "ALL" ? {} : { companyCode }),
-      ...(branchId ? { branchId } : {}),
-      deletedAt: null,
-    });
-    if (!project) {
-      throw new WorkerQrCheckinError("project_not_found", "Không tìm thấy dự án trong công ty của bạn.");
-    }
-
-    const today = vietnamWorkDate();
-    const utcDate = new Date().toISOString().slice(0, 10);
-    const requestedDate = new Date(`${date}T00:00:00.000Z`);
-    if (Number.isNaN(requestedDate.getTime()) || requestedDate.toISOString().slice(0, 10) !== date
-      || (date !== today && date !== utcDate)) {
-      throw new WorkerQrCheckinError("session_invalid", "Phiên QR chỉ có thể tạo cho ngày chấm công hiện tại.");
-    }
-
-    // Only replace a session after the project scope is verified, and only within
-    // the exact same company and branch.
-    const projectBranchId = project.branchId?.toString();
+    // Close any previous sessions for this project on this date
     for (const [id, session] of sessions.entries()) {
-      if (session.projectId === projectId
-        && session.date === today
-        && session.companyCode === String(project.companyCode)
-        && session.branchId === projectBranchId
-        && !session.closed) {
+      if (session.projectId === projectId && session.date === date && !session.closed) {
         session.closed = true;
         sessions.delete(id);
       }
+    }
+
+    // Phải giới hạn theo công ty, nếu không quản lý công ty này có thể mở phiên
+    // điểm danh trên dự án của công ty khác và lộ mã/tên dự án đó.
+    const project = await WorkerProjectModel.findOne({ _id: projectId, companyCode, deletedAt: null });
+    if (!project) {
+      throw new WorkerQrCheckinError("project_not_found", "Không tìm thấy dự án trong công ty của bạn.");
     }
 
     const sessionId = crypto.randomUUID();
@@ -113,9 +92,8 @@ export const WorkerQrAttendanceService = {
       projectId,
       projectCode: project.code,
       projectName: project.name,
-      date: today,
-      companyCode: String(project.companyCode),
-      branchId: project.branchId?.toString(),
+      date,
+      companyCode,
       durationMinutes,
       createdAt,
       expiresAt,
@@ -130,8 +108,11 @@ export const WorkerQrAttendanceService = {
     return session;
   },
 
-  getCurrentToken(sessionId: string, companyCode: string, branchId?: string) {
-    const session = getScopedSession(sessionId, companyCode, branchId);
+  getCurrentToken(sessionId: string) {
+    const session = sessions.get(sessionId);
+    if (!session || session.closed || Date.now() > session.expiresAt) {
+      throw new Error("Phiên điểm danh không tồn tại hoặc đã kết thúc.");
+    }
     return {
       token: session.currentToken,
       tokenExpiresAt: session.tokenExpiresAt,
@@ -203,13 +184,11 @@ export const WorkerQrAttendanceService = {
       }
     }
 
-    const workerQuery = {
-      ...(rememberedWorkerId ? { _id: rememberedWorkerId } : { phone: cleanPhone }),
-      companyCode: session.companyCode,
-      ...(session.branchId ? { branchId: session.branchId } : {}),
-      deletedAt: null,
-    };
-    const worker = await WorkerModel.findOne(workerQuery);
+    const worker = await WorkerModel.findOne(
+      rememberedWorkerId
+        ? { _id: rememberedWorkerId, companyCode: session.companyCode, deletedAt: null }
+        : { phone: cleanPhone, companyCode: session.companyCode, deletedAt: null }
+    );
     if (!worker) {
       throw new WorkerQrCheckinError(
         "worker_not_found",
@@ -228,16 +207,7 @@ export const WorkerQrAttendanceService = {
       }
     }
 
-    if (session.date !== vietnamWorkDate()) {
-      throw new WorkerQrCheckinError("session_invalid", "Phiên QR không thuộc ngày chấm công hiện tại.");
-    }
-
-    const project = await WorkerProjectModel.findOne({
-      _id: session.projectId,
-      companyCode: session.companyCode,
-      ...(session.branchId ? { branchId: session.branchId } : {}),
-      deletedAt: null,
-    });
+    const project = await WorkerProjectModel.findById(session.projectId);
     if (!project) {
       throw new WorkerQrCheckinError("session_invalid", "Không tìm thấy dự án.");
     }
@@ -299,8 +269,11 @@ export const WorkerQrAttendanceService = {
     };
   },
 
-  getSessionStatus(sessionId: string, companyCode: string, branchId?: string) {
-    const session = getScopedSession(sessionId, companyCode, branchId);
+  getSessionStatus(sessionId: string) {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      throw new Error("Phiên điểm danh không tồn tại.");
+    }
     const isClosed = session.closed || Date.now() > session.expiresAt;
     const checkinsArray = Array.from(session.checkins.values()).map((c) => ({
       workerId: c.workerId,
@@ -318,23 +291,16 @@ export const WorkerQrAttendanceService = {
     };
   },
 
-  async closeSession(sessionId: string, companyCode: string, branchId?: string): Promise<void> {
-    const session = getScopedSession(sessionId, companyCode, branchId);
+  async closeSession(sessionId: string): Promise<void> {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      throw new Error("Phiên điểm danh không tồn tại.");
+    }
     session.closed = true;
     sessions.delete(sessionId);
     logger.info(`[Worker-QR] Closed session ${sessionId} for projectId=${session.projectId}`);
   },
 };
-
-function getScopedSession(sessionId: string, companyCode: string, branchId?: string) {
-  const session = sessions.get(sessionId);
-  if (!session || session.closed || Date.now() > session.expiresAt
-    || (companyCode !== "ALL" && session.companyCode !== companyCode)
-    || (branchId && session.branchId !== branchId)) {
-    throw new WorkerQrCheckinError("session_invalid", "Phiên điểm danh không tồn tại hoặc không thuộc phạm vi tài khoản.");
-  }
-  return session;
-}
 
 // Cleanup expired sessions hourly
 setInterval(() => {

@@ -868,14 +868,6 @@ export const zaloMessengerService = {
 
   async handleWebhookEvent(body: any, { resumeDispatch = false } = {}) {
 
-    const { isZaloHumanReply, handleZaloHumanReply } = await import("./zalo-human-reply");
-    if (isZaloHumanReply(body)) {
-      const oaId = String(body.sender?.id || "");
-      const { canProcessMessengerWebhook } = await import("../webhook-access");
-      if (await canProcessMessengerWebhook("Zalo", oaId)) await handleZaloHumanReply(body, oaId);
-      return;
-    }
-
     let oaId = body.oa_id || body.recipient?.id;
 
     // Zalo's official developer console test webhook sends a hardcoded recipient.id of "579745863508352884"

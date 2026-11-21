@@ -36,7 +36,6 @@ export default function CustomerProductListDetail({
   const [exportRefresh, setExportRefresh] = useState(0);
   const [error, setError] = useState("");
   const countedCompletedJob = useRef("");
-  const exportStartedAt = useRef<number | null>(null);
   const onAiUsedRef = useRef(onAiUsed);
   onAiUsedRef.current = onAiUsed;
 
@@ -75,7 +74,6 @@ export default function CustomerProductListDetail({
         if (!active) return;
         setSavedExport(file);
         setExportJob(job);
-        if (job?.status === "completed" || job?.status === "failed") exportStartedAt.current = null;
         setLoadingSavedExport(false);
         if (job?.status === "completed" && job.id && countedCompletedJob.current !== job.id) {
           countedCompletedJob.current = job.id;
@@ -85,8 +83,6 @@ export default function CustomerProductListDetail({
       } catch (cause) {
         if (!active) return;
         setSavedExport(null);
-        setExportJob(null);
-        exportStartedAt.current = null;
         setLoadingSavedExport(false);
         setError(userMessage(cause, "Không kiểm tra được file báo giá đã lưu."));
       }
@@ -146,7 +142,6 @@ export default function CustomerProductListDetail({
   });
 
   const createSavedExport = () => void run(async () => {
-    exportStartedAt.current = Date.now();
     setGeneratingFile(true);
     try {
       const result = await api<{ jobId: string; status: GeneratedExportStatus["status"] }>(`/api/quotes/${id}/export/retry`, { method: "POST" });
@@ -221,13 +216,7 @@ export default function CustomerProductListDetail({
         </div>
       )}
 
-      {(exportIsRunning || generatingFile) && <TaskProgress
-        label="AI đang điền mẫu báo giá"
-        detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất."
-        estimated
-        status={exportIsRunning ? exportJob!.status : "queued"}
-        startedAt={exportJob?.startedAt ?? exportJob?.createdAt ?? exportStartedAt.current ?? undefined}
-      />}
+      {exportIsRunning && <TaskProgress label="AI đang điền mẫu báo giá" detail="Đang hoàn thiện báo giá theo mẫu bạn đã chọn. Bạn có thể tải file khi xử lý xong." />}
       {exportFailed && <div className="quote-setup-notice" role="alert" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#b91c1c", margin: 0 }}>
         {exportJob.error || "AI chưa tạo được file báo giá theo mẫu đã chọn."}
       </div>}

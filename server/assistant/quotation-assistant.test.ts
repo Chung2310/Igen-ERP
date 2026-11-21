@@ -26,7 +26,6 @@ afterEach(() => vi.unstubAllGlobals());
 describe("quotation assistant routing and contracts", () => {
   it.each([
     ["Lập báo giá khách hàng cho An", "customer-quote.create"], ["tao du toan tu bao gia BG-2026-001", "estimate.from-customer"],
-    ["Lập dự toán dựa trên báo giá BG-2026-001", "estimate.from-customer"],
     ["Lập dự toán từ yêu cầu đã phân tích", "estimate.create"], ["Tạo yêu cầu lập dự toán", "request.create"], ["Phân tích yêu cầu dự toán", "request.analyze"],
     ["Duyệt báo giá BG-01", "quote.approve"], ["Gửi duyệt dự toán BG-02", "quote.submit-review"], ["Trả lại báo giá BG-03", "quote.reject"],
     ["Xem danh sách báo giá", "quote.list"], ["Xem chi tiết dự toán BG-03", "quote.detail"], ["Tính lại dự toán BG-03", "quote.recalculate"],

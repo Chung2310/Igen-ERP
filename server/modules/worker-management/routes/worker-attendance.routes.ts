@@ -15,7 +15,7 @@ export const workerAttendanceRoutes = Router();
 // Bấm chấm công
 workerAttendanceRoutes.post(
   "/mark",
-  requirePermission(WORKER_MANAGE_PERMISSION) as any,
+  requirePermission([WORKER_READ_PERMISSION, WORKER_MANAGE_PERMISSION]) as any,
   validate(markAttendanceSchema),
   WorkerAttendanceController.mark as any
 );
