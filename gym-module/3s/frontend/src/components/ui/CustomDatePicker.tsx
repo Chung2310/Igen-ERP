@@ -62,6 +62,7 @@ export default function CustomDatePicker({
   const [hovered, setHovered] = useState(false);
   const initial = parseIsoDate(value) || parseIsoDate(getTodayIso())!;
   const [viewYear, setViewYear] = useState(initial.y);
+  const [yearDraft, setYearDraft] = useState(String(initial.y));
   const [viewMonth, setViewMonth] = useState(initial.m); // 1-12
   const [position, setPosition] = useState({ top: 0, left: 0, width: 276 });
 
@@ -129,6 +130,7 @@ export default function CustomDatePicker({
     if (!open) {
       const parsed = parseIsoDate(value) || parseIsoDate(todayIso)!;
       setViewYear(parsed.y);
+      setYearDraft(String(parsed.y));
       setViewMonth(parsed.m);
       updatePosition();
     }
@@ -138,7 +140,8 @@ export default function CustomDatePicker({
   const prevMonth = () => {
     if (viewMonth === 1) {
       setViewMonth(12);
-      setViewYear((y) => y - 1);
+      setViewYear(viewYear - 1);
+      setYearDraft(String(viewYear - 1));
     } else {
       setViewMonth((m) => m - 1);
     }
@@ -147,7 +150,8 @@ export default function CustomDatePicker({
   const nextMonth = () => {
     if (viewMonth === 12) {
       setViewMonth(1);
-      setViewYear((y) => y + 1);
+      setViewYear(viewYear + 1);
+      setYearDraft(String(viewYear + 1));
     } else {
       setViewMonth((m) => m + 1);
     }
@@ -265,9 +269,28 @@ export default function CustomDatePicker({
           >
             {/* Header Month / Year */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#071629' }}>
-                Tháng {viewMonth} / {viewYear}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: 600, color: '#071629' }}>
+                <span>Tháng {viewMonth} /</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  aria-label="Năm"
+                  value={yearDraft}
+                  maxLength={4}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => {
+                    const next = event.target.value.replace(/\D/g, '').slice(0, 4);
+                    setYearDraft(next);
+                    const year = Number(next);
+                    if (next.length === 4 && year >= Number(min?.slice(0, 4) || 1) && year <= Number(max?.slice(0, 4) || 9999)) {
+                      setViewYear(year);
+                    }
+                  }}
+                  onBlur={() => setYearDraft(String(viewYear))}
+                  onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                  style={{ width: '52px', height: '28px', padding: '0 4px', border: '1px solid #d8e2f0', borderRadius: '6px', color: '#071629', background: '#ffffff', font: 'inherit', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
+                />
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                 <button
                   type="button"

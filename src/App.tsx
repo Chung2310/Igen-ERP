@@ -66,8 +66,8 @@ function AppContent() {
   const isPosRoute = currentPath === "/pos" || isPosOnly;
 
   const { activeTab, setActiveTab } = useTabRouter({
-
-    enabled: !isPublicPage && !isPosRoute && !loading && Boolean(user && userProfile),
+    enabled: !isPublicPage && !isPosRoute && !loading && Boolean(user && userProfile)
+      && !["/modules", "/dang-nhap", "/login"].includes(currentPath),
   });
   // Giảng viên chỉ làm việc tại Lớp học. Nếu gõ/thăm lại URL Nhân sự cũ,
   // chuyển thẳng về Quản lý học viên thay vì để trang HR gọi API không có quyền.
