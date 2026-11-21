@@ -21,7 +21,7 @@ const SecurityTab = lazy(() => import("../components/settings/SecurityTab"));
 const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
 const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/FaceRecognitionSettingsTab"));
 
-export default function SettingsTab() {
+export default function SettingsTab({ profileOnly = false }: { profileOnly?: boolean }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { userProfile, uploadAvatar } = useAuth();
   
@@ -35,10 +35,10 @@ export default function SettingsTab() {
 
   // Deep links to the face tab fall back to profile when unauthorized
   React.useEffect(() => {
-    if (activeSubTab === "face-recognition" && !faceManagementAllowed) {
+    if ((activeSubTab === "face-recognition" && !faceManagementAllowed) || (profileOnly && activeSubTab !== "profile")) {
       setActiveSubTab("profile");
     }
-  }, [activeSubTab, faceManagementAllowed, setActiveSubTab]);
+  }, [activeSubTab, faceManagementAllowed, profileOnly, setActiveSubTab]);
 
 
   // Synchronize display name and photo url from context if it updates
@@ -73,6 +73,7 @@ export default function SettingsTab() {
     try {
       const downloadURL = await uploadAvatar(file);
       setPhotoURL(downloadURL);
+      if (profileOnly && window.parent !== window) window.parent.postMessage({ type: "gym:profile-updated", avatarUrl: downloadURL }, window.location.origin);
     } catch (error) {
       console.error(error);
     } finally {
@@ -107,16 +108,16 @@ export default function SettingsTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface font-sans" id="settings_tab_container">
-      <ModuleNavigation label="Mục Cài đặt" activeValue={activeSubTab} className="mb-2 lg:mb-0">
+      {!profileOnly && <ModuleNavigation label="Mục Cài đặt" activeValue={activeSubTab} className="mb-2 lg:mb-0">
         {[
           { id: "profile", label: "Hồ sơ cá nhân", icon: User },
           { id: "erp", label: "Cấu hình ERP", icon: Sliders },
           ...(faceManagementAllowed ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }] : []),
         ].map(tab => <ModuleNavigationButton key={tab.id} active={activeSubTab === tab.id} icon={<tab.icon />} onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}>{tab.label}</ModuleNavigationButton>)}
-      </ModuleNavigation>
+      </ModuleNavigation>}
 
       <div className="settings-workspace min-h-0 flex-1 overflow-y-auto">
-        <section className="settings-content-card min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+        <section className="settings-content-card min-h-full rounded-md bg-surface-container-lowest p-4 sm:p-6">
           <div className={cn("grid grid-cols-1 items-start gap-3", activeSubTab === "profile" && "lg:grid-cols-3")}>
 
         {/* Left Column: Quick Profile Card */}
@@ -179,9 +180,9 @@ export default function SettingsTab() {
         {/* Right Columns: Settings Forms */}
         <div className={cn("min-w-0 space-y-3", activeSubTab === "profile" && "lg:col-span-2")}>
           <Suspense fallback={<TabLoader label="Đang tải cấu hình..." />}>
-            {activeSubTab === "profile" && <><ProfileTab /><SecurityTab /></>}
-            {activeSubTab === "erp" && <ErpConfigTab />}
-            {activeSubTab === "face-recognition" && faceManagementAllowed && <FaceRecognitionSettingsTab />}
+            {activeSubTab === "profile" && <><ProfileTab onSaved={profileOnly ? (displayName) => window.parent.postMessage({ type: "gym:profile-updated", fullName: displayName }, window.location.origin) : undefined} /><SecurityTab /></>}
+            {activeSubTab === "erp" && !profileOnly && <ErpConfigTab />}
+            {activeSubTab === "face-recognition" && !profileOnly && faceManagementAllowed && <FaceRecognitionSettingsTab />}
           </Suspense>
         </div>
 
@@ -194,7 +195,7 @@ export default function SettingsTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div role="status" className="flex min-h-[250px] flex-col items-center justify-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-6 text-center">
+    <div role="status" className="flex min-h-[250px] flex-col items-center justify-center gap-3 rounded-md bg-surface-container-lowest p-6 text-center">
       <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       <span className="text-xs font-medium text-on-surface-variant">{label}</span>
     </div>

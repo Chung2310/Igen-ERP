@@ -10,13 +10,13 @@ interface FoodImageCardProps {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  PROTEIN: '🥩 Đạm',
-  CARB: '🍚 Carb',
-  FAT: '🥑 Béo',
-  VEGGIE: '🥗 Rau',
-  MEAL: '🍱 Món',
-  SNACK: '🥪 Phụ',
-  DRINK: '🥤 Nước',
+  PROTEIN:'Đạm',
+  CARB:'Carb',
+  FAT:'Béo',
+  VEGGIE:'Rau',
+  MEAL:'Món',
+  SNACK:'Phụ',
+  DRINK:'Nước',
 };
 
 export const FoodImageCard: React.FC<FoodImageCardProps> = ({
@@ -70,7 +70,7 @@ export const FoodImageCard: React.FC<FoodImageCardProps> = ({
               item.source === 'AI' ? 'bg-purple-600' : 'bg-emerald-600'
             }`}
           >
-            {item.source === 'AI' ? '✨ AI Tạo' : '📤 Tải Lên'}
+            {item.source ==='AI' ?'AI Tạo' :'Tải Lên'}
           </span>
         </div>
 
@@ -132,7 +132,7 @@ export const FoodImageCard: React.FC<FoodImageCardProps> = ({
         {item.calories ? (
           <div className="flex gap-1.5 items-center mt-1.5 flex-wrap">
             <span className="text-[11px] font-extrabold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-sm">
-              🔥 {item.calories} kcal
+              {item.calories} kcal
             </span>
             {(item.protein !== undefined || item.carbs !== undefined || item.fat !== undefined) && (
               <span className="text-[11px] text-slate-500 font-medium">

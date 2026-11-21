@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, LoaderCircle } from "lucide-react";
 import { ErpModal } from "../../../../../components/common/ErpModal";
+import { StyledSelect } from "../../../../../components/common/StyledSelect";
+import { AdminDatePicker } from "../../../../../components/user-admin/AdminDatePicker";
 import type { LeadTargetModule } from "../../../../../../shared/marketing-suite/lead-intake";
 import { leadModuleTargets, type LeadModuleDestination } from "../../../../../../shared/marketing-suite/lead-module-destination";
 import { getAccessToken } from "../../../shared/services/authService";
@@ -134,13 +136,19 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
   const missingRequired = loadingDestination || !activeTargetModule || !values.fullName.trim() || (activeTargetModule === "students" && (!values.phone.trim() || !values.email.trim() || !values.registrationDate));
   return <ErpModal native title={`Đồng bộ Lead: ${lead.customerName}`} onClose={onClose} maxWidth="max-w-2xl" closeDisabled={busy}>
     <p className="text-pretty text-sm text-on-surface-variant">Kiểm tra thông tin rồi xác nhận tạo hồ sơ trong phân hệ đích.</p>
-    <label className="block space-y-1 text-sm font-medium">Phân hệ đích
-      <select className={inputClass} value={activeTargetModule || ""} onChange={event => setTargetModule(event.target.value as LeadTargetModule)}
-        disabled={loadingDestination || busy || Boolean(createdTarget) || !availableModules.length}>
-        <option value="" disabled>Chọn phân hệ</option>
-        {availableModules.map(module => <option key={module.value} value={module.value}>{module.label}</option>)}
-      </select>
-    </label>
+    <div className="space-y-1 text-sm font-medium">
+      <span className="block text-xs font-medium text-on-surface-variant">Phân hệ đích</span>
+      <StyledSelect
+        appearance="erp"
+        ariaLabel="Phân hệ đích"
+        placeholder="Chọn phân hệ"
+        value={activeTargetModule || ""}
+        disabled={loadingDestination || busy || Boolean(createdTarget) || !availableModules.length}
+        className="h-10 min-h-10 rounded-md border-outline-variant bg-surface-container-lowest py-2"
+        options={availableModules.map(module => ({ value: module.value, label: module.label }))}
+        onChange={value => setTargetModule(value as LeadTargetModule)}
+      />
+    </div>
     {loadingDestination && <p role="status" className="text-xs text-on-surface-variant">Đang tải phân hệ đích…</p>}
     {destinationFailed && <p role="status" className="text-xs text-on-surface-variant">Chưa tải được cấu hình kênh nguồn. Bạn có thể chọn phân hệ đang bật.</p>}
     {destination?.targetModule && activeTargetModule === destination.targetModule && (
@@ -159,12 +167,19 @@ export function LeadModuleSyncModal({ lead, companyCode, branchId, enabledModule
       {(activeTargetModule === "students" || activeTargetModule === "workers") && <label className="block space-y-1 text-sm">Email{activeTargetModule === "students" ? " *" : ""}
         <input className={inputClass} type="email" value={values.email} onChange={event => setValue("email", event.target.value)} autoComplete="email" />
       </label>}
-      <label className="block space-y-1 text-sm">Ngày sinh
-        <input className={inputClass} type="date" value={values.dateOfBirth} onChange={event => setValue("dateOfBirth", event.target.value)} />
-      </label>
-      {activeTargetModule === "students" && <label className="block space-y-1 text-sm">Ngày đăng ký *
-        <input className={inputClass} type="date" value={values.registrationDate} onChange={event => setValue("registrationDate", event.target.value)} />
-      </label>}
+      <AdminDatePicker
+        label="Ngày sinh"
+        value={values.dateOfBirth}
+        onChange={value => setValue("dateOfBirth", value)}
+      />
+      {activeTargetModule === "students" && (
+        <AdminDatePicker
+          label="Ngày đăng ký *"
+          value={values.registrationDate}
+          clearable={false}
+          onChange={value => setValue("registrationDate", value)}
+        />
+      )}
       <label className="block space-y-1 text-sm sm:col-span-2">Địa chỉ
         <input className={inputClass} value={values.address} onChange={event => setValue("address", event.target.value)} autoComplete="street-address" />
       </label>

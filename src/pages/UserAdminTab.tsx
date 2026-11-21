@@ -798,12 +798,12 @@ export default function UserAdminTab() {
           {/* Main List Area */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3" id="user_admin_content">
             {loading ? (
-              <div className="flex flex-1 flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-center">
+              <div className="flex flex-1 flex-col items-center justify-center rounded-md bg-surface-container-lowest text-center">
                 <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
                 <span className="text-sm text-slate-500">Đang tải danh sách tài khoản...</span>
               </div>
             ) : visibleUsers.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest">
+              <div className="flex flex-1 items-center justify-center rounded-md bg-surface-container-lowest">
                 <div className="flex w-full max-w-md flex-col items-center px-6 py-6 text-center">
                   <HrEmptyIllustration kind="worker" className="mb-2" />
                   <p className="text-pretty text-sm font-medium text-on-surface">Không tìm thấy tài khoản</p>

@@ -182,7 +182,7 @@ export default function InBodyReviewForm({ draft, onConfirmed }: InBodyReviewFor
           aria-label="Cảnh báo OCR"
         >
           <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontSize: '0.88rem' }}>
-            <span>⚠️</span> <span>Lưu ý kiểm tra từ phiếu đo:</span>
+            <span></span><span>Lưu ý kiểm tra từ phiếu đo:</span>
           </strong>
           <ul className="panel" aria-label="Cảnh báo OCR" style={{ margin: 0, paddingLeft: '20px', lineHeight: 1.5 }}>
             {warnings.map((warning) => (
@@ -490,7 +490,7 @@ export default function InBodyReviewForm({ draft, onConfirmed }: InBodyReviewFor
           <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '14px', background: '#ffffff' }}>
             <div>
               <strong style={{ fontSize: '0.84rem', color: '#15803d', display: 'block', marginBottom: '8px' }}>
-                💪 Khối lượng cơ từng phần (kg):
+                Khối lượng cơ từng phần (kg):
               </strong>
               <div className="inbody-form-row-5">
                 {[
@@ -519,7 +519,7 @@ export default function InBodyReviewForm({ draft, onConfirmed }: InBodyReviewFor
 
             <div>
               <strong style={{ fontSize: '0.84rem', color: '#b45309', display: 'block', marginBottom: '8px' }}>
-                🧀 Khối lượng mỡ từng phần (kg):
+                Khối lượng mỡ từng phần (kg):
               </strong>
               <div className="inbody-form-row-5">
                 {[

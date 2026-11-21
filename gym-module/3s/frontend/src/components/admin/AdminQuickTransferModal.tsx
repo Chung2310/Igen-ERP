@@ -66,7 +66,6 @@ export default function AdminQuickTransferModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -198,17 +197,14 @@ export default function AdminQuickTransferModal({
           </button>
           <button
             type="button"
+            className="button button-primary"
             onClick={handleSubmit}
             disabled={submitting}
             style={{
-              padding: '7px 16px',
-              borderRadius: '8px',
-              border: 0,
-              background: '#003b70',
-              color: '#ffffff',
+              minHeight: '36px',
+              padding: '0 16px',
               fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer',
+              fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',

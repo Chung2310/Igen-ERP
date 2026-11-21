@@ -183,16 +183,13 @@ export function WorkerOverviewDashboard({
 
   const getStatusBadge = (statusList: string[]) => {
     const main = statusList[0] || 'Chưa cập nhật';
-    switch (main) {
-      case 'Đã nộp HS':
-        return <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[10px] font-medium text-cyan-700">Đã nộp HS</span>;
-      case 'Đang học':
-        return <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-medium text-amber-700">{entityLabel.preset === 'student' ? 'Đang học' : 'Đang tuyển / Đào tạo'}</span>;
-      case 'Đã đậu':
-        return <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-medium text-emerald-700">{entityLabel.preset === 'student' ? 'Đã tốt nghiệp' : 'Đã tiếp nhận'}</span>;
-      default:
-        return <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-700">{main}</span>;
-    }
+    const label = main === 'Đang học' ? entityLabel.preset === 'student' ? 'Đang học' : 'Đang tuyển / Đào tạo'
+      : main === 'Đã đậu' ? entityLabel.preset === 'student' ? 'Đã tốt nghiệp' : 'Đã tiếp nhận' : main;
+    const tone = main === 'Đã nộp HS' ? 'bg-cyan-100 text-cyan-800'
+      : main === 'Đang học' ? 'bg-amber-100 text-amber-800'
+      : main === 'Đã đậu' ? 'bg-emerald-100 text-emerald-800'
+      : 'bg-slate-100 text-slate-700';
+    return <span className={`inline-block max-w-40 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase ${tone}`} title={label}>{label}</span>;
   };
 
   const formatVND = (amount: number) => {

@@ -25,12 +25,18 @@ import AdminKnowledgePage from '../pages/admin/AdminKnowledgePage';
 import CustomerPortalPage from '../pages/customer/CustomerPortalPage';
 import NotificationsPage from '../pages/common/NotificationsPage';
 import ConsultationTool from '../pages/ConsultationTool';
-import WalletPage from '../pages/common/ErpWalletPage';
+import AccountPage from '../pages/common/AccountPage';
 
 import { getSession, saveSession } from '../services/session';
 import { api } from '../services/api';
 import type { Session, User } from '../types';
-import { CreditWalletProvider } from '../contexts/CreditWalletContext';
+
+function ErpWalletRedirect() {
+  useEffect(() => {
+    (window.top || window).location.assign(`/vi-nap-tien${window.location.search}`);
+  }, []);
+  return null;
+}
 
 const roleDestinations = {
   SUPER_ADMIN: '/admin/admin-accounts',
@@ -47,12 +53,13 @@ function PortalContent({ user }: { user: User }) {
   const legacyAdminPath = legacyAdminTab === 'packages' ? '/management/packages' : '/management/trainers';
 
   return (
-    <CreditWalletProvider><AppShell user={user}>
+    <AppShell user={user}>
       <Routes>
         <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="wallet" element={<WalletPage />} />
-        <Route path="wallet/payment-result" element={<Navigate to="/wallet" replace />} />
-        <Route path="admin/credits" element={<Navigate to="/wallet" replace />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="wallet" element={<ErpWalletRedirect />} />
+        <Route path="wallet/payment-result" element={<ErpWalletRedirect />} />
+        <Route path="admin/credits" element={<ErpWalletRedirect />} />
         <Route
           path="consultation"
           element={
@@ -114,7 +121,7 @@ function PortalContent({ user }: { user: User }) {
         <Route path="management/packages" element={<FeatureRoute user={user} roles={['ADMIN']}><PackageTemplateView /></FeatureRoute>} />
         <Route path="management/features" element={<Navigate to="/management/trainers" replace />} />
         <Route path="admin/*" element={<Navigate to={legacyAdminPath} replace />} />
-        <Route path="pt/profile" element={<Navigate to="/customers" replace />} />
+        <Route path="pt/profile" element={<Navigate to="/account" replace />} />
         <Route
           path="pt/inbody"
           element={
@@ -233,7 +240,7 @@ function PortalContent({ user }: { user: User }) {
           }
         />
       </Routes>
-    </AppShell></CreditWalletProvider>
+    </AppShell>
   );
 }
 

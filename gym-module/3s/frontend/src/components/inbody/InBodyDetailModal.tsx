@@ -116,7 +116,7 @@ export default function InBodyDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[10050] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-[10050] flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div

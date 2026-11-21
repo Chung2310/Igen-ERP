@@ -2,25 +2,26 @@ import { v2 as cloudinary } from 'cloudinary';
 import type { UploadApiResponse } from 'cloudinary';
 import { AppError } from '../errors/AppError.js';
 import { ERROR_CODES } from '../errors/errorCodes.js';
+import { gymSetting } from '../config/env.js';
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: gymSetting('CLOUDINARY_CLOUD_NAME'),
+  api_key: gymSetting('CLOUDINARY_API_KEY'),
+  api_secret: gymSetting('CLOUDINARY_API_SECRET'),
 });
 
 function ensureConfig() {
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: gymSetting('CLOUDINARY_CLOUD_NAME'),
+    api_key: gymSetting('CLOUDINARY_API_KEY'),
+    api_secret: gymSetting('CLOUDINARY_API_SECRET'),
   });
 }
 
 export function isCloudinaryConfigured(): boolean {
   return Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
+    gymSetting('CLOUDINARY_CLOUD_NAME') &&
+    gymSetting('CLOUDINARY_API_KEY') &&
+    gymSetting('CLOUDINARY_API_SECRET')
   );
 }
 

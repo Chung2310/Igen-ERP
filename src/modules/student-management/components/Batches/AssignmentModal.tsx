@@ -581,7 +581,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
 
                       <div className="shrink-0 flex items-center">
                         {isGraded ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-50 text-[9px] font-black text-emerald-600 border border-emerald-100">
+                          <span className="inline-block max-w-40 truncate rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-semibold uppercase text-emerald-800" title={`${sub.score}/${selectedAssignment?.maxScore || 10}`}>
                             {sub.score}/{selectedAssignment?.maxScore || 10}
                           </span>
                         ) : isSubmitted ? (
@@ -649,7 +649,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     {/* Submission attachments */}
                     {sub ? (
                       <div className="space-y-4">
-                        {sub.submissionSource === "staff" ? <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">Nhân viên nộp hộ</span> : null}
+                        {sub.submissionSource === "staff" ? <span className="inline-block max-w-40 truncate rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-semibold uppercase text-sky-800" title="Nhân viên nộp hộ">Nhân viên nộp hộ</span> : null}
                         
                         {/* Attachments */}
                         <div className="space-y-2">

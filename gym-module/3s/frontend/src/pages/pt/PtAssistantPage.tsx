@@ -263,7 +263,7 @@ export default function PtAssistantPage() {
                 minHeight: '32px',
                 padding: '4px 10px',
                 cursor: 'pointer',
-                color: selectedCustomerId ? '#0077b3' : '#475569',
+                color: selectedCustomerId ? '#00adfc' : '#475569',
                 fontSize: '0.76rem',
                 fontWeight: 500,
                 display: 'flex',
@@ -342,8 +342,8 @@ export default function PtAssistantPage() {
                       </>
                     ) : (
                       <>
-                        <Bot size={11} color="#003b70" />
-                        <span style={{ color: '#003b70' }}>Trợ lý AI 3S-Gym</span>
+                        <Bot size={11} color="#00adfc" />
+                        <span style={{ color: '#00adfc' }}>Trợ lý AI 3S-Gym</span>
                       </>
                     )}
                   </div>
@@ -381,7 +381,7 @@ export default function PtAssistantPage() {
                           color: '#64748b',
                         }}
                       >
-                        <span style={{ fontWeight: 650, color: '#0369a1' }}>📚 Nguồn tài liệu:</span>
+                        <span style={{ fontWeight: 650, color:'#0369a1' }}>Nguồn tài liệu:</span>
                         {msg.citations.map((c, cIdx) => (
                           <span
                             key={cIdx}
@@ -423,7 +423,7 @@ export default function PtAssistantPage() {
                   height: '44px',
                   borderRadius: '50%',
                   background: '#e0f2fe',
-                  color: '#0284c7',
+                  color: '#00adfc',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -432,7 +432,7 @@ export default function PtAssistantPage() {
               >
                 <Bot size={22} />
               </div>
-              <h3 style={{ margin: 0, fontSize: isMobile ? '0.96rem' : '1.1rem', fontWeight: 750, color: '#003b70' }}>
+              <h3 style={{ margin: 0, fontSize: isMobile ? '0.96rem' : '1.05rem', fontWeight: 600, color: '#0f172a' }}>
                 {isCustomer ? 'Xin chào bạn!' : 'Chào Huấn luyện viên!'}
               </h3>
               <p style={{ margin: '4px 0 14px', maxWidth: '420px', fontSize: '0.8rem', lineHeight: 1.45 }}>
@@ -452,10 +452,10 @@ export default function PtAssistantPage() {
                 }}
               >
                 {[
-                  { label: '🔥 Thực đơn giảm mỡ an toàn', prompt: 'Tôi muốn giảm mỡ an toàn, bạn gợi ý thực đơn món ăn Việt Nam cho 1 ngày nhé' },
-                  { label: '💪 Lịch tập 4 buổi tăng cơ', prompt: 'Gợi ý lịch tập 4 buổi mỗi tuần để tăng cơ săn chắc toàn thân' },
-                  { label: '📊 Phân tích chỉ số InBody', prompt: 'Dựa trên chỉ số InBody của tôi, tôi nên tập luyện và ăn uống thế nào?' },
-                  { label: '🧘 Chỉnh lỗi đau lưng khi Squat', prompt: 'Nguyên nhân và cách khắc phục tình trạng đau mỏi thắt lưng khi tập Squat' },
+                  { label:'Thực đơn giảm mỡ an toàn', prompt:'Tôi muốn giảm mỡ an toàn, bạn gợi ý thực đơn món ăn Việt Nam cho 1 ngày nhé' },
+                  { label:'Lịch tập 4 buổi tăng cơ', prompt:'Gợi ý lịch tập 4 buổi mỗi tuần để tăng cơ săn chắc toàn thân' },
+                  { label:'Phân tích chỉ số InBody', prompt:'Dựa trên chỉ số InBody của tôi, tôi nên tập luyện và ăn uống thế nào?' },
+                  { label:'Chỉnh lỗi đau lưng khi Squat', prompt:'Nguyên nhân và cách khắc phục tình trạng đau mỏi thắt lưng khi tập Squat' },
                 ].map((chip, idx) => (
                   <button
                     key={idx}
@@ -465,12 +465,12 @@ export default function PtAssistantPage() {
                     }}
                     style={{
                       background: '#ffffff',
-                      border: '1px solid #cbd5e1',
+                      border: '1px solid #d8e2f0',
                       borderRadius: '20px',
                       padding: '5px 12px',
-                      fontSize: '0.74rem',
-                      color: '#003b70',
-                      fontWeight: 600,
+                      fontSize: '0.76rem',
+                      color: '#334155',
+                      fontWeight: 500,
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
@@ -565,8 +565,6 @@ export default function PtAssistantPage() {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.45)',
-            backdropFilter: 'blur(2px)',
             zIndex: 9999,
             display: 'flex',
             justifyContent: 'flex-end',
@@ -597,8 +595,8 @@ export default function PtAssistantPage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={16} color="#003b70" />
-                <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, color: '#003b70' }}>
+                <History size={16} color="#00adfc" />
+                <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 600, color: '#0f172a' }}>
                   Lịch sử các phiên chat
                 </h3>
               </div>
@@ -655,8 +653,8 @@ export default function PtAssistantPage() {
                         textAlign: 'left',
                         padding: '10px 12px',
                         borderRadius: '8px',
-                        border: isActive ? '1.5px solid #003b70' : '1px solid #f1f5f9',
-                        background: isActive ? '#f0f7ff' : '#ffffff',
+                        border: isActive ? '1px solid #7dd3fc' : '1px solid #f1f5f9',
+                        background: isActive ? '#f0f9ff' : '#ffffff',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'flex-start',
@@ -665,15 +663,15 @@ export default function PtAssistantPage() {
                     >
                       <MessageSquare
                         size={14}
-                        color={isActive ? '#003b70' : '#94a3b8'}
+                        color={isActive ? '#00adfc' : '#94a3b8'}
                         style={{ marginTop: '2px', flexShrink: 0 }}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
                             fontSize: '0.82rem',
-                            fontWeight: isActive ? 700 : 550,
-                            color: isActive ? '#003b70' : '#1e293b',
+                            fontWeight: isActive ? 600 : 500,
+                            color: isActive ? '#00adfc' : '#0f172a',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',

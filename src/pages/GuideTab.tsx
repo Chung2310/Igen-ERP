@@ -396,7 +396,7 @@ export default function GuideTab() {
       {/* Main Body Layout Split */}
       <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
         {/* Left sidebar: modules index list */}
-        <div className="w-80 shrink-0 bg-white border border-gray-200/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs overflow-y-auto hidden md:flex">
+        <div className="w-80 shrink-0 bg-white rounded-2xl p-4 flex flex-col gap-3 shadow-xs overflow-y-auto hidden md:flex">
           <p className="px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider select-none">
             Danh sách phân hệ ({filteredSections.length})
           </p>
@@ -439,7 +439,7 @@ export default function GuideTab() {
         </div>
 
         {/* Right side: Active module guide details */}
-        <div className="flex-1 bg-white border border-gray-200/80 rounded-2xl shadow-xs overflow-y-auto flex flex-col min-w-0">
+        <div className="flex-1 bg-white rounded-2xl shadow-xs overflow-y-auto flex flex-col min-w-0">
           {/* Mobile view top select navigation helper */}
           <div className="p-4 border-b border-gray-150 md:hidden bg-slate-50 shrink-0">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">

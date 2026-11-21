@@ -133,7 +133,7 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
@@ -215,7 +215,7 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
                         : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    📤 Tải ảnh mới từ máy
+                    Tải ảnh mới từ máy
                   </button>
                 </div>
 
@@ -278,14 +278,14 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
                 value={category}
                 onChange={(val) => setCategory(val)}
                 options={[
-                  { value: 'PROTEIN', label: '🥩 Đạm / Protein' },
-                  { value: 'CARB', label: '🍚 Tinh bột / Carb' },
-                  { value: 'FAT', label: '🥑 Chất béo tốt' },
-                  { value: 'VEGGIE', label: '🥗 Rau củ / Salad' },
-                  { value: 'MEAL', label: '🍱 Bữa chính hoàn chỉnh' },
-                  { value: 'SNACK', label: '🥪 Bữa phụ / Snack' },
-                  { value: 'DRINK', label: '🥤 Sinh tố / Nước uống' },
-                  { value: 'OTHER', label: '✨ Khác' },
+                  { value:'PROTEIN', label:'Đạm / Protein' },
+                  { value:'CARB', label:'Tinh bột / Carb' },
+                  { value:'FAT', label:'Chất béo tốt' },
+                  { value:'VEGGIE', label:'Rau củ / Salad' },
+                  { value:'MEAL', label:'Bữa chính hoàn chỉnh' },
+                  { value:'SNACK', label:'Bữa phụ / Snack' },
+                  { value:'DRINK', label:'Sinh tố / Nước uống' },
+                  { value:'OTHER', label:'Khác' },
                 ]}
               />
             </div>
@@ -299,7 +299,7 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🔥 Calo (kcal):
+                  Calo (kcal):
                 </label>
                 <input
                   type="number"
@@ -311,7 +311,7 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🥩 Protein (g):
+                  Protein (g):
                 </label>
                 <input
                   type="number"
@@ -323,7 +323,7 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🍚 Carbs (g):
+                  Carbs (g):
                 </label>
                 <input
                   type="number"
@@ -335,7 +335,7 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🥑 Fat (g):
+                  Fat (g):
                 </label>
                 <input
                   type="number"

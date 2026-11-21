@@ -150,7 +150,7 @@ export default function FinanceWorkspace() {
         {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="min-h-full space-y-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+        <div className="min-h-full space-y-3 rounded-2xl bg-surface-container-lowest p-4 sm:p-6">
           {(["THU CHI", "LÃI LỖ", "VAT", "HÒA VỐN"].includes(activeTab)) && (
             <FinancialManagementPage
               key={activeTab}

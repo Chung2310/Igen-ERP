@@ -1785,7 +1785,7 @@ export default function ChatTab() {
 
   return (
     <div
-      className="chat-workspace flex h-full w-full overflow-hidden rounded-none border-0 bg-surface-container-lowest shadow-none md:rounded-md md:border md:border-outline-variant"
+      className="chat-workspace flex h-full w-full overflow-hidden rounded-none border-0 bg-surface-container-lowest shadow-none md:rounded-md"
       id="chat_tab_root"
     >
 

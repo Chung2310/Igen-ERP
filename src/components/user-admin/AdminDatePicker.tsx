@@ -10,6 +10,11 @@ type Props = {
   min?: string;
   max?: string;
   inline?: boolean;
+  disabled?: boolean;
+  clearable?: boolean;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
+  buttonClassName?: string;
 };
 
 const toLocalDate = (value: string) => {
@@ -23,7 +28,19 @@ const toValue = (date: Date) =>
 const dateLabel = (date: Date) => new Intl.DateTimeFormat("vi-VN").format(date);
 const monthLabel = (date: Date) => new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(date);
 
-export function AdminDatePicker({ label, value, onChange, min, max, inline = false }: Props) {
+export function AdminDatePicker({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  inline = false,
+  disabled = false,
+  clearable = true,
+  ariaInvalid,
+  ariaDescribedBy,
+  buttonClassName,
+}: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const previousMonthRef = useRef<HTMLButtonElement>(null);
@@ -99,15 +116,23 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
       <button
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
         onClick={() => {
+          if (disabled) return;
           const next = selected || new Date();
           setMonth(new Date(next.getFullYear(), next.getMonth(), 1));
           setOpen((current) => !current);
         }}
-        className={cn("flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal tabular-nums text-on-surface hover:border-primary focus-visible:border-primary focus-visible:outline-none", inline && "w-36")}
+        className={cn(
+          "flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal tabular-nums text-on-surface hover:border-primary focus-visible:border-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+          inline && "w-36",
+          buttonClassName,
+        )}
       >
         <span className={selected ? "" : "text-on-surface-variant"}>{selected ? dateLabel(selected) : "Chọn ngày"}</span>
         <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
@@ -147,7 +172,9 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
             })}
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 pt-2 text-xs">
-            <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-md px-2.5 py-1.5 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Xóa ngày</button>
+            {clearable ? (
+              <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-md px-2.5 py-1.5 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Xóa ngày</button>
+            ) : <span />}
             <button type="button" disabled={!allowed(today)} onClick={() => choose(today)} className="rounded-md bg-primary/10 px-2.5 py-1.5 font-medium text-on-surface hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40">Hôm nay</button>
           </div>
         </div>,

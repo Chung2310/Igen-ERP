@@ -44,7 +44,7 @@ function RoutePending({ onRetry }: { onRetry: () => void }) {
   return slow ? <RouteRecovery title="Tải phân hệ lâu hơn dự kiến" message="Kiểm tra kết nối rồi thử lại. Bạn vẫn có thể chọn phân hệ khác trên thanh điều hướng." onRetry={onRetry} /> : <PageLoader label="Đang tải trang..." />;
 }
 function RouteRecovery({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
-  return <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-on-surface">
+  return <section className="space-y-4 rounded-2xl bg-surface-container-lowest p-6 text-on-surface">
     <h1 className="text-balance text-lg font-semibold">{title}</h1>
     <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{message}</p>
     <div className="flex flex-wrap gap-3">
@@ -54,5 +54,5 @@ function RouteRecovery({ title, message, onRetry }: { title: string; message: st
   </section>;
 }
 function PageLoader({ label }: { label: string }) {
-  return <div role="status" className="flex min-h-80 items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-sm font-semibold text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{label}</div>;
+  return <div role="status" className="flex min-h-80 items-center justify-center rounded-2xl bg-surface-container-lowest p-6 text-sm font-semibold text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{label}</div>;
 }

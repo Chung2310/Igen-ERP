@@ -23,7 +23,7 @@ export default function CustomerList(props: Props) {
         <StyledSelect ariaLabel="Loại khách" value={props.type || "all"} onChange={(value) => props.onTypeChange(value === "all" ? "" : value as CustomerType)} options={[{ value: "all", label: "Tất cả loại khách" }, { value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} className="rounded-md" menuClassName="rounded-md shadow-sm" />
       </div>
 
-      <div className="flex flex-1 flex-col rounded-md border border-outline-variant bg-surface-container-lowest">
+      <div className="flex flex-1 flex-col rounded-md bg-surface-container-lowest">
         <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-surface-container-low text-sm font-medium text-on-surface">

@@ -73,7 +73,7 @@ EXPOSE 3000
 
 # Run the bundled production server
 # Create runtime directories as their owner without copying earlier layers.
-RUN mkdir -p /app/logs /app/uploads /app/server/cache/ai-settlements
+RUN mkdir -p /app/logs /app/uploads/gym/food-images /app/server/cache/ai-settlements
 
 # Run the production server with a heap limit
 CMD ["node", "--max-old-space-size=1536", "dist-server/server.cjs"]

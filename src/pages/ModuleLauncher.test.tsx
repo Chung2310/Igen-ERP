@@ -29,7 +29,7 @@ describe("ModuleLauncher", () => {
     expect(screen.queryByRole("link", { name: "Bán lẻ" })).toBeNull();
     expect(screen.getByRole("link", { name: "Tích hợp & cấu hình" })).toBeTruthy();
     expect(screen.queryByText("Chiến dịch")).toBeNull();
-    expect(screen.getByRole("link", { name: "Gói AI & lượt sử dụng" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Gói AI & lượt sử dụng" })).toBeNull();
     expect(screen.getByRole("link", { name: "Nhân sự" }).querySelector('.module-launcher-icon-tile')?.className).not.toContain('bg-');
     for (const name of ["Tài nguyên", "Tài khoản", "Hệ thống", "Trò chuyện"]) {
       expect(screen.getByRole("link", { name }).getAttribute("href")).toBeTruthy();

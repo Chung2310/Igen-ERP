@@ -1,0 +1,82 @@
+{
+  "pages": [
+    {
+      "label": "Khách hàng",
+      "path": "/customers",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/customers",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nTất cả Huấn luyện viên\nTất cả trạng thái\nTìm kiếm\nTải lạ"
+    },
+    {
+      "label": "InBody",
+      "path": "/pt/inbody",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/pt/inbody",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nLọc theo học viên...\nTất cả\nĐã công bố\nBản nháp\nLàm mới\n"
+    },
+    {
+      "label": "Dinh dưỡng",
+      "path": "/pt/nutrition",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/pt/nutrition",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nChọn học viên theo tên, số điện thoại...\nTải nhật ký\n1. "
+    },
+    {
+      "label": "Lộ trình",
+      "path": "/pt/roadmaps",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/pt/roadmaps",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nTất cả học viên...\nTất cả trạng thái\nTìm\n0 / 0 lộ trình\n"
+    },
+    {
+      "label": "Giáo án",
+      "path": "/pt/my-workout-plans",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/pt/my-workout-plans",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nGiáo án của tôi\nThư viện bài tập\nTạo bằng AI\nTạo giáo án"
+    },
+    {
+      "label": "Tiến độ",
+      "path": "/pt/progress",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/pt/progress",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nKHÁCH ĐƯỢC QUẢN LÝ\n0\nKHÁCH CÓ HOẠT ĐỘNG\n0\nTỔNG BUỔI ĐÃ G"
+    },
+    {
+      "label": "Đội ngũ PT",
+      "path": "/management/trainers",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/management/trainers",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nTỔNG SỐ PT\n1\nBiên chế 3S Gym\nĐANG HOẠT ĐỘNG\n1\nSẵn sàng n"
+    },
+    {
+      "label": "Gói mẫu",
+      "path": "/management/packages",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/management/packages",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nTìm gói tập mẫu\nTất cả trạng thái\nLọc\nTạo gói mẫu mới\n\nC"
+    },
+    {
+      "label": "Điều chuyển",
+      "path": "/transfers",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/transfers",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nTạo lệnh chuyển\nDanh sách học viên (0)\nLịch sử (0)\nTạo l"
+    },
+    {
+      "label": "Kho tư liệu",
+      "path": "/knowledge",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/knowledge",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nKho Ảnh Món Ăn\n0\nTài Liệu Tri Thức\nTỔNG SỐ MÓN TRONG KHO"
+    },
+    {
+      "label": "Trợ lý AI",
+      "path": "/pt/assistant",
+      "passed": true,
+      "url": "http://127.0.0.1:3000/chuoi-gym/pt/assistant",
+      "preview": "Khách hàng\nInBody\nDinh dưỡng\nLộ trình\nGiáo án\nTiến độ\nĐội ngũ PT\nGói mẫu\nĐiều chuyển\nKho tư liệu\nTrợ lý AI\nCài đặt hệ thống\nĐoạn chat mới\n0\nChat mới\n+ Học viên\nChào Huấn luyện viên"
+    }
+  ],
+  "findings": []
+}

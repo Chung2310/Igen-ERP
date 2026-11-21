@@ -59,14 +59,14 @@ export default function DayTimeline({
     if (p.sets !== undefined) {
       chips.push(
         <span key="sets" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
-          🔥 {p.sets} hiệp
+          {p.sets} hiệp
         </span>
       );
     }
     if (p.reps !== undefined) {
       chips.push(
         <span key="reps" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-900 border border-blue-200/80">
-          🔁 {p.reps} reps
+          {p.reps} reps
         </span>
       );
     }
@@ -74,7 +74,7 @@ export default function DayTimeline({
     if (weight !== undefined && weight !== null && weight !== '') {
       chips.push(
         <span key="weight" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-900 border border-purple-200/80">
-          🏋️ {weight} kg
+          {weight} kg
         </span>
       );
     }
@@ -88,21 +88,21 @@ export default function DayTimeline({
     if (p.targetRpe !== undefined) {
       chips.push(
         <span key="rpe" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200/80">
-          ⚡ RPE {p.targetRpe}
+          RPE {p.targetRpe}
         </span>
       );
     }
     if (p.durationMinutes !== undefined && item.trackingType === 'CARDIO') {
       chips.push(
         <span key="dur" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
-          🏃 {p.durationMinutes}p
+          {p.durationMinutes}p
         </span>
       );
     }
     if (p.rounds !== undefined) {
       chips.push(
         <span key="rounds" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
-          🔄 {p.rounds} vòng
+          {p.rounds} vòng
         </span>
       );
     }

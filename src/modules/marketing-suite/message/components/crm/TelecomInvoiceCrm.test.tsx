@@ -18,10 +18,31 @@ beforeEach(() => {
     from, to, dateField: "createdAt", leadCount: 2, missingDateCount: 0, invalidCodeCount: 0,
   }));
 });
+function pickDate(label: string, iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  const targetLabel = new Intl.DateTimeFormat("vi-VN").format(new Date(year, month - 1, day));
+  const targetMonth = new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  const calendar = screen.getByRole("dialog", { name: `Chọn ${label.toLowerCase()}` });
+  for (let i = 0; i < 36 && !within(calendar).queryByText(targetMonth); i += 1) {
+    const currentText = calendar.querySelector("span")?.textContent || "";
+    const match = currentText.match(/(\d+)\s+năm\s+(\d{4})/);
+    const currentVal = match ? Number(match[2]) * 12 + Number(match[1]) : year * 12 + month;
+    const targetVal = year * 12 + month;
+    fireEvent.click(within(calendar).getByRole("button", { name: targetVal < currentVal ? "Tháng trước" : "Tháng sau" }));
+  }
+  fireEvent.click(within(calendar).getByRole("button", { name: `Chọn ngày ${targetLabel}` }));
+}
+
+function pickSelect(label: string, optionText: string | RegExp) {
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.click(screen.getByRole("option", { name: optionText }));
+}
+
 async function previewRange() {
   await screen.findByLabelText("File bảng kê (.xlsx)");
-  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-01-01" } });
-  fireEvent.change(screen.getByLabelText("Đến ngày tạo Lead"), { target: { value: "2026-03-31" } });
+  pickDate("Từ ngày tạo Lead", "2026-01-01");
+  pickDate("Đến ngày tạo Lead", "2026-03-31");
   fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
   await screen.findByText("2 Lead trong phạm vi 01/01/2026 – 31/03/2026.");
 }
@@ -41,7 +62,7 @@ it("previews the selected Lead creation dates and invalidates the preview and re
   fireEvent.change(upload, { target: { files: [new File(["file"], "scope.xlsx")] } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
   expect(await screen.findByText("SCOPED")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-02-01" } });
+  pickDate("Từ ngày tạo Lead", "2026-02-01");
   expect(screen.queryByText("SCOPED")).toBeNull();
   expect(upload.disabled).toBe(false);
   expect(screen.getByRole<HTMLButtonElement>("button", { name: "Đối soát thông tin khách hàng" }).disabled).toBe(false);
@@ -53,10 +74,10 @@ it("selects and submits an Excel file without first running the optional Lead pr
   vi.mocked(crmService.reconcileLeadContracts).mockResolvedValue({ excelCount: 1, duplicates: 0, invalidRows: [], rows: [] });
   render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
   const upload = await screen.findByLabelText<HTMLInputElement>("File bảng kê (.xlsx)");
-  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-01-01" } });
-  fireEvent.change(screen.getByLabelText("Đến ngày tạo Lead"), { target: { value: "2026-03-31" } });
+  pickDate("Từ ngày tạo Lead", "2026-01-01");
+  pickDate("Đến ngày tạo Lead", "2026-03-31");
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
-  fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
+  pickSelect("Quý", "Quý 1");
   const file = new File(["xlsx"], "bang-ke.xlsx");
   fireEvent.change(upload, { target: { files: [file] } });
   expect(screen.getByText("bang-ke.xlsx")).toBeTruthy();
@@ -85,13 +106,17 @@ it("rejects reversed dates and allows a failed preview to be retried", async () 
   vi.mocked(crmService.getLeadContractProviders).mockResolvedValue(["FPT"]);
   render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
   await screen.findByLabelText("File bảng kê (.xlsx)");
-  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-04-01" } });
-  fireEvent.change(screen.getByLabelText("Đến ngày tạo Lead"), { target: { value: "2026-03-01" } });
-  fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
-  expect((await screen.findByRole("alert")).textContent).toContain("Từ ngày không được sau Đến ngày");
+  pickDate("Từ ngày tạo Lead", "2026-01-01");
+  pickDate("Đến ngày tạo Lead", "2026-03-01");
+  fireEvent.click(screen.getByRole("button", { name: "Từ ngày tạo Lead" }));
+  const calendar = screen.getByRole("dialog", { name: "Chọn từ ngày tạo lead" });
+  fireEvent.click(within(calendar).getByRole("button", { name: "Tháng sau" }));
+  fireEvent.click(within(calendar).getByRole("button", { name: "Tháng sau" }));
+  fireEvent.click(within(calendar).getByRole("button", { name: "Tháng sau" }));
+  expect(within(calendar).getByRole("button", { name: "Chọn ngày 1/4/2026" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.keyDown(document, { key: "Escape" });
   expect(crmService.getLeadReconciliationScope).not.toHaveBeenCalled();
   vi.mocked(crmService.getLeadReconciliationScope).mockRejectedValueOnce(new Error("Không kết nối được dữ liệu"));
-  fireEvent.change(screen.getByLabelText("Từ ngày tạo Lead"), { target: { value: "2026-01-01" } });
   fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
   expect((await screen.findByRole("alert")).textContent).toContain("Không kết nối được dữ liệu");
   fireEvent.click(screen.getByRole("button", { name: "Xem số Lead" }));
@@ -125,7 +150,7 @@ it("shows missing field reasons, date warnings and outside-range results without
   expect(screen.getByText("Địa chỉ: Lead chưa có dữ liệu.")).toBeTruthy();
   expect(screen.getByText("Tên khách hàng: cả Excel và Lead đều thiếu dữ liệu.")).toBeTruthy();
   expect(screen.getByText("Thiếu mã đối soát")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "out_of_scope" } });
+  pickSelect("Lọc kết quả", /Ngoài phạm vi ngày tạo Lead/);
   const table = screen.getByRole<HTMLTableElement>("table", { name: "Đối soát theo từng dòng Excel" });
   expect(table.tBodies[0].rows).toHaveLength(1);
   expect(table.tBodies[0].rows[0].cells[1].textContent).toBe("OLD");
@@ -158,7 +183,7 @@ it("renders repeated Excel lines in their original order with adjacent customer 
   expect(rows[0].cells[0].textContent).toContain("Dòng 8");
   expect(rows[2].cells[0].textContent).toContain("Dòng 10");
   expect(rows[4].cells[0].textContent).toContain("Ngoài Excel");
-  fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "matched" } });
+  pickSelect("Lọc kết quả", /Đầy đủ, khớp thông tin/);
   expect(table.tBodies[0].rows).toHaveLength(4);
 });
 
@@ -174,9 +199,10 @@ it("shows VNPT customer differences side by side without requiring OCR setup or 
   });
   render(<LeadContractReconciliation onClose={vi.fn()} onOpenLead={vi.fn()} onOpenSource={vi.fn()} onSaved={vi.fn()} />);
   const file = new File(["workbook"], "vnpt.xlsx");
-  fireEvent.change(await screen.findByLabelText("Nhà mạng"), { target: { value: "VNPT" } });
+  await screen.findByRole("button", { name: "Nhà mạng" });
+  pickSelect("Nhà mạng", "VNPT");
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
-  fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
+  pickSelect("Quý", "Quý 1");
   await previewRange();
   fireEvent.change(screen.getByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
@@ -251,11 +277,11 @@ it("submits the selected period and file and filters the results by contract sta
   await previewRange();
   fireEvent.change(await screen.findByLabelText("File bảng kê (.xlsx)"), { target: { files: [file] } });
   fireEvent.change(screen.getByLabelText("Năm"), { target: { value: "2026" } });
-  fireEvent.change(screen.getByLabelText("Quý"), { target: { value: "1" } });
+  pickSelect("Quý", "Quý 1");
   fireEvent.submit(screen.getByRole("button", { name: "Đối soát thông tin khách hàng" }).closest("form")!);
   expect(await screen.findByText("2 mã trong Excel · 2 dòng · 4 dòng có thông tin lặp (vẫn giữ đủ)")).toBeTruthy();
   expect(crmService.reconcileLeadContracts).toHaveBeenCalledWith(file, "FPT", 2026, 1, { from: "2026-01-01", to: "2026-03-31" }, expect.any(AbortSignal));
-  fireEvent.change(screen.getByLabelText("Lọc kết quả"), { target: { value: "excel_only" } });
+  pickSelect("Lọc kết quả", /Chỉ có trong Excel/);
   expect(screen.queryByText("001")).toBeNull();
   expect(screen.getByText("002")).toBeTruthy();
 });

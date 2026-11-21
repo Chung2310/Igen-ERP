@@ -188,7 +188,7 @@ export default function RetailPartnersPage() {
       {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
         {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
       </ModuleNavigation>}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-xs sm:p-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md bg-surface-container-lowest p-3 text-left shadow-xs sm:p-4">
         {canManage && <dialog
           ref={formDialogRef}
           aria-labelledby="retail-partner-form-title"

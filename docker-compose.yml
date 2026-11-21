@@ -12,7 +12,6 @@ services:
     environment:
       QUOTATION_WORKERS_ENABLED: "true"
       QUOTATION_QUEUE_PREFIX: "${QUOTATION_QUEUE_PREFIX:-${CONTAINER_NAME:-igen-erp}-quotation}"
-      GYM_BACKEND_URL: "http://gym-api:3018"
     volumes:
       - .env:/app/.env
       - ./logs:/app/logs
@@ -46,40 +45,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  gym-api:
-    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
-    profiles: ["gym"]
-    restart: unless-stopped
-    command: ["node", "gym-module/3s/dist/backend/bootstrap.js"]
-    env_file: [.env]
-    environment:
-      NODE_ENV: production
-      GYM_EMBEDDED: "1"
-      GYM_ERP_API_URL: "http://igen-erp:3000"
-      PORT: "3018"
-      MONGODB_URI: "${GYM_MONGODB_URI:-}"
-      MONGODB_USER: "${GYM_MONGODB_USER:-}"
-      MONGODB_PASSWORD: "${GYM_MONGODB_PASSWORD:-}"
-      MONGODB_AUTH_SOURCE: "${GYM_MONGODB_AUTH_SOURCE:-}"
-      JWT_SECRET: "${GYM_BRIDGE_SECRET:-}"
-      APP_URL: "${GYM_APP_URL:-}"
-      OPENROUTER_API_KEY: "${GYM_OPENROUTER_API_KEY:-${OPENROUTER_API_KEY:-}}"
-      OPENROUTER_REASONING_EFFORT: "${GYM_OPENROUTER_REASONING_EFFORT:-}"
-      AI_MODEL: "${GYM_AI_MODEL:-}"
-      OCR_MODEL: "${GYM_OCR_MODEL:-}"
-      AI_COMPANY_PAID_DAILY_CALLS_PER_USER: "${GYM_AI_COMPANY_PAID_DAILY_CALLS_PER_USER:-}"
-      AI_COMPANY_PAID_MONTHLY_CALLS_PER_USER: "${GYM_AI_COMPANY_PAID_MONTHLY_CALLS_PER_USER:-}"
-      AI_COMPANY_PAID_MONTHLY_CALLS_PER_CENTER: "${GYM_AI_COMPANY_PAID_MONTHLY_CALLS_PER_CENTER:-}"
-      AI_GLOBAL_MONTHLY_BUDGET_VND: "${GYM_AI_GLOBAL_MONTHLY_BUDGET_VND:-}"
-      AI_GLOBAL_MAX_RESERVATION_VND: "${GYM_AI_GLOBAL_MAX_RESERVATION_VND:-}"
-      CLOUDINARY_CLOUD_NAME: "${GYM_CLOUDINARY_CLOUD_NAME:-${CLOUDINARY_CLOUD_NAME:-}}"
-      CLOUDINARY_API_KEY: "${GYM_CLOUDINARY_API_KEY:-${CLOUDINARY_API_KEY:-}}"
-      CLOUDINARY_API_SECRET: "${GYM_CLOUDINARY_API_SECRET:-${CLOUDINARY_API_SECRET:-}}"
-    networks: [default_network]
-    volumes:
-      - gym_uploads:/app/uploads
-
 
 volumes:
   ai_settlement_journal:

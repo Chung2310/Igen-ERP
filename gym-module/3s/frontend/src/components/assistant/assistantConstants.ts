@@ -21,7 +21,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'gym-principles',
     name: '1. Kiến thức Gym',
-    icon: '🏋️‍♂️',
+    icon:'',
     color: '#0284c7',
     description: 'Nguyên tắc tập luyện, Tăng cơ, Giảm mỡ, Tăng sức mạnh, Thể lực, Progressive Overload, Volume/Intensity/Frequency.',
     prompts: [
@@ -76,7 +76,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'nutrition',
     name: '2. Dinh dưỡng & Món ăn VN',
-    icon: '🥗',
+    icon:'',
     color: '#10b981',
     description: 'Calories, BMR/TDEE, Macros, Thư viện thực phẩm VN, Thực đơn mẫu, Food Swap & Đọc nhãn.',
     prompts: [
@@ -125,7 +125,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'inbody',
     name: '3. Phân tích InBody',
-    icon: '📊',
+    icon:'',
     color: '#6366f1',
     description: 'Cách đọc InBody, Ý nghĩa từng chỉ số, So sánh L1 - L2, Giải thích cho khách & Cảnh báo sai lầm.',
     prompts: [
@@ -168,7 +168,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'mobility',
     name: '4. Mobility & Khởi động',
-    icon: '🤸',
+    icon:'',
     color: '#f59e0b',
     description: 'Mobility vs Flexibility, Test khớp, Bài tập cải thiện hông/vai/cổ chân, Thời điểm áp dụng.',
     prompts: [
@@ -211,7 +211,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'stretching',
     name: '5. Stretching & Phục hồi',
-    icon: '🧘',
+    icon:'',
     color: '#8b5cf6',
     description: 'Dynamic vs Static Stretching, Foam Rolling (SMR), Giấc ngủ, Rest day & Hồi phục.',
     prompts: [
@@ -248,7 +248,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'posture',
     name: '6. Sai lệch tư thế',
-    icon: '📐',
+    icon:'',
     color: '#ec4899',
     description: 'Rounded Shoulder, Forward Head, Anterior Pelvic Tilt, Knee Valgus & Movement Screening.',
     prompts: [
@@ -291,7 +291,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'technique',
     name: '7. Kỹ thuật bài tập',
-    icon: '🎯',
+    icon:'',
     color: '#f97316',
     description: 'Setup, Execution, Breathing, Tempo, Cues coaching, Lỗi thường gặp & Bài tập thay thế.',
     prompts: [
@@ -340,7 +340,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'pt-process',
     name: '8. Quy trình PT (SOP)',
-    icon: '📋',
+    icon:'',
     color: '#06b6d4',
     description: 'Quy trình tiếp nhận, Đánh giá ban đầu, Đo InBody, Xây mục tiêu & Kết thúc buổi tập.',
     prompts: [
@@ -389,7 +389,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'customer-care',
     name: '9. Quy trình Chăm sóc',
-    icon: '💬',
+    icon:'',
     color: '#e11d48',
     description: '13 Tình huống chăm sóc: Khách mới, Sau buổi 1, Nghỉ tập, Chững cân, Hết gói, Gia hạn.',
     prompts: [
@@ -444,7 +444,7 @@ export const ASSISTANT_TOPICS: AssistantTopic[] = [
   {
     id: 'consultation-sales',
     name: '10. Kịch bản Tư vấn & Sales',
-    icon: '🤝',
+    icon:'',
     color: '#d97706',
     description: 'Khai thác Pain Point, Tư vấn theo InBody, Xử lý từ chối: Giá cao, Để suy nghĩ, Tự tập, Bận.',
     prompts: [

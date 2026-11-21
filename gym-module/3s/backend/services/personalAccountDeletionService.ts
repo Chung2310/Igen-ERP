@@ -10,7 +10,7 @@ export async function deletePersonalAccountData(user: UserDocument, successorId:
   const centerId = user.centerId;
   if (!centerId) throw new Error('Account has no center.');
       // Delete private account records; transfer operational records to the new owner.
-      const privateModels = new Set(['GymInvitation', 'DeviceSession', 'CreditWallet', 'CreditLedgerEntry', 'PaymentOrder', 'AiUsage', 'AiUsageQuotaCounter', 'Notification', 'AuditLog', 'AssistantConversation', 'AssistantSuggestion', 'AiNutritionGenerationJob', 'AiWorkoutGenerationJob']);
+      const privateModels = new Set(['GymInvitation', 'DeviceSession', 'AiUsage', 'AiUsageQuotaCounter', 'Notification', 'AuditLog', 'AssistantConversation', 'AssistantSuggestion', 'AiNutritionGenerationJob', 'AiWorkoutGenerationJob']);
       const assets = collectDeletionAssets(user.toObject());
       for (const model of centerDataModels) {
         if (model.modelName === 'User') continue;

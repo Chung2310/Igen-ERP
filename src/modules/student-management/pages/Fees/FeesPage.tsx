@@ -363,7 +363,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                     {hasRankData && (
                       <td className="px-3 py-1.5 border-b border-slate-50 text-center">
                         {student.rank && student.rank.trim() !== '' ? (
-                          <span className="rounded border border-sky-100 bg-brand-primary/10 px-1.5 py-0.5 text-xs font-normal text-brand-primary">
+                          <span className="inline-block max-w-28 truncate rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-semibold uppercase text-sky-800" title={student.rank}>
                             {student.rank}
                           </span>
                         ) : (
@@ -394,7 +394,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 min-w-[100px]">
                       {tuitionWaived ? (
-                        <span className="inline-flex whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Miễn phí</span>
+                        <span className="inline-block max-w-32 truncate rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-semibold uppercase text-emerald-800">Miễn phí</span>
                       ) : <div className="flex items-center gap-2">
                         <div className="flex-1 h-1 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                           <motion.div

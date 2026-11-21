@@ -557,22 +557,22 @@ export default function InBodyEvolutionChart({ records, title }: InBodyEvolution
                 )}
               </strong>
               <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                💡 Click vào bất kỳ lần đo nào trên biểu đồ để xem chi tiết
+                Click vào bất kỳ lần đo nào trên biểu đồ để xem chi tiết
               </span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '8px' }}>
-              ⚖️ Cân nặng: <strong style={{ color: '#003b70' }}>{activeRecord.weight} kg</strong>
+              Cân nặng:<strong style={{ color:'#003b70' }}>{activeRecord.weight} kg</strong>
             </span>
             {activeRecord.muscleMass != null && (
               <span style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '8px' }}>
-                💪 Cơ: <strong style={{ color: '#15803d' }}>{activeRecord.muscleMass} kg</strong>
+                Cơ:<strong style={{ color:'#15803d' }}>{activeRecord.muscleMass} kg</strong>
               </span>
             )}
             {activeRecord.bodyFatPercentage != null && (
               <span style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '8px' }}>
-                🔥 % Mỡ: <strong style={{ color: '#e11d48' }}>{activeRecord.bodyFatPercentage}%</strong>
+                % Mỡ:<strong style={{ color:'#e11d48' }}>{activeRecord.bodyFatPercentage}%</strong>
               </span>
             )}
             {activeRecord.visceralFatLevel != null && (
@@ -582,7 +582,7 @@ export default function InBodyEvolutionChart({ records, title }: InBodyEvolution
             )}
             {activeRecord.inbodyScore != null && (
               <span style={{ background: '#ffffff', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '8px' }}>
-                ⭐ Điểm: <strong style={{ color: '#7c3aed' }}>{activeRecord.inbodyScore}/100</strong>
+                Điểm:<strong style={{ color:'#7c3aed' }}>{activeRecord.inbodyScore}/100</strong>
               </span>
             )}
           </div>

@@ -5,7 +5,7 @@ import {
   Bot,
   CalendarDays,
   LayoutDashboard,
-  Settings,
+  UserRound,
   Menu,
   Ruler,
   Salad,
@@ -59,14 +59,6 @@ export default function AppShell({ user, children }: AppShellProps) {
     window.addEventListener(INSUFFICIENT_CREDITS_EVENT, showCreditError);
     return () => window.removeEventListener(INSUFFICIENT_CREDITS_EVENT, showCreditError);
   }, []);
-
-  const openSystemSettings = () => {
-    if (window.parent === window) {
-      window.location.assign('/cai-dat');
-      return;
-    }
-    window.parent.postMessage({ type: 'gym:open-settings' }, window.location.origin);
-  };
 
   // Định nghĩa các Quick Nav tabs đáy màn hình cho từng vai trò trên mobile
   const renderMobileBottomNav = () => {
@@ -227,16 +219,17 @@ export default function AppShell({ user, children }: AppShellProps) {
 
         <div className="portal-sidebar-footer">
           <div className="portal-logout-wrap">
-            <button
-              type="button"
-              className="portal-logout-btn"
-              aria-label="Cài đặt hệ thống"
-              title={isCollapsed ? 'Cài đặt hệ thống' : undefined}
-              onClick={openSystemSettings}
+            <Link
+              to="/account"
+              aria-current={location.pathname === '/account' ? 'page' : undefined}
+              className={`portal-logout-btn${location.pathname === '/account' ? ' active' : ''}`}
+              aria-label="Tài khoản của tôi"
+              title={isCollapsed ? 'Tài khoản của tôi' : undefined}
+              onClick={() => setOpen(false)}
             >
-              <Settings size={18} aria-hidden="true" />
-              {!isCollapsed && <span>Cài đặt hệ thống</span>}
-            </button>
+              <UserRound size={20} aria-hidden="true" />
+              {!isCollapsed && <span>Tài khoản của tôi</span>}
+            </Link>
           </div>
         </div>
       </aside>
@@ -260,9 +253,9 @@ export default function AppShell({ user, children }: AppShellProps) {
                 <span className="text-sm">{creditError}</span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <Link to="/wallet" onClick={() => setCreditError('')} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white">
-                  Nạp credit
-                </Link>
+                <a href="/vi-nap-tien" target="_top" className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white">
+                  Nạp Credit trong ERP
+                </a>
                 <button type="button" aria-label="Đóng cảnh báo credit" onClick={() => setCreditError('')} className="rounded-lg p-2 text-amber-800 hover:bg-amber-100">
                   <X size={17} aria-hidden="true" />
                 </button>

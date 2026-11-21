@@ -2,14 +2,14 @@ import React from 'react';
 import { Search, UploadCloud, Sparkles } from 'lucide-react';
 
 export const FOOD_CATEGORIES = [
-  { val: 'ALL', label: 'Tất cả nhóm', icon: '🍽️' },
-  { val: 'PROTEIN', label: 'Đạm (Protein)', icon: '🥩' },
-  { val: 'CARB', label: 'Tinh bột (Carb)', icon: '🍚' },
-  { val: 'FAT', label: 'Chất béo tốt', icon: '🥑' },
-  { val: 'VEGGIE', label: 'Rau củ / Salad', icon: '🥗' },
-  { val: 'MEAL', label: 'Bữa chính', icon: '🍱' },
-  { val: 'SNACK', label: 'Bữa phụ', icon: '🥪' },
-  { val: 'DRINK', label: 'Sinh tố / Nước', icon: '🥤' },
+  { val:'ALL', label:'Tất cả nhóm', icon:'' },
+  { val:'PROTEIN', label:'Đạm (Protein)', icon:'' },
+  { val:'CARB', label:'Tinh bột (Carb)', icon:'' },
+  { val:'FAT', label:'Chất béo tốt', icon:'' },
+  { val:'VEGGIE', label:'Rau củ / Salad', icon:'' },
+  { val:'MEAL', label:'Bữa chính', icon:'' },
+  { val:'SNACK', label:'Bữa phụ', icon:'' },
+  { val:'DRINK', label:'Sinh tố / Nước', icon:'' },
 ] as const;
 
 export const FOOD_SOURCES = [

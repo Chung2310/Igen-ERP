@@ -3,7 +3,7 @@ import { User, Mail, Save } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "../../pages/Toast";
 
-export default function ProfileTab() {
+export default function ProfileTab({ onSaved }: { onSaved?: (displayName: string) => void }) {
   const { userProfile, updateProfileInfo } = useAuth();
   const [displayName, setDisplayName] = useState(userProfile?.displayName || "");
   const [updatingProfile, setUpdatingProfile] = useState(false);
@@ -17,6 +17,7 @@ export default function ProfileTab() {
     setUpdatingProfile(true);
     try {
       await updateProfileInfo(displayName, userProfile?.photoURL || "");
+      onSaved?.(displayName.trim());
     } catch (err) {
       console.error(err);
     } finally {

@@ -6,7 +6,6 @@ export type AiUsageStatus = 'RESERVED' | 'SUCCEEDED' | 'FAILED' | 'BILLING_SHORT
 
 export interface IAiUsage {
   userId: mongoose.Types.ObjectId;
-  walletId: mongoose.Types.ObjectId;
   taskType: AiTaskType;
   billingMode: AiBillingMode;
   provider: string;
@@ -44,7 +43,6 @@ const pricingSnapshotSchema = new Schema<PricingSnapshot>({
 
 const aiUsageSchema = new Schema<IAiUsage>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  walletId: { type: Schema.Types.ObjectId, ref: 'CreditWallet', required: true, index: true },
   taskType: { type: String, enum: AI_TASK_TYPES, required: true, index: true },
   billingMode: { type: String, enum: ['WALLET', 'COMPANY_PAID'], default: 'WALLET', required: true },
   provider: { type: String, required: true, trim: true },

@@ -33,7 +33,7 @@ export default function LuxcareLogisticsPage({ section }: { section: "vat-tu" | 
         <ModuleNavigationButton active={section === "thiet-bi"} icon={<HealthcareSidebarIcon kind="equipment" className="text-primary" />} preferProvidedIcon onClick={() => go("thiet-bi")}>Thiết bị</ModuleNavigationButton>}
     </ModuleNavigation>
     <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-      <div className="min-h-full min-w-0 rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
+      <div className="min-h-full min-w-0 rounded-md bg-surface-container-lowest shadow-xs">
         <Suspense fallback={<p role="status" className="p-4 text-sm text-on-surface-variant">Đang tải phân hệ…</p>}>
           {section === "vat-tu" ? <SupplyTab /> : <EquipmentTab />}
         </Suspense>

@@ -24,7 +24,7 @@ export default function InfeasibleGoalModal({
 
   return (
     <div
-      className="modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs"
+      className="modal-backdrop fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4"
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >

@@ -20,14 +20,14 @@ export default function MyWorkoutPlans() {
   return (
     <section className="module-page workout-page" aria-label="Quản lý giáo án">
       <header id="workout-page-controls-bar" className="workout-page-controls">
-        <div className="workout-tabs" role="tablist" aria-label="Không gian giáo án">
+        <div className="customer-browser-tabs" role="tablist" aria-label="Không gian giáo án">
           <button
             id="workout-tab-plans"
             type="button"
             role="tab"
             aria-selected={activeTab === 'plans'}
             aria-controls="workout-panel-plans"
-            className={activeTab === 'plans' ? 'is-active' : ''}
+            className={activeTab === 'plans' ? 'active' : ''}
             onClick={() => selectTab('plans')}
           >
             <BookOpen size={14} aria-hidden="true" /> Giáo án của tôi
@@ -38,7 +38,7 @@ export default function MyWorkoutPlans() {
             role="tab"
             aria-selected={activeTab === 'exercises'}
             aria-controls="workout-panel-exercises"
-            className={activeTab === 'exercises' ? 'is-active' : ''}
+            className={activeTab === 'exercises' ? 'active' : ''}
             onClick={() => selectTab('exercises')}
           >
             <Dumbbell size={14} aria-hidden="true" /> Thư viện bài tập

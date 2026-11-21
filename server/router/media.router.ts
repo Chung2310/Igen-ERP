@@ -78,7 +78,15 @@ const uploadSchema = {
 mediaRouter.post(
   "/upload",
   requireAuth as RequestHandler,
-  ((req, res, next) => requirePermission(permissionForMediaUpload(req.body?.sourceType))(req, res, next)) as RequestHandler,
+  ((req, res, next) => {
+    const permission = permissionForMediaUpload(req.body?.sourceType);
+    if (permission) return requirePermission(permission)(req, res, next);
+    const file = req.body?.file;
+    if (typeof file !== 'string' || !/^data:image\/(?:jpeg|png|webp);base64,/.test(file) || file.length > 7 * 1024 * 1024 || !Number.isInteger(req.body?.size) || req.body.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ status: 'error', message: 'Ảnh đại diện phải là JPG, PNG hoặc WebP và không vượt quá 5 MB.' });
+    }
+    return next();
+  }) as RequestHandler,
   validateRequest(uploadSchema),
   mediaController.upload as RequestHandler
 );

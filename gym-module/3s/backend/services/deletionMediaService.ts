@@ -5,18 +5,19 @@ import type { ClientSession } from 'mongoose';
 import DeletionMediaJob from '../models/DeletionMediaJob.js';
 import { centerDataModels } from '../tenancy/centerDataModels.js';
 import { logger } from '../config/logger.js';
+import { gymSetting } from '../config/env.js';
 
 export function collectDeletionAssets(value: unknown, assets = new Set<string>(), referencesOnly = false): Set<string> {
   if (typeof value === 'string') {
-    const local = value.match(/^\/uploads\/food-images\/([a-zA-Z0-9_.-]+)$/);
+    const local = value.match(/^\/uploads\/(?:gym\/)?food-images\/([a-zA-Z0-9_.-]+)$/);
     if (local && local[1] !== '.' && local[1] !== '..') assets.add(`local:${local[1]}`);
     try {
       const url = new URL(value);
-      const localUrl = url.pathname.match(/^\/uploads\/food-images\/([a-zA-Z0-9_.-]+)$/);
+      const localUrl = url.pathname.match(/^\/uploads\/(?:gym\/)?food-images\/([a-zA-Z0-9_.-]+)$/);
       let isOurOrigin = false;
       try { isOurOrigin = Boolean(process.env.APP_URL && url.origin === new URL(process.env.APP_URL).origin); } catch { /* No public origin configured. */ }
       if (localUrl && (referencesOnly || isOurOrigin)) assets.add(`local:${localUrl[1]}`);
-      const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+      const cloud = gymSetting('CLOUDINARY_CLOUD_NAME');
       if (cloud && url.hostname === 'res.cloudinary.com') {
         const match = url.pathname.match(/^\/([^/]+)\/(image|video)\/upload\/(?:[^/]+\/)*(3s-gym\/[a-zA-Z0-9_/-]+)\.[a-zA-Z0-9]+$/);
         if (match && match[1] === cloud) assets.add(`cloud:${cloud}:${match[2]}:${match[3]}`);
@@ -61,7 +62,7 @@ export async function processDeletionMedia() {
         if (asset.startsWith('local:')) {
           const filename = asset.slice(6);
           if (!/^[a-zA-Z0-9_.-]+$/.test(filename) || filename === '.' || filename === '..') throw new Error('Invalid deletion filename');
-          const root = await fs.realpath(path.resolve('uploads/food-images'));
+          const root = await fs.realpath(path.resolve(process.env.GYM_EMBEDDED === '1' ? 'uploads/gym/food-images' : 'uploads/food-images'));
           const target = path.resolve(root, filename);
           if (path.dirname(target) !== root) throw new Error('Invalid deletion path');
           const real = await fs.realpath(target);
@@ -70,9 +71,9 @@ export async function processDeletionMedia() {
         } else {
           const match = asset.match(/^cloud:([^:]+):(image|video):(3s-gym\/[a-zA-Z0-9_/-]+)$/);
           if (!match) throw new Error('Invalid cloud asset');
-          if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) throw new Error('Cloudinary is not configured');
-          if (match[1] !== process.env.CLOUDINARY_CLOUD_NAME) throw new Error('The configured Cloudinary account has changed');
-          cloudinary.config({ cloud_name: process.env.CLOUDINARY_CLOUD_NAME, api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET });
+          if (!gymSetting('CLOUDINARY_CLOUD_NAME') || !gymSetting('CLOUDINARY_API_KEY') || !gymSetting('CLOUDINARY_API_SECRET')) throw new Error('Cloudinary is not configured');
+          if (match[1] !== gymSetting('CLOUDINARY_CLOUD_NAME')) throw new Error('The configured Cloudinary account has changed');
+          cloudinary.config({ cloud_name: gymSetting('CLOUDINARY_CLOUD_NAME'), api_key: gymSetting('CLOUDINARY_API_KEY'), api_secret: gymSetting('CLOUDINARY_API_SECRET') });
           const result = await cloudinary.uploader.destroy(match[3], { resource_type: match[2], invalidate: true });
           if (!['ok', 'not found'].includes(result.result)) throw new Error('Media deletion failed');
         }

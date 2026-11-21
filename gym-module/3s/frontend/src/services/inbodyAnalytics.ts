@@ -289,14 +289,14 @@ export function analyzeInBody(
     };
 
     // Đưa vào ưu tiên số 1
-    priorities.unshift(`🎯 Bám sát mục tiêu "${customerGoal.title}": ${goalAlignment.recommendation}`);
+    priorities.unshift(`Bám sát mục tiêu"${customerGoal.title}": ${goalAlignment.recommendation}`);
   }
 
   // Kịch bản tư vấn cho PT (Talking Points)
   const talkingPoints = [
     `Chào ${fullName}, hôm nay chúng ta vừa có kết quả đo InBody ngày ${new Date(current.measurementDate).toLocaleDateString('vi-VN')}.`,
     customerGoal?.title
-      ? `🎯 Đối chiếu với mục tiêu "${customerGoal.title}" (Hạn chót: ${customerGoal.deadline ? new Date(customerGoal.deadline).toLocaleDateString('vi-VN') : 'Sắp tới'}): ${goalAlignment?.statusSummary || 'Đang bám sát lộ trình.'}`
+      ?`Đối chiếu với mục tiêu"${customerGoal.title}" (Hạn chót: ${customerGoal.deadline ? new Date(customerGoal.deadline).toLocaleDateString('vi-VN') :'Sắp tới'}): ${goalAlignment?.statusSummary ||'Đang bám sát lộ trình.'}`
       : null,
     `Điểm mạnh nổi bật nhất của ${fullName} là: ${strengths.slice(0, 2).join('; ') || 'Cơ thể có nền tảng thể lực sẵn sàng để tập luyện'}.`,
     improvements.length > 0
@@ -335,16 +335,16 @@ export function analyzeInBody(
 
     if (deltaM > 0 && deltaFat < 0) {
       trendType = 'EXCELLENT';
-      trendSummary = `🔥 Xuất sắc! Tăng ${deltaM} kg cơ và giảm ${Math.abs(deltaFat)}% mỡ (Body Recomposition cực chuẩn).`;
+      trendSummary =`Xuất sắc! Tăng ${deltaM} kg cơ và giảm ${Math.abs(deltaFat)}% mỡ (Body Recomposition cực chuẩn).`;
     } else if (deltaFat < 0) {
       trendType = 'GOOD';
-      trendSummary = `👍 Tiến bộ tốt! Giảm thành công ${Math.abs(deltaFat)}% mỡ (${deltaFatM ? Math.abs(deltaFatM) + 'kg mỡ' : ''}).`;
+      trendSummary =`Tiến bộ tốt! Giảm thành công ${Math.abs(deltaFat)}% mỡ (${deltaFatM ? Math.abs(deltaFatM) +'kg mỡ' :''}).`;
     } else if (deltaM > 0) {
       trendType = 'GOOD';
-      trendSummary = `💪 Tăng trưởng tốt! Tăng thêm ${deltaM} kg khối lượng cơ nạc.`;
+      trendSummary =`Tăng trưởng tốt! Tăng thêm ${deltaM} kg khối lượng cơ nạc.`;
     } else if (deltaFat > 1.5 && deltaM < 0) {
       trendType = 'NEEDS_ADJUSTMENT';
-      trendSummary = `⚠️ Cần điều chỉnh! Có xu hướng tăng ${deltaFat}% mỡ và giảm ${Math.abs(deltaM)} kg cơ. PT cần xem lại dinh dưỡng/nghỉ ngơi.`;
+      trendSummary =`Cần điều chỉnh! Có xu hướng tăng ${deltaFat}% mỡ và giảm ${Math.abs(deltaM)} kg cơ. PT cần xem lại dinh dưỡng/nghỉ ngơi.`;
     }
 
     comparison = {
@@ -361,27 +361,27 @@ export function analyzeInBody(
   }
 
   // Tin nhắn mẫu gửi nhanh qua Zalo/SMS
-  const quickMessage = `📋 [3S GYM] TỔNG HỢP KẾT QUẢ ĐO INBODY (${new Date(current.measurementDate).toLocaleDateString('vi-VN')})
-Học viên: ${fullName}${customerGoal?.title ? `\n🎯 MỤC TIÊU: ${customerGoal.title} (Hạn chót: ${customerGoal.deadline ? new Date(customerGoal.deadline).toLocaleDateString('vi-VN') : '—'})\n• Đánh giá: ${goalAlignment?.statusSummary || 'Đang bám sát'}` : ''}
+  const quickMessage =`[3S GYM] TỔNG HỢP KẾT QUẢ ĐO INBODY (${new Date(current.measurementDate).toLocaleDateString('vi-VN')})
+Học viên: ${fullName}${customerGoal?.title ?`\nMỤC TIÊU: ${customerGoal.title} (Hạn chót: ${customerGoal.deadline ? new Date(customerGoal.deadline).toLocaleDateString('vi-VN') :'—'})\n• Đánh giá: ${goalAlignment?.statusSummary ||'Đang bám sát'}` :''}
 -------------------------------
-📊 CÁC CHỈ SỐ CHÍNH:
+CÁC CHỈ SỐ CHÍNH:
 • Cân nặng: ${current.weight} kg (${bmiClass?.label || 'Chuẩn'})
 • Tỷ lệ mỡ (% Body Fat): ${current.bodyFatPercentage != null ? current.bodyFatPercentage + '%' : '—'} (${bodyFatClass?.label || '—'})
 • Khối lượng cơ xương: ${current.muscleMass != null ? current.muscleMass + ' kg' : '—'}
 • Mỡ nội tạng: Level ${current.visceralFatLevel != null ? current.visceralFatLevel : '—'} (${visceralFatClass?.label || '—'})
 • Điểm InBody: ${current.inbodyScore != null ? current.inbodyScore + '/100' : '—'}
 
-🌟 ĐIỂM MẠNH:
+ĐIỂM MẠNH:
 ${strengths.map((s) => '✓ ' + s).join('\n') || '✓ Nền tảng thể chất sẵn sàng'}
 
-🎯 ĐIỂM CẦN CẢI THIỆN & ƯU TIÊN:
+ĐIỂM CẦN CẢI THIỆN & ƯU TIÊN:
 ${priorities.map((p) => '→ ' + p).join('\n')}
 
-🥗 KHUYẾN NGHỊ DINH DƯỠNG & TẬP LUYỆN TỪ PT:
+KHUYẾN NGHỊ DINH DƯỠNG & TẬP LUYỆN TỪ PT:
 • ${nutritionAdvice}
 • ${workoutAdvice}
 
-PT sẽ đồng hành và theo dõi sát sao tiến độ cùng bạn trong các buổi tập tới! 💪🔥`;
+PT sẽ đồng hành và theo dõi sát sao tiến độ cùng bạn trong các buổi tập tới!`;
 
   return {
     classifications: {

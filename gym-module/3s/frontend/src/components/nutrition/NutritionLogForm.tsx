@@ -211,7 +211,7 @@ export default function NutritionLogForm({ customerId, onSaved }: NutritionLogFo
               gap: '6px',
             }}
           >
-            <Salad size={16} /> 🥗 Món Ăn (Calo Nạp Vào)
+            <Salad size={16} /> Món Ăn (Calo Nạp Vào)
           </button>
 
           <button
@@ -232,7 +232,7 @@ export default function NutritionLogForm({ customerId, onSaved }: NutritionLogFo
               gap: '6px',
             }}
           >
-            <Flame size={16} /> 🔥 Vận Động (Calo Tiêu Hao)
+            <Flame size={16} /> Vận Động (Calo Tiêu Hao)
           </button>
         </div>
 
@@ -249,28 +249,28 @@ export default function NutritionLogForm({ customerId, onSaved }: NutritionLogFo
                   onClick={() => handleQuickPreset('Bữa sáng: Trứng ốp la + Bánh mì đen + Sữa hạt', 420, { p: 25, c: 45, f: 14 })}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🍳 Bữa Sáng (420 kcal)
+                  Bữa Sáng (420 kcal)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPreset('Bữa trưa: Cơm gạo lứt + Ức gà áp chảo + Rau luộc', 650, { p: 48, c: 65, f: 12 })}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🥗 Bữa Trưa (650 kcal)
+                  Bữa Trưa (650 kcal)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPreset('Bữa tối: Cá hồi nướng + Khoai lang + Salad dầu giấm', 580, { p: 40, c: 45, f: 20 })}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🥩 Bữa Tối (580 kcal)
+                  Bữa Tối (580 kcal)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPreset('Bữa phụ: 1 Muỗng Whey Isolate + 1 Quả chuối', 220, { p: 27, c: 25, f: 1 })}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🍌 Bữa Phụ / Whey (220 kcal)
+                  Bữa Phụ / Whey (220 kcal)
                 </button>
               </>
             ) : (
@@ -280,28 +280,28 @@ export default function NutritionLogForm({ customerId, onSaved }: NutritionLogFo
                   onClick={() => handleQuickPreset('Tập Gym kháng lực cường độ cao (60p)', 450)}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🏋️ Gym 1h (450 kcal)
+                  Gym 1h (450 kcal)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPreset('Chạy bộ ngoài trời 5km Pace 6:00 (30p)', 360)}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🏃 Chạy 5km (360 kcal)
+                  Chạy 5km (360 kcal)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPreset('Bơi lội liên tục 1km (40p)', 350)}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🏊 Bơi 1km (350 kcal)
+                  Bơi 1km (350 kcal)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickPreset('Đạp xe ngoài trời 20km (50p)', 420)}
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.74rem', cursor: 'pointer', color: '#334155' }}
                 >
-                  🚴 Cycling 20km (420 kcal)
+                  Cycling 20km (420 kcal)
                 </button>
               </>
             )}

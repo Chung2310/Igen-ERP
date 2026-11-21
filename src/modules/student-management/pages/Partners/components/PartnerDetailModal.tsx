@@ -55,19 +55,13 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
 
   const getStatusBadge = (statusArray: string[] | string) => {
     const status = Array.isArray(statusArray) ? statusArray[0] : statusArray;
-    switch (status) {
-      case 'Đã đậu':
-        return <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold">{getOperationalStatusLabel(entityLabel.preset, status)}</span>;
-      case 'Thi lại':
-      case 'Trượt':
-        return <span className="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-[10px] font-bold">{getOperationalStatusLabel(entityLabel.preset, status)}</span>;
-      case 'Đang học':
-        return <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold">{getOperationalStatusLabel(entityLabel.preset, status)}</span>;
-      case 'Chờ KSK':
-        return <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold">Chờ KSK</span>;
-      default:
-        return <span className="px-2.5 py-1 bg-slate-55 bg-slate-100 text-slate-700 rounded-full text-[10px] font-bold">{status || 'Khác'}</span>;
-    }
+    const label = status ? getOperationalStatusLabel(entityLabel.preset, status) : 'Khác';
+    const tone = status === 'Đã đậu' ? 'bg-emerald-100 text-emerald-800'
+      : status === 'Thi lại' || status === 'Trượt' ? 'bg-rose-100 text-rose-800'
+      : status === 'Đang học' ? 'bg-sky-100 text-sky-800'
+      : status === 'Chờ KSK' ? 'bg-amber-100 text-amber-800'
+      : 'bg-slate-100 text-slate-700';
+    return <span className={cn('inline-block max-w-40 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase', tone)} title={label}>{label}</span>;
   };
 
   if (!isOpen) return null;

@@ -305,7 +305,7 @@ export default function NutritionPlanList({
                             border: '1px solid #86efac',
                           }}
                         >
-                          🟢 Đang ăn kỳ này
+                          Đang ăn kỳ này
                         </span>
                       )}
                       {isUpcoming && (
@@ -320,7 +320,7 @@ export default function NutritionPlanList({
                             border: '1px solid #bae6fd',
                           }}
                         >
-                          🔵 Sắp tới
+                          Sắp tới
                         </span>
                       )}
                     </div>
@@ -466,7 +466,7 @@ export default function NutritionPlanList({
                               wordBreak: 'break-word',
                             }}
                           >
-                            <span style={{ color: '#854d0e', fontWeight: 800 }}>💡 Lời khuyên: </span>
+                            <span style={{ color:'#854d0e', fontWeight: 800 }}>Lời khuyên:</span>
                             <span>{cleanNotes}</span>
                           </div>
 
@@ -521,24 +521,21 @@ export default function NutritionPlanList({
                 >
                   <button
                     type="button"
+                    className="button button-primary"
                     onClick={() => onEditPlan(plan)}
                     style={{
                       flex: 1,
-                      background: '#003b70',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
+                      minHeight: '34px',
+                      padding: '0 12px',
                       fontSize: '0.8rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
+                      fontWeight: 600,
+                      display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '6px',
                     }}
                   >
-                    <Pencil size={13} /> Xem & Sửa Thực Đơn
+                    <Pencil size={13} /> Xem & sửa thực đơn
                   </button>
 
                   <button

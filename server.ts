@@ -38,6 +38,7 @@ import { flushUserActivityQueue, userActivityMiddleware } from "./server/middlew
 import { requestContextMiddleware } from "./server/middleware/request-context";
 import { apiNotFound } from "./server/middleware/api-not-found";
 import { apiErrorHandler } from "./server/middleware/api-error-handler";
+import { mountEmbeddedGym } from "./server/modules/gym/embedded";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
@@ -272,6 +273,7 @@ async function startServer() {
   app.use(cookieParser());
   app.use("/api/v1", requestContextMiddleware);
   app.use(selectiveBodyParser);
+  mountEmbeddedGym(app);
 
   // 1. Cấu hình CORS bảo mật sử dụng allowedOrigins từ biến môi trường LINK_COR
   const allowedOrigins = process.env.LINK_COR

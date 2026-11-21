@@ -5,10 +5,7 @@ import AiWorkoutGenerationJob from '../models/AiWorkoutGenerationJob.js';
 import { logger } from '../config/logger.js';
 import { runWithCenter, runWithSystemCenterAccess } from '../tenancy/centerContext.js';
 import { withRequiredTransaction } from './transactionService.js';
-import { makeAiUsageQuotaPlan, releaseAiUsageQuotaCounters } from './aiUsageQuotaService.js';
-import { releaseCredits } from './creditWalletService.js';
-import { erpCreditOperation, usesErpCredit } from './erpCreditService.js';
-import { releaseGlobalAiBudget } from './aiGlobalBudgetService.js';
+import { erpCreditOperation } from './erpCreditService.js';
 
 export const AI_RESERVATION_LEASE_MS = 10 * 60_000;
 export const newAiLease = () => new Date(Date.now() + AI_RESERVATION_LEASE_MS);
@@ -38,27 +35,16 @@ export async function recoverExpiredAiReservations(now = new Date()) {
         // Recheck expiry within the transaction; a healthy process may have renewed its lease.
         const usage = await AiUsage.findOne({ _id: item._id, ...expired }).session(session);
         if (!usage) return false;
-        if (usage.billingMode === 'COMPANY_PAID') {
-          if (usage.globalBudgetMonthKey && usage.reservedProviderCostVnd) {
-            await releaseGlobalAiBudget(usage.globalBudgetMonthKey, usage.reservedProviderCostVnd, session);
+        if (usage.reservedCredits > 0) {
+          const result = await erpCreditOperation(String(usage.userId), 'release', `gym:${usage.id}`, 0);
+          if (result.status === 'SETTLED') {
+            usage.status = result.billingShortfall ? 'BILLING_SHORTFALL' : 'SUCCEEDED';
+            usage.settledCredits = result.charged || 0;
+            usage.billingShortfall = result.billingShortfall || 0;
+            usage.releasedCredits = Math.max(0, usage.reservedCredits - usage.settledCredits);
+            await usage.save({ session });
+            return true;
           }
-          if (usage.quotaPeriodKeys?.dayKey) {
-            const plan = makeAiUsageQuotaPlan(String(usage.userId), new Date(`${usage.quotaPeriodKeys.dayKey}T12:00:00+07:00`));
-            await releaseAiUsageQuotaCounters(plan, session);
-          }
-          // Legacy reservations without period keys were counted as used by migration 005.
-        } else if (usage.reservedCredits > 0) {
-          if (usesErpCredit()) {
-            const result = await erpCreditOperation(String(usage.userId), 'release', `gym:${usage.id}`, 0);
-            if (result.status === 'SETTLED') {
-              usage.status = result.billingShortfall ? 'BILLING_SHORTFALL' : 'SUCCEEDED';
-              usage.settledCredits = result.charged || 0;
-              usage.billingShortfall = result.billingShortfall || 0;
-              usage.releasedCredits = Math.max(0, usage.reservedCredits - usage.settledCredits);
-              await usage.save({ session });
-              return true;
-            }
-          } else await releaseCredits({ userId: String(usage.userId), usageId: usage.id, credits: usage.reservedCredits, idempotencyKey: `release:${usage.id}` }, session);
           usage.releasedCredits = usage.reservedCredits;
         }
         usage.status = 'FAILED';

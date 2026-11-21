@@ -11,12 +11,13 @@ import {
   Zap,
 } from 'lucide-react';
 import type { CalculatedNutrition } from '../../types';
+import CustomSelect from '../ui/CustomSelect';
 
 export const DIET_STYLES = [
-  { id: 'vietnamese_easy', label: '🇻🇳 Món Việt dễ nấu / Tiết kiệm', desc: 'Thực phẩm tươi sống chợ Việt, nhanh 15-20p' },
-  { id: 'eat_clean', label: '🥗 Eat Clean ', desc: 'Ức gà, cá áp chảo, gạo lứt, khoai lang, rau luộc' },
-  { id: 'office_eating_out', label: '🏢 Cơm Văn Phòng / Ăn Ngoài', desc: 'Chọn món tiện lợi quán cơm bình dân' },
-  { id: 'high_protein_vegan', label: '🌿 Ăn Chay Giàu Protein', desc: 'Đậu phụ, nấm, hạt dinh dưỡng, yến mạch' },
+  { id:'vietnamese_easy', label:'Món Việt dễ nấu / Tiết kiệm', desc:'Thực phẩm tươi sống chợ Việt, nhanh 15-20p' },
+  { id:'eat_clean', label:'Eat Clean', desc:'Ức gà, cá áp chảo, gạo lứt, khoai lang, rau luộc' },
+  { id:'office_eating_out', label:'Cơm Văn Phòng / Ăn Ngoài', desc:'Chọn món tiện lợi quán cơm bình dân' },
+  { id:'high_protein_vegan', label:'Ăn Chay Giàu Protein', desc:'Đậu phụ, nấm, hạt dinh dưỡng, yến mạch' },
 ];
 
 export const MEAL_COUNT_OPTIONS = [
@@ -98,17 +99,14 @@ export default function MealAiConfigStudio({
     >
       {/* Header Banner */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-            <Sparkles size={18} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+            <Sparkles size={16} />
           </div>
           <div>
-            <strong style={{ fontSize: '0.98rem', color: '#003b70', display: 'block' }}>
-              Cấu Hình Nhu Cầu Dinh Dưỡng
+            <strong style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0f172a', display: 'block' }}>
+              Cấu hình nhu cầu dinh dưỡng
             </strong>
-            <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-              Tùy chỉnh số bữa, calo mục tiêu, khẩu vị & giờ tập để AI sinh thực đơn cơm Việt chính xác
-            </span>
           </div>
         </div>
 
@@ -126,16 +124,16 @@ export default function MealAiConfigStudio({
           {/* Field 1: Target Calories */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Flame size={14} color="#ea580c" /> CALO MỤC TIÊU (KCAL/NGÀY)
               </label>
               {appliedNutrition && (
                 <button
                   type="button"
                   onClick={() => setTargetKcalInput(String(appliedNutrition.targetCalories))}
-                  style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
                 >
-                  ⚡ Điền {appliedNutrition.targetCalories} kcal
+                  Điền {appliedNutrition.targetCalories} kcal
                 </button>
               )}
             </div>
@@ -149,17 +147,18 @@ export default function MealAiConfigStudio({
                   placeholder="VD: 1850"
                   style={{
                     width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '1rem',
-                    fontWeight: 800,
-                    color: '#003b70',
+                    height: '36px',
+                    padding: '0 44px 0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '0.92rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
                     outline: 'none',
                     boxSizing: 'border-box',
                   }}
                 />
-                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.78rem', color: '#64748b', fontWeight: 700 }}>
+                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.76rem', color: '#64748b', fontWeight: 500 }}>
                   kcal
                 </span>
               </div>
@@ -172,13 +171,14 @@ export default function MealAiConfigStudio({
                     type="button"
                     onClick={() => setTargetKcalInput(String(k))}
                     style={{
-                      padding: '8px 8px',
+                      height: '36px',
+                      padding: '0 9px',
                       borderRadius: '8px',
-                      border: targetKcalInput === String(k) ? '1.5px solid #00a4e4' : '1px solid #e2e8f0',
-                      background: targetKcalInput === String(k) ? '#f0f9ff' : '#f8fafc',
-                      color: targetKcalInput === String(k) ? '#0284c7' : '#64748b',
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
+                      border: targetKcalInput === String(k) ? '1px solid #7dd3fc' : '1px solid #e2e8f0',
+                      background: targetKcalInput === String(k) ? '#e0f2fe' : '#ffffff',
+                      color: targetKcalInput === String(k) ? '#0284c7' : '#475569',
+                      fontSize: '0.75rem',
+                      fontWeight: targetKcalInput === String(k) ? 600 : 500,
                       cursor: 'pointer',
                     }}
                   >
@@ -191,8 +191,8 @@ export default function MealAiConfigStudio({
 
           {/* Field 2: Meal Count Selector */}
           <div>
-            <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-              <Layers size={14} color="#0284c7" /> SỐ LƯỢNG BỮA ĂN TRONG NGÀY
+            <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+              <Layers size={14} color="#0ea5e9" /> SỐ LƯỢNG BỮA ĂN TRONG NGÀY
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
               {MEAL_COUNT_OPTIONS.map((opt) => {
@@ -204,20 +204,19 @@ export default function MealAiConfigStudio({
                     onClick={() => setMealCount(opt.value)}
                     style={{
                       textAlign: 'left',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: active ? '2px solid #00a4e4' : '1px solid #e2e8f0',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      border: active ? '1px solid #7dd3fc' : '1px solid #e2e8f0',
                       background: active ? '#f0f9ff' : '#ffffff',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
-                      boxShadow: active ? '0 2px 8px rgba(0, 164, 228, 0.15)' : 'none',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <strong style={{ fontSize: '0.84rem', color: active ? '#003b70' : '#1e293b' }}>
+                      <strong style={{ fontSize: '0.84rem', fontWeight: active ? 600 : 500, color: active ? '#0284c7' : '#0f172a' }}>
                         {opt.label}
                       </strong>
-                      {active && <Check size={14} color="#00a4e4" />}
+                      {active && <Check size={14} color="#0ea5e9" />}
                     </div>
                   </button>
                 );
@@ -227,7 +226,7 @@ export default function MealAiConfigStudio({
 
           {/* Field 3: Diet Style Cards */}
           <div>
-            <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
               <Salad size={14} color="#16a34a" /> PHONG CÁCH ẨM THỰC
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
@@ -242,15 +241,15 @@ export default function MealAiConfigStudio({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      border: active ? '1.5px solid #16a34a' : '1px solid #e2e8f0',
+                      border: active ? '1px solid #86efac' : '1px solid #e2e8f0',
                       background: active ? '#f0fdf4' : '#ffffff',
                       cursor: 'pointer',
                       textAlign: 'left',
                     }}
                   >
-                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: active ? '#166534' : '#1e293b' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: active ? 600 : 500, color: active ? '#15803d' : '#0f172a' }}>
                       {s.label}
                     </div>
                     {active && <Check size={14} color="#16a34a" />}
@@ -265,10 +264,10 @@ export default function MealAiConfigStudio({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Field 4: Workout Schedule & Presets */}
           <div>
-            <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-              <Clock size={14} color="#0284c7" /> LỊCH TẬP & LỐI SỐNG SINH HOẠT
+            <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+              <Clock size={14} color="#0ea5e9" /> LỊCH TẬP & LỐI SỐNG SINH HOẠT
             </label>
-            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
               {SCHEDULE_PRESETS.map((preset) => {
                 const active = workoutSchedule.includes(preset.split(' ')[0]);
                 return (
@@ -277,13 +276,13 @@ export default function MealAiConfigStudio({
                     type="button"
                     onClick={() => setWorkoutSchedule(preset)}
                     style={{
-                      background: active ? '#eff6ff' : '#f8fafc',
-                      color: active ? '#1d4ed8' : '#64748b',
-                      border: active ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                      background: active ? '#e0f2fe' : '#f8fafc',
+                      color: active ? '#0284c7' : '#475569',
+                      border: active ? '1px solid #bae6fd' : '1px solid #e2e8f0',
                       borderRadius: '6px',
-                      padding: '4px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
+                      padding: '4px 9px',
+                      fontSize: '0.73rem',
+                      fontWeight: active ? 600 : 500,
                       cursor: 'pointer',
                     }}
                   >
@@ -298,11 +297,12 @@ export default function MealAiConfigStudio({
               placeholder="VD: Tập chiều 17h30-19h, văn phòng ngồi nhiều..."
               style={{
                 width: '100%',
-                padding: '9px 12px',
+                height: '36px',
+                padding: '0 12px',
                 borderRadius: '8px',
-                border: '1px solid #cbd5e1',
+                border: '1px solid #e2e8f0',
                 fontSize: '0.82rem',
-                color: '#1e293b',
+                color: '#0f172a',
                 boxSizing: 'border-box',
               }}
             />
@@ -310,7 +310,7 @@ export default function MealAiConfigStudio({
 
           {/* Field 5: Allergies / Restrictions */}
           <div>
-            <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
               KIÊNG KỴ & DỊ ỨNG
             </label>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -323,12 +323,12 @@ export default function MealAiConfigStudio({
                     onClick={() => toggleAllergy(chip)}
                     style={{
                       background: active ? '#fef2f2' : '#f8fafc',
-                      color: active ? '#dc2626' : '#64748b',
-                      border: active ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
-                      borderRadius: '16px',
-                      padding: '5px 12px',
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
+                      color: active ? '#dc2626' : '#475569',
+                      border: active ? '1px solid #fca5a5' : '1px solid #e2e8f0',
+                      borderRadius: '999px',
+                      padding: '4px 11px',
+                      fontSize: '0.73rem',
+                      fontWeight: active ? 600 : 500,
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
@@ -341,33 +341,26 @@ export default function MealAiConfigStudio({
           </div>
 
           {/* Field 6: Budget & Custom Notes */}
-          <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '10px' }}>
             <div>
-              <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
                 <Coins size={14} color="#d97706" /> NGÂN SÁCH
               </label>
-              <select
+              <CustomSelect
                 value={budgetLevel}
-                onChange={(e) => setBudgetLevel(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  boxSizing: 'border-box',
-                }}
-              >
-                <option value="BUDGET">Tiết kiệm</option>
-                <option value="STANDARD">Tiêu chuẩn</option>
-                <option value="PREMIUM">Cao cấp</option>
-              </select>
+                onChange={(val) => setBudgetLevel(val)}
+                ariaLabel="Ngân sách thực đơn"
+                options={[
+                  { value: 'BUDGET', label: 'Tiết kiệm' },
+                  { value: 'STANDARD', label: 'Tiêu chuẩn' },
+                  { value: 'PREMIUM', label: 'Cao cấp' },
+                ]}
+              />
             </div>
 
             <div>
-              <label style={{ fontSize: '0.78rem', color: '#003b70', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                📝 GHI CHÚ THÊM TỪ PT
+              <label style={{ fontSize: '0.74rem', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                GHI CHÚ THÊM TỪ PT
               </label>
               <input
                 value={customDietNotes}
@@ -375,11 +368,12 @@ export default function MealAiConfigStudio({
                 placeholder="VD: Thích cafe đen, ghét ức gà luộc..."
                 style={{
                   width: '100%',
-                  padding: '9px 12px',
+                  height: '36px',
+                  padding: '0 12px',
                   borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '0.8rem',
-                  color: '#1e293b',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '0.82rem',
+                  color: '#0f172a',
                   boxSizing: 'border-box',
                 }}
               />

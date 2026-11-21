@@ -893,7 +893,7 @@ export default function CustomerPhotoModal({ open, customer, onClose }: Customer
                       onClick={() => autoPairPhotos()}
                       title="Tự động chọn ảnh đầu tiên và ảnh mới nhất"
                     >
-                      ⚡ Ghép tự động
+                      Ghép tự động
                     </button>
 
                     <button
@@ -1333,7 +1333,6 @@ export default function CustomerPhotoModal({ open, customer, onClose }: Customer
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.9)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',

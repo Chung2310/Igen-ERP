@@ -85,7 +85,7 @@ export const FoodImageUploadModal: React.FC<FoodImageUploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
@@ -128,14 +128,14 @@ export const FoodImageUploadModal: React.FC<FoodImageUploadModalProps> = ({
               value={category}
               onChange={(val) => setCategory(val)}
               options={[
-                { value: 'PROTEIN', label: '🥩 Đạm / Protein' },
-                { value: 'CARB', label: '🍚 Tinh bột / Carb' },
-                { value: 'FAT', label: '🥑 Chất béo tốt' },
-                { value: 'VEGGIE', label: '🥗 Rau củ / Salad' },
-                { value: 'MEAL', label: '🍱 Bữa chính hoàn chỉnh' },
-                { value: 'SNACK', label: '🥪 Bữa phụ / Snack' },
-                { value: 'DRINK', label: '🥤 Sinh tố / Nước uống' },
-                { value: 'OTHER', label: '✨ Khác' },
+                { value:'PROTEIN', label:'Đạm / Protein' },
+                { value:'CARB', label:'Tinh bột / Carb' },
+                { value:'FAT', label:'Chất béo tốt' },
+                { value:'VEGGIE', label:'Rau củ / Salad' },
+                { value:'MEAL', label:'Bữa chính hoàn chỉnh' },
+                { value:'SNACK', label:'Bữa phụ / Snack' },
+                { value:'DRINK', label:'Sinh tố / Nước uống' },
+                { value:'OTHER', label:'Khác' },
               ]}
             />
           </div>
@@ -148,7 +148,7 @@ export const FoodImageUploadModal: React.FC<FoodImageUploadModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🔥 Calo (kcal):
+                  Calo (kcal):
                 </label>
                 <input
                   type="number"
@@ -160,7 +160,7 @@ export const FoodImageUploadModal: React.FC<FoodImageUploadModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🥩 Đạm (g):
+                  Đạm (g):
                 </label>
                 <input
                   type="number"
@@ -172,7 +172,7 @@ export const FoodImageUploadModal: React.FC<FoodImageUploadModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🍚 Tinh bột (g):
+                  Tinh bột (g):
                 </label>
                 <input
                   type="number"
@@ -184,7 +184,7 @@ export const FoodImageUploadModal: React.FC<FoodImageUploadModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-amber-950 mb-1">
-                  🥑 Chất béo (g):
+                  Chất béo (g):
                 </label>
                 <input
                   type="number"

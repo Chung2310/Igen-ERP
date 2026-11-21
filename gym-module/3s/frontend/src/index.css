@@ -1921,34 +1921,44 @@ a {
 
 .status-badge {
   display: inline-flex;
-  padding: 3px 8px;
-  border-radius: 999px;
-  color: #075985;
-  background: #e0f2fe;
-  font-size: .72rem;
-  font-weight: 750;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .status-published,
 .status-active,
 .status-accepted {
-  color: #166534;
-  background: #dcfce7;
+  color: #276749;
+  background: #e8f4eb;
 }
 
 .status-locked,
 .status-rejected,
 .status-inactive {
-  color: #991b1b;
-  background: #fee2e2;
+  color: #9f3a3a;
+  background: #f9eeee;
 }
 
 .status-pending,
 .status-draft,
 .status-lead {
-  color: #92400e;
-  background: #fef3c7;
+  color: #8a611d;
+  background: #faf2e2;
+}
+
+.gym-assigned-pt {
+  max-width: 200px;
+  gap: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-light);
 }
 
 /* Role Badges */
@@ -2264,9 +2274,8 @@ a {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(4, 22, 38, .58);
+  background: transparent;
   z-index: 9999;
-  backdrop-filter: blur(4px);
 }
 
 /* Core Customer Select Dropdown Menu */
@@ -6771,7 +6780,7 @@ a {
     display: block;
     width: 100%;
     border: 0;
-    background: rgba(0, 34, 66, .28);
+    background: transparent;
     cursor: default;
   }
 

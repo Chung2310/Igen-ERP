@@ -212,7 +212,7 @@ export default function InBodyPage() {
                 style={{
                   border: statusFilter === tab.id ? '1px solid #d8e2f0' : '1px solid transparent',
                   background: statusFilter === tab.id ? '#ffffff' : 'transparent',
-                  color: statusFilter === tab.id ? '#0077b3' : '#475569',
+                  color: statusFilter === tab.id ? '#00adfc' : '#475569',
                   fontWeight: statusFilter === tab.id ? 600 : 500,
                   fontSize: '0.8rem',
                   padding: '5px 12px',

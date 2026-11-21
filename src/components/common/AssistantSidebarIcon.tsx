@@ -1,88 +1,27 @@
 import { useId, type ReactNode } from "react";
-import { AiAssistantIcon } from "./HeaderShortcutIcons";
 
 export type AssistantSidebarIconName =
   | "chat" | "studio" | "notebook" | "meeting" | "assistant"
   | "project" | "tools" | "agents" | "history" | "settings";
 
-const artwork: Record<Exclude<AssistantSidebarIconName, "agents" | "assistant">, ReactNode> = {
-  chat: <>
-    <path d="M6.25 4.75h11.5a2.75 2.75 0 0 1 2.75 2.75v7.75A2.75 2.75 0 0 1 17.75 18H9l-4.75 3v-13.5a2.75 2.75 0 0 1 2-2.65Z" />
-    <path d="M8.5 9h7m-7 3.5h5" />
-  </>,
-  studio: <>
-    <path d="M6.4 8.6V7.6a2.2 2.2 0 0 1 2.2-2.2h7.5a2.2 2.2 0 0 1 2.2 2.2v8.7a2.2 2.2 0 0 1-2.2 2.2H14" />
-    <rect x="3.4" y="9.1" width="10.8" height="11.4" rx="2.2" />
-    <circle cx="7.3" cy="12.5" r=".7" />
-    <path d="m5.2 18.1 2.7-2.7 1.9 1.7 1.5-1.3 1.6 1.4" />
-    <path d="m20.8 1.7.45 1.2 1.2.45-1.2.45-.45 1.2-.45-1.2-1.2-.45 1.2-.45Z" />
-  </>,
-  notebook: <>
-    <rect x="5" y="3.75" width="15.25" height="16.5" rx="2.25" />
-    <path d="M8.5 4v16m-3.25-11h2.9m-2.9 4h2.9m4.25-4h6m-6 4h6" />
-  </>,
-  meeting: <>
-    <rect x="8.5" y="3" width="7" height="12" rx="3.5" />
-    <path d="M5.25 11.25a6.75 6.75 0 0 0 13.5 0M12 18v3m-3.25 0h6.5" />
-  </>,
-  project: <>
-    <path d="M3.75 8a2.5 2.5 0 0 1 2.5-2.5h3.5l2 2h6A2.5 2.5 0 0 1 20.25 10v6.75a2.5 2.5 0 0 1-2.5 2.5H6.25a2.5 2.5 0 0 1-2.5-2.5Z" />
-    <path d="M4 9.5h16" />
-  </>,
-  tools: <>
-    <circle cx="12" cy="12" r="9" />
-    <path d="m15.5 8.5-2.25 4.75L8.5 15.5l2.25-4.75L15.5 8.5Z" />
-    <circle cx="12" cy="12" r=".55" />
-  </>,
-  history: <>
-    <path d="M4.5 8A8 8 0 1 1 4 14m.5-10v4h4" />
-    <path d="M12 7.5v4.75l3 1.75" />
-  </>,
-  settings: <>
-    <path d="M10 3.5h4l.55 2.15a6.8 6.8 0 0 1 1.55.9l2.1-.7 2 3.45-1.55 1.55a7 7 0 0 1 0 1.8l1.55 1.55-2 3.45-2.1-.7a6.8 6.8 0 0 1-1.55.9L14 20h-4l-.55-2.15a6.8 6.8 0 0 1-1.55-.9l-2.1.7-2-3.45L5.35 12.6a7 7 0 0 1 0-1.8L3.8 9.25l2-3.45 2.1.7a6.8 6.8 0 0 1 1.55-.9Z" />
-    <circle cx="12" cy="11.7" r="2.4" />
-  </>,
-};
-
-export function AssistantSidebarIcon({ name, active = false }: { name: AssistantSidebarIconName; active?: boolean }) {
+export function AssistantSidebarIcon({ name }: { name: AssistantSidebarIconName; active?: boolean }) {
   const gradientId = useId().replace(/:/g, "");
-  if (name === "agents") return <AssistantSupportIcon gradientId={gradientId} active={active} />;
-  if (name === "assistant") return <AiAssistantIcon gradientId={active ? gradientId : undefined} />;
-  if (name === "studio") return <AssistantStudioSidebarIcon active={active} />;
-  return <svg viewBox="2 2 20 20" fill="none" stroke={active ? `url(#${gradientId})` : "currentColor"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    {active && <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor="var(--color-primary)" /><stop offset="100%" stopColor="var(--color-purple-400)" /></linearGradient></defs>}
-    {artwork[name]}
-  </svg>;
-}
-
-function AssistantSupportIcon({ gradientId, active }: { gradientId: string; active: boolean }) {
-  const color = active ? `url(#${gradientId})` : "currentColor";
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    {active && <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor="var(--color-primary)" /><stop offset="100%" stopColor="var(--color-purple-400)" /></linearGradient></defs>}
-    <g stroke={color}>
-      <path d="M5.4 16.7V9.8a6.6 6.6 0 0 1 13.2 0v6.9" />
-      <rect x="2.4" y="10.4" width="3" height="6.6" rx="1.5" />
-      <rect x="18.6" y="10.4" width="3" height="6.6" rx="1.5" />
-      <path d="M5.4 16.7a3.4 3.4 0 0 0 3.4 3.4h1.7" />
-      <rect x="10.5" y="18.9" width="4.5" height="2.4" rx="1.2" />
-    </g>
-    <g fill={color} stroke="none">
-      <circle cx="9" cy="13.5" r=".65" />
-      <circle cx="12" cy="13.5" r=".65" />
-      <circle cx="15" cy="13.5" r=".65" />
-    </g>
-  </svg>;
-}
-
-function AssistantStudioSidebarIcon({ active }: { active: boolean }) {
-  const gradientId = useId().replace(/:/g, "");
-  return <svg viewBox="2 1 21 21" className="assistant-studio-icon" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    {active && <defs>
-      <linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse">
-        <stop stopColor="var(--color-primary)" />
-        <stop offset="100%" stopColor="var(--color-purple-400)" />
-      </linearGradient>
-    </defs>}
-    <g stroke={active ? `url(#${gradientId})` : "currentColor"}>{artwork.studio}</g>
+  const fill = `url(#${gradientId})`;
+  const cutout = "var(--color-surface-container-lowest)";
+  const filledArtwork: Record<AssistantSidebarIconName, ReactNode> = {
+    chat: <><path d="M5 3.5h14a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9l-5.4 3.2c-.7.4-1.6-.1-1.6-.9V6.5a3 3 0 0 1 2-2.9Z"/><path d="M7.5 9h9m-9 4h6" fill="none" stroke={cutout} strokeWidth="1.8" strokeLinecap="round"/></>,
+    studio: <><rect x="2.5" y="7" width="15" height="14" rx="3"/><path d="m5.5 17 3-3 2.3 2 2-1.8 2 1.8" fill="none" stroke={cutout} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/><circle cx="7" cy="11" r="1" fill={cutout}/><path d="M9 3h9a3 3 0 0 1 3 3v9h-2V7a2 2 0 0 0-2-2H9V3Z"/><path d="m20 1 .7 1.7L22.5 3l-1.8.7L20 5.5l-.7-1.8L17.5 3l1.8-.3L20 1Z"/></>,
+    notebook: <><rect x="4" y="2.5" width="17" height="19" rx="3"/><path d="M8.5 3v18M12 9h5m-5 4h5" fill="none" stroke={cutout} strokeWidth="1.8" strokeLinecap="round"/><path d="M2.5 8h4m-4 5h4" fill="none" stroke={fill} strokeWidth="2" strokeLinecap="round"/></>,
+    meeting: <><rect x="8" y="2" width="8" height="13" rx="4"/><path d="M5 11.5a7 7 0 0 0 14 0M12 18.5V22m-4 0h8" fill="none" stroke={fill} strokeWidth="2.3" strokeLinecap="round"/></>,
+    assistant: <><rect x="3" y="7" width="18" height="14" rx="4"/><path d="M12 7V4m0 0h2" fill="none" stroke={fill} strokeWidth="2" strokeLinecap="round"/><circle cx="9" cy="13" r="1.4" fill={cutout}/><circle cx="15" cy="13" r="1.4" fill={cutout}/><path d="M9 17h6" fill="none" stroke={cutout} strokeWidth="1.8" strokeLinecap="round"/></>,
+    project: <><path d="M2.5 8a3 3 0 0 1 3-3H10l2 2h6.5a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V8Z"/><path d="M3 10h18" fill="none" stroke={cutout} strokeWidth="1.6"/></>,
+    tools: <><circle cx="12" cy="12" r="9.5"/><path d="m15.8 8.2-2.5 5.1-5.1 2.5 2.5-5.1 5.1-2.5Z" fill={cutout}/><circle cx="12" cy="12" r="1.2"/></>,
+    agents: <><path d="M5 15.5V10a7 7 0 0 1 14 0v5.5h-2.5V10a4.5 4.5 0 0 0-9 0v5.5H5Z"/><rect x="2" y="10" width="4" height="7.5" rx="2"/><rect x="18" y="10" width="4" height="7.5" rx="2"/><path d="M18 16.5c0 2.8-1.7 4-5 4" fill="none" stroke={fill} strokeWidth="2" strokeLinecap="round"/><rect x="10.5" y="19" width="4" height="3" rx="1.5"/></>,
+    history: <><path d="M12 2.5a9.5 9.5 0 1 1-9.4 11h2.5a7 7 0 1 0 2-6.4L10 10H2V2l3.2 3.2A9.4 9.4 0 0 1 12 2.5Z"/><path d="M12 7v5l3.5 2" fill="none" stroke={cutout} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></>,
+    settings: <><path d="M10 2h4l.7 2.2c.6.2 1.2.5 1.7.9l2.3-.5 2 3.5-1.6 1.7a8 8 0 0 1 0 2.2l1.6 1.7-2 3.5-2.3-.5c-.5.4-1.1.7-1.7.9L14 20h-4l-.7-2.4c-.6-.2-1.2-.5-1.7-.9l-2.3.5-2-3.5 1.6-1.7a8 8 0 0 1 0-2.2L3.3 8.1l2-3.5 2.3.5c.5-.4 1.1-.7 1.7-.9L10 2Z"/><circle cx="12" cy="11" r="2.8" fill={cutout}/></>,
+  };
+  return <svg viewBox="0 0 24 24" fill={fill} aria-hidden="true" focusable="false">
+    <defs><linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0"><stop offset="0%" stopColor="#00adfc"/><stop offset="55%" stopColor="#199bff"/><stop offset="100%" stopColor="#7567ff"/></linearGradient></defs>
+    {filledArtwork[name]}
   </svg>;
 }

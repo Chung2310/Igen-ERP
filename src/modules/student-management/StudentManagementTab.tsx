@@ -193,7 +193,7 @@ export default function StudentManagementTab() {
       </ModuleNavigation>
 
       <div className={cn('min-h-0 flex-1 overflow-y-auto px-3', entityLabel.preset === 'student' ? 'py-0 lg:pl-0' : 'pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-6')}>
-        <div className="min-h-full rounded-md border border-outline-variant bg-surface-container-lowest">
+        <div className="min-h-full rounded-md bg-surface-container-lowest">
           <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
         </div>
       </div>

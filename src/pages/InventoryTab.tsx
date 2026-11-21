@@ -737,7 +737,7 @@ function InventoryWorkspace() {
         </>}
       </ModuleNavigation>
 
-      <div className="inventory-workspace min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" id="inventory_tab_content">
+      <div className="inventory-workspace min-h-0 flex-1 overflow-y-auto rounded-xl bg-surface-container-lowest p-3 sm:p-4" id="inventory_tab_content">
         {!workspace && !workspaceError && <p role="status" className="p-4 text-sm text-on-surface-variant">Đang tải danh mục…</p>}
         {workspaceError && <div role="status" className="mb-3 flex items-center gap-3 text-sm text-on-surface-variant">
           Chưa tải được thiết lập danh mục.
@@ -996,7 +996,7 @@ function InventoryWorkspace() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
+    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white p-6 text-center">
       <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
       <span className="text-xs text-gray-500 font-semibold">{label}</span>
     </div>

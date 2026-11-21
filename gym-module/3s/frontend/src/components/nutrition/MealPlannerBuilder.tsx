@@ -1189,30 +1189,34 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
               </button>
             )}
 
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h2 className="gym-erp-title">
-                  {effectiveCustomerName ? `Thực đơn: ${effectiveCustomerName}` : 'Thiết kế thực đơn dinh dưỡng'}
-                </h2>
-                {isEditingExistingPlan && (
-                  <span style={{ background: '#ffedd5', color: '#9a4f00', border: '1px solid #fed7aa', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px' }}>
-                    Đang chỉnh sửa bản có sẵn
-                  </span>
-                )}
+            {(effectiveCustomerName || isEditingExistingPlan || meals.length > 0) && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {effectiveCustomerName && (
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                      {effectiveCustomerName}
+                    </span>
+                  )}
+                  {isEditingExistingPlan && (
+                    <span style={{ background: '#ffedd5', color: '#9a4f00', border: '1px solid #fed7aa', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px' }}>
+                      Đang chỉnh sửa bản có sẵn
+                    </span>
+                  )}
+                  {meals.length > 0 && (
+                    <span style={{ background: '#e0f2fe', color: '#0077b3', border: '1px solid #7dd3fc', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px', fontVariantNumeric: 'tabular-nums' }}>
+                      {meals.length} bữa ăn • {totalKcal} kcal
+                    </span>
+                  )}
+                </div>
                 {meals.length > 0 && (
-                  <span style={{ background: '#e0f2fe', color: '#0077b3', border: '1px solid #7dd3fc', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px', fontVariantNumeric: 'tabular-nums' }}>
-                    {meals.length} bữa ăn • {totalKcal} kcal
-                  </span>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.78rem', color: '#475569', flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
+                    <span>Đạm (P): <strong style={{ color: '#0f172a' }}>{totalProtein}g</strong></span>
+                    <span>Tinh bột (C): <strong style={{ color: '#0f172a' }}>{totalCarbs}g</strong></span>
+                    <span>Chất béo (F): <strong style={{ color: '#0f172a' }}>{totalFat}g</strong></span>
+                  </div>
                 )}
               </div>
-              {meals.length > 0 && (
-                <div style={{ display: 'flex', gap: '12px', marginTop: '4px', marginLeft: '14px', fontSize: '0.78rem', color: '#475569', flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
-                  <span>Đạm (P): <strong style={{ color: '#071629' }}>{totalProtein}g</strong></span>
-                  <span>Tinh bột (C): <strong style={{ color: '#071629' }}>{totalCarbs}g</strong></span>
-                  <span>Chất béo (F): <strong style={{ color: '#071629' }}>{totalFat}g</strong></span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1240,23 +1244,20 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
             {meals.length > 0 && (
               <button
                 type="button"
+                className="button button-secondary"
                 onClick={() => handleOpenSwapper()}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  border: '1px solid rgba(255, 255, 255, 0.4)',
-                  borderRadius: '8px',
-                  padding: '9px 14px',
-                  fontWeight: 700,
+                  minHeight: '36px',
+                  padding: '0 14px',
+                  fontWeight: 500,
                   fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
                 }}
                 title="Tra cứu danh sách món ăn & gợi ý đổi món tương đương"
               >
-                <ArrowRightLeft size={14} /> Đổi Món & Gợi Ý
+                <ArrowRightLeft size={14} /> Đổi món & gợi ý
               </button>
             )}
 
@@ -1264,71 +1265,60 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
               isEditingExistingPlan ? (
                 <button
                   type="button"
+                  className="button button-primary"
                   disabled={saving}
                   onClick={() => void handleSavePlan()}
                   style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '9px 18px',
-                    fontWeight: 800,
+                    minHeight: '36px',
+                    padding: '0 18px',
+                    fontWeight: 600,
                     fontSize: '0.82rem',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
                   }}
                   title="Cập nhật thực đơn vào CSDL"
                 >
-                  <Save size={14} /> {saving ? 'Đang Cập Nhật...' : 'Cập Nhật'}
+                  <Save size={14} /> {saving ? 'Đang cập nhật...' : 'Cập nhật'}
                 </button>
               ) : (
                 <>
                   <button
                     type="button"
+                    className="button button-secondary"
                     disabled={saving}
                     onClick={() => void handleSavePlan(false)}
                     style={{
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      color: '#ffffff',
-                      border: '1px solid rgba(255, 255, 255, 0.4)',
-                      borderRadius: '8px',
-                      padding: '9px 14px',
-                      fontWeight: 700,
+                      minHeight: '36px',
+                      padding: '0 14px',
+                      fontWeight: 500,
                       fontSize: '0.82rem',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
                     }}
                     title="Lưu bản nháp vào CSDL để chỉnh sửa tiếp"
                   >
-                    <Save size={14} /> {saving ? 'Đang Lưu...' : 'Lưu Nháp'}
+                    <Save size={14} /> {saving ? 'Đang lưu...' : 'Lưu nháp'}
                   </button>
 
                   <button
                     type="button"
+                    className="button button-primary"
                     disabled={saving}
                     onClick={() => void handleSavePlan(true)}
                     style={{
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '9px 16px',
-                      fontWeight: 800,
+                      minHeight: '36px',
+                      padding: '0 16px',
+                      fontWeight: 600,
                       fontSize: '0.82rem',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
                     }}
                     title="Lưu vào CSDL và gửi trực tiếp cho học viên áp dụng trên Portal"
                   >
-                    <Send size={14} /> {saving ? 'Đang Gửi...' : 'Lưu & Gửi Học Viên'}
+                    <Send size={14} /> {saving ? 'Đang gửi...' : 'Lưu & gửi học viên'}
                   </button>
                 </>
               )
@@ -1341,30 +1331,15 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
       <div
         style={{
           background: '#ffffff',
-          borderRadius: '16px',
+          borderRadius: '12px',
           border: '1px solid #e2e8f0',
-          padding: '16px 20px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          padding: '14px 18px',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '6px', borderRadius: '8px', display: 'flex' }}>
-              <Calendar size={18} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#003b70' }}>
-                Lịch Áp Dụng Thực Đơn Cho Học Viên
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
-                Chọn ngày bắt đầu ăn và khoảng thời gian áp dụng thực đơn (Tối đa 1 tháng)
-              </p>
-            </div>
-          </div>
-
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           {/* Quick Summary Pill */}
           <div
             style={{
@@ -1518,12 +1493,13 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
               placeholder="VD: Thực Đơn Giảm Mỡ - Nguyễn Văn A"
               style={{
                 width: '100%',
-                padding: '7px 10px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontWeight: 800,
-                fontSize: '0.92rem',
-                color: '#003b70',
+                height: '36px',
+                padding: '0 10px',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                color: '#0f172a',
               }}
             />
           </div>
@@ -1720,50 +1696,40 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
             gap: '12px',
           }}
         >
-          <div style={{ background: '#f0f9ff', borderRadius: '50%', padding: '16px', color: '#0284c7' }}>
-            <Salad size={40} />
+          <div style={{ background: '#f0f9ff', borderRadius: '50%', padding: '16px', color: '#0ea5e9' }}>
+            <Salad size={36} />
           </div>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#003b70', fontWeight: 800 }}>
-            {selectedCustomer ? `Chưa có thực đơn cho ${selectedCustomer.fullName}` : 'Sẵn Sàng Thiết Kế Thực Đơn Bằng AI'}
+          <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#0f172a', fontWeight: 600 }}>
+            {selectedCustomer ? `Chưa có thực đơn cho ${selectedCustomer.fullName}` : 'Chưa có thực đơn'}
           </h3>
-          <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748b', maxWidth: '440px', lineHeight: 1.5 }}>
-            Tùy chỉnh số lượng bữa ăn, phong cách ăn uống và lịch tập ở bảng phía trên, sau đó bấm <strong>&quot;AI Sinh Thực Đơn Chi Tiết&quot;</strong> để hệ thống tự động sinh thực đơn dinh dưỡng thực tế khớp 100% hồ sơ học viên.
-          </p>
           <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <button
               type="button"
+              className="button button-primary"
               onClick={() => void handleAiGenerate()}
               disabled={loadingAi}
               style={{
-                background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 20px',
-                fontSize: '0.86rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
+                minHeight: '38px',
+                padding: '0 18px',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 2px 8px rgba(0, 59, 112, 0.2)',
               }}
             >
               {loadingAi ? <RefreshCw size={15} className="spin" /> : <Wand2 size={15} />}
-              {loadingAi ? 'AI đang tạo thực đơn...' : 'AI Sinh Thực Đơn Ngay'}
+              {loadingAi ? 'AI đang tạo thực đơn...' : 'AI sinh thực đơn ngay'}
             </button>
             <button
               type="button"
+              className="button button-secondary"
               onClick={handleAddMealBlock}
               style={{
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '10px 16px',
-                fontSize: '0.86rem',
-                fontWeight: 700,
-                color: '#334155',
-                cursor: 'pointer',
+                minHeight: '38px',
+                padding: '0 16px',
+                fontSize: '0.84rem',
+                fontWeight: 500,
               }}
             >
               + Tạo bữa ăn thủ công
@@ -1790,7 +1756,7 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#003b70', fontWeight: 800 }}>
+                <span style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#475569', fontWeight: 600 }}>
                   1. PHÂN CẤP THEO TUẦN ({weeks.length} TUẦN)
                 </span>
                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
@@ -1838,27 +1804,26 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
                       flex: '0 0 auto',
                       padding: '8px 14px',
                       borderRadius: '10px',
-                      border: isSelected ? '2px solid #003b70' : '1px solid #cbd5e1',
-                      background: isSelected ? '#003b70' : '#ffffff',
-                      color: isSelected ? '#ffffff' : '#334155',
-                      fontWeight: isSelected ? 800 : 600,
+                      border: isSelected ? '1px solid #7dd3fc' : '1px solid #e2e8f0',
+                      background: isSelected ? '#e0f2fe' : '#ffffff',
+                      color: isSelected ? '#0284c7' : '#334155',
+                      fontWeight: isSelected ? 600 : 500,
                       fontSize: '0.82rem',
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'flex-start',
                       gap: '2px',
-                      boxShadow: isSelected ? '0 4px 12px rgba(0, 59, 112, 0.2)' : 'none',
                       transition: 'all 0.15s ease',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>{w.name}</span>
                       {isSelected && (
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#0ea5e9' }} />
                       )}
                     </div>
-                    <span style={{ fontSize: '0.68rem', color: isSelected ? '#93c5fd' : '#64748b' }}>
+                    <span style={{ fontSize: '0.68rem', color: isSelected ? '#0369a1' : '#64748b' }}>
                       {formatDisplayDate(w.startDate).slice(0, 5)} - {formatDisplayDate(w.endDate).slice(0, 5)} ({w.days.length} ngày)
                     </span>
                   </button>
@@ -1896,7 +1861,7 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
                   }}
                   title="Tự động đổi sang các món ăn dinh dưỡng khác cho ngày này"
                 >
-                  <Sparkles size={12} /> 🎲 Đổi món ngày này
+                  <Sparkles size={12} /> Đổi món ngày này
                 </button>
 
 
@@ -1919,7 +1884,7 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
                   }}
                   title="Tự động đổi món đa dạng cho tất cả 7 ngày trong tuần này"
                 >
-                  <Wand2 size={12} /> ✨ Đổi món cả tuần
+                  <Wand2 size={12} /> Đổi món cả tuần
                 </button>
 
                 <button
@@ -1980,16 +1945,15 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
                     style={{
                       padding: '8px 10px',
                       borderRadius: '10px',
-                      border: isSelected ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                      background: isSelected ? '#f0f9ff' : '#f8fafc',
-                      color: isSelected ? '#003b70' : '#475569',
+                      border: isSelected ? '1px solid #7dd3fc' : '1px solid #e2e8f0',
+                      background: isSelected ? '#e0f2fe' : '#f8fafc',
+                      color: isSelected ? '#0284c7' : '#475569',
                       cursor: 'pointer',
                       textAlign: 'center',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '2px',
                       transition: 'all 0.15s ease',
-                      boxShadow: isSelected ? '0 2px 8px rgba(2, 132, 199, 0.15)' : 'none',
                     }}
                   >
                     <div style={{ fontSize: '0.82rem', fontWeight: 800, color: isSelected ? '#0284c7' : '#1e293b' }}>
@@ -2024,7 +1988,7 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Salad size={18} color="#16a34a" />
-            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#003b70' }}>
+            <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 600, color: '#0f172a' }}>
               3. PHÂN CẤP THEO BỮA ĂN: {activeDay.dayOfWeek} ({formatDisplayDate(activeDay.date)}) • {activeWeek.name}
             </h3>
           </div>
@@ -2080,19 +2044,19 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
             onClick={handleAddMealBlock}
             style={{
               background: '#ffffff',
-              border: '2px dashed #00a4e4',
+              border: '1px dashed #7dd3fc',
               borderRadius: '10px',
-              padding: '10px 24px',
+              padding: '9px 20px',
               fontSize: '0.84rem',
-              color: '#003b70',
-              fontWeight: 800,
+              color: '#0284c7',
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
             }}
           >
-            <Plus size={16} color="#00a4e4" /> Thêm Một Bữa Ăn Mới (Bữa 5, Bữa Phụ...)
+            <Plus size={16} color="#0ea5e9" /> Thêm một bữa ăn mới (Bữa 5, Bữa phụ...)
           </button>
         </div>
       )}
@@ -2102,94 +2066,84 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
         <div
           style={{
             marginTop: '18px',
-            background: 'linear-gradient(135deg, #003b70 0%, #002244 100%)',
-            borderRadius: '14px',
-            padding: '16px 20px',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '14px 18px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '14px',
-            boxShadow: '0 8px 24px rgba(0, 59, 112, 0.25)',
+            gap: '12px',
+            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ color: '#ffffff' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>
-                Tổng Thực Đơn: <span style={{ color: '#4ade80' }}>{totalKcal} kcal</span> ({meals.length} bữa ăn)
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ color: '#0f172a' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>
+                Tổng thực đơn: <span style={{ color: '#0284c7', fontWeight: 700 }}>{totalKcal} kcal</span> ({meals.length} bữa ăn)
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#93c5fd', marginTop: '2px' }}>
-                P: <strong>{totalProtein}g</strong> | C: <strong>{totalCarbs}g</strong> | F: <strong>{totalFat}g</strong> • Học viên: <strong>{effectiveCustomerName || 'Chưa chọn'}</strong>
+              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px' }}>
+                P: <strong style={{ color: '#0f172a' }}>{totalProtein}g</strong> | C: <strong style={{ color: '#0f172a' }}>{totalCarbs}g</strong> | F: <strong style={{ color: '#0f172a' }}>{totalFat}g</strong> • Học viên: <strong style={{ color: '#0f172a' }}>{effectiveCustomerName || 'Chưa chọn'}</strong>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {isEditingExistingPlan ? (
               <button
                 type="button"
+                className="button button-primary"
                 disabled={saving}
                 onClick={() => void handleSavePlan()}
                 style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '10px 24px',
-                  fontWeight: 800,
-                  fontSize: '0.88rem',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  display: 'flex',
+                  minHeight: '36px',
+                  padding: '0 20px',
+                  fontWeight: 600,
+                  fontSize: '0.84rem',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.45)',
+                  gap: '6px',
                 }}
               >
-                <Save size={16} /> {saving ? 'Đang Cập Nhật...' : 'Cập Nhật'}
+                <Save size={15} /> {saving ? 'Đang cập nhật...' : 'Cập nhật'}
               </button>
             ) : (
               <>
                 <button
                   type="button"
+                  className="button button-secondary"
                   disabled={saving}
                   onClick={() => void handleSavePlan(false)}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: '8px',
-                    padding: '10px 18px',
-                    fontWeight: 700,
+                    minHeight: '36px',
+                    padding: '0 16px',
+                    fontWeight: 500,
                     fontSize: '0.84rem',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
                   }}
                 >
-                  <Save size={15} /> {saving ? 'Đang Lưu...' : 'Lưu Bản Nháp'}
+                  <Save size={15} /> {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
                 </button>
 
                 <button
                   type="button"
+                  className="button button-primary"
                   disabled={saving}
                   onClick={() => void handleSavePlan(true)}
                   style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 22px',
-                    fontWeight: 800,
-                    fontSize: '0.86rem',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    display: 'flex',
+                    minHeight: '36px',
+                    padding: '0 18px',
+                    fontWeight: 600,
+                    fontSize: '0.84rem',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.45)',
                   }}
                 >
-                  <Send size={15} /> {saving ? 'Đang Gửi...' : 'Lưu & Gửi Cho Học Viên Áp Dụng Ngay'}
+                  <Send size={15} /> {saving ? 'Đang gửi...' : 'Lưu & gửi cho học viên áp dụng ngay'}
                 </button>
               </>
             )}

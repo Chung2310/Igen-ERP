@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { permissionForMediaUpload } from "./media-upload-permission";
 
 describe("permissionForMediaUpload", () => {
+  it("lets an authenticated user upload their own profile photo", () => {
+    expect(permissionForMediaUpload("settings.profile")).toBeNull();
+  });
   it("allows Kanban task and project audio/video uploads through the work permission", () => {
     expect(permissionForMediaUpload("hr.kanban")).toBe("work:manage");
   });

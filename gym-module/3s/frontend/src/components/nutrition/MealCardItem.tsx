@@ -543,7 +543,7 @@ export default function MealCardItem({
 
                 {item.prepTip && (
                   <div style={{ fontSize: '0.7rem', color: '#0284c7', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', minWidth: 0 }}>
-                    <span style={{ flexShrink: 0 }}>🍳 Chế biến:</span>
+                    <span style={{ flexShrink: 0 }}>Chế biến:</span>
                     <input
                       value={item.prepTip}
                       onChange={(e) => onUpdateItem(mealIdx, itemIdx, 'prepTip', e.target.value)}

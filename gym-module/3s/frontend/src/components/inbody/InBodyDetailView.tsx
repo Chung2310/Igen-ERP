@@ -394,7 +394,7 @@ export default function InBodyDetailView({
           </div>
           {(analysis.segmentalAnalysis.muscleImbalanceArm.hasImbalance || analysis.segmentalAnalysis.muscleImbalanceLeg.hasImbalance) && (
             <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-2.5 sm:p-3 text-xs text-amber-900">
-              <strong>⚠️ Lưu ý mất cân đối cơ:</strong>
+              <strong>Lưu ý mất cân đối cơ:</strong>
               {analysis.segmentalAnalysis.muscleImbalanceArm.hasImbalance && (
                 <div>• {analysis.segmentalAnalysis.muscleImbalanceArm.note}</div>
               )}
@@ -437,7 +437,7 @@ export default function InBodyDetailView({
             {record.priorities ? (
               <div className="bg-white p-2.5 sm:p-3 rounded-xl border-l-4 border-amber-600 shadow-2xs">
                 <strong className="text-amber-900 block text-xs uppercase">
-                  🎯 Ưu tiên từ PT:
+                  Ưu tiên từ PT:
                 </strong>
                 <p className="m-0 mt-0.5 font-bold text-amber-950">
                   {record.priorities}
@@ -446,7 +446,7 @@ export default function InBodyDetailView({
             ) : analysis.priorities.length > 0 ? (
               <div className="bg-white p-2.5 sm:p-3 rounded-xl border-l-4 border-amber-600 shadow-2xs">
                 <strong className="text-amber-900 block text-xs uppercase">
-                  🎯 Mục Tiêu Ưu Tiên Số 1:
+                  Mục Tiêu Ưu Tiên Số 1:
                 </strong>
                 <p className="m-0 mt-0.5 font-bold text-amber-950">
                   {analysis.priorities[0]}
@@ -496,7 +496,7 @@ export default function InBodyDetailView({
                 }`}
               >
                 <strong className="block text-xs sm:text-sm mb-0.5 font-bold">
-                  ⚠️ {alert.title}
+                  {alert.title}
                 </strong>
                 <p className="m-0 text-xs leading-relaxed opacity-90">{alert.desc}</p>
               </div>
@@ -523,7 +523,7 @@ export default function InBodyDetailView({
           {/* Talking Points */}
           <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-2xs">
             <strong className="text-primary block text-xs sm:text-sm mb-2">
-              🗣️ Lời thoại gợi ý khi trao đổi trực tiếp với học viên:
+              Lời thoại gợi ý khi trao đổi trực tiếp với học viên:
             </strong>
             <div className="flex flex-col gap-2 text-xs sm:text-sm text-slate-700">
               {analysis.consultationGuide.talkingPoints.map((tp, idx) => (
@@ -547,7 +547,7 @@ export default function InBodyDetailView({
                 {analysis.consultationGuide.nutritionAdvice}
               </p>
               <div className="text-xs text-slate-600 bg-emerald-50/70 p-2 rounded-lg mt-1.5 border border-emerald-100">
-                💧 <strong>Nước & Protein:</strong> {analysis.consultationGuide.proteinRecommendation}. {analysis.consultationGuide.waterRecommendation}
+                <strong>Nước & Protein:</strong> {analysis.consultationGuide.proteinRecommendation}. {analysis.consultationGuide.waterRecommendation}
               </div>
             </div>
 
@@ -559,7 +559,7 @@ export default function InBodyDetailView({
                 {analysis.consultationGuide.workoutAdvice}
               </p>
               <div className="text-xs text-slate-600 bg-sky-50/70 p-2 rounded-lg mt-1.5 border border-sky-100">
-                ⚡ <strong>Calo đề xuất:</strong> Giảm mỡ: {analysis.consultationGuide.targetCaloriesRecommendation.fatLoss} kcal | Tăng cơ: {analysis.consultationGuide.targetCaloriesRecommendation.muscleGain} kcal/ngày.
+                <strong>Calo đề xuất:</strong> Giảm mỡ: {analysis.consultationGuide.targetCaloriesRecommendation.fatLoss} kcal | Tăng cơ: {analysis.consultationGuide.targetCaloriesRecommendation.muscleGain} kcal/ngày.
               </div>
             </div>
           </div>

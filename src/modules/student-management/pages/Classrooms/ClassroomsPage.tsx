@@ -29,9 +29,9 @@ const DAY_COLORS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  'Sắp khai giảng': 'bg-blue-50 text-blue-700 border border-blue-200',
-  'Đang học':       'bg-green-50 text-green-700 border border-green-200',
-  'Đã kết thúc':   'bg-slate-100 text-slate-500 border border-slate-200',
+  'Sắp khai giảng': 'bg-sky-100 text-sky-800',
+  'Đang học':       'bg-emerald-100 text-emerald-800',
+  'Đã kết thúc':   'bg-slate-100 text-slate-700',
 };
 
 interface RoomScheduleCardProps {
@@ -297,7 +297,7 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
                             <span className="font-medium text-slate-800">{batch.code}</span>
                             <span className="text-slate-500">{batch.courseTitle}</span>
                           </div>
-                          <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0", STATUS_COLORS[batch.status])}>
+                          <span className={cn("inline-block max-w-40 shrink-0 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", STATUS_COLORS[batch.status] || 'bg-slate-100 text-slate-700')} title={batch.status}>
                             {batch.status}
                           </span>
                         </div>
@@ -340,7 +340,7 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
                       <span className="font-medium text-slate-700">{b.code}</span>
                       <span className="text-slate-500">{b.courseTitle}</span>
                     </div>
-                    <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0", STATUS_COLORS[b.status])}>
+                    <span className={cn("inline-block max-w-40 shrink-0 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", STATUS_COLORS[b.status] || 'bg-slate-100 text-slate-700')} title={b.status}>
                       {b.status}
                     </span>
                   </div>

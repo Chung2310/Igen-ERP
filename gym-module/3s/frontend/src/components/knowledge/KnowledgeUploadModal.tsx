@@ -146,7 +146,7 @@ export const KnowledgeUploadModal: React.FC<KnowledgeUploadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
         {/* HEADER */}
         <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-4 shrink-0">

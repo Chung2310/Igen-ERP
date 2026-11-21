@@ -958,7 +958,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     <p className="mt-1 text-xs font-normal text-slate-500">Đang xử lý: {sendProgress.current}/{sendProgress.total} {entityLabel.singular}</p>
                     {currentInstallment && (
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="rounded-md border border-cyan-100 bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">
+                        <span className="inline-block max-w-40 truncate rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-semibold uppercase text-sky-800" title={`${currentInstallment.label} · ${currentInstallment.percent}% học phí gốc`}>
                           {currentInstallment.label} · {currentInstallment.percent}% học phí gốc
                         </span>
                       </div>
@@ -1035,7 +1035,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                               </button>
                             )}
                             {res.markedPaid && (
-                              <span className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700">
+                              <span className="inline-flex max-w-40 items-center gap-1 overflow-hidden rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-semibold uppercase text-emerald-800" title="Đã thu">
                                 <BadgeCheck className="w-3 h-3" /> Đã thu
                               </span>
                             )}

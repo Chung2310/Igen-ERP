@@ -32,7 +32,7 @@ export default function RoadmapDetailModal({
 
   return (
     <div
-      className="modal-backdrop fixed inset-0 z-9999 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-slate-900/65 backdrop-blur-xs"
+      className="modal-backdrop fixed inset-0 z-9999 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >

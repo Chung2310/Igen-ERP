@@ -222,7 +222,7 @@ export default function CelebrationEmailTab() {
   };
 
   return (
-    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl bg-surface-container-lowest p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2.5 rounded-2xl bg-white px-3 py-2 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
         <Toggle label="Tự động sinh nhật" checked={config.birthdayEnabled} onChange={(v: boolean) => setConfig({ ...config, birthdayEnabled: v })} />
         <Toggle label="Tự động lễ/Tết" checked={config.holidayEnabled} onChange={(v: boolean) => setConfig({ ...config, holidayEnabled: v })} />

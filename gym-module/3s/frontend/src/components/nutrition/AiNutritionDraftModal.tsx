@@ -255,13 +255,13 @@ export default function AiNutritionDraftModal({ open, customerId, customerName, 
                     type="button"
                     onClick={() => setShowVisualPoster(!showVisualPoster)}
                     style={{
-                      background: showVisualPoster ? '#003b70' : '#ffffff',
-                      color: showVisualPoster ? '#ffffff' : '#003b70',
-                      border: '1px solid #cbd5e1',
+                      background: showVisualPoster ? '#e0f2fe' : '#ffffff',
+                      color: showVisualPoster ? '#0284c7' : '#334155',
+                      border: `1px solid ${showVisualPoster ? '#7dd3fc' : '#e2e8f0'}`,
                       borderRadius: '8px',
                       padding: '8px 12px',
                       fontSize: '0.8rem',
-                      fontWeight: 700,
+                      fontWeight: showVisualPoster ? 600 : 500,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',

@@ -182,46 +182,10 @@ export default function ActivityLibraryCalculator({ selectedCustomer, onLogged }
 
   return (
     <div style={{ display: 'grid', gap: '12px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      {/* Quick Presets */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '6px' }}>
-        {[
-          { label: 'Gym 1h', actId: 'gym_hiit' },
-          { label: 'Chạy 5km', actId: 'running_5k' },
-          { label: 'Bơi 1km', actId: 'swimming_1k' },
-          { label: 'Cycling 20km', actId: 'cycling_20k' },
-          { label: 'Tabata 30p', actId: 'tabata_hiit' },
-        ].map((preset) => {
-          const isSelected = selectedActivity.id === preset.actId;
-          return (
-            <button
-              key={preset.actId}
-              type="button"
-              onClick={() => {
-                const target = ACTIVITIES.find((a) => a.id === preset.actId);
-                if (target) handleSelectActivity(target);
-              }}
-              style={{
-                background: isSelected ? '#e0f2fe' : '#ffffff',
-                color: isSelected ? '#0077b3' : '#475569',
-                border: `1px solid ${isSelected ? '#7dd3fc' : '#d8e2f0'}`,
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '0.78rem',
-                fontWeight: isSelected ? 600 : 500,
-                cursor: 'pointer',
-                transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
-              }}
-            >
-              {preset.label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Main Content Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px', alignItems: 'start' }}>
         {/* Left: Activity Cards Grid */}
-        <div style={{ display: 'grid', gap: '12px' }}>
+        <div style={{ display: 'grid', gap: '10px', minWidth: 0 }}>
           {/* Category Filter Pills */}
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
             {[
@@ -311,18 +275,54 @@ export default function ActivityLibraryCalculator({ selectedCustomer, onLogged }
           </div>
         </div>
 
-        {/* Right: Live Interactive Calculator */}
-        <div
-          style={{
-            background: '#ffffff',
-            borderRadius: '14px',
-            border: '1px solid #e2e8f0',
-            padding: '22px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-            display: 'grid',
-            gap: '18px',
-          }}
-        >
+        {/* Right: Quick Presets + Live Interactive Calculator */}
+        <div style={{ display: 'grid', gap: '10px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '6px' }}>
+            {[
+              { label: 'Gym 1h', actId: 'gym_hiit' },
+              { label: 'Chạy 5km', actId: 'running_5k' },
+              { label: 'Bơi 1km', actId: 'swimming_1k' },
+              { label: 'Cycling 20km', actId: 'cycling_20k' },
+              { label: 'Tabata 30p', actId: 'tabata_hiit' },
+            ].map((preset) => {
+              const isSelected = selectedActivity.id === preset.actId;
+              return (
+                <button
+                  key={preset.actId}
+                  type="button"
+                  onClick={() => {
+                    const target = ACTIVITIES.find((a) => a.id === preset.actId);
+                    if (target) handleSelectActivity(target);
+                  }}
+                  style={{
+                    background: isSelected ? '#e0f2fe' : '#ffffff',
+                    color: isSelected ? '#0077b3' : '#475569',
+                    border: `1px solid ${isSelected ? '#7dd3fc' : '#d8e2f0'}`,
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: isSelected ? 600 : 500,
+                    cursor: 'pointer',
+                    transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '14px',
+              border: '1px solid #e2e8f0',
+              padding: '22px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+              display: 'grid',
+              gap: '18px',
+            }}
+          >
           <div>
             <span style={{ fontSize: '0.74rem', color: '#0284c7', fontWeight: 700, textTransform: 'uppercase' }}>
               Bộ Tính Năng Lượng Động
@@ -426,6 +426,7 @@ export default function ActivityLibraryCalculator({ selectedCustomer, onLogged }
           >
             {saving ? 'Đang lưu...' : `Ghi ${calculatedCalories} kcal vào Nhật Ký Tiêu Hao`}
           </button>
+          </div>
         </div>
       </div>
     </div>

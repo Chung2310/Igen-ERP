@@ -9,14 +9,14 @@ interface FoodImagePreviewModalProps {
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
-  PROTEIN: '🥩 Đạm / Protein',
-  CARB: '🍚 Tinh bột / Carb',
-  FAT: '🥑 Chất béo tốt',
-  VEGGIE: '🥗 Rau củ / Salad',
-  MEAL: '🍱 Bữa chính hoàn chỉnh',
-  SNACK: '🥪 Bữa phụ',
-  DRINK: '🥤 Sinh tố / Nước',
-  OTHER: '✨ Khác',
+  PROTEIN:'Đạm / Protein',
+  CARB:'Tinh bột / Carb',
+  FAT:'Chất béo tốt',
+  VEGGIE:'Rau củ / Salad',
+  MEAL:'Bữa chính hoàn chỉnh',
+  SNACK:'Bữa phụ',
+  DRINK:'Sinh tố / Nước',
+  OTHER:'Khác',
 };
 
 export const FoodImagePreviewModal: React.FC<FoodImagePreviewModalProps> = ({
@@ -27,7 +27,7 @@ export const FoodImagePreviewModal: React.FC<FoodImagePreviewModalProps> = ({
   if (!item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl">
         <div className="relative w-full max-h-[420px] bg-slate-900 flex items-center justify-center">
           <img
@@ -71,7 +71,7 @@ export const FoodImagePreviewModal: React.FC<FoodImagePreviewModalProps> = ({
           {item.calories ? (
             <div className="mt-3.5 bg-amber-50/80 border border-amber-200 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-extrabold text-amber-900">
-                🔥 {item.calories} kcal
+                {item.calories} kcal
               </span>
               <div className="text-xs text-amber-800 font-semibold flex gap-3">
                 <span>{item.protein || 0}g Đạm</span>
@@ -86,7 +86,7 @@ export const FoodImagePreviewModal: React.FC<FoodImagePreviewModalProps> = ({
           {/* Mô tả / Gợi ý nếu có (chỉ hiển thị ghi chú thực tế, ẩn prompt kỹ thuật tiếng Anh) */}
           {item.prompt && !item.prompt.toLowerCase().includes('professional food photography') && (
             <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
-              💡 {item.prompt}
+              {item.prompt}
             </div>
           )}
 

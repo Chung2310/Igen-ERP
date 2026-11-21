@@ -27,7 +27,7 @@ it("preselects the source destination and creates the record only after confirma
   const onCompleted = vi.fn();
   render(<LeadModuleSyncModal lead={lead} companyCode="ACME" branchId="main" onCompleted={onCompleted} onClose={vi.fn()} />);
   const confirm = await screen.findByRole("button", { name: "Tạo hồ sơ bệnh nhân" });
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Phân hệ đích" }).value).toBe("healthcare");
+  expect(screen.getByRole("button", { name: "Phân hệ đích" }).textContent).toContain("Y tế");
   expect(resolve).toHaveBeenCalledWith("lead", expect.any(AbortSignal));
   expect(fetch).not.toHaveBeenCalled();
   fireEvent.click(confirm);
@@ -41,10 +41,11 @@ it("requires an explicit destination for a shared OA, even when only one module 
     targetModule: null, availableModules: ["healthcare"],
   });
   render(<LeadModuleSyncModal lead={lead} companyCode="ACME" branchId="main" onCompleted={vi.fn()} onClose={vi.fn()} />);
-  const select = screen.getByRole<HTMLSelectElement>("combobox", { name: "Phân hệ đích" });
+  const select = screen.getByRole<HTMLButtonElement>("button", { name: "Phân hệ đích" });
   await waitFor(() => expect(select.disabled).toBe(false));
-  expect(select.value).toBe("");
+  expect(select.textContent).toContain("Chọn phân hệ");
   expect(screen.getByRole<HTMLButtonElement>("button", { name: "Tạo hồ sơ" }).disabled).toBe(true);
-  fireEvent.change(select, { target: { value: "healthcare" } });
+  fireEvent.click(select);
+  fireEvent.click(screen.getByRole("option", { name: /Y tế/ }));
   expect(screen.getByRole<HTMLButtonElement>("button", { name: "Tạo hồ sơ bệnh nhân" }).disabled).toBe(false);
 });

@@ -1,10 +1,4 @@
-import AiBillingPolicy from '../models/AiBillingPolicy.js';
-import CreditPricing from '../models/CreditPricing.js';
-import { AppError } from '../errors/AppError.js';
-import { ERROR_CODES } from '../errors/errorCodes.js';
 import type { AiTaskType, PricingSnapshot, ProviderUsage } from './creditTypes.js';
-
-import { ensureCreditReferenceData } from './migrationService.js';
 
 export function calculateSettledCredits(usage: ProviderUsage, pricing: PricingSnapshot): number {
   const cost = usage.providerCostMicrousd;
@@ -17,28 +11,16 @@ export function calculateSettledCredits(usage: ProviderUsage, pricing: PricingSn
   return Math.max(pricing.minBillableCredits, rounded);
 }
 
+/** AI pricing rules; the actual Credit balance and ledger are owned by ERP. */
 export async function getPricingSnapshot(taskType: AiTaskType): Promise<PricingSnapshot> {
-  let [pricing, policy] = await Promise.all([
-    CreditPricing.findOne({ key: 'GLOBAL' }).lean(),
-    AiBillingPolicy.findOne({ taskType }).lean(),
-  ]);
-  if (!pricing || !policy) {
-    await ensureCreditReferenceData();
-    [pricing, policy] = await Promise.all([
-      CreditPricing.findOne({ key: 'GLOBAL' }).lean(),
-      AiBillingPolicy.findOne({ taskType }).lean(),
-    ]);
-  }
-  if (!pricing || !policy || !policy.enabled) {
-    throw new AppError({ status: 503, code: ERROR_CODES.UNAVAILABLE, message: 'Chính sách tính credit cho tác vụ AI chưa sẵn sàng.' });
-  }
+  const credits = ['TEXT_WORKOUT', 'TEXT_ROADMAP', 'TEXT_NUTRITION', 'IMAGE_GENERATION'].includes(taskType)
+    ? 10 : taskType === 'OCR_INBODY' ? 5 : 1;
   return Object.freeze({
-    usdToVnd: pricing.usdToVnd,
-    vndPerCredit: process.env.GYM_EMBEDDED === '1' ? 100 : pricing.vndPerCredit,
-    markupBasisPoints: policy.markupBasisPoints,
-    fallbackCredits: policy.fallbackCredits,
-    minBillableCredits: policy.minBillableCredits,
-    maxReservationCredits: policy.maxReservationCredits,
+    usdToVnd: 26_000,
+    vndPerCredit: 100,
+    markupBasisPoints: 12_500,
+    fallbackCredits: credits,
+    minBillableCredits: credits,
+    maxReservationCredits: credits,
   });
 }
-

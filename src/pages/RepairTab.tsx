@@ -48,7 +48,7 @@ export default function RepairTab() {
       </ModuleNavigation>
 
       {/* Tab View Content */}
-      <div className="flex min-h-0 flex-1 flex-col rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs">
+      <div className="flex min-h-0 flex-1 flex-col rounded-md bg-surface-container-lowest p-3 shadow-xs">
         {view === "repair" && (
           <RepairBoardPage
             createPrefill={prefill}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, Clock, CheckCircle, Wrench, Trash2, Pencil } from 'lucide-react';
+import { Wrench, Trash2, Pencil } from 'lucide-react';
 import { ResourceItem } from '../../../types';
 import { ErpCard, ErpTableHead } from '../../../components/Erp/ErpUI';
 import { todayStr } from '../utils';
@@ -92,26 +92,26 @@ function ResourceTableRow({
       <td className="py-2.5 px-4 text-left text-sm font-medium text-on-surface">{resource.identifier}</td>
       <td className="py-2.5 px-4 text-left text-sm font-medium text-on-surface">{resource.name}</td>
       <td className="py-2.5 px-4 text-left">
-        <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-0.5 text-xs font-medium text-on-surface-variant">
+        <span className="inline-block max-w-36 truncate rounded-sm bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase text-slate-700" title={resource.type}>
           {resource.type}
         </span>
       </td>
       <td className="py-2.5 px-4 text-left text-sm font-normal tabular-nums text-on-surface">{resource.capacity}</td>
       <td className="py-2.5 px-4 space-y-1 text-left">
         {resource.status === 'MAINTENANCE' ? (
-          <span className="inline-flex items-center gap-1 text-rose-600 text-xs font-medium">
-            <AlertTriangle className="w-3.5 h-3.5" /> Bảo trì
+          <span className="inline-block max-w-40 truncate rounded-sm bg-rose-100 px-2 py-0.5 text-xs font-semibold uppercase text-rose-800">
+            Bảo trì
           </span>
         ) : isOccupied && currentBooking ? (
           <div className="space-y-0.5">
-            <span className="inline-flex items-center gap-1 text-on-surface-variant text-xs font-medium">
-              <Clock className="w-3 h-3" /> Đang bận ({currentBooking.startTime}-{currentBooking.endTime})
+            <span className="inline-block max-w-40 truncate rounded-sm bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase text-amber-800" title={`Đang bận (${currentBooking.startTime}-${currentBooking.endTime})`}>
+              Đang bận ({currentBooking.startTime}-{currentBooking.endTime})
             </span>
             <div className="max-w-xs truncate text-xs text-on-surface-variant">{currentBooking.purpose} ({currentBooking.by})</div>
           </div>
         ) : (
-          <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-medium">
-            <CheckCircle className="w-3.5 h-3.5" /> Sẵn sàng
+          <span className="inline-block max-w-40 truncate rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-semibold uppercase text-emerald-800">
+            Sẵn sàng
           </span>
         )}
         {upcomingBookings.length > 0 && (

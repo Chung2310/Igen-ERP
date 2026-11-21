@@ -1,3 +1,4 @@
+import './config/collectionNamespace.js';
 import express from 'express';
 import mongoose from 'mongoose';
 import { success } from './middlewares/response.js';
@@ -35,8 +36,6 @@ import packageTemplatesRouter from './routes/packageTemplates.js';
 import workoutTemplatesRouter from './routes/workoutTemplates.js';
 import imageGenerationRouter from './routes/imageGeneration.js';
 import aiWorkoutRouter from './routes/aiWorkout.js';
-import creditsRouter from './routes/credits.js';
-import adminCreditsRouter from './routes/adminCredits.js';
 import foodImagesRouter from './routes/foodImages.js';
 import knowledgeRouter from './routes/knowledge.js';
 import fs from 'node:fs';
@@ -52,7 +51,7 @@ configureSecurity(app, { corsOrigins: env.CORS_ORIGINS, trustProxy: env.TRUST_PR
 app.use(requestLogging);
 
 // Phục vụ tĩnh thư mục kho ảnh món ăn vật lý
-const foodImagesDir = path.resolve(process.cwd(), 'uploads/food-images');
+const foodImagesDir = path.resolve(process.cwd(), process.env.GYM_EMBEDDED === '1' ? 'uploads/gym/food-images' : 'uploads/food-images');
 if (!fs.existsSync(foodImagesDir)) {
   fs.mkdirSync(foodImagesDir, { recursive: true });
 }
@@ -92,8 +91,6 @@ app.use('/api/exercises', exercisesRouter);
 app.use('/api/package-templates', packageTemplatesRouter);
 app.use('/api/workout-templates', workoutTemplatesRouter);
 app.use('/api/ai', aiWorkoutRouter);
-app.use('/api/credits', creditsRouter);
-app.use('/api/admin', adminCreditsRouter);
 app.use('/api', workoutProgressRouter);
 app.use('/api/workout-session-drafts', workoutSessionDraftsRouter);
 app.use('/api', careDashboardRouter);

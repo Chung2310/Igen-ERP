@@ -28,7 +28,8 @@ gymProxyRouter.use(async (request: AuthenticatedRequest, response, next) => {
     response.status(403).json({ message: "Bạn chưa được cấp quyền Quản lý phòng Gym." });
     return;
   }
-  if (!isAdmin && !isCustomer && !permissions.has("gym-pt:manage") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+  const isSelfProfileWrite = request.method === "PATCH" && /^\/api\/auth\/me(?:\?|$)/.test(request.url);
+  if (!isAdmin && !isCustomer && !permissions.has("gym-pt:manage") && !["GET", "HEAD", "OPTIONS"].includes(request.method) && !isSelfProfileWrite) {
     response.status(403).json({ message: "Quyền PT chỉ cho phép xem dữ liệu." });
     return;
   }
@@ -38,7 +39,7 @@ gymProxyRouter.use(async (request: AuthenticatedRequest, response, next) => {
     response.status(503).json({ message: "Quản lý phòng Gym chưa được cấu hình." });
     return;
   }
-  const backend = new URL(process.env.GYM_BACKEND_URL || "http://127.0.0.1:3018");
+  const backend = new URL(`http://127.0.0.1:${process.env.PORT || "3000"}`);
   const destination = new URL(request.url, backend);
   if (destination.origin !== backend.origin || !destination.pathname.startsWith("/api/")) {
     response.status(404).end();
@@ -203,6 +204,7 @@ gymProxyRouter.use(async (request: AuthenticatedRequest, response, next) => {
   const body = hasBody ? Buffer.from(JSON.stringify(request.body)) : null;
   if (body) headers["content-length"] = String(body.length);
 
+  destination.pathname = `/internal-gym${destination.pathname}`;
   const send = destination.protocol === "https:" ? httpsRequest : httpRequest;
   const upstream = send(destination, { method: request.method, headers }, (result) => {
     if (isCreatePt || isCreateCustomer || isUpdateSelf || gymUserId && ["PATCH", "DELETE"].includes(request.method) || gymCustomerId && ["PATCH", "DELETE"].includes(request.method)) {

@@ -214,14 +214,14 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
 
   const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
-      'Đã đậu': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'Đang học': 'bg-blue-100 text-blue-700 border-blue-200',
-      'Chờ nhập học': 'bg-amber-100 text-amber-700 border-amber-200',
-      'Thi lại': 'bg-rose-100 text-rose-700 border-rose-200',
-      'Nợ học phí': 'bg-orange-100 text-orange-700 border-orange-200',
-      'Nghỉ học': 'bg-slate-200 text-slate-600 border-slate-300',
+      'Đã đậu': 'bg-emerald-100 text-emerald-800',
+      'Đang học': 'bg-sky-100 text-sky-800',
+      'Chờ nhập học': 'bg-amber-100 text-amber-800',
+      'Thi lại': 'bg-rose-100 text-rose-800',
+      'Nợ học phí': 'bg-orange-100 text-orange-800',
+      'Nghỉ học': 'bg-slate-100 text-slate-700',
     };
-    return map[status] || 'bg-slate-100 text-slate-700 border-slate-200';
+    return map[status] || 'bg-slate-100 text-slate-700';
   };
 
   return (
@@ -264,9 +264,10 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                       <span
                         key={st}
                         className={cn(
-                          "whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium",
+                          "inline-block max-w-40 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase",
                           getStatusColor(st)
                         )}
+                        title={st}
                       >
                         {st}
                       </span>
@@ -399,7 +400,7 @@ function StudentExamHistoryTab({ student }: { student: Student }) {
     {!exams.length ? <div className="rounded-xl bg-sky-50/40 py-6 text-center text-sm text-slate-500">Chưa có bài thi nào được ghi nhận.</div> : <div className="space-y-2">{[...exams].reverse().map((exam, index) => {
       const scores = [["Lý thuyết", exam.result?.theory], ["Thực hành", exam.result?.practice], ["Mô phỏng", exam.result?.simulation]].filter(([, score]) => typeof score === "number" && score > 0) as Array<[string, number]>;
       const overall = exam.result?.overall;
-      return <div key={exam.id || index} className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50/40 px-3 py-2.5"><div className="flex min-w-0 items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-brand-primary"><FileText className="h-4 w-4" /></div><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-800">{exam.name}</p><p className="mt-0.5 text-xs text-slate-500">{exam.type} · {toDisplayDate(exam.date)}</p>{scores.length ? <p className="mt-1 text-xs font-normal text-brand-primary">{scores.map(([label, score]) => `${label}: ${score}`).join(" · ")}</p> : null}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-xs font-normal ${overall === "Đậu" ? "bg-emerald-50 text-emerald-700" : overall === "Trượt" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>{overall || "Chưa có kết quả"}</span></div>;
+      return <div key={exam.id || index} className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50/40 px-3 py-2.5"><div className="flex min-w-0 items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-brand-primary"><FileText className="h-4 w-4" /></div><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-800">{exam.name}</p><p className="mt-0.5 text-xs text-slate-500">{exam.type} · {toDisplayDate(exam.date)}</p>{scores.length ? <p className="mt-1 text-xs font-normal text-brand-primary">{scores.map(([label, score]) => `${label}: ${score}`).join(" · ")}</p> : null}</div></div><span className={`inline-block max-w-40 shrink-0 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase ${overall === "Đậu" ? "bg-emerald-50 text-emerald-700" : overall === "Trượt" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>{overall || "Chưa có kết quả"}</span></div>;
     })}</div>}
   </div>;
 }

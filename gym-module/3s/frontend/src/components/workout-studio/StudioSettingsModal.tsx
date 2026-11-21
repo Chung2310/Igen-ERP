@@ -50,7 +50,7 @@ export default function StudioSettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
@@ -120,9 +120,9 @@ export default function StudioSettingsModal({
                 onChange={(e) => onLevelChange(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all bg-white"
               >
-                <option value="BEGINNER">🌱 Cơ bản (Beginner)</option>
-                <option value="INTERMEDIATE">⚡ Trung cấp (Intermediate)</option>
-                <option value="ADVANCED">🔥 Nâng cao (Advanced)</option>
+                <option value="BEGINNER">Cơ bản (Beginner)</option>
+                <option value="INTERMEDIATE">Trung cấp (Intermediate)</option>
+                <option value="ADVANCED">Nâng cao (Advanced)</option>
               </select>
             </div>
 

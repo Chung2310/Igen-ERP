@@ -12,7 +12,7 @@ type Props = {
 };
 
 const pageFrameClass = "min-h-0 flex-1 overflow-y-auto bg-surface";
-const pageCardClass = "min-h-full rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6";
+const pageCardClass = "min-h-full rounded-2xl bg-surface-container-lowest p-4 sm:p-6";
 
 export default function HrDepartmentTab({ companyCode, fetchUsers, canManage = true }: Props) {
   const [departments, setDepartments] = useState<HrDepartment[]>([]);

@@ -1457,7 +1457,7 @@ export default function CRMTab() {
   }, [hasSelectableChannels]);
 
   return (
-    <div className="marketing-workspace crm-workspace flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest" id="crm_tab_wrapper">
+    <div className="marketing-workspace crm-workspace flex h-full min-h-0 flex-col overflow-hidden rounded-md bg-surface-container-lowest" id="crm_tab_wrapper">
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
@@ -1722,7 +1722,7 @@ export default function CRMTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
+    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white p-6 text-center">
       <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
       <span className="text-xs text-gray-500 font-semibold">{label}</span>
     </div>

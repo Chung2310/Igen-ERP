@@ -191,7 +191,7 @@ export default function CustomerWorkouts({ journey }: CustomerWorkoutsProps) {
                   color: '#f0f9ff',
                 }}
               >
-                <strong style={{ color: '#fde047', marginRight: '6px' }}>⚡ Dặn dò kỹ thuật từ PT:</strong>
+                <strong style={{ color:'#fde047', marginRight:'6px' }}>Dặn dò kỹ thuật từ PT:</strong>
                 {String(activePlan.technicalNotes)}
               </div>
             )}

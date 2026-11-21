@@ -18,7 +18,7 @@ export default function WorkoutTemplatePickerModal({ open, saving, onClose, onCo
     api.get<WorkoutTemplate[]>('/api/workout-templates?page=1&limit=100').then(({ data }) => setItems(data)).catch((error: unknown) => toast.error(errorMessage(error))).finally(() => setLoading(false));
   }, [open, toast]);
   if (!open) return null;
-  return <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="Chọn giáo án mẫu">
+  return <div className="fixed inset-0 z-[90] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Chọn giáo án mẫu">
     <section className="w-full max-w-[560px] rounded-xl bg-white p-4 shadow-2xl sm:p-6">
       <header className="mb-4 flex items-center justify-between"><div><h3 className="font-oswald text-xl font-bold uppercase text-primary">Chọn giáo án mẫu</h3><p className="text-sm text-slate-500">Một bản sao riêng sẽ được tạo cho khách hàng.</p></div><button type="button" aria-label="Đóng" className="rounded-lg p-2 hover:bg-slate-100" onClick={onClose}><X size={20} /></button></header>
       <div className="max-h-[50vh] space-y-2 overflow-y-auto">

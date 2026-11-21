@@ -277,6 +277,8 @@ export function ProductCatalogV2Section({ workspace, branchId, branchName, branc
   return (
     <section className="min-w-0 space-y-3" aria-label="Danh mục sản phẩm và dịch vụ">
       <TableFilterToolbar
+        appearance="plain"
+        className="px-3.5 py-3.5 sm:px-4"
         search={{
           value: query,
           onChange: value => { setQuery(value); setPage(1); },

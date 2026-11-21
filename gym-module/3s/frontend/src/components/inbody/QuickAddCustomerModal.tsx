@@ -144,7 +144,7 @@ export default function QuickAddCustomerModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[10005] flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+      className="fixed inset-0 z-[10005] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="quick-customer-modal-title"

@@ -28,6 +28,8 @@ import {
   type FoodItem,
   type FoodCategory,
 } from '../../services/foodDatabase';
+import CustomSelect from '../ui/CustomSelect';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 
 interface MealLibraryManagerProps {
   onSelectForPlan?: (food: FoodItem) => void;
@@ -355,85 +357,85 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
         <div
           onClick={() => setSelectedCategory('all')}
           style={{
-            background: selectedCategory === 'all' ? '#e0f2fe' : '#ffffff',
-            border: selectedCategory === 'all' ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
+            background: selectedCategory === 'all' ? '#f0f9ff' : '#ffffff',
+            border: selectedCategory === 'all' ? '1px solid #7dd3fc' : '1px solid #e2e8f0',
             borderRadius: '10px',
             padding: '10px 14px',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>TẤT CẢ MÓN</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#003b70', marginTop: '2px' }}>{countAll}</div>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>TẤT CẢ MÓN</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{countAll}</div>
         </div>
 
         <div
           onClick={() => setSelectedCategory('custom')}
           style={{
-            background: selectedCategory === 'custom' ? '#fef3c7' : '#ffffff',
-            border: selectedCategory === 'custom' ? '1.5px solid #d97706' : '1px solid #e2e8f0',
+            background: selectedCategory === 'custom' ? '#fffbeb' : '#ffffff',
+            border: selectedCategory === 'custom' ? '1px solid #fcd34d' : '1px solid #e2e8f0',
             borderRadius: '10px',
             padding: '10px 14px',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 700 }}>MÓN TỰ THÊM</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#d97706', marginTop: '2px' }}>{countCustom}</div>
+          <div style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: 600 }}>MÓN TỰ THÊM</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#d97706', marginTop: '2px' }}>{countCustom}</div>
         </div>
 
         <div
           onClick={() => setSelectedCategory('protein')}
           style={{
             background: selectedCategory === 'protein' ? '#eff6ff' : '#ffffff',
-            border: selectedCategory === 'protein' ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+            border: selectedCategory === 'protein' ? '1px solid #93c5fd' : '1px solid #e2e8f0',
             borderRadius: '10px',
             padding: '10px 14px',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 700 }}>NHÓM ĐẠM</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1d4ed8', marginTop: '2px' }}>{countProtein}</div>
+          <div style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>NHÓM ĐẠM</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#1d4ed8', marginTop: '2px' }}>{countProtein}</div>
         </div>
 
         <div
           onClick={() => setSelectedCategory('carbs')}
           style={{
             background: selectedCategory === 'carbs' ? '#fffbeb' : '#ffffff',
-            border: selectedCategory === 'carbs' ? '1.5px solid #d97706' : '1px solid #e2e8f0',
+            border: selectedCategory === 'carbs' ? '1px solid #fcd34d' : '1px solid #e2e8f0',
             borderRadius: '10px',
             padding: '10px 14px',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 700 }}>TINH BỘT</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#92400e', marginTop: '2px' }}>{countCarbs}</div>
+          <div style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: 600 }}>TINH BỘT</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#92400e', marginTop: '2px' }}>{countCarbs}</div>
         </div>
 
         <div
           onClick={() => setSelectedCategory('veggies')}
           style={{
             background: selectedCategory === 'veggies' ? '#ecfdf5' : '#ffffff',
-            border: selectedCategory === 'veggies' ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+            border: selectedCategory === 'veggies' ? '1px solid #6ee7b7' : '1px solid #e2e8f0',
             borderRadius: '10px',
             padding: '10px 14px',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 700 }}>RAU CỦ</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#047857', marginTop: '2px' }}>{countVeggies}</div>
+          <div style={{ fontSize: '0.7rem', color: '#059669', fontWeight: 600 }}>RAU CỦ</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#047857', marginTop: '2px' }}>{countVeggies}</div>
         </div>
 
         <div
           onClick={() => setSelectedCategory('fat')}
           style={{
             background: selectedCategory === 'fat' ? '#fdf2f8' : '#ffffff',
-            border: selectedCategory === 'fat' ? '1.5px solid #db2777' : '1px solid #e2e8f0',
+            border: selectedCategory === 'fat' ? '1px solid #f9a8d4' : '1px solid #e2e8f0',
             borderRadius: '10px',
             padding: '10px 14px',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.72rem', color: '#db2777', fontWeight: 700 }}>CHẤT BÉO</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#be185d', marginTop: '2px' }}>{countFat}</div>
+          <div style={{ fontSize: '0.7rem', color: '#db2777', fontWeight: 600 }}>CHẤT BÉO</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#be185d', marginTop: '2px' }}>{countFat}</div>
         </div>
       </div>
 
@@ -443,28 +445,40 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
           onSubmit={handleSaveFood}
           style={{
             background: '#ffffff',
-            border: '2px solid #0284c7',
-            borderRadius: '14px',
-            padding: '20px 22px',
-            boxShadow: '0 8px 24px rgba(2, 132, 199, 0.12)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {editingFoodId ? <Edit3 size={16} /> : <Plus size={16} />}
+              <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#f0f9ff', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {editingFoodId ? <Edit3 size={15} /> : <Plus size={15} />}
               </div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#003b70' }}>
-                {editingFoodId ? 'Chỉnh Sửa Thông Tin Món Ăn' : 'Thêm Món Ăn Mới Vào Kho Dữ Liệu'}
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#0f172a' }}>
+                {editingFoodId ? 'Chỉnh sửa thông tin món ăn' : 'Thêm món ăn mới'}
               </h3>
             </div>
 
             <button
               type="button"
               onClick={resetForm}
-              style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: '#64748b' }}
+              aria-label="Đóng biểu mẫu"
+              style={{
+                width: '30px',
+                height: '30px',
+                background: 'transparent',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748b',
+              }}
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
 
@@ -472,7 +486,7 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
             {/* Cột 1: Thông tin cơ bản */}
             <div>
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#334155', marginBottom: '5px' }}>
                   Tên món ăn <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <input
@@ -483,51 +497,59 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                   placeholder="VD: Ức gà nướng sốt cam, Bò lúc lắc..."
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    height: '36px',
+                    padding: '0 12px',
                     borderRadius: '8px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
+                    border: '1px solid #e2e8f0',
+                    fontSize: '0.84rem',
+                    fontWeight: 500,
+                    color: '#0f172a',
+                    background: '#ffffff',
                   }}
                 />
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#334155', marginBottom: '6px' }}>
                   Nhóm dinh dưỡng chính
                 </label>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {[
-                    { id: 'protein', label: 'Đạm (Protein)', color: '#2563eb' },
-                    { id: 'carbs', label: 'Tinh bột (Carbs)', color: '#d97706' },
-                    { id: 'veggies', label: 'Rau củ (Fiber)', color: '#059669' },
-                    { id: 'fat', label: 'Chất béo (Fat)', color: '#db2777' },
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setFoodCategory(cat.id as FoodCategory)}
-                      style={{
-                        background: foodCategory === cat.id ? '#003b70' : '#f8fafc',
-                        color: foodCategory === cat.id ? '#ffffff' : '#475569',
-                        border: '1.5px solid',
-                        borderColor: foodCategory === cat.id ? '#003b70' : '#cbd5e1',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+                    { id: 'protein', label: 'Đạm (Protein)' },
+                    { id: 'carbs', label: 'Tinh bột (Carbs)' },
+                    { id: 'veggies', label: 'Rau củ (Fiber)' },
+                    { id: 'fat', label: 'Chất béo (Fat)' },
+                  ].map((cat) => {
+                    const isSelected = foodCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setFoodCategory(cat.id as FoodCategory)}
+                        style={{
+                          height: '32px',
+                          background: isSelected ? '#e0f2fe' : '#ffffff',
+                          color: isSelected ? '#0284c7' : '#475569',
+                          border: '1px solid',
+                          borderColor: isSelected ? '#7dd3fc' : '#e2e8f0',
+                          borderRadius: '8px',
+                          padding: '0 12px',
+                          fontSize: '0.78rem',
+                          fontWeight: isSelected ? 600 : 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {cat.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#334155', marginBottom: '5px' }}>
                     Định lượng khẩu phần
                   </label>
                   <input
@@ -535,11 +557,20 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     value={foodServing}
                     onChange={(e) => setFoodServing(e.target.value)}
                     placeholder="VD: 1 đĩa (150g), 1 bát con..."
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      padding: '0 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '0.84rem',
+                      color: '#0f172a',
+                      background: '#ffffff',
+                    }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 500, color: '#334155', marginBottom: '5px' }}>
                     Khối lượng (gram)
                   </label>
                   <input
@@ -549,7 +580,16 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     value={foodGrams}
                     onChange={(e) => setFoodGrams(e.target.value)}
                     placeholder="150"
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      padding: '0 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '0.84rem',
+                      color: '#0f172a',
+                      background: '#ffffff',
+                    }}
                   />
                 </div>
               </div>
@@ -557,13 +597,13 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
 
             {/* Cột 2: Chỉ số dinh dưỡng & Macro Preview */}
             <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#003b70', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Flame size={15} color="#ea580c" /> Giá Trị Dinh Dưỡng Theo Khẩu Phần ({foodGrams}g)
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Flame size={15} color="#ea580c" /> Giá trị dinh dưỡng theo khẩu phần ({foodGrams}g)
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 500, color: '#475569', marginBottom: '4px' }}>
                     Calo (kcal)
                   </label>
                   <input
@@ -572,11 +612,11 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     value={foodCalories}
                     onChange={(e) => setFoodCalories(e.target.value)}
                     placeholder={String(autoCalculatedCalories || 'Tự tính')}
-                    style={{ width: '100%', padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 800, color: '#ea580c' }}
+                    style={{ width: '100%', height: '36px', padding: '0 8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff', fontSize: '0.84rem', fontWeight: 600, color: '#ea580c' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#2563eb', marginBottom: '3px' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 500, color: '#2563eb', marginBottom: '4px' }}>
                     Protein (g)
                   </label>
                   <input
@@ -586,11 +626,11 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     value={foodProtein}
                     onChange={(e) => setFoodProtein(e.target.value)}
                     placeholder="VD: 25"
-                    style={{ width: '100%', padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 800, color: '#1d4ed8' }}
+                    style={{ width: '100%', height: '36px', padding: '0 8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff', fontSize: '0.84rem', fontWeight: 600, color: '#1d4ed8' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#d97706', marginBottom: '3px' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 500, color: '#d97706', marginBottom: '4px' }}>
                     Carbs (g)
                   </label>
                   <input
@@ -600,11 +640,11 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     value={foodCarbs}
                     onChange={(e) => setFoodCarbs(e.target.value)}
                     placeholder="VD: 5"
-                    style={{ width: '100%', padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 800, color: '#b45309' }}
+                    style={{ width: '100%', height: '36px', padding: '0 8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff', fontSize: '0.84rem', fontWeight: 600, color: '#b45309' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#db2777', marginBottom: '3px' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 500, color: '#db2777', marginBottom: '4px' }}>
                     Fat (g)
                   </label>
                   <input
@@ -614,7 +654,7 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     value={foodFat}
                     onChange={(e) => setFoodFat(e.target.value)}
                     placeholder="VD: 4"
-                    style={{ width: '100%', padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 800, color: '#be185d' }}
+                    style={{ width: '100%', height: '36px', padding: '0 8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff', fontSize: '0.84rem', fontWeight: 600, color: '#be185d' }}
                   />
                 </div>
               </div>
@@ -622,12 +662,12 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
               {/* Macro Proportion Bar */}
               {totalMacroGrams > 0 && (
                 <div style={{ marginBottom: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 700, marginBottom: '3px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 500, marginBottom: '4px' }}>
                     <span style={{ color: '#1d4ed8' }}>Đạm: {pctP}%</span>
                     <span style={{ color: '#b45309' }}>Carbs: {pctC}%</span>
                     <span style={{ color: '#be185d' }}>Béo: {pctF}%</span>
                   </div>
-                  <div style={{ display: 'flex', height: '6px', borderRadius: '4px', overflow: 'hidden', background: '#e2e8f0' }}>
+                  <div style={{ display: 'flex', height: '6px', borderRadius: '999px', overflow: 'hidden', background: '#e2e8f0' }}>
                     <div style={{ width: `${pctP}%`, background: '#2563eb' }} />
                     <div style={{ width: `${pctC}%`, background: '#f59e0b' }} />
                     <div style={{ width: `${pctF}%`, background: '#ec4899' }} />
@@ -636,7 +676,7 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
               )}
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 500, color: '#475569', marginBottom: '4px' }}>
                   Cách chế biến / Lưu ý khi nấu (tùy chọn)
                 </label>
                 <input
@@ -644,47 +684,40 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                   value={foodPrepTip}
                   onChange={(e) => setFoodPrepTip(e.target.value)}
                   placeholder="VD: Áp chảo ít dầu, nướng nồi chiên không dầu 180°C..."
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                  style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff', fontSize: '0.82rem', color: '#0f172a' }}
                 />
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
             <button
               type="button"
+              className="button button-secondary"
               onClick={resetForm}
               style={{
-                padding: '8px 18px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: '#475569',
-                fontSize: '0.84rem',
-                fontWeight: 700,
-                cursor: 'pointer',
+                minHeight: '36px',
+                padding: '0 16px',
+                fontSize: '0.82rem',
+                fontWeight: 500,
               }}
             >
-              Hủy Bỏ
+              Hủy bỏ
             </button>
             <button
               type="submit"
+              className="button button-primary"
               style={{
-                padding: '8px 22px',
-                borderRadius: '8px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #0284c7 0%, #003b70 100%)',
-                color: '#ffffff',
-                fontSize: '0.86rem',
-                fontWeight: 800,
-                cursor: 'pointer',
+                minHeight: '36px',
+                padding: '0 18px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
               }}
             >
-              <Check size={16} /> {editingFoodId ? 'Lưu Thay Đổi Món Ăn' : 'Lưu Vào Kho Món Ăn'}
+              <Check size={15} /> {editingFoodId ? 'Lưu thay đổi món ăn' : 'Lưu vào kho món ăn'}
             </button>
           </div>
         </form>
@@ -696,12 +729,12 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
           background: '#ffffff',
           border: '1px solid #e2e8f0',
           borderRadius: '12px',
-          padding: '14px 16px',
+          padding: '12px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '12px',
+          gap: '10px',
         }}
       >
         <div style={{ flex: '1 1 260px', position: 'relative' }}>
@@ -712,100 +745,94 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
             placeholder="Tìm theo tên món ăn hoặc cách nấu..."
             style={{
               width: '100%',
-              padding: '8px 12px 8px 36px',
+              height: '36px',
+              padding: '0 12px 0 34px',
               borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '0.85rem',
+              border: '1px solid #e2e8f0',
+              fontSize: '0.84rem',
+              color: '#0f172a',
             }}
           />
-          <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Sắp xếp:</span>
-            <select
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748b' }}>Sắp xếp:</span>
+            <CustomSelect
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                color: '#334155',
-                background: '#ffffff',
-              }}
-            >
-              <option value="name">Tên A-Z</option>
-              <option value="calories_desc">Calo cao nhất</option>
-              <option value="calories_asc">Calo thấp nhất</option>
-              <option value="protein_desc">Protein cao nhất</option>
-            </select>
+              onChange={(val) => setSortBy(val)}
+              ariaLabel="Sắp xếp món ăn"
+              style={{ minWidth: '148px' }}
+              options={[
+                { value: 'name', label: 'Tên A-Z' },
+                { value: 'calories_desc', label: 'Calo cao nhất' },
+                { value: 'calories_asc', label: 'Calo thấp nhất' },
+                { value: 'protein_desc', label: 'Protein cao nhất' },
+              ]}
+            />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Hiển thị:</span>
-            <select
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#64748b' }}>Hiển thị:</span>
+            <CustomSelect<number>
               value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                color: '#334155',
-                background: '#ffffff',
-              }}
-            >
-              <option value={9}>9 món / trang</option>
-              <option value={12}>12 món / trang</option>
-              <option value={18}>18 món / trang</option>
-              <option value={24}>24 món / trang</option>
-              <option value={1000}>Tất cả món</option>
-            </select>
+              onChange={(val) => setItemsPerPage(val)}
+              ariaLabel="Số món hiển thị mỗi trang"
+              style={{ minWidth: '132px' }}
+              options={[
+                { value: 9, label: '9 món / trang' },
+                { value: 12, label: '12 món / trang' },
+                { value: 18, label: '18 món / trang' },
+                { value: 24, label: '24 món / trang' },
+                { value: 1000, label: 'Tất cả món' },
+              ]}
+            />
           </div>
         </div>
       </div>
 
       {/* Category Pills Slider */}
-      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
         {[
-          { id: 'all', label: `Tất Cả (${countAll})` },
-          { id: 'custom', label: `Món Tự Thêm (${countCustom})` },
-          { id: 'protein', label: `Nhóm Đạm (${countProtein})` },
-          { id: 'carbs', label: `Tinh Bột (${countCarbs})` },
-          { id: 'veggies', label: `Rau Củ (${countVeggies})` },
-          { id: 'fat', label: `Chất Béo (${countFat})` },
-        ].map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setSelectedCategory(c.id as any)}
-            style={{
-              background: selectedCategory === c.id ? '#003b70' : '#ffffff',
-              color: selectedCategory === c.id ? '#ffffff' : '#334155',
-              border: '1px solid',
-              borderColor: selectedCategory === c.id ? '#003b70' : '#cbd5e1',
-              borderRadius: '8px',
-              padding: '6px 14px',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
-            }}
-          >
-            {c.label}
-          </button>
-        ))}
+          { id: 'all', label: `Tất cả (${countAll})` },
+          { id: 'custom', label: `Món tự thêm (${countCustom})` },
+          { id: 'protein', label: `Nhóm đạm (${countProtein})` },
+          { id: 'carbs', label: `Tinh bột (${countCarbs})` },
+          { id: 'veggies', label: `Rau củ (${countVeggies})` },
+          { id: 'fat', label: `Chất béo (${countFat})` },
+        ].map((c) => {
+          const isSelected = selectedCategory === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedCategory(c.id as any)}
+              style={{
+                height: '32px',
+                background: isSelected ? '#e0f2fe' : '#ffffff',
+                color: isSelected ? '#0284c7' : '#475569',
+                border: '1px solid',
+                borderColor: isSelected ? '#7dd3fc' : '#e2e8f0',
+                borderRadius: '8px',
+                padding: '0 12px',
+                fontSize: '0.78rem',
+                fontWeight: isSelected ? 600 : 500,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Result Count and Quick Page Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', fontSize: '0.78rem', color: '#64748b', fontWeight: 500 }}>
         <div>
-          Hiển thị <strong style={{ color: '#003b70' }}>{displayStart} - {displayEnd}</strong> trên tổng số <strong>{filteredFoods.length}</strong> món ăn
+          Hiển thị <strong style={{ color: '#0f172a' }}>{displayStart} - {displayEnd}</strong> trên tổng số <strong style={{ color: '#0f172a' }}>{filteredFoods.length}</strong> món ăn
         </div>
         {totalPages > 1 && (
           <div>
@@ -863,44 +890,31 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                     {item.categoryLabel}
                   </span>
 
-                  {isCust ? (
+                  {isCust && (
                     <span
                       style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 800,
-                        background: '#dbeafe',
-                        color: '#1e40af',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                        background: '#e0f2fe',
+                        color: '#0284c7',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
                       }}
                     >
                       Món tự thêm
-                    </span>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        background: '#f1f5f9',
-                        color: '#64748b',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                      }}
-                    >
-                   
                     </span>
                   )}
                 </div>
 
                 {/* Dish Name */}
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px', lineHeight: 1.3 }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0f172a', marginBottom: '4px', lineHeight: 1.35 }}>
                   {item.name}
                 </div>
 
                 {/* Serving & Kcal per 100g */}
                 <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '8px' }}>
-                  Khẩu phần: <strong style={{ color: '#003b70' }}>{item.servingLabel || `${item.defaultServingGrams}g`}</strong> •{' '}
-                  <span style={{ color: '#ea580c', fontWeight: 800 }}>{item.caloriesPer100g} kcal/100g</span>
+                  Khẩu phần: <strong style={{ color: '#0f172a' }}>{item.servingLabel || `${item.defaultServingGrams}g`}</strong> •{' '}
+                  <span style={{ color: '#ea580c', fontWeight: 600 }}>{item.caloriesPer100g} kcal/100g</span>
                 </div>
 
                 {/* Macro Badges */}
@@ -1002,8 +1016,8 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
             marginTop: '8px',
           }}
         >
-          <div style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
-            Hiển thị <strong style={{ color: '#003b70' }}>{displayStart} - {displayEnd}</strong> / <strong>{filteredFoods.length}</strong> món ăn
+          <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>
+            Hiển thị <strong style={{ color: '#0f172a' }}>{displayStart} - {displayEnd}</strong> / <strong style={{ color: '#0f172a' }}>{filteredFoods.length}</strong> món ăn
             <span style={{ margin: '0 6px' }}>•</span>
             Trang <strong style={{ color: '#0284c7' }}>{safeCurrentPage}</strong> / <strong>{totalPages}</strong>
           </div>
@@ -1014,13 +1028,14 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
               disabled={safeCurrentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               style={{
-                background: safeCurrentPage <= 1 ? '#f1f5f9' : '#ffffff',
-                color: safeCurrentPage <= 1 ? '#94a3b8' : '#003b70',
-                border: '1px solid #cbd5e1',
+                height: '32px',
+                background: safeCurrentPage <= 1 ? '#f8fafc' : '#ffffff',
+                color: safeCurrentPage <= 1 ? '#94a3b8' : '#334155',
+                border: '1px solid #e2e8f0',
                 borderRadius: '8px',
-                padding: '6px 12px',
+                padding: '0 10px',
                 fontSize: '0.78rem',
-                fontWeight: 700,
+                fontWeight: 500,
                 cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1054,15 +1069,15 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
                   type="button"
                   onClick={() => setCurrentPage(p)}
                   style={{
-                    minWidth: '34px',
-                    height: '34px',
+                    minWidth: '32px',
+                    height: '32px',
                     padding: '0 6px',
                     borderRadius: '8px',
-                    border: p === safeCurrentPage ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
-                    background: p === safeCurrentPage ? '#0284c7' : '#ffffff',
+                    border: p === safeCurrentPage ? '1px solid #0ea5e9' : '1px solid #e2e8f0',
+                    background: p === safeCurrentPage ? '#0ea5e9' : '#ffffff',
                     color: p === safeCurrentPage ? '#ffffff' : '#334155',
                     fontSize: '0.8rem',
-                    fontWeight: 800,
+                    fontWeight: p === safeCurrentPage ? 600 : 500,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
@@ -1077,13 +1092,14 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
               disabled={safeCurrentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               style={{
-                background: safeCurrentPage >= totalPages ? '#f1f5f9' : '#ffffff',
-                color: safeCurrentPage >= totalPages ? '#94a3b8' : '#003b70',
-                border: '1px solid #cbd5e1',
+                height: '32px',
+                background: safeCurrentPage >= totalPages ? '#f8fafc' : '#ffffff',
+                color: safeCurrentPage >= totalPages ? '#94a3b8' : '#334155',
+                border: '1px solid #e2e8f0',
                 borderRadius: '8px',
-                padding: '6px 12px',
+                padding: '0 10px',
                 fontSize: '0.78rem',
-                fontWeight: 700,
+                fontWeight: 500,
                 cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1098,20 +1114,26 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
 
       {filteredFoods.length === 0 && (
         <div
+          className="empty-state"
           style={{
             background: '#ffffff',
             border: '1px dashed #cbd5e1',
             borderRadius: '12px',
-            padding: '40px 20px',
+            padding: '36px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
             textAlign: 'center',
+            gap: '8px',
             color: '#64748b',
           }}
         >
-          <Utensils size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
-          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#334155' }}>
+          <GymEmptyIllustration kind="nutrition" />
+          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
             Không tìm thấy món ăn nào phù hợp
           </div>
-          <p style={{ margin: '4px 0 12px', fontSize: '0.8rem' }}>
+          <p style={{ margin: '0 0 8px', fontSize: '0.8rem', color: '#64748b' }}>
             Thử tìm kiếm với từ khóa khác hoặc bấm nút bên dưới để tạo món ăn mới.
           </p>
           <button
@@ -1121,9 +1143,9 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
               setShowForm(true);
             }}
             className="button button-primary"
-            style={{ fontSize: '0.82rem' }}
+            style={{ minHeight: '36px', fontSize: '0.82rem' }}
           >
-            + Thêm Món Ăn Này
+            + Thêm món ăn này
           </button>
         </div>
       )}
@@ -1131,44 +1153,38 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
       {/* Modal Xác Nhận Xóa */}
       {deletingFood && (
         <div className="modal-backdrop" role="dialog" aria-label="Xác nhận xóa món ăn">
-          <div className="modal" style={{ maxWidth: '420px', padding: '20px 22px', borderRadius: '14px' }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: '1.1rem', fontWeight: 800, color: '#e11d48' }}>
-              Xác Nhận Xóa Món Ăn
+          <div className="modal" style={{ maxWidth: '420px', padding: '20px 22px', borderRadius: '12px' }}>
+            <h3 style={{ margin: '0 0 10px', fontSize: '1rem', fontWeight: 600, color: '#e11d48' }}>
+              Xác nhận xóa món ăn
             </h3>
-            <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#475569' }}>
+            <p style={{ margin: '0 0 16px', fontSize: '0.84rem', color: '#475569' }}>
               Bạn có chắc chắn muốn xóa món <strong>"{deletingFood.name}"</strong> khỏi kho thực đơn? Thao tác này không thể hoàn tác.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button
                 type="button"
+                className="button button-secondary"
                 onClick={() => setDeletingFood(null)}
-                style={{
-                  padding: '7px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
+                style={{ minHeight: '36px', padding: '0 14px', fontSize: '0.82rem' }}
               >
-                Hủy Bỏ
+                Hủy bỏ
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
                 style={{
-                  padding: '7px 16px',
-                  borderRadius: '6px',
+                  minHeight: '36px',
+                  padding: '0 16px',
+                  borderRadius: '8px',
                   border: 'none',
                   background: '#e11d48',
                   color: '#ffffff',
-                  fontSize: '0.8rem',
-                  fontWeight: 800,
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
-                Đồng Ý Xóa
+                Đồng ý xóa
               </button>
             </div>
           </div>

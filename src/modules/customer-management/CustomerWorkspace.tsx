@@ -206,7 +206,7 @@ function CustomerWorkspaceContent() {
         <ModuleNavigationButton active={activeTab === "list"} icon={<Users />} onClick={() => setActiveTab("list")}>Danh sách khách hàng</ModuleNavigationButton>
         <ModuleNavigationButton active={activeTab === "settings"} icon={<Settings />} onClick={() => setActiveTab("settings")}>Cài đặt khách hàng</ModuleNavigationButton>
       </ModuleNavigation>
-      <div className={cn("min-h-0 flex-1 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4", activeTab === "list" ? "flex flex-col gap-3" : "space-y-3")}>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto rounded-md bg-surface-container-lowest p-3 shadow-xs sm:p-4", activeTab === "list" ? "flex flex-col gap-3" : "space-y-3")}>
       {canManage && (activeTab === "list" || (activeTab === "settings" && settings && !loadingSettings)) && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {canManage && activeTab === "list" && (
           <button

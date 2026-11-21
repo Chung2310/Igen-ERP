@@ -544,7 +544,7 @@ export default function WorkflowTab({
 
   if (view === "list") {
     return (
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-surface-container-lowest" id="workflow_tab">
         {wizardOpen && (
           <NewWorkflowWizard
             initialData={wizardData ? (wizardData as any) : undefined}
@@ -716,7 +716,7 @@ export default function WorkflowTab({
 
   // =================== VIEW: CHI TIẾT (BẢNG CỘT) ===================
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-surface-container-lowest" id="workflow_tab">
       {/* Thanh tiêu đề chính nổi bật */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1093,7 +1093,7 @@ export function WorkflowReader({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-surface-container-lowest" id="workflow_tab">
         <div className="mx-5 mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
           <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-[#f1f8fd]">
             <ArrowLeft className="h-4 w-4" /> Danh sách quy trình

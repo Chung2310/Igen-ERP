@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getAccessToken } from "../../services/authService";
-import { tabToPath } from "../../seo/seo-config";
 
 export default function GymModule() {
   const { userProfile, logout } = useAuth();
@@ -35,10 +34,6 @@ export default function GymModule() {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
       if (event.data?.type === "gym:logout") void logout();
-      if (event.data?.type === "gym:open-settings") {
-        window.history.pushState(null, "", tabToPath("CÀI ĐẶT"));
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);

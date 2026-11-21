@@ -74,8 +74,6 @@ export default function AdminBulkTransferModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.55)',
-        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -352,21 +350,17 @@ export default function AdminBulkTransferModal({
           </button>
           <button
             type="button"
+            className="button button-primary"
             onClick={handleSubmit}
             disabled={submitting || selectedCustomers.length === 0}
             style={{
-              padding: '8px 20px',
-              borderRadius: '8px',
-              border: 0,
-              background: '#003b70',
-              color: '#ffffff',
+              minHeight: '36px',
+              padding: '0 18px',
               fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer',
+              fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 2px 8px rgba(0, 59, 112, 0.25)',
+              gap: '6px',
               opacity: selectedCustomers.length === 0 ? 0.6 : 1,
             }}
           >

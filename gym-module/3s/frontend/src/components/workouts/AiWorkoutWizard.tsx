@@ -165,7 +165,7 @@ export default function AiWorkoutWizard({ open, customers, onClose, onGenerated 
 
   return (
     <div
-      className="modal-backdrop workout-wizard-backdrop fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs overflow-hidden"
+      className="modal-backdrop workout-wizard-backdrop fixed inset-0 z-[9999] flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 overflow-hidden"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();

@@ -1,7 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { AppError } from '../errors/AppError.js';
 import { ERROR_CODES } from '../errors/errorCodes.js';
-import { getEnv } from '../config/env.js';
+import { getEnv, gymSetting } from '../config/env.js';
 import { OpenRouterRequestError, requestOpenRouter } from './openRouterRequest.js';
 import { withAiBilling } from './aiBillingService.js';
 import { logger } from '../config/logger.js';
@@ -33,7 +33,7 @@ function normalizedUsage(usage: { prompt_tokens?: unknown; completion_tokens?: u
 }
 
 async function callOpenRouter(prompt: string, options: AiCallOptions = {}): Promise<ProviderResult<string>> {
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = gymSetting('OPENROUTER_API_KEY');
   if (!key) {
     throw new AppError({
       status: 503,
@@ -45,7 +45,7 @@ async function callOpenRouter(prompt: string, options: AiCallOptions = {}): Prom
   const model = getEnv().AI_MODEL;
   const temperature = options.temperature ?? 0.1;
   const maxTokens = options.maxTokens ?? 8192;
-  const reasoningEffort = (process.env.OPENROUTER_REASONING_EFFORT as any) || options.reasoningEffort || 'none';
+  const reasoningEffort = (gymSetting('OPENROUTER_REASONING_EFFORT') as any) || options.reasoningEffort || 'none';
 
   let lastError: unknown = null;
 

@@ -13,8 +13,6 @@ import CareAlert from '../models/CareAlert.js';
 import CareLog from '../models/CareLog.js';
 import CareTask from '../models/CareTask.js';
 import ConsultationNote from '../models/ConsultationNote.js';
-import CreditLedgerEntry from '../models/CreditLedgerEntry.js';
-import CreditWallet from '../models/CreditWallet.js';
 import CustomerProfile from '../models/CustomerProfile.js';
 import DeviceSession from '../models/DeviceSession.js';
 import Exercise from '../models/Exercise.js';
@@ -29,7 +27,6 @@ import MuscleGroup from '../models/MuscleGroup.js';
 import NutritionLog from '../models/NutritionLog.js';
 import NutritionPlan from '../models/NutritionPlan.js';
 import PackageTemplate from '../models/PackageTemplate.js';
-import PaymentOrder from '../models/PaymentOrder.js';
 import ProgressPhoto from '../models/ProgressPhoto.js';
 import ProgressReport from '../models/ProgressReport.js';
 import PtPackage from '../models/PtPackage.js';
@@ -48,9 +45,9 @@ export const centerDataModels: Model<any>[] = [
   CenterRequestLease,
   User, Exercise, ActivityCalorie, FeatureFlag, AiNutritionGenerationJob, AiUsage, AiUsageQuotaCounter, AiWorkoutGenerationJob, AssistantConversation,
   AssistantSuggestion, AuditLog, BodyMeasurement, CalendarEvent, CareAlert, CareLog,
-  CareTask, ConsultationNote, CreditLedgerEntry, CreditWallet, CustomerProfile,
+  CareTask, ConsultationNote, CustomerProfile,
   DeviceSession, FoodImage, Goal, InBodyRecord, KnowledgeChunk, KnowledgeDocument, MuscleGroup,
-  Notification, NutritionLog, NutritionPlan, PackageTemplate, PaymentOrder,
+  Notification, NutritionLog, NutritionPlan, PackageTemplate,
   ProgressPhoto, ProgressReport, PtPackage, Roadmap, TransferRequest, WorkoutPlan,
   WorkoutSession, WorkoutSessionDraft, WorkoutTemplate,
 ];

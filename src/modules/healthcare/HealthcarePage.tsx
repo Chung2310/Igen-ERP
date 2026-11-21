@@ -415,7 +415,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className="min-w-0 space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4" aria-label={pageTitle}>
+      <section className="min-w-0 space-y-3 rounded-md bg-surface-container-lowest p-3 shadow-xs sm:p-4" aria-label={pageTitle}>
         {!hasTable && <div className="flex justify-end">{pageActions}</div>}
         {hasTable && <TableFilterToolbar
           appearance="plain"

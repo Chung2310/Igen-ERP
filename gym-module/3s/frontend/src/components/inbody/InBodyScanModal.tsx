@@ -130,11 +130,8 @@ export default function InBodyScanModal({ open, onClose, onConfirmed }: InBodySc
                 ariaLabel=" Khách hàng"
                 value={customerId}
                 onChange={(selectedId) => setCustomerId(selectedId)}
-                placeholder="Chọn trước học viên hoặc để trống để AI tự nhận diện..."
+                placeholder="Chọn học viên (tùy chọn)..."
               />
-              <span style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
-                💡 Không bắt buộc: Hệ thống sẽ tự động quét tên học viên in trên phiếu InBody và gợi ý chọn ở bước tiếp theo.
-              </span>
             </div>
 
             <div className="field" style={{ margin: 0 }}>
@@ -150,8 +147,8 @@ export default function InBodyScanModal({ open, onClose, onConfirmed }: InBodySc
 
           {/* Upload Dropzone Section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontWeight: 600, color: '#003b70', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FileImage size={16} color="#0284c7" /> Ảnh hoặc File PDF phiếu InBody <strong style={{ color: '#e11d48' }}>*</strong>
+            <span style={{ fontWeight: 500, color: '#334155', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FileImage size={15} color="#0ea5e9" /> Ảnh hoặc File PDF phiếu InBody <strong style={{ color: '#e11d48' }}>*</strong>
             </span>
 
             {!image ? (
@@ -391,29 +388,9 @@ export default function InBodyScanModal({ open, onClose, onConfirmed }: InBodySc
 
             {imageError && (
               <span className="field-error" role="alert" style={{ color: '#e11d48', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
-                ⚠️ {imageError}
+                {imageError}
               </span>
             )}
-          </div>
-
-          {/* Feature Highlight Box */}
-          <div
-            style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '0.82rem',
-              color: '#475569',
-            }}
-          >
-            <Sparkles size={18} color="#0284c7" style={{ flexShrink: 0 }} />
-            <span>
-              Hệ thống sẽ tự động nhận diện các chỉ số: <strong>Cân nặng, % Mỡ, Khối lượng cơ, Mỡ nội tạng, BMI, BMR</strong> và cho phép PT kiểm tra, hiệu chỉnh trước khi lưu.
-            </span>
           </div>
         </div>
       ) : (

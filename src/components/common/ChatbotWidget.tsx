@@ -198,12 +198,11 @@ function AssistantRailIcon({ name, active = false }: { name: AssistantSidebarIco
   return <span className={name === "studio" ? "assistant-side-icon assistant-side-icon-studio" : "assistant-side-icon"} aria-hidden="true"><AssistantSidebarIcon name={name} active={active} /></span>;
 }
 
-function AssistantSidebarToggleIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true" focusable="false">
-    <rect x="3.5" y="4.25" width="17" height="15.5" rx="1.5" />
-    <path d="M10 4.6v14.8" />
-    <circle cx="15" cy="10" r="0.75" fill="currentColor" stroke="none" />
-    <circle cx="15" cy="14" r="0.75" fill="currentColor" stroke="none" />
+function AssistantSidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" className="size-4.5" aria-hidden="true" focusable="false">
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <path d="M9.5 4.5v15" />
+    <path d={collapsed ? "m14 9 3 3-3 3" : "m17 9-3 3 3 3"} />
   </svg>;
 }
 
@@ -1849,10 +1848,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         <div className="assistant-workspace-columns flex min-h-0 flex-1">
           <aside aria-label="Điều hướng trợ lý" className={cn("assistant-sidebar assistant-reference-sidebar shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest px-2 py-3", sidebarCollapsed && "is-collapsed")}>
             <div className="assistant-sidebar-header relative mb-3 flex items-center justify-between gap-1.5">
-              <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} title={sidebarCollapsed ? undefined : "Thu gọn thanh bên"} data-sidebar-tooltip="Mở rộng thanh bên" aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg hover:bg-surface-container-low", focusClass)}><AssistantSidebarToggleIcon /></button>
-              <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined} disabled={sidebarCollapsed || isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("assistant-sidebar-tool assistant-sidebar-new-chat flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-5" aria-hidden="true" /></button>
+              <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} title={sidebarCollapsed ? undefined : "Thu gọn thanh bên"} data-sidebar-tooltip="Mở rộng thanh bên" aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low", focusClass)}><AssistantSidebarToggleIcon collapsed={sidebarCollapsed} /></button>
+              <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined} disabled={sidebarCollapsed || isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("assistant-sidebar-tool assistant-sidebar-new-chat flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-4.5" aria-hidden="true" /></button>
             </div>
-            <nav id="assistant-sidebar-navigation" className="assistant-sidebar-navigation flex flex-col gap-1.5" aria-label="Chế độ trợ lý">
+            <nav id="assistant-sidebar-navigation" className="assistant-sidebar-navigation flex flex-col gap-1" aria-label="Chế độ trợ lý">
               <button type="button" aria-label="Trò chuyện" data-sidebar-tooltip="Trò chuyện" aria-current={isChatNavigationActive ? "page" : undefined} onClick={() => openMode("qa")} className={cn("assistant-side-item", isChatNavigationActive && "is-active", focusClass)}><AssistantRailIcon name="chat" active={isChatNavigationActive} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trò chuyện</span></button>
               <div className="relative">
                 <button type="button" aria-label="AI Studio" data-sidebar-tooltip="AI Studio" aria-current={view === "studio" ? "page" : undefined} onClick={() => changeView("studio")} className={cn("assistant-side-item", favoriteStudioTools.length > 0 && "pr-10", view === "studio" && "is-active", focusClass)}><AssistantRailIcon name="studio" active={view === "studio"} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>AI Studio</span></button>

@@ -13,7 +13,6 @@ export default function MealImagePreviewModal({ previewImage, onClose }: MealIma
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.85)',
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',

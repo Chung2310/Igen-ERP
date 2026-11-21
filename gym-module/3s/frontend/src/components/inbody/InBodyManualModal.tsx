@@ -284,8 +284,8 @@ export default function InBodyManualModal({
 
         {/* 2. Primary Metrics: Weight, Height, Body Fat %, Muscle Mass */}
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#003b70', fontWeight: 700, fontSize: '0.92rem' }}>
-            <Scale size={18} color="#0284c7" /> Chỉ Số Thành Phần Chính
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#0f172a', fontWeight: 600, fontSize: '0.9rem' }}>
+            <Scale size={17} color="#00adfc" /> Chỉ số thành phần chính
           </div>
 
           <div className="inbody-form-row-4">
@@ -356,7 +356,7 @@ export default function InBodyManualModal({
             <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px 14px', alignItems: 'center', background: '#ffffff', padding: '9px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem' }}>
               {calculatedBmi != null && (
                 <span>
-                  🎯 <strong>BMI:</strong> <span style={{ fontWeight: 700, color: bmiCls?.color }}>{calculatedBmi} ({bmiCls?.label})</span>
+                  <strong>BMI:</strong><span style={{ fontWeight: 700, color: bmiCls?.color }}>{calculatedBmi} ({bmiCls?.label})</span>
                 </span>
               )}
               {bodyFatPercentage && fatCls && (
@@ -380,8 +380,8 @@ export default function InBodyManualModal({
 
         {/* 3. Secondary Metrics: Visceral Fat, BMR, InBody Score, Water, WHR */}
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#003b70', fontWeight: 700, fontSize: '0.92rem' }}>
-            <Activity size={18} color="#0284c7" /> Chỉ Số Trao Đổi Chất & Sức Khỏe
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: '#0f172a', fontWeight: 600, fontSize: '0.9rem' }}>
+            <Activity size={17} color="#00adfc" /> Chỉ số trao đổi chất & sức khỏe
           </div>
 
           <div className="inbody-form-row-3">
@@ -475,7 +475,7 @@ export default function InBodyManualModal({
             <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px 14px', alignItems: 'center', background: '#ffffff', padding: '9px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem' }}>
               {visceralFatLevel && visCls && (
                 <span>
-                  🫀 <strong>Mỡ nội tạng:</strong> <span style={{ fontWeight: 700, color: visCls.color }}>Level {visceralFatLevel} ({visCls.label})</span>
+                  <strong>Mỡ nội tạng:</strong><span style={{ fontWeight: 700, color: visCls.color }}>Level {visceralFatLevel} ({visCls.label})</span>
                 </span>
               )}
               {inbodyScore && (
@@ -501,13 +501,13 @@ export default function InBodyManualModal({
               justifyContent: 'space-between',
               alignItems: 'center',
               cursor: 'pointer',
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: '0.88rem',
-              color: '#003b70',
+              color: '#0f172a',
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={16} color="#0284c7" /> Phân Tích Cơ & Mỡ Từng Phân Vùng
+              <Layers size={16} color="#00adfc" /> Phân tích cơ & mỡ từng phân vùng
             </span>
             {showSegmental ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
@@ -516,7 +516,7 @@ export default function InBodyManualModal({
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '14px', background: '#ffffff' }}>
               <div>
                 <strong style={{ fontSize: '0.84rem', color: '#15803d', display: 'block', marginBottom: '8px' }}>
-                  💪 Khối lượng cơ từng phần (kg):
+                  Khối lượng cơ từng phần (kg):
                 </strong>
                 <div className="inbody-form-row-5">
                   {[
@@ -545,7 +545,7 @@ export default function InBodyManualModal({
 
               <div>
                 <strong style={{ fontSize: '0.84rem', color: '#b45309', display: 'block', marginBottom: '8px' }}>
-                  🧀 Khối lượng mỡ từng phần (kg):
+                  Khối lượng mỡ từng phần (kg):
                 </strong>
                 <div className="inbody-form-row-5">
                   {[
@@ -577,8 +577,8 @@ export default function InBodyManualModal({
 
         {/* 5. PT Consultation Notes */}
         <label className="field" style={{ margin: 0 }}>
-          <span style={{ fontWeight: 600, color: '#003b70', fontSize: '0.86rem' }}>
-            Ghi chú tư vấn riêng của PT 
+          <span style={{ fontWeight: 500, color: '#0f172a', fontSize: '0.84rem' }}>
+            Ghi chú tư vấn riêng của PT
           </span>
           <textarea
             rows={3}

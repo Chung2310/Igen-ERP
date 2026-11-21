@@ -1,7 +1,6 @@
 import { API_BASE_URL } from '../config';
 import type { ApiErrorBody, ApiResult } from '../types';
 import { clearSession } from './session';
-export const CREDIT_WALLET_MUTATED_EVENT = '3s:credit-wallet-mutated';
 export const INSUFFICIENT_CREDITS_EVENT = '3s:insufficient-credits';
 
 export class ApiError extends Error {
@@ -67,7 +66,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
         throw error;
       }
       if (!('data' in payload)) throw new ApiError('Phản hồi từ máy chủ không hợp lệ.', response.status);
-      if (typeof window !== 'undefined' && ['POST', 'PATCH', 'DELETE'].includes(String(fetchOptions.method || 'GET').toUpperCase()) && (path.startsWith('/api/credits/') || path.startsWith('/api/admin/credit-'))) window.dispatchEvent(new Event(CREDIT_WALLET_MUTATED_EVENT));
       return { data: payload.data as T, meta: payload.meta as ApiResult<T>['meta'], message: typeof payload.message === 'string' ? payload.message : '', ...('summary' in payload ? { summary: payload.summary } : {}) };
     } catch (err) {
       lastError = err;

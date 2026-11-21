@@ -1,6 +1,6 @@
 import { AppError } from '../errors/AppError.js';
 import { ERROR_CODES } from '../errors/errorCodes.js';
-import { getEnv } from '../config/env.js';
+import { getEnv, gymSetting } from '../config/env.js';
 import { requestOpenRouter } from './openRouterRequest.js';
 import { withAiBilling } from './aiBillingService.js';
 import type { AiBillingContext, ProviderResult } from './creditTypes.js';
@@ -105,7 +105,7 @@ async function callOpenRouterGeminiImage(
 
 /** Try only Gemini image models; surface an error if all are unavailable. */
 async function generateImageRaw(options: GenerateImageOptions): Promise<ProviderResult<GeneratedImage>> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = gymSetting('OPENROUTER_API_KEY');
   if (!apiKey) {
     throw new AppError({
       status: 503,

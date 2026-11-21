@@ -325,7 +325,7 @@ export default function HRTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-center">
+    <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl bg-surface-container-lowest p-6 text-center">
       <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
       <span role="status" className="text-pretty text-xs font-semibold text-on-surface-variant">{label}</span>
     </div>

@@ -176,7 +176,7 @@ export const walletController = {
       const origin = req.headers.origin || req.headers.referer || "http://localhost:3000";
       const clientOrigin = origin.endsWith("/") ? origin.slice(0, -1) : origin;
 
-      const returnPath = req.body.context === "gym" ? "/chuoi-gym/wallet" : "/vi-nap-tien";
+      const returnPath = "/vi-nap-tien";
       const cancelUrl = `${clientOrigin}${returnPath}?status=cancelled&orderCode=${orderCode}`;
       const returnUrl = `${clientOrigin}${returnPath}?status=success&orderCode=${orderCode}`;
 

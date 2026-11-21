@@ -1234,7 +1234,7 @@ export default function OrgChartTab({
         }}
       />}
       {/* Division filter and search bar for Org Chart tab */}
-      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 md:px-5 md:py-3.5 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 rounded-2xl bg-surface-container-lowest p-3 md:px-5 md:py-3.5 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
         <div data-testid="org-chart-filters" className="grid w-full flex-1 grid-cols-1 items-stretch gap-2.5 min-[640px]:grid-cols-2 min-[1200px]:max-w-md">
           <div className="relative w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -1304,7 +1304,7 @@ export default function OrgChartTab({
         <div className="grid grid-cols-1 gap-6 h-full min-h-[500px]" id="org_chart_block">
 
           {viewMode === "list" && (
-            <div className="col-span-1 flex min-h-[500px] flex-col justify-between overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
+            <div className="col-span-1 flex min-h-[500px] flex-col justify-between overflow-hidden rounded-2xl bg-surface-container-lowest">
               {isMobile ? (
                 <div className="divide-y divide-slate-100 p-2">
                   {paginatedEmployees.map((employee) => {
@@ -1487,7 +1487,7 @@ export default function OrgChartTab({
           )}
 
           {/* Interactive Tree viewport diagram - full width */}
-          <div ref={chartViewportRef} className={`relative col-span-1 flex min-h-[580px] flex-col overflow-hidden rounded-2xl border border-outline-variant bg-gradient-to-b from-white via-[#F8FBFF] to-[#F2F7FD] ${isChartFullscreen ? "h-dvh w-dvw rounded-none border-0" : ""} ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
+          <div ref={chartViewportRef} className={`relative col-span-1 flex min-h-[580px] flex-col overflow-hidden rounded-2xl bg-gradient-to-b from-white via-[#F8FBFF] to-[#F2F7FD] ${isChartFullscreen ? "h-dvh w-dvw rounded-none border-0" : ""} ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
             <div className="absolute right-3 top-3 z-20">
               <button
                 type="button"

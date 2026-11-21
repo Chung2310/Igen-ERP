@@ -52,36 +52,20 @@ export interface AppEnv {
   SUPER_ADMIN_USERNAME: string;
   SUPER_ADMIN_PASSWORD: string;
   SUPER_ADMIN_FULL_NAME?: string;
-  VNPAY_TMN_CODE?: string;
-  VNPAY_HASH_SECRET?: string;
-  VNPAY_PAYMENT_URL?: string;
-  VNPAY_RETURN_URL?: string;
-  VNPAY_IPN_URL?: string;
-  MOMO_PARTNER_CODE?: string;
-  MOMO_ACCESS_KEY?: string;
-  MOMO_SECRET_KEY?: string;
-  MOMO_API_URL?: string;
-  MOMO_REDIRECT_URL?: string;
-  MOMO_IPN_URL?: string;
-  SEPAY_BANK_CODE?: string;
-  SEPAY_BANK_NAME?: string;
-  SEPAY_ACCOUNT_NUMBER?: string;
-  SEPAY_ACCOUNT_HOLDER?: string;
-  SEPAY_QR_ACCOUNT_NUMBER?: string;
-  SEPAY_SUB_ACCOUNT?: string;
-  SEPAY_TRANSFER_PREFIX?: string;
-  SEPAY_TRANSFER_NOTE?: string;
-  SEPAY_WEBHOOK_API_KEY?: string;
-  PAYOS_CLIENT_ID?: string;
-  PAYOS_API_KEY?: string;
-  PAYOS_CHECKSUM_KEY?: string;
-  PAYOS_RETURN_URL?: string;
-  PAYOS_CANCEL_URL?: string;
+}
+
+export function gymSetting(key: string): string | undefined {
+  if (key === 'OPENROUTER_API_KEY') return process.env.OPENROUTER_API_KEY?.trim() || undefined;
+  return (process.env.GYM_SHARED_DB === '1' ? process.env[`GYM_${key}`]?.trim() : undefined)
+    || process.env[key]?.trim() || undefined;
 }
 
 let currentEnvironment: AppEnv | undefined;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
+  const gymValue = (key: string) => process.env.GYM_SHARED_DB === '1'
+    ? source[`GYM_${key}`]?.trim() || source[key]?.trim()
+    : source[key]?.trim();
   const nodeEnvironment: NodeEnvironment = source.NODE_ENV === 'production'
     ? 'production'
     : source.NODE_ENV === 'test' ? 'test' : 'development';
@@ -108,7 +92,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
 
   const optional = (key: string) => source[key]?.trim() || undefined;
   const positiveLimit = (key: string, fallback: number) => {
-    const raw = source[key]?.trim();
+    const raw = gymValue(key);
     if (!raw) return fallback;
     const value = Number(raw);
     if (!Number.isSafeInteger(value) || value < 1 || value > 1_000_000) {
@@ -117,9 +101,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     return value;
   };
   const positiveBudget = (key: string, fallback: number) => {
-    const raw = source[key]?.trim();
+    const raw = gymValue(key);
     if (!raw) {
-      if (nodeEnvironment === 'production') throw new Error(`${key} phải được cấu hình trong production.`);
+      if (nodeEnvironment === 'production' && process.env.GYM_SHARED_DB !== '1') throw new Error(`${key} phải được cấu hình trong production.`);
       return fallback;
     }
     const value = Number(raw);
@@ -153,37 +137,12 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     AI_GLOBAL_MONTHLY_BUDGET_VND: globalAiMonthlyBudgetVnd,
     AI_GLOBAL_MAX_RESERVATION_VND: globalAiMaxReservationVnd,
     OCR_MAX_FILE_BYTES: APP_POLICY.OCR_MAX_FILE_BYTES,
-    AI_MODEL: source.AI_MODEL?.trim() || source.OPENROUTER_MODEL?.trim() || APP_POLICY.AI_MODEL,
-    OCR_MODEL: source.OCR_MODEL?.trim() || source.OPENROUTER_OCR_MODEL?.trim() || APP_POLICY.OCR_MODEL,
+    AI_MODEL: gymValue('AI_MODEL') || source.OPENROUTER_MODEL?.trim() || APP_POLICY.AI_MODEL,
+    OCR_MODEL: gymValue('OCR_MODEL') || source.OPENROUTER_OCR_MODEL?.trim() || APP_POLICY.OCR_MODEL,
     APP_URL: optional('APP_URL'),
     SUPER_ADMIN_USERNAME: optional('SUPER_ADMIN_USERNAME') || '',
     SUPER_ADMIN_PASSWORD: optional('SUPER_ADMIN_PASSWORD') || '',
     SUPER_ADMIN_FULL_NAME: optional('SUPER_ADMIN_FULL_NAME'),
-    VNPAY_TMN_CODE: optional('VNPAY_TMN_CODE'),
-    VNPAY_HASH_SECRET: optional('VNPAY_HASH_SECRET'),
-    VNPAY_PAYMENT_URL: optional('VNPAY_PAYMENT_URL'),
-    VNPAY_RETURN_URL: optional('VNPAY_RETURN_URL'),
-    VNPAY_IPN_URL: optional('VNPAY_IPN_URL'),
-    MOMO_PARTNER_CODE: optional('MOMO_PARTNER_CODE'),
-    MOMO_ACCESS_KEY: optional('MOMO_ACCESS_KEY'),
-    MOMO_SECRET_KEY: optional('MOMO_SECRET_KEY'),
-    MOMO_API_URL: optional('MOMO_API_URL'),
-    MOMO_REDIRECT_URL: optional('MOMO_REDIRECT_URL'),
-    MOMO_IPN_URL: optional('MOMO_IPN_URL'),
-    SEPAY_BANK_CODE: optional('SEPAY_BANK_CODE'),
-    SEPAY_BANK_NAME: optional('SEPAY_BANK_NAME'),
-    SEPAY_ACCOUNT_NUMBER: optional('SEPAY_ACCOUNT_NUMBER'),
-    SEPAY_ACCOUNT_HOLDER: optional('SEPAY_ACCOUNT_HOLDER'),
-    SEPAY_QR_ACCOUNT_NUMBER: optional('SEPAY_QR_ACCOUNT_NUMBER'),
-    SEPAY_SUB_ACCOUNT: optional('SEPAY_SUB_ACCOUNT'),
-    SEPAY_TRANSFER_PREFIX: optional('SEPAY_TRANSFER_PREFIX'),
-    SEPAY_TRANSFER_NOTE: optional('SEPAY_TRANSFER_NOTE'),
-    SEPAY_WEBHOOK_API_KEY: optional('SEPAY_WEBHOOK_API_KEY'),
-    PAYOS_CLIENT_ID: optional('PAYOS_CLIENT_ID'),
-    PAYOS_API_KEY: optional('PAYOS_API_KEY'),
-    PAYOS_CHECKSUM_KEY: optional('PAYOS_CHECKSUM_KEY'),
-    PAYOS_RETURN_URL: optional('PAYOS_RETURN_URL'),
-    PAYOS_CANCEL_URL: optional('PAYOS_CANCEL_URL'),
   };
   return currentEnvironment;
 }

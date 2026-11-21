@@ -1015,7 +1015,7 @@ export default function MarketingTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div role="status" className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
+    <div role="status" className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl bg-white p-6 text-center">
       <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
       <span className="text-xs text-gray-500 font-semibold">{label}</span>
     </div>

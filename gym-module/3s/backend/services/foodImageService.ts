@@ -7,7 +7,7 @@ import { AppError } from '../errors/AppError.js';
 import { ERROR_CODES } from '../errors/errorCodes.js';
 import { isCloudinaryConfigured, uploadFoodImageToCloudinary } from './cloudinaryService.js';
 
-export const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads/food-images');
+export const UPLOADS_DIR = path.resolve(process.cwd(), process.env.GYM_EMBEDDED === '1' ? 'uploads/gym/food-images' : 'uploads/food-images');
 
 /**
  * Đảm bảo thư mục lưu trữ ảnh vật lý tồn tại

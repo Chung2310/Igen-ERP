@@ -15,6 +15,7 @@ const hrIcons: Record<string, HrSidebarIconName> = {
   'Ca làm việc': 'calendar', 'Lịch đăng content': 'calendar',
   'Cấp gói doanh nghiệp': 'business',
   'Bệnh nhân': 'people', 'Lịch hẹn': 'calendar',
+  'Lead': 'people',
 };
 
 const artwork = {
@@ -27,6 +28,7 @@ const artwork = {
   coin: <><circle cx="12" cy="12" r="8.7"/><path d="M14.7 8.4h-3.3a2.2 2.2 0 0 0 0 4.4h1.2a2.2 2.2 0 0 1 0 4.4H9.2M12 6.8v10.5"/></>,
   receipt: <><path d="M5 3.3h14v17.4l-2.4-1.4-2.3 1.4-2.3-1.4-2.3 1.4-2.3-1.4L5 20.7V3.3Z"/><path d="M8 8.1h8M8 11.5h8m-8 3.4h4"/></>,
   package: <><path d="m12 2.8 8.5 4.5v9.4L12 21.2l-8.5-4.5V7.3L12 2.8Z"/><path d="m3.8 7.4 8.2 4.5 8.2-4.5M12 12v9"/></>,
+  service: <><circle cx="12" cy="4.2" r="1.8"/><path d="M12 6v2.5M4 16.5a8 8 0 0 1 16 0H4Z" strokeLinejoin="round"/><rect x="2.7" y="17.5" width="18.6" height="2.8" rx="1.4"/></>,
   goods: <><g strokeWidth="2.3"><path d="m12 2.8 8.5 4.5v9.4L12 21.2l-8.5-4.5V7.3L12 2.8Z"/><path d="m3.8 7.4 8.2 4.5 8.2-4.5M12 12v9"/><path d="m8 5 8.1 4.5"/></g></>,
   warehouse: <><path d="m2.8 9 9.2-5.6L21.2 9v11.2H2.8V9Z"/><path d="M8 20v-7h8v7M5.6 10h12.8"/></>,
   inbound: <><path d="m12 2.8 8 4.3v9.2l-8 4.4-8-4.4V7.1l8-4.3Z"/><path d="m4 7.2 8 4.2 8-4.2M12 11.5v5m-2.2-2.2L12 16.5l2.2-2.2"/></>,
@@ -66,6 +68,7 @@ const artwork = {
   user: <><circle cx="12" cy="8" r="3.2"/><path d="M4.3 20v-1.5c0-3.5 3-5.8 7.7-5.8s7.7 2.3 7.7 5.8V20"/></>,
   lock: <><rect x="4.3" y="10" width="15.4" height="11" rx="2.6"/><path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3M12 14.5v2.5"/></>,
   scan: <><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="3.5"/></>,
+  flask: <><path d="M9.5 3.2h5M10.3 3.2v5.4L4.7 17.8a2.2 2.2 0 0 0 1.9 3.2h10.8a2.2 2.2 0 0 0 1.9-3.2l-5.6-9.2V3.2"/><path d="M7.3 14.5h9.4"/></>,
 } satisfies Record<string, ReactNode>;
 
 // Solid companions keep the same silhouettes as the outline rail icons.
@@ -79,6 +82,7 @@ const filledArtwork: Record<keyof typeof artwork, ReactNode> = {
   coin: <><circle cx="12" cy="12" r="9"/><path d="M15 8H11a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9m3-10v12" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8" strokeLinecap="round"/></>,
   receipt: <><path d="M5 3h14v19l-3-2-3 2-3-2-3 2-2-2V3Z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7" strokeLinecap="round"/></>,
   package: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5M12 12v10" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.6"/></>,
+  service: <><circle cx="12" cy="4.2" r="2"/><rect x="11" y="5.8" width="2" height="2.2" rx="1"/><path d="M12 7a8.6 8.6 0 0 0-8.6 8.6v.8h17.2v-.8A8.6 8.6 0 0 0 12 7Z"/><rect x="2.5" y="17.2" width="19" height="3.2" rx="1.6"/></>,
   goods: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5M12 12v10m-4-14 8 4" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>,
   warehouse: <><path d="m2 9 10-6 10 6v12H2V9Z"/><path d="M8 21v-8h8v8M5 10h14" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
   inbound: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v-5m-2 3 2 2 2-2" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7"/></>,
@@ -118,10 +122,11 @@ const filledArtwork: Record<keyof typeof artwork, ReactNode> = {
   user: <><circle cx="12" cy="7" r="4"/><path d="M2 21v-2c0-4.5 3.6-7 10-7s10 2.5 10 7v2H2Z"/></>,
   lock: <><rect x="3" y="10" width="18" height="12" rx="3"/><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" strokeWidth="3"/><circle cx="12" cy="16" r="1.5" fill="var(--color-surface-container-lowest)"/></>,
   scan: <><path d="M3 8V5a2 2 0 0 1 2-2h3v3H6v2H3Zm13-5h3a2 2 0 0 1 2 2v3h-3V6h-2V3ZM3 16h3v2h2v3H5a2 2 0 0 1-2-2v-3Zm15 0h3v3a2 2 0 0 1-2 2h-3v-3h2v-2Z"/><circle cx="12" cy="12" r="4"/></>,
+  flask: <><path d="M9 2.5h6v2h-1v4.3l5.7 9.4A2.5 2.5 0 0 1 17.5 22h-11a2.5 2.5 0 0 1-2.2-3.8L10 8.8V4.5H9v-2Z"/><path d="M7.5 14.5h9" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8" strokeLinecap="round"/></>,
 };
 
 const labelToArtwork: Record<string, keyof typeof artwork> = {
-  'Tổng quan': 'overview', 'Sản phẩm': 'package', 'Hàng hóa': 'goods', 'Kho hàng': 'warehouse', 'Nhập hàng': 'inbound',
+  'Tổng quan': 'overview', 'Sản phẩm': 'package', 'Dịch vụ': 'service', 'Hàng hóa': 'goods', 'Kho hàng': 'warehouse', 'Nhập hàng': 'inbound',
   'IMEI / Serial': 'barcode', 'Xuất hàng': 'outbound', 'Điều chuyển': 'transfer',
   'Giao dịch kho': 'list', 'Dự báo': 'forecast', 'Tra cứu bảo hành': 'shield',
   'Sửa chữa & Bảo hành': 'request', 'Báo cáo doanh thu & KTV': 'chart',
@@ -137,7 +142,7 @@ const labelToArtwork: Record<string, keyof typeof artwork> = {
   'Tài sản': 'asset', 'Khấu hao': 'depreciation', 'Kiểm kê': 'check',
   'Cài đặt tự động': 'settings', 'Nhật ký gửi': 'history',
   'Tạo chiến dịch': 'ai',
-  'Phễu khách hàng': 'target', 'Hộp thư hội thoại': 'chat', 'AI phản hồi bình luận': 'ai',
+  'Phễu khách hàng': 'target', 'Hộp thư hội thoại': 'chat', 'AI phản hồi bình luận': 'ai', 'Thử nghiệm chat': 'flask',
   'Hạn mức': 'chart', 'Gói nâng cấp': 'gift',
   'Đối tác & hoa hồng': 'handshake', 'Chính sách': 'document', 'Hoa hồng sản phẩm': 'percent',
   'Bảo hành': 'shield', 'Đơn hàng': 'bag', 'Đổi trả': 'return', 'Hóa đơn': 'receipt',

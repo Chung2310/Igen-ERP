@@ -70,14 +70,14 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
 
   const getStatusInfo = (status: string) => {
     const map: Record<string, string> = {
-      'Đang thi': 'bg-teal-100 text-teal-700',
-      'Đã đậu': 'bg-emerald-100 text-emerald-700',
-      'Đang học': 'bg-sky-100 text-sky-700',
-      'Chờ KSK': 'bg-amber-100 text-amber-700',
-      'Thi lại': 'bg-rose-100 text-rose-700',
-      'Đã KSK': 'bg-emerald-100 text-emerald-700',
-      'Đã nộp HS': 'bg-cyan-100 text-cyan-700',
-      'Nợ học phí': 'bg-orange-100 text-orange-700',
+      'Đang thi': 'bg-teal-100 text-teal-800',
+      'Đã đậu': 'bg-emerald-100 text-emerald-800',
+      'Đang học': 'bg-sky-100 text-sky-800',
+      'Chờ KSK': 'bg-amber-100 text-amber-800',
+      'Thi lại': 'bg-rose-100 text-rose-800',
+      'Đã KSK': 'bg-emerald-100 text-emerald-800',
+      'Đã nộp HS': 'bg-cyan-100 text-cyan-800',
+      'Nợ học phí': 'bg-orange-100 text-orange-800',
     };
     return map[status] || 'bg-slate-100 text-slate-700';
   };
@@ -138,7 +138,7 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
                       </p>
                     </td>
                     <td className="px-4 py-4 text-center">
-                      <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold border border-cyan-100">
+                      <span className="inline-block max-w-40 truncate rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-semibold uppercase text-sky-800" title={exam.rank}>
                         {exam.rank}
                       </span>
                     </td>
@@ -181,11 +181,11 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
                   <tr key={idx} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => onSelectStudent(item)}>
                     <td className="px-5 py-3 text-sm font-bold text-slate-800">{item.fullName}</td>
                     <td className="px-3 py-3 text-center">
-                      <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold border border-cyan-100">{item.rank}</span>
+                      <span className="inline-block max-w-28 truncate rounded-sm bg-cyan-100 px-2 py-0.5 text-xs font-semibold uppercase text-cyan-800" title={item.rank}>{item.rank}</span>
                     </td>
                     <td className="px-3 py-3 text-center text-[10px] text-slate-400 font-medium">-</td>
                     <td className="px-3 py-3 text-center">
-                      <span className={cn("px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap", getStatusInfo(item.status))}>{item.status}</span>
+                      <span className={cn("inline-block max-w-36 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", getStatusInfo(item.status))} title={item.status}>{item.status}</span>
                     </td>
                   </tr>
                 ))
@@ -204,13 +204,13 @@ export function DrivingDashboardTables({ onSelectStudent, onNavigate, selectedCe
                     <p className="text-[10px] text-slate-400 font-medium">{item.phone}</p>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold border border-cyan-100">
+                    <span className="inline-block max-w-28 truncate rounded-sm bg-cyan-100 px-2 py-0.5 text-xs font-semibold uppercase text-cyan-800" title={item.rank}>
                       {item.rank}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-center text-[10px] font-bold text-slate-500 whitespace-nowrap">{item.registrationDate}</td>
                   <td className="px-3 py-3 text-center">
-                    <span className={cn("px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap", getStatusInfo(item.status[0] || 'Đang học'))}>
+                    <span className={cn("inline-block max-w-36 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", getStatusInfo(item.status[0] || 'Đang học'))} title={item.status[0] || 'Đang học'}>
                       {item.status[0] || 'Đang học'}
                     </span>
                   </td>

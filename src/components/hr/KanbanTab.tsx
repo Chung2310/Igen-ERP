@@ -1471,7 +1471,7 @@ export default function KanbanTab({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
-        <div className="flex min-h-full flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left text-on-surface sm:p-6" id="job_delegation_kanban">
+        <div className="flex min-h-full flex-col gap-4 rounded-2xl bg-surface-container-lowest p-4 text-left text-on-surface sm:p-6" id="job_delegation_kanban">
           {/* Header section */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:border-b lg:border-outline-variant">
             <div className="min-w-0 lg:flex-1">

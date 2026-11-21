@@ -156,11 +156,6 @@ jobs:
             # Tạo/ghi nội dung cấu hình từ GitHub Secrets vào file .env cục bộ
             echo "$ENV_FILE_CONTENT" > .env
 
-            # The GYM API is an optional Compose profile, but must run when configured.
-            if grep -Eq '^GYM_MONGODB_URI=.+$' .env && grep -Eq '^GYM_BRIDGE_SECRET=.+$' .env; then
-              export COMPOSE_PROFILES=gym
-            fi
-
             # Đăng nhập vào GHCR trên VPS
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
@@ -212,11 +207,6 @@ jobs:
 
             # Tạo/ghi nội dung cấu hình từ GitHub Secrets vào file .env cục bộ
             echo "$ENV_FILE_CONTENT" > .env
-
-            # The GYM API is an optional Compose profile, but must run when configured.
-            if grep -Eq '^GYM_MONGODB_URI=.+$' .env && grep -Eq '^GYM_BRIDGE_SECRET=.+$' .env; then
-              export COMPOSE_PROFILES=gym
-            fi
 
             # Đăng nhập vào GHCR trên VPS
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

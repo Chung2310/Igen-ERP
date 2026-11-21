@@ -198,7 +198,7 @@ export default function CustomerDetailPage({ customer, branchId, canManage, canR
     <ModuleNavigation label="Các mục hồ sơ khách hàng" activeValue={activeTab}>
       {tabs.map(({ id, label, icon: Icon }) => <ModuleNavigationButton key={id} active={activeTab === id} icon={<Icon />} onClick={() => setActiveTab(id)}>{label}</ModuleNavigationButton>)}
     </ModuleNavigation>
-    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4">
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md bg-surface-container-lowest p-3 shadow-xs sm:p-4">
     <header className="space-y-3 border-b border-outline-variant pb-4">
       {actionError && <p role="alert" className="rounded-xl border border-error bg-error-container p-3 text-sm text-on-error-container">{actionError}</p>}
       <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary"><ArrowLeft className="size-4" aria-hidden="true" />Quay lại danh sách</button>

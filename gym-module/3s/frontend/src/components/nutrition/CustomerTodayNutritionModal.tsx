@@ -265,7 +265,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
   if (!plan) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
         {/* ================= HEADER ================= */}
         <div className="bg-white text-[#071629] px-5 py-3.5 flex justify-between items-center shrink-0 border-b border-[#d8e2f0]">
@@ -310,7 +310,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                   : 'bg-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
-              ⚡ Bữa Hiện Tại
+              Bữa Hiện Tại
             </button>
             <button
               type="button"
@@ -321,7 +321,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                   : 'bg-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
-              📋 Cả Ngày ({activeDay.meals.length} bữa)
+              Cả Ngày ({activeDay.meals.length} bữa)
             </button>
           </div>
 
@@ -414,7 +414,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                       )}
                       {currentMeal.calories ? (
                         <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
-                          🔥 {currentMeal.calories} kcal
+                          {currentMeal.calories} kcal
                         </span>
                       ) : null}
                     </div>
@@ -465,7 +465,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                               <div className="font-bold text-slate-800 text-sm">{item.name}</div>
                               {item.prepTip && (
                                 <div className="text-xs text-slate-500 italic mt-0.5 flex items-center gap-1">
-                                  <span>💡</span> {item.prepTip}
+                                  <span></span> {item.prepTip}
                                 </div>
                               )}
                             </div>
@@ -505,7 +505,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                   onClick={() => setViewMode('all')}
                   className="w-full mt-3 py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-sky-700 text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5"
                 >
-                  <span>📋 Xem thêm {activeDay.meals.length - 1} bữa khác trong ngày hôm nay</span>
+                  <span>Xem thêm {activeDay.meals.length - 1} bữa khác trong ngày hôm nay</span>
                   <ChevronDown size={14} />
                 </button>
               )}
@@ -522,7 +522,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                   onClick={() => setViewMode('realtime')}
                   className="text-sky-600 font-bold hover:underline bg-transparent border-none cursor-pointer p-0"
                 >
-                  ⚡ Quay lại bữa hiện tại
+                  Quay lại bữa hiện tại
                 </button>
               </div>
 
@@ -629,7 +629,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
                                   <div className="font-bold text-slate-800">{item.name}</div>
                                   {item.prepTip && (
                                     <div className="text-[11px] text-slate-500 italic mt-0.5">
-                                      💡 {item.prepTip}
+                                      {item.prepTip}
                                     </div>
                                   )}
                                 </div>
@@ -686,7 +686,7 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
         {/* ================= FOOTER GỌN GÀNG ================= */}
         <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs shrink-0">
           <div className="text-slate-500">
-            Tổng ngày: <strong className="text-slate-800">🔥 {dayTotalCalories > 0 ? dayTotalCalories.toLocaleString() : plan.targetCalories?.toLocaleString() || '—'} kcal</strong>
+            Tổng ngày:<strong className="text-slate-800">{dayTotalCalories > 0 ? dayTotalCalories.toLocaleString() : plan.targetCalories?.toLocaleString() ||'—'} kcal</strong>
           </div>
 
           <button

@@ -85,7 +85,7 @@ export default function EmployeePayslips() {
   };
 
   return (
-    <section className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+    <section className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl bg-surface-container-lowest p-4 sm:p-6">
       <HrPageTitle>Phiếu lương của tôi</HrPageTitle>
       <EmployeePayrollReconciliation />
       {loading && <p className="text-sm text-on-surface-variant">Đang tải phiếu lương...</p>}

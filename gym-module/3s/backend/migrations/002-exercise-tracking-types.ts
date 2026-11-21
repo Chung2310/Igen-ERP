@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { gymCollection } from '../config/collectionNamespace.js';
 
 interface ChangedDocument { id: string; paths: string[] }
 export interface ExerciseTrackingMigrationMetadata extends Record<string, unknown> {
@@ -25,7 +26,7 @@ function classifyNestedExercises(document: Record<string, any>) {
 }
 
 async function migrateNestedCollection(collectionName: string, dryRun: boolean) {
-  const collection = mongoose.connection.collection(collectionName);
+  const collection = mongoose.connection.collection(gymCollection(collectionName));
   const documents = await collection.find({}, { projection: { scheduledExercises: 1, unscheduledExercises: 1, sessions: 1 } }).toArray();
   const changes: ChangedDocument[] = [];
   let modified = 0;
@@ -46,7 +47,7 @@ async function migrateNestedCollection(collectionName: string, dryRun: boolean) 
 }
 
 export async function upExerciseTrackingTypes({ dryRun = false } = {}): Promise<ExerciseTrackingMigrationMetadata> {
-  const exercises = mongoose.connection.collection('exercises');
+  const exercises = mongoose.connection.collection(gymCollection('exercises'));
   const exerciseDocuments = await exercises.find({ $or: [{ defaultTrackingType: { $exists: false } }, { defaultTrackingType: null }] }, { projection: { _id: 1 } }).toArray();
   const exerciseChanges = exerciseDocuments.map((document) => ({ id: String(document._id), paths: ['defaultTrackingType'] }));
   let exerciseModified = exerciseDocuments.length;
@@ -74,7 +75,7 @@ export async function upExerciseTrackingTypes({ dryRun = false } = {}): Promise<
 export async function downExerciseTrackingTypes(metadata: Record<string, unknown>) {
   const changes = (metadata.changes || []) as ExerciseTrackingMigrationMetadata['changes'];
   for (const change of changes) {
-    const collection = mongoose.connection.collection(change.collection);
+    const collection = mongoose.connection.collection(gymCollection(change.collection));
     for (const document of change.documents) {
       const unset = Object.fromEntries(document.paths.map((path) => [path, '']));
       await collection.updateOne({ _id: new mongoose.Types.ObjectId(document.id) }, { $unset: unset });

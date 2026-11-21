@@ -7,7 +7,7 @@ import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import { KNOWLEDGE_TOPICS, getTopicBadgeStyle } from './knowledgeTopics';
 
 export const DOC_TOPICS = [
-  { val: 'ALL', label: 'Tất cả chủ đề', icon: '📚' },
+  { val:'ALL', label:'Tất cả chủ đề', icon:'' },
   ...KNOWLEDGE_TOPICS.map((t) => ({ val: t.val, label: t.shortLabel, icon: t.icon })),
 ];
 
@@ -199,7 +199,7 @@ export const KnowledgeDocList: React.FC<KnowledgeDocListProps> = ({
                     </span>
                     {doc.chunkCount !== undefined && doc.chunkCount > 0 && (
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-sm bg-sky-50 text-sky-700 border border-sky-200 flex items-center gap-1">
-                        ⚡ {doc.chunkCount} đoạn RAG
+                        {doc.chunkCount} đoạn RAG
                       </span>
                     )}
                     <span className="text-[11px] text-slate-400">v{doc.version || 1}</span>

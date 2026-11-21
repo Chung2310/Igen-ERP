@@ -49,7 +49,7 @@ export const FoodImageAiModal: React.FC<FoodImageAiModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">

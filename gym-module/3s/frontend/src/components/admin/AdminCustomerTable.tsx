@@ -141,9 +141,9 @@ export default function AdminCustomerTable({
                     {/* PT Phụ trách */}
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       {ptName ? (
-                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 max-w-[200px]">
-                          <UserCheck size={13} className="text-emerald-600 shrink-0" />
-                          <span className="text-xs font-semibold truncate" title={ptName}>
+                        <div className="status-badge gym-assigned-pt">
+                          <UserCheck size={13} className="shrink-0" aria-hidden="true" />
+                          <span className="truncate" title={ptName}>
                             {ptName}
                           </span>
                         </div>

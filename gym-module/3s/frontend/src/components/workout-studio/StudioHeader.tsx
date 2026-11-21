@@ -41,37 +41,35 @@ export default function StudioHeader(props: Props) {
   const levelBadge = getLevelBadge(props.level);
 
   return (
-    <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs mb-3.5 space-y-2.5">
+    <div className="bg-white rounded-xl p-3 sm:px-4 sm:py-3 border border-slate-200/80 shadow-xs mb-3 space-y-2">
       {/* Top Main Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Back & Title */}
-        <div className="flex items-center gap-3 min-w-0">
+        {/* Left: Back, Title & Badges on one row */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <button
             type="button"
             aria-label="Về danh sách giáo án"
             onClick={props.onBack}
-            className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
           >
-            <ArrowLeft size={17} />
+            <ArrowLeft size={16} />
           </button>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${levelBadge.bg}`}>
-                {levelBadge.label}
-              </span>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-900 text-white">
-                {props.durationDays} NGÀY
-              </span>
-              {props.contextLabel && (
-                <span className="text-[11px] font-semibold text-slate-500">
-                  • {props.contextLabel}
-                </span>
-              )}
-            </div>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 m-0 truncate">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h1 className="text-base font-semibold text-slate-900 m-0 truncate max-w-full">
               {props.title || 'Giáo án mới'}
             </h1>
+            <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border shrink-0 ${levelBadge.bg}`}>
+              {levelBadge.label}
+            </span>
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+              {props.durationDays} ngày
+            </span>
+            {props.contextLabel && (
+              <span className="text-xs font-medium text-slate-500">
+                • {props.contextLabel}
+              </span>
+            )}
           </div>
         </div>
 

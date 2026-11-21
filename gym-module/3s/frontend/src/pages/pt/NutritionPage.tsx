@@ -11,6 +11,7 @@ import {
 import { api } from '../../services/api';
 import { useToast } from '../../components/ui/ToastProvider';
 import CustomerSelect from '../../components/ui/CustomerSelect';
+import { GymEmptyIllustration } from '../../components/ui/GymEmptyIllustration';
 import { errorMessage } from '../../types';
 import type { Customer, NutritionSummary } from '../../types';
 
@@ -278,42 +279,42 @@ export default function NutritionPage() {
         {activeTab === 'logs_balance' && (
           <div style={{ display: 'grid', gap: '20px' }}>
             {/* Calories In / Out Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>CALO NẠP VÀO (IN)</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#003b70', margin: '4px 0' }}>
-                  {summary.consumedCalories || 0} <span style={{ fontSize: '0.85rem' }}>kcal</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>CALO NẠP VÀO (IN)</span>
+                <div style={{ fontSize: '1.45rem', fontWeight: 700, color: '#0f172a', margin: '4px 0' }}>
+                  {summary.consumedCalories || 0} <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#64748b' }}>kcal</span>
                 </div>
                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Từ các bữa ăn trong ngày</span>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>CALO TIÊU HAO (OUT)</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#ea580c', margin: '4px 0' }}>
-                  {summary.burnedCalories || 0} <span style={{ fontSize: '0.85rem' }}>kcal</span>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>CALO TIÊU HAO (OUT)</span>
+                <div style={{ fontSize: '1.45rem', fontWeight: 700, color: '#ea580c', margin: '4px 0' }}>
+                  {summary.burnedCalories || 0} <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#64748b' }}>kcal</span>
                 </div>
                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Từ tập luyện & hoạt động</span>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>CALO RÒNG (NET)</span>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>CALO RÒNG (NET)</span>
                 <div
                   style={{
-                    fontSize: '1.5rem',
-                    fontWeight: 900,
-                    color: (summary.netCalories || 0) < 0 ? '#16a34a' : '#003b70',
+                    fontSize: '1.45rem',
+                    fontWeight: 700,
+                    color: (summary.netCalories || 0) < 0 ? '#16a34a' : '#0f172a',
                     margin: '4px 0',
                   }}
                 >
-                  {summary.netCalories || 0} <span style={{ fontSize: '0.85rem' }}>kcal</span>
+                  {summary.netCalories || 0} <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#64748b' }}>kcal</span>
                 </div>
                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Calo Nạp - Calo Tiêu Hao</span>
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>TỔNG PROTEIN NẠP</span>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1d4ed8', margin: '4px 0' }}>
-                  {summary.protein || 0} <span style={{ fontSize: '0.85rem' }}>g</span>
+              <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 16px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>TỔNG PROTEIN NẠP</span>
+                <div style={{ fontSize: '1.45rem', fontWeight: 700, color: '#0284c7', margin: '4px 0' }}>
+                  {summary.protein || 0} <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#64748b' }}>g</span>
                 </div>
                 <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Đã ghi nhận trong ngày</span>
               </div>
@@ -323,8 +324,28 @@ export default function NutritionPage() {
             {customerId ? (
               <NutritionLogForm customerId={customerId} onSaved={() => void load()} />
             ) : (
-              <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '30px', textAlign: 'center', color: '#64748b' }}>
-                Vui lòng chọn học viên ở thanh tìm kiếm phía trên để ghi và xem nhật ký ăn uống / vận động.
+              <div
+                className="empty-state"
+                style={{
+                  background: '#ffffff',
+                  border: '1px dashed #cbd5e1',
+                  borderRadius: '12px',
+                  padding: '36px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  gap: '8px',
+                }}
+              >
+                <GymEmptyIllustration kind="nutrition" />
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                  Chưa chọn học viên
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', maxWidth: '420px' }}>
+                  Vui lòng chọn học viên ở thanh tìm kiếm phía trên để ghi và xem nhật ký ăn uống / vận động.
+                </div>
               </div>
             )}
           </div>

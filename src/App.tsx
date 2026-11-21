@@ -42,6 +42,8 @@ const PublicSlotApproval = lazy(() => import("./modules/marketing-suite/campaign
 const PublicDailySlotsApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicDailySlotsApproval"));
 const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicMonthlyApproval"));
 const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
+const WalletTab = lazy(() => import("./pages/WalletTab"));
+const SettingsTab = lazy(() => import("./pages/SettingsTab"));
 const ChatbotWidget = lazy(() => import("./components/common/ChatbotWidget").then(module => ({ default: module.ChatbotWidget })));
 
 function AppContent() {
@@ -64,9 +66,11 @@ function AppContent() {
   const isCampaignApprovalPage = ["/approve-post", "/approve-posts-day", "/approve-posts-month"].includes(approvalPath);
   const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage || isCampaignApprovalPage;
   const isPosRoute = currentPath === "/pos" || isPosOnly;
+  const isWalletRoute = currentPath === "/vi-nap-tien" && !isPosOnly;
+  const isEmbeddedGymProfile = currentPath === "/cai-dat" && new URLSearchParams(window.location.search).get("embed") === "gym";
 
   const { activeTab, setActiveTab } = useTabRouter({
-    enabled: !isPublicPage && !isPosRoute && !loading && Boolean(user && userProfile)
+    enabled: !isPublicPage && !isPosRoute && !isWalletRoute && !isEmbeddedGymProfile && !loading && Boolean(user && userProfile)
       && !["/modules", "/dang-nhap", "/login"].includes(currentPath),
   });
   // Giảng viên chỉ làm việc tại Lớp học. Nếu gõ/thăm lại URL Nhân sự cũ,
@@ -92,8 +96,9 @@ function AppContent() {
   }, [isPosOnly, requestedPath]);
 
   React.useEffect(() => {
+    if (isWalletRoute || isEmbeddedGymProfile) return;
     if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);
-  }, [activeTab, resolvedActiveTab, setActiveTab]);
+  }, [activeTab, resolvedActiveTab, setActiveTab, isWalletRoute, isEmbeddedGymProfile]);
 
   React.useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -297,6 +302,30 @@ function AppContent() {
         <Suspense fallback={<AuthLoader />}><ModuleLauncher /></Suspense>
       </>
     );
+  }
+
+  if (isWalletRoute) {
+    const returningToGym = ["gym_admin", "gym_pt", "gym_customer"].includes(userProfile.role);
+    return <>
+      <SEOHead meta={{ ...AUTH_SEO, title: "Ví Credit ERP", path: "/vi-nap-tien" }} />
+      <main className="min-h-dvh bg-background p-4 text-on-surface md:p-6">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <a href={returningToGym ? tabToPath("CHUỖI GYM") : "/modules"} className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline focus-visible:outline-2 focus-visible:outline-primary">{returningToGym ? "Quay lại Quản lý phòng Gym" : "Quay lại danh sách chức năng"}</a>
+          <Suspense fallback={<AuthLoader />}><WalletTab /></Suspense>
+        </div>
+      </main>
+      <ToastContainer />
+    </>;
+  }
+
+  if (isEmbeddedGymProfile) {
+    return <>
+      <SEOHead meta={{ ...getSeoForTab("CÀI ĐẶT"), title: "Hồ sơ cá nhân" }} />
+      <main className="h-dvh overflow-auto bg-background text-on-surface">
+        <Suspense fallback={<AuthLoader />}><SettingsTab profileOnly /></Suspense>
+      </main>
+      <ToastContainer />
+    </>;
   }
 
   if (isPosRoute) {

@@ -576,7 +576,7 @@ export default function ContractsTab({
     });
   };
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left sm:p-6">
+    <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-surface-container-lowest p-4 text-left sm:p-6">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex max-w-full gap-5 overflow-x-auto border-b border-outline-variant">

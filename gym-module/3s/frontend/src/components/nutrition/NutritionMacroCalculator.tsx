@@ -259,7 +259,7 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
                   onClick={() => setActiveMode('AI_EXPERT')}
                   style={{
                     background: activeMode === 'AI_EXPERT' ? '#ffffff' : 'transparent',
-                    color: activeMode === 'AI_EXPERT' ? '#0077b3' : '#475569',
+                    color: activeMode === 'AI_EXPERT' ? '#00adfc' : '#475569',
                     border: activeMode === 'AI_EXPERT' ? '1px solid #d8e2f0' : '1px solid transparent',
                     borderRadius: '5px',
                     padding: '4px 10px',
@@ -282,7 +282,7 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
                   onClick={() => setActiveMode('FORMULA')}
                   style={{
                     background: activeMode === 'FORMULA' ? '#ffffff' : 'transparent',
-                    color: activeMode === 'FORMULA' ? '#0077b3' : '#475569',
+                    color: activeMode === 'FORMULA' ? '#00adfc' : '#475569',
                     border: activeMode === 'FORMULA' ? '1px solid #d8e2f0' : '1px solid transparent',
                     borderRadius: '5px',
                     padding: '4px 10px',

@@ -2,7 +2,7 @@ import app from './app.js';
 import { startAiReservationRecovery, stopAiReservationRecovery } from './services/aiReservationRecoveryService.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { ensureBootstrapSuperAdmin } from './services/userService.js';
-import { ensureCreditReferenceData, migrationStatus } from './services/migrationService.js';
+import { migrationStatus } from './services/migrationService.js';
 import { initTelemetry, flushTelemetry } from './services/telemetryService.js';
 import { createShutdown } from './services/lifecycleService.js';
 import { logger } from './config/logger.js';
@@ -41,7 +41,6 @@ async function startServer() {
                 fullName: env.SUPER_ADMIN_FULL_NAME || 'Quản lý cấp cao 3S',
             });
         }
-        await ensureCreditReferenceData();
         await startAiWorkoutGenerationWorker();
         await startAiNutritionGenerationWorker();
         await startPackageAlertScheduler();

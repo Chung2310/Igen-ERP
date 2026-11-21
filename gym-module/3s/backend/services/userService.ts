@@ -9,12 +9,10 @@ import InBodyRecord from '../models/InBodyRecord.js';
 import Goal from '../models/Goal.js';
 import WorkoutPlan from '../models/WorkoutPlan.js';
 import NutritionPlan from '../models/NutritionPlan.js';
-import CreditWallet from '../models/CreditWallet.js';
 import DeviceSession from '../models/DeviceSession.js';
 import Center from '../models/Center.js';
 import { AppError } from '../errors/AppError.js';
 import { ERROR_CODES } from '../errors/errorCodes.js';
-import { ensureWallet } from './creditWalletService.js';
 import { withRequiredTransaction, withTransaction } from './transactionService.js';
 import { recordAudit } from './auditService.js';
 import type { AuthenticatedUser } from '../types/express.js';
@@ -99,7 +97,6 @@ async function createUser(payload: UserPayload, allowLegacyDigits = false) {
         ...(payload.centerId ? { centerId: typeof payload.centerId === 'string' ? new Types.ObjectId(payload.centerId) : payload.centerId } : {}),
       },
     ], { session });
-    await ensureWallet(user.id, session);
 
     // If role is CUSTOMER, ensure a linked CustomerProfile exists
     if (payload.role === 'CUSTOMER') {
@@ -187,7 +184,6 @@ async function registerCenterAdmin(input: { centerName: string; username: string
     await runWithSystemCenterAccess(async () => {
       const createdAdmin = await User.findOne({ username, centerId: center._id }).select({ _id: 1 }).lean();
       if (createdAdmin) {
-        await CreditWallet.deleteMany({ userId: createdAdmin._id });
         await User.deleteOne({ _id: createdAdmin._id });
       }
       await Center.deleteOne({ _id: center._id });
@@ -223,7 +219,6 @@ async function registerPtAccount(input: { username: string; password: string; fu
           username, password, role: 'PT', fullName, email, phone,
           centerId: center._id,
         }], { session });
-        await ensureWallet(pt.id, session);
         return pt;
       });
       center.ownerPtId = result._id;
@@ -298,15 +293,9 @@ async function listUsers(query: UserListQuery, actor: AuthenticatedUser) {
     User.countDocuments(filter),
   ]);
 
-  const userIds = users.map((u) => u._id);
-  const wallets = await CreditWallet.find({ userId: { $in: userIds } }).lean();
-  const walletMap = new Map(wallets.map((w) => [String(w.userId), w]));
-
   const usersWithWallet = users.map((u) => ({
     ...u,
     avatarUrl: u.avatarUrl || (u as unknown as Record<string, unknown>).avatar || (u as unknown as Record<string, unknown>).photoUrl || '',
-    availableCredits: walletMap.get(String(u._id))?.availableCredits ?? 0,
-    reservedCredits: walletMap.get(String(u._id))?.reservedCredits ?? 0,
   }));
 
   return { users: usersWithWallet, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -434,7 +423,6 @@ async function ensureBootstrapSuperAdmin({ username, password, fullName = 'Quả
         existingSuperAdmin.centerId = center._id;
         await existingSuperAdmin.save();
       }
-      await ensureWallet(existingSuperAdmin.id);
       return existingSuperAdmin;
     }
     if (configuredUser) {
@@ -445,7 +433,6 @@ async function ensureBootstrapSuperAdmin({ username, password, fullName = 'Quả
       if (!configuredUser.fullName && fullName) configuredUser.fullName = fullName;
       if (!configuredUser.centerId) configuredUser.centerId = center._id;
       await configuredUser.save();
-      await ensureWallet(configuredUser.id);
       return configuredUser;
     }
     return createUser({ username: normalizedUsername, password, fullName, role: 'SUPER_ADMIN', centerId: center._id }, true);
@@ -527,7 +514,6 @@ async function deleteSelfAccount(actor: AuthenticatedUser): Promise<void> {
     await withTransaction(async (session) => {
       await CustomerProfile.updateMany({ userId: user._id }, { $unset: { userId: 1 } }, { session });
       await DeviceSession.deleteMany({ userId: user._id }).session(session);
-      await CreditWallet.deleteMany({ userId: user._id }).session(session);
       await User.deleteOne({ _id: user._id }, { session });
     });
     return;
@@ -535,7 +521,6 @@ async function deleteSelfAccount(actor: AuthenticatedUser): Promise<void> {
 
   await withTransaction(async (session) => {
     await DeviceSession.deleteMany({ userId: user._id }).session(session);
-    await CreditWallet.deleteMany({ userId: user._id }).session(session);
     await User.deleteOne({ _id: user._id }, { session });
   });
 }

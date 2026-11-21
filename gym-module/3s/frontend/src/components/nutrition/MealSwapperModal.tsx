@@ -1831,14 +1831,14 @@ export default function MealSwapperModal({
                     type="button"
                     onClick={() => handleCategoryChange(c.id as any)}
                     style={{
-                      background: activeCategory === c.id ? '#003b70' : '#f8fafc',
-                      color: activeCategory === c.id ? '#ffffff' : '#334155',
+                      background: activeCategory === c.id ? '#e0f2fe' : '#ffffff',
+                      color: activeCategory === c.id ? '#0284c7' : '#475569',
                       border: '1px solid',
-                      borderColor: activeCategory === c.id ? '#003b70' : '#cbd5e1',
-                      borderRadius: '6px',
+                      borderColor: activeCategory === c.id ? '#7dd3fc' : '#e2e8f0',
+                      borderRadius: '8px',
                       padding: '5px 10px',
                       fontSize: '0.78rem',
-                      fontWeight: 700,
+                      fontWeight: activeCategory === c.id ? 600 : 500,
                       cursor: 'pointer',
                       transition: 'all 0.15s',
                       display: 'inline-flex',
@@ -2241,13 +2241,14 @@ export default function MealSwapperModal({
                     type="button"
                     onClick={() => setManageCategoryFilter(cat.id as any)}
                     style={{
-                      background: manageCategoryFilter === cat.id ? '#003b70' : '#f1f5f9',
-                      color: manageCategoryFilter === cat.id ? '#ffffff' : '#475569',
-                      border: 'none',
-                      borderRadius: '6px',
+                      background: manageCategoryFilter === cat.id ? '#e0f2fe' : '#ffffff',
+                      color: manageCategoryFilter === cat.id ? '#0284c7' : '#475569',
+                      border: '1px solid',
+                      borderColor: manageCategoryFilter === cat.id ? '#7dd3fc' : '#e2e8f0',
+                      borderRadius: '8px',
                       padding: '5px 10px',
                       fontSize: '0.74rem',
-                      fontWeight: 700,
+                      fontWeight: manageCategoryFilter === cat.id ? 600 : 500,
                       cursor: 'pointer',
                     }}
                   >
@@ -2315,14 +2316,14 @@ export default function MealSwapperModal({
                           type="button"
                           onClick={() => setNewFoodCategory(cat.id as FoodCategory)}
                           style={{
-                            background: newFoodCategory === cat.id ? '#003b70' : '#ffffff',
-                            color: newFoodCategory === cat.id ? '#ffffff' : '#475569',
+                            background: newFoodCategory === cat.id ? '#e0f2fe' : '#ffffff',
+                            color: newFoodCategory === cat.id ? '#0284c7' : '#475569',
                             border: '1px solid',
-                            borderColor: newFoodCategory === cat.id ? '#003b70' : '#cbd5e1',
-                            borderRadius: '4px',
-                            padding: '3px 8px',
+                            borderColor: newFoodCategory === cat.id ? '#7dd3fc' : '#e2e8f0',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
                             fontSize: '0.72rem',
-                            fontWeight: 700,
+                            fontWeight: newFoodCategory === cat.id ? 600 : 500,
                             cursor: 'pointer',
                           }}
                         >

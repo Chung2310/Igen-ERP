@@ -172,7 +172,7 @@ export function ExamsTab({
                         <option value="Sát hạch">Sát hạch</option>
                       </select>
                     ) : (
-                      <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">{exam.type}</span>
+                      <span className="inline-block max-w-36 truncate rounded-sm bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase text-slate-700" title={exam.type}>{exam.type}</span>
                     )}
                   </td>
                   <td className="px-4 py-4 text-center">

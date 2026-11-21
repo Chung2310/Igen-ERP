@@ -432,23 +432,23 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                             </td>
                             {showStudentRank && (
                               <td className="px-2.5 py-1.5 text-center">
-                                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-600 rounded text-xs font-medium">
+                                <span className="inline-block max-w-40 truncate rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-semibold uppercase text-sky-800" title={student.rank || 'N/A'}>
                                   {student.rank || 'N/A'}
                                 </span>
                               </td>
                             )}
                             <td className="px-2.5 py-1.5">
                               <span className={cn(
-                                "px-1.5 py-0.2 rounded text-xs font-medium",
-                                (Array.isArray(student.status) ? student.status.includes('Đã đậu') : student.status === 'Đã đậu') ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                                (Array.isArray(student.status) ? student.status.includes('Đang thi') : student.status === 'Đang thi') ? "bg-cyan-50 text-cyan-600 border border-cyan-100" :
-                                "bg-slate-50 text-slate-500 border border-slate-100"
-                              )}>
+                                "inline-block max-w-40 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase",
+                                (Array.isArray(student.status) ? student.status.includes('Đã đậu') : student.status === 'Đã đậu') ? "bg-emerald-100 text-emerald-800" :
+                                (Array.isArray(student.status) ? student.status.includes('Đang thi') : student.status === 'Đang thi') ? "bg-cyan-100 text-cyan-800" :
+                                "bg-slate-100 text-slate-700"
+                              )} title={Array.isArray(student.status) ? student.status.join(', ') : student.status}>
                                 {Array.isArray(student.status) ? student.status.join(', ') : student.status}
                               </span>
                             </td>
                             <td className="px-2.5 py-1.5 text-center">
-                              {exam.batchId ? <div className="flex flex-col items-center gap-1"><input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /><span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold", resultText === 'Đậu' ? "bg-emerald-50 text-emerald-700" : resultText === 'Trượt' ? "bg-rose-50 text-rose-700" : "bg-slate-50 text-slate-500")}>{resultText}</span></div> :
+                              {exam.batchId ? <div className="flex flex-col items-center gap-1"><input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /><span className={cn("inline-block max-w-28 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", resultText === 'Đậu' ? "bg-emerald-100 text-emerald-800" : resultText === 'Trượt' ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-700")} title={resultText}>{resultText}</span></div> :
                               <div className="min-w-28">
                                 <RoadmapPicker value={resultText} placeholder="Chưa có" allowClear={false} options={[{ value: 'Chưa có', label: 'Chưa có' }, { value: 'Đậu', label: 'Đậu' }, { value: 'Trượt', label: 'Trượt' }]} onChange={(value) => onUpdateStudentResult?.(student.id, value as 'Đậu' | 'Trượt' | 'Chưa có')} />
                               </div>

@@ -107,12 +107,12 @@ const DEFAULT_NEW_COURSE: NewCourseFormState = {
 };
 
 const CATEGORY_COLORS = [
-  'bg-indigo-500/10 text-indigo-400 border border-indigo-500/15',
-  'bg-violet-500/10 text-violet-400 border border-violet-500/15',
-  'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/15',
-  'bg-pink-500/10 text-pink-400 border border-pink-500/15',
-  'bg-amber-500/10 text-amber-400 border border-amber-500/15',
-  'bg-cyan-500/10 text-cyan-400 border border-cyan-500/15',
+  'bg-indigo-100 text-indigo-800',
+  'bg-violet-100 text-violet-800',
+  'bg-rose-100 text-rose-800',
+  'bg-pink-100 text-pink-800',
+  'bg-amber-100 text-amber-800',
+  'bg-cyan-100 text-cyan-800',
 ] as const;
 
 function getStoredViewMode(): CourseViewMode {
@@ -121,10 +121,10 @@ function getStoredViewMode(): CourseViewMode {
 }
 
 function getCategoryColor(category: string): string {
-  if (category === 'Lái xe') return 'bg-brand-primary/10 text-brand-primary border border-brand-primary/15';
-  if (category === 'Ngoại ngữ') return 'bg-sky-500/10 text-sky-400 border border-sky-500/15';
-  if (category === 'Kỹ năng') return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15';
-  if (category === 'Khác') return 'bg-slate-500/10 text-slate-400 border border-slate-500/15';
+  if (category === 'Lái xe') return 'bg-sky-100 text-sky-800';
+  if (category === 'Ngoại ngữ') return 'bg-indigo-100 text-indigo-800';
+  if (category === 'Kỹ năng') return 'bg-emerald-100 text-emerald-800';
+  if (category === 'Khác') return 'bg-slate-100 text-slate-700';
 
   let hash = 0;
   for (let i = 0; i < category.length; i++) {
@@ -561,7 +561,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                 <div className="space-y-2.5">
                   <div className={cn('student-stat-card -mx-3 -mt-3 flex items-start justify-between gap-2 rounded-t-md px-3 py-3', `student-stat-card--${COURSE_HEADER_TONES[index % COURSE_HEADER_TONES.length]}`)}>
                     <h4 title={course.title} className="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-white">{course.title}</h4>
-                    <span className="max-w-[45%] shrink-0 truncate rounded-md border border-white/40 bg-white/15 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    <span className="block min-w-0 max-w-[45%] shrink-0 truncate rounded-sm bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-800" title={course.category}>
                       {course.category}
                     </span>
                   </div>
@@ -640,7 +640,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                     <td className="py-3 px-4 text-sm font-semibold text-[#1687BE]">{course.code}</td>
                     <td className="py-3 px-4 font-medium text-slate-800">{course.title}</td>
                     <td className="py-2 px-4">
-                      <span className={cn('px-2 py-1 rounded-lg border text-[10px] font-medium', getCategoryColor(course.category))}>
+                      <span className={cn('inline-block max-w-40 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase', getCategoryColor(course.category))} title={course.category}>
                         {course.category}
                       </span>
                     </td>
@@ -649,9 +649,9 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                     <td className="py-3 px-4 font-normal">{copy.tableCapacitySummary(course.maxLearners, course.activeBatches)}</td>
                     <td className="py-2 px-4">
                       <span className={cn(
-                        'px-2 py-1 rounded-lg text-[10px] font-medium border',
-                        course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                      )}>
+                        'inline-block max-w-40 truncate rounded-sm px-2 py-0.5 text-xs font-semibold uppercase',
+                        course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                      )} title={course.status}>
                         {course.status}
                       </span>
                     </td>

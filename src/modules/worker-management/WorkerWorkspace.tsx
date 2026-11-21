@@ -85,7 +85,7 @@ const SUB_TABS = [
 ];
 
 const Loader = () => (
-  <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm">
+  <div className="flex min-h-[320px] items-center justify-center rounded-[28px] bg-white text-sm font-semibold text-slate-500 shadow-sm">
     Đang tải phân hệ lao động...
   </div>
 );
@@ -258,7 +258,7 @@ export default function WorkerWorkspace() {
         {tabs.map(tab => <ModuleNavigationButton key={tab.value} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto bg-surface px-3 py-0 lg:pl-0">
-        <div className="min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+        <div className="min-h-full rounded-md bg-surface-container-lowest p-4 sm:p-5">
           <Suspense fallback={<Loader />}>{page}</Suspense>
         </div>
       </div>

@@ -130,7 +130,7 @@ export default function PtDashboardPage() {
       case 0:
         return {
           title: 'Top 1 Biến đổi ngoạn mục',
-          icon: '🥇',
+          icon: '#1',
           bg: '#fef9c3',
           border: '#fde047',
           color: '#854d0e',
@@ -138,7 +138,7 @@ export default function PtDashboardPage() {
       case 1:
         return {
           title: 'Top 2 Tăng cơ giảm mỡ',
-          icon: '🥈',
+          icon: '#2',
           bg: '#f1f5f9',
           border: '#cbd5e1',
           color: '#334155',
@@ -146,7 +146,7 @@ export default function PtDashboardPage() {
       case 2:
         return {
           title: 'Top 3 Bứt phá thể lực',
-          icon: '🥉',
+          icon: '#3',
           bg: '#ffedd5',
           border: '#fdba74',
           color: '#9a3412',
@@ -154,7 +154,7 @@ export default function PtDashboardPage() {
       default:
         return {
           title: `Top ${index + 1} Phong độ cao`,
-          icon: '⭐',
+          icon: '',
           bg: '#f0f9ff',
           border: '#bae6fd',
           color: '#0369a1',
@@ -202,7 +202,7 @@ export default function PtDashboardPage() {
           {/* Total Customers */}
           <div className="pt-dash-metric-card">
             <div className="pt-dash-metric-info">
-              <span className="pt-dash-metric-label">👥 Tổng khách quản lý</span>
+              <span className="pt-dash-metric-label">Tổng khách quản lý</span>
               <div className="pt-dash-metric-val" style={{ color: '#003b70' }}>
                 {data?.totalCustomers ?? '—'}
                 <span className="pt-dash-metric-unit">học viên</span>
@@ -217,7 +217,7 @@ export default function PtDashboardPage() {
           {/* Good Progress */}
           <div className="pt-dash-metric-card">
             <div className="pt-dash-metric-info">
-              <span className="pt-dash-metric-label">🟢 Tiến bộ tốt</span>
+              <span className="pt-dash-metric-label">Tiến bộ tốt</span>
               <div className="pt-dash-metric-val" style={{ color: '#16a34a' }}>
                 {data?.goodProgressCount ?? 0}
                 <span className="pt-dash-metric-unit">khách</span>
@@ -232,7 +232,7 @@ export default function PtDashboardPage() {
           {/* Slow Progress */}
           <div className="pt-dash-metric-card">
             <div className="pt-dash-metric-info">
-              <span className="pt-dash-metric-label">🟡 Tiến bộ chậm</span>
+              <span className="pt-dash-metric-label">Tiến bộ chậm</span>
               <div className="pt-dash-metric-val" style={{ color: '#d97706' }}>
                 {data?.slowProgressCount ?? 0}
                 <span className="pt-dash-metric-unit">khách</span>
@@ -247,7 +247,7 @@ export default function PtDashboardPage() {
           {/* Poor Progress / Risk */}
           <div className="pt-dash-metric-card">
             <div className="pt-dash-metric-info">
-              <span className="pt-dash-metric-label">🔴 Kết quả không tốt</span>
+              <span className="pt-dash-metric-label">Kết quả không tốt</span>
               <div className="pt-dash-metric-val" style={{ color: '#dc2626' }}>
                 {data?.poorProgressCount ?? 0}
                 <span className="pt-dash-metric-unit">cần xử lý</span>
@@ -299,28 +299,28 @@ export default function PtDashboardPage() {
                 className={`pt-dash-filter-btn ${filterCategory === 'GOOD' ? 'active filter-good' : ''}`}
                 onClick={() => setFilterCategory('GOOD')}
               >
-                🟢 Tiến bộ tốt ({data?.goodProgressCount || 0})
+                Tiến bộ tốt ({data?.goodProgressCount || 0})
               </button>
               <button
                 type="button"
                 className={`pt-dash-filter-btn ${filterCategory === 'SLOW' ? 'active filter-slow' : ''}`}
                 onClick={() => setFilterCategory('SLOW')}
               >
-                🟡 Tiến bộ chậm ({data?.slowProgressCount || 0})
+                Tiến bộ chậm ({data?.slowProgressCount || 0})
               </button>
               <button
                 type="button"
                 className={`pt-dash-filter-btn ${filterCategory === 'POOR' ? 'active filter-poor' : ''}`}
                 onClick={() => setFilterCategory('POOR')}
               >
-                🔴 Cần quan tâm ({data?.poorProgressCount || 0})
+                Cần quan tâm ({data?.poorProgressCount || 0})
               </button>
               <button
                 type="button"
                 className={`pt-dash-filter-btn ${filterCategory === 'INSUFFICIENT_DATA' ? 'active filter-insufficient' : ''}`}
                 onClick={() => setFilterCategory('INSUFFICIENT_DATA')}
               >
-                ⚪ Chưa đủ dữ liệu InBody
+                Chưa đủ dữ liệu InBody
               </button>
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function PtDashboardPage() {
                           {c.fullName}
                         </div>
                         <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
-                          🎯 Mục tiêu: {c.initialGoal || 'Cải thiện thể lực'}
+                          Mục tiêu: {c.initialGoal ||'Cải thiện thể lực'}
                         </div>
                       </td>
 
@@ -373,22 +373,22 @@ export default function PtDashboardPage() {
                       <td>
                         {c.dataStatus === 'INSUFFICIENT_DATA' || c.progressCategory === 'INSUFFICIENT_DATA' ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', fontWeight: 700, fontSize: '0.72rem' }}>
-                            <span>⚪</span>
+                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#94a3b8' }} />
                             <span>Cần ≥ 2 lần InBody</span>
                           </span>
                         ) : c.progressCategory === 'GOOD' ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', fontWeight: 700, fontSize: '0.72rem' }}>
-                            <span>🟢</span>
+                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#16a34a' }} />
                             <span>Tiến bộ tốt</span>
                           </span>
                         ) : c.progressCategory === 'SLOW' ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', fontWeight: 700, fontSize: '0.72rem' }}>
-                            <span>🟡</span>
+                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#eab308' }} />
                             <span>Tiến bộ chậm</span>
                           </span>
                         ) : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontWeight: 700, fontSize: '0.72rem' }}>
-                            <span>🔴</span>
+                            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#ef4444' }} />
                             <span>Cần quan tâm</span>
                           </span>
                         )}
@@ -515,7 +515,7 @@ export default function PtDashboardPage() {
                         {c.fullName}
                       </h3>
                       <div style={{ fontSize: '0.76rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🎯 Mục tiêu ban đầu:</span>
+                        <span>Mục tiêu ban đầu:</span>
                         <strong style={{ color: '#0284c7' }}>{c.initialGoal || 'Tăng cơ giảm mỡ'}</strong>
                       </div>
                     </div>
@@ -614,7 +614,7 @@ export default function PtDashboardPage() {
                         {c.fullName}
                       </h3>
                       <span style={{ fontSize: '0.72rem', color: '#b45309' }}>
-                        🎯 Mục tiêu: {c.initialGoal || 'Cải thiện vóc dáng'}
+                        Mục tiêu: {c.initialGoal ||'Cải thiện vóc dáng'}
                       </span>
                     </div>
                   </div>
@@ -638,7 +638,7 @@ export default function PtDashboardPage() {
                 {/* Alert Footer Thoáng Đãng */}
                 <div style={{ padding: '12px 18px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>
-                    {c.openAlerts ? `⚠️ Cảnh báo tiến độ` : 'ℹ️ Cần theo dõi thêm'}
+                    {c.openAlerts ?`Cảnh báo tiến độ` :'Cần theo dõi thêm'}
                   </span>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                     <Link

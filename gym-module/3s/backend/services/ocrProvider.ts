@@ -1,6 +1,6 @@
 import { AppError } from '../errors/AppError.js';
 import { ERROR_CODES } from '../errors/errorCodes.js';
-import { getEnv } from '../config/env.js';
+import { getEnv, gymSetting } from '../config/env.js';
 import { requestOpenRouter } from './openRouterRequest.js';
 import { withAiBilling } from './aiBillingService.js';
 import type { AiBillingContext, ProviderResult, ProviderUsage } from './creditTypes.js';
@@ -85,7 +85,7 @@ function normalizeInBodyWarning(warning: string): string {
 }
 
 async function extractInBodyRaw(fileOrFiles: Express.Multer.File | Express.Multer.File[]): Promise<ProviderResult<InBodyExtraction>> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = gymSetting('OPENROUTER_API_KEY');
   if (!apiKey) throw new AppError({ status: 503, code: ERROR_CODES.UNAVAILABLE, message: 'Dịch vụ OCR InBody chưa được cấu hình.' });
   const ocrModel = getEnv().OCR_MODEL;
   try {

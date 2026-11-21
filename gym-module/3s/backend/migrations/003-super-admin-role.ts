@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
+import { gymCollection } from '../config/collectionNamespace.js';
 
 export const SUPER_ADMIN_INDEX = 'unique_super_admin_role';
 
 export async function upSuperAdminRole({ dryRun = false } = {}) {
-  const collection = mongoose.connection.collection('users');
+  const collection = mongoose.connection.collection(gymCollection('users'));
   const exists = await collection.indexExists(SUPER_ADMIN_INDEX);
   if (!dryRun && !exists) {
     await collection.createIndex(
@@ -19,6 +20,6 @@ export async function upSuperAdminRole({ dryRun = false } = {}) {
 }
 
 export async function downSuperAdminRole() {
-  const collection = mongoose.connection.collection('users');
+  const collection = mongoose.connection.collection(gymCollection('users'));
   if (await collection.indexExists(SUPER_ADMIN_INDEX)) await collection.dropIndex(SUPER_ADMIN_INDEX);
 }

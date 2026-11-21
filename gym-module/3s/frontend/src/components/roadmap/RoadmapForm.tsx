@@ -601,12 +601,12 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
               value={goalType}
               onChange={(val) => setGoalType(val)}
               options={[
-                { value: 'FAT_LOSS', label: '🔥 Giảm mỡ & Giữ cơ (Fat Loss)' },
-                { value: 'WEIGHT_LOSS', label: '📉 Giảm cân toàn thân (Weight Loss)' },
-                { value: 'MUSCLE_GAIN', label: '💪 Tăng cơ nạc (Muscle Gain / Bulking)' },
-                { value: 'RECOMPOSITION', label: '⚡ Tái cấu trúc vóc dáng (Recomposition)' },
-                { value: 'FITNESS', label: '🏃 Cải thiện Thể lực & Sức bền (Fitness)' },
-                { value: 'STRENGTH', label: '🏋️ Tăng Sức mạnh nền tảng (Strength)' },
+                { value:'FAT_LOSS', label:'Giảm mỡ & Giữ cơ (Fat Loss)' },
+                { value:'WEIGHT_LOSS', label:'Giảm cân toàn thân (Weight Loss)' },
+                { value:'MUSCLE_GAIN', label:'Tăng cơ nạc (Muscle Gain / Bulking)' },
+                { value:'RECOMPOSITION', label:'Tái cấu trúc vóc dáng (Recomposition)' },
+                { value:'FITNESS', label:'Cải thiện Thể lực & Sức bền (Fitness)' },
+                { value:'STRENGTH', label:'Tăng Sức mạnh nền tảng (Strength)' },
               ]}
             />
           </div>
@@ -628,7 +628,8 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  minHeight: '42px',
+                  height: '36px',
+                  minHeight: '36px',
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
                   padding: '0 12px',
@@ -637,6 +638,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
               />
               <div style={{ width: '95px', flexShrink: 0 }}>
                 <CustomSelect
+                  ariaLabel="Đơn vị chỉ số mục tiêu"
                   value={targetUnit}
                   onChange={(val) => setTargetUnit(val)}
                   options={[
@@ -853,7 +855,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
                 }}
               >
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>
-                  💡 Gợi ý điều chỉnh 1-chạm từ AI:
+                  Gợi ý điều chỉnh 1-chạm từ AI:
                 </span>
 
                 {feasibility.recommendedWeeks && (
@@ -906,7 +908,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
           </div>
         )}
 
-        <label className="field">
+        <label className="field" style={{ marginTop: '16px' }}>
           <span>Thời lượng tối đa mỗi buổi (phút)</span>
           <input type="number" min={20} max={180} step={5} required placeholder="Ví dụ: 60"
             value={sessionDurationMinutes} disabled={loadingAi}
@@ -930,34 +932,30 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
             onClick={handleGenerateSmartProposal}
             disabled={loadingAi || loading || !contextReady}
             style={{
-              background:
-                feasibility.status === 'INFEASIBLE'
-                  ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)'
-                  : 'linear-gradient(135deg, #0284c7 0%, #003b70 100%)',
-              padding: '10px 22px',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              boxShadow:
-                feasibility.status === 'INFEASIBLE'
-                  ? '0 4px 14px rgba(220,38,38,0.25)'
-                  : '0 4px 14px rgba(2,132,199,0.35)',
-              display: 'flex',
+              ...(feasibility.status === 'INFEASIBLE'
+                ? { background: '#dc2626', borderColor: '#dc2626' }
+                : {}),
+              minHeight: '36px',
+              padding: '0 16px',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               cursor: loadingAi ? 'not-allowed' : 'pointer',
               opacity: loadingAi ? 0.75 : 1,
             }}
           >
             {feasibility.status === 'INFEASIBLE' ? (
-              <AlertTriangle size={18} />
+              <AlertTriangle size={15} />
             ) : (
-              <Sparkles size={18} />
+              <Sparkles size={15} />
             )}
             {loadingAi
-              ? 'AI đang suy nghĩ, phân tích...'
+              ? 'AI đang phân tích...'
               : feasibility.status === 'INFEASIBLE'
               ? 'Xem cảnh báo mục tiêu bất khả thi'
-              : 'Tạo Lộ trình với AI'}
+              : 'Tạo lộ trình với AI'}
           </button>
         </div>
 
@@ -1279,7 +1277,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
               {/* 3 Macros: Đạm, Carb, Fat */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div style={{ background: '#fef2f2', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fecaca' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#991b1b', fontWeight: 700, display: 'block', marginBottom: '4px' }}>🥩 Đạm (Protein)</span>
+                  <span style={{ fontSize:'0.74rem', color:'#991b1b', fontWeight: 700, display:'block', marginBottom:'4px' }}>Đạm (Protein)</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <input
                       aria-label="Protein grams"
@@ -1304,7 +1302,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
                 </div>
 
                 <div style={{ background: '#fffbeb', padding: '10px 12px', borderRadius: '8px', border: '1px solid #fde68a' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#92400e', fontWeight: 700, display: 'block', marginBottom: '4px' }}>🍚 Tinh bột (Carb)</span>
+                  <span style={{ fontSize:'0.74rem', color:'#92400e', fontWeight: 700, display:'block', marginBottom:'4px' }}>Tinh bột (Carb)</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <input
                       aria-label="Carb grams"
@@ -1329,7 +1327,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
                 </div>
 
                 <div style={{ background: '#f5f3ff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#6b21a8', fontWeight: 700, display: 'block', marginBottom: '4px' }}>🥑 Chất béo (Fat)</span>
+                  <span style={{ fontSize:'0.74rem', color:'#6b21a8', fontWeight: 700, display:'block', marginBottom:'4px' }}>Chất béo (Fat)</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <input
                       aria-label="Fat grams"
@@ -1676,7 +1674,7 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
                       ))}
                       {(!phase.goals || phase.goals.length === 0) && (
                         <div className="text-xs text-slate-400 italic py-1">
-                          Chưa có mục tiêu cho giai đoạn này. Bấm &quot;Thêm mục tiêu&quot; để thiết lập.
+                          Chưa có mục tiêu.
                         </div>
                       )}
                     </div>

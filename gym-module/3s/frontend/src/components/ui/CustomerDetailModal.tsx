@@ -942,7 +942,7 @@ export default function CustomerDetailModal({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.82rem', color: '#475569', flexWrap: 'wrap', marginTop: '6px' }}>
                             {plan.targetCalories && (
                               <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#e11d48', fontWeight: 700 }}>
-                                <span>🔥</span> {plan.targetCalories.toLocaleString()} kcal/ngày
+                                <span></span> {plan.targetCalories.toLocaleString()} kcal/ngày
                               </span>
                             )}
                             {plan.macros && (
@@ -1082,7 +1082,7 @@ export default function CustomerDetailModal({
                           )}
                         </div>
                         <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#0284c7', fontWeight: 600 }}>
-                          <span>🔍 Bấm xem phân tích chi tiết</span>
+                          <span>Bấm xem phân tích chi tiết</span>
                           <ChevronRight size={14} />
                         </div>
                       </div>

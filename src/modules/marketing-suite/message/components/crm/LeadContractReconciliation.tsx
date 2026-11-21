@@ -2,8 +2,10 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { FileSpreadsheet, UploadCloud } from "lucide-react";
 import type { LeadContractPhoto, LeadContractReport, LeadContractStatus, LeadReconciliationScope, TelecomCustomerInfo } from "../../../../../../shared/marketing-suite/telecom-invoice";
 import { ErpModal } from "../../../../../components/common/ErpModal";
+import { StyledSelect } from "../../../../../components/common/StyledSelect";
 import { TablePagination } from "../../../../../components/common/TablePagination";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
+import { AdminDatePicker } from "../../../../../components/user-admin/AdminDatePicker";
 import { crmService, type ExtendedLeadCard } from "../../services/crmService";
 import { LeadContractPhotos } from "./LeadContractPhotos";
 import { cn } from "../../../../student-management/lib/utils";
@@ -161,22 +163,43 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
       <div className="grid gap-4 lg:grid-cols-2">
         <section aria-label="Phạm vi Lead" className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
           <h3 className="text-balance text-sm font-medium">Phạm vi Lead</h3>
-          <label className="block space-y-1.5 text-sm"><span>Nhà mạng</span>
-            <select className={fieldClass} value={provider} disabled={working || counting} onChange={event => { setProvider(event.target.value); setReport(undefined); }}>
-              {providers.map(item => <option key={item}>{item}</option>)}
-            </select>
-          </label>
+          <div className="space-y-1.5 text-sm">
+            <span className="block text-xs font-medium text-on-surface-variant">Nhà mạng</span>
+            <StyledSelect
+              appearance="erp"
+              ariaLabel="Nhà mạng"
+              value={provider}
+              disabled={working || counting}
+              className="h-9 min-h-9 rounded-md border-outline-variant bg-surface-container-lowest py-1.5"
+              options={providers.map(item => ({ value: item, label: item }))}
+              onChange={value => { setProvider(value); setReport(undefined); }}
+            />
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5 text-sm"><span>Từ ngày tạo Lead</span>
-              <input type="date" required disabled={working || counting} min="2000-01-01" max={to || "2100-12-31"} value={from} className={fieldClass}
-                aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
-                onChange={event => { setFrom(event.target.value); setScopeError(""); setReport(undefined); }} />
-            </label>
-            <label className="space-y-1.5 text-sm"><span>Đến ngày tạo Lead</span>
-              <input type="date" required disabled={working || counting} min={from || "2000-01-01"} max="2100-12-31" value={to} className={fieldClass}
-                aria-invalid={Boolean(scopeError)} aria-describedby={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
-                onChange={event => { setTo(event.target.value); setScopeError(""); setReport(undefined); }} />
-            </label>
+            <AdminDatePicker
+              label="Từ ngày tạo Lead"
+              value={from}
+              min="2000-01-01"
+              max={to || "2100-12-31"}
+              disabled={working || counting}
+              clearable={false}
+              ariaInvalid={Boolean(scopeError)}
+              ariaDescribedBy={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
+              buttonClassName="h-9"
+              onChange={value => { setFrom(value); setScopeError(""); setReport(undefined); }}
+            />
+            <AdminDatePicker
+              label="Đến ngày tạo Lead"
+              value={to}
+              min={from || "2000-01-01"}
+              max="2100-12-31"
+              disabled={working || counting}
+              clearable={false}
+              ariaInvalid={Boolean(scopeError)}
+              ariaDescribedBy={`${rangeHintId}${scopeError ? ` ${scopeErrorId}` : ""}`}
+              buttonClassName="h-9"
+              onChange={value => { setTo(value); setScopeError(""); setReport(undefined); }}
+            />
           </div>
           <p id={rangeHintId} className="text-pretty text-xs text-on-surface-variant">Theo ngày tạo Lead, tính đủ hai đầu ngày theo giờ Việt Nam.</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -193,12 +216,20 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
         <section aria-label="File Excel đối soát" className="space-y-4 rounded-xl border border-outline-variant p-4">
           <h3 className="text-balance text-sm font-medium">File Excel đối soát</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5 text-sm"><span>Quý</span>
-              <select className={fieldClass} value={quarter} disabled={working} onChange={event => { setQuarter(event.target.value); setReport(undefined); }}>
-                {[1, 2, 3, 4].map(item => <option key={item} value={item}>Quý {item}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1.5 text-sm"><span>Năm</span>
+            <div className="space-y-1.5 text-sm">
+              <span className="block text-xs font-medium text-on-surface-variant">Quý</span>
+              <StyledSelect
+                appearance="erp"
+                ariaLabel="Quý"
+                value={quarter}
+                disabled={working}
+                className="h-9 min-h-9 rounded-md border-outline-variant bg-surface-container-lowest py-1.5"
+                options={[1, 2, 3, 4].map(item => ({ value: String(item), label: `Quý ${item}` }))}
+                onChange={value => { setQuarter(value); setReport(undefined); }}
+              />
+            </div>
+            <label className="space-y-1.5 text-sm">
+              <span className="block text-xs font-medium text-on-surface-variant">Năm</span>
               <input type="number" className={fieldClass} value={year} min={2000} max={2100} required disabled={working}
                 onChange={event => { setYear(event.target.value); setReport(undefined); }} />
             </label>
@@ -234,15 +265,23 @@ function ExcelComparison({ onOpenLead }: { onOpenLead: (lead: ExtendedLeadCard) 
       {report.invalidRows.length > 0 && <p className="text-pretty text-sm text-error">
         {report.invalidRows.length} dòng thiếu mã hoặc mã sai định dạng (dòng {report.invalidRows.slice(0, 12).join(", ")}{report.invalidRows.length > 12 ? "…" : ""}).
       </p>}
-      <label className="block max-w-xs space-y-1 text-sm">
-        <span>Lọc kết quả</span>
-        <select className={fieldClass} value={filter} onChange={event => { setFilter(event.target.value as typeof filter); setPage(1); }}>
-          <option value="all">Tất cả ({comparisonRows.length})</option>
-          {Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>
-            {label} ({comparisonRows.filter(row => row.status === value).length})
-          </option>)}
-        </select>
-      </label>
+      <div className="max-w-xs space-y-1.5 text-sm">
+        <span className="block text-xs font-medium text-on-surface-variant">Lọc kết quả</span>
+        <StyledSelect
+          appearance="erp"
+          ariaLabel="Lọc kết quả"
+          value={filter}
+          className="h-9 min-h-9 rounded-md border-outline-variant bg-surface-container-lowest py-1.5"
+          options={[
+            { value: "all", label: `Tất cả (${comparisonRows.length})` },
+            ...Object.entries(statuses).map(([value, label]) => ({
+              value,
+              label: `${label} (${comparisonRows.filter(row => row.status === value).length})`,
+            })),
+          ]}
+          onChange={value => { setFilter(value as typeof filter); setPage(1); }}
+        />
+      </div>
       {visible.length ? <div className="overflow-hidden rounded-md border border-outline-variant">
         <div className="overflow-x-auto">
           <table aria-label="Đối soát theo từng dòng Excel" className="min-w-5xl w-full text-left text-sm">

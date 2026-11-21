@@ -841,7 +841,7 @@ export default function TrainingTab({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
-        <div className="min-h-full space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6" id="elearning_catalog">
+        <div className="min-h-full space-y-4 rounded-2xl bg-surface-container-lowest p-4 sm:p-6" id="elearning_catalog">
           <div className="flex flex-wrap items-center gap-2.5">
             <label className="relative min-w-0 flex-1 basis-56 sm:max-w-md">
               <span className="sr-only">Tìm khóa học</span>
