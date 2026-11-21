@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
 import FormModal from '../ui/FormModal';
+import CustomSelect from '../ui/CustomSelect';
 import { useToast } from '../ui/ToastProvider';
 import { api } from '../../services/api';
 import { useExerciseDuplicates } from '../../hooks/useExerciseDuplicates';
@@ -224,8 +225,8 @@ export default function AiExerciseWizard({ open, onClose, onSaved }: Props) {
                       }}
                     />
                   </label>
-                  <label className="module-field"><span>Cấp độ</span><select aria-label={`Cấp độ ${index + 1}`} value={draft.level} onChange={(event) => updateDraft(index, 'level', event.target.value as Exercise['level'])}><option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option></select></label>
-                  <label className="module-field"><span>Cách ghi nhận</span><select aria-label={`Cách ghi nhận ${index + 1}`} value={draft.defaultTrackingType} onChange={(event) => updateDraft(index, 'defaultTrackingType', event.target.value as ClassifiedTrackingType)}>{trackingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                  <div className="module-field"><CustomSelect label="Cấp độ" ariaLabel={`Cấp độ ${index + 1}`} value={draft.level} onChange={(val) => updateDraft(index, 'level', val as Exercise['level'])} options={[{ value: 'BEGINNER', label: 'Cơ bản' }, { value: 'INTERMEDIATE', label: 'Trung cấp' }, { value: 'ADVANCED', label: 'Nâng cao' }]} /></div>
+                  <div className="module-field"><CustomSelect label="Cách ghi nhận" ariaLabel={`Cách ghi nhận ${index + 1}`} value={draft.defaultTrackingType} onChange={(val) => updateDraft(index, 'defaultTrackingType', val as ClassifiedTrackingType)} options={trackingOptions} /></div>
                   <label className="module-field md:col-span-2"><span>Thiết bị, mỗi dòng một mục</span><textarea aria-label={`Thiết bị ${index + 1}`} placeholder="Ví dụ: Tạ đơn" value={draft.equipment.join('\n')} onChange={(event) => updateDraft(index, 'equipment', lines(event.target.value))} /></label>
                   <label className="module-field md:col-span-2"><span>Mô tả</span><textarea aria-label={`Mô tả ${index + 1}`} placeholder="Mô tả mục đích bài tập" value={draft.description} onChange={(event) => updateDraft(index, 'description', event.target.value)} /></label>
                   <label className="module-field md:col-span-2"><span>Kỹ thuật</span><textarea aria-label={`Kỹ thuật ${index + 1}`} placeholder="Hướng dẫn kỹ thuật chính" value={draft.technique} onChange={(event) => updateDraft(index, 'technique', event.target.value)} /></label>

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import CustomerSelect from '../../components/ui/CustomerSelect';
+import { GymEmptyIllustration } from '../../components/ui/GymEmptyIllustration';
 import Pagination from '../../components/ui/Pagination';
 import { useToast } from '../../components/ui/ToastProvider';
 import InBodyScanModal from '../../components/inbody/InBodyScanModal';
@@ -167,20 +168,77 @@ export default function InBodyPage() {
   }, [selectedCustomerId, items]);
 
   return (
-    <section className="inbody-page-root" style={{ display: 'flex', flexDirection: 'column', gap: '18px', paddingBottom: '30px' }}>
-      {/* 1. Header & Main Action Buttons */}
+    <section className="inbody-page-root" style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '12px' }}>
+      {/* Unified Compact Toolbar: Bộ lọc học viên, trạng thái & hành động trên cùng 1 hàng */}
       <div
-        className="section-header inbody-page-header"
+        className="inbody-page-header"
         style={{
+          padding: '0 0 10px',
           display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'flex-start',
           flexWrap: 'wrap',
-          gap: '14px',
-          marginBottom: 0,
+          gap: '8px',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid var(--gym-erp-outline)',
         }}
       >
-        <div className="inbody-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', flex: '1 1 420px', minWidth: 0 }}>
+          {/* Customer Selector */}
+          <div style={{ minWidth: '220px', flex: '1 1 260px', maxWidth: '360px' }}>
+            <CustomerSelect
+              label=""
+              name="filterCustomerId"
+              value={selectedCustomerId}
+              onChange={(id) => setSelectedCustomerId(id)}
+              placeholder="Lọc theo học viên..."
+            />
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div role="tablist" aria-label="Trạng thái phiếu InBody" style={{ display: 'flex', gap: '2px', background: '#f1f5fb', border: '1px solid #d8e2f0', padding: '3px', borderRadius: '6px' }}>
+            {(
+              [
+                { id: 'ALL', label: 'Tất cả' },
+                { id: 'PUBLISHED', label: 'Đã công bố' },
+                { id: 'DRAFT', label: 'Bản nháp' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                style={{
+                  border: statusFilter === tab.id ? '1px solid #d8e2f0' : '1px solid transparent',
+                  background: statusFilter === tab.id ? '#ffffff' : 'transparent',
+                  color: statusFilter === tab.id ? '#0077b3' : '#475569',
+                  fontWeight: statusFilter === tab.id ? 600 : 500,
+                  fontSize: '0.8rem',
+                  padding: '5px 12px',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  boxShadow: statusFilter === tab.id ? '0 1px 2px rgb(15 23 42 / 6%)' : 'none',
+                  transition: 'background-color 150ms ease, color 150ms ease',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="inbody-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => void loadRecords(meta.page || 1)}
+            disabled={loading}
+            title="Tải lại danh sách"
+          >
+            <RefreshCw size={14} aria-hidden="true" className={loading ? 'animate-spin' : ''} /> Làm mới
+          </button>
           <button
             type="button"
             className="button button-secondary"
@@ -188,89 +246,17 @@ export default function InBodyPage() {
               setEditingItem(null);
               setOpenManualModal(true);
             }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', fontWeight: 700, fontSize: '0.84rem' }}
           >
-            <Plus size={16} /> Nhập Thủ Công
+            <Plus size={14} aria-hidden="true" /> Nhập thủ công
           </button>
           <button
             type="button"
             className="button button-primary"
             onClick={() => setOpenScanModal(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontWeight: 700, fontSize: '0.84rem' }}
           >
-            <Sparkles size={16} /> Quét Phiếu InBody
+            <Sparkles size={14} aria-hidden="true" /> Quét phiếu InBody
           </button>
         </div>
-      </div>
-
-      {/* 2. Filters Bar */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          padding: '16px 20px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '16px',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-        }}
-      >
-        {/* Customer Selector */}
-        <div style={{ minWidth: '280px', flex: '1 1 300px' }}>
-          <CustomerSelect
-            label=""
-            name="filterCustomerId"
-            value={selectedCustomerId}
-            onChange={(id) => setSelectedCustomerId(id)}
-            placeholder="Lọc theo học viên..."
-          />
-        </div>
-
-        {/* Status Filter Tabs */}
-        <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
-          {(
-            [
-              { id: 'ALL', label: 'Tất cả' },
-              { id: 'PUBLISHED', label: 'Đã công bố' },
-              { id: 'DRAFT', label: 'Bản nháp' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setStatusFilter(tab.id)}
-              style={{
-                border: 'none',
-                background: statusFilter === tab.id ? '#ffffff' : 'transparent',
-                color: statusFilter === tab.id ? '#003b70' : '#64748b',
-                fontWeight: statusFilter === tab.id ? 700 : 500,
-                fontSize: '0.84rem',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                boxShadow: statusFilter === tab.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Refresh Button */}
-        <button
-          type="button"
-          className="button button-secondary"
-          onClick={() => void loadRecords(meta.page || 1)}
-          disabled={loading}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.84rem' }}
-          title="Tải lại danh sách"
-        >
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Làm mới
-        </button>
       </div>
 
       {/* 3. When a specific customer is selected: Show Delta Progress & Evolution Chart */}
@@ -407,14 +393,11 @@ export default function InBodyPage() {
             <p style={{ margin: 0, fontSize: '0.9rem' }}>Đang tải danh sách chỉ số InBody...</p>
           </div>
         ) : items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <Activity size={48} style={{ color: '#94a3b8', margin: '0 auto 14px' }} />
-            <h3 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: '1.1rem' }}>Chưa có phiếu InBody nào</h3>
-            <p style={{ margin: '0 0 18px', color: '#64748b', fontSize: '0.88rem' }}>
-              {selectedCustomerId
-                ? 'Học viên này chưa có kết quả đo InBody nào.'
-                : 'Bấm nút bên dưới để quét phiếu tự động hoặc nhập chỉ số thủ công!'}
-            </p>
+          <div style={{ textAlign: 'center', padding: '44px 20px' }}>
+            <GymEmptyIllustration kind="inbody" className="mb-3" />
+            <h3 style={{ margin: '0 0 16px', color: '#071629', fontSize: '0.95rem', fontWeight: 600 }}>
+              {selectedCustomerId ? 'Học viên này chưa có kết quả đo InBody nào' : 'Chưa có phiếu InBody nào'}
+            </h3>
             <div style={{ display: 'inline-flex', gap: '10px' }}>
               <button
                 type="button"

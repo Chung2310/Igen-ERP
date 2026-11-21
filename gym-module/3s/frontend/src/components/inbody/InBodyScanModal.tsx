@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import FormModal from '../ui/FormModal';
 import CustomerSelect from '../ui/CustomerSelect';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import { useToast } from '../ui/ToastProvider';
 import { api } from '../../services/api';
 import { errorMessage } from '../../types';
@@ -136,26 +137,15 @@ export default function InBodyScanModal({ open, onClose, onConfirmed }: InBodySc
               </span>
             </div>
 
-            <label className="field" style={{ margin: 0 }}>
-              <span style={{ fontWeight: 600, color: '#003b70', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={15} color="#0284c7" /> Ngày đo
-              </span>
-              <input
-                aria-label="Ngày đo"
-                type="date"
+            <div className="field" style={{ margin: 0 }}>
+              <CustomDatePicker
+                label="Ngày đo"
+                ariaLabel="Ngày đo"
                 value={measurementDate}
-                onChange={(event) => setMeasurementDate(event.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '0.88rem',
-                  marginTop: '4px',
-                  background: '#ffffff',
-                }}
+                clearable={false}
+                onChange={(val) => setMeasurementDate(val)}
               />
-            </label>
+            </div>
           </div>
 
           {/* Upload Dropzone Section */}
@@ -237,11 +227,11 @@ export default function InBodyScanModal({ open, onClose, onConfirmed }: InBodySc
                   <UploadCloud size={28} />
                 </div>
 
-                <strong style={{ fontSize: '0.96rem', color: '#0f172a', marginBottom: '4px' }}>
-                  Kéo thả ảnh hoặc file PDF phiếu InBody vào đây hoặc duyệt từ thiết bị
+                <strong style={{ fontSize: '0.9rem', fontWeight: 600, color: '#071629', marginBottom: '2px' }}>
+                  Kéo thả hoặc chọn phiếu InBody
                 </strong>
-                <span style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '14px', maxWidth: '440px' }}>
-                  Hỗ trợ định dạng JPG, PNG, WebP hoặc PDF xuất từ máy đo. Tài liệu rõ nét sẽ cho kết quả nhận diện chính xác nhất.
+                <span style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '12px' }}>
+                  Hỗ trợ JPG, PNG, WebP, PDF
                 </span>
 
                 <span

@@ -1,6 +1,8 @@
 import { useState, useEffect, useId } from 'react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomSelect from '../ui/CustomSelect';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import { errorMessage } from '../../types';
 import type { Customer, CalculatedNutrition, AiNutritionAnalysisResult } from '../../types';
 
@@ -214,104 +216,102 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
   };
 
   return (
-    <div style={{ display: 'grid', gap: '16px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      {/* Top Banner & Mode Switcher */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)',
-          color: '#ffffff',
-          borderRadius: '12px',
-          padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          boxShadow: '0 4px 15px rgba(0, 59, 112, 0.12)',
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.15rem', color: '#ffffff', fontWeight: 800 }}>
-            {selectedCustomer ? `Phân Tích Dinh Dưỡng: ${selectedCustomer.fullName}` : 'Phân Tích Năng Lượng & Macro Cá Nhân Hóa'}
-          </h2>
-        </div>
-
-        {/* Mode Switcher */}
-        <div style={{ display: 'flex', background: 'rgba(0, 0, 0, 0.25)', padding: '3px', borderRadius: '8px' }}>
-          <button
-            type="button"
-            onClick={() => setActiveMode('AI_EXPERT')}
-            style={{
-              background: activeMode === 'AI_EXPERT' ? '#ffffff' : 'transparent',
-              color: activeMode === 'AI_EXPERT' ? '#003b70' : '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '6px 14px',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            Hỏi Chuyên Gia AI
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMode('FORMULA')}
-            style={{
-              background: activeMode === 'FORMULA' ? '#ffffff' : 'transparent',
-              color: activeMode === 'FORMULA' ? '#003b70' : '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '6px 14px',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            Công thức
-          </button>
-        </div>
-      </div>
-
+    <div style={{ display: 'grid', gap: '12px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
       {/* Main Grid: Inputs vs Results */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '12px' }}>
         {/* LEFT COLUMN: Inputs */}
         <div
           style={{
             background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '18px',
+            border: '1px solid #d8e2f0',
+            borderRadius: '6px',
+            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
             gap: '14px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+            boxShadow: '0 1px 2px rgb(15 23 42 / 6%)',
           }}
         >
-          {/* Base Physical Stats */}
-          <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: '0.88rem', color: '#003b70', fontWeight: 800 }}>
-              Chỉ Số Thể Trạng Cơ Bản
-            </h3>
+          {/* Base Physical Stats + Mode Switcher cùng 1 hàng */}
+          <div style={{ borderBottom: '1px solid #d8e2f0', paddingBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '0.9rem', color: '#071629', fontWeight: 600 }}>
+                Chỉ số thể trạng cơ bản
+              </h3>
+
+              {/* Mode Switcher */}
+              <div
+                role="tablist"
+                aria-label="Chế độ tính toán"
+                style={{
+                  display: 'flex',
+                  background: '#f1f5fb',
+                  border: '1px solid #d8e2f0',
+                  padding: '2px',
+                  borderRadius: '6px',
+                  gap: '2px',
+                }}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeMode === 'AI_EXPERT'}
+                  onClick={() => setActiveMode('AI_EXPERT')}
+                  style={{
+                    background: activeMode === 'AI_EXPERT' ? '#ffffff' : 'transparent',
+                    color: activeMode === 'AI_EXPERT' ? '#0077b3' : '#475569',
+                    border: activeMode === 'AI_EXPERT' ? '1px solid #d8e2f0' : '1px solid transparent',
+                    borderRadius: '5px',
+                    padding: '4px 10px',
+                    fontWeight: activeMode === 'AI_EXPERT' ? 600 : 500,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: activeMode === 'AI_EXPERT' ? '0 1px 2px rgb(15 23 42 / 6%)' : 'none',
+                  }}
+                >
+                  Hỏi Chuyên Gia AI
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeMode === 'FORMULA'}
+                  onClick={() => setActiveMode('FORMULA')}
+                  style={{
+                    background: activeMode === 'FORMULA' ? '#ffffff' : 'transparent',
+                    color: activeMode === 'FORMULA' ? '#0077b3' : '#475569',
+                    border: activeMode === 'FORMULA' ? '1px solid #d8e2f0' : '1px solid transparent',
+                    borderRadius: '5px',
+                    padding: '4px 10px',
+                    fontWeight: activeMode === 'FORMULA' ? 600 : 500,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: activeMode === 'FORMULA' ? '0 1px 2px rgb(15 23 42 / 6%)' : 'none',
+                  }}
+                >
+                  Công thức
+                </button>
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '3px' }}>GIỚI TÍNH</label>
-                <select
+                <label style={{ fontSize: '12px', color: '#475569', fontWeight: 500, display: 'block', marginBottom: '4px' }}>Giới tính</label>
+                <CustomSelect
+                  ariaLabel="Giới tính"
                   value={gender}
-                  onChange={(e) => setGender(e.target.value as any)}
-                  style={{ width: '100%', padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', fontWeight: 600 }}
-                >
-                  <option value="MALE">Nam</option>
-                  <option value="FEMALE">Nữ</option>
-                </select>
+                  onChange={(val) => setGender(val as 'MALE' | 'FEMALE')}
+                  options={[
+                    { value: 'MALE', label: 'Nam' },
+                    { value: 'FEMALE', label: 'Nữ' },
+                  ]}
+                />
               </div>
 
               <div>
@@ -492,25 +492,19 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
               {/* Action Button */}
               <button
                 type="button"
+                className="button button-primary"
                 onClick={() => void handleAnalyzeAi()}
                 disabled={loadingAi}
                 style={{
-                  background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '12px 18px',
-                  fontWeight: 800,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(0, 59, 112, 0.2)',
+                  width: '100%',
+                  minHeight: '38px',
+                  padding: '9px 16px',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
                   marginTop: '6px',
                 }}
               >
-                {loadingAi ? 'AI đang phân tích chuyển hóa & lịch trình...' : 'AI Phân Tích Thể Chất & Tính Toán Chuyên Sâu'}
+                {loadingAi ? 'AI đang phân tích chuyển hóa & lịch trình...' : 'AI Phân tích thể chất & Tính toán chuyên sâu'}
               </button>
             </>
           )}
@@ -519,32 +513,34 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
           {activeMode === 'FORMULA' && (
             <>
               <div>
-                <label style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '3px' }}>HỆ SỐ VẬN ĐỘNG (ACTIVITY FACTOR)</label>
-                <select
+                <label style={{ fontSize: '12px', color: '#475569', fontWeight: 500, display: 'block', marginBottom: '4px' }}>Hệ số vận động (Activity Factor)</label>
+                <CustomSelect
+                  ariaLabel="Hệ số vận động"
                   value={activityFactor}
-                  onChange={(e) => setActivityFactor(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
-                >
-                  <option value="1.2">1.2 - Ít vận động</option>
-                  <option value="1.375">1.375 - Vận động nhẹ</option>
-                  <option value="1.55">1.55 - Vận động vừa</option>
-                  <option value="1.725">1.725 - Vận động nặng</option>
-                  <option value="1.9">1.9 - Vận động rất nặng</option>
-                </select>
+                  onChange={(val) => setActivityFactor(val)}
+                  options={[
+                    { value: '1.2', label: '1.2 - Ít vận động' },
+                    { value: '1.375', label: '1.375 - Vận động nhẹ' },
+                    { value: '1.55', label: '1.55 - Vận động vừa' },
+                    { value: '1.725', label: '1.725 - Vận động nặng' },
+                    { value: '1.9', label: '1.9 - Vận động rất nặng' },
+                  ]}
+                />
               </div>
 
               <div>
-                <label style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '3px' }}>MỤC TIÊU THỂ HÌNH</label>
-                <select
+                <label style={{ fontSize: '12px', color: '#475569', fontWeight: 500, display: 'block', marginBottom: '4px' }}>Mục tiêu thể hình</label>
+                <CustomSelect
+                  ariaLabel="Mục tiêu thể hình"
                   value={formulaGoal}
-                  onChange={(e) => setFormulaGoal(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
-                >
-                  <option value="FAT_LOSS_FAST">Giảm mỡ nhanh</option>
-                  <option value="FAT_LOSS_MODERATE">Giảm mỡ bền vững</option>
-                  <option value="MAINTENANCE">Duy trì vóc dáng</option>
-                  <option value="LEAN_BULK">Tăng cơ nạc</option>
-                </select>
+                  onChange={(val) => setFormulaGoal(val)}
+                  options={[
+                    { value: 'FAT_LOSS_FAST', label: 'Giảm mỡ nhanh' },
+                    { value: 'FAT_LOSS_MODERATE', label: 'Giảm mỡ bền vững' },
+                    { value: 'MAINTENANCE', label: 'Duy trì vóc dáng' },
+                    { value: 'LEAN_BULK', label: 'Tăng cơ nạc' },
+                  ]}
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -772,6 +768,7 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
                   {/* Action Apply Button */}
                   <button
                     type="button"
+                    className="button button-primary"
                     onClick={() => {
                       const calculatedNutrition: CalculatedNutrition = {
                         formula: 'AI Chuyên Gia Dinh Dưỡng 3S',
@@ -789,29 +786,22 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
                       handleApplyToPlan(calculatedNutrition, aiAnalysis);
                     }}
                     style={{
-                      background: '#16a34a',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 18px',
-                      fontWeight: 800,
-                      fontSize: '0.88rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                      width: '100%',
+                      minHeight: '38px',
+                      padding: '9px 16px',
+                      fontSize: '0.84rem',
+                      fontWeight: 600,
                     }}
                   >
-                    Áp Dụng Sang Lên Thực Đơn AI Ngay
+                    Áp dụng sang lên thực đơn AI ngay
                   </button>
                 </div>
               ) : (
                 <div
                   style={{
                     background: '#ffffff',
-                    border: '1px dashed #cbd5e1',
-                    borderRadius: '12px',
+                    border: '1px solid #d8e2f0',
+                    borderRadius: '6px',
                     padding: '40px 20px',
                     textAlign: 'center',
                     display: 'flex',
@@ -819,10 +809,12 @@ export default function NutritionMacroCalculator({ selectedCustomer, onApplyPlan
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '10px',
+                    boxShadow: '0 1px 2px rgb(15 23 42 / 6%)',
                   }}
                 >
-                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', maxWidth: '340px', lineHeight: 1.5 }}>
-                    Điền dạng thể chất, giờ làm việc & thói quen ăn uống bên trái, sau đó bấm <strong>&quot;AI Phân Tích Thể Chất&quot;</strong> để nhận chiến lược dinh dưỡng chuẩn xác.
+                  <GymEmptyIllustration kind="nutrition" />
+                  <p style={{ margin: 0, fontSize: '0.84rem', color: '#475569', maxWidth: '340px', lineHeight: 1.5 }}>
+                    Điền dạng thể chất, giờ làm việc & thói quen ăn uống bên trái, sau đó bấm <strong>&quot;AI Phân tích thể chất&quot;</strong> để nhận chiến lược dinh dưỡng chuẩn xác.
                   </p>
                 </div>
               )}

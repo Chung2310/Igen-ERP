@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRightLeft, RefreshCw, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomSelect from '../ui/CustomSelect';
 import { errorMessage } from '../../types';
 import type { CustomerAdminRecord, PtOption } from './AdminCustomersView';
 
@@ -129,32 +130,20 @@ export default function AdminQuickTransferModal({
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-              Chọn Huấn luyện viên nhận mới <span style={{ color: '#dc2626' }}>*</span>
-            </label>
-            <select
+            <CustomSelect
+              label="Chọn Huấn luyện viên nhận mới"
+              ariaLabel="Chọn Huấn luyện viên nhận mới"
+              required
+              placeholder="-- Chọn PT nhận phụ trách --"
               value={toPtId}
-              onChange={(e) => setToPtId(e.target.value)}
-              style={{
-                width: '100%',
-                height: '40px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '0.84rem',
-                outline: 'none',
-                background: '#ffffff',
-              }}
-            >
-              <option value="">-- Chọn PT nhận phụ trách --</option>
-              {pts
+              onChange={(val) => setToPtId(val)}
+              options={pts
                 .filter((p) => p._id !== currentPtId)
-                .map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.fullName || p.username} ({p.phone || 'Chưa có SĐT'})
-                  </option>
-                ))}
-            </select>
+                .map((p) => ({
+                  value: p._id,
+                  label: `${p.fullName || p.username} (${p.phone || 'Chưa có SĐT'})`,
+                }))}
+            />
           </div>
 
           <div>

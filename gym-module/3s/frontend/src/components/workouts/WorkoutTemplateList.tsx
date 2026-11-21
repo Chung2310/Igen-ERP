@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dumbbell, Filter, RotateCcw, Search } from 'lucide-react';
+import { RotateCcw, Search } from 'lucide-react';
 import Pagination from '../ui/Pagination';
+import CustomSelect from '../ui/CustomSelect';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import { useToast } from '../ui/ToastProvider';
 import { api } from '../../services/api';
 import type { PaginationMeta } from '../../types';
@@ -95,24 +97,23 @@ export default function WorkoutTemplateList({ refreshKey, onEdit, onAssign }: Pr
   return (
     <section className="workout-template-list" aria-labelledby="workout-template-list-title">
       <div className="module-toolbar workout-toolbar">
-        <div>
-          <h2 id="workout-template-list-title" className="workout-toolbar-title"><Filter size={18} aria-hidden="true" /> Tìm giáo án</h2>
-        </div>
+        <h2 id="workout-template-list-title" className="sr-only">Tìm giáo án</h2>
         <label className="workout-search">
           <span className="sr-only">Tìm giáo án</span>
           <Search size={17} className="workout-search-icon" aria-hidden="true" />
           <input aria-label="Tìm giáo án" placeholder="Tìm theo tên hoặc mục tiêu giáo án..." value={search} onChange={(event) => setSearch(event.target.value)} />
         </label>
-        <select
+        <CustomSelect
           className="workout-status-filter"
-          aria-label="Trạng thái giáo án"
+          ariaLabel="Trạng thái giáo án"
           value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="ACTIVE">Đang dùng</option>
-          <option value="ARCHIVED">Đã lưu trữ</option>
-        </select>
+          onChange={(val) => setStatus(val)}
+          options={[
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: 'ACTIVE', label: 'Đang dùng' },
+            { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+          ]}
+        />
         {(status || search) && <button type="button" className="workout-filter-reset" onClick={() => { setStatus(''); setSearch(''); }}><RotateCcw size={13} aria-hidden="true" /> Xóa bộ lọc</button>}
       </div>
 
@@ -123,7 +124,7 @@ export default function WorkoutTemplateList({ refreshKey, onEdit, onAssign }: Pr
           {visibleItems.map((item) => <div className="workout-template-grid-item" role="listitem" key={item._id}><WorkoutTemplateCard template={item} onEdit={onEdit} onAssign={onAssign} onArchive={(value) => void archive(value)} onDelete={(value) => void remove(value)} /></div>)}
         </div>
       ) : (
-        <div className={`module-empty workout-template-empty ${search || status ? 'module-filtered-empty' : ''}`}><Dumbbell aria-hidden="true" /><h3>{search || status ? 'Không tìm thấy giáo án phù hợp' : 'Chưa có giáo án nào'}</h3><p>{search || status ? 'Thử đổi từ khóa hoặc xóa bộ lọc hiện tại.' : 'Hãy tạo giáo án đầu tiên để bắt đầu xây dựng thư viện.'}</p></div>
+        <div className={`module-empty workout-template-empty ${search || status ? 'module-filtered-empty' : ''}`}><GymEmptyIllustration kind={search || status ? 'search' : 'workout'} /><h3>{search || status ? 'Không tìm thấy giáo án phù hợp' : 'Chưa có giáo án nào'}</h3></div>
       )}
       <Pagination
         page={meta.page || 1}

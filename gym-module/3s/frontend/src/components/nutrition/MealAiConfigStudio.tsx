@@ -391,28 +391,24 @@ export default function MealAiConfigStudio({
       {/* BIG GENERATE ACTION BUTTON */}
       <button
         type="button"
+        className="button button-primary"
         onClick={onAiGenerate}
         disabled={loadingAi}
         style={{
-          background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)',
-          color: '#ffffff',
-          border: 'none',
-          borderRadius: '12px',
-          padding: '14px 24px',
-          fontWeight: 800,
-          fontSize: '0.94rem',
-          cursor: loadingAi ? 'not-allowed' : 'pointer',
+          width: '100%',
+          minHeight: '40px',
+          padding: '10px 20px',
+          fontWeight: 600,
+          fontSize: '0.86rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '8px',
-          boxShadow: '0 4px 16px rgba(0, 59, 112, 0.25)',
           marginTop: '6px',
-          transition: 'all 0.15s ease',
         }}
       >
-        {loadingAi ? <RefreshCw size={18} className="spin" /> : <Wand2 size={18} />}
-        {loadingAi ? 'AI đang thiết kế thực đơn cơm Việt...' : 'Sinh Thực Đơn AI'}
+        {loadingAi ? <RefreshCw size={16} aria-hidden="true" className="spin" /> : <Wand2 size={16} aria-hidden="true" />}
+        {loadingAi ? 'AI đang thiết kế thực đơn cơm Việt...' : 'Sinh thực đơn AI'}
       </button>
     </div>
   );

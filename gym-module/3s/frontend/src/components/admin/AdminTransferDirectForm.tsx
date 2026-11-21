@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomSelect from '../ui/CustomSelect';
 import { errorMessage } from '../../types';
 import type { CustomerOption, PtOption } from './AdminTransfersView';
 
@@ -172,20 +173,21 @@ export default function AdminTransferDirectForm({
           style={{
             width: '36px',
             height: '36px',
-            borderRadius: '10px',
-            background: '#003b70',
-            color: '#ffffff',
+            borderRadius: '6px',
+            background: '#e0f2fe',
+            color: '#0077b3',
+            border: '1px solid #7dd3fc',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
           }}
         >
-          <ArrowRightLeft size={18} />
+          <ArrowRightLeft size={18} aria-hidden="true" />
         </div>
         <div>
-          <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 750, color: '#003b70' }}>
-            Tạo lệnh điều chuyển trực tiếp (Admin Force)
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#071629' }}>
+            Tạo lệnh điều chuyển trực tiếp
           </h3>
           <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
             Chọn một hoặc tích chọn nhiều khách hàng trong menu để điều chuyển cùng lúc
@@ -262,13 +264,15 @@ export default function AdminTransferDirectForm({
                   {selectedCustomerIds.length > 1 && (
                     <span
                       style={{
-                        background: '#003b70',
-                        color: '#ffffff',
+                        background: '#e0f2fe',
+                        color: '#0077b3',
+                        border: '1px solid #7dd3fc',
                         fontSize: '0.72rem',
-                        fontWeight: 800,
+                        fontWeight: 600,
                         padding: '1px 6px',
-                        borderRadius: '10px',
+                        borderRadius: '6px',
                         flexShrink: 0,
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {selectedCustomerIds.length}
@@ -504,33 +508,18 @@ export default function AdminTransferDirectForm({
 
           {/* 2. Chọn PT nhận mới */}
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#1e293b', marginBottom: '6px' }}>
-              2. Chọn Huấn luyện viên tiếp nhận <span style={{ color: '#dc2626' }}>*</span>
-            </label>
-            <select
-              value={selectedToPtId}
-              onChange={(e) => setSelectedToPtId(e.target.value)}
+            <CustomSelect
+              label="2. Chọn Huấn luyện viên tiếp nhận"
+              ariaLabel="Chọn Huấn luyện viên tiếp nhận"
               required
-              style={{
-                width: '100%',
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '0.84rem',
-                background: '#ffffff',
-                outline: 'none',
-                cursor: 'pointer',
-                boxSizing: 'border-box',
-              }}
-            >
-              <option value="">-- Chọn PT nhận bàn giao ({pts.length} PT) --</option>
-              {pts.map((p) => (
-                <option key={p._id} value={p._id}>
-                  PT: {p.fullName || p.username} ({p.phone || 'Chưa có SĐT'})
-                </option>
-              ))}
-            </select>
+              placeholder={`-- Chọn PT nhận bàn giao (${pts.length} PT) --`}
+              value={selectedToPtId}
+              onChange={(val) => setSelectedToPtId(val)}
+              options={pts.map((p) => ({
+                value: p._id,
+                label: `PT: ${p.fullName || p.username} (${p.phone || 'Chưa có SĐT'})`,
+              }))}
+            />
 
             {pts.length <= 1 && (
               <div
@@ -614,27 +603,7 @@ export default function AdminTransferDirectForm({
           <button
             type="submit"
             disabled={submitting || selectedCustomerIds.length === 0 || !selectedToPtId || !transferReason.trim()}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 24px',
-              borderRadius: '8px',
-              border: 0,
-              background:
-                selectedCustomerIds.length === 0 || !selectedToPtId || !transferReason.trim()
-                  ? '#94a3b8'
-                  : '#003b70',
-              color: '#ffffff',
-              fontSize: '0.85rem',
-              fontWeight: 750,
-              cursor:
-                selectedCustomerIds.length === 0 || !selectedToPtId || !transferReason.trim()
-                  ? 'not-allowed'
-                  : 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 59, 112, 0.25)',
-              transition: 'all 0.15s ease',
-            }}
+            className="button button-primary"
           >
             {submitting ? (
               <>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../../services/api';
 import { errorMessage } from '../../types';
 import { useToast } from '../ui/ToastProvider';
+import CustomDatePicker from '../ui/CustomDatePicker';
 
 const fields = [
   ['weight', 'Cân nặng (kg)'],
@@ -61,17 +62,16 @@ export default function MeasurementForm({ customerId, onSaved }: { customerId: s
         <p className="mt-1 text-sm text-slate-500">Lưu các chỉ số InBody và số đo vòng để theo dõi thay đổi.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="grid gap-1 text-sm font-semibold text-slate-700">
-          <span>Ngày đo</span>
-          <input
-            className={fieldClass}
-            type="date"
-            aria-label="Ngày đo"
-            value={form.measuredAt}
-            onChange={(event) => setForm({ ...form, measuredAt: event.target.value })}
+        <div>
+          <CustomDatePicker
+            label="Ngày đo"
+            ariaLabel="Ngày đo"
             required
+            clearable={false}
+            value={form.measuredAt}
+            onChange={(val) => setForm({ ...form, measuredAt: val })}
           />
-        </label>
+        </div>
         {fields.map(([key, label]) => (
           <label className="grid gap-1 text-sm font-semibold text-slate-700" key={key}>
             <span>{label}</span>

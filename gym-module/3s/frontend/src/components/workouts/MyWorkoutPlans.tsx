@@ -19,37 +19,36 @@ export default function MyWorkoutPlans() {
 
   return (
     <section className="module-page workout-page" aria-label="Quản lý giáo án">
-      <header className="module-header workout-header" style={{ justifyContent: 'flex-end' }}>
+      <header id="workout-page-controls-bar" className="workout-page-controls">
+        <div className="workout-tabs" role="tablist" aria-label="Không gian giáo án">
+          <button
+            id="workout-tab-plans"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'plans'}
+            aria-controls="workout-panel-plans"
+            className={activeTab === 'plans' ? 'is-active' : ''}
+            onClick={() => selectTab('plans')}
+          >
+            <BookOpen size={14} aria-hidden="true" /> Giáo án của tôi
+          </button>
+          <button
+            id="workout-tab-exercises"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'exercises'}
+            aria-controls="workout-panel-exercises"
+            className={activeTab === 'exercises' ? 'is-active' : ''}
+            onClick={() => selectTab('exercises')}
+          >
+            <Dumbbell size={14} aria-hidden="true" /> Thư viện bài tập
+          </button>
+        </div>
         {activeTab === 'plans' && <div className="module-actions">
           <button type="button" className="button button-secondary" onClick={() => setAiOpen(true)}>Tạo bằng AI</button>
           <button type="button" className="button button-primary" onClick={openCreate}><Plus size={18} aria-hidden="true" /> Tạo giáo án</button>
         </div>}
       </header>
-
-      <div className="workout-tabs" role="tablist" aria-label="Không gian giáo án">
-        <button
-          id="workout-tab-plans"
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'plans'}
-          aria-controls="workout-panel-plans"
-          className={activeTab === 'plans' ? 'is-active' : ''}
-          onClick={() => selectTab('plans')}
-        >
-          <BookOpen size={14} aria-hidden="true" /> Giáo án của tôi
-        </button>
-        <button
-          id="workout-tab-exercises"
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'exercises'}
-          aria-controls="workout-panel-exercises"
-          className={activeTab === 'exercises' ? 'is-active' : ''}
-          onClick={() => selectTab('exercises')}
-        >
-          <Dumbbell size={14} aria-hidden="true" /> Thư viện bài tập
-        </button>
-      </div>
 
       {activeTab === 'plans' ? (
         <div id="workout-panel-plans" role="tabpanel" aria-labelledby="workout-tab-plans" className="workout-panel">

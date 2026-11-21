@@ -281,9 +281,9 @@ export default function CreditAdminPage() {
                 key={chip.id}
                 type="button"
                 onClick={() => setRoleFilter(chip.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${roleFilter === chip.id
-                    ? 'bg-[#003b70] text-white shadow-2xs'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                className={`px-3 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${roleFilter === chip.id
+                    ? 'bg-[#e0f2fe] text-[#0077b3] border border-[#7dd3fc] font-semibold'
+                    : 'bg-white text-[#475569] border border-[#d8e2f0] hover:bg-[#f0f9ff] font-medium'
                   }`}
               >
                 {chip.label}

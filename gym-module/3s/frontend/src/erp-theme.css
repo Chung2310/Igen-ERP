@@ -1,21 +1,39 @@
 /* Chuỗi GYM dùng cùng nhịp chữ, nền và điều hướng với Nhân sự ERP. */
 :root {
   --gym-erp-primary: #00adfc;
+  --gym-erp-primary-hover: #0095d9;
+  --gym-erp-primary-pressed: #0085c2;
+  --gym-erp-primary-soft: #e0f2fe;
+  --gym-erp-primary-soft-border: #7dd3fc;
+  --gym-erp-primary-text: #0077b3;
   --gym-erp-ink: #071629;
   --gym-erp-muted: #475569;
   --gym-erp-surface: #f6f8fd;
+  --gym-erp-surface-low: #f1f5fb;
   --gym-erp-card: #fff;
   --gym-erp-outline: #d8e2f0;
-  --gym-erp-font: Inter, 'Be Vietnam Pro', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --gym-erp-font: "Inter", "Be Vietnam Pro", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --color-primary: #00adfc;
   --color-gym-bg: #f6f8fd;
   --color-gym-dark: #071629;
   --color-gym-gray: #475569;
-  --primary-color: #071629;
-  --secondary-color: #00adfc;
+  --primary-color: #00adfc;
+  --secondary-color: #0095d9;
   --bg-color: #f6f8fd;
   --text-dark: #071629;
   --text-light: #475569;
+}
+
+:root,
+body,
+#root {
+  font-family: var(--gym-erp-font) !important;
+  color: var(--gym-erp-ink);
+}
+
+/* Giữ đồng bộ 100% font hệ thống Igen ERP kể cả trong modal/portal hoặc inline style cũ */
+body :is(button, input, select, textarea, table, th, td, label, p, span, a, li, div, h1, h2, h3, h4, h5, h6) {
+  font-family: var(--gym-erp-font) !important;
 }
 
 body:has(.portal-shell) {
@@ -27,8 +45,8 @@ body:has(.portal-shell) {
 .portal-shell {
   min-height: 100dvh;
   grid-template-columns: 256px minmax(0, 1fr);
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  padding: 4px;
   background: var(--gym-erp-surface);
   color: var(--gym-erp-ink);
   font-family: var(--gym-erp-font);
@@ -57,8 +75,8 @@ body:has(.portal-shell) {
 .portal-shell .font-bold { font-weight: 600 !important; }
 
 .portal-shell .portal-sidebar {
-  top: 8px;
-  height: calc(100dvh - 16px);
+  top: 4px;
+  height: calc(100dvh - 8px);
   padding: 0;
   border: 1px solid var(--gym-erp-outline);
   border-radius: 12px;
@@ -279,11 +297,11 @@ body:has(.portal-shell) {
 }
 
 .portal-shell .portal-main {
-  min-height: calc(100dvh - 16px);
-  border: 1px solid var(--gym-erp-outline);
-  border-radius: 12px;
+  min-height: calc(100dvh - 8px);
+  border: 0;
+  border-radius: 0;
   background: var(--gym-erp-card);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  box-shadow: none;
   overflow: hidden;
 }
 .portal-shell .portal-header {
@@ -292,7 +310,7 @@ body:has(.portal-shell) {
 }
 .portal-shell .portal-breadcrumb { color: var(--gym-erp-muted); font-size: 13px; }
 .portal-shell .portal-breadcrumb strong { color: var(--gym-erp-ink); font-weight: 600; }
-.portal-shell .portal-content { width: 100%; max-width: none; min-height: calc(100dvh - 18px); padding: 16px; background: var(--gym-erp-surface); }
+.portal-shell .portal-content { width: 100%; max-width: none; min-height: calc(100dvh - 8px); padding: 12px; background: var(--gym-erp-card); }
 .portal-shell #admin-dashboard-title {
   padding-left: 10px;
   border-left: 4px solid var(--gym-erp-primary);
@@ -307,6 +325,16 @@ body:has(.portal-shell) {
   background: var(--gym-erp-card);
   box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
 }
+.portal-shell .portal-content .panel,
+.portal-shell .portal-content .customer-tab-panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.portal-shell .portal-content .panel { padding: 12px 0; }
+.portal-shell .portal-content .customer-tab-panel { padding: 8px 0; }
+.portal-shell .portal-content :is(.admin-stat-card, .feature-flag-card) { box-shadow: none; }
 .portal-shell :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl),
 .portal-shell [style*='border-radius: 10px'],
 .portal-shell [style*='border-radius: 12px'],
@@ -333,12 +361,12 @@ body:has(.App) .button-primary {
   box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
 }
 body:has(.App) .button-primary:hover {
-  background: #0095d9;
+  background: var(--gym-erp-primary-hover);
   opacity: 1;
   transform: none;
   box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
 }
-body:has(.App) .button-primary:active { background: #0085c2; }
+body:has(.App) .button-primary:active { background: var(--gym-erp-primary-pressed); }
 body:has(.App) .button-secondary,
 body:has(.App) .button-filter-reset {
   min-height: 36px;
@@ -404,6 +432,94 @@ body:has(.App) .inline-actions .text-button.text-danger:hover {
   color: #b91c1c;
 }
 
+/* Legacy GYM CTAs and utility buttons follow the HR action styles. */
+body:has(.App) .btn {
+  min-height: 36px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-family: var(--gym-erp-font);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: none;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+body:has(.App) :is(.btn-primary, .btn-secondary) {
+  border: 1px solid transparent;
+  background: var(--gym-erp-primary);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+body:has(.App) :is(.btn-primary, .btn-secondary):hover {
+  background: var(--gym-erp-primary-hover);
+  transform: none;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+body:has(.App) :is(.btn-primary, .btn-secondary):active { background: var(--gym-erp-primary-pressed); }
+body:has(.App) .btn-outline {
+  border: 1px solid var(--gym-erp-outline);
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+}
+body:has(.App) .btn-outline:hover {
+  border-color: var(--gym-erp-outline);
+  background: color-mix(in srgb, var(--gym-erp-primary) 5%, var(--gym-erp-card));
+  color: var(--gym-erp-ink);
+  transform: none;
+}
+body:has(.App) .btn:focus-visible {
+  outline: 2px solid var(--gym-erp-primary);
+  outline-offset: 2px;
+}
+body:has(.App) .btn:disabled { cursor: not-allowed; opacity: .5; transform: none; }
+
+.portal-shell button:is([class~="bg-sky-500"], [class~="bg-sky-600"], [class~="bg-sky-700"]) {
+  min-height: 36px;
+  border-radius: 12px;
+  background: var(--gym-erp-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+.portal-shell button:is([class~="bg-sky-500"], [class~="bg-sky-600"], [class~="bg-sky-700"]):hover {
+  background: var(--gym-erp-primary-hover);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+.portal-shell button:is([class~="bg-sky-500"], [class~="bg-sky-600"], [class~="bg-sky-700"]):active {
+  background: var(--gym-erp-primary-pressed);
+}
+.portal-shell button:is([class~="bg-sky-50"], [class~="bg-sky-100"]) {
+  border-color: var(--gym-erp-outline);
+  background: color-mix(in srgb, var(--gym-erp-primary) 10%, var(--gym-erp-card));
+  color: var(--gym-erp-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+.portal-shell button:is([class~="bg-sky-50"], [class~="bg-sky-100"]):hover {
+  background: color-mix(in srgb, var(--gym-erp-primary) 15%, var(--gym-erp-card));
+}
+.portal-shell .inline-actions .action-icon-btn:not(.text-danger) {
+  border-color: var(--gym-erp-outline);
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-ink);
+  box-shadow: none;
+}
+.portal-shell .inline-actions .action-icon-btn:not(.text-danger):is(:hover, .btn-primary-action) {
+  border-color: var(--gym-erp-outline);
+  background: color-mix(in srgb, var(--gym-erp-primary) 10%, var(--gym-erp-card));
+  color: var(--gym-erp-primary);
+  transform: none;
+  box-shadow: none;
+}
+.portal-shell .inline-actions .action-icon-btn:focus-visible,
+.portal-shell button:is([class~="bg-sky-50"], [class~="bg-sky-100"], [class~="bg-sky-500"], [class~="bg-sky-600"], [class~="bg-sky-700"]):focus-visible {
+  outline: 2px solid var(--gym-erp-primary);
+  outline-offset: 2px;
+}
+
 .portal-shell :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
   border-color: var(--gym-erp-outline);
   background: var(--gym-erp-card);
@@ -416,10 +532,612 @@ body:has(.App) .inline-actions .text-button.text-danger:hover {
   border-color: var(--gym-erp-primary) !important;
   box-shadow: none !important;
 }
-.portal-shell .customer-browser-tabs button { font-weight: 500; }
+/* Thanh tab gạch chân + nút hành động cùng 1 hàng cho màn Khách hàng / Mục tiêu (PT) */
+.portal-shell .customer-tabs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+  margin-bottom: 8px;
+}
+
+.portal-shell .customer-tabs-header > .button {
+  margin-bottom: 6px;
+}
+
+.portal-shell .customer-browser-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+  margin-bottom: -1px;
+}
+
+.portal-shell .customer-browser-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  margin-bottom: 0;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--gym-erp-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  box-shadow: none !important;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.portal-shell .customer-browser-tabs button:hover {
+  background: transparent !important;
+  color: var(--gym-erp-ink);
+}
+
 .portal-shell .customer-browser-tabs button.active {
+  margin-bottom: 0;
+  padding: 9px 14px;
+  border: 0 !important;
+  border-bottom: 2px solid var(--gym-erp-primary) !important;
+  background: transparent !important;
+  color: var(--gym-erp-primary-text);
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.portal-shell .customer-browser-tabs button.active::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Tab bar ngang đồng bộ Nhân sự: nền sáng, viền mảnh, trạng thái chọn xanh nhạt rõ chữ (không dùng nền đen/tối) */
+.portal-shell .tab-bar,
+.portal-shell .tab-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+}
+
+.portal-shell .tab-bar button,
+.portal-shell .tab-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px !important;
+  background: var(--gym-erp-card);
+  color: var(--gym-erp-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.portal-shell .tab-bar button:hover,
+.portal-shell .tab-nav button:hover {
+  background: color-mix(in srgb, var(--gym-erp-primary) 6%, var(--gym-erp-card));
+  border-color: #bfeaff;
+  color: var(--gym-erp-ink);
+}
+
+.portal-shell .tab-bar button.active,
+.portal-shell .tab-nav button.active {
+  background: var(--gym-erp-primary-soft);
+  border-color: var(--gym-erp-primary-soft-border);
+  color: var(--gym-erp-primary-text);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.portal-shell .tab-bar button:focus-visible,
+.portal-shell .tab-nav button:focus-visible {
+  outline: 2px solid var(--gym-erp-primary);
+  outline-offset: 2px;
+}
+
+/* Bảng dữ liệu đồng bộ Nhân sự (hr-tab.css & typography.css) */
+.portal-shell table thead {
+  background: var(--gym-erp-surface-low);
+  color: var(--gym-erp-muted);
+}
+
+.portal-shell table thead th {
+  font-weight: 500 !important;
+  text-transform: none !important;
+  color: var(--gym-erp-muted);
+  border-bottom: 1px solid var(--gym-erp-outline);
+}
+
+.portal-shell table tbody tr + tr {
+  border-top: 1px solid var(--gym-erp-outline);
+}
+
+.portal-shell table tbody td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tiêu đề trang/mục chuẩn HrPageTitle */
+.portal-shell .gym-erp-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--gym-erp-ink);
+  font-size: 18px !important;
+  line-height: 28px !important;
+  font-weight: 600 !important;
+}
+
+.portal-shell .gym-erp-title::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--gym-erp-primary);
+}
+
+.portal-shell .gym-customer-view { display: grid; gap: 12px; align-content: start; }
+.portal-shell .gym-customer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.portal-shell .gym-customer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+}
+.portal-shell .gym-customer-filters {
+  display: flex;
+  flex: 1 1 600px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.portal-shell .gym-customer-search { position: relative; flex: 1 1 240px; min-width: 0; }
+.portal-shell .gym-customer-search svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: var(--gym-erp-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.portal-shell .gym-customer-filters :is(input, select) {
+  min-height: 36px;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.portal-shell .gym-customer-search input { width: 100%; padding: 7px 12px 7px 36px; }
+.portal-shell .gym-customer-filters select { max-width: 100%; padding: 7px 28px 7px 12px; }
+.portal-shell .gym-customer-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--gym-erp-outline);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--gym-erp-primary) 7%, var(--gym-erp-card));
+  color: var(--gym-erp-ink);
+}
+.portal-shell .gym-transfer-view { display: grid; gap: 12px; align-content: start; }
+.portal-shell .gym-knowledge-tabs { border-bottom: 1px solid var(--gym-erp-outline); }
+.portal-shell .gym-transfer-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+}
+/* Tối ưu mật độ hiển thị cho Đội ngũ PT & Tiến độ theo nhịp 12px của Nhân sự */
+.portal-shell .pt-view-container {
+  gap: 12px !important;
+}
+.portal-shell .pt-metrics-banner {
+  gap: 12px !important;
+  margin-bottom: 0 !important;
+}
+.portal-shell .pt-metric-card {
+  padding: 12px 14px !important;
+  border: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%) !important;
+}
+.portal-shell .pt-metric-val {
+  font-size: 1.25rem !important;
+  line-height: 1.3 !important;
+}
+.portal-shell .pt-toolbar {
+  padding: 0 0 10px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.portal-shell .gym-transfer-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.portal-shell .gym-transfer-tab {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gym-erp-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.portal-shell .gym-transfer-tab[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--gym-erp-primary) 10%, var(--gym-erp-card));
   color: var(--gym-erp-ink);
   font-weight: 600;
+}
+.portal-shell .gym-transfer-tab:not([aria-pressed="true"]):hover { background: color-mix(in srgb, var(--gym-erp-primary) 5%, var(--gym-erp-card)); }
+.portal-shell .gym-transfer-tab:focus-visible { outline: 1px solid var(--gym-erp-primary); outline-offset: 2px; }
+@media (max-width: 480px) {
+  .portal-shell .gym-customer-actions { justify-content: flex-start; }
+  .portal-shell .gym-customer-filters select { flex: 1 1 100%; }
+}
+
+/* Giáo án: gom điều hướng và thao tác, để danh sách có chỗ hiển thị. */
+.portal-shell .workout-page,
+.portal-shell .workout-panel,
+.portal-shell .workout-template-list {
+  gap: 12px;
+  align-content: start;
+}
+.portal-shell .workout-page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+}
+.portal-shell .workout-tabs {
+  min-width: 0;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.portal-shell .workout-tabs [role="tab"] {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  color: var(--gym-erp-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.portal-shell .workout-tabs [role="tab"][aria-selected="true"] {
+  background: color-mix(in srgb, var(--gym-erp-primary) 10%, var(--gym-erp-card));
+  color: var(--gym-erp-ink);
+  box-shadow: none;
+  font-weight: 600;
+}
+.portal-shell .workout-tabs [role="tab"]:not([aria-selected="true"]):hover {
+  background: color-mix(in srgb, var(--gym-erp-primary) 5%, var(--gym-erp-card));
+}
+.portal-shell .workout-toolbar {
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--gym-erp-outline);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.portal-shell :is(.workout-search input, .workout-status-filter, .workout-filter-reset) {
+  height: 36px;
+  min-height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--gym-erp-outline);
+  background: var(--gym-erp-card);
+  font-size: 13px;
+}
+
+/* Đồng bộ tuyệt đối kích thước thanh tìm kiếm, dropdown lọc và nhãn trên mọi màn hình Gym */
+.portal-shell .filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gym-erp-outline);
+}
+
+/* Đảm bảo wrapper ngoài của CustomSelect không bị ăn border/padding kép từ class select cũ */
+.portal-shell .custom-select-container,
+.portal-shell .custom-select-container:is(.workout-status-filter, .exercise-filter-select, .filter-select) {
+  border: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.portal-shell .search-field input,
+.portal-shell .filter-select:not(.custom-select-container),
+.portal-shell .gym-customer-filters :is(input, select),
+.portal-shell .customer-select-trigger,
+.portal-shell .custom-select-container [role="combobox"] {
+  height: 36px !important;
+  min-height: 36px !important;
+  border: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 6px !important;
+  background: var(--gym-erp-card) !important;
+  color: var(--gym-erp-ink) !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+  box-shadow: none !important;
+}
+
+.portal-shell .search-field input {
+  padding: 0 32px 0 34px !important;
+}
+
+.portal-shell .filter-select {
+  padding: 0 28px 0 12px !important;
+}
+
+.portal-shell .search-field input:focus,
+.portal-shell .filter-select:focus,
+.portal-shell .customer-select-trigger:focus-visible,
+.portal-shell .custom-select-container [role="combobox"]:focus-visible {
+  border-color: var(--gym-erp-primary) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.portal-shell label,
+.portal-shell .field > label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500 !important;
+  color: var(--gym-erp-muted);
+  text-transform: none;
+}
+
+/* Chuẩn hóa toàn bộ native <select> còn lại trong modal/form phụ: bỏ mũi tên mặc định trình duyệt */
+body select:not([multiple]):not(.sr-only) {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 30px 0 10px !important;
+  border: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 6px !important;
+  background-color: var(--gym-erp-card) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 9px center !important;
+  background-size: 15px 15px !important;
+  color: var(--gym-erp-ink) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: border-color 150ms ease;
+}
+
+body select:not([multiple]):not(.sr-only):hover:not(:disabled) {
+  border-color: var(--gym-erp-primary) !important;
+}
+
+body select:not([multiple]):not(.sr-only):focus,
+body select:not([multiple]):not(.sr-only):focus-visible {
+  border-color: var(--gym-erp-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body select:not([multiple]):not(.sr-only) option {
+  background-color: #ffffff;
+  color: var(--gym-erp-ink);
+  font-weight: 400 !important;
+}
+
+body select:not([multiple]):not(.sr-only) option:checked {
+  background-color: var(--gym-erp-primary-soft);
+  color: var(--gym-erp-primary-text);
+}
+
+/* Chuẩn hóa toàn bộ input chọn ngày / giờ trong Gym tránh giao diện mặc định thô */
+body input:is([type="date"], [type="datetime-local"], [type="time"]) {
+  height: 36px;
+  min-height: 36px;
+  padding: 0 10px !important;
+  border: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 6px !important;
+  background-color: var(--gym-erp-card) !important;
+  color: var(--gym-erp-ink) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px !important;
+  box-shadow: none !important;
+  transition: border-color 150ms ease;
+}
+
+body input:is([type="date"], [type="datetime-local"], [type="time"]):hover:not(:disabled) {
+  border-color: var(--gym-erp-primary) !important;
+}
+
+body input:is([type="date"], [type="datetime-local"], [type="time"]):focus,
+body input:is([type="date"], [type="datetime-local"], [type="time"]):focus-visible {
+  border-color: var(--gym-erp-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body input:is([type="date"], [type="datetime-local"], [type="time"])::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  padding: 2px;
+  border-radius: 4px;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+
+body input:is([type="date"], [type="datetime-local"], [type="time"])::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--gym-erp-primary-soft);
+}
+
+/* Thu gọn ô nhập liệu và nút trong popup Quản lý nhóm cơ về chuẩn 36px của ERP */
+.muscle-group-add-form {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.muscle-group-add-form input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 6px !important;
+  background: var(--gym-erp-card) !important;
+  color: var(--gym-erp-ink) !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+  box-shadow: none !important;
+}
+
+.muscle-group-add-form input:focus {
+  border-color: var(--gym-erp-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.muscle-group-add-btn {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0;
+}
+
+.muscle-group-header-info {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  text-transform: none !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--gym-erp-muted) !important;
+}
+.portal-shell .workout-filter-reset {
+  border-color: var(--gym-erp-outline);
+  color: var(--gym-erp-ink);
+  font-weight: 500;
+}
+
+/* Đồng bộ thanh tìm kiếm & lọc của Thư viện bài tập và khung trống không có viền hộp thừa */
+.portal-shell .exercise-page {
+  gap: 12px;
+}
+
+.portal-shell .exercise-toolbar {
+  padding: 0 0 10px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  gap: 8px !important;
+}
+
+.portal-shell .exercise-filter-input,
+.portal-shell .exercise-filter-reset {
+  height: 36px !important;
+  min-height: 36px !important;
+  border: 1px solid var(--gym-erp-outline) !important;
+  border-radius: 6px !important;
+  background: var(--gym-erp-card) !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+}
+
+.portal-shell .exercise-empty {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.portal-shell .exercise-empty h2 {
+  color: var(--gym-erp-ink) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+.portal-shell .workout-template-empty {
+  min-height: 160px;
+  gap: 6px;
+  padding: 24px 16px;
+  border: 0;
+  background: transparent;
+}
+.portal-shell .workout-template-empty svg { color: var(--gym-erp-muted); }
+.portal-shell .workout-template-empty h3 {
+  color: var(--gym-erp-ink);
+  font-size: 16px;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.portal-shell .workout-template-empty p {
+  color: var(--gym-erp-muted);
+  font-size: 13px;
+  text-wrap: pretty;
+}
+.portal-shell .workout-template-skeleton { min-height: 180px; }
+
+@media (max-width: 767px) {
+  .portal-shell .workout-page-controls .module-actions { width: 100%; justify-content: flex-start; }
+  .portal-shell .workout-toolbar { grid-template-columns: minmax(0, 1fr) 160px; }
+  .portal-shell .workout-filter-reset { grid-column: 1 / -1; justify-self: start; }
+}
+@media (max-width: 480px) {
+  .portal-shell .workout-toolbar { grid-template-columns: 1fr; }
+  .portal-shell .workout-page-controls .module-actions { gap: 8px; }
 }
 
 @media (max-width: 767px) {

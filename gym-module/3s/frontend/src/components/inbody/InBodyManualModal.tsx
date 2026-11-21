@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import FormModal from '../ui/FormModal';
 import CustomerSelect from '../ui/CustomerSelect';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import { useToast } from '../ui/ToastProvider';
 import { api } from '../../services/api';
 import { errorMessage } from '../../types';
@@ -269,18 +270,16 @@ export default function InBodyManualModal({
             placeholder="Tìm và chọn học viên..."
           />
 
-          <label className="inbody-input-label">
-            <span>
-              Ngày đo <strong style={{ color: '#e11d48' }}>*</strong>
-            </span>
-            <input
-              type="date"
-              aria-label="Ngày đo InBody"
-              value={measurementDate}
-              onChange={(e) => setMeasurementDate(e.target.value)}
+          <div className="inbody-input-label">
+            <CustomDatePicker
+              label="Ngày đo"
+              ariaLabel="Ngày đo InBody"
               required
+              clearable={false}
+              value={measurementDate}
+              onChange={(val) => setMeasurementDate(val)}
             />
-          </label>
+          </div>
         </div>
 
         {/* 2. Primary Metrics: Weight, Height, Body Fat %, Muscle Mass */}

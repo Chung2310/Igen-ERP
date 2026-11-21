@@ -4,6 +4,7 @@ import { Loader2, Sparkles, User, UserPlus, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { errorMessage, fieldErrors, type Customer } from '../../types';
 import { useToast } from '../ui/ToastProvider';
+import CustomDatePicker from '../ui/CustomDatePicker';
 
 export interface QuickCustomerInitialData {
   fullName?: string | null;
@@ -309,15 +310,12 @@ export default function QuickAddCustomerModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Ngày sinh
-              </label>
-              <input
-                type="date"
+              <CustomDatePicker
+                label="Ngày sinh"
+                ariaLabel="Ngày sinh"
                 max={todayStr}
                 value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                className="w-full px-2.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-sky-500 focus:outline-hidden focus:ring-2 focus:ring-sky-500/20 transition-all"
+                onChange={(val) => setDateOfBirth(val)}
               />
             </div>
           </div>

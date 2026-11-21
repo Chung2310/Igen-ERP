@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../../components/ui/ToastProvider';
+import CustomSelect from '../../components/ui/CustomSelect';
+import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { errorMessage, type User } from '../../types';
 import { getSession, saveSession } from '../../services/session';
 import { isValidPassword, PASSWORD_ERROR } from '../../services/passwordValidation';
@@ -398,47 +400,51 @@ export default function PtProfilePage({ user, onUserUpdated }: PtProfilePageProp
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', padding: '32px' }}>
             
             {/* Tab selector */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', marginBottom: '24px' }}>
+            <div role="tablist" aria-label="Cài đặt hồ sơ" style={{ display: 'flex', gap: '6px', borderBottom: '1px solid #d8e2f0', paddingBottom: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'profile'}
                 onClick={() => setActiveTab('profile')}
                 style={{
-                  padding: '8px 18px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: activeTab === 'profile' ? '#003b70' : '#f1f5f9',
-                  color: activeTab === 'profile' ? '#ffffff' : '#475569',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  border: `1px solid ${activeTab === 'profile' ? '#7dd3fc' : '#d8e2f0'}`,
+                  background: activeTab === 'profile' ? '#e0f2fe' : '#ffffff',
+                  color: activeTab === 'profile' ? '#0077b3' : '#475569',
+                  fontWeight: activeTab === 'profile' ? 600 : 500,
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  transition: 'all 0.2s',
+                  gap: '6px',
+                  transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
                 }}
               >
-                <UserIcon size={16} /> Thông tin hồ sơ & Chuyên môn
+                <UserIcon size={15} aria-hidden="true" /> Thông tin hồ sơ & Chuyên môn
               </button>
 
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'security'}
                 onClick={() => setActiveTab('security')}
                 style={{
-                  padding: '8px 18px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: activeTab === 'security' ? '#003b70' : '#f1f5f9',
-                  color: activeTab === 'security' ? '#ffffff' : '#475569',
-                  fontWeight: 700,
-                  fontSize: '0.88rem',
+                  padding: '7px 14px',
+                  borderRadius: '6px',
+                  border: `1px solid ${activeTab === 'security' ? '#7dd3fc' : '#d8e2f0'}`,
+                  background: activeTab === 'security' ? '#e0f2fe' : '#ffffff',
+                  color: activeTab === 'security' ? '#0077b3' : '#475569',
+                  fontWeight: activeTab === 'security' ? 600 : 500,
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  transition: 'all 0.2s',
+                  gap: '6px',
+                  transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
                 }}
               >
-                <Lock size={16} /> Bảo mật & Đổi mật khẩu
+                <Lock size={15} aria-hidden="true" /> Bảo mật & Đổi mật khẩu
               </button>
             </div>
 
@@ -497,32 +503,26 @@ export default function PtProfilePage({ user, onUserUpdated }: PtProfilePageProp
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#003b70', marginBottom: '6px' }}>
-                        Ngày sinh
-                      </label>
-                      <input
-                        type="date"
-                        name="dateOfBirth"
+                      <CustomDatePicker
+                        label="Ngày sinh"
+                        ariaLabel="Ngày sinh"
                         value={form.dateOfBirth}
-                        onChange={handleInputChange}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                        onChange={(val) => setForm((prev) => ({ ...prev, dateOfBirth: val }))}
                       />
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#003b70', marginBottom: '6px' }}>
-                        Giới tính
-                      </label>
-                      <select
-                        name="gender"
+                      <CustomSelect
+                        label="Giới tính"
+                        ariaLabel="Giới tính"
                         value={form.gender}
-                        onChange={handleInputChange}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', background: '#ffffff', boxSizing: 'border-box' }}
-                      >
-                        <option value="MALE">Nam</option>
-                        <option value="FEMALE">Nữ</option>
-                        <option value="OTHER">Khác</option>
-                      </select>
+                        onChange={(val) => setForm((prev) => ({ ...prev, gender: val as any }))}
+                        options={[
+                          { value: 'MALE', label: 'Nam' },
+                          { value: 'FEMALE', label: 'Nữ' },
+                          { value: 'OTHER', label: 'Khác' },
+                        ]}
+                      />
                     </div>
 
                     <div>

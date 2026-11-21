@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import { errorMessage, type Customer } from '../../types';
 import { useToast } from '../ui/ToastProvider';
 import CustomerSelect from '../ui/CustomerSelect';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import QuickAddCustomerModal from './QuickAddCustomerModal';
 
 import type { InBodyOcrDraft } from '../../types/inbody';
@@ -288,18 +289,16 @@ export default function InBodyReviewForm({ draft, onConfirmed }: InBodyReviewFor
       </div>
 
       <div className="inbody-form-row-3">
-        <label className="inbody-input-label">
-          <span>
-            Ngày đo <strong style={{ color: '#e11d48' }}>*</strong>
-          </span>
-          <input
-            aria-label="Ngày đo xác nhận"
-            type="date"
-            value={form.measurementDate}
-            onChange={(event) => change('measurementDate', event.target.value)}
+        <div className="inbody-input-label">
+          <CustomDatePicker
+            label="Ngày đo"
+            ariaLabel="Ngày đo xác nhận"
             required
+            clearable={false}
+            value={form.measurementDate}
+            onChange={(val) => change('measurementDate', val)}
           />
-        </label>
+        </div>
 
         <label className="inbody-input-label">
           <span>Cân nặng (kg) <strong style={{ color: '#e11d48' }}>*</strong></span>

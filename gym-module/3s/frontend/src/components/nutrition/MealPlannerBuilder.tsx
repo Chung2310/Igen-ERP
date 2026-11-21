@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import { errorMessage } from '../../types';
 import type { Customer, NutritionDraftPlan, CalculatedNutrition, AiNutritionAnalysisResult } from '../../types';
 import MealAiConfigStudio, { DIET_STYLES } from './MealAiConfigStudio';
@@ -1155,66 +1156,60 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
 
   return (
     <div style={{ display: 'grid', gap: '16px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      {/* Top Banner & Quick Controls */}
+      {/* Top Header & Quick Controls */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #003b70 0%, #002244 100%)',
-          color: '#ffffff',
-          borderRadius: '16px',
-          padding: '18px 22px',
-          boxShadow: '0 4px 20px rgba(0, 59, 112, 0.18)',
+          background: '#ffffff',
+          color: '#071629',
+          border: '1px solid #d8e2f0',
+          borderRadius: '6px',
+          padding: '14px 18px',
+          boxShadow: '0 1px 2px rgb(15 23 42 / 6%)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {onBack && (
               <button
                 type="button"
+                className="button button-secondary"
                 onClick={onBack}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  color: '#ffffff',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '10px',
-                  padding: '9px 14px',
-                  fontWeight: 700,
+                  minHeight: '36px',
+                  padding: '7px 12px',
+                  fontWeight: 500,
                   fontSize: '0.82rem',
-                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  transition: 'all 0.15s ease',
                 }}
                 title="Quay lại danh sách các bản thực đơn của học viên"
               >
-                <ArrowLeft size={16} /> Danh Sách
+                <ArrowLeft size={15} aria-hidden="true" /> Danh sách
               </button>
             )}
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#38bdf8', fontWeight: 800 }}>
-                  THIẾT KẾ THỰC ĐƠN CƠM VIỆT
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h2 className="gym-erp-title">
+                  {effectiveCustomerName ? `Thực đơn: ${effectiveCustomerName}` : 'Thiết kế thực đơn dinh dưỡng'}
+                </h2>
                 {isEditingExistingPlan && (
-                  <span style={{ background: '#f59e0b', color: '#ffffff', fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px' }}>
-                    ✏️ ĐANG CHỈNH SỬA BẢN CÓ SẴN
+                  <span style={{ background: '#ffedd5', color: '#9a4f00', border: '1px solid #fed7aa', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px' }}>
+                    Đang chỉnh sửa bản có sẵn
                   </span>
                 )}
                 {meals.length > 0 && (
-                  <span style={{ background: '#10b981', color: '#ffffff', fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px' }}>
-                    {meals.length} Bữa Ăn • {totalKcal} kcal
+                  <span style={{ background: '#e0f2fe', color: '#0077b3', border: '1px solid #7dd3fc', fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px', fontVariantNumeric: 'tabular-nums' }}>
+                    {meals.length} bữa ăn • {totalKcal} kcal
                   </span>
                 )}
               </div>
-              <h2 style={{ margin: '4px 0 0', fontSize: '1.25rem', color: '#ffffff', fontWeight: 800 }}>
-                {effectiveCustomerName ? `Thực Đơn: ${effectiveCustomerName}` : 'Thiết Kế Thực Đơn Dinh Dưỡng'}
-              </h2>
               {meals.length > 0 && (
-                <div style={{ display: 'flex', gap: '12px', marginTop: '6px', fontSize: '0.76rem', color: '#93c5fd', flexWrap: 'wrap' }}>
-                  <span>Đạm (P): <strong style={{ color: '#ffffff' }}>{totalProtein}g</strong></span>
-                  <span>Tinh bột (C): <strong style={{ color: '#ffffff' }}>{totalCarbs}g</strong></span>
-                  <span>Chất béo (F): <strong style={{ color: '#ffffff' }}>{totalFat}g</strong></span>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '4px', marginLeft: '14px', fontSize: '0.78rem', color: '#475569', flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
+                  <span>Đạm (P): <strong style={{ color: '#071629' }}>{totalProtein}g</strong></span>
+                  <span>Tinh bột (C): <strong style={{ color: '#071629' }}>{totalCarbs}g</strong></span>
+                  <span>Chất béo (F): <strong style={{ color: '#071629' }}>{totalFat}g</strong></span>
                 </div>
               )}
             </div>
@@ -1225,12 +1220,13 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
               type="button"
               onClick={() => setShowConfigStudio(!showConfigStudio)}
               style={{
-                background: showConfigStudio ? '#0f172a' : '#ffffff',
-                color: showConfigStudio ? '#38bdf8' : '#003b70',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '9px 14px',
-                fontWeight: 700,
+                background: showConfigStudio ? '#e0f2fe' : '#ffffff',
+                color: showConfigStudio ? '#0077b3' : '#071629',
+                border: `1px solid ${showConfigStudio ? '#7dd3fc' : '#d8e2f0'}`,
+                borderRadius: '6px',
+                minHeight: '36px',
+                padding: '7px 14px',
+                fontWeight: showConfigStudio ? 600 : 500,
                 fontSize: '0.82rem',
                 cursor: 'pointer',
                 display: 'flex',
@@ -1238,7 +1234,7 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
                 gap: '6px',
               }}
             >
-              <Sliders size={14} /> {showConfigStudio ? 'Thu Gọn Cấu Hình' : 'Cấu Hình Nhu Cầu AI'}
+              <Sliders size={14} aria-hidden="true" /> {showConfigStudio ? 'Thu gọn cấu hình' : 'Cấu hình nhu cầu AI'}
             </button>
 
             {meals.length > 0 && (
@@ -1394,23 +1390,12 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', alignItems: 'flex-start' }}>
           {/* Start Date Picker */}
           <div>
-            <label style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-              NGÀY BẮT ĐẦU ĂN
-            </label>
-            <input
-              type="date"
+            <CustomDatePicker
+              label="Ngày bắt đầu ăn"
+              ariaLabel="Ngày bắt đầu ăn"
               value={startDate}
-              onChange={(e) => handleStartDateChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '0.86rem',
-                fontWeight: 600,
-                color: '#1e293b',
-                background: '#f8fafc',
-              }}
+              clearable={false}
+              onChange={(val) => handleStartDateChange(val)}
             />
           </div>
 
@@ -1434,15 +1419,15 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
                     type="button"
                     onClick={() => handleDurationPreset(p.days)}
                     style={{
-                      background: isActive ? '#003b70' : '#f1f5f9',
-                      color: isActive ? '#ffffff' : '#334155',
-                      border: `1px solid ${isActive ? '#003b70' : '#cbd5e1'}`,
+                      background: isActive ? '#e0f2fe' : '#ffffff',
+                      color: isActive ? '#0077b3' : '#475569',
+                      border: `1px solid ${isActive ? '#7dd3fc' : '#d8e2f0'}`,
                       borderRadius: '6px',
                       padding: '6px 10px',
-                      fontSize: '0.75rem',
-                      fontWeight: isActive ? 800 : 600,
+                      fontSize: '0.78rem',
+                      fontWeight: isActive ? 600 : 500,
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease',
+                      transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
                     }}
                   >
                     {p.label}
@@ -1454,24 +1439,13 @@ ${customDietNotes ? `- Yêu cầu bổ sung: ${customDietNotes}` : ''}
 
           {/* End Date Picker */}
           <div>
-            <label style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-              NGÀY KẾT THÚC
-            </label>
-            <input
-              type="date"
+            <CustomDatePicker
+              label="Ngày kết thúc"
+              ariaLabel="Ngày kết thúc"
               value={endDate}
               min={startDate}
-              onChange={(e) => handleEndDateChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '0.86rem',
-                fontWeight: 600,
-                color: '#1e293b',
-                background: '#f8fafc',
-              }}
+              clearable={false}
+              onChange={(val) => handleEndDateChange(val)}
             />
           </div>
         </div>

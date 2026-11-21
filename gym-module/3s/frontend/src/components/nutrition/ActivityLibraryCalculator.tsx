@@ -181,39 +181,18 @@ export default function ActivityLibraryCalculator({ selectedCustomer, onLogged }
     : ACTIVITIES.filter((a) => a.category === selectedCategory);
 
   return (
-    <div style={{ display: 'grid', gap: '14px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      {/* Top Banner */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-          color: '#ffffff',
-          borderRadius: '12px',
-          padding: '12px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#ffffff', fontWeight: 800 }}>
-            Ước Tính Tiêu Hao Calo Hoạt Động Thể Thao
-          </h2>
-          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
-            Hệ số trao đổi chất (METs) theo cân nặng & thời gian vận động
-          </p>
-        </div>
-
-        {/* Quick Presets */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {[
-            { label: 'Gym 1h', actId: 'gym_hiit' },
-            { label: 'Chạy 5km', actId: 'running_5k' },
-            { label: 'Bơi 1km', actId: 'swimming_1k' },
-            { label: 'Cycling 20km', actId: 'cycling_20k' },
-            { label: 'Tabata 30p', actId: 'tabata_hiit' },
-          ].map((preset) => (
+    <div style={{ display: 'grid', gap: '12px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+      {/* Quick Presets */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '6px' }}>
+        {[
+          { label: 'Gym 1h', actId: 'gym_hiit' },
+          { label: 'Chạy 5km', actId: 'running_5k' },
+          { label: 'Bơi 1km', actId: 'swimming_1k' },
+          { label: 'Cycling 20km', actId: 'cycling_20k' },
+          { label: 'Tabata 30p', actId: 'tabata_hiit' },
+        ].map((preset) => {
+          const isSelected = selectedActivity.id === preset.actId;
+          return (
             <button
               key={preset.actId}
               type="button"
@@ -222,21 +201,21 @@ export default function ActivityLibraryCalculator({ selectedCustomer, onLogged }
                 if (target) handleSelectActivity(target);
               }}
               style={{
-                background: selectedActivity.id === preset.actId ? '#00a4e4' : 'rgba(255,255,255,0.1)',
-                color: '#ffffff',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: '8px',
+                background: isSelected ? '#e0f2fe' : '#ffffff',
+                color: isSelected ? '#0077b3' : '#475569',
+                border: `1px solid ${isSelected ? '#7dd3fc' : '#d8e2f0'}`,
+                borderRadius: '6px',
                 padding: '6px 12px',
                 fontSize: '0.78rem',
-                fontWeight: 700,
+                fontWeight: isSelected ? 600 : 500,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
               }}
             >
               {preset.label}
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
       {/* Main Content Layout */}

@@ -704,7 +704,7 @@ const ConsultationTool = () => {
                         ))}
                       </div>
                     </div>
-                    <button type="submit" disabled={loading} className="btn btn-secondary" style={{ width: '100%', padding: '12px', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '4px' }}>
+                    <button type="submit" disabled={loading} className="btn btn-secondary" style={{ width: '100%', marginTop: '4px' }}>
                       {loading ? <>Đang phân tích...</> : <><Sparkles size={18} /> TÍNH TOÁN</>}
                     </button>
                   </form>
@@ -1083,7 +1083,7 @@ const ConsultationTool = () => {
                     <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#003b70', marginBottom: '6px', display: 'block' }}>Cân nặng (kg)</label>
                     <input type="number" value={bmiCalcForm.weight} onChange={(e) => setBmiCalcForm({ ...bmiCalcForm, weight: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required />
                   </div>
-                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px' }}>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', marginTop: '8px' }}>
                     TÍNH CHỈ SỐ BMI
                   </button>
                 </form>
@@ -1155,7 +1155,7 @@ const ConsultationTool = () => {
                       <option value="active">Nhiều (Tập 6-7 buổi/tuần)</option>
                     </select>
                   </div>
-                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '6px' }}>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', marginTop: '6px' }}>
                     TÍNH CALO TDEE
                   </button>
                 </form>
@@ -1230,7 +1230,7 @@ const ConsultationTool = () => {
                       <input type="number" value={bfpForm.hip} onChange={(e) => setBfpForm({ ...bfpForm, hip: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required />
                     </div>
                   )}
-                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '6px' }}>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', marginTop: '6px' }}>
                     TÍNH TỶ LỆ % MỠ
                   </button>
                 </form>
@@ -1281,7 +1281,7 @@ const ConsultationTool = () => {
                     <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#003b70', marginBottom: '6px', display: 'block' }}>Thời gian tập luyện / ngày (Phút)</label>
                     <input type="number" value={waterForm.workoutMinutes} onChange={(e) => setWaterForm({ ...waterForm, workoutMinutes: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required />
                   </div>
-                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px' }}>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', marginTop: '8px' }}>
                     TÍNH LƯỢNG NƯỚC CẦN UỐNG
                   </button>
                 </form>
@@ -1328,7 +1328,7 @@ const ConsultationTool = () => {
                     <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#003b70', marginBottom: '6px', display: 'block' }}>Số lần lặp tối đa (Reps)</label>
                     <input type="number" value={onermForm.reps} onChange={(e) => setOnermForm({ ...onermForm, reps: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required />
                   </div>
-                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', padding: '12px', fontWeight: 700, marginTop: '8px' }}>
+                  <button type="submit" className="btn btn-secondary" style={{ width: '100%', marginTop: '8px' }}>
                     TÍNH 1RM MAX TẠ
                   </button>
                 </form>

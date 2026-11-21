@@ -182,12 +182,12 @@ export default function CustomerSelect({
       }}
     >
       {label && (
-        <label htmlFor={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <label htmlFor={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', fontWeight: 500, color: '#475569' }}>
           <span>
             {label} {required && <strong className="text-danger" style={{ color: '#e11d48' }}>*</strong>}
           </span>
           {selectedCustomer && (
-            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>
               Mã: {selectedCustomer._id?.slice(-6)}
             </span>
           )}
@@ -237,43 +237,46 @@ export default function CustomerSelect({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          minHeight: '44px',
-          padding: '8px 12px',
-          background: disabled ? '#f1f5f9' : '#ffffff',
-          border: error ? '1.5px solid #e11d48' : open ? '1.5px solid #003b70' : '1px solid #cbd5e1',
-          borderRadius: '10px',
+          height: '36px',
+          minHeight: '36px',
+          padding: '0 10px',
+          background: disabled ? '#f1f5fb' : '#ffffff',
+          border: error ? '1px solid #e11d48' : open ? '1px solid #00adfc' : '1px solid #d8e2f0',
+          borderRadius: '6px',
+          fontSize: '13px',
           cursor: disabled || readOnly ? 'default' : 'pointer',
-          boxShadow: open ? '0 0 0 3px rgba(0, 59, 112, 0.12)' : 'none',
-          transition: 'all 0.15s ease',
+          boxShadow: 'none',
+          transition: 'border-color 150ms ease',
         }}
       >
         {selectedCustomer ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
             <div
               style={{
-                width: '30px',
-                height: '30px',
+                width: '22px',
+                height: '22px',
                 borderRadius: '50%',
                 background: '#e0f2fe',
-                color: '#0369a1',
+                color: '#0077b3',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: '0.8rem',
+                fontWeight: 600,
+                fontSize: '11px',
                 flexShrink: 0,
               }}
             >
-              {selectedCustomer.fullName ? selectedCustomer.fullName.charAt(0).toUpperCase() : <User size={14} />}
+              {selectedCustomer.fullName ? selectedCustomer.fullName.charAt(0).toUpperCase() : <User size={12} />}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-              <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+              <span style={{ fontWeight: 500, color: '#071629', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {selectedCustomer.fullName}
               </span>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Phone size={11} style={{ color: '#0284c7' }} />
-                <span>{selectedCustomer.phone || 'Chưa có SĐT'}</span>
-              </span>
+              {selectedCustomer.phone && (
+                <span style={{ fontSize: '12px', color: '#475569', whiteSpace: 'nowrap', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                  • {selectedCustomer.phone}
+                </span>
+              )}
             </div>
             {!disabled && !readOnly && (
               <button

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Pencil, X, Sparkles, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomSelect from '../ui/CustomSelect';
 import { errorMessage } from '../../types';
 import type { FoodImageItem } from '../../types/knowledge';
 
@@ -271,23 +272,22 @@ export const FoodImageEditModal: React.FC<FoodImageEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nhóm thực phẩm / Danh mục:
-              </label>
-              <select
+              <CustomSelect
+                label="Nhóm thực phẩm / Danh mục"
+                ariaLabel="Nhóm thực phẩm / Danh mục"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full py-2 px-3 rounded-lg border border-slate-300 text-[13px] outline-none focus:border-sky-500 bg-white"
-              >
-                <option value="PROTEIN">🥩 Đạm / Protein</option>
-                <option value="CARB">🍚 Tinh bột / Carb</option>
-                <option value="FAT">🥑 Chất béo tốt</option>
-                <option value="VEGGIE">🥗 Rau củ / Salad</option>
-                <option value="MEAL">🍱 Bữa chính hoàn chỉnh</option>
-                <option value="SNACK">🥪 Bữa phụ / Snack</option>
-                <option value="DRINK">🥤 Sinh tố / Nước uống</option>
-                <option value="OTHER">✨ Khác</option>
-              </select>
+                onChange={(val) => setCategory(val)}
+                options={[
+                  { value: 'PROTEIN', label: '🥩 Đạm / Protein' },
+                  { value: 'CARB', label: '🍚 Tinh bột / Carb' },
+                  { value: 'FAT', label: '🥑 Chất béo tốt' },
+                  { value: 'VEGGIE', label: '🥗 Rau củ / Salad' },
+                  { value: 'MEAL', label: '🍱 Bữa chính hoàn chỉnh' },
+                  { value: 'SNACK', label: '🥪 Bữa phụ / Snack' },
+                  { value: 'DRINK', label: '🥤 Sinh tố / Nước uống' },
+                  { value: 'OTHER', label: '✨ Khác' },
+                ]}
+              />
             </div>
           </div>
 

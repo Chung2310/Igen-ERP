@@ -62,12 +62,12 @@ export default function NutritionPage() {
 
   return (
     <section style={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      {/* Customer Lookup & Quick Filter Bar */}
-      <div className="panel" style={{ padding: '16px 20px', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 320px', maxWidth: '480px', minWidth: '260px' }}>
+      {/* Compact Customer Lookup Bar */}
+      <div style={{ padding: '0 0 10px', marginBottom: '10px', borderBottom: '1px solid #d8e2f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 280px', maxWidth: '420px', minWidth: '220px' }}>
             <CustomerSelect
-              label="Học viên / Khách hàng"
+              label=""
               name="customerId"
               value={customerId}
               ariaLabel="Học viên / Khách hàng"
@@ -78,29 +78,29 @@ export default function NutritionPage() {
                 setCustomerId(selectedId);
                 if (selectedId) void load(selectedId);
               }}
-              placeholder="Tìm theo tên học viên, số điện thoại..."
+              placeholder="Chọn học viên theo tên, số điện thoại..."
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
               className="button button-primary"
               onClick={() => void load()}
               disabled={!customerId || loading}
               style={{
-                height: '46px',
+                minHeight: '36px',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '0 18px',
-                fontSize: '0.86rem',
-                fontWeight: 700,
-                borderRadius: '10px',
+                gap: '6px',
+                padding: '0 14px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                borderRadius: '6px',
                 whiteSpace: 'nowrap',
               }}
             >
-              <RefreshCw size={15} className={loading ? 'spin' : ''} /> {loading ? 'Tải...' : 'Tải Nhật Ký'}
+              <RefreshCw size={14} aria-hidden="true" className={loading ? 'spin' : ''} /> {loading ? 'Đang tải...' : 'Tải nhật ký'}
             </button>
 
             {customerId && (
@@ -115,18 +115,18 @@ export default function NutritionPage() {
                   setAppliedAiAnalysis(null);
                 }}
                 style={{
-                  height: '46px',
+                  minHeight: '36px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '0 14px',
-                  fontSize: '0.84rem',
-                  fontWeight: 600,
-                  borderRadius: '10px',
+                  padding: '0 12px',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  borderRadius: '6px',
                   whiteSpace: 'nowrap',
                 }}
               >
-                <RotateCcw size={14} /> Xóa
+                <RotateCcw size={14} aria-hidden="true" /> Xóa
               </button>
             )}
           </div>
@@ -135,75 +135,85 @@ export default function NutritionPage() {
         {selectedCustomer && (
           <div
             style={{
-              marginTop: '12px',
-              paddingTop: '10px',
-              borderTop: '1px dashed #e2e8f0',
+              marginTop: '8px',
+              paddingTop: '8px',
+              borderTop: '1px dashed #d8e2f0',
               display: 'flex',
-              gap: '16px',
+              gap: '14px',
               flexWrap: 'wrap',
-              fontSize: '0.8rem',
-              color: '#334155',
+              fontSize: '0.78rem',
+              color: '#475569',
             }}
           >
-            <span><strong>Học viên:</strong> {selectedCustomer.fullName}</span>
-            {selectedCustomer.gender && <span><strong>Giới tính:</strong> {selectedCustomer.gender === 'FEMALE' ? 'Nữ' : 'Nam'}</span>}
-            {selectedCustomer.initialWeight && <span><strong>Cân nặng:</strong> {selectedCustomer.initialWeight} kg</span>}
-            {selectedCustomer.height && <span><strong>Chiều cao:</strong> {selectedCustomer.height} cm</span>}
-            {selectedCustomer.initialGoal && <span><strong>Mục tiêu:</strong> {selectedCustomer.initialGoal}</span>}
+            <span><strong style={{ color: '#071629' }}>Học viên:</strong> {selectedCustomer.fullName}</span>
+            {selectedCustomer.gender && <span><strong style={{ color: '#071629' }}>Giới tính:</strong> {selectedCustomer.gender === 'FEMALE' ? 'Nữ' : 'Nam'}</span>}
+            {selectedCustomer.initialWeight && <span><strong style={{ color: '#071629' }}>Cân nặng:</strong> {selectedCustomer.initialWeight} kg</span>}
+            {selectedCustomer.height && <span><strong style={{ color: '#071629' }}>Chiều cao:</strong> {selectedCustomer.height} cm</span>}
+            {selectedCustomer.initialGoal && <span><strong style={{ color: '#071629' }}>Mục tiêu:</strong> {selectedCustomer.initialGoal}</span>}
           </div>
         )}
       </div>
 
       {/* Tabs Navigation */}
-      <div className="tab-bar">
+      <div className="tab-bar" role="tablist" aria-label="Phân mục dinh dưỡng">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'macro_calculator'}
           className={activeTab === 'macro_calculator' ? 'active' : ''}
           onClick={() => setActiveTab('macro_calculator')}
         >
-          <Calculator size={15} style={{ display: 'inline', marginRight: '6px' }} />
+          <Calculator size={15} aria-hidden="true" />
           1. Tính BMR & Macro Cá Nhân
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'meal_swapper'}
           className={activeTab === 'meal_swapper' ? 'active' : ''}
           onClick={() => setActiveTab('meal_swapper')}
         >
-          <Sparkles size={15} style={{ display: 'inline', marginRight: '6px', color: '#00a4e4' }} />
-          2. Thiết Kế Thực Đơn 
+          <Sparkles size={15} aria-hidden="true" />
+          2. Thiết Kế Thực Đơn
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'meal_manager'}
           className={activeTab === 'meal_manager' ? 'active' : ''}
           onClick={() => setActiveTab('meal_manager')}
         >
-          <UtensilsCrossed size={15} style={{ display: 'inline', marginRight: '6px', color: '#10b981' }} />
+          <UtensilsCrossed size={15} aria-hidden="true" />
           3. Quản Lý Kho Món Ăn
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'activity_library'}
           className={activeTab === 'activity_library' ? 'active' : ''}
           onClick={() => setActiveTab('activity_library')}
         >
-          <Activity size={15} style={{ display: 'inline', marginRight: '6px' }} />
+          <Activity size={15} aria-hidden="true" />
           4. Tiêu Hao Vận Động
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'logs_balance'}
           className={activeTab === 'logs_balance' ? 'active' : ''}
           onClick={() => setActiveTab('logs_balance')}
         >
-          <Salad size={15} style={{ display: 'inline', marginRight: '6px' }} />
+          <Salad size={15} aria-hidden="true" />
           5. Nhật Ký Calo In / Out
         </button>
       </div>
 
       {/* Tab Contents */}
-      <div style={{ marginTop: '16px', minWidth: 0 }}>
+      <div style={{ marginTop: '10px', minWidth: 0 }}>
         {/* Tab 1: Macro Calculator */}
         {activeTab === 'macro_calculator' && (
           <NutritionMacroCalculator

@@ -91,7 +91,7 @@ export default function ProgressPage() {
           action={
             <button
               type="button"
-              className="shrink-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-[#003b70] hover:bg-[#00264d] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              className="button button-primary"
               onClick={() => void loadOverview()}
             >
               Thử lại

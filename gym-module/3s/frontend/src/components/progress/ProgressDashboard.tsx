@@ -56,48 +56,48 @@ export default function ProgressDashboard({
     : null;
 
   return (
-    <div className="flex flex-col gap-[18px]">
+    <div className="flex flex-col gap-3">
       {/* 1. Metrics Banner — dùng đúng chuẩn pt-metrics-banner */}
       <section aria-label="Tổng quan tiến độ" className="pt-metrics-banner">
         <article className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Khách được quản lý</div>
-            <div className="pt-metric-val text-[#003b70]">{items.length} khách hàng</div>
+            <div className="pt-metric-val text-[#071629] tabular-nums">{items.length}</div>
           </div>
           <div className="pt-metric-icon bg-sky-50 text-sky-600">
-            <Users size={20} />
+            <Users size={18} aria-hidden="true" />
           </div>
         </article>
 
         <article className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Khách có hoạt động</div>
-            <div className="pt-metric-val text-emerald-600">{activeCustomers}</div>
+            <div className="pt-metric-val text-emerald-600 tabular-nums">{activeCustomers}</div>
           </div>
           <div className="pt-metric-icon bg-emerald-50 text-emerald-600">
-            <Activity size={20} />
+            <Activity size={18} aria-hidden="true" />
           </div>
         </article>
 
         <article className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Tổng buổi đã ghi nhận</div>
-            <div className="pt-metric-val text-amber-600">{totalSessions}</div>
+            <div className="pt-metric-val text-amber-600 tabular-nums">{totalSessions}</div>
           </div>
           <div className="pt-metric-icon bg-amber-50 text-amber-600">
-            <CalendarDays size={20} />
+            <CalendarDays size={18} aria-hidden="true" />
           </div>
         </article>
 
         <article className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Tham gia trung bình</div>
-            <div className="pt-metric-val text-[#003b70]">
+            <div className="pt-metric-val text-[#071629] tabular-nums">
               {averageAttendance === null ? '—' : `${number(averageAttendance)}%`}
             </div>
           </div>
           <div className="pt-metric-icon bg-indigo-50 text-indigo-600">
-            <TrendingDown size={20} />
+            <TrendingDown size={18} aria-hidden="true" />
           </div>
         </article>
       </section>
@@ -221,7 +221,7 @@ export default function ProgressDashboard({
                 <div className="pt-card-footer">
                   <button
                     type="button"
-                    className="h-9 px-4 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center gap-2 shrink-0 whitespace-nowrap min-w-[110px]"
+                    className="button button-secondary"
                     aria-label={`Xem tiến độ ${item.customer.fullName}`}
                     onClick={() => onView(item)}
                   >
@@ -229,7 +229,7 @@ export default function ProgressDashboard({
                   </button>
                   <button
                     type="button"
-                    className="h-9 px-4 rounded-xl text-xs font-bold text-white bg-[#003b70] hover:bg-[#00264d] transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap min-w-[110px]"
+                    className="button button-primary"
                     aria-label={`Ghi nhận buổi tập ${item.customer.fullName}`}
                     onClick={() => onLogWorkout(item)}
                   >

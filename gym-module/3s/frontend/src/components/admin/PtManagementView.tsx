@@ -22,6 +22,8 @@ import {
   Filter,
 } from 'lucide-react';
 import DataList, { type DataColumn } from '../ui/DataList';
+import CustomSelect from '../ui/CustomSelect';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import Pagination from '../ui/Pagination';
 import StatusBadge from '../ui/StatusBadge';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -169,68 +171,57 @@ export default function PtManagementView() {
 
   return (
     <div className="pt-view-container">
-      {/* Top Header */}
-      <div className="pt-view-header" style={{ justifyContent: 'flex-end' }}>
-        <button
-          className="button button-primary"
-          type="button"
-          onClick={() => setFormPt({ username: '', fullName: '', status: 'ACTIVE' })}
-        >
-          <Plus size={18} /> Thêm Huấn luyện viên
-        </button>
-      </div>
-
       {/* Metrics Banner */}
       <div className="pt-metrics-banner">
         <div className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Tổng số PT</div>
-            <div className="pt-metric-val text-[#003b70]">{stats.total}</div>
+            <div className="pt-metric-val text-[#071629] tabular-nums">{stats.total}</div>
             <div className="pt-metric-sub text-sky-600">Biên chế 3S Gym</div>
           </div>
           <div className="pt-metric-icon bg-sky-50 text-sky-600">
-            <Users size={20} />
+            <Users size={18} aria-hidden="true" />
           </div>
         </div>
 
         <div className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Đang hoạt động</div>
-            <div className="pt-metric-val text-emerald-600">{stats.active}</div>
+            <div className="pt-metric-val text-emerald-600 tabular-nums">{stats.active}</div>
             <div className="pt-metric-sub text-emerald-600">Sẵn sàng nhận khách</div>
           </div>
           <div className="pt-metric-icon bg-emerald-50 text-emerald-600">
-            <CheckCircle2 size={20} />
+            <CheckCircle2 size={18} aria-hidden="true" />
           </div>
         </div>
 
         <div className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Đã tạm khóa</div>
-            <div className="pt-metric-val text-rose-600">{stats.locked}</div>
+            <div className="pt-metric-val text-rose-600 tabular-nums">{stats.locked}</div>
             <div className="pt-metric-sub text-rose-500">{stats.locked > 0 ? 'Cần kiểm tra' : 'Hồ sơ chuẩn'}</div>
           </div>
           <div className="pt-metric-icon bg-rose-50 text-rose-600">
-            <ShieldAlert size={20} />
+            <ShieldAlert size={18} aria-hidden="true" />
           </div>
         </div>
 
         <div className="pt-metric-card">
           <div>
             <div className="pt-metric-label">Kinh nghiệm TB</div>
-            <div className="pt-metric-val text-[#003b70]">
-              {stats.avgExp} <span className="text-xs font-semibold text-slate-400">năm</span>
+            <div className="pt-metric-val text-[#071629] tabular-nums">
+              {stats.avgExp} <span className="text-xs font-medium text-slate-400">năm</span>
             </div>
             <div className="pt-metric-sub text-amber-600">Chuyên môn cao</div>
           </div>
           <div className="pt-metric-icon bg-amber-50 text-amber-600">
-            <Clock size={20} />
+            <Clock size={18} aria-hidden="true" />
           </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {/* Filter Toolbar & View Switcher */}
         <div className="pt-toolbar">
           <form
@@ -248,44 +239,46 @@ export default function PtManagementView() {
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder="Tìm theo tên, SĐT, email, chuyên môn..."
-                style={{ paddingLeft: '38px' }}
-                className="w-full h-10 pr-9 text-xs bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-sky-500 rounded-xl outline-none focus:ring-2 focus:ring-sky-500/15 transition-all text-slate-800 placeholder:text-slate-400 font-medium"
+                style={{ paddingLeft: '34px' }}
+                className="w-full h-9 pr-8 text-[13px] bg-white border border-[#d8e2f0] focus:border-[#00adfc] rounded-md outline-none transition-colors text-[#071629] placeholder:text-slate-400 font-normal"
               />
               {keyword && (
                 <button
                   type="button"
                   onClick={() => setKeyword('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full z-10"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full z-10"
                   aria-label="Xóa từ khóa tìm kiếm"
                 >
-                  <X size={14} />
+                  <X size={14} aria-hidden="true" />
                 </button>
               )}
             </div>
 
             {/* Status Select */}
-            <select
-              aria-label="Lọc trạng thái PT"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 px-3.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 outline-none cursor-pointer focus:border-sky-500 focus:bg-white transition-all font-medium shrink-0"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="LOCKED">Đã khóa</option>
-              <option value="INACTIVE">Ngừng hoạt động</option>
-            </select>
+            <div className="w-[175px] shrink-0">
+              <CustomSelect
+                ariaLabel="Lọc trạng thái PT"
+                value={statusFilter}
+                onChange={(val) => setStatusFilter(val)}
+                options={[
+                  { value: '', label: 'Tất cả trạng thái' },
+                  { value: 'ACTIVE', label: 'Đang hoạt động' },
+                  { value: 'LOCKED', label: 'Đã khóa' },
+                  { value: 'INACTIVE', label: 'Ngừng hoạt động' },
+                ]}
+              />
+            </div>
 
             <button
-              className="shrink-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-[#003b70] hover:bg-[#00264d] text-white text-xs font-bold transition-all cursor-pointer shadow-2xs min-w-[88px]"
+              className="button button-secondary"
               type="submit"
               disabled={loading}
               title="Thực hiện lọc"
             >
               {loading ? (
-                <RefreshCw size={14} className="animate-spin shrink-0" />
+                <RefreshCw size={14} aria-hidden="true" className="animate-spin shrink-0" />
               ) : (
-                <Filter size={14} className="shrink-0" />
+                <Filter size={14} aria-hidden="true" className="shrink-0" />
               )}
               <span>{loading ? 'Đang lọc...' : 'Lọc'}</span>
             </button>
@@ -293,57 +286,63 @@ export default function PtManagementView() {
             {hasActiveFilters && (
               <button
                 type="button"
-                className="shrink-0 whitespace-nowrap inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl border border-slate-200 text-slate-700 hover:text-slate-900 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer min-w-[90px]"
+                className="button button-secondary shrink-0 whitespace-nowrap"
                 onClick={handleResetFilters}
                 title="Xóa toàn bộ bộ lọc"
               >
-                <RotateCcw size={13} className="shrink-0" />
+                <RotateCcw size={13} aria-hidden="true" className="shrink-0" />
                 <span>Đặt lại</span>
               </button>
             )}
           </form>
 
-          {/* View Mode Toggle - Icon Only with Tooltips */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80 gap-1 h-10 shrink-0">
+          {/* View Mode Toggle + Primary Action */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center bg-[#f1f5fb] p-1 rounded-md border border-[#d8e2f0] gap-1 h-9 shrink-0">
+              <button
+                type="button"
+                className={`w-7 h-7 flex items-center justify-center rounded-sm transition-colors cursor-pointer ${viewMode === 'grid'
+                  ? 'bg-white text-[#0077b3] shadow-xs'
+                  : 'text-[#475569] hover:text-[#071629]'
+                  }`}
+                onClick={() => setViewMode('grid')}
+                title="Dạng thẻ"
+                aria-label="Dạng thẻ"
+              >
+                <LayoutGrid size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={`w-7 h-7 flex items-center justify-center rounded-sm transition-colors cursor-pointer ${viewMode === 'table'
+                  ? 'bg-white text-[#0077b3] shadow-xs'
+                  : 'text-[#475569] hover:text-[#071629]'
+                  }`}
+                onClick={() => setViewMode('table')}
+                title="Dạng bảng"
+                aria-label="Dạng bảng"
+              >
+                <List size={15} aria-hidden="true" />
+              </button>
+            </div>
+
             <button
+              className="button button-primary"
               type="button"
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer ${viewMode === 'grid'
-                ? 'bg-white text-[#003b70] shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-                }`}
-              onClick={() => setViewMode('grid')}
-              title="Dạng thẻ"
-              aria-label="Dạng thẻ"
+              onClick={() => setFormPt({ username: '', fullName: '', status: 'ACTIVE' })}
+              style={{ whiteSpace: 'nowrap' }}
             >
-              <LayoutGrid size={16} />
-            </button>
-            <button
-              type="button"
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer ${viewMode === 'table'
-                ? 'bg-white text-[#003b70] shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-                }`}
-              onClick={() => setViewMode('table')}
-              title="Dạng bảng"
-              aria-label="Dạng bảng"
-            >
-              <List size={16} />
+              <Plus size={15} aria-hidden="true" /> Thêm Huấn luyện viên
             </button>
           </div>
         </div>
 
         {/* Content Display */}
         {pts.length === 0 && !loading ? (
-          <div className="py-14 px-4 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-            <div className="w-13 h-13 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
-              <Users size={24} />
-            </div>
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Chưa tìm thấy Huấn luyện viên nào</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4 leading-relaxed">
-              {hasActiveFilters
-                ? 'Không có PT nào khớp với điều kiện lọc hiện tại. Hãy thử tìm kiếm với từ khóa khác.'
-                : 'Hệ thống chưa có hồ sơ Huấn luyện viên nào. Hãy thêm PT mới ngay bây giờ.'}
-            </p>
+          <div className="py-10 px-4 text-center border border-dashed border-[#d8e2f0] rounded-md bg-white">
+            <GymEmptyIllustration kind={hasActiveFilters ? 'search' : 'trainers'} className="mb-2" />
+            <h3 className="text-sm font-semibold text-[#071629] mb-4">
+              {hasActiveFilters ? 'Không tìm thấy Huấn luyện viên phù hợp' : 'Chưa có hồ sơ Huấn luyện viên nào'}
+            </h3>
             {hasActiveFilters ? (
               <button
                 type="button"
@@ -356,7 +355,7 @@ export default function PtManagementView() {
             ) : (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                className="button button-primary"
                 onClick={() => setFormPt({ username: '', fullName: '', status: 'ACTIVE' })}
               >
                 <Plus size={16} />
@@ -709,7 +708,7 @@ export default function PtManagementView() {
               </button>
               <button
                 type="button"
-                className="h-10 px-5 rounded-xl bg-[#003b70] hover:bg-[#00264d] text-white text-xs font-bold transition-all inline-flex items-center justify-center gap-2 shadow-2xs cursor-pointer min-w-[145px]"
+                className="button button-primary"
                 onClick={() => {
                   const pt = detailPt;
                   setDetailPt(null);

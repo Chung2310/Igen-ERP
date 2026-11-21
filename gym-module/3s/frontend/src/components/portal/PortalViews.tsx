@@ -14,6 +14,7 @@ import Pagination from '../ui/Pagination';
 import PtPackageManagerModal from '../ui/PtPackageManagerModal';
 import StatusBadge from '../ui/StatusBadge';
 import CustomerSelect from '../ui/CustomerSelect';
+import CustomSelect from '../ui/CustomSelect';
 import PtManagementView from '../admin/PtManagementView';
 import { useToast } from '../ui/ToastProvider';
 import { api } from '../../services/api';
@@ -179,8 +180,10 @@ export function PtView() {
     setCustomerForm({ open: false, customer: null });
   };
   return <>
-    <div className="section-header" style={{ justifyContent: 'flex-end' }}><button className="button button-primary" onClick={openCreateForm}><Plus size={18} /> Tạo mới</button></div>
-    <div className="customer-browser-tabs" role="tablist" aria-label="Nội dung khách hàng">{ptTabs.map(({ value, label, icon: Icon }) => <button id={`customer-tab-${value}`} type="button" role="tab" aria-selected={tab === value} aria-controls="customer-tab-panel" key={value} className={tab === value ? 'active' : ''} onClick={() => selectTab(value)}><Icon size={16} aria-hidden="true" /><span>{label}</span></button>)}</div>
+    <div className="customer-tabs-header">
+      <div className="customer-browser-tabs" role="tablist" aria-label="Nội dung khách hàng">{ptTabs.map(({ value, label, icon: Icon }) => <button id={`customer-tab-${value}`} type="button" role="tab" aria-selected={tab === value} aria-controls="customer-tab-panel" key={value} className={tab === value ? 'active' : ''} onClick={() => selectTab(value)}><Icon size={15} aria-hidden="true" /><span>{label}</span></button>)}</div>
+      <button type="button" className="button button-primary" onClick={openCreateForm}><Plus size={15} aria-hidden="true" /> Tạo mới</button>
+    </div>
     <ContentFormModal open={showForm && tab !== 'customers'} resource={tab as Resource} item={formItem as ContentItem | null} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />
     <CustomerAccountModal open={Boolean(accountCustomer)} customer={accountCustomer} onClose={() => setAccountCustomer(null)} onSaved={() => { setAccountCustomer(null); load(); }} />
     <PtPackageManagerModal open={Boolean(packageCustomer)} customer={packageCustomer} onClose={() => setPackageCustomer(null)} />
@@ -197,24 +200,31 @@ export function PtView() {
       <div className="panel">
         {tab === 'customers' ? (
           <FilterBar ariaLabel="Tìm khách hàng" keyword={keyword} onKeywordChange={setKeyword} placeholder="Tìm khách hàng theo tên, số điện thoại, mục tiêu...">
-            <select aria-label="Lọc trạng thái khách hàng" className="filter-select" value={customerStatus} onChange={(event) => setCustomerStatus(event.target.value)}>
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="INACTIVE">Ngừng hoạt động</option>
-              <option value="LEAD">Tiềm năng</option>
-            </select>
-            <button className="button button-secondary" onClick={() => load()}>
-              <RefreshCw size={15} /> Lọc
+            <div style={{ width: '175px', flexShrink: 0 }}>
+              <CustomSelect
+                ariaLabel="Lọc trạng thái khách hàng"
+                value={customerStatus}
+                onChange={(val) => setCustomerStatus(val)}
+                options={[
+                  { value: '', label: 'Tất cả trạng thái' },
+                  { value: 'ACTIVE', label: 'Đang hoạt động' },
+                  { value: 'INACTIVE', label: 'Ngừng hoạt động' },
+                  { value: 'LEAD', label: 'Tiềm năng' },
+                ]}
+              />
+            </div>
+            <button type="button" className="button button-secondary" onClick={() => load()}>
+              <RefreshCw size={14} aria-hidden="true" /> Lọc
             </button>
             {(keyword || customerStatus) && (
-              <button className="button-filter-reset" onClick={() => { setKeyword(''); setCustomerStatus(''); }}>
-                <RotateCcw size={13} /> Xóa lọc
+              <button type="button" className="button-filter-reset" onClick={() => { setKeyword(''); setCustomerStatus(''); }}>
+                <RotateCcw size={13} aria-hidden="true" /> Xóa lọc
               </button>
             )}
           </FilterBar>
         ) : (
-          <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ minWidth: '280px', flex: '1 1 280px' }}>
+          <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: '240px', flex: '1 1 260px', maxWidth: '360px' }}>
               <CustomerSelect
                 label=""
                 name="customerFilter"
@@ -224,17 +234,24 @@ export function PtView() {
                 placeholder="Lọc theo học viên (tên hoặc SĐT)..."
               />
             </div>
-            <select aria-label="Lọc theo trạng thái" className="filter-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={{ minHeight: '44px' }}>
-              <option value="">Tất cả trạng thái</option>
-              <option value="DRAFT">Bản nháp</option>
-              <option value="PUBLISHED">Đã công bố</option>
-            </select>
-            <button className="button button-secondary" onClick={() => load()} style={{ minHeight: '44px' }}>
-              <RefreshCw size={15} /> Lọc
+            <div style={{ width: '175px', flexShrink: 0 }}>
+              <CustomSelect
+                ariaLabel="Lọc theo trạng thái"
+                value={statusFilter}
+                onChange={(val) => setStatusFilter(val)}
+                options={[
+                  { value: '', label: 'Tất cả trạng thái' },
+                  { value: 'DRAFT', label: 'Bản nháp' },
+                  { value: 'PUBLISHED', label: 'Đã công bố' },
+                ]}
+              />
+            </div>
+            <button type="button" className="button button-secondary" onClick={() => load()}>
+              <RefreshCw size={14} aria-hidden="true" /> Lọc
             </button>
             {(customerFilter || statusFilter) && (
-              <button className="button-filter-reset" onClick={() => { setCustomerFilter(''); setStatusFilter(''); }} style={{ minHeight: '44px' }}>
-                <RotateCcw size={13} /> Xóa lọc
+              <button type="button" className="button-filter-reset" onClick={() => { setCustomerFilter(''); setStatusFilter(''); }}>
+                <RotateCcw size={13} aria-hidden="true" /> Xóa lọc
               </button>
             )}
           </div>
@@ -242,6 +259,7 @@ export function PtView() {
         <DataList
           items={items}
           columns={columns}
+          emptyKind={tab === 'customers' ? 'customers' : 'roadmap'}
           renderActions={(item) => (
             <div className="inline-actions">
               {tab === 'customers' ? (

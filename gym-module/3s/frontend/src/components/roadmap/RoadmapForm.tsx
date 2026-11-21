@@ -502,16 +502,11 @@ export default function RoadmapForm({ onSaved, onCancel, initialData }: RoadmapF
     <>
     <form className="panel p-3.5 sm:p-6 flex flex-col gap-4 sm:gap-5 max-w-full" onSubmit={submit}>
       {/* Header Banner */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <Sparkles size={22} color="var(--secondary-color)" /> {initialData ? 'Chỉnh sửa Lộ trình Roadmap' : 'Đề xuất Lộ trình & Mục tiêu Toàn diện'}
-          </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-light)' }}>
-            Hệ thống kết hợp chỉ số InBody, hồ sơ học viên và mục tiêu của PT để tự động sinh lộ trình chi tiết theo từng giai đoạn.
-          </p>
+      {initialData && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #d8e2f0', paddingBottom: '12px' }}>
+          <h2 className="gym-erp-title">Chỉnh sửa lộ trình Roadmap</h2>
         </div>
-      </div>
+      )}
 
       {strategy?.generationSource && (
         <div role="status" className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">

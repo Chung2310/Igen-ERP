@@ -110,69 +110,36 @@ export default function AdminTransfersView() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="gym-transfer-view">
       {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
+      <div className="gym-transfer-header">
         {/* Tab Toggle */}
-        <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '8px', padding: '3px', gap: '2px' }}>
+        <div className="gym-transfer-tabs" role="group" aria-label="Nội dung điều chuyển">
           <button
             type="button"
             onClick={() => setActiveTabSub('form')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '6px',
-              border: 0,
-              background: activeTabSub === 'form' ? '#ffffff' : 'transparent',
-              color: activeTabSub === 'form' ? '#003b70' : '#64748b',
-              fontWeight: activeTabSub === 'form' ? 750 : 550,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              boxShadow: activeTabSub === 'form' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
+            className="gym-transfer-tab"
+            aria-pressed={activeTabSub === 'form'}
           >
-            <ArrowRightLeft size={13} />
+            <ArrowRightLeft size={13} aria-hidden="true" />
             <span>Tạo lệnh chuyển</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTabSub('customers')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '6px',
-              border: 0,
-              background: activeTabSub === 'customers' ? '#ffffff' : 'transparent',
-              color: activeTabSub === 'customers' ? '#003b70' : '#64748b',
-              fontWeight: activeTabSub === 'customers' ? 750 : 550,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              boxShadow: activeTabSub === 'customers' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
+            className="gym-transfer-tab"
+            aria-pressed={activeTabSub === 'customers'}
           >
-            <Users size={13} />
+            <Users size={13} aria-hidden="true" />
             <span>Danh sách học viên ({customers.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTabSub('history')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '6px',
-              border: 0,
-              background: activeTabSub === 'history' ? '#ffffff' : 'transparent',
-              color: activeTabSub === 'history' ? '#003b70' : '#64748b',
-              fontWeight: activeTabSub === 'history' ? 750 : 550,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              boxShadow: activeTabSub === 'history' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}
+            className="gym-transfer-tab"
+            aria-pressed={activeTabSub === 'history'}
           >
             <span>Lịch sử ({meta.total || transfers.length})</span>
           </button>
@@ -276,21 +243,9 @@ export default function AdminTransfersView() {
                           <button
                             type="button"
                             onClick={() => handleSelectCustomerToTransfer(c)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '5px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid #bae6fd',
-                              background: '#f0f9ff',
-                              color: '#0284c7',
-                              fontSize: '0.74rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
+                            className="button button-secondary"
                           >
-                            <ArrowRightLeft size={12} />
+                            <ArrowRightLeft size={12} aria-hidden="true" />
                             <span>Chọn chuyển PT</span>
                           </button>
                         </td>

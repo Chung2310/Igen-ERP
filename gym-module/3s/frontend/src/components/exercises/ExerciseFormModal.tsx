@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import FormModal from '../ui/FormModal';
+import CustomSelect from '../ui/CustomSelect';
 import { useToast } from '../ui/ToastProvider';
 import { api } from '../../services/api';
 import { errorMessage, type Exercise, type TrackingType } from '../../types';
@@ -279,34 +280,36 @@ export default function ExerciseFormModal({
                 <p className="exercise-muscle-hint">Chọn một hoặc nhiều nhóm cơ phù hợp với bài tập.</p>
               )}
             </div>
-            <label className="module-field">
-              <span>Cấp độ</span>
-              <select
-                aria-label="Cấp độ"
+            <div className="module-field">
+              <CustomSelect
+                label="Cấp độ"
+                ariaLabel="Cấp độ"
                 value={form.level}
-                onChange={(event) => change('level', event.target.value)}
-              >
-                <option value="BEGINNER">Cơ bản</option>
-                <option value="INTERMEDIATE">Trung cấp</option>
-                <option value="ADVANCED">Nâng cao</option>
-              </select>
-            </label>
-            <label className="module-field">
-              <span>Cách ghi nhận</span>
-              <select
-                aria-label="Cách ghi nhận"
-                value={form.defaultTrackingType}
-                onChange={(event) => change('defaultTrackingType', event.target.value)}
+                onChange={(val) => change('level', val as Exercise['level'])}
+                options={[
+                  { value: 'BEGINNER', label: 'Cơ bản' },
+                  { value: 'INTERMEDIATE', label: 'Trung cấp' },
+                  { value: 'ADVANCED', label: 'Nâng cao' },
+                ]}
+              />
+            </div>
+            <div className="module-field">
+              <CustomSelect
+                label="Cách ghi nhận"
+                ariaLabel="Cách ghi nhận"
                 required
-              >
-                <option value="" disabled>Chọn cách ghi nhận...</option>
-                <option value="STRENGTH">Sức mạnh · mức tạ</option>
-                <option value="BODYWEIGHT">Trọng lượng cơ thể</option>
-                <option value="CARDIO">Cardio · quãng đường/thời gian</option>
-                <option value="INTERVAL">Interval · hiệp làm/nghỉ</option>
-                <option value="MOBILITY">Mobility · thời lượng/biên độ</option>
-              </select>
-            </label>
+                placeholder="Chọn cách ghi nhận..."
+                value={form.defaultTrackingType}
+                onChange={(val) => change('defaultTrackingType', val as TrackingType)}
+                options={[
+                  { value: 'STRENGTH', label: 'Sức mạnh · mức tạ' },
+                  { value: 'BODYWEIGHT', label: 'Trọng lượng cơ thể' },
+                  { value: 'CARDIO', label: 'Cardio · quãng đường/thời gian' },
+                  { value: 'INTERVAL', label: 'Interval · hiệp làm/nghỉ' },
+                  { value: 'MOBILITY', label: 'Mobility · thời lượng/biên độ' },
+                ]}
+              />
+            </div>
           </div>
         </section>
         <section className="exercise-form-section" aria-labelledby="exercise-form-technique">

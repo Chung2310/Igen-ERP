@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../../services/api';
 import { errorMessage } from '../../types';
 import { useToast } from '../ui/ToastProvider';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import ProgressSection from './ProgressSection';
 
 interface Draft {
@@ -65,16 +66,22 @@ export default function ProgressReportGenerator({ customerId, onSaved }: { custo
       title="Báo cáo tiến độ"
       description="Tổng hợp tự động từ lịch tập, buổi tập và số đo."
     >
-      <div className="space-y-5 font-montserrat">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm font-semibold text-slate-700">
-            <span>Từ ngày</span>
-            <input className={fieldClass} type="date" aria-label="Từ ngày" value={periodStart} onChange={(event) => setStart(event.target.value)} />
-          </label>
-          <label className="grid gap-1 text-sm font-semibold text-slate-700">
-            <span>Đến ngày</span>
-            <input className={fieldClass} type="date" aria-label="Đến ngày" value={periodEnd} onChange={(event) => setEnd(event.target.value)} />
-          </label>
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <CustomDatePicker
+            label="Từ ngày"
+            ariaLabel="Từ ngày"
+            value={periodStart}
+            max={periodEnd || undefined}
+            onChange={(val) => setStart(val)}
+          />
+          <CustomDatePicker
+            label="Đến ngày"
+            ariaLabel="Đến ngày"
+            value={periodEnd}
+            min={periodStart || undefined}
+            onChange={(val) => setEnd(val)}
+          />
         </div>
         <button type="button" className={primaryButtonClass} disabled={!periodStart || !periodEnd || loading} onClick={() => void generate()}>
           {loading ? 'Đang tổng hợp...' : 'Tạo báo cáo tự động'}

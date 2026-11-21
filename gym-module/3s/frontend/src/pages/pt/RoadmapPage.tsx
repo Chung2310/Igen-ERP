@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Edit3,
   Eye,
-  Filter,
   Plus,
   Search,
   Trash2,
@@ -12,6 +11,7 @@ import {
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import CustomerSelect from '../../components/ui/CustomerSelect';
 import CustomSelect from '../../components/ui/CustomSelect';
+import { GymEmptyIllustration } from '../../components/ui/GymEmptyIllustration';
 import Pagination from '../../components/ui/Pagination';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { useToast } from '../../components/ui/ToastProvider';
@@ -140,77 +140,28 @@ export default function RoadmapPage() {
 
   return (
     <section style={{ width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      {/* Header section */}
-      <div className="section-header" style={{ justifyContent: 'flex-end' }}>
-        <button
-          className="button button-primary"
-          onClick={() => {
-            setEditingItem(null);
-            setShowForm(true);
-          }}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          <Plus size={16} /> Tạo roadmap
-        </button>
-      </div>
-
-      {/* Filter and Search Bar */}
+      {/* Unified Compact Filter & Action Toolbar */}
       <div
         style={{
-          background: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          padding: '16px 18px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-          marginBottom: '20px',
-          display: 'grid',
-          gap: '12px',
+          padding: '0 0 10px',
+          marginBottom: '12px',
+          borderBottom: '1px solid #d8e2f0',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
           width: '100%',
           maxWidth: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>
-            <Filter size={16} color="var(--secondary-color)" /> Bộ lọc & Tìm kiếm lộ trình
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#64748b' }}>
-            <span>
-              Hiển thị <strong>{items.length}</strong> / <strong>{meta.total || items.length}</strong> lộ trình
-            </span>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                style={{
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  padding: '3px 8px',
-                  fontSize: '0.75rem',
-                  color: '#475569',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <X size={12} /> Xóa bộ lọc
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '12px', alignItems: 'end' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', flex: '1 1 560px', minWidth: 0 }}>
           {/* Customer Filter */}
-          <div>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '4px' }}>
-              Học viên
-            </span>
+          <div style={{ flex: '1 1 200px', maxWidth: '260px', minWidth: '180px' }}>
             <CustomerSelect
-              label="Lọc theo khách hàng"
+              label=""
               ariaLabel="Lọc theo khách hàng"
               name="filterCustomerId"
               value={filterCustomer}
@@ -221,9 +172,9 @@ export default function RoadmapPage() {
           </div>
 
           {/* Status Filter */}
-          <div>
+          <div style={{ flex: '0 1 190px', minWidth: '160px' }}>
             <CustomSelect
-              label="Trạng thái"
+              label=""
               ariaLabel="Lọc theo trạng thái"
               value={filterStatus}
               onChange={(val) => setFilterStatus(val)}
@@ -236,24 +187,25 @@ export default function RoadmapPage() {
           </div>
 
           {/* Keyword Search */}
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '6px' }}>
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '6px', flex: '1 1 220px', maxWidth: '320px', minWidth: '180px' }}>
             <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+              <Search size={15} aria-hidden="true" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
               <input
                 type="text"
+                aria-label="Tìm tiêu đề lộ trình"
                 placeholder="Tìm tiêu đề lộ trình..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{
                   width: '100%',
-                  paddingLeft: '36px',
-                  paddingRight: '12px',
-                  minHeight: '42px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  border: '1px solid #cbd5e1',
+                  paddingLeft: '32px',
+                  paddingRight: '10px',
+                  minHeight: '36px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  border: '1px solid #d8e2f0',
                   background: '#ffffff',
-                  color: '#334155',
+                  color: '#071629',
                   boxShadow: 'none',
                 }}
               />
@@ -261,11 +213,39 @@ export default function RoadmapPage() {
             <button
               type="submit"
               className="button button-secondary"
-              style={{ minHeight: '42px', padding: '0 14px', whiteSpace: 'nowrap' }}
+              style={{ minHeight: '36px', padding: '0 12px', whiteSpace: 'nowrap' }}
             >
               Tìm
             </button>
           </form>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="button button-secondary"
+              style={{ minHeight: '36px', padding: '0 10px', whiteSpace: 'nowrap' }}
+            >
+              <X size={13} aria-hidden="true" /> Xóa lọc
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <span style={{ fontSize: '0.78rem', color: '#475569', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {items.length} / {meta.total || items.length} lộ trình
+          </span>
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => {
+              setEditingItem(null);
+              setShowForm(true);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+          >
+            <Plus size={15} aria-hidden="true" /> Tạo roadmap
+          </button>
         </div>
       </div>
 
@@ -450,7 +430,8 @@ export default function RoadmapPage() {
               <p>Đang tải danh sách lộ trình...</p>
             ) : hasActiveFilters ? (
               <div>
-                <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Không tìm thấy lộ trình phù hợp với bộ lọc hiện tại.</p>
+                <GymEmptyIllustration kind="search" className="mb-2" />
+                <p style={{ margin: '0 0 10px', fontWeight: 600, color: '#071629' }}>Không tìm thấy lộ trình phù hợp với bộ lọc hiện tại.</p>
                 <button
                   type="button"
                   className="button button-secondary"
@@ -462,7 +443,8 @@ export default function RoadmapPage() {
               </div>
             ) : (
               <div>
-                <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Chưa có lộ trình nào được tạo.</p>
+                <GymEmptyIllustration kind="roadmap" className="mb-2" />
+                <p style={{ margin: '0 0 10px', fontWeight: 600, color: '#071629' }}>Chưa có lộ trình nào được tạo.</p>
                 <button
                   type="button"
                   className="button button-primary"
@@ -472,7 +454,7 @@ export default function RoadmapPage() {
                   }}
                   style={{ fontSize: '0.8rem', padding: '6px 12px' }}
                 >
-                  <Plus size={14} /> Tạo roadmap ngay
+                  <Plus size={14} aria-hidden="true" /> Tạo roadmap ngay
                 </button>
               </div>
             )}

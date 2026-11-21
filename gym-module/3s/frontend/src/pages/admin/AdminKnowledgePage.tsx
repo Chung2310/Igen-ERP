@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Image as ImageIcon, FileText, RefreshCw, UploadCloud, Sparkles } from 'lucide-react';
 import ConfirmModal from '../../components/ui/ConfirmModal';
+import { GymEmptyIllustration } from '../../components/ui/GymEmptyIllustration';
 import { api } from '../../services/api';
 import { useToast } from '../../components/ui/ToastProvider';
 import { errorMessage, type PaginationMeta } from '../../types';
@@ -180,19 +181,16 @@ export default function AdminKnowledgePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-5 pb-12 pt-4">
+    <div className="w-full min-w-0 pb-4">
       {/* HEADER SECTION */}
-      <div className="flex justify-end items-center flex-wrap gap-4 mb-6">
+      <div className="gym-knowledge-tabs mb-2.5 flex flex-wrap items-center gap-2 pb-2.5">
         {/* TABS SWITCHER */}
-        <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+        <div className="gym-transfer-tabs" role="group" aria-label="Loại tư liệu">
           <button
             type="button"
             onClick={() => setActiveTab('images')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg border-none text-xs font-bold cursor-pointer transition-all ${
-              activeTab === 'images'
-                ? 'bg-white text-sky-600 shadow-xs'
-                : 'bg-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            className="gym-transfer-tab"
+            aria-pressed={activeTab === 'images'}
           >
             <ImageIcon size={16} />
             <span>Kho Ảnh Món Ăn</span>
@@ -206,11 +204,8 @@ export default function AdminKnowledgePage() {
           <button
             type="button"
             onClick={() => setActiveTab('docs')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg border-none text-xs font-bold cursor-pointer transition-all ${
-              activeTab === 'docs'
-                ? 'bg-white text-sky-600 shadow-xs'
-                : 'bg-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            className="gym-transfer-tab"
+            aria-pressed={activeTab === 'docs'}
           >
             <FileText size={16} />
             <span>Tài Liệu Tri Thức</span>
@@ -259,26 +254,23 @@ export default function AdminKnowledgePage() {
               <div>Đang tải kho ảnh món ăn...</div>
             </div>
           ) : images.length === 0 ? (
-            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center">
-              <ImageIcon size={44} className="text-slate-400 mx-auto mb-3" />
-              <div className="font-bold text-base text-slate-800">
+            <div className="py-10 text-center">
+              <GymEmptyIllustration kind={searchQuery ? 'search' : 'knowledge'} className="mb-3" />
+              <div className="font-semibold text-sm text-[#071629] mb-4">
                 Chưa có ảnh món ăn nào trong kho
               </div>
-              <p className="text-xs text-slate-500 max-w-md mx-auto my-2 mb-4">
-                Kho ảnh đang trống. Bạn có thể tải ảnh từ máy tính lên hoặc bấm "Tạo Ảnh AI" để xây dựng kho lưu trữ.
-              </p>
               <div className="flex justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs cursor-pointer hover:bg-emerald-100 transition-colors"
+                  className="button button-secondary"
                 >
                   <UploadCloud size={15} /> Tải Ảnh Lên Kho
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAiModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs cursor-pointer transition-colors"
+                  className="button button-primary"
                 >
                   <Sparkles size={15} /> Tạo Ảnh AI Lưu Kho
                 </button>

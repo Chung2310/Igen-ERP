@@ -9,6 +9,7 @@ import {
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
 import ConfirmModal from '../ui/ConfirmModal';
+import CustomSelect from '../ui/CustomSelect';
 import AdminCustomerTable from './AdminCustomerTable';
 import AdminQuickTransferModal from './AdminQuickTransferModal';
 import AdminBulkTransferModal from './AdminBulkTransferModal';
@@ -179,113 +180,53 @@ export default function AdminCustomersView({ onOpenTransferTab }: { onOpenTransf
   const selectedCustomersForBulk = customers.filter((c) => selectedCustomerIds.includes(c._id));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {onOpenTransferTab && (
-            <button
-              type="button"
-              onClick={onOpenTransferTab}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '10px',
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: '#003b70',
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              <ArrowRightLeft size={15} />
-              <span>Lịch sử điều chuyển</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setFormCustomer(null)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '10px',
-              border: 0,
-              background: '#003b70',
-              color: '#ffffff',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 59, 112, 0.2)',
-            }}
-          >
-            <Plus size={15} />
-            <span>Thêm khách hàng</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Toolbar Filter */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          padding: '12px 16px',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px',
-        }}
-      >
+    <div className="gym-customer-view">
+      {/* Unified Compact Toolbar: Bộ lọc + Hành động trên 1 hàng */}
+      <div className="gym-customer-toolbar">
         <form
           onSubmit={handleApplyFilter}
-          style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', flex: 1 }}
+          className="gym-customer-filters"
         >
-          <div style={{ position: 'relative', minWidth: '240px', flex: 1 }}>
-            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <div className="gym-customer-search">
+            <Search size={15} aria-hidden="true" />
             <input
               type="text"
+              aria-label="Tìm khách hàng"
               placeholder="Tìm theo họ tên, SĐT, email..."
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              style={{ width: '100%', height: '38px', padding: '0 12px 0 36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
 
-          <select
-            value={ptFilter}
-            onChange={(e) => handlePtChange(e.target.value)}
-            style={{ height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#1e293b', outline: 'none' }}
-          >
-            <option value="">Tất cả Huấn luyện viên</option>
-            {pts.map((p) => (
-              <option key={p._id} value={p._id}>
-                PT: {p.fullName || p.username}
-              </option>
-            ))}
-          </select>
+          <div style={{ width: '210px', flex: '0 1 210px', minWidth: '170px' }}>
+            <CustomSelect
+              value={ptFilter}
+              onChange={(val) => handlePtChange(val)}
+              ariaLabel="Lọc theo huấn luyện viên"
+              options={[
+                { value: '', label: 'Tất cả Huấn luyện viên' },
+                ...pts.map((p) => ({ value: p._id, label: `PT: ${p.fullName || p.username}` })),
+              ]}
+            />
+          </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            style={{ height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#ffffff', color: '#1e293b', outline: 'none' }}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-            <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
-            <option value="LEAD">Tiềm năng (LEAD)</option>
-          </select>
+          <div style={{ width: '190px', flex: '0 1 190px', minWidth: '160px' }}>
+            <CustomSelect
+              value={statusFilter}
+              onChange={(val) => handleStatusChange(val)}
+              ariaLabel="Lọc theo trạng thái"
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang hoạt động' },
+                { value: 'INACTIVE', label: 'Tạm ngưng' },
+                { value: 'LEAD', label: 'Tiềm năng' },
+              ]}
+            />
+          </div>
 
           <button
             type="submit"
-            style={{ height: '38px', padding: '0 14px', borderRadius: '8px', border: 0, background: '#0284c7', color: '#ffffff', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+            className="button button-secondary"
           >
             Tìm kiếm
           </button>
@@ -294,42 +235,50 @@ export default function AdminCustomersView({ onOpenTransferTab }: { onOpenTransf
             <button
               type="button"
               onClick={handleResetFilter}
-              style={{ height: '38px', padding: '0 10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              className="button button-secondary"
             >
-              <RotateCcw size={13} />
+              <RotateCcw size={13} aria-hidden="true" />
               <span>Xóa lọc</span>
             </button>
           )}
         </form>
 
-        <button
-          type="button"
-          onClick={() => void loadCustomers(meta.page, keyword, statusFilter, ptFilter)}
-          disabled={loading}
-          style={{ height: '38px', padding: '0 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#003b70', fontSize: '0.8rem', fontWeight: 650, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          <span>Tải lại</span>
-        </button>
+        <div className="module-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => void loadCustomers(meta.page, keyword, statusFilter, ptFilter)}
+            disabled={loading}
+            className="button button-secondary"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+            <span>Tải lại</span>
+          </button>
+
+          {onOpenTransferTab && (
+            <button
+              type="button"
+              onClick={onOpenTransferTab}
+              className="button button-secondary"
+            >
+              <ArrowRightLeft size={14} aria-hidden="true" />
+              <span>Lịch sử điều chuyển</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setFormCustomer(null)}
+            className="button button-primary"
+          >
+            <Plus size={15} aria-hidden="true" />
+            <span>Thêm khách hàng</span>
+          </button>
+        </div>
       </div>
 
       {/* Bulk Action Bar khi có khách hàng được tick chọn */}
       {selectedCustomerIds.length > 0 && (
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #003b70 0%, #0284c7 100%)',
-            color: '#ffffff',
-            borderRadius: '12px',
-            padding: '12px 18px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            boxShadow: '0 4px 14px rgba(0, 59, 112, 0.22)',
-            animation: 'fadeIn 0.2s ease-in-out',
-          }}
-        >
+        <div className="gym-customer-selection">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
@@ -357,38 +306,16 @@ export default function AdminCustomersView({ onOpenTransferTab }: { onOpenTransf
             <button
               type="button"
               onClick={() => setOpenBulkTransfer(true)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 0,
-                background: '#ffffff',
-                color: '#003b70',
-                fontSize: '0.82rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)',
-              }}
+              className="button button-primary"
             >
-              <ArrowRightLeft size={14} />
+              <ArrowRightLeft size={14} aria-hidden="true" />
               <span>Chuyển PT ({selectedCustomerIds.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedCustomerIds([])}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.35)',
-                background: 'rgba(255, 255, 255, 0.15)',
-                color: '#ffffff',
-                fontSize: '0.8rem',
-                fontWeight: 650,
-                cursor: 'pointer',
-              }}
+              className="button button-secondary"
             >
               Bỏ chọn
             </button>

@@ -13,6 +13,7 @@
     "build:marketing-worker": "esbuild server/workers/marketing-suite.worker.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/marketing-worker.cjs",
     "start:marketing-worker": "node dist-server/marketing-worker.cjs",
     "dev": "node tools/dev-with-quotation-worker.mjs",
+    "dev:gym": "node tools/dev-gym.mjs",
     "dev:server": "tsx watch --exclude \"**/tmp/**\" --exclude \"**/dist/**\" --exclude \"**/dist-server/**\" server.ts",
     "build": "vite build && npm run build:gym && npm run build:luxcare && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/server.cjs && npm run build:marketing-worker && npm run build:quotation-worker",
     "build:luxcare": "esbuild healthcare-luxcare/feature-server.ts --bundle --platform=node --format=cjs --packages=external --outfile=healthcare-luxcare/dist-feature/server.cjs",

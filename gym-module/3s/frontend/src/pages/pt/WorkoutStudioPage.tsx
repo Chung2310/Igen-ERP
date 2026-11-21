@@ -471,10 +471,10 @@ export default function WorkoutStudioPage() {
                 setActiveWeek(week);
                 setActiveDay((day) => Math.min(day, planDaysForWeek(durationDays, week).length));
               }}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
                 week === activeWeek
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  ? 'bg-[#e0f2fe] text-[#0077b3] border border-[#7dd3fc] font-semibold'
+                  : 'bg-white hover:bg-[#f0f9ff] text-[#475569] border border-[#d8e2f0] font-medium'
               }`}
             >
               Tuần {week}

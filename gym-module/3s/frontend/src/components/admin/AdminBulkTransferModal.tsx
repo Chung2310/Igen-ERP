@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRightLeft, RefreshCw, X, Users, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomSelect from '../ui/CustomSelect';
 import { errorMessage } from '../../types';
 import type { CustomerAdminRecord, PtOption } from './AdminCustomersView';
 
@@ -254,39 +255,18 @@ export default function AdminBulkTransferModal({
 
           {/* Chọn PT nhận */}
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.78rem',
-                fontWeight: 750,
-                color: '#334155',
-                marginBottom: '6px',
-              }}
-            >
-              Chọn Huấn luyện viên tiếp nhận mới <span style={{ color: '#dc2626' }}>*</span>
-            </label>
-            <select
+            <CustomSelect
+              label="Chọn Huấn luyện viên tiếp nhận mới"
+              ariaLabel="Chọn Huấn luyện viên tiếp nhận mới"
+              required
+              placeholder="-- Chọn Huấn luyện viên (PT) tiếp nhận --"
               value={toPtId}
-              onChange={(e) => setToPtId(e.target.value)}
-              style={{
-                width: '100%',
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '0.84rem',
-                outline: 'none',
-                background: '#ffffff',
-                color: '#1e293b',
-              }}
-            >
-              <option value="">-- Chọn Huấn luyện viên (PT) tiếp nhận --</option>
-              {pts.map((p) => (
-                <option key={p._id} value={p._id}>
-                  PT: {p.fullName || p.username} {p.phone ? `(${p.phone})` : ''}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setToPtId(val)}
+              options={pts.map((p) => ({
+                value: p._id,
+                label: `PT: ${p.fullName || p.username}${p.phone ? ` (${p.phone})` : ''}`,
+              }))}
+            />
           </div>
 
           {/* Lý do */}

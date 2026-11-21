@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '../ui/StatusBadge';
 import Pagination from '../ui/Pagination';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import type { PaginationMeta } from '../../types';
 import type { CustomerAdminRecord, PtOption } from './AdminCustomersView';
 
@@ -92,12 +93,9 @@ export default function AdminCustomerTable({
               </tr>
             ) : customers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-14 px-4 text-center text-slate-500">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-2.5">
-                    <Users size={24} />
-                  </div>
-                  <p className="font-bold text-sm text-slate-800 mb-0.5">Không tìm thấy khách hàng nào</p>
-                  <p className="text-xs text-slate-400">Thử thay đổi bộ lọc hoặc thêm khách hàng mới.</p>
+                <td colSpan={7} className="py-10 px-4 text-center text-[#475569]">
+                  <GymEmptyIllustration kind="customers" className="mb-2" />
+                  <p className="font-semibold text-sm text-[#071629] m-0">Không tìm thấy khách hàng nào</p>
                 </td>
               </tr>
             ) : (

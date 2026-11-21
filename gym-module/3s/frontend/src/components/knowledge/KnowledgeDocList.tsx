@@ -3,6 +3,7 @@ import { UploadCloud, Zap, RefreshCw, FileText, Trash2, Search } from 'lucide-re
 import type { KnowledgeDocument } from '../../types/knowledge';
 import type { PaginationMeta } from '../../types';
 import { FoodImagePagination } from './FoodImagePagination';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import { KNOWLEDGE_TOPICS, getTopicBadgeStyle } from './knowledgeTopics';
 
 export const DOC_TOPICS = [
@@ -58,34 +59,35 @@ export const KnowledgeDocList: React.FC<KnowledgeDocListProps> = ({
   return (
     <>
       {/* TOOLBAR FOR DOCS */}
-      <div className="bg-white rounded-xl p-3.5 sm:p-4.5 border border-slate-200 mb-5">
-        <div className="flex justify-between items-center flex-wrap gap-3 mb-3">
+      <div className="bg-white rounded-md p-3 border border-[#d8e2f0] mb-3">
+        <div className="flex justify-between items-center flex-wrap gap-2 mb-2.5">
           {/* Search & Status filter */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-[280px]">
+          <div className="flex items-center flex-wrap gap-2 flex-1 min-w-[260px]">
             {onSearchChange && (
-              <div className="relative w-full max-w-[360px]">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <div className="relative w-full max-w-[340px]">
+                <Search size={15} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
+                  aria-label="Tìm tài liệu tri thức"
                   placeholder="Tìm theo tiêu đề, chủ đề, nội dung tài liệu..."
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="w-full py-2 pl-9 pr-3 rounded-lg border border-slate-300 text-[13px] outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                  className="w-full h-9 pl-9 pr-3 rounded-md border border-[#d8e2f0] bg-white text-[13px] text-[#071629] outline-none focus:border-[#00adfc]"
                 />
               </div>
             )}
 
             {onStatusFilterChange && (
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1 bg-[#f1f5fb] border border-[#d8e2f0] p-0.5 rounded-md h-9">
                 {DOC_STATUSES.map((st) => (
                   <button
                     key={st.val}
                     type="button"
                     onClick={() => onStatusFilterChange(st.val)}
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold border-none cursor-pointer transition-colors ${
+                    className={`px-2.5 h-7 rounded-sm text-xs cursor-pointer transition-colors ${
                       statusFilter === st.val
-                        ? 'bg-sky-600 text-white'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        ? 'bg-white text-[#0077b3] font-semibold border border-[#d8e2f0]'
+                        : 'bg-transparent text-[#475569] font-medium border border-transparent hover:text-[#071629]'
                     }`}
                   >
                     {st.label}
@@ -100,17 +102,17 @@ export const KnowledgeDocList: React.FC<KnowledgeDocListProps> = ({
             <button
               type="button"
               onClick={onSeedDocs}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs cursor-pointer hover:bg-emerald-100 transition-colors"
+              className="button button-secondary"
             >
-              <Zap size={15} /> Nạp 4 Tài Liệu Chuẩn 3S
+              <Zap size={14} aria-hidden="true" /> Nạp 4 tài liệu chuẩn 3S
             </button>
 
             <button
               type="button"
               onClick={onOpenUploadModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs cursor-pointer transition-colors shadow-xs"
+              className="button button-primary"
             >
-              <UploadCloud size={15} /> Tải Lên File Tri Thức
+              <UploadCloud size={14} aria-hidden="true" /> Tải lên file tri thức
             </button>
           </div>
         </div>
@@ -143,28 +145,25 @@ export const KnowledgeDocList: React.FC<KnowledgeDocListProps> = ({
           <div>Đang tải tài liệu tri thức...</div>
         </div>
       ) : docs.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center">
-          <FileText size={44} className="text-slate-400 mx-auto mb-3" />
-          <div className="font-bold text-base text-slate-800">
+        <div className="bg-white rounded-md border border-dashed border-[#d8e2f0] p-10 text-center">
+          <GymEmptyIllustration kind={searchQuery ? 'search' : 'knowledge'} className="mb-3" />
+          <div className="font-semibold text-sm text-[#071629] mb-4">
             Chưa có tài liệu tri thức nào
           </div>
-          <p className="text-xs text-slate-500 max-w-md mx-auto my-2 mb-4">
-            Bấm "Tải Lên File Tri Thức" để tải các tài liệu quy chuẩn (PDF, Word, Markdown, TXT)".
-          </p>
           <div className="flex justify-center gap-2.5">
             <button
               type="button"
               onClick={onSeedDocs}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs cursor-pointer hover:bg-emerald-100 transition-colors"
+              className="button button-secondary"
             >
-              <Zap size={14} /> Nạp 4 Tài Liệu Mẫu
+              <Zap size={14} aria-hidden="true" /> Nạp 4 tài liệu mẫu
             </button>
             <button
               type="button"
               onClick={onOpenUploadModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs cursor-pointer transition-colors"
+              className="button button-primary"
             >
-              <UploadCloud size={14} /> Tải Lên File Ngay
+              <UploadCloud size={14} aria-hidden="true" /> Tải lên file ngay
             </button>
           </div>
         </div>

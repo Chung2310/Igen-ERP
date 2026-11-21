@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Dumbbell, Layers, Plus, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Layers, Plus, Sparkles } from 'lucide-react';
 import Pagination from '../../components/ui/Pagination';
 import ConfirmModal from '../../components/ui/ConfirmModal';
+import { GymEmptyIllustration } from '../../components/ui/GymEmptyIllustration';
 import { useToast } from '../../components/ui/ToastProvider';
 import { api } from '../../services/api';
 import type { Exercise, MuscleGroupItem, PaginationMeta } from '../../types';
@@ -100,24 +102,33 @@ export default function ExerciseLibraryPage() {
   };
 
   const muscleNames = muscleGroups.map((g) => g.name);
+  const controlsBar = typeof document !== 'undefined' ? document.getElementById('workout-page-controls-bar') : null;
+
+  const exerciseActions = (
+    <div className="module-actions">
+      <span className="exercise-count">{meta.total ?? items.length} bài tập</span>
+      <button type="button" className="button button-secondary" onClick={() => setMuscleModalOpen(true)}>
+        <Layers size={15} aria-hidden="true" /> Quản lý nhóm cơ
+      </button>
+      <button type="button" className="button button-secondary" onClick={() => setAiOpen(true)}>
+        <Sparkles size={15} aria-hidden="true" /> Tạo bằng AI
+      </button>
+      <button type="button" className="button button-primary" onClick={() => setFormExercise(null)}>
+        <Plus size={15} aria-hidden="true" /> Tạo bài tập
+      </button>
+    </div>
+  );
 
   // === LẮP RÁP COMPONENTS ===
   return (
     <section className="module-page exercise-page" aria-label="Thư viện bài tập">
-      <header className="module-header exercise-header" style={{ justifyContent: 'flex-end' }}>
-        <div className="module-actions">
-          <span className="exercise-count">{meta.total ?? items.length} bài tập</span>
-          <button type="button" className="button button-secondary" onClick={() => setMuscleModalOpen(true)}>
-            <Layers size={18} aria-hidden="true" /> Quản lý nhóm cơ
-          </button>
-          <button type="button" className="button button-secondary" onClick={() => setAiOpen(true)}>
-            <Sparkles size={18} aria-hidden="true" /> Tạo bằng AI
-          </button>
-          <button type="button" className="button button-primary" onClick={() => setFormExercise(null)}>
-            <Plus size={18} aria-hidden="true" /> Tạo bài tập
-          </button>
-        </div>
-      </header>
+      {controlsBar ? (
+        createPortal(exerciseActions, controlsBar)
+      ) : (
+        <header className="module-header exercise-header" style={{ justifyContent: 'flex-end' }}>
+          {exerciseActions}
+        </header>
+      )}
 
       <ExerciseFilter
         keyword={keyword}
@@ -143,9 +154,8 @@ export default function ExerciseLibraryPage() {
         </div>
       ) : (
         <div className={`module-empty exercise-empty ${hasFilters ? 'module-filtered-empty' : ''}`}>
-          <Dumbbell className="exercise-empty-icon" aria-hidden="true" />
+          <GymEmptyIllustration kind={hasFilters ? 'search' : 'workout'} />
           <h2>{hasFilters ? 'Không có bài tập phù hợp' : 'Chưa có bài tập'}</h2>
-          <p>{hasFilters ? 'Xóa bộ lọc để xem toàn bộ thư viện.' : 'Tạo bài tập đầu tiên để bắt đầu xây dựng thư viện.'}</p>
           {hasFilters && <button type="button" className="button button-secondary" onClick={handleClearFilters}>Xóa bộ lọc</button>}
         </div>
       )}

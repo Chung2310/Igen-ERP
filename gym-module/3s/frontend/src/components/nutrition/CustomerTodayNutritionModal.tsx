@@ -268,31 +268,32 @@ export const CustomerTodayNutritionModal: React.FC<CustomerTodayNutritionModalPr
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
         {/* ================= HEADER ================= */}
-        <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center shrink-0 border-b border-slate-800">
+        <div className="bg-white text-[#071629] px-5 py-3.5 flex justify-between items-center shrink-0 border-b border-[#d8e2f0]">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Thời Gian Thực • {currentTimeString}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#e0f2fe] text-[#0077b3] border border-[#7dd3fc] text-[11px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00adfc]" />
+                Thời gian thực • {currentTimeString}
               </span>
-              <span className="text-xs text-slate-400 truncate">
+              <span className="text-xs text-[#475569] truncate">
                 {activeDay.dayOfWeek}
               </span>
             </div>
 
-            <h2 className="m-0 text-base font-bold text-white truncate flex items-center gap-2">
-              <Utensils size={17} className="text-sky-400 shrink-0" />
-              <span>Hôm nay ăn gì: <strong className="text-sky-300">{customerName || 'Học viên'}</strong></span>
+            <h2 className="m-0 text-base font-semibold text-[#071629] truncate flex items-center gap-2">
+              <Utensils size={16} aria-hidden="true" className="text-[#00adfc] shrink-0" />
+              <span>Hôm nay ăn gì: <strong className="text-[#0077b3]">{customerName || 'Học viên'}</strong></span>
             </h2>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-full border-none cursor-pointer transition-colors shrink-0 ml-2"
+            aria-label="Đóng"
+            className="text-[#475569] hover:text-[#071629] bg-[#f1f5fb] hover:bg-[#e2e8f0] p-2 rounded-full border border-[#d8e2f0] cursor-pointer transition-colors shrink-0 ml-2"
             title="Đóng"
           >
-            <X size={18} />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 

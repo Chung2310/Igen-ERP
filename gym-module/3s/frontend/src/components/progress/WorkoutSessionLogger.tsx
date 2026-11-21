@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, ClipboardList, Dumbbell, MessageSquare, PenLine, Scale, Sparkles } from 'lucide-react';
 import { api } from '../../services/api';
+import CustomSelect from '../ui/CustomSelect';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import { getSession } from '../../services/session';
 import { clearWorkoutSessionCache, readWorkoutSessionCache, workoutSessionCacheKey, writeWorkoutSessionCache, type CachedWorkoutSession } from '../../services/workoutSessionCache';
 import { buildBodyMeasurementInput } from '../../services/bodyMeasurement';
@@ -455,29 +457,26 @@ export default function WorkoutSessionLogger({
 
         <div className="profile-form-grid">
           <div className="field">
-            <label htmlFor="session-select">Buổi tập</label>
-            <select
-              id="session-select"
-              value={sessionIndex}
-              onChange={(event) => { markEdited(); setSessionIndex(Number(event.target.value)); }}
-            >
-              {(activePlan.sessions || []).map((session, index) => (
-                <option key={`${session.name}-${index}`} value={index}>
-                  {session.name}
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              label="Buổi tập"
+              ariaLabel="Buổi tập"
+              value={String(sessionIndex)}
+              onChange={(val) => { markEdited(); setSessionIndex(Number(val)); }}
+              options={(activePlan.sessions || []).map((session, index) => ({
+                value: String(index),
+                label: session.name,
+              }))}
+            />
           </div>
 
           <div className="field">
-            <label htmlFor="performed-date">Ngày tập</label>
-            <input
-              id="performed-date"
-              aria-label="Ngày ghi nhận"
-              type="date"
-              value={recordedAt.recordedDate}
-              onChange={(event) => { markEdited(); setRecordedAt((current) => ({ ...current, recordedDate: event.target.value })); }}
+            <CustomDatePicker
+              label="Ngày tập"
+              ariaLabel="Ngày ghi nhận"
               required
+              clearable={false}
+              value={recordedAt.recordedDate}
+              onChange={(val) => { markEdited(); setRecordedAt((current) => ({ ...current, recordedDate: val })); }}
             />
           </div>
 

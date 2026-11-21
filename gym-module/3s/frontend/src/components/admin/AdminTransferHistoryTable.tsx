@@ -8,6 +8,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import Pagination from '../ui/Pagination';
+import CustomSelect from '../ui/CustomSelect';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import type { PaginationMeta } from '../../types';
 import type { TransferRecord } from './AdminTransfersView';
 
@@ -154,27 +156,20 @@ export default function AdminTransferHistoryTable({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <select
-            value={statusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value)}
-            style={{
-              height: '36px',
-              padding: '0 12px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontSize: '0.8rem',
-              background: '#ffffff',
-              color: '#1e293b',
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="ADMIN_FORCED">Admin điều chuyển</option>
-            <option value="ACCEPTED">Đã tiếp nhận (ACCEPTED)</option>
-            <option value="PENDING">Chờ tiếp nhận (PENDING)</option>
-            <option value="REJECTED">Đã từ chối (REJECTED)</option>
-          </select>
+          <div style={{ width: '190px' }}>
+            <CustomSelect
+              ariaLabel="Lọc trạng thái điều chuyển"
+              value={statusFilter}
+              onChange={(val) => onStatusFilterChange(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ADMIN_FORCED', label: 'Admin điều chuyển' },
+                { value: 'ACCEPTED', label: 'Đã tiếp nhận' },
+                { value: 'PENDING', label: 'Chờ tiếp nhận' },
+                { value: 'REJECTED', label: 'Đã từ chối' },
+              ]}
+            />
+          </div>
 
           <button
             type="button"
@@ -223,9 +218,9 @@ export default function AdminTransferHistoryTable({
               </tr>
             ) : transfers.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '40px 16px', textAlign: 'center', color: '#64748b' }}>
-                  <ArrowRightLeft size={32} style={{ color: '#cbd5e1', margin: '0 auto 8px' }} />
-                  <p style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>Chưa có bản ghi điều chuyển nào</p>
+                <td colSpan={5} style={{ padding: '36px 16px', textAlign: 'center', color: '#475569' }}>
+                  <GymEmptyIllustration kind="transfer" className="mb-2" />
+                  <p style={{ margin: 0, fontWeight: 600, color: '#071629', fontSize: '0.88rem' }}>Chưa có bản ghi điều chuyển nào</p>
                 </td>
               </tr>
             ) : (

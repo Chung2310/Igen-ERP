@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Layers, Package, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import DataList, { type DataColumn } from '../ui/DataList';
 import FilterBar from '../ui/FilterBar';
+import CustomSelect from '../ui/CustomSelect';
 import Pagination from '../ui/Pagination';
 import StatusBadge from '../ui/StatusBadge';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -122,35 +123,26 @@ export default function PackageTemplateView() {
 
   return (
     <div className="admin-view">
-      {/* Section Header */}
-      <div className="section-header" style={{ justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={() => setIsCreateOpen(true)}
-        >
-          <Plus size={18} /> Tạo gói mẫu mới
-        </button>
-      </div>
-
-      <div className="panel">
-        {/* Filter Bar */}
+      <div className="panel" style={{ paddingTop: 0 }}>
+        {/* Unified Filter & Action Bar */}
         <FilterBar
           ariaLabel="Tìm gói tập mẫu"
           keyword={keyword}
           onKeywordChange={setKeyword}
           placeholder="Tìm theo tên gói hoặc mô tả quyền lợi..."
         >
-          <select
-            aria-label="Lọc theo trạng thái"
-            className="filter-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang kích hoạt</option>
-            <option value="INACTIVE">Tạm ngưng</option>
-          </select>
+          <div style={{ width: '175px', flexShrink: 0 }}>
+            <CustomSelect
+              ariaLabel="Lọc theo trạng thái"
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang kích hoạt' },
+                { value: 'INACTIVE', label: 'Tạm ngưng' },
+              ]}
+            />
+          </div>
 
           <button
             type="button"
@@ -158,7 +150,7 @@ export default function PackageTemplateView() {
             onClick={() => loadTemplates(1)}
             disabled={loading}
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Lọc
+            <RefreshCw size={14} aria-hidden="true" className={loading ? 'animate-spin' : ''} /> Lọc
           </button>
 
           {(keyword || statusFilter) && (
@@ -170,15 +162,26 @@ export default function PackageTemplateView() {
                 setStatusFilter('');
               }}
             >
-              <RotateCcw size={13} /> Xóa lọc
+              <RotateCcw size={13} aria-hidden="true" /> Xóa lọc
             </button>
           )}
+
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => setIsCreateOpen(true)}
+            style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+          >
+            <Plus size={15} aria-hidden="true" /> Tạo gói mẫu mới
+          </button>
         </FilterBar>
 
         {/* Templates DataList */}
         <DataList<PackageTemplateRecord>
           items={templates}
           columns={columns}
+          emptyKind={keyword || statusFilter ? 'search' : 'packages'}
+          emptyMessage="Chưa có gói tập mẫu nào."
           renderActions={(item) => (
             <div className="inline-actions">
               <button

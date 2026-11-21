@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import { errorMessage } from '../../types';
 
 interface NutritionLogEntry {
@@ -310,17 +311,16 @@ export default function NutritionLogForm({ customerId, onSaved }: NutritionLogFo
         {/* Input Fields */}
         <div style={{ display: 'grid', gap: '10px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <label className="field" style={{ margin: 0 }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>Ngày ghi nhận</span>
-              <input
-                type="date"
-                aria-label="Ngày nhật ký"
-                value={form.loggedAt}
-                onChange={(e) => setForm({ ...form, loggedAt: e.target.value })}
+            <div className="field" style={{ margin: 0 }}>
+              <CustomDatePicker
+                label="Ngày ghi nhận"
+                ariaLabel="Ngày nhật ký"
                 required
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                clearable={false}
+                value={form.loggedAt}
+                onChange={(val) => setForm({ ...form, loggedAt: val })}
               />
-            </label>
+            </div>
 
             <label className="field" style={{ margin: 0 }}>
               <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>

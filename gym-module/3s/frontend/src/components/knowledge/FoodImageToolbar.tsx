@@ -40,31 +40,32 @@ export const FoodImageToolbar: React.FC<FoodImageToolbarProps> = ({
   onOpenAiModal,
 }) => {
   return (
-    <div className="bg-white rounded-xl p-3.5 sm:p-4.5 border border-slate-200 mb-5">
-      <div className="flex justify-between items-center flex-wrap gap-3 mb-3">
+    <div className="bg-white rounded-md p-3 border border-[#d8e2f0] mb-3">
+      <div className="flex justify-between items-center flex-wrap gap-2 mb-2.5">
         {/* Search & Source filter */}
-        <div className="flex items-center gap-2.5 flex-1 min-w-[280px]">
-          <div className="relative w-full max-w-[360px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="flex items-center flex-wrap gap-2 flex-1 min-w-[260px]">
+          <div className="relative w-full max-w-[340px]">
+            <Search size={15} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
+              aria-label="Tìm ảnh món ăn"
               placeholder="Tìm theo tên món hoặc từ khóa (vd: ức gà, bò, cá)..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full py-2 pl-9 pr-3 rounded-lg border border-slate-300 text-[13px] outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+              className="w-full h-9 pl-9 pr-3 rounded-md border border-[#d8e2f0] bg-white text-[13px] text-[#071629] outline-none focus:border-[#00adfc]"
             />
           </div>
 
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1 bg-[#f1f5fb] border border-[#d8e2f0] p-0.5 rounded-md h-9">
             {FOOD_SOURCES.map((src) => (
               <button
                 key={src.val}
                 type="button"
                 onClick={() => onSourceFilterChange(src.val)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-bold border-none cursor-pointer transition-colors ${
+                className={`px-2.5 h-7 rounded-sm text-xs cursor-pointer transition-colors ${
                   sourceFilter === src.val
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    ? 'bg-white text-[#0077b3] font-semibold border border-[#d8e2f0]'
+                    : 'bg-transparent text-[#475569] font-medium border border-transparent hover:text-[#071629]'
                 }`}
               >
                 {src.label}
@@ -78,17 +79,17 @@ export const FoodImageToolbar: React.FC<FoodImageToolbarProps> = ({
           <button
             type="button"
             onClick={onOpenUploadModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs cursor-pointer hover:bg-emerald-100 transition-colors"
+            className="button button-secondary"
           >
-            <UploadCloud size={15} /> Tải Ảnh Lên Kho
+            <UploadCloud size={14} aria-hidden="true" /> Tải ảnh lên kho
           </button>
 
           <button
             type="button"
             onClick={onOpenAiModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-sky-600 text-white border-none font-bold text-xs cursor-pointer shadow-xs hover:bg-sky-700 transition-colors"
+            className="button button-primary"
           >
-            <Sparkles size={15} /> Tạo Ảnh AI Lưu Kho
+            <Sparkles size={14} aria-hidden="true" /> Tạo ảnh AI lưu kho
           </button>
         </div>
       </div>

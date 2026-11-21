@@ -46,5 +46,5 @@ export default function GymModule() {
 
   if (!isAdmin && !isPt && !isCustomer) return <div className="p-6 text-on-surface">Bạn chưa được cấp quyền Quản lý phòng Gym.</div>;
   if (!ready) return <div role="status" aria-busy="true" className="p-6 text-on-surface">Đang mở Quản lý phòng Gym...</div>;
-  return <iframe ref={iframeRef} title="Quản lý phòng Gym" src="/chuoi-gym/" className="block h-[calc(100dvh-7rem)] min-h-[600px] w-full border-0 bg-surface-container-lowest" />;
+  return <iframe ref={iframeRef} title="Quản lý phòng Gym" src="/chuoi-gym/" className="block min-h-0 w-full flex-1 border-0 bg-surface-container-lowest" />;
 }

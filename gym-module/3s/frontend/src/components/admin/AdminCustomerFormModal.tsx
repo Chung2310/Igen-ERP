@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
+import CustomSelect from '../ui/CustomSelect';
 import { errorMessage } from '../../types';
 import type { CustomerAdminRecord, PtOption } from './AdminCustomersView';
 
@@ -171,39 +172,34 @@ export default function AdminCustomerFormModal({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                Huấn luyện viên phụ trách <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <select
-                value={formData.assignedPtId}
-                onChange={(e) => setFormData({ ...formData, assignedPtId: e.target.value })}
+              <CustomSelect
+                label="Huấn luyện viên phụ trách"
+                ariaLabel="Huấn luyện viên phụ trách"
                 required
-                style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff', boxSizing: 'border-box' }}
-              >
-                <option value="">-- Chọn PT phụ trách --</option>
-                {pts.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.fullName || p.username}
-                  </option>
-                ))}
-              </select>
+                value={formData.assignedPtId}
+                onChange={(val) => setFormData({ ...formData, assignedPtId: val })}
+                placeholder="-- Chọn PT phụ trách --"
+                options={pts.map((p) => ({
+                  value: p._id,
+                  label: p.fullName || p.username,
+                }))}
+              />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                Giới tính
-              </label>
-              <select
+              <CustomSelect
+                label="Giới tính"
+                ariaLabel="Giới tính"
                 value={formData.gender}
-                onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
-                style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff', boxSizing: 'border-box' }}
-              >
-                <option value="FEMALE">Nữ</option>
-                <option value="MALE">Nam</option>
-                <option value="OTHER">Khác</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, gender: val as any })}
+                options={[
+                  { value: 'FEMALE', label: 'Nữ' },
+                  { value: 'MALE', label: 'Nam' },
+                  { value: 'OTHER', label: 'Khác' },
+                ]}
+              />
             </div>
 
             <div>
@@ -262,32 +258,31 @@ export default function AdminCustomerFormModal({
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-              Trạng thái
-            </label>
-            <select
+            <CustomSelect
+              label="Trạng thái"
+              ariaLabel="Trạng thái"
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-              style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', background: '#fff', boxSizing: 'border-box' }}
-            >
-              <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
-              <option value="LEAD">Tiềm năng (LEAD)</option>
-            </select>
+              onChange={(val) => setFormData({ ...formData, status: val as any })}
+              options={[
+                { value: 'ACTIVE', label: 'Đang hoạt động' },
+                { value: 'INACTIVE', label: 'Tạm ngưng' },
+                { value: 'LEAD', label: 'Tiềm năng' },
+              ]}
+            />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#64748b', fontSize: '0.82rem', fontWeight: 650, cursor: 'pointer' }}
+              className="button button-secondary"
             >
               Đóng
             </button>
             <button
               type="submit"
               disabled={submitting}
-              style={{ padding: '7px 16px', borderRadius: '8px', border: 0, background: '#003b70', color: '#ffffff', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+              className="button button-primary"
             >
               {customer ? 'Lưu thay đổi' : 'Tạo khách hàng'}
             </button>

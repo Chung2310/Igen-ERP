@@ -304,92 +304,50 @@ export default function MealLibraryManager({ onSelectForPlan }: MealLibraryManag
         </div>
       )}
 
-      {/* Header Banner & Summary */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #003b70 0%, #0284c7 100%)',
-          borderRadius: '16px',
-          padding: '20px 24px',
-          color: '#ffffff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '10px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Utensils size={20} color="#ffffff" />
-            </div>
-            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900 }}>
-              Quản Lý Kho Món Ăn & Dinh Dưỡng
-            </h2>
-          </div>
-        </div>
+      {/* Action Bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={() => {
+            if (showForm && !editingFoodId) {
+              setShowForm(false);
+            } else {
+              resetForm();
+              setShowForm(true);
+            }
+          }}
+          style={{
+            minHeight: '36px',
+            padding: '8px 16px',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          {showForm && !editingFoodId ? <X size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
+          <span>{showForm && !editingFoodId ? 'Đóng form' : 'Thêm món mới'}</span>
+        </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => {
-              if (showForm && !editingFoodId) {
-                setShowForm(false);
-              } else {
-                resetForm();
-                setShowForm(true);
-              }
-            }}
-            style={{
-              background: '#ffffff',
-              color: '#003b70',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '10px 18px',
-              fontSize: '0.86rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
-            }}
-          >
-            {showForm && !editingFoodId ? <X size={16} /> : <Plus size={16} />}
-            <span>{showForm && !editingFoodId ? 'Đóng Form' : '+ Thêm Món Mới'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleResetDefaults}
-            title="Khôi phục danh sách mặc định"
-            style={{
-              background: 'rgba(255, 255, 255, 0.15)',
-              color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              borderRadius: '10px',
-              padding: '10px 12px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-            }}
-          >
-            <RotateCcw size={14} /> Mặc Định
-          </button>
-        </div>
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={handleResetDefaults}
+          title="Khôi phục danh sách mặc định"
+          style={{
+            minHeight: '36px',
+            padding: '7px 12px',
+            fontSize: '0.82rem',
+            fontWeight: 500,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+          }}
+        >
+          <RotateCcw size={14} aria-hidden="true" /> Mặc định
+        </button>
       </div>
 
       {/* Quick Metrics Bar */}

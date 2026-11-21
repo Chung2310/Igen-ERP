@@ -23,6 +23,7 @@ import {
 import { api } from '../../services/api';
 import { useToast } from '../ui/ToastProvider';
 import ConfirmModal from '../ui/ConfirmModal';
+import { GymEmptyIllustration } from '../ui/GymEmptyIllustration';
 import Pagination from '../ui/Pagination';
 import { errorMessage } from '../../types';
 import type { Customer, PaginationMeta } from '../../types';
@@ -148,69 +149,35 @@ export default function NutritionPlanList({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
-      {/* Header Action Bar */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '16px',
-          padding: '18px 22px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '14px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Salad size={20} color="#00a4e4" />
-            <h2 style={{ margin: 0, fontSize: '1.15rem', color: '#003b70', fontWeight: 800 }}>
-              Danh Sách Kế Hoạch Thực Đơn Dinh Dưỡng
-            </h2>
-          </div>
-          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-            {selectedCustomer
-              ? `Các bản thực đơn đã lưu & công bố của học viên ${selectedCustomer.fullName} (${plans.length} bản)`
-              : `Toàn bộ các bản thực đơn dinh dưỡng của học viên (${plans.length} bản)`}
-          </p>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', minWidth: 0 }}>
+      {/* Action Bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={() => void loadPlans(1)}
+          disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <RefreshCw size={14} aria-hidden="true" className={loading ? 'spin' : ''} /> {loading ? 'Đang tải...' : 'Làm mới'}
+        </button>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={() => void loadPlans(1)}
-            disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '9px 14px' }}
-          >
-            <RefreshCw size={14} className={loading ? 'spin' : ''} /> {loading ? 'Đang tải...' : 'Làm mới'}
-          </button>
-
-          <button
-            type="button"
-            onClick={onCreateNew}
-            style={{
-              background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '10px 20px',
-              fontWeight: 800,
-              fontSize: '0.86rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 14px rgba(0, 59, 112, 0.25)',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Plus size={16} /> Tạo Thực Đơn Mới
-          </button>
-        </div>
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={onCreateNew}
+          style={{
+            minHeight: '36px',
+            padding: '8px 16px',
+            fontWeight: 600,
+            fontSize: '0.82rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <Plus size={15} aria-hidden="true" /> Tạo thực đơn mới
+        </button>
       </div>
 
       {/* Loading State */}
@@ -226,54 +193,33 @@ export default function NutritionPlanList({
         <div
           style={{
             textAlign: 'center',
-            padding: '50px 24px',
+            padding: '40px 24px',
             background: '#ffffff',
-            borderRadius: '16px',
-            border: '2px dashed #cbd5e1',
+            borderRadius: '6px',
+            border: '1px dashed #d8e2f0',
           }}
         >
-          <div
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              background: '#f0f9ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px',
-              color: '#00a4e4',
-            }}
-          >
-            <Sparkles size={28} />
-          </div>
-          <h3 style={{ margin: '0 0 6px', fontSize: '1.1rem', color: '#003b70', fontWeight: 800 }}>
+          <GymEmptyIllustration kind="nutrition" className="mb-3" />
+          <h3 style={{ margin: '0 0 16px', fontSize: '0.95rem', color: '#071629', fontWeight: 600 }}>
             {selectedCustomer
               ? `Chưa có thực đơn nào cho ${selectedCustomer.fullName}`
               : 'Chưa có kế hoạch thực đơn nào'}
           </h3>
-          <p style={{ color: '#64748b', fontSize: '0.84rem', maxWidth: '460px', margin: '0 auto 20px', lineHeight: 1.5 }}>
-            Bấm vào nút bên dưới để AI tự động phân tích thể trạng và thiết kế mâm cơm Việt thực tế cho học viên.
-          </p>
           <button
             type="button"
+            className="button button-primary"
             onClick={onCreateNew}
             style={{
-              background: 'linear-gradient(135deg, #003b70 0%, #00a4e4 100%)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '12px 24px',
-              fontWeight: 800,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
+              minHeight: '36px',
+              padding: '8px 18px',
+              fontWeight: 600,
+              fontSize: '0.84rem',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 14px rgba(0, 59, 112, 0.25)',
+              gap: '6px',
             }}
           >
-            <Plus size={16} /> Thiết Kế Thực Đơn Mới Ngay
+            <Plus size={15} aria-hidden="true" /> Thiết kế thực đơn mới ngay
           </button>
         </div>
       )}

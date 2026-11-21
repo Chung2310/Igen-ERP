@@ -1,4 +1,5 @@
 import { Search, X, RotateCcw, RefreshCw } from 'lucide-react';
+import CustomSelect from '../ui/CustomSelect';
 
 interface ExerciseFilterProps {
   keyword: string;
@@ -56,44 +57,45 @@ export default function ExerciseFilter({
         )}
       </div>
 
-      <select
+      <CustomSelect
         className="exercise-filter-select"
-        aria-label="Nhóm cơ"
+        ariaLabel="Nhóm cơ"
         value={muscleGroup || ''}
-        onChange={(e) => onMuscleGroupChange?.(e.target.value)}
-      >
-        <option value="">Tất cả nhóm cơ</option>
-        {muscleGroups.map((group) => (
-          <option key={group} value={group}>{group}</option>
-        ))}
-      </select>
+        onChange={(val) => onMuscleGroupChange?.(val)}
+        options={[
+          { value: '', label: 'Tất cả nhóm cơ' },
+          ...muscleGroups.map((group) => ({ value: group, label: group })),
+        ]}
+      />
 
-      <select
+      <CustomSelect
         className="exercise-filter-select"
-        aria-label="Cấp độ"
+        ariaLabel="Cấp độ"
         value={level}
-        onChange={(e) => onLevelChange(e.target.value)}
-      >
-        <option value="">Tất cả cấp độ</option>
-        <option value="BEGINNER">Cơ bản</option>
-        <option value="INTERMEDIATE">Trung cấp</option>
-        <option value="ADVANCED">Nâng cao</option>
-      </select>
+        onChange={(val) => onLevelChange(val)}
+        options={[
+          { value: '', label: 'Tất cả cấp độ' },
+          { value: 'BEGINNER', label: 'Cơ bản' },
+          { value: 'INTERMEDIATE', label: 'Trung cấp' },
+          { value: 'ADVANCED', label: 'Nâng cao' },
+        ]}
+      />
 
-      <select
+      <CustomSelect
         className="exercise-filter-select"
-        aria-label="Cách ghi nhận"
+        ariaLabel="Cách ghi nhận"
         value={trackingType}
-        onChange={(event) => onTrackingTypeChange(event.target.value)}
-      >
-        <option value="">Tất cả cách ghi nhận</option>
-        <option value="UNCLASSIFIED">Chưa phân loại</option>
-        <option value="STRENGTH">Sức mạnh · mức tạ</option>
-        <option value="BODYWEIGHT">Trọng lượng cơ thể</option>
-        <option value="CARDIO">Cardio</option>
-        <option value="INTERVAL">Interval</option>
-        <option value="MOBILITY">Mobility</option>
-      </select>
+        onChange={(val) => onTrackingTypeChange(val)}
+        options={[
+          { value: '', label: 'Tất cả cách ghi nhận' },
+          { value: 'UNCLASSIFIED', label: 'Chưa phân loại' },
+          { value: 'STRENGTH', label: 'Sức mạnh · mức tạ' },
+          { value: 'BODYWEIGHT', label: 'Trọng lượng cơ thể' },
+          { value: 'CARDIO', label: 'Cardio' },
+          { value: 'INTERVAL', label: 'Interval' },
+          { value: 'MOBILITY', label: 'Mobility' },
+        ]}
+      />
 
       <button type="button" className="button button-secondary exercise-filter-submit" onClick={onFilter}>
         <RefreshCw size={15} /> Lọc bài tập

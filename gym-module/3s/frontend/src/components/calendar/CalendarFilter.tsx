@@ -1,4 +1,5 @@
 import { Calendar, RotateCcw } from 'lucide-react';
+import CustomDatePicker from '../ui/CustomDatePicker';
 
 interface CalendarFilterProps {
   dates: { fromDate: string; toDate: string };
@@ -9,38 +10,38 @@ export default function CalendarFilter({ dates, onDatesChange }: CalendarFilterP
   const hasActiveFilter = Boolean(dates.fromDate || dates.toDate);
 
   return (
-    <div className="filter-card" style={{ padding: '12px 16px', marginBottom: '14px' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: '#003b70' }}>
-            <Calendar size={16} color="var(--secondary-color)" />
+    <div style={{ padding: '0 0 10px', marginBottom: '12px', borderBottom: '1px solid #d8e2f0' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 500, color: '#475569' }}>
+            <Calendar size={15} aria-hidden="true" color="#00adfc" />
             <span>Khoảng ngày:</span>
           </div>
-          <label className="filter-field" style={{ minWidth: '150px' }}>
-            <span className="sr-only">Từ ngày</span>
-            <input
-              type="date"
-              aria-label="Lịch từ ngày"
+          <div style={{ width: '155px' }}>
+            <CustomDatePicker
+              ariaLabel="Lịch từ ngày"
+              placeholder="Từ ngày"
               value={dates.fromDate}
-              onChange={(e) => onDatesChange({ ...dates, fromDate: e.target.value })}
+              max={dates.toDate || undefined}
+              onChange={(val) => onDatesChange({ ...dates, fromDate: val })}
             />
-          </label>
-          <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>→</span>
-          <label className="filter-field" style={{ minWidth: '150px' }}>
-            <span className="sr-only">Đến ngày</span>
-            <input
-              type="date"
-              aria-label="Lịch đến ngày"
+          </div>
+          <span style={{ color: '#94a3b8', fontSize: '12px' }}>→</span>
+          <div style={{ width: '155px' }}>
+            <CustomDatePicker
+              ariaLabel="Lịch đến ngày"
+              placeholder="Đến ngày"
               value={dates.toDate}
-              onChange={(e) => onDatesChange({ ...dates, toDate: e.target.value })}
+              min={dates.fromDate || undefined}
+              onChange={(val) => onDatesChange({ ...dates, toDate: val })}
             />
-          </label>
+          </div>
         </div>
 
-        <div className="filter-presets">
+        <div className="filter-presets" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <button
             type="button"
-            className="filter-preset-chip"
+            className="button button-secondary"
             onClick={() => {
               const today = new Date().toISOString().slice(0, 10);
               onDatesChange({ fromDate: today, toDate: today });
@@ -50,7 +51,7 @@ export default function CalendarFilter({ dates, onDatesChange }: CalendarFilterP
           </button>
           <button
             type="button"
-            className="filter-preset-chip"
+            className="button button-secondary"
             onClick={() => {
               const now = new Date();
               const to = new Date().toISOString().slice(0, 10);
@@ -64,11 +65,10 @@ export default function CalendarFilter({ dates, onDatesChange }: CalendarFilterP
           {hasActiveFilter && (
             <button
               type="button"
-              className="button-filter-reset"
-              style={{ height: '26px', padding: '0 8px', fontSize: '0.74rem' }}
+              className="button button-secondary"
               onClick={() => onDatesChange({ fromDate: '', toDate: '' })}
             >
-              <RotateCcw size={12} /> Đặt lại
+              <RotateCcw size={13} aria-hidden="true" /> Đặt lại
             </button>
           )}
         </div>

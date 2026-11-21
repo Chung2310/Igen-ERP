@@ -100,6 +100,7 @@ export default function UserManagementView({ actor }: { actor: User }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
             type="button"
+            className="button button-primary"
             onClick={() => {
               setFormUser(null);
               setIsCreateOpen(true);
@@ -108,18 +109,13 @@ export default function UserManagementView({ actor }: { actor: User }) {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '9px 18px',
-              borderRadius: '10px',
-              border: 0,
-              background: '#003b70',
-              color: '#ffffff',
-              fontSize: '0.84rem',
-              fontWeight: 750,
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0, 59, 112, 0.25)',
+              minHeight: '36px',
+              padding: '8px 16px',
+              fontSize: '0.82rem',
+              fontWeight: 600,
             }}
           >
-            <Plus size={16} />
+            <Plus size={15} aria-hidden="true" />
             <span>Thêm tài khoản mới</span>
           </button>
         </div>
@@ -142,24 +138,26 @@ export default function UserManagementView({ actor }: { actor: User }) {
             alignItems: 'center',
             gap: '6px',
             padding: '6px 14px',
-            borderRadius: '20px',
-            border: roleFilter === '' ? '1.5px solid #003b70' : '1px solid #cbd5e1',
-            background: roleFilter === '' ? '#003b70' : '#ffffff',
-            color: roleFilter === '' ? '#ffffff' : '#475569',
-            fontSize: '0.78rem',
-            fontWeight: 700,
+            borderRadius: '6px',
+            border: roleFilter === '' ? '1px solid #7dd3fc' : '1px solid #d8e2f0',
+            background: roleFilter === '' ? '#e0f2fe' : '#ffffff',
+            color: roleFilter === '' ? '#0077b3' : '#475569',
+            fontSize: '0.8rem',
+            fontWeight: roleFilter === '' ? 600 : 500,
             cursor: 'pointer',
-            transition: 'all 0.15s ease',
+            transition: 'background-color 150ms ease, border-color 150ms ease, color 150ms ease',
           }}
         >
           <span>Tất cả tài khoản</span>
           {meta.total !== undefined && meta.total > 0 && (
             <span
               style={{
-                fontSize: '0.7rem',
-                background: roleFilter === '' ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                fontSize: '0.72rem',
+                background: roleFilter === '' ? '#ffffff' : '#f1f5fb',
+                color: roleFilter === '' ? '#0077b3' : '#475569',
                 padding: '1px 6px',
-                borderRadius: '10px',
+                borderRadius: '6px',
+                fontVariantNumeric: 'tabular-nums',
               }}
             >
               {meta.total}

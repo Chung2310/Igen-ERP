@@ -163,111 +163,23 @@ export default function PtAssistantPage() {
   return (
     <section
       style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: isMobile ? '4px 0 8px' : '0 4px',
+        width: '100%',
+        padding: 0,
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 130px)',
-        minHeight: '460px',
+        height: isMobile ? 'calc(100dvh - 120px)' : 'calc(100dvh - 32px)',
+        minHeight: isMobile ? '460px' : 0,
         overflow: 'hidden',
         overflowX: 'hidden',
       }}
     >
-      {/* 1. Header Tối Giản & Gọn Gàng */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: '8px',
-          marginBottom: isMobile ? '6px' : '10px',
-          padding: isMobile ? '0 2px' : '0',
-          flexShrink: 0,
-        }}
-      >
-        {/* Nút Thao Tác Gọn */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => setShowHistoryDrawer(true)}
-            title="Lịch sử các phiên chat"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              height: '32px',
-              padding: '0 8px',
-              borderRadius: '8px',
-              fontSize: '0.74rem',
-              fontWeight: 650,
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#003b70',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <History size={14} color="#003b70" />
-            <span style={{ fontSize: '0.74rem' }}>{conversations.length}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleStartNewChat}
-            title="Cuộc trò chuyện mới"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              height: '32px',
-              padding: isMobile ? '0 8px' : '0 12px',
-              borderRadius: '8px',
-              fontSize: '0.74rem',
-              fontWeight: 650,
-              background: '#003b70',
-              color: '#ffffff',
-              border: 'none',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Plus size={14} />
-            <span>Chat mới</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            title="Làm mới"
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} color="#003b70" />
-          </button>
-        </div>
-      </div>
-
-      {/* 2. KHUNG CHAT TOÀN DIỆN (SẠCH SẼ, KHÔNG SCROLL NGANG, Ô NHẬP CỐ ĐỊNH Ở ĐÁY) */}
+      {/* KHUNG CHAT TOÀN DIỆN — gom toàn bộ nút thao tác vào 1 thanh header duy nhất */}
       <div
         style={{
           background: '#ffffff',
-          borderRadius: isMobile ? '10px' : '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 10px rgba(0, 59, 112, 0.04)',
+          borderRadius: '6px',
+          border: '1px solid #d8e2f0',
+          boxShadow: '0 1px 2px rgb(15 23 42 / 6%)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -275,32 +187,70 @@ export default function PtAssistantPage() {
           minHeight: 0,
         }}
       >
-        {/* Header Phụ Khung Chat: Tiêu đề & Nút liên kết học viên (chỉ hiện cho PT) */}
+        {/* Header Khung Chat hợp nhất */}
         <div
           style={{
-            padding: isMobile ? '6px 10px' : '8px 16px',
+            padding: isMobile ? '8px 10px' : '8px 14px',
             background: '#f8fafc',
-            borderBottom: '1px solid #f1f5f9',
+            borderBottom: '1px solid #d8e2f0',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '8px',
+            flexWrap: 'wrap',
             flexShrink: 0,
           }}
         >
           <span
             style={{
-              fontSize: isMobile ? '0.76rem' : '0.82rem',
-              color: '#003b70',
-              fontWeight: 700,
+              fontSize: isMobile ? '0.8rem' : '0.86rem',
+              color: '#071629',
+              fontWeight: 600,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              flex: 1,
+              flex: '1 1 180px',
+              minWidth: 0,
             }}
           >
             {activeConversation?.title || 'Đoạn chat mới'}
           </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setShowHistoryDrawer(true)}
+              title="Lịch sử các phiên chat"
+              aria-label="Lịch sử các phiên chat"
+              className="button button-secondary"
+              style={{ minHeight: '32px', padding: '4px 10px', gap: '5px', whiteSpace: 'nowrap' }}
+            >
+              <History size={14} aria-hidden="true" />
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{conversations.length}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={loading}
+              title="Làm mới"
+              aria-label="Làm mới"
+              className="button button-secondary"
+              style={{ minHeight: '32px', width: '32px', padding: 0 }}
+            >
+              <RefreshCw size={13} aria-hidden="true" className={loading ? 'animate-spin' : ''} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleStartNewChat}
+              title="Cuộc trò chuyện mới"
+              className="button button-primary"
+              style={{ minHeight: '32px', padding: '4px 12px', whiteSpace: 'nowrap' }}
+            >
+              <Plus size={14} aria-hidden="true" />
+              <span>Chat mới</span>
+            </button>
 
           {!isCustomer && (
             <button
@@ -308,23 +258,25 @@ export default function PtAssistantPage() {
               onClick={() => setShowCustomerPicker(!showCustomerPicker)}
               style={{
                 background: selectedCustomerId ? '#e0f2fe' : '#ffffff',
-                border: '1px solid #cbd5e1',
+                border: `1px solid ${selectedCustomerId ? '#7dd3fc' : '#d8e2f0'}`,
                 borderRadius: '6px',
-                padding: '2px 8px',
+                minHeight: '32px',
+                padding: '4px 10px',
                 cursor: 'pointer',
-                color: selectedCustomerId ? '#0284c7' : '#64748b',
-                fontSize: '0.72rem',
-                fontWeight: 650,
+                color: selectedCustomerId ? '#0077b3' : '#475569',
+                fontSize: '0.76rem',
+                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
                 flexShrink: 0,
               }}
             >
-              <User size={11} />
+              <User size={12} aria-hidden="true" />
               {selectedCustomerId ? 'Đã liên kết' : '+ Học viên'}
             </button>
           )}
+          </div>
         </div>
 
         {/* Picker học viên nếu mở (dành cho PT) */}
@@ -402,16 +354,14 @@ export default function PtAssistantPage() {
                       maxWidth: isMobile ? (isUser ? '86%' : '94%') : '85%',
                       padding: isMobile ? '9px 13px' : '12px 16px',
                       borderRadius: isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                      background: isUser ? '#003b70' : '#f8fafc',
-                      color: isUser ? '#ffffff' : '#1e293b',
+                      background: isUser ? '#00adfc' : '#f1f5fb',
+                      color: isUser ? '#ffffff' : '#071629',
                       fontSize: isMobile ? '0.84rem' : '0.88rem',
                       lineHeight: 1.55,
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
-                      border: isUser ? 'none' : '1px solid #e2e8f0',
-                      boxShadow: isUser
-                        ? '0 1px 4px rgba(0, 59, 112, 0.15)'
-                        : '0 1px 3px rgba(0, 0, 0, 0.02)',
+                      border: isUser ? '1px solid #00adfc' : '1px solid #d8e2f0',
+                      boxShadow: '0 1px 2px rgb(15 23 42 / 6%)',
                     }}
                   >
                     {msg.content}
@@ -597,21 +547,13 @@ export default function PtAssistantPage() {
           <button
             type="submit"
             className="button button-primary"
+            aria-label="Gửi tin nhắn"
             disabled={generating || !promptInput.trim()}
             style={{
-              padding: isMobile ? '8px 12px' : '9px 16px',
-              borderRadius: '8px',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
               flexShrink: 0,
-              background: '#003b70',
-              height: '36px',
             }}
           >
-            <Send size={14} />
+            <Send size={14} aria-hidden="true" />
             {!isMobile && <span>Gửi</span>}
           </button>
         </form>
@@ -681,15 +623,6 @@ export default function PtAssistantPage() {
               onClick={handleStartNewChat}
               style={{
                 width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                fontWeight: 700,
-                fontSize: '0.82rem',
-                background: '#003b70',
                 marginBottom: '12px',
               }}
             >
