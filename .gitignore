@@ -53,3 +53,5 @@ service_account*.json
 docs/
 demo-data/quotation/staging-ai/
 test-data/
+/gym-module/qa/
+/gym-module/qa-login.png
