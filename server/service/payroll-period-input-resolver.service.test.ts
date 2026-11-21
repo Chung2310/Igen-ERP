@@ -15,4 +15,11 @@ describe("resolvePayrollPeriodInputs", () => {
     expect(result.customValues["custom.sales"]).toEqual({ value: 0, provenance: "period_override" });
     expect(result.missing).toEqual(["custom.quality"]);
   });
+
+  it("does not treat inherited object properties as employee custom overrides", () => {
+    const customValues = Object.create({ toString: 999 });
+    const result = resolvePayrollPeriodInputs(source, { customValues }, [{ code: "toString", defaultValue: 10 }]);
+
+    expect(result.customValues["custom.toString"]).toEqual({ value: 10, provenance: "default" });
+  });
 });

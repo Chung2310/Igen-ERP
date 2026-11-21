@@ -79,6 +79,16 @@ describe("hoa hồng CTV bán lẻ", () => {
     expect(await RetailCommissionLedgerModel.countDocuments({})).toBe(1);
   });
 
+  it("does not build a zero-value QR for a completed or debt-free order", async () => {
+    await CompanyModel.collection.insertOne({ code: scope.companyCode, vietqrConfig: { accountNo: "123456789", bankId: "970422" } });
+    const completed = posOrder({ orderCode: "DONE-QR", status: "completed", dueAmount: 0, pendingTransferAmount: 50_000 });
+    const debtFree = posOrder({ orderCode: "PAID-QR", status: "confirmed", dueAmount: 0, pendingTransferAmount: 0 });
+    await RetailOrderModel.collection.insertMany([completed, debtFree] as any[]);
+
+    await expect(buildRetailPaymentQr(scope.companyCode, scope.branchId, String(completed._id))).rejects.toThrow(/không thể thanh toán bằng QR/i);
+    await expect(buildRetailPaymentQr(scope.companyCode, scope.branchId, String(debtFree._id))).rejects.toThrow(/không còn khoản phải thu/i);
+  });
+
   it("accrues, reverses and pays once under retries", async () => {
     await accrueOrderCommission(scope, order);
     await accrueOrderCommission(scope, order);

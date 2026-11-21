@@ -15,6 +15,7 @@ function respondError(res: Response, error: unknown, next: NextFunction) {
 }
 
 function getCompanyCode(req: AuthenticatedRequest) {
+  if (req.user?.role === "superadmin") return "ALL";
   const companyCode = req.user?.companyCode;
   if (!companyCode) {
     throw new Error("Không xác định được mã công ty của tài khoản.");
@@ -36,6 +37,7 @@ export class WorkerAttendanceController {
         workerId: String(workerId),
         companyCode: getCompanyCode(req),
         branchId: req.user?.branchId,
+        allowManual: true,
         latitude: latitude == null ? undefined : Number(latitude),
         longitude: longitude == null ? undefined : Number(longitude),
         deviceInfo: deviceInfo ? String(deviceInfo) : "",
@@ -60,11 +62,12 @@ export class WorkerAttendanceController {
       const to = req.query.to ? String(req.query.to) : "";
 
       const data = from && to
-        ? await WorkerAttendanceService.listByProjectRange(companyCode, projectId, from, to)
+        ? await WorkerAttendanceService.listByProjectRange(companyCode, projectId, from, to, req.user?.branchId)
         : await WorkerAttendanceService.listByProjectDate(
             companyCode,
             projectId,
-            req.query.date ? String(req.query.date) : vietnamWorkDate()
+            req.query.date ? String(req.query.date) : vietnamWorkDate(),
+            req.user?.branchId
           );
 
       return res.status(200).json({ success: true, data });
@@ -85,7 +88,8 @@ export class WorkerAttendanceController {
           checkOutAt: req.body.checkOutAt,
           note: req.body.note,
         },
-        req.user?.id || ""
+        req.user?.id || "",
+        req.user?.branchId
       );
       return res.status(200).json({ success: true, data });
     } catch (error) {

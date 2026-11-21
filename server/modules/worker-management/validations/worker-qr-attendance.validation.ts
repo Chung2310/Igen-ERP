@@ -1,16 +1,14 @@
 import Joi from "joi";
 import { objectIdSchema } from "./worker-project.validation";
-
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+import { calendarDateSchema } from "./calendar-date.validation";
 
 export const createQrSessionSchema = Joi.object({
   projectId: objectIdSchema.required().messages({
     "any.required": "Mã dự án là bắt buộc.",
     "string.empty": "Mã dự án không được để trống.",
   }),
-  date: Joi.string().pattern(datePattern).required().messages({
+  date: calendarDateSchema("ngày điểm danh").required().messages({
     "any.required": "Ngày điểm danh là bắt buộc.",
-    "string.pattern.base": "Định dạng ngày điểm danh phải là YYYY-MM-DD.",
   }),
   durationMinutes: Joi.number().integer().min(1).max(1440).optional(),
 });

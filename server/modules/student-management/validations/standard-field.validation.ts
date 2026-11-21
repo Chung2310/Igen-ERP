@@ -27,12 +27,14 @@ export const replaceStandardFieldsSchema = Joi.object({
 });
 
 export const publicRegisterConfigQuerySchema = Joi.object({
-  teacherId: Joi.string().trim().required().messages({
-    "any.required": "Thiếu mã giáo viên trong đường dẫn đăng ký.",
-    "string.empty": "Thiếu mã giáo viên trong đường dẫn đăng ký.",
+  registrationToken: Joi.string().trim().max(4096).required().messages({
+    "any.required": "Thiếu mã đăng ký trong đường dẫn.",
+    "string.empty": "Thiếu mã đăng ký trong đường dẫn.",
   }),
-  registrationCompanyCode: Joi.string().trim().allow("").optional(),
-  companyCode: Joi.string().trim().allow("").optional(),
-  registrationBranchId: Joi.string().trim().allow("").optional(),
-  entityPreset: Joi.string().trim().allow("").optional(),
+});
+
+export const publicRegistrationLinkSchema = Joi.object({
+  companyCode: Joi.string().trim().uppercase().max(100).allow("").optional(),
+  branchId: Joi.string().trim().max(100).allow("").optional(),
+  entityPreset: Joi.string().valid("student", "candidate", "worker", "customer").optional(),
 });

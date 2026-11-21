@@ -43,7 +43,14 @@ export function retailSePayReviewReason(outsideShift: boolean, receivedAmount: n
   return undefined;
 }
 export function retailQrAmount(order: { dueAmount: number; pendingTransferAmount?: number }) {
-  return Number(order.pendingTransferAmount) > 0 ? Number(order.pendingTransferAmount) : Number(order.dueAmount);
+  const dueAmount = Number(order.dueAmount);
+  if (!Number.isSafeInteger(dueAmount) || dueAmount <= 0) return 0;
+  if (order.pendingTransferAmount !== undefined) {
+    const pendingTransferAmount = Number(order.pendingTransferAmount);
+    if (!Number.isSafeInteger(pendingTransferAmount) || pendingTransferAmount < 0) return 0;
+    if (pendingTransferAmount > 0) return Math.min(pendingTransferAmount, dueAmount);
+  }
+  return dueAmount;
 }
 export function parseSePayTransactionDate(value: unknown) {
   const input = text(value);
@@ -77,7 +84,7 @@ export async function buildRetailPaymentQr(companyCode: string, branchId: string
     CompanyModel.findOne({ code: companyCode }).select("vietqrConfig").lean(),
     RetailOrderModel.findOne({ _id: orderId, companyCode, branchId }).lean(),
   ]);
-  if (!order || !order.orderCode || order.status === "draft" || order.status === "cancelled") throw new Error("Đơn hàng không thể thanh toán bằng QR.");
+  if (!order || !order.orderCode || order.status !== "confirmed") throw new Error("Đơn hàng không thể thanh toán bằng QR.");
   if (access && !access.canManage && String(order.createdBy) !== access.actorId) {
     throw Object.assign(new Error("Bạn không được xem thanh toán của đơn này."), { status: 403 });
   }
@@ -87,6 +94,7 @@ export async function buildRetailPaymentQr(companyCode: string, branchId: string
   if (order.paymentCode !== paymentCode) await RetailOrderModel.updateOne({ _id: order._id, companyCode }, { $set: { paymentCode } });
   const transferContent = paymentCode;
   const amount = retailQrAmount(order);
+  if (amount <= 0) throw new Error("Đơn hàng không còn khoản phải thu để thanh toán bằng QR.");
   const params = new URLSearchParams({ acc: config.accountNo, bank: config.bankId, amount: String(amount), des: transferContent });
   return { orderId: String(order._id), orderCode: order.orderCode, paymentCode, transferContent, amount, paymentStatus: order.paymentStatus, accountNumber: config.accountNo, accountName: config.accountName, bankId: config.bankId, qrUrl: `https://vietqr.app/img?${params}` };
 }
