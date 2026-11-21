@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useConfirmation } from "./Feedback";
+import { estimateGeneratedFileProgress, TaskProgress, useConfirmation } from "./Feedback";
 
 function Fixture() {
   const { confirm, dialog } = useConfirmation();
@@ -20,5 +20,21 @@ describe("quotation confirmation", () => {
     render(<Fixture />); fireEvent.click(screen.getByRole("button", { name: "Mở xác nhận" }));
     fireEvent(await screen.findByRole("alertdialog"), new Event("cancel", { bubbles: true, cancelable: true }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
+});
+
+describe("estimated generated-file progress", () => {
+  it("shows queued work and advances running estimates without claiming completion", () => {
+    expect(estimateGeneratedFileProgress("queued", undefined, 50_000)).toBe(8);
+    expect(estimateGeneratedFileProgress("running", 10_000, 25_000)).toBe(23);
+    expect(estimateGeneratedFileProgress("running", 0, 10 * 60_000)).toBe(90);
+    expect(estimateGeneratedFileProgress("completed", undefined, 50_000)).toBe(100);
+  });
+
+  it("labels displayed estimates as approximate for assistive technology", () => {
+    const startedAt = Date.now();
+    render(<TaskProgress label="Đang tạo file báo giá" estimated status="running" startedAt={startedAt} />);
+    expect(screen.getByText("~20%")).toBeTruthy();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuetext")).toBe("Ước tính khoảng 20%");
   });
 });

@@ -9,7 +9,24 @@ export type ConfirmOptions = {
   tone?: "primary" | "danger";
   dismissWithClose?: boolean;
 };
-export type TaskProgressState = { label: string; detail?: string; progress?: number | null };
+export type TaskProgressStatus = "queued" | "running" | "completed" | "failed";
+export type TaskProgressState = {
+  label: string;
+  detail?: string;
+  progress?: number | null;
+  estimated?: boolean;
+  status?: TaskProgressStatus;
+  startedAt?: string | number;
+};
+
+export function estimateGeneratedFileProgress(status: TaskProgressStatus, startedAt: string | number | undefined, now: number) {
+  if (status === "queued") return 8;
+  if (status === "completed") return 100;
+  if (status === "failed") return 0;
+  const start = typeof startedAt === "number" ? startedAt : Date.parse(startedAt ?? "");
+  const elapsed = Number.isFinite(start) ? Math.max(0, now - start) : 0;
+  return Math.min(90, 20 + Math.floor(elapsed / 5_000));
+}
 
 type Notification = { id: number; message: string; type: NotificationType };
 const NotificationContext = createContext<Notify>(() => undefined);
@@ -49,12 +66,19 @@ export function NotificationToast({ notification, onDismiss }: { notification: N
   </div>;
 }
 
-export function TaskProgress({ label, detail, progress }: TaskProgressState) {
-  const determinate = typeof progress === "number" && Number.isFinite(progress);
-  const value = determinate ? Math.max(0, Math.min(100, progress)) : undefined;
-  return <section className="task-progress" role="status" aria-live="polite" aria-busy="true">
-    <div className="task-progress-heading"><span className="task-progress-spinner" aria-hidden="true" /><strong>{label}</strong>{determinate && <span className="task-progress-percent">{value}%</span>}</div>
-    <div className={`task-progress-track ${determinate ? "is-determinate" : "is-indeterminate"}`} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} {...(determinate ? { "aria-valuenow": value } : { "aria-valuetext": "Đang xử lý" })}>
+export function TaskProgress({ label, detail, progress, estimated = false, status = "running", startedAt }: TaskProgressState) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!estimated || status !== "running") return;
+    const timer = window.setInterval(() => setNow(Date.now()), 5_000);
+    return () => window.clearInterval(timer);
+  }, [estimated, status]);
+  const currentProgress = estimated ? estimateGeneratedFileProgress(status, startedAt, now) : progress;
+  const determinate = typeof currentProgress === "number" && Number.isFinite(currentProgress);
+  const value = determinate ? Math.max(0, Math.min(100, currentProgress)) : undefined;
+  return <section className="task-progress" role="status" aria-live={estimated ? "off" : "polite"} aria-busy="true">
+    <div className="task-progress-heading"><span className="task-progress-spinner" aria-hidden="true" /><strong>{label}</strong>{determinate && <span className="task-progress-percent">{estimated ? "~" : ""}{value}%</span>}</div>
+    <div className={`task-progress-track ${determinate ? "is-determinate" : "is-indeterminate"}`} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} {...(determinate ? { "aria-valuenow": value, ...(estimated ? { "aria-valuetext": `Ước tính khoảng ${value}%` } : {}) } : { "aria-valuetext": "Đang xử lý" })}>
       <span style={determinate ? { width: `${value}%` } : undefined} />
     </div>
     {detail && <small>{detail}</small>}

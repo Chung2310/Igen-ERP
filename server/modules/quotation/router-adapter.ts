@@ -28,7 +28,7 @@ async function latestFile(request: any, response: any) {
   const job = await db.collection("generatedExportJobs").findOne({ sourceId, kind, sourceHash }, { sort: { createdAt: -1 } });
   const file = job?.status === "completed" && ObjectId.isValid(String(job.fileId)) ? await db.collection("companyFiles").findOne({ _id: new ObjectId(String(job.fileId)) }) : null;
   return response.json({ file: file ? { id: String(file._id), filename: file.originalFilename, mimeType: file.mimeType, createdAt: file.createdAt } : null,
-    job: job ? { id: String(job._id), status: job.status, filename: job.filename, error: job.error, createdAt: job.createdAt, updatedAt: job.updatedAt } : null });
+    job: job ? { id: String(job._id), status: job.status, filename: job.filename, error: job.error, createdAt: job.createdAt, startedAt: job.startedAt, updatedAt: job.updatedAt } : null });
 }
 
 /** Adapt Express 5 source handlers to ERP Express 4, catching every async rejection. */
