@@ -1,6 +1,5 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Download, ImagePlus, LoaderCircle, Play, RefreshCw, SkipBack, SkipForward, Sparkles, WandSparkles } from "lucide-react";
-import { HrPageTitle } from "../../components/hr/HrPageTitle";
 import type { ArchitectureProject, ArchitectureVideoJob } from "../../shared/architecture-assistant";
 import type { ArchitectAssistantApi } from "./api";
 
@@ -112,10 +111,6 @@ export default function ArchitectureVideoWorkspace({ project, api, assetUrls, ca
   const preview = reference || "https://lh3.googleusercontent.com/aida-public/AB6AXuBraYQ5_wq5YovRc4XkkNrW1JbA2wMT2d8_NkObLgw_3nxzJonFvjhVW1Mj4sooXOfrinSb3_9ic9K7xzFMsAz0s7Vo8yZ-kKViWnB4wcHLrW8bf8K5O9XWvgVfljd9RsdEWSdklFm28kqPd3q4c1iFJPP2T0yhu4-IoPJFrrqbtH2RiNjcYu3zQon35P2qiZFrnVKoyw9N7QNpNXLpmBTBp92yUJq0tcmaNcUwO2Q0j_4Ufjx_5zSaHPbG7ryR2hjIuznDMIXQsSCy";
 
   return <section className="space-y-3" aria-busy={busy}>
-    <header className="flex flex-col justify-between gap-2 border-b border-outline-variant/50 pb-3 sm:flex-row sm:items-end">
-      <div><HrPageTitle level={2}>Video kiến trúc</HrPageTitle><p className="mt-1 max-w-2xl text-pretty text-sm text-on-surface-variant">Tạo kịch bản và video chuyển động cho không gian kiến trúc.</p></div>
-      <span className="text-xs font-semibold uppercase text-primary">iGen Architecture Studio</span>
-    </header>
     {!canUseAi && <p className="rounded-lg border border-outline-variant bg-surface-container p-3 text-sm text-on-surface-variant" role="status">Cần quyền architect-ai:manage để tạo video bằng AI.</p>}
     {error && <p className="rounded-lg border border-error/40 bg-error-container/20 px-3 py-2 text-sm text-on-surface" role="alert">{error}</p>}
     {notice && <p className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface" role="status">{notice}</p>}
