@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 /**
  * Chatbot Service
  * ───────────────
@@ -24,7 +25,7 @@ export interface ChatbotUser {
 }
 
 export function chatbotModel(): string {
-  return process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
+  return ERP_LLM_MODEL;
 }
 
 export class ChatbotService {

@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
 import { openrouterChat } from "../../../shared/service/openrouter.service.ts";
 
 export interface GeneratedMatrixAngle {
@@ -51,7 +52,7 @@ Tổng số bài viết trong chiến dịch: ${totalSlotCount} bài.
 Hãy sinh ra Content Strategy Matrix dạng JSON theo yêu cầu.`;
 
     try {
-      const model = process.env.OPENROUTER_HEAVY_MODEL || process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
+      const model = ERP_LLM_MODEL;
       const response = await openrouterChat({
         model,
         messages: [

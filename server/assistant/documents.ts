@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { randomUUID } from "node:crypto";
 import Joi from "joi";
 import type { AuthenticatedRequest } from "../middleware/auth";
@@ -222,7 +223,7 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
       });
       const result = await Promise.race([
         openrouterChat({
-          model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+          model: ERP_LLM_MODEL,
           temperature: 0.2, jsonMode: true, maxRetries: 3,
           messages: [
             { role: "system", content: `Bạn soạn tài liệu theo yêu cầu trong cuộc trò chuyện tiếng Việt. Chỉ trả JSON có đúng các khóa: reply (lời nhắn ngắn), sourceDocumentId (null khi tạo mới; UUID trong danh sách khi chỉnh sửa/đổi định dạng), formats (mảng định dạng xlsx,csv,docx,pdf,txt,md,json), document.

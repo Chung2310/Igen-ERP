@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash } from "crypto";
 import { IMarketingCampaign } from "../../../campaign/interface/marketing-campaign.interface.ts";
@@ -256,9 +257,7 @@ export class VisualAnalystAgentService {
       },
       required: ["summary", "subjects", "visibleText", "setting", "visualStyle", "mood", "factualDetails", "marketingAngles", "cautions"],
     };
-    const model = campaign.qualityMode === "budget"
-      ? process.env.CAMPAIGN_VISION_BUDGET_MODEL || process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash"
-      : process.env.OPENROUTER_HEAVY_MODEL || process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
+    const model = ERP_LLM_MODEL;
     const batchResults: Record<string, unknown>[] = [];
 
     const defaultFallbackText = `Hình ảnh thực tế từ chiến dịch: ${campaign.title || 'Chiến dịch marketing'}. Chủ đề: ${slot.topicBrief || 'Không xác định'}.`;
@@ -317,10 +316,10 @@ Chỉ ghi nhận những gì thực sự nhìn thấy. Đọc chính xác chữ 
           responseSchema,
         });
       } catch (err: any) {
-        console.warn(`[VisualAnalyst] Gọi model primary ${model} thất bại: ${err?.message || err}. Thử fallback sang gemini-2.5-flash...`);
+        console.warn(`[VisualAnalyst] Gọi model ${model} thất bại: ${err?.message || err}. Thử lại với ${ERP_LLM_MODEL}...`);
         try {
           result = await openrouterChat({
-            model: "google/gemini-2.5-flash",
+            model: ERP_LLM_MODEL,
             messages: [
               {
                 role: "system",

@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import Joi from "joi";
 import sharp from "sharp";
 import type { AssistantIllustration } from "../../src/shared/assistant-document";
@@ -55,8 +56,8 @@ export async function recommendAssistantVisualCreation(input: {
   try {
     const result = await Promise.race([
       openrouterChat({
-        model: process.env.IGENAI_PROMPT_MODEL?.trim() || "google/gemma-4-31b-it:free",
-        fallbackModel: process.env.IGENAI_PROMPT_FALLBACK_MODEL?.trim() || "qwen/qwen3.5-flash-02-23",
+        model: ERP_LLM_MODEL,
+        fallbackModel: ERP_LLM_MODEL,
         temperature: 0,
       maxRetries: 3,
         jsonMode: true,

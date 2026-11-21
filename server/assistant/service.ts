@@ -39,10 +39,18 @@ import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
 import { extractAssistantAttachmentValues } from "./attachment-values";
 import { legalAnswerReply, legalQuestionValues } from "./legal-reference";
+import { pinProductReadProof, productReadPrototypeEnabled, validateProductReadProof, verifiedProductDetailResult, type ProductReadProofV1 } from "./product-read-prototype";
+import { observeAssistantTurn, observeAssistantOwner, observeAssistantDispatch, observeAssistantBudgetCharge } from "./call-observer";
+import { withAssistantExecution } from "./execution-control";
+import { withBusinessCallTurn, withBusinessCallOwner, withBusinessPrimary, pinBusinessWorkflowVersion } from "./business-call-gate";
+import { prepareProductReadV2 } from "./read-v2-runtime";
+import { readV2Digest, isReadV2Action, ReadV2ClarificationError, type ClientReadTurnV2, type PendingReadV2, type ContextV2, type ClarificationReadV2 } from "./read-v2-contract";
+import { sealReadV2Reply, openReadV2Reply } from "./read-v2-cache";
+import { purgeExpiredReadV2Pins } from "./read-v2-retention";
 export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
 export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
-interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
+export interface PendingAction { readV2?: PendingReadV2; id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; productReadProof?: ProductReadProofV1; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 const legacyWorkerAssistantActionIds: Record<string, string> = {
   "api.get.b070dbb8162243a4": "worker.labor.contract.list",
   "api.get.b4d5322ba79783f1": "worker.labor.contract.detail",
@@ -1694,7 +1702,8 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   const session = await AssistantSessionModel.findOne(scope).lean();
   const turn = await AssistantTurnModel.findOne(scope).sort({ createdAt: -1 }).lean();
   const operation = operationById((session?.pending as PendingAction | undefined)?.actionId || turn?.actionId || "");
-  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation, session?.mode === "qa" ? "qa" : "work") || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+  const restoredReply = (session?.lastReply as { schemaVersion?: number } | undefined)?.schemaVersion === 2 && turn?.result ? openReadV2Reply(req, turn as any) : session?.lastReply;
+  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(restoredReply as AssistantReply | null, operation, session?.mode === "qa" ? "qa" : "work") || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
 }
 
 export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
@@ -1823,10 +1832,17 @@ export async function listConversations(req: AuthenticatedRequest, options: { li
   };
 }
 
-export interface TurnExecutionControl { background?: boolean; cancelled?: () => Promise<boolean>; }
+export interface TurnExecutionControl { background?: boolean; cancelled?: () => Promise<boolean>; signal?: AbortSignal; deadlineAt?: number; readV2?: ClientReadTurnV2; }
 export async function processTurn(req: AuthenticatedRequest, input: TurnInput, control: TurnExecutionControl = {}): Promise<AssistantReply> {
+  return observeAssistantTurn(() => {
+    const budget = new ExecutionBudget(control.background);
+    return withAssistantExecution({ deadlineAt: Math.min(budget.deadline, control.deadlineAt ?? Infinity), signal: control.signal, cancelled: control.cancelled }, () =>
+      withBusinessCallTurn(req, { conversationId: input.conversationId, requestId: input.requestId }, Boolean(control.background), () => processTurnUnobserved(req, input, control, budget)));
+  });
+}
+async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput, control: TurnExecutionControl, budget: ExecutionBudget): Promise<AssistantReply> {
   input = { ...input };
-  const budget = new ExecutionBudget(control.background);
+  const productExactVerify = productReadPrototypeEnabled(control.background);
   const scope = scopeOf(req);
   const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
@@ -1835,7 +1851,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     fileName: input.conversationUpload.fileName,
     digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
   } : null;
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const digest = control.readV2 ? readV2Digest(control.readV2) : createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1844,7 +1860,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     const existing = await AssistantTurnModel.findOne(requestFilter).lean();
     if (!existing || existing.digest !== digest) throw new AssistantError("Mã yêu cầu đã được dùng cho nội dung khác.", 409);
     if (existing.result) {
-      const cached = existing.result as AssistantReply;
+      const cached = openReadV2Reply(req, existing as any);
       let operation = operationById(existing.actionId || "");
       if (!operation && cached.action) {
         // Older collecting turns kept their operation only in the pending action.
@@ -1866,6 +1882,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     return reply;
   }
   let pending = restorePendingActionId(session.pending as PendingAction | null);
+  let readV2Context = (session as unknown as { readV2Context?: ContextV2 }).readV2Context;
+  let readV2Clarification: ClarificationReadV2 | undefined;
   let remainingRequests: string[] = Array.isArray(session.remainingRequests) ? session.remainingRequests.filter((item: unknown): item is string => typeof item === "string") : [];
   const previousRemainingRequests = [...remainingRequests];
   let replacedGoal = false;
@@ -1913,14 +1931,21 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       : userContent;
   const history = [...session.messages, { role: "user", content: historyContent, createdAt: new Date().toISOString() }];
 
-  const execute = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
+  const execute = (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> =>
+    withBusinessCallOwner(op.id, "execute", stepRequestId, () => observeAssistantOwner(op.id, "execute", () => executeUnobserved(op, workflow, values, password)));
+  const executeUnobserved = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
+    if (control.readV2 && (!isReadV2Action(op.id) || op.method !== "GET")) throw new AssistantError("Yêu cầu chưa nằm trong phạm vi tra cứu đã được cho phép.", 409);
+    pinBusinessWorkflowVersion(workflow.version);
     fallbackOperation = op;
-    const dispatch = async (resolved: Record<string, AssistantValue>, lookup?: () => Promise<any>) => {
+    const dispatch = (resolved: Record<string, AssistantValue>, lookup?: () => Promise<any>): Promise<any> =>
+      withBusinessPrimary(() => observeAssistantDispatch(() => dispatchUnobserved(resolved, lookup)));
+    const dispatchUnobserved = async (resolved: Record<string, AssistantValue>, lookup?: () => Promise<any>) => {
       if (await control.cancelled?.()) throw new PlanCancelledError("Đã dừng theo yêu cầu. Các bước đã hoàn tất được giữ nguyên.");
       const missingConstraint = missingReportConstraint(input.text || pending?.intent || "", op, resolved);
       if (missingConstraint) throw new AssistantError(missingConstraint);
       const readOnly = op.method === "GET" || Boolean(op.readOnly);
       const fingerprint = budget.beforeCall(op.id, resolved, readOnly);
+      observeAssistantBudgetCharge(readOnly);
       steps.push({ requestId: stepRequestId, actionId: op.id, status: "executing" });
       await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { steps } });
       const result = lookup ? await lookup() : await callOperation(req, op, resolved, password, stepRequestId);
@@ -1967,7 +1992,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     // Resolve again immediately before writing, including after a confirmation wait.
     const pinnedOperations = op.id.startsWith("recruitment.")
       || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
-    const checked = await resolveReferences(req, operationForRequest(op, requestIntent), input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
+    const productProof = (productExactVerify || Boolean(control.readV2 && pending?.readV2)) && op.id === "inventory.product.detail" ? pending?.productReadProof : undefined;
+    if (control.readV2 && op.id === "inventory.product.detail" && !productProof) throw new AssistantError("Chưa xác thực được sản phẩm đã chọn. Bạn gửi lại yêu cầu nhé.", 409);
+    if (productProof) validateProductReadProof(productProof, req, input.conversationId, pending!.id, op, latest, values);
+    const checked = productProof
+      ? { values: { ...finalValidation.values }, errors: [], confirmationDetails: {} as Record<string, Array<{ label: string; value: string }>> }
+      : await resolveReferences(req, operationForRequest(op, requestIntent), input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
     if (op.partialUpdate && input.decision?.confirmed && values.__assistantExistingRecord !== checked.values.__assistantExistingRecord) {
       throw new AssistantError("Cấu hình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Bạn gửi lại yêu cầu để kiểm tra bản mới nhé.", 409);
@@ -2080,6 +2110,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       pending = null;
       return { status: "completed", reply: friendlyResult(op, selected), link: op.link };
     }
+    if (productProof) {
+      const result = await dispatch(checked.values, async () => {
+        // Recheck expiry after journal/cancellation awaits, immediately before the transport.
+        validateProductReadProof(productProof, req, input.conversationId, pending!.id, op, latest, checked.values);
+        return verifiedProductDetailResult(
+          await callOperation(req, op, checked.values, password, stepRequestId), productProof, op, req, checked.values,
+        );
+      });
+      pending = null;
+      return { status: "completed", reply: friendlyResult(op, result), link: op.link };
+    }
     if (op.method === "GET" && (op.adapter === "contract" || op.rawResponse)) {
       const result = await dispatch(checked.values);
       if (["leave.balances.minimum", "timekeeping.records.monthly.under-threshold"].includes(op.id)) {
@@ -2184,7 +2225,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         ? `\n\nĐã xóa tài khoản của ${deletedEmployeeName.trim()}.` : ""), link: op.link };
   };
 
-  const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
+  const prepare = (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> =>
+    withBusinessCallOwner(actionId, "prepare", stepRequestId, () => observeAssistantOwner(actionId, "prepare", () => prepareUnobserved(actionId, provided, forceConfirmation, intent, selectedReferenceKeys)));
+  const prepareUnobserved = async (actionId: string, provided: Record<string, unknown>, forceConfirmation: boolean, intent: string, selectedReferenceKeys: string[]): Promise<AssistantReply> => {
     if (isBusinessExcelRequest(intent) && operationById(actionId)?.method !== "GET") {
       throw new AssistantError("Bạn cho mình biết danh sách và bộ lọc cần xuất Excel nhé. Chưa thực hiện thay đổi dữ liệu nào.", 422);
     }
@@ -2220,6 +2263,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     const op = await assertOperation(req, actionId);
     provided = normalizeAcceptanceValues(op, provided, input.text || "");
     const workflow = await currentWorkflow(req, actionId);
+    pinBusinessWorkflowVersion(workflow.version);
     let requestWorkflow = workflowForRequest(op, workflow, intent);
     let requestOperation = operationForRequest(op, intent);
     const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
@@ -2520,6 +2564,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (question !== "Bạn muốn mình cập nhật những thông tin nào?") return { status: "collecting", reply: question, action: preview };
     }
     pending.resolved = references.values;
+    if (productExactVerify) pending.productReadProof = pinProductReadProof(req, input.conversationId, pending.id, op, workflow, references.values, references.labels);
     preview.values = workflow.fields.filter(f => references.values[f.key] !== undefined
       && !(op.id === "quotation.acceptance.create" && f.key === "lines")).map(f => {
       const rawValue = references.values[f.key];
@@ -2556,14 +2601,36 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       conversationFile = await readAssistantConversationFile({ buffer: input.conversationUpload.buffer, fileName: input.conversationUpload.fileName, req });
     }
     const settings = await getSettings(req);
-    responseRules = settings.responseRules || "";
-    autoMemoryEnabled = settings.autoMemoryEnabled ?? false;
-    const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
+    responseRules = control.readV2 ? "" : settings.responseRules || "";
+    autoMemoryEnabled = !control.readV2 && (settings.autoMemoryEnabled ?? false);
+    const memories = !control.readV2 && input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
     if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.trainingContent || input.acceptanceLines)) {
       throw new AssistantError("Tab Trò chuyện cần có nội dung tin nhắn. Hãy nhập câu hỏi hoặc yêu cầu kèm tệp.");
     }
     const memoryAnswer = normalizeAssistantText(input.text || "").trim().replace(/[.!?]+$/, "");
-    if (pendingMemoryProposal && !pending && /^(?:co|dong y|ghi nho|luu|vang|ok|khong|bo qua|huy)$/.test(memoryAnswer)) {
+    if (!control.readV2 && pending?.readV2) throw new ReadV2ClarificationError("V2_PENDING_REQUIRES_V2", "Yêu cầu đang chờ dùng V2. Bạn tiếp tục bằng lựa chọn hoặc xác nhận V2 để giữ đúng sản phẩm nhé.");
+    if (control.readV2) {
+      if (control.background || remainingRequests.length) throw new AssistantError("V2 hiện chỉ nhận từng yêu cầu trực tiếp; mục tiêu nhiều bước đang chờ được giữ nguyên.", 409);
+      budget.plan();
+      const retained = await purgeExpiredReadV2Pins(req, input.conversationId, pending, readV2Context);
+      pending = retained.pending; readV2Context = retained.context;
+      const prepared = await prepareProductReadV2(req, control.readV2, pending, readV2Context);
+      pending = prepared.pending;
+      readV2Context = prepared.context;
+      readV2Clarification = prepared.clarification;
+      const pinWrite = await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { readV2: {
+        schemaVersion: 2, inputRequestDigest: digest, effectiveSnapshotHash: prepared.effectiveSnapshotHash,
+        context: prepared.context, provenance: prepared.provenance, retentionUntil: prepared.pending?.readV2?.retentionUntil || prepared.context.retentionUntil,
+      } } });
+      if (pinWrite.matchedCount !== 1) throw new AssistantError("Chưa lưu được ngữ cảnh V2. Chưa thực hiện tra cứu chính.", 503);
+      // Persist the private target/pending before the common execution path can send a primary call.
+      const pendingWrite = await AssistantSessionModel.updateOne(sessionFilter, { $set: { pending, readV2Context } });
+      if (pendingWrite.matchedCount !== 1) throw new AssistantError("Chưa lưu được yêu cầu V2 đang chờ. Chưa thực hiện tra cứu chính.", 503);
+      if (prepared.execute) {
+        const { op, workflow, values } = prepared.execute;
+        reply = await execute(op, workflow, values);
+      } else reply = prepared.reply!;
+    } else if (pendingMemoryProposal && !pending && /^(?:co|dong y|ghi nho|luu|vang|ok|khong|bo qua|huy)$/.test(memoryAnswer)) {
       if (/^(?:khong|bo qua|huy)$/.test(memoryAnswer)) {
         reply = { status: "completed", reply: "Mình không lưu cách gọi này." };
       } else if (!settings.memoryEnabled) {
@@ -2945,7 +3012,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     const uncertain = error instanceof UncertainExecutionError || (hasDispatched && !(error instanceof AssistantError));
     fallbackReason = uncertain ? "uncertain" : error instanceof AssistantError && error.status === 403 ? "permission"
       : error instanceof AssistantApiRejection && [400, 409, 422].includes(error.status) ? "validation" : "technical";
-    if (error instanceof PlanStoppedError) {
+    if (error instanceof ReadV2ClarificationError) {
+      reply = { status: "collecting", reply: error.message };
+    } else if (error instanceof PlanStoppedError) {
       reply = { status: error instanceof PlanCancelledError ? "cancelled" : "collecting", reply: error.message };
       if (error instanceof PlanCancelledError) pending = null;
     } else if (!uncertain && !hasDispatched && error instanceof AssistantError && error.status === 403 && manualGuidanceContext) {
@@ -3062,9 +3131,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       completedSteps: steps.filter(step => step.status === "completed").length,
     });
   }
+  if (control.readV2) reply = { ...reply, schemaVersion: 2, ...(readV2Clarification ? { clarification: readV2Clarification } : {}) } as AssistantReply;
   try {
+    const sealed = control.readV2 ? sealReadV2Reply(req, { conversationId: input.conversationId, requestId: input.requestId, digest }, reply) : { result: reply, replyTokens: undefined };
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: {
-      status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply,
+      status: reply.status === "uncertain" ? "uncertain" : "completed", result: sealed.result,
+      ...(sealed.replyTokens ? { "readV2.replyTokens": sealed.replyTokens } : {}),
       ...(completion?.followUp ? { "payload.__assistantFollowUp": completion.followUp } : {}),
     } });
     const messagesWithReply = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString(), ...(reply.files?.length ? { files: reply.files } : {}), ...(reply.sources?.length ? { sources: reply.sources } : {}), ...(reply.illustrations?.length ? { illustrations: reply.illustrations } : {}) }].slice(-40);
@@ -3084,14 +3156,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       pendingDocumentRequest,
       remainingRequests,
       pendingMemoryProposal,
-      lastReply: reply,
+      lastReply: sealed.result,
       messages: nextMessages.slice(-40),
       messageCount: nextMessageCount,
       busy: false,
       activeRequestId: "",
+      ...(control.readV2 ? { readV2Context } : {}),
     };
     const lastSessionMemoryCount = Number(session.sessionMemoryMessageCount) || 0;
-    const shouldSummarizeSession = nextMessageCount >= 12 && nextMessageCount - lastSessionMemoryCount >= 12;
+    const shouldSummarizeSession = !control.readV2 && !pending?.readV2 && nextMessageCount >= 12 && nextMessageCount - lastSessionMemoryCount >= 12;
     const sessionMemoryVersion = Number(session.sessionMemoryVersion) || 0;
     if (shouldSummarizeSession) {
       sessionUpdate.sessionMemoryMessageCount = nextMessageCount;

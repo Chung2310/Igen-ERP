@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../shared/llm-model";
 import "dotenv/config";
 import { writeFile } from "node:fs/promises";
 import { openrouterChat } from "../../service/openrouter.service";
@@ -239,7 +240,7 @@ if (evaluateInterpreter) {
 
 if (evaluate) {
   const batchSize = Math.max(10, Math.min(100, Number(process.env.INTENT_AUDIT_BATCH_SIZE) || 60));
-  const model = process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
+  const model = ERP_LLM_MODEL;
   (report as any).evaluationModel = model;
   (report as any).batchSize = batchSize;
   const allBatches = [...groups.entries()].flatMap(([key, rows]) => {
