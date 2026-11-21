@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Rea
 import { api, createGeneratedExport, formatMoney, hasQuotationCapability } from "./api";
 import { formatVndInputValue, parseVndInputValue, updateVndInput } from "./money-input";
 import type { AcceptanceRecord, Contract, Quote } from "./types";
-import { TaskProgress } from "./Feedback";
 import VietnameseDatePicker from "./VietnameseDatePicker";
 import "./document-dialogs.css";
 
@@ -138,7 +137,6 @@ export function ContractCreationDialog({ quote, onClose, onCreated, notify }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [generatingFile, setGeneratingFile] = useState(false);
-  const [fileGenerationStartedAt, setFileGenerationStartedAt] = useState<number | null>(null);
   const [createdContractId, setCreatedContractId] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -180,16 +178,14 @@ export function ContractCreationDialog({ quote, onClose, onCreated, notify }: {
         }),
       });
       setCreatedContractId(contract._id);
-      setFileGenerationStartedAt(Date.now());
       setGeneratingFile(true);
       const fileError = await generateSavedCommercialFile(`/api/contracts/${contract._id}/file?background=1`);
       onCreated(contract._id, fileError);
     } catch (error) { notify(error instanceof Error ? error.message : "Không tạo được hợp đồng.", "error"); }
-    finally { setBusy(false); setGeneratingFile(false); setFileGenerationStartedAt(null); }
+    finally { setBusy(false); }
   };
   return <DocumentDialog labelledBy="contract-create-title" busy={busy} onClose={onClose}>
       <div className="document-dialog-head"><div><h2 id="contract-create-title">Tạo hợp đồng từ dự toán</h2><p>{quote.quoteNumber} · {formatMoney(quote.total, quote.currency)} · {quote.lines.length} hạng mục</p></div><div className="document-dialog-head-actions"><button type="button" aria-label="Đóng" onClick={onClose} disabled={busy}>×</button></div></div>
-      {generatingFile && <TaskProgress label="Đang tạo file hợp đồng" detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất." estimated status="running" startedAt={fileGenerationStartedAt ?? undefined} />}
       <form onSubmit={(event) => void submit(event)}>
         <div className="document-dialog-body">
           <h3>Mẫu hợp đồng</h3>
@@ -242,8 +238,6 @@ export function AcceptanceCreationDialog({ contract, onClose, onCreated, notify 
   const [quantities, setQuantities] = useState<number[]>(() => (Array.isArray(contract.lines) ? contract.lines : []).map(() => 0));
   const [acceptedDetails, setAcceptedDetails] = useState<string[]>(() => (Array.isArray(contract.lines) ? contract.lines : []).map(() => ""));
   const [busy, setBusy] = useState(false);
-  const [generatingFile, setGeneratingFile] = useState(false);
-  const [fileGenerationStartedAt, setFileGenerationStartedAt] = useState<number | null>(null);
   const [createdRecordId, setCreatedRecordId] = useState<string | null>(null);
   useEffect(() => {
     if (contractLines.length > 0) {
@@ -290,52 +284,34 @@ export function AcceptanceCreationDialog({ contract, onClose, onCreated, notify 
           startTime, endTime, handoverDetails, qualityAssessment,
           settlementAmount, amountPaid,
           paymentDueDays: paymentDueDays === "" ? null : Number(paymentDueDays),
-          lines: quantities.map((acceptedQuantity, lineIndex) => ({ lineIndex, acceptedQuantity, acceptedDetails: acceptedQuantity > 0 ? acceptedDetails[lineIndex] ?? "" : "" })),
+          lines: quantities.map((acceptedQuantity, lineIndex) => ({ lineIndex, acceptedQuantity, acceptedDetails: acceptedDetails[lineIndex] ?? "" })),
         }),
       });
       setCreatedRecordId(record._id);
-      setFileGenerationStartedAt(Date.now());
-      setGeneratingFile(true);
       const fileError = await generateSavedCommercialFile(`/api/acceptance-records/${record._id}/file?background=1`);
       onCreated(record._id, fileError);
     } catch (error) { notify(error instanceof Error ? error.message : "Không tạo được nghiệm thu.", "error"); }
-    finally { setBusy(false); setGeneratingFile(false); setFileGenerationStartedAt(null); }
+    finally { setBusy(false); }
   };
   return <DocumentDialog labelledBy="acceptance-create-title" busy={busy} onClose={onClose}>
       <div className="document-dialog-head"><div><h2 id="acceptance-create-title">Tạo biên bản nghiệm thu</h2><p>Từ hợp đồng {contract.contractNumber}</p></div><div className="document-dialog-head-actions"><button type="button" aria-label="Đóng" onClick={onClose} disabled={busy}>×</button></div></div>
-      {generatingFile && <TaskProgress label="Đang tạo file nghiệm thu" detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất." estimated status="running" startedAt={fileGenerationStartedAt ?? undefined} />}
       <form onSubmit={(event) => void submit(event)}><div className="document-dialog-body">
         <h3>Mẫu nghiệm thu</h3>
         {templatesLoading ? <p className="document-dialog-note">Đang tải mẫu nghiệm thu và quyết toán…</p> : templateError ? <p className="document-dialog-note" role="alert">{templateError}</p> : <label>Chọn mẫu nghiệm thu / quyết toán<select value={templateId} onChange={(event) => setTemplateId(event.target.value)} disabled={busy || templates.length === 0}>{templates.length ? templates.map((item) => <option key={item.id} value={item.id}>{item.name} ({templateFormat(item.extension)})</option>) : <option value="">Mẫu Word mặc định</option>}</select></label>}
         {!!templates.length && <p className="document-dialog-note">Thông tin ngày nghiệm thu, kết quả, khối lượng và quyết toán được điền vào đúng mẫu đã chọn, giữ định dạng file ban đầu.</p>}
         <h3>Sản phẩm / hạng mục trong hợp đồng {!contractLinesLoading && `(${contractLines.length})`}</h3>
-        <p className="document-dialog-note">Chọn từng sản phẩm đã nghiệm thu, nhập khối lượng thực tế và ghi nhận tình trạng sản phẩm.</p>
-        {contractLinesLoading ? <p className="document-dialog-note" role="status">Đang tải sản phẩm và số lượng từ hợp đồng…</p> : contractLinesError ? <p className="document-dialog-note" role="alert">{contractLinesError}</p> : contractLines.length ? <div className="document-dialog-acceptance-lines" role="region" aria-label="Sản phẩm và thông tin nghiệm thu">
-          {contractLines.map((line, index) => {
-            const selectionId = `acceptance-line-selected-${index}`;
-            const quantityId = `acceptance-line-quantity-${index}`;
-            const detailsId = `acceptance-line-details-${index}`;
-            return <fieldset className="document-dialog-acceptance-line" key={`${line.catalogItemId}-${index}`}>
-              <legend>{line.name}</legend>
-              {line.description && <p className="document-dialog-acceptance-line-description">{line.description}</p>}
-              {line.sku && <p className="document-dialog-acceptance-line-sku">Mã: {line.sku}</p>}
-              <div className="document-dialog-acceptance-line-meta">
-                <label className="document-dialog-acceptance-line-choice" htmlFor={selectionId}>
-                  <input id={selectionId} type="checkbox" checked={quantities[index] > 0} disabled={busy} onChange={(event) => { const checked = event.currentTarget.checked; setQuantities((current) => current.map((value, i) => i === index ? checked ? line.quantity : 0 : value)); }} />
-                  <span>Đưa vào nghiệm thu</span>
-                </label>
-                <p><span>Số lượng theo hợp đồng</span><strong>{line.quantity} {line.unit}</strong></p>
-              </div>
-              <div className="document-dialog-acceptance-line-fields">
-                <label htmlFor={quantityId}>Số lượng nghiệm thu thực tế
-                  <input id={quantityId} type="number" min="0" max={line.quantity} step="any" disabled={busy || quantities[index] <= 0} value={quantities[index]} onChange={(event) => setQuantities((current) => current.map((value, i) => i === index ? Number(event.target.value) : value))} />
-                </label>
-                <label htmlFor={detailsId}>Thông tin nghiệm thu sản phẩm
-                  <input id={detailsId} type="text" maxLength={1000} disabled={busy} value={acceptedDetails[index] ?? ""} onChange={(event) => setAcceptedDetails((current) => current.map((value, i) => i === index ? event.target.value : value))} placeholder="Tình trạng, quy cách, ghi nhận thực tế" />
-                </label>
-              </div>
-            </fieldset>;
-          })}
+        <p className="document-dialog-note">Tích riêng từng sản phẩm đã nghiệm thu. Số lượng hợp đồng được giữ để đối chiếu; nhập số lượng nghiệm thu bên cạnh.</p>
+        {contractLinesLoading ? <p className="document-dialog-note">Đang tải sản phẩm và số lượng từ hợp đồng…</p> : contractLinesError ? <p className="document-dialog-note" role="alert">{contractLinesError}</p> : contractLines.length ? <div className="document-dialog-acceptance-table-wrap" role="region" aria-label="Bảng sản phẩm và số lượng nghiệm thu" tabIndex={0}>
+          <table className="document-dialog-acceptance-table">
+            <thead><tr><th scope="col">Chọn</th><th scope="col">Sản phẩm / hạng mục</th><th scope="col">Số lượng theo hợp đồng</th><th scope="col">Số lượng nghiệm thu</th><th scope="col">Thông tin sản phẩm nghiệm thu</th></tr></thead>
+            <tbody>{contractLines.map((line, index) => <tr key={index}>
+              <td><input type="checkbox" aria-label={`Chọn ${line.name} để nghiệm thu`} checked={quantities[index] > 0} disabled={busy} onChange={(event) => { const checked = event.currentTarget.checked; setQuantities((current) => current.map((value, i) => i === index ? checked ? line.quantity : 0 : value)); }} /></td>
+              <td><strong>{line.name}</strong>{line.description && <small>{line.description}</small>}{line.sku && <small>Mã: {line.sku}</small>}</td>
+              <td>{line.quantity} {line.unit}</td>
+              <td><input aria-label={`Số lượng nghiệm thu ${line.name}`} type="number" min="0" max={line.quantity} step="any" disabled={busy || quantities[index] <= 0} value={quantities[index]} onChange={(event) => setQuantities((current) => current.map((value, i) => i === index ? Number(event.target.value) : value))} /></td>
+              <td><input aria-label={`Thông tin nghiệm thu ${line.name}`} type="text" maxLength={1000} disabled={busy || quantities[index] <= 0} value={acceptedDetails[index] ?? ""} onChange={(event) => setAcceptedDetails((current) => current.map((value, i) => i === index ? event.target.value : value))} placeholder="Tình trạng, quy cách, ghi nhận thực tế" /></td>
+            </tr>)}</tbody>
+          </table>
         </div>: <p className="document-dialog-note">Hợp đồng chưa có sản phẩm hoặc hạng mục để nghiệm thu.</p>}
         <div className="document-dialog-grid"><div className="document-dialog-date-field"><span>Ngày nghiệm thu *</span><VietnameseDatePicker label="Ngày nghiệm thu" value={acceptedDate} onChange={setAcceptedDate} min={contract.signedDate ?? undefined} required clearable={false} /></div><label>Địa điểm nghiệm thu *<input required maxLength={250} value={location} onChange={(event) => setLocation(event.target.value)} /></label></div>
         <div className="document-dialog-grid"><label>Giờ bắt đầu *<input type="time" required value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label>Giờ kết thúc *<input type="time" required min={startTime} value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div>

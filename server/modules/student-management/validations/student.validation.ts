@@ -174,12 +174,13 @@ export const publicRegisterStudentSchema = Joi.object({
   idCardFrontFile: uploadedFileSchema.optional(),
   idCardBackFile: uploadedFileSchema.optional(),
   portraitFile: uploadedFileSchema.optional(),
-  registrationToken: Joi.string().trim().max(4096).required().messages({
-    "any.required": "Thiếu mã đăng ký trong đường dẫn.",
-    "string.empty": "Thiếu mã đăng ký trong đường dẫn.",
+  teacherId: objectIdSchema.required().messages({
+    "any.required": "ID giáo viên là bắt buộc.",
+    "string.empty": "ID giáo viên không được để trống.",
   }),
+  entityPreset: Joi.string().valid("student", "worker", "customer").optional(),
+  registrationCompanyCode: Joi.string().trim().allow("").max(100).optional(),
+  registrationBranchId: Joi.string().trim().allow("").max(100).optional(),
   partnerCode: Joi.string().trim().allow("").max(50).optional(),
-  partnerId: Joi.string().allow("").optional().pattern(/^[a-f\d]{24}$/i).messages({
-    "string.pattern.base": "Đối tác giới thiệu không hợp lệ.",
-  }),
+  partnerId: Joi.string().allow("").optional(),
 });

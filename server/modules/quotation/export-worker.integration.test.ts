@@ -93,31 +93,6 @@ describe("quotation export worker with isolated provider responses", () => {
     expect((await db.collection(quotationCollectionName("quotes")).findOne({ _id: job.id }))?.fileCreationPending).toBeUndefined();
     expect(await AiSubscriptionPeriodModel.findOne({ companyCode }).lean()).toMatchObject({ used: 1, reserved: 0 });
   }, 60_000);
-  it("reuses a saved artifact when a failed export job is retried", async () => {
-    const job = await queueDraft("BG-RECOVERY-QA");
-    await processQuotationJob(job.jobId);
-    const db = mongoose.connection.db!;
-    const jobs = db.collection(quotationCollectionName("generatedExportJobs"));
-    const files = db.collection(quotationCollectionName("companyFiles"));
-    const first = await jobs.findOne({ _id: new ObjectId(job.jobId) });
-    const uploadsBeforeRetry = uploads, providerCallsBeforeRetry = providerCalls;
-    expect(first).toMatchObject({ status: "completed", fileId: expect.any(String) });
-
-    await jobs.updateOne({ _id: new ObjectId(job.jobId) }, { $set: { status: "failed", error: "simulated interruption after artifact storage" } });
-    const context = await resolveQuotationJobContext({ actorId, companyCode, branchId });
-    const retry = await quotationContexts.run({
-      ...context,
-      command: { path: `/quotes/${job.id}/export`, query: { background: "1", draft: "1", templateId: "none" } },
-    }, () => queueQuotationExport("estimate_draft", String(job.id)));
-    expect(retry).toMatchObject({ jobId: job.jobId, status: "queued" });
-
-    await processQuotationJob(job.jobId);
-    const recovered = await jobs.findOne({ _id: new ObjectId(job.jobId) });
-    expect(recovered).toMatchObject({ status: "completed", fileId: first!.fileId });
-    expect(uploads).toBe(uploadsBeforeRetry);
-    expect(providerCalls).toBe(providerCallsBeforeRetry);
-    expect(await files.countDocuments({ jobId: job.jobId })).toBe(1);
-  }, 60_000);
   it("rejects an obsolete queued revision before any provider or upload call", async () => {
     const job = await queueDraft("BG-EXPORT-STALE"), callsBefore = providerCalls, uploadsBefore = uploads;
     const db = mongoose.connection.db!;

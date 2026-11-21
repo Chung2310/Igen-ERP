@@ -107,7 +107,7 @@ export async function api<T>(url: string, options: RequestInit = {}): Promise<T>
   } catch (error) { task?.fail(error); throw error; }
 }
 export type GeneratedFileRef = { id: string; filename: string; mimeType?: string; createdAt?: string };
-export type GeneratedExportStatus = { id: string; status: "queued" | "running" | "completed" | "failed"; error?: string; filename?: string; createdAt?: string; startedAt?: string; updatedAt?: string };
+export type GeneratedExportStatus = { id: string; status: "queued" | "running" | "completed" | "failed"; error?: string; filename?: string; createdAt?: string; updatedAt?: string };
 const generatedExportRequestTimeoutMs = 30_000;
 async function generatedExportRequest<T>(scope: Scope, deadline: number, message: string, request: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const remaining = deadline - Date.now();

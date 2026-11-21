@@ -3,11 +3,6 @@ import { PaymentService } from "../services/payment.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 
-function errorStatus(error: unknown) {
-  const status = Number((error as { statusCode?: unknown; status?: unknown })?.statusCode ?? (error as { status?: unknown })?.status);
-  return Number.isInteger(status) && status >= 400 && status < 600 ? status : 400;
-}
-
 export class PaymentController {
   static async reconcileStudent(req: AuthRequest, res: Response, next: NextFunction) {
     try {
@@ -23,7 +18,8 @@ export class PaymentController {
       res.status(201).json({ success: true, data: payment });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
-      res.status(errorStatus(error)).json({ success: false, error: msg });
+      const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 
@@ -34,7 +30,7 @@ export class PaymentController {
       res.json({ success: true, data: payment });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
-      res.status(errorStatus(error)).json({ success: false, error: msg });
+      res.status(400).json({ success: false, error: msg });
     }
   }
 
@@ -67,7 +63,7 @@ export class PaymentController {
       res.json({ success: true, data: payment });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
-      res.status(errorStatus(error)).json({ success: false, error: msg });
+      res.status(400).json({ success: false, error: msg });
     }
   }
 }

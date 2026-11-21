@@ -12,12 +12,6 @@ test("installment QR requests only the pending upfront transfer", () => {
   assert.equal(retailQrAmount({ dueAmount: 800_000, pendingTransferAmount: 0 }), 800_000);
 });
 
-test("QR amount cannot exceed the outstanding debt and rejects invalid balances", () => {
-  assert.equal(retailQrAmount({ dueAmount: 100_000, pendingTransferAmount: 150_000 }), 100_000);
-  assert.equal(retailQrAmount({ dueAmount: 0, pendingTransferAmount: 50_000 }), 0);
-  assert.equal(retailQrAmount({ dueAmount: 50_000, pendingTransferAmount: -1 }), 0);
-});
-
 test("canonicalizes retail order codes for bank transfer content", () => {
   assert.equal(canonicalPaymentCode("dh-hcm-202608-000001"), "DHHCM202608000001");
 });

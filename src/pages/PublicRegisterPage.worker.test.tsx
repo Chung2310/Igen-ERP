@@ -21,7 +21,7 @@ function mockConfig(entityPreset: string) {
 }
 
 function setUrl(preset: string) {
-  window.history.replaceState({}, "", `/public/dang-ky?registrationToken=token-for-${preset}`);
+  window.history.replaceState({}, "", `/public/dang-ky?entityPreset=${preset}&teacherId=6a890135119c1c3189d63849`);
 }
 
 beforeEach(() => vi.clearAllMocks());

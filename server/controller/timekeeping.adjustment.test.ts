@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   auditCreate: vi.fn(),
   resolveShift: vi.fn(),
   shiftWindow: vi.fn(),
-  periodMutation: vi.fn(),
   employee: null as any,
 }));
 
@@ -32,7 +31,6 @@ vi.mock("../model/attendance-period-result.model", () => ({ AttendancePeriodResu
 } }));
 vi.mock("../model/payroll-run.model", () => ({ PayrollRunModel: { findOne: mocks.payrollFindOne } }));
 vi.mock("../model/timekeeping-adjustment-audit.model", () => ({ TimekeepingAdjustmentAuditModel: { create: mocks.auditCreate } }));
-vi.mock("../service/attendance-period-mutation.service", () => ({ runAttendancePeriodMutation: mocks.periodMutation }));
 vi.mock("../service/work-shift.service", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../service/work-shift.service")>();
   return { ...actual, resolveShift: mocks.resolveShift, shiftWindow: mocks.shiftWindow };
@@ -71,7 +69,6 @@ beforeEach(() => {
     scheduledStartAt: new Date("2026-11-16T01:00:00.000Z"),
     scheduledEndAt: new Date("2026-11-16T10:00:00.000Z"),
   });
-  mocks.periodMutation.mockImplementation((_scope, _periodKey, operation) => operation(undefined));
 });
 
 const request = (body: Record<string, unknown>) => ({
@@ -104,18 +101,17 @@ it("creates and audits an adjusted attendance row when the employee has no recor
   });
   expect(item.checkIn.time.toISOString()).toBe("2026-11-16T00:59:00.000Z");
   expect(item.checkOut.time.toISOString()).toBe("2026-11-16T11:00:00.000Z");
-  expect(mocks.auditCreate).toHaveBeenCalledWith([expect.objectContaining({
+  expect(mocks.auditCreate).toHaveBeenCalledWith(expect.objectContaining({
     logId: "log-created", employeeId, date, actorId: "actor-id", reason: "Đi công tác", before: {},
-  })], {});
+  }));
   expect(mocks.periodUpdateMany).toHaveBeenCalledWith(
     { companyCode: "TEST", branchId, periodKey: "2026-11", status: "draft" },
     { $set: { needsRecalculation: true } },
-    {},
   );
 });
 
 it("does not create a missed attendance row after the payroll period is locked", async () => {
-  mocks.periodMutation.mockRejectedValueOnce(Object.assign(new Error("Kỳ công đã khóa"), { statusCode: 409 }));
+  mocks.periodFindOne.mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: "locked-period" }) });
   const res = response();
 
   await timekeepingController.adjustAttendanceRecord(request({

@@ -24,7 +24,6 @@ function respondError(res: Response, error: unknown, next: NextFunction) {
 }
 
 function getCompanyCode(req: AuthenticatedRequest) {
-  if (req.user?.role === "superadmin") return "ALL";
   const companyCode = req.user?.companyCode;
   if (!companyCode) {
     throw new Error("Không xác định được mã công ty của tài khoản.");
@@ -54,7 +53,7 @@ export class WorkerQrAttendanceController {
     try {
       const companyCode = getCompanyCode(req);
       const { projectId, date, durationMinutes } = req.body;
-      const session = await WorkerQrAttendanceService.createSession(projectId, date, durationMinutes, companyCode, req.user?.branchId);
+      const session = await WorkerQrAttendanceService.createSession(projectId, date, durationMinutes, companyCode);
       res.status(201).json({ success: true, data: session });
     } catch (error) {
       respondError(res, error, next);
@@ -64,7 +63,7 @@ export class WorkerQrAttendanceController {
   static async getCurrentToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const { sessionId } = req.params;
-      const data = WorkerQrAttendanceService.getCurrentToken(sessionId, getCompanyCode(req), req.user?.branchId);
+      const data = WorkerQrAttendanceService.getCurrentToken(sessionId);
       res.json({ success: true, data });
     } catch (error) {
       respondError(res, error, next);
@@ -74,7 +73,7 @@ export class WorkerQrAttendanceController {
   static async getSessionStatus(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const { sessionId } = req.params;
-      const data = WorkerQrAttendanceService.getSessionStatus(sessionId, getCompanyCode(req), req.user?.branchId);
+      const data = WorkerQrAttendanceService.getSessionStatus(sessionId);
       res.json({ success: true, data });
     } catch (error) {
       respondError(res, error, next);
@@ -84,7 +83,7 @@ export class WorkerQrAttendanceController {
   static async closeSession(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const { sessionId } = req.params;
-      await WorkerQrAttendanceService.closeSession(sessionId, getCompanyCode(req), req.user?.branchId);
+      await WorkerQrAttendanceService.closeSession(sessionId);
       res.json({ success: true, message: "Đã đóng phiên điểm danh." });
     } catch (error) {
       respondError(res, error, next);

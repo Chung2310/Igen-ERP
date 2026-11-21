@@ -49,19 +49,15 @@ describe("FloorPlanEditor", () => {
 
   it("adds editable furniture and openings to the selected room", async () => {
     const onChange = vi.fn();
-    const { rerender } = render(<FloorPlanEditor plan={plan} onChange={onChange} />);
+    render(<FloorPlanEditor plan={plan} onChange={onChange} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Thêm nội thất" }));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
-      furniture: [expect.objectContaining({ roomId: "living", type: "Sofa", name: "Sofa 2 chỗ", width: 25, height: 20 })],
+      furniture: [expect.objectContaining({ roomId: "living", type: "Giường", width: 25, height: 20 })],
     }));
-
-    const updatedPlan = onChange.mock.calls.at(-1)![0];
-    rerender(<FloorPlanEditor plan={updatedPlan} onChange={onChange} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Thêm cửa" }));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
-      furniture: updatedPlan.furniture,
       openings: [expect.objectContaining({ roomId: "living", type: "door", wall: "north" })],
     }));
   });

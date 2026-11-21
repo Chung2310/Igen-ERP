@@ -11,48 +11,6 @@ const PAYABLE_RUN_STATUSES: PayrollRunStatus[] = ["closed"];
 
 export type PayrollPaymentStatus = "draft" | "confirmed" | "cancelled" | "reversed";
 
-export type PayrollPaymentRequestSnapshot = {
-  runId: string;
-  amount: number;
-  lines: Array<{ employeeId: string; amount: number }>;
-  note?: string;
-  evidenceUrl?: string;
-  paymentDate?: Date | string;
-};
-
-const paymentLineAllocations = (lines: PayrollPaymentRequestSnapshot["lines"] = []) => {
-  const totals = new Map<string, number>();
-  for (const line of lines) {
-    const employeeId = String(line.employeeId);
-    totals.set(employeeId, (totals.get(employeeId) ?? 0) + Number(line.amount));
-  }
-  return [...totals.entries()].sort(([left], [right]) => left.localeCompare(right));
-};
-
-const paymentDateTimestamp = (value?: Date | string) => {
-  if (value == null || value === "") return null;
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) ? timestamp : Number.NaN;
-};
-
-/** Checks whether a stored payment is the result of the same create request. */
-export function payrollPaymentRequestMatches(
-  existing: PayrollPaymentRequestSnapshot,
-  requested: PayrollPaymentRequestSnapshot,
-) {
-  const existingLines = paymentLineAllocations(existing.lines);
-  const requestedLines = paymentLineAllocations(requested.lines);
-  return String(existing.runId) === String(requested.runId)
-    && Number(existing.amount) === Number(requested.amount)
-    && existingLines.length === requestedLines.length
-    && existingLines.every(([employeeId, amount], index) => (
-      employeeId === requestedLines[index][0] && amount === requestedLines[index][1]
-    ))
-    && (existing.note || undefined) === (requested.note || undefined)
-    && (existing.evidenceUrl || undefined) === (requested.evidenceUrl || undefined)
-    && paymentDateTimestamp(existing.paymentDate) === paymentDateTimestamp(requested.paymentDate);
-}
-
 const ACTIONS: Record<PayrollPaymentAction, { from: PayrollPaymentStatus; to: PayrollPaymentStatus; actorField: string; atField: string }> = {
   confirm: { from: "draft", to: "confirmed", actorField: "confirmedBy", atField: "confirmedAt" },
   cancel: { from: "draft", to: "cancelled", actorField: "cancelledBy", atField: "cancelledAt" },

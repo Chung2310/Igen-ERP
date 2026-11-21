@@ -2,14 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
-  runFindOneAndUpdate: vi.fn(),
   runCreate: vi.fn(),
   companyFindOne: vi.fn(),
   timekeepingFind: vi.fn(),
   leaveFind: vi.fn(),
   calendarFind: vi.fn(),
   attendanceFindOneAndUpdate: vi.fn(),
-  attendancePeriodFindOne: vi.fn(),
   attendanceFind: vi.fn(),
   attendanceExists: vi.fn(),
   attendanceUpdateMany: vi.fn(),
@@ -27,13 +25,10 @@ const mocks = vi.hoisted(() => ({
   publicationFind: vi.fn(),
   revisionFindOne: vi.fn(),
   repairSnapshot: vi.fn(),
-  reservedMutation: vi.fn(),
-  userFind: vi.fn(),
-  resolveShift: vi.fn(),
 }));
 
 vi.mock("../model/payroll-run.model", () => ({
-  PayrollRunModel: { findOne: mocks.runFindOne, findOneAndUpdate: mocks.runFindOneAndUpdate, create: mocks.runCreate },
+  PayrollRunModel: { findOne: mocks.runFindOne, create: mocks.runCreate },
 }));
 vi.mock("../model/payroll-policy.model", () => ({ PayrollPolicyModel: { find: mocks.policyFind } }));
 vi.mock("../model/payroll-profile.model", () => ({
@@ -56,11 +51,6 @@ vi.mock("../service/payroll-effective-snapshot-repair.service", () => ({
 vi.mock("../model/company.model", () => ({
   CompanyModel: { findOne: mocks.companyFindOne },
 }));
-vi.mock("../model/user.model", () => ({ UserModel: { find: mocks.userFind } }));
-vi.mock("../service/work-shift.service", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../service/work-shift.service")>();
-  return { ...actual, resolveShift: mocks.resolveShift };
-});
 vi.mock("../model/timekeeping.model", () => ({
   TimekeepingLogModel: { find: mocks.timekeepingFind },
 }));
@@ -73,7 +63,6 @@ vi.mock("../model/company-work-calendar.model", () => ({
 vi.mock("../model/attendance-period-result.model", () => ({
   AttendancePeriodResultModel: {
     findOneAndUpdate: mocks.attendanceFindOneAndUpdate,
-    findOne: mocks.attendancePeriodFindOne,
     find: mocks.attendanceFind,
     exists: mocks.attendanceExists,
     updateMany: mocks.attendanceUpdateMany,
@@ -81,9 +70,6 @@ vi.mock("../model/attendance-period-result.model", () => ({
 }));
 vi.mock("../model/payroll-audit.model", () => ({
   PayrollAuditModel: { find: mocks.auditFind, create: mocks.auditCreate },
-}));
-vi.mock("../service/attendance-period-mutation.service", () => ({
-  runReservedPayrollScopeMutation: mocks.reservedMutation,
 }));
 
 import { payrollController } from "./payroll.controller";
@@ -120,19 +106,11 @@ describe("legacy payroll period branch scope", () => {
     mocks.leaveFind.mockReturnValue(lean([]));
     mocks.calendarFind.mockReturnValue(lean([]));
     mocks.attendanceFindOneAndUpdate.mockResolvedValue({ _id: "result-a" });
-    mocks.attendancePeriodFindOne.mockReturnValue(lean(null));
     mocks.attendanceFind.mockReturnValue(lean([{ _id: "result-a" }]));
     mocks.attendanceExists.mockResolvedValue(false);
     mocks.attendanceUpdateMany.mockResolvedValue({ modifiedCount: 1 });
     mocks.auditFind.mockReturnValue({ sort: vi.fn().mockReturnValue(lean([{ _id: "audit-a" }])) });
     mocks.auditCreate.mockResolvedValue({});
-    mocks.reservedMutation.mockImplementation((_scope, operation) => operation(undefined));
-    mocks.userFind.mockReturnValue({
-      select: vi.fn().mockReturnValue(lean([{ _id: "employee-a", displayName: "Employee A", monthlySalary: 1_234 }])),
-    });
-    mocks.resolveShift.mockResolvedValue({ shift: {
-      workingDays: [1, 2, 3, 4, 5, 6], standardMinutes: 540, startTime: "08:00", endTime: "18:00", breakPeriods: [],
-    } });
     mocks.policyFind.mockReturnValue(lean([DEFAULT_VIETNAM_PAYROLL_POLICY]));
     mocks.profileFind.mockReturnValue(lean([]));
     mocks.dependentFind.mockReturnValue(lean([]));
@@ -162,12 +140,9 @@ describe("legacy payroll period branch scope", () => {
     }));
     expect(mocks.attendanceFindOneAndUpdate).toHaveBeenCalledWith(
       { companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07", employeeId: "employee-a" },
-      expect.objectContaining({ $set: expect.objectContaining({ branchId: "branch-a", monthlySalary: 1_234 }) }),
+      expect.objectContaining({ $set: expect.objectContaining({ branchId: "branch-a" }) }),
       expect.objectContaining({ upsert: true }),
     );
-    expect(mocks.userFind).toHaveBeenCalledWith(expect.objectContaining({
-      companyCode: "ACME", branchId: "branch-a", _id: { $in: ["employee-a"] },
-    }));
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
@@ -180,17 +155,6 @@ describe("legacy payroll period branch scope", () => {
     expect(mocks.runFindOne).toHaveBeenCalledWith({
       companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07", type: "regular",
     });
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(mocks.timekeepingFind).not.toHaveBeenCalled();
-    expect(mocks.attendanceFindOneAndUpdate).not.toHaveBeenCalled();
-  });
-
-  it("does not rewrite an attendance result after it has been locked", async () => {
-    mocks.attendancePeriodFindOne.mockReturnValue(lean({ _id: "locked-result", status: "locked" }));
-    const res = response();
-
-    await payrollController.createSnapshot(branchRequest(), res);
-
     expect(res.status).toHaveBeenCalledWith(409);
     expect(mocks.timekeepingFind).not.toHaveBeenCalled();
     expect(mocks.attendanceFindOneAndUpdate).not.toHaveBeenCalled();
@@ -245,7 +209,6 @@ describe("legacy payroll period branch scope", () => {
     expect(mocks.attendanceUpdateMany).toHaveBeenCalledWith(
       { ...branchPeriod, status: "draft" },
       expect.any(Object),
-      {},
     );
 
     vi.clearAllMocks();

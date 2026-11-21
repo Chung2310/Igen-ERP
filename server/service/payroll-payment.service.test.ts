@@ -3,7 +3,6 @@ import {
   buildSettlementLines,
   confirmedPaidByEmployee,
   deriveRunSettlementStatus,
-  payrollPaymentRequestMatches,
   validatePaymentRequest,
   validatePaymentTransition,
 } from "./payroll-payment.service";
@@ -13,42 +12,6 @@ const revisionLines = [
   { employeeId: "emp-2", calculation: { net: 6_000_000 } },
 ];
 const closedRun = { status: "closed" };
-
-describe("payrollPaymentRequestMatches", () => {
-  const requested = {
-    runId: "run-a",
-    amount: 16_000_000,
-    lines: [
-      { employeeId: "emp-1", amount: 10_000_000 },
-      { employeeId: "emp-2", amount: 6_000_000 },
-    ],
-    note: "đợt 1",
-    evidenceUrl: "https://bank.example.com/receipt/9",
-    paymentDate: "2026-08-05T00:00:00.000Z",
-  };
-
-  it("matches retries with the same employee allocation regardless of line order or grouping", () => {
-    expect(payrollPaymentRequestMatches({
-      ...requested,
-      lines: [
-        { employeeId: "emp-2", amount: 2_000_000 },
-        { employeeId: "emp-1", amount: 10_000_000 },
-        { employeeId: "emp-2", amount: 4_000_000 },
-      ],
-      paymentDate: new Date("2026-08-05T00:00:00.000Z"),
-    }, requested)).toBe(true);
-  });
-
-  it.each([
-    { lines: [{ employeeId: "emp-1", amount: 6_000_000 }, { employeeId: "emp-2", amount: 10_000_000 }] },
-    { note: "đợt 2" },
-    { evidenceUrl: "https://bank.example.com/receipt/10" },
-    { paymentDate: "2026-08-06T00:00:00.000Z" },
-    { runId: "run-b" },
-  ])("rejects an idempotency replay whose payload changed", (change) => {
-    expect(payrollPaymentRequestMatches(requested, { ...requested, ...change })).toBe(false);
-  });
-});
 
 describe("confirmedPaidByEmployee", () => {
   it("counts only confirmed payments so cancelled and reversed money returns to the balance", () => {

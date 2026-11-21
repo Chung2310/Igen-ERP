@@ -19,13 +19,6 @@ import { logger } from "../config/logger";
 /** QR chấm công lao động sống 1 giờ để quản lý kịp gửi vào nhóm chat. */
 const WORKER_QR_DURATION_MINUTES = 60;
 
-function workerAttendanceScope(req: AuthRequest) {
-  return {
-    companyCode: req.user?.role === "superadmin" ? "ALL" : String(req.user?.companyCode || ""),
-    branchId: req.user?.branchId,
-  };
-}
-
 type UploadRequest = Request & { file?: Express.Multer.File };
 
 export class QRAttendanceController {
@@ -43,14 +36,9 @@ export class QRAttendanceController {
       const isWorker = entityPreset === "worker";
 
       if (isWorker) {
-        const project = await WorkerProjectModel.findOne({
-          _id: batchId,
-          companyCode: ownerId,
-          ...(req.user?.branchId ? { branchId: req.user.branchId } : {}),
-          deletedAt: null,
-        });
+        const project = await WorkerProjectModel.findOne({ _id: batchId, companyCode: ownerId, deletedAt: null });
         if (!project) return res.status(404).json({ success: false, error: "Không tìm thấy dự án hoặc bạn không có quyền." });
-        const session = await WorkerQrAttendanceService.createSession(String(project._id), date, durationMinutes ? Number(durationMinutes) : WORKER_QR_DURATION_MINUTES, ownerId, req.user?.branchId);
+        const session = await WorkerQrAttendanceService.createSession(String(project._id), date, durationMinutes ? Number(durationMinutes) : WORKER_QR_DURATION_MINUTES, ownerId);
         return res.status(201).json({ success: true, sessionId: session.id, token: session.currentToken, expiresAt: session.expiresAt, date: session.date });
       }
 
@@ -114,8 +102,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Thiếu sessionId." });
       }
 
-      const scope = workerAttendanceScope(req);
-      let tokenData; try { tokenData = WorkerQrAttendanceService.getCurrentToken(sessionId, scope.companyCode, scope.branchId); } catch { tokenData = QRAttendanceService.getCurrentToken(sessionId); }
+      let tokenData; try { tokenData = WorkerQrAttendanceService.getCurrentToken(sessionId); } catch { tokenData = QRAttendanceService.getCurrentToken(sessionId); }
       res.json({ success: true, ...tokenData });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể lấy token." });
@@ -130,8 +117,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Thiếu sessionId." });
       }
 
-      const scope = workerAttendanceScope(req);
-      let status; try { status = WorkerQrAttendanceService.getSessionStatus(sessionId, scope.companyCode, scope.branchId); } catch { status = QRAttendanceService.getSessionStatus(sessionId); }
+      let status; try { status = WorkerQrAttendanceService.getSessionStatus(sessionId); } catch { status = QRAttendanceService.getSessionStatus(sessionId); }
       res.json({ success: true, ...status });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể lấy trạng thái." });
@@ -146,8 +132,7 @@ export class QRAttendanceController {
         return res.status(400).json({ success: false, error: "Thiếu sessionId." });
       }
 
-      const scope = workerAttendanceScope(req);
-      try { await WorkerQrAttendanceService.closeSession(sessionId, scope.companyCode, scope.branchId); } catch { await QRAttendanceService.closeSession(sessionId); }
+      try { await WorkerQrAttendanceService.closeSession(sessionId); } catch { await QRAttendanceService.closeSession(sessionId); }
       res.json({ success: true, message: "Đã đóng phiên và lưu điểm danh thành công." });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message || "Không thể đóng phiên." });
