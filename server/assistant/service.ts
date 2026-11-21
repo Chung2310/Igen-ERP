@@ -3,7 +3,9 @@ import { combineAssistantPlanResults } from "./plan-results";
 import { ExecutionBudget, PlanStoppedError, PlanCancelledError } from "./execution-budget";
 import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import type { AssistantDataShape, AssistantField, AssistantQuotationAcceptanceForm, AssistantQuotationAcceptanceLinesInput, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
+import type { AssistantDataShape, AssistantField, AssistantFormSubmission, AssistantInputField, AssistantQuotationAcceptanceForm, AssistantQuotationAcceptanceLinesInput, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
+import { createWorkflowChoice, missingInputFields, resolveWorkflowChoice, validateFormValues, type PendingWorkflowChoice } from "./collection-form";
+import { assertAssistantModuleScope, scopeAssistantWorkflows } from "./module-scope";
 import { TRAINING_CATEGORY_OPTIONS } from "../../src/shared/training-categories";
 import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../../src/shared/ai-provider-error";
 import { AssistantDocumentModel, AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
@@ -49,8 +51,8 @@ import { sealReadV2Reply, openReadV2Reply } from "./read-v2-cache";
 import { purgeExpiredReadV2Pins } from "./read-v2-retention";
 export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
-export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
-export interface PendingAction { readV2?: PendingReadV2; id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; productReadProof?: ProductReadProofV1; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
+export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; formValues?: AssistantFormSubmission; workflowSelection?: { id: string; value: string }; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface PendingAction { inputFields?: AssistantInputField[]; readV2?: PendingReadV2; id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; productReadProof?: ProductReadProofV1; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 const legacyWorkerAssistantActionIds: Record<string, string> = {
   "api.get.b070dbb8162243a4": "worker.labor.contract.list",
   "api.get.b4d5322ba79783f1": "worker.labor.contract.detail",
@@ -1851,7 +1853,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     fileName: input.conversationUpload.fileName,
     digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
   } : null;
-  const digest = control.readV2 ? readV2Digest(control.readV2) : createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const digest = control.readV2 ? readV2Digest(control.readV2) : createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, ...(input.formValues ? { formValues: input.formValues } : {}), ...(input.workflowSelection ? { workflowSelection: input.workflowSelection } : {}), referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1891,6 +1893,9 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   let stepRequestId = input.requestId;
   const steps: Array<{ requestId: string; actionId: string; status: string }> = [];
   let pendingDocumentRequest = session.pendingDocumentRequest || "";
+  let workflowChoice = (session.workflowChoice || null) as PendingWorkflowChoice | null;
+  if (workflowChoice && workflowChoice.expiresAt <= Date.now()) workflowChoice = null;
+  if (input.text || input.decision || input.formValues || input.referenceSelections) workflowChoice = null;
   if (pending) pending.preview = sanitizeActionPreview(pending.preview, operationById(pending.actionId));
   let hasDispatched = false;
   let completion: AssistantCompletion | undefined;
@@ -1921,7 +1926,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     : "";
   const uploadedFileSummary = input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
   let conversationFile: AssistantConversationFileContext | undefined;
-  const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || acceptanceLinesSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
+  const userContent = [input.text || (input.workflowSelection ? "Đã chọn thao tác trong danh sách." : input.formValues ? "Đã bổ sung thông tin trong biểu mẫu." : "") || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || acceptanceLinesSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
   const forgetMemoryCommand = input.text ? parseExplicitMemoryForgetCommand(input.text) : null;
   const historyContent = forgetMemoryCommand
@@ -1941,6 +1946,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       withBusinessPrimary(() => observeAssistantDispatch(() => dispatchUnobserved(resolved, lookup)));
     const dispatchUnobserved = async (resolved: Record<string, AssistantValue>, lookup?: () => Promise<any>) => {
       if (await control.cancelled?.()) throw new PlanCancelledError("Đã dừng theo yêu cầu. Các bước đã hoàn tất được giữ nguyên.");
+      assertAssistantModuleScope(op, pending?.intent || input.text || "");
       const missingConstraint = missingReportConstraint(input.text || pending?.intent || "", op, resolved);
       if (missingConstraint) throw new AssistantError(missingConstraint);
       const readOnly = op.method === "GET" || Boolean(op.readOnly);
@@ -2228,6 +2234,8 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   const prepare = (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> =>
     withBusinessCallOwner(actionId, "prepare", stepRequestId, () => observeAssistantOwner(actionId, "prepare", () => prepareUnobserved(actionId, provided, forceConfirmation, intent, selectedReferenceKeys)));
   const prepareUnobserved = async (actionId: string, provided: Record<string, unknown>, forceConfirmation: boolean, intent: string, selectedReferenceKeys: string[]): Promise<AssistantReply> => {
+    const scopedOperation = operationById(actionId);
+    if (scopedOperation) assertAssistantModuleScope(scopedOperation, intent);
     if (isBusinessExcelRequest(intent) && operationById(actionId)?.method !== "GET") {
       throw new AssistantError("Bạn cho mình biết danh sách và bộ lọc cần xuất Excel nhé. Chưa thực hiện thay đổi dữ liệu nào.", 422);
     }
@@ -2504,6 +2512,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       : new Set<string>();
     const customWorkHoursLabels = new Set(missingWorkHours);
     const missingWithoutReferenceLabels = collected.missing.filter(label => label !== customerQuoteMissingProductLabel && !(acceptanceLinesNeedForm && label.startsWith(acceptanceLinesLabel)) && !trainingContentLabels.has(label) && !receiptScalarLabels.has(label) && !customWorkHoursLabels.has(label) && !selectionLabels.has(label) && !op.fields.some(field => field.reference && field.label === label && selectedValues[field.key] === undefined));
+    const inputFields = missingInputFields(requestWorkflow, missingWithoutReferenceLabels, visibleCollectedErrors, selectedValues, relationshipPrompts.referenceSelections.map(group => group.key));
     pending = {
       id,
       actionId,
@@ -2524,6 +2533,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       awaitingPathReferenceKeys: failedPathReferenceKeys,
       skippedReferenceKeys: [...skippedReferenceKeys],
       referenceSelections: relationshipPrompts.referenceSelections,
+      inputFields,
       defaultedKeys: [...collected.defaulted],
     };
     if (collected.missing.length || collected.errors.length || references.errors.length || relationshipPrompts.prompts.length) {
@@ -2543,6 +2553,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           : []),
       ];
       return { status: "collecting", reply: lines.join("\n"), action: preview,
+        ...(inputFields.length || relationshipPrompts.referenceSelections.length ? { inputForm: { id, fields: inputFields } } : {}),
         ...(relationshipPrompts.referenceSelections.length ? { referenceSelections: relationshipPrompts.referenceSelections } : {}),
         ...(trainingContentNeedsForm ? { trainingContentForm: trainingContentFormFromValues(selectedValues) } : {}),
         ...(acceptanceLinesNeedForm && acceptanceForm ? { quotationAcceptanceForm: acceptanceForm } : {}),
@@ -2604,7 +2615,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     responseRules = control.readV2 ? "" : settings.responseRules || "";
     autoMemoryEnabled = !control.readV2 && (settings.autoMemoryEnabled ?? false);
     const memories = !control.readV2 && input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
-    if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.trainingContent || input.acceptanceLines)) {
+    if (assistantMode === "qa" && (!input.text || input.decision || input.referenceSelections || input.formValues || input.workflowSelection || input.trainingContent || input.acceptanceLines)) {
       throw new AssistantError("Tab Trò chuyện cần có nội dung tin nhắn. Hãy nhập câu hỏi hoặc yêu cầu kèm tệp.");
     }
     const memoryAnswer = normalizeAssistantText(input.text || "").trim().replace(/[.!?]+$/, "");
@@ -2711,6 +2722,36 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           : pending.preview.requiresPassword && !input.decision.password
             ? { status: "confirmation", reply: "Bạn nhập lại mật khẩu khởi tạo trong ô bảo mật giúp mình nhé. Mật khẩu sẽ không được giữ lại nếu tải lại trang.", action: pending.preview }
           : await execute(operation, workflow, pending.resolved, input.decision.password);
+      }
+    } else if (input.workflowSelection) {
+      const selected = resolveWorkflowChoice(workflowChoice, input.workflowSelection, pending?.id || null);
+      const operation = await assertOperation(req, selected.actionId);
+      assertAssistantModuleScope(operation, selected.intent);
+      const workflow = await currentWorkflow(req, selected.actionId);
+      if (workflow.version !== selected.version) throw new AssistantError("Thao tác đã thay đổi. Bạn gửi lại yêu cầu để chọn theo cấu hình mới nhé.", 409);
+      budget.plan();
+      const continuing = pending?.actionId === selected.actionId && !selected.newRequest;
+      const interpreted = await interpretRequest(selected.intent, [workflow], continuing ? { actionId: pending!.actionId, values: pending!.provided, intent: pending!.intent } : null,
+        session.messages as any, settings.instructions, [], sessionMemory, [workflow.module], true, true, selected.actionId);
+      workflowChoice = null;
+      if (interpreted.cancel) { pending = null; reply = { status: "cancelled", reply: "Đã hủy yêu cầu đang chuẩn bị." }; }
+      else if (interpreted.actionId === selected.actionId) {
+        reply = await prepare(operation.id, { ...(continuing ? pending!.provided : {}), ...interpreted.values }, true, continuing ? pending!.intent : selected.intent);
+      } else {
+        needsIntentClarification = true;
+        reply = { status: "collecting", reply: interpreted.clarification || "Mình cần làm rõ điều kiện trong yêu cầu trước khi chuẩn bị thông tin." };
+      }
+    } else if (input.formValues) {
+      if (!pending || pending.id !== input.formValues.id || !pending.inputFields) throw new AssistantError("Biểu mẫu đã hết hiệu lực. Bạn dùng biểu mẫu mới nhất nhé.", 409);
+      const operation = await assertOperation(req, pending.actionId);
+      const workflow = await currentWorkflow(req, pending.actionId);
+      if (workflow.version !== pending.workflowVersion) {
+        reply = await prepare(pending.actionId, pending.provided, true, pending.intent);
+      } else {
+        const values = validateFormValues(pending.inputFields, input.formValues.values);
+        const applied = applyReferenceSelections(pending, operation, input.formValues.referenceSelections || {}, input.formValues.skipReferenceKeys || []);
+        for (const key of applied.skipped) if (operation.fields.some(field => field.key === key)) delete applied.provided[key];
+        reply = await prepare(pending.actionId, { ...applied.provided, ...values }, true, pending.intent, Object.keys(input.formValues.referenceSelections || {}));
       }
     } else if (input.referenceSelections || input.skipReferenceKeys?.length) {
       if (!pending || !pending.referenceSelections?.length) throw new AssistantError("Danh sách lựa chọn đã hết hiệu lực. Bạn gửi lại yêu cầu để mình tìm lựa chọn mới nhé.");
@@ -2943,10 +2984,16 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           && interpreted.suggestedActionIds?.includes("payroll.policy.update");
         const courseChoice = interpreted.intentType === "ambiguous"
           ? assistantCourseChoiceGuidance(workflows, interpreted.suggestedActionIds) : "";
+        const choice = interpreted.intentType === "ambiguous" && !interpreted.cancel && !interpreted.businessDiscovery
+          ? createWorkflowChoice(workflows, interpreted.suggestedActionIds || [], input.text || "", pending?.id || null, Boolean(interpreted.newRequest)) : undefined;
         if (interpreted.businessDiscovery) {
           needsIntentClarification = true;
           reply = { status: "collecting", reply: businessDiscoveryReply(interpreted.businessDiscovery, workflows, interpreted.clarification)
             + (pending ? "\n\nYêu cầu trước vẫn được giữ." : "") };
+        } else if (choice) {
+          needsIntentClarification = true;
+          workflowChoice = choice.state;
+          reply = { status: "collecting", reply: `Bạn chọn thao tác muốn thực hiện bên dưới nhé.${pending ? " Yêu cầu trước vẫn được giữ." : ""}`, workflowSelection: choice.selection };
         } else if (salaryChoice) {
           needsIntentClarification = true;
           reply = { status: "collecting", reply: "Bạn muốn cập nhật lương của nhân viên hay lương cơ bản trong chính sách lương? Bạn cho mình tên nhân viên hoặc tên chính sách cần sửa nhé." };
@@ -2962,8 +3009,9 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           const clarification = input.attachment
             ? `Mình đã nhận tệp ${input.attachment.fileName}. Bạn muốn dùng tệp này để làm gì?`
             : interpreted.clarification || "Bạn muốn tra cứu thông tin hay cập nhật dữ liệu nào?";
-          const guidance = assistantRequestGuidance(input.text || "", workflows, Boolean(input.attachment));
-          reply = { status: "collecting", reply: `${clarification}\n\n${guidance}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
+          const scopedWorkflows = scopeAssistantWorkflows(input.text || "", workflows).workflows;
+          const guidance = scopedWorkflows.length ? assistantRequestGuidance(input.text || "", scopedWorkflows, Boolean(input.attachment)) : "";
+          reply = { status: "collecting", reply: `${clarification}${guidance ? `\n\n${guidance}` : ""}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
         }
       }
       else {
@@ -3153,6 +3201,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     const sessionUpdate: Record<string, unknown> = {
       mode: assistantMode,
       pending,
+      workflowChoice,
       pendingDocumentRequest,
       remainingRequests,
       pendingMemoryProposal,

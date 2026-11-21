@@ -1,5 +1,7 @@
 # Kế hoạch nâng cấp Trợ lý ERP (dành cho coding agent)
 
+**Cập nhật phạm vi ngày 21/11/2026:** chủ dự án yêu cầu bao phủ toàn web, gồm tra cứu/thêm/sửa/xóa và các thao tác được phép. Dùng [phạm vi và thứ tự W1–W6](docs/pham-vi-bao-phu-toan-web-tro-ly-erp.md) cho công việc tiếp theo. Hai action đọc V2 là prototype; không đại diện cho mức hoàn thiện toàn ERP. Các phạm vi giao việc hẹp bên dưới lưu lịch sử, không thay thế mục tiêu toàn web.
+
 **Bản hiệu chỉnh ngày 21/11/2026, sau khi đối chiếu mã nguồn.** Đây là kế hoạch triển khai về sau; việc cập nhật tài liệu này chưa triển khai các tính năng được đề xuất. Các type và tên lớp mới dưới đây là hợp đồng đích cần thiết kế, không phải API đã tồn tại.
 
 Tài liệu này tổng hợp hướng đi, vấn đề cần xử lý và cách làm để nâng Trợ lý ERP hiện tại thành một agent hiểu ngữ cảnh người dùng, thực hiện thao tác ổn định, và **hỏi lại hoặc đưa lựa chọn khi chưa chắc chắn**.

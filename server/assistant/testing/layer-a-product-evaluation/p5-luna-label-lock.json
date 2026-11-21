@@ -71,7 +71,9 @@
   "labelsSha256": "3b83f82846a5981128dce5e99968e3b1b708971be8b6842819f4cef98d1586f2",
   "scriptedRepliesAreGroundTruthForAccuracy": false,
   "sources": {
-    "semantic-interpreter.ts": "47dded69a8f192bd962de61255f70fcf03e688fc23f73f6211597702de9d0d24",
+    "semantic-interpreter.ts": "2f26a119cfe2de25a84d5194c6e01af79c7da2c70f09d866712b1754862a8763",
+    "module-scope.ts": "e278850c55ca611db265f81c45eaebb05651e2051be2bd2548e141fbc7fb1f78",
+    "../../src/config/modules.ts": "b6adc01a7973458877d459bc42832a39182e1b256f1ec58722d075944c7fc0d1",
     "../service/openrouter.service.ts": "ae7f769e24d135167f0cd6b0f1b3c0c06e4c008569d93c75529f18d653cfdebd",
     "catalog.ts": "351dc54adf575a60189b86e077067612024a0adc2be6a6b1e5ff3c3bbaf22d16"
   }

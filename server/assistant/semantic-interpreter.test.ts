@@ -2,9 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const provider = vi.hoisted(() => vi.fn());
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: provider }));
 import { interpretRequest, validateRemainingRequests } from "./semantic-interpreter";
-import { defaultWorkflow, operationById } from "./catalog";
+import { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } from "./catalog";
 import { quotationIntent } from "./quotation-intent";
-afterEach(() => provider.mockReset());
+import { withAssistantExecution } from "./execution-control";
+afterEach(() => { provider.mockReset(); vi.unstubAllEnvs(); });
 const employee = defaultWorkflow(operationById("employee.update")!);
 describe("estimate versus budget routing", () => {
   const workflows = ["quotation.budget.create", "quotation.request.create", "quotation.estimate.create", "quotation.estimate.from-customer"].map(id => defaultWorkflow(operationById(id)!));
@@ -47,6 +48,122 @@ describe("estimate versus budget routing", () => {
   });
 });
 describe("semantic interpretation", () => {
+  const recoveryCases: Array<[string, string, Record<string, unknown>]> = [
+    ["worker.project.create", "tạo 1 dự án mới tên vinscon20 quản lí lao động", { name: "vinscon20" }],
+    ["employee.update", "Đổi chức danh nhân viên Lan thành kế toán", { id: "Lan", jobTitle: "kế toán" }],
+    ["worker.project.delete", "Xóa dự án P-10 trong quản lý lao động", { path_id: "P-10" }],
+    ["product.list", "Xem danh sách sản phẩm", {}],
+  ];
+  it.each(recoveryCases)("rechecks a false unsupported decision against authorized tools: %s", async (id, text, values) => {
+    const workflows = [defaultWorkflow(operationById(id)!)];
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [id] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: id, values, intentType: "workflow" }) });
+    expect(await interpretRequest(text, workflows, null, [])).toMatchObject({ actionId: id, values, intentType: "workflow" });
+    expect(provider).toHaveBeenCalledTimes(3);
+  });
+  it("recovers a worker create excluded by module discovery using the full authorized catalog", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["hr"] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: { name: "invented" }, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: ["worker.project.create"] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "worker.project.create", values: { name: "VINSCON20" }, intentType: "workflow" }) });
+    const result = await interpretRequest("Tạo dự án VINSCON20 cho 5 công nhân", workflows, null, []);
+    expect(result).toMatchObject({ actionId: "worker.project.create", values: { name: "VINSCON20" } });
+    expect(result.values).not.toHaveProperty("code");
+    const routing = provider.mock.calls[2][0];
+    const focused = provider.mock.calls[3][0];
+    expect(routing.messages[0].content).toContain("worker.project.create");
+    expect(focused.messages[0].content).toContain('"actionId":"worker.project.create"');
+    expect(focused.messages[0].content).not.toContain('"actionId":"employee.create"');
+    expect(provider).toHaveBeenCalledTimes(4);
+  });
+  it.each(["not.allowed", "worker.project.create"])("rejects an unauthorized or disabled recovery candidate: %s", async id => {
+    const disabled = { ...defaultWorkflow(operationById("worker.project.create")!), enabled: false };
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [id] }) });
+    await expect(interpretRequest("Tạo dự án", [employee, disabled], null, [])).rejects.toThrow("ngoài danh mục");
+    expect(provider).toHaveBeenCalledTimes(2);
+    expect(provider.mock.calls[1][0].messages[0].content).not.toContain('"actionId":"worker.project.create"');
+  });
+  it.each([
+    { intentType: "ambiguous", cancel: true },
+    { intentType: "unsupported", cancel: true },
+    { intentType: "general_question" },
+    { intentType: "ambiguous", clarification: "Bạn muốn dự án nội bộ hay lao động?" },
+  ])("does not recover cancellation, questions, or an existing clarification: %j", async classification => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, ...classification }) });
+    expect((await interpretRequest("Không tạo nữa", [employee], null, [])).actionId).toBeNull();
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it("does not loop if the focused interpreter still cannot select a tool", async () => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    expect(await interpretRequest("Sửa nhân sự", [employee], null, [])).toMatchObject({ actionId: null, intentType: "ambiguous", values: {} });
+    expect(provider).toHaveBeenCalledTimes(3);
+  });
+  it("does not invent a tool if the capability check has no match", async () => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [] }) });
+    expect((await interpretRequest("Chức năng không có", [employee], null, [])).intentType).toBe("unsupported");
+    expect(provider).toHaveBeenCalledTimes(2);
+  });
+  it("does not recover with an empty authorized catalog", async () => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    expect((await interpretRequest("Tạo dự án", [], null, [])).actionId).toBeNull();
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it.each([{ cancel: null }, { newRequest: "yes" }])("rejects invalid control flags before attempting recovery: %j", async flags => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported", ...flags }) });
+    await expect(interpretRequest("Tạo dự án", [employee], null, [])).rejects.toThrow("không hợp lệ");
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it("keeps clarification when recovery finds multiple possible tools", async () => {
+    const create = defaultWorkflow(operationById("employee.create")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId, create.actionId] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn tạo nhân viên mới hay sửa hồ sơ đã có?" }) });
+    expect(await interpretRequest("Bổ sung nhân viên Lan", [employee, create], null, [])).toMatchObject({ actionId: null, intentType: "ambiguous", clarification: "Bạn muốn tạo nhân viên mới hay sửa hồ sơ đã có?" });
+    expect(provider).toHaveBeenCalledTimes(3);
+  });
+  it("does not use payload values from the tool shortlist", async () => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId], values: { id: "invented", monthlySalary: 999 } }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: employee.actionId, values: { id: "Lan", jobTitle: "kế toán" }, intentType: "workflow" }) });
+    const result = await interpretRequest("Đổi chức danh Lan thành kế toán", [employee], null, []);
+    expect(result.values).toEqual({ id: "Lan", jobTitle: "kế toán" });
+    expect(JSON.stringify(provider.mock.calls[2][0])).not.toContain("invented");
+  });
+  it("does not allow focused extraction to select a tool outside its shortlist", async () => {
+    const create = defaultWorkflow(operationById("employee.create")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: create.actionId, values: {}, intentType: "workflow" }) });
+    await expect(interpretRequest("Đổi chức danh Lan", [employee, create], null, [])).rejects.toThrow("ngoài danh mục");
+  });
+  it("surfaces a capability provider failure without dispatch or another fallback", async () => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockRejectedValueOnce(new Error("fixture provider unavailable"));
+    await expect(interpretRequest("Sửa nhân viên Lan", [employee], null, [])).rejects.toThrow("fixture provider unavailable");
+    expect(provider).toHaveBeenCalledTimes(2);
+  });
+  it("stops before recovery if cancellation arrives after the first classification", async () => {
+    vi.stubEnv("ASSISTANT_SAFE_EXECUTION", "true");
+    const controller = new AbortController();
+    provider.mockImplementationOnce(async () => {
+      controller.abort();
+      return { text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) };
+    });
+    await expect(withAssistantExecution({ deadlineAt: Date.now() + 10_000, signal: controller.signal }, () => interpretRequest("Sửa nhân viên Lan", [employee], null, []))).rejects.toThrow("Đã dừng");
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it.each(["invalid JSON", '{"actionIds":null}', '{"actionIds":[1]}', '{"actionIds":["a","b","c","d","e","f"]}'])("fails safely on invalid capability output: %s", async raw => {
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
+    provider.mockResolvedValueOnce({ text: raw });
+    await expect(interpretRequest("Tạo dự án", [employee], null, [])).rejects.toThrow();
+    expect(provider).toHaveBeenCalledTimes(2);
+  });
   it.each(["worker.list", "student.list", "retail.partner.update"])("does not silently execute a partial request in %s", async id => {
     const workflow = defaultWorkflow(operationById(id)!);
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: id, values: { unsupportedCondition: "sensitive-value" } }) });

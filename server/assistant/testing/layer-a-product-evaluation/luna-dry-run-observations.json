@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21T07:06:46.799Z",
+  "generatedAt": "2026-11-21T09:05:45.805Z",
   "mode": "offline-scripted-provider",
   "model": "openai/gpt-6-luna",
   "corpusVersion": "S-v1-approved-2026-11-21",
@@ -11,7 +11,7 @@
   "actualProviderTokens": null,
   "actualProviderCost": null,
   "usageNote": "Mock Responses omit usage;request bytes are not token counts or a cost estimate.",
-  "fixtureProviderResponses": 81,
+  "fixtureProviderResponses": 84,
   "blockedAttempts": [
     {
       "caseId": "CONTROL-ZERO-BUDGET",
@@ -23,12 +23,13 @@
       "profile": "CAT-NARROW",
       "cases": 24,
       "workflowCount": 2,
-      "mockRequests": 24,
+      "mockRequests": 27,
       "discoveryRequests": 0,
+      "capabilityCheckRequests": 3,
       "requestBodyBytes": {
-        "min": 18929,
+        "min": 2150,
         "max": 19156,
-        "total": 455230
+        "total": 461721
       },
       "excludedFromFutureFullCatalogExactScoring": []
     },
@@ -38,10 +39,11 @@
       "workflowCount": 1003,
       "mockRequests": 54,
       "discoveryRequests": 24,
+      "capabilityCheckRequests": 3,
       "requestBodyBytes": {
         "min": 119962,
         "max": 1456297,
-        "total": 20465294
+        "total": 17331755
       },
       "excludedFromFutureFullCatalogExactScoring": [
         "S18",
@@ -79,7 +81,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.476799999999912,
+      "elapsedMs": 19.66949999999997,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -110,7 +112,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.8052999999999884,
+      "elapsedMs": 2.8687999999999647,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -141,7 +143,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.840099999999893,
+      "elapsedMs": 2.292699999999968,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -170,7 +172,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.222400000000107,
+      "elapsedMs": 2.1437000000000808,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -199,7 +201,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.3438999999998487,
+      "elapsedMs": 2.181500000000142,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -230,7 +232,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.513500000000022,
+      "elapsedMs": 2.1136999999998807,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -261,7 +263,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.2650000000001,
+      "elapsedMs": 2.151399999999967,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -292,7 +294,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.372000000000071,
+      "elapsedMs": 2.2821000000001277,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -323,7 +325,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.528500000000122,
+      "elapsedMs": 2.0810999999998785,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -354,7 +356,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.8199999999999363,
+      "elapsedMs": 2.2491999999999734,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -385,7 +387,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.9285999999999603,
+      "elapsedMs": 2.6743000000001302,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -416,7 +418,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.1082000000001244,
+      "elapsedMs": 2.3863000000001193,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -445,7 +447,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.0546999999999116,
+      "elapsedMs": 2.103399999999965,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -476,7 +478,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.1801000000000386,
+      "elapsedMs": 2.866700000000037,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -507,7 +509,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.0259000000000924,
+      "elapsedMs": 2.0778999999999996,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -536,7 +538,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.4532999999998992,
+      "elapsedMs": 1.8970999999999094,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -565,7 +567,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.1570999999999003,
+      "elapsedMs": 1.9974999999999454,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -591,10 +593,22 @@
             "type": "json_object"
           },
           "candidateCount": 2
+        },
+        {
+          "caseId": "S18",
+          "stage": "capability-check",
+          "bodyBytes": 2168,
+          "bodySha256": "cbc790fb75663dd11a9a50c6e29508ed944b1a7c2e078d5122232d839c9f9033",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
         }
       ],
       "fullCatalogExactLabel": "deferred-D3",
-      "elapsedMs": 2.116800000000012,
+      "elapsedMs": 2.4545000000000528,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -620,10 +634,22 @@
             "type": "json_object"
           },
           "candidateCount": 2
+        },
+        {
+          "caseId": "S19",
+          "stage": "capability-check",
+          "bodyBytes": 2173,
+          "bodySha256": "cf919a2fc1ef5131f57146ddac87e31d6b9577fa66d9f00da335a4eab3faec09",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
         }
       ],
       "fullCatalogExactLabel": "deferred-D3",
-      "elapsedMs": 1.9101000000000568,
+      "elapsedMs": 1.9927000000000135,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -649,10 +675,22 @@
             "type": "json_object"
           },
           "candidateCount": 2
+        },
+        {
+          "caseId": "S20",
+          "stage": "capability-check",
+          "bodyBytes": 2150,
+          "bodySha256": "f0a5167f0baa36f4988318d0686b5bde0341e2c377dd082445193e1b26ef386c",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
         }
       ],
       "fullCatalogExactLabel": "deferred-D3",
-      "elapsedMs": 2.56679999999983,
+      "elapsedMs": 2.023200000000088,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -683,7 +721,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.8532000000000153,
+      "elapsedMs": 2.0765000000001237,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -712,7 +750,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 3.1195000000000164,
+      "elapsedMs": 1.7558999999998832,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -743,7 +781,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 2.9157000000000153,
+      "elapsedMs": 1.9856999999999516,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -773,7 +811,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.095000000000027,
+      "elapsedMs": 2.207099999999855,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -816,7 +854,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 15.29340000000002,
+      "elapsedMs": 11.572499999999991,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -859,7 +897,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 11.764599999999973,
+      "elapsedMs": 11.13110000000006,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -902,7 +940,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.216300000000047,
+      "elapsedMs": 10.040500000000065,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -943,7 +981,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.248499999999922,
+      "elapsedMs": 9.99519999999984,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -984,7 +1022,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.382299999999987,
+      "elapsedMs": 10.195300000000088,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1027,7 +1065,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.000900000000001,
+      "elapsedMs": 9.65689999999995,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1070,7 +1108,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.323300000000017,
+      "elapsedMs": 10.023300000000063,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1113,7 +1151,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.748399999999947,
+      "elapsedMs": 9.6404,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1156,7 +1194,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.742300000000114,
+      "elapsedMs": 9.934200000000146,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1199,7 +1237,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.8442,
+      "elapsedMs": 10.042900000000145,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1242,7 +1280,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.601499999999987,
+      "elapsedMs": 10.258000000000038,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1285,7 +1323,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.373800000000074,
+      "elapsedMs": 9.939300000000003,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1326,7 +1364,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.016600000000153,
+      "elapsedMs": 10.391600000000153,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1369,7 +1407,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.004700000000184,
+      "elapsedMs": 9.830600000000004,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1412,7 +1450,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.938800000000128,
+      "elapsedMs": 11.007300000000214,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1465,7 +1503,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 52.003600000000006,
+      "elapsedMs": 41.07999999999993,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1518,7 +1556,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 51.32569999999987,
+      "elapsedMs": 43.540700000000015,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1559,19 +1597,19 @@
         },
         {
           "caseId": "S18",
-          "stage": "interpretation",
-          "bodyBytes": 1456093,
-          "bodySha256": "2cbc5c5d4543abb32f535d1b28fbde7af095de6fd502003e30f1e8ef334a85ba",
+          "stage": "capability-check",
+          "bodyBytes": 411580,
+          "bodySha256": "27747e9a27b1caed7bec65b5ae3b4f797131e899ac43d1e9004970adee59586b",
           "model": "openai/gpt-6-luna",
-          "maxTokens": null,
+          "maxTokens": 1024,
           "responseFormat": {
             "type": "json_object"
           },
-          "candidateCount": 1003
+          "candidateCount": null
         }
       ],
       "fullCatalogExactLabel": "deferred-D3",
-      "elapsedMs": 42.50130000000013,
+      "elapsedMs": 14.942099999999982,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1612,19 +1650,19 @@
         },
         {
           "caseId": "S19",
-          "stage": "interpretation",
-          "bodyBytes": 1456098,
-          "bodySha256": "5940c1c202b86883686797c1205885805cb05e578f749a0054121b0446d9c7df",
+          "stage": "capability-check",
+          "bodyBytes": 411585,
+          "bodySha256": "b878266b962901513e5f5640b6a3b5258e4aa02c5592f729c75141ba8ac58967",
           "model": "openai/gpt-6-luna",
-          "maxTokens": null,
+          "maxTokens": 1024,
           "responseFormat": {
             "type": "json_object"
           },
-          "candidateCount": 1003
+          "candidateCount": null
         }
       ],
       "fullCatalogExactLabel": "deferred-D3",
-      "elapsedMs": 49.149400000000014,
+      "elapsedMs": 14.961199999999963,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1665,19 +1703,19 @@
         },
         {
           "caseId": "S20",
-          "stage": "interpretation",
-          "bodyBytes": 1456075,
-          "bodySha256": "adb23252d000c12bda55fd192694dc07978adb417ce1d6e0e390a25b97de0a23",
+          "stage": "capability-check",
+          "bodyBytes": 411562,
+          "bodySha256": "d1e67e8b44c9ad45383bae972300320daeaffba5ad03e1536ea673a866788afa",
           "model": "openai/gpt-6-luna",
-          "maxTokens": null,
+          "maxTokens": 1024,
           "responseFormat": {
             "type": "json_object"
           },
-          "candidateCount": 1003
+          "candidateCount": null
         }
       ],
       "fullCatalogExactLabel": "deferred-D3",
-      "elapsedMs": 44.44979999999987,
+      "elapsedMs": 15.430000000000064,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1720,7 +1758,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.964300000000094,
+      "elapsedMs": 13.649899999999889,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1773,7 +1811,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 43.09180000000015,
+      "elapsedMs": 46.99189999999999,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1816,7 +1854,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 9.903099999999995,
+      "elapsedMs": 10.495599999999968,
       "outcome": "offline-contract-check-only"
     },
     {
@@ -1858,7 +1896,7 @@
         }
       ],
       "fullCatalogExactLabel": "approved-slice-only",
-      "elapsedMs": 10.020700000000033,
+      "elapsedMs": 9.60590000000002,
       "outcome": "offline-contract-check-only"
     },
     {

@@ -1,5 +1,11 @@
 # Kế hoạch hoàn thiện Trợ lý ERP sau lớp B
 
+**Phân biệt namespace dự án:** đã [sửa ràng buộc Nhân sự/Quản lý lao động](ket-qua-phan-biet-du-an-nhan-su-lao-dong.md), thêm lựa chọn có nhãn phân hệ và chặn action/preview sai namespace. Kiểm fixture và AI thật bằng dữ liệu nhân tạo; chưa deploy hoặc nghiệm thu toàn web. Lượt AI chẩn đoán được người dùng cho phép riêng, không mở toàn bộ ngân sách P5.
+
+**Runtime ngày 21/11/2026:** đã [sửa bước phục hồi khi nhận diện sai unsupported trên catalog theo quyền](ket-qua-sua-nhan-dien-thao-tac-toan-catalog.md), kiểm bằng fixture tạo dự án trong ảnh và hồi quy. Đây là sửa đường legacy chung, chưa là nghiệm thu toàn web hoặc mở V2 ghi; chưa gọi model thật/deploy.
+
+**Phạm vi mới theo yêu cầu chủ dự án ngày 21/11/2026:** hoàn thiện trợ lý cho **toàn web ERP, gồm đọc/thêm/sửa/xóa và các thao tác được phép**, theo [kế hoạch bao phủ toàn web](pham-vi-bao-phu-toan-web-tro-ly-erp.md). Hai action đọc là prototype đã bàn giao. Thứ tự công việc tiếp theo dùng W1–W6 trong tài liệu mới; các gói P bên dưới lưu tiến độ và bằng chứng lịch sử, không giới hạn đích đến ở trang sản phẩm. Việc cập nhật phạm vi chưa triển khai runtime, gọi model thật hoặc bật production.
+
 Ngày: **21/11/2026**. Trạng thái: **P1–P3 đã bàn giao; P4 đã duyệt24 ca S/D1–D5, O/F và D6 còn mở; P5 đã [chuẩn bị/dry-run offline](ket-qua-p5-dry-run-tro-ly-erp.md) theo lựa chọn người dùng, chưa chạy model thật hoặc bật production**.
 
 **P6 theo lệnh mới:** đã bàn giao [cổng gọi đọc, deadline/cancel và hồi quy](ket-qua-p6-cong-goi-deadline-cancel.md) cục bộ:359 test P6 và366 test hồi quy/offline pass, typecheck pass. Người dùng chốt **giữ budget tính primary/cap24 nhưng journal đủ call; chưa V2/ghi**. Flag `ASSISTANT_SAFE_EXECUTION=false`, production không được bật; ngân sách P5 live vẫn0.

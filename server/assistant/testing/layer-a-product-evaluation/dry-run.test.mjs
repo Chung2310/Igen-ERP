@@ -21,6 +21,7 @@ const narrow = () => ['product.list', 'inventory.product.detail'].map(id => defa
 // Synthetic all-metadata profile. No real user's permissions/settings/DB are read.
 const productionShaped = () => ASSISTANT_OPERATIONS.map(defaultWorkflow).filter(workflow => workflow.enabled);
 const isDiscovery = body => body.messages[0].content.startsWith('Khám phá công cụ ERP');
+const isCapabilityCheck = body => body.messages[0].content.startsWith('Kiểm tra lại khả năng thực hiện yêu cầu ERP');
 const mainWorkflows = body => {
   const line = body.messages[0].content.split('\n').find(line => line.startsWith('DANH MỤC: '));
   return line ? JSON.parse(line.slice('DANH MỤC: '.length)) : null;
@@ -46,8 +47,10 @@ beforeEach(() => {
       blockedAttempts.push({ caseId: 'CONTROL-ZERO-BUDGET', reason: 'DRY_RUN_TRANSPORT_DISABLED' });
       throw Object.assign(new Error('DRY_RUN_TRANSPORT_DISABLED'), { status: 401 });
     }
-    const stage = isDiscovery(body) ? 'discovery' : 'interpretation';
-    const response = stage === 'discovery' ? discovery : current.scripted;
+    const stage = isDiscovery(body) ? 'discovery' : isCapabilityCheck(body) ? 'capability-check' : 'interpretation';
+    // Unsupported fixtures deliberately declare no matching tool. This is provider
+    // plumbing, not a new accuracy label for the full catalog or the recovery model.
+    const response = stage === 'discovery' ? discovery : stage === 'capability-check' ? { actionIds: [] } : current.scripted;
     const publicBody = { ...body };
     wireCalls.push({ caseId: current?.id || 'control', stage, body: publicBody,
       bodyBytes: Buffer.byteLength(init.body), bodySha256: createHash('sha256').update(init.body).digest('hex') });
@@ -68,6 +71,7 @@ afterAll(() => {
     return { profile, cases: cohort.length, workflowCount: cohort[0]?.workflowCount,
       mockRequests: cohort.reduce((n, run) => n + run.calls.length, 0),
       discoveryRequests: cohort.flatMap(run => run.calls).filter(call => call.stage === 'discovery').length,
+      capabilityCheckRequests: cohort.flatMap(run => run.calls).filter(call => call.stage === 'capability-check').length,
       requestBodyBytes: { min: Math.min(...sizes), max: Math.max(...sizes), total: sizes.reduce((n, size) => n + size, 0) },
       excludedFromFutureFullCatalogExactScoring: profile === 'CAT-PRODUCTION-SHAPED' ? ['S18', 'S19', 'S20'] : [],
     };
@@ -87,7 +91,7 @@ afterAll(() => {
     source: 'docs/phieu-duyet-48-ca-tro-ly-erp.md', approvedRows,
     labelsSha256: createHash('sha256').update(approvedRows.join('\n')).digest('hex'),
     scriptedRepliesAreGroundTruthForAccuracy: false,
-    sources: Object.fromEntries(['semantic-interpreter.ts', '../service/openrouter.service.ts', 'catalog.ts'].map(name => {
+    sources: Object.fromEntries(['semantic-interpreter.ts', 'module-scope.ts', '../../src/config/modules.ts', '../service/openrouter.service.ts', 'catalog.ts'].map(name => {
       const path = new URL(`../../${name}`, import.meta.url);
       return [name, createHash('sha256').update(readFileSync(path)).digest('hex')];
     })),
@@ -110,14 +114,15 @@ describe.each(['CAT-NARROW', 'CAT-PRODUCTION-SHAPED'])('P5 offline prompt plumbi
     const started = performance.now();
     const result = await interpretRequest(item.text, workflows, item.pending || null, item.messages || [], '', [], '', ['inventory']);
     const calls = wireCalls.slice(start);
-    const expanded = profile === 'CAT-PRODUCTION-SHAPED'
-      && ['ambiguous', 'unsupported'].includes(item.scripted.intentType) && !item.scripted.cancel;
-    expect(calls.map(call => call.stage)).toEqual(profile === 'CAT-NARROW' ? ['interpretation']
-      : expanded ? ['discovery', 'interpretation', 'interpretation'] : ['discovery', 'interpretation']);
+    const expanded = profile === 'CAT-PRODUCTION-SHAPED' && item.scripted.intentType === 'ambiguous' && !item.scripted.cancel;
+    const expectedStages = profile === 'CAT-NARROW' ? ['interpretation'] : ['discovery', 'interpretation'];
+    if (expanded) expectedStages.push('interpretation');
+    if (item.scripted.intentType === 'unsupported' && !item.scripted.cancel) expectedStages.push('capability-check');
+    expect(calls.map(call => call.stage)).toEqual(expectedStages);
     expect(result.actionId).toBe(item.scripted.actionId);
     expect(result.values).toEqual(item.scripted.values);
     if (item.id === 'S24') expect(result.cancel).toBe(true);
-    const wire = calls.at(-1).body;
+    const wire = calls.filter(call => call.stage === 'interpretation').at(-1).body;
     expect(wire.response_format).toEqual({ type: 'json_object' });
     // Main interpretation currently requests JSON mode without a responseSchema.
     expect(wire.messages[0].content.includes('Respond ONLY with a valid JSON object')).toBe(false);
