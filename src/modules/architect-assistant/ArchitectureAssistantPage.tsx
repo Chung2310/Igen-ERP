@@ -349,7 +349,7 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
       </>}
     </ModuleNavigation>
 
-    <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto px-2 pb-4 pt-1 lg:px-0">
+    <div className="min-h-0 min-w-0 flex-1 space-y-2.5 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
 
       {error && <div className="flex items-start justify-between gap-3 rounded-lg border border-error/40 bg-error-container/20 px-4 py-3 text-sm text-on-surface" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Đóng</button></div>}
       {notice && <p className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface" role="status"><Check className="size-4 text-primary" aria-hidden="true" />{notice}</p>}
