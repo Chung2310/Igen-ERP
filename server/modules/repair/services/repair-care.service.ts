@@ -15,8 +15,9 @@ export async function repairCareForTicket(scope: RepairScope, ticketId: string) 
   const ticket = await scopedTicket(scope, ticketId);
   const [careCase, events] = await Promise.all([
     RepairCareCaseModel.findOne({ ...scope, ticketId }).lean(),
-    RepairCareEventModel.find({ ...scope, ticketId }).sort({ createdAt: 1, _id: 1 }).limit(500).lean(),
+    RepairCareEventModel.find({ ...scope, ticketId }).sort({ createdAt: -1, _id: -1 }).limit(500).lean(),
   ]);
+  events.reverse();
   return { careCase: careCase || { ticketId, ticketCode: ticket.ticketCode, customerId: ticket.customerId, customerName: ticket.customerName, status: "open" }, events };
 }
 export async function repairCareForCustomer(scope: RepairScope, customerId: string) {

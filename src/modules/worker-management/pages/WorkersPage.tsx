@@ -19,6 +19,7 @@ import { ImportWorkerModal } from "../components/ImportWorkerModal";
 import { WorkerDetailModal } from "../components/WorkerDetailModal";
 import { useWorkers } from "../hooks/useWorkers";
 import { laborPartnersApi } from "../partners/api/laborPartners.api";
+import { workerApiFetch } from "../api/client";
 import { workerLaborTypeLabel } from "../types";
 import type {
   Worker,
@@ -662,7 +663,6 @@ export default function WorkersPage({
       />
       {qrOpen && registrationOwnerId && (
         <RegistrationQrModal
-          ownerId={registrationOwnerId}
           companyCode={selectedCenter}
           branchId={branchId}
           onClose={() => setQrOpen(false)}
@@ -905,27 +905,44 @@ function WorkerRow({
 }
 
 function RegistrationQrModal({
-  ownerId,
   companyCode,
   branchId,
   onClose,
 }: {
-  ownerId: string;
   companyCode?: string;
   branchId?: string;
   onClose: () => void;
 }) {
   const [qrDataUrl, setQrDataUrl] = React.useState("");
-  const params = new URLSearchParams({ teacherId: ownerId, entityPreset: "worker" });
-  if (companyCode && companyCode !== "all") params.set("registrationCompanyCode", companyCode);
-  if (branchId) params.set("registrationBranchId", branchId);
-  const registerUrl = `${window.location.origin}/public/dang-ky?${params.toString()}`;
+  const [registrationToken, setRegistrationToken] = React.useState("");
+  const [linkError, setLinkError] = React.useState("");
+  const [isCreatingLink, setIsCreatingLink] = React.useState(false);
+  const registerUrl = registrationToken
+    ? `${window.location.origin}/public/dang-ky?${new URLSearchParams({ registrationToken }).toString()}`
+    : "";
 
   React.useEffect(() => {
     let cancelled = false;
+    setRegistrationToken("");
+    setQrDataUrl("");
+    setLinkError("");
+    setIsCreatingLink(true);
+    workerApiFetch<{ data: { registrationToken: string } }>("/students/public-register-link", {
+      method: "POST",
+      body: JSON.stringify({ companyCode, branchId, entityPreset: "worker" }),
+    })
+      .then((response) => { if (!cancelled) setRegistrationToken(response.data.registrationToken); })
+      .catch((error: unknown) => { if (!cancelled) setLinkError(error instanceof Error ? error.message : "Không tạo được liên kết đăng ký."); })
+      .finally(() => { if (!cancelled) setIsCreatingLink(false); });
+    return () => { cancelled = true; };
+  }, [companyCode, branchId]);
+
+  React.useEffect(() => {
+    if (!registerUrl) return;
+    let cancelled = false;
     QRCode.toDataURL(registerUrl, { width: 320, margin: 1 })
       .then((url) => { if (!cancelled) setQrDataUrl(url); })
-      .catch(() => toast.error("Không tạo được mã QR."));
+      .catch(() => { if (!cancelled) setLinkError("Không tạo được mã QR."); });
     return () => { cancelled = true; };
   }, [registerUrl]);
 
@@ -945,14 +962,15 @@ function RegistrationQrModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="mt-4 break-all rounded-xl bg-slate-50 p-3 text-[10px] text-slate-500">
-          {registerUrl}
+        <p aria-live="polite" className="mt-4 break-all rounded-xl bg-slate-50 p-3 text-[10px] text-slate-500">
+          {registerUrl || (isCreatingLink ? "Đang tạo liên kết đăng ký…" : "")}
         </p>
+        {linkError && <p role="alert" className="mt-2 text-xs text-error">{linkError}</p>}
         <div className="mt-4 flex items-center justify-center rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-4">
           {qrDataUrl ? (
             <img src={qrDataUrl} alt="QR đăng ký lao động" className="h-56 w-56" />
           ) : (
-            <div className="h-56 w-56 animate-pulse rounded-lg bg-slate-200" />
+            <div aria-hidden="true" className="h-56 w-56 rounded-lg bg-surface-container-low" />
           )}
         </div>
       </div>

@@ -5,7 +5,7 @@ import { validate } from "../middlewares/validate.middleware";
 import { createStudentSchema, updateStudentSchema, idParamSchema, installmentParamsSchema, createStudentInstallmentSchema, updateStudentInstallmentSchema, publicRegisterStudentSchema, assignStudentBranchSchema } from "../validations/student.validation";
 import { publicApiRateLimiter } from "../../../middleware/rate-limit";
 import { upload } from "../config/cloudinary";
-import { publicRegisterConfigQuerySchema } from "../validations/standard-field.validation";
+import { publicRegisterConfigQuerySchema, publicRegistrationLinkSchema } from "../validations/standard-field.validation";
 import { requireAnyPermission } from "../../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
 
@@ -24,6 +24,7 @@ router.patch("/:id/assign-branch", adminUnassignedAuthMiddleware, requireManage,
 
 router.use(authMiddleware);
 
+router.post("/public-register-link", requireManage, validate(publicRegistrationLinkSchema), StudentController.createPublicRegistrationLink);
 router.post("/", requireManage, validate(createStudentSchema), StudentController.create);
 router.post("/bulk", requireManage, StudentController.bulkCreate);
 router.post("/bulk-preview", requireManage, StudentController.previewBulk);

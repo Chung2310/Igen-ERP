@@ -1,7 +1,7 @@
 import { hasQuotationCapability } from "./api";
 import { userMessage } from "./user-message";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ApiError, api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatMoney, type GeneratedFileRef } from "./api";
+import { ApiError, api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatMoney, type GeneratedExportStatus, type GeneratedFileRef } from "./api";
 import MoneyInput from "./MoneyInput";
 import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import { TaskProgress } from "./Feedback";
@@ -95,6 +95,8 @@ export default function BudgetPlanner({ onAiUsed }: { onAiUsed: () => void }) {
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [savedExport, setSavedExport] = useState<GeneratedFileRef | null>(null);
+  const [exportJob, setExportJob] = useState<GeneratedExportStatus | null>(null);
+  const [exportStartedAt, setExportStartedAt] = useState<number | null>(null);
   const [exportTemplates, setExportTemplates] = useState<CustomerQuoteTemplate[]>([]);
   const [exportTemplateId, setExportTemplateId] = useState("none");
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -130,12 +132,22 @@ export default function BudgetPlanner({ onAiUsed }: { onAiUsed: () => void }) {
   }, [dialogMode]);
 
   useEffect(() => {
-    if (!selectedId) { setSavedExport(null); return; }
+    if (!selectedId) { setSavedExport(null); setExportJob(null); return; }
     let active = true;
-    getLatestGeneratedFile(selectedId, "budget")
-      .then(({ file }) => { if (active) setSavedExport(file); })
-      .catch(() => { if (active) setSavedExport(null); });
-    return () => { active = false; };
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const { file, job } = await getLatestGeneratedFile(selectedId, "budget");
+        if (!active) return;
+        setSavedExport(file);
+        setExportJob(job);
+        if (job?.status === "queued" || job?.status === "running") timer = setTimeout(() => void poll(), 2000);
+      } catch {
+        if (active) { setSavedExport(null); setExportJob(null); }
+      }
+    };
+    void poll();
+    return () => { active = false; clearTimeout(timer); };
   }, [selectedId, result]);
 
   // Filters & search
@@ -262,16 +274,20 @@ export default function BudgetPlanner({ onAiUsed }: { onAiUsed: () => void }) {
 
   const exportPlan = async () => {
     if (!selectedId || exporting) return;
+    setExportStartedAt(Date.now());
+    setExportJob(null);
     setExporting(true);
     setError("");
     try {
       const file = await createGeneratedExport(`/api/budget-plans/${selectedId}/export?background=1&templateId=${encodeURIComponent(exportTemplateId)}`);
       setSavedExport(file);
+      setExportJob(null);
       setUpdateNotice(`Đã tạo và lưu ${file.filename}.`);
     } catch (cause) {
       setError(userMessage(cause, "Không xuất được file phương án."));
     } finally {
       setExporting(false);
+      setExportStartedAt(null);
     }
   };
 
@@ -753,7 +769,13 @@ export default function BudgetPlanner({ onAiUsed }: { onAiUsed: () => void }) {
                   </div>
                   {templateLoadError && <p role="alert">{templateLoadError}</p>}
                   {savedExport && <p className="bp-export-status">File lưu gần nhất: {savedExport.filename}</p>}
-                  {exporting && <TaskProgress label="Đang tạo file phương án" detail="Đang hoàn thiện và lưu file phương án…" />}
+                  {(exporting || exportJob?.status === "queued" || exportJob?.status === "running") && <TaskProgress
+                    label="Đang tạo file phương án"
+                    detail="Phần trăm là ước tính; file sẽ sẵn sàng khi tác vụ hoàn tất."
+                    estimated
+                    status={exporting ? "running" : exportJob!.status}
+                    startedAt={exporting ? exportStartedAt ?? undefined : exportJob?.startedAt ?? exportJob?.createdAt}
+                  />}
                 </section>
 
                 {/* Financial KPI Strip */}

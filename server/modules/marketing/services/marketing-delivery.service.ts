@@ -6,6 +6,8 @@ import { attachmentRefForDelivery, resolveMarketingAttachments, type MarketingAt
 import { renderMarketingTemplate, type MarketingVariables } from "./marketing-template";
 
 const duplicate = (error: any) => error?.code === 11000;
+export const MARKETING_STALE_DELIVERY_MS = 20 * 60 * 1000;
+export const MARKETING_STALE_DELIVERY_ERROR = "Tiến trình bị gián đoạn nên chưa xác định được email đã được nhà cung cấp nhận hay chưa. Hãy kiểm tra trước khi gửi lại để tránh gửi trùng.";
 
 export type QueueInput = {
   companyCode: string;
@@ -27,6 +29,20 @@ export type QueueOutcome = { status: "sent" | "failed" | "skipped" | "duplicate"
 export async function companyNameOf(companyCode: string) {
   const company: any = await CompanyModel.findOne({ code: companyCode.toUpperCase() }).select("name").lean();
   return String(company?.name || companyCode);
+}
+
+/**
+ * A process can stop after creating a delivery but before saving the SMTP result.
+ * Make those rows visible as uncertain failures so a manager can inspect and
+ * explicitly decide whether to retry; never resend them automatically.
+ */
+export async function recoverStaleMarketingDeliveries(now = new Date()) {
+  const staleBefore = new Date(now.getTime() - MARKETING_STALE_DELIVERY_MS);
+  const result = await MarketingDeliveryModel.updateMany(
+    { status: "sending", updatedAt: { $lte: staleBefore } },
+    { $set: { status: "failed", error: MARKETING_STALE_DELIVERY_ERROR } },
+  );
+  return result.modifiedCount;
 }
 
 /**

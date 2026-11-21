@@ -47,6 +47,17 @@ it("forwards the authenticated branch to all payment service actions", async () 
   assert.equal(remove.mock.calls[0]?.[2], branchA);
 });
 
+it("preserves payment domain conflicts for the client", async () => {
+  vi.spyOn(PaymentService, "deletePayment").mockRejectedValue(Object.assign(new Error("Đối soát trước khi xóa giao dịch."), { statusCode: 409 }));
+  const user = { uid: "shared-owner", id: "shared-owner", email: "a@example.com", role: "admin", centerId: "ACME", branchId: branchA };
+  const response = responseCapture();
+
+  await PaymentController.delete({ user, params: { id: "payment-a" } } as any, response as unknown as Response);
+
+  assert.equal(response.statusCode, 409);
+  assert.deepEqual(response.body, { success: false, error: "Đối soát trước khi xóa giao dịch." });
+});
+
 it("lists only payments in the authenticated branch when owners overlap", async () => {
   const countDocuments = vi.spyOn(Payment as any, "countDocuments").mockResolvedValue(0);
   const find = vi.spyOn(Payment as any, "find").mockImplementation(() => ({

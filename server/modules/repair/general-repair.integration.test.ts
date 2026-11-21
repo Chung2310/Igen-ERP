@@ -106,6 +106,26 @@ describe('sửa chữa dùng chung và hàng khách gửi', () => {
     expect(await balance()).toBe(10);
   });
 
+  it("keeps a legacy ticket open after a failed part return and allows a safe retry", async () => {
+    const ticket = await ready("legacy-cancel-retry");
+    await RepairTicketModel.updateOne({ _id: ticket._id }, { $unset: { intakeSource: "" } });
+    const part = await issueRepairPart(scope, String(ticket._id), { productId, sku: "CABLE", productName: "Wire", quantity: 1, unitCost: 100, unitPrice: 200, idempotencyKey: "legacy-cancel-part" }, actor);
+    expect(await balance()).toBe(9);
+
+    const failure = vi.spyOn(RepairPartModel.prototype, "save").mockRejectedValueOnce(new Error("Injected part return failure"));
+    try {
+      await expect(cancelRepairTicket(scope, String(ticket._id), "Cancel retry", actor)).rejects.toThrow("Injected part return failure");
+    } finally { failure.mockRestore(); }
+    expect((await RepairTicketModel.findById(ticket._id).lean())?.status).toBe("approved");
+    expect((await RepairPartModel.findById(part._id).lean())?.status).toBe("issued");
+    expect(await balance()).toBe(10);
+
+    await cancelRepairTicket(scope, String(ticket._id), "Cancel retry", actor);
+    expect((await RepairTicketModel.findById(ticket._id).lean())?.status).toBe("cancelled");
+    expect((await RepairPartModel.findById(part._id).lean())?.status).toBe("returned");
+    expect(await balance()).toBe(10);
+  });
+
   it('lỗi ghi vật tư rollback cả tồn và phiếu; hủy hoàn toàn bộ vật tư', async () => {
     const ticket = await ready();
     const input = { productId, sku: 'CABLE', productName: 'Dây dẫn', quantity: 2, unitCost: 1, unitPrice: 200, idempotencyKey: 'part-rollback-001' };

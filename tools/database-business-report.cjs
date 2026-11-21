@@ -1,7 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const dir = path.resolve(process.argv[2] || 'tmp/business-db-round2');
-const run = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
+const runs = ['results.json', 'completion-regression.json'].filter(name => fs.existsSync(path.join(dir, name)))
+  .map(name => JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')));
+if (!runs.length) throw new Error('No test results found');
+const run = {
+  testResults: runs.flatMap(result => result.testResults),
+  numTotalTests: runs.reduce((sum, result) => sum + result.numTotalTests, 0),
+  numPassedTests: runs.reduce((sum, result) => sum + result.numPassedTests, 0),
+  numFailedTests: runs.reduce((sum, result) => sum + result.numFailedTests, 0),
+};
 const tests = run.testResults.flatMap(s => s.assertionResults.map(t => ({file:s.name,name:t.title,fullName:t.fullName,status:t.status,errors:t.failureMessages})));
 const readLines = name => {
   const file = path.join(dir, name);
@@ -18,7 +26,7 @@ const report = {generatedAt:new Date().toISOString(),summary:{total:run.numTotal
     'Không phải tỷ lệ bao phủ toàn app hoặc toàn bộ chức năng của ba module.',
     'MongoDB replica set thật, biệt lập và tạm. Không ghi dữ liệu ERP thật.',
     'Các hội thoại giả lập đầu ra AI, session, quyền và HTTP. HTTP chuyển tới service thật. Chưa kiểm tra đăng nhập/JWT hoặc router thật. Xem từng ca để biết thao tác cụ thể đã kiểm tra.',
-    'Ca hội thoại bán lẻ chỉ chứng minh lưu đơn nháp, chưa chứng minh thanh toán POS qua hội thoại. Ca service và ca hội thoại là hai lớp bằng chứng riêng.',
+    'Phạm vi hội thoại được xác định bởi từng ca bên dưới. Ca service và ca hội thoại là hai lớp bằng chứng riêng. Chưa kiểm tra giao diện POS hoặc kết nối thanh toán thật.',
     'Test bán lẻ mock bước cập nhật hạng khách hàng sau giao dịch. Chưa chứng minh bước này.',
     'Snapshot mỗi model tối đa 50 bản ghi, có tổng count để nhận biết dữ liệu vượt giới hạn.',
     'Không gọi AI trả phí, không gửi email hoặc tin nhắn thật.'

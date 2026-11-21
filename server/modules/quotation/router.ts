@@ -815,6 +815,7 @@ app.get("/generated-export-files/latest", async (request, response) => {
     error: latestJob.error,
     filename: latestJob.filename,
     createdAt: latestJob.createdAt,
+    startedAt: latestJob.startedAt,
     updatedAt: latestJob.updatedAt,
   } : null });
 });

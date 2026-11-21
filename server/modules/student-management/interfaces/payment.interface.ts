@@ -10,6 +10,7 @@ export interface IPayment extends Document {
   note?: string;
   ownerId: string;
   branchId?: string;
+  installmentAllocations?: Array<{ installmentNo: number; amount: number }>;
   createdAt?: Date;
   updatedAt?: Date;
 }
