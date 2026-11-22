@@ -14,7 +14,7 @@ npm run typecheck
 - Config dùng envDir riêng, không đọc `.env` root. Không cần key/DB/API thật. Safety guard dùng lại của lớp B; regression dùng thêm mock Redis startup từ bộ LLM.
 - `product-read.test.mjs` kế thừa fixture P3 thành bản riêng:8 tổ hợp gate/C/observer, so cặp và fault injection. Không đổi test lớp B gốc. Interpretation scripted, persistence/auth/workflow và API đều mock; `processTurn`/executor/budget/completion là code thật.
 - `execution-control.test.mjs` chạy helper, provider Luna và semantic interpreter thật với native fetch mock: cancellation, deadline tổng, discovery, retry/backoff, response body và cleanup/isolation.
-- `p6-observations.json` là trace ở afterEach; trạng thái `outcome` có thể là trung gian. Pass/fail chính thức lấy từ reporter JSON, không từ trace.
+- `p6-observations.json` được tạo cục bộ ở afterEach và bỏ khỏi Git vì kích thước lớn; chạy suite để tạo lại. `outcome` trong trace có thể là trạng thái trung gian. Pass/fail chính thức lấy từ reporter JSON.
 - `p6-gate-comparison.json` so144 cặp; `p6-exact-comparison.json` giữ đối chứng C trong gate-off.
 - `summarize-p6.mjs` chọn cùng19 kịch bản/31 turn của P3, kiểm counts, persistence overhead và source hashes trước khi xuất `p6-summary.json`. Không gộp helper/safety/negative-only controls vào phân bố đó.
 - Một số test cố ý gọi guard để xác nhận chặn I/O; expected violations được kiểm riêng. Không có request được gửi ra mạng. Test instances không là số ca corpus hoặc accuracy model.
