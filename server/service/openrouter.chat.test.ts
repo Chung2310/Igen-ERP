@@ -3,10 +3,10 @@ import { openrouterChat } from "./openrouter.service";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-it("uses the task-specific Qwen fallback after the free prompt model runs out of requests", async () => {
+it("pins language calls to GPT-6 Luna despite legacy primary/fallback model settings", async () => {
   vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  vi.stubEnv("OPENROUTER_FALLBACK_MODEL", "qwen/qwen3.6-flash");
   const fetchMock = vi.fn()
-    .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
     .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: "Prompt đã chuẩn hoá" } }] }));
   vi.stubGlobal("fetch", fetchMock);
 
@@ -18,9 +18,9 @@ it("uses the task-specific Qwen fallback after the free prompt model runs out of
   });
 
   expect(response.text).toBe("Prompt đã chuẩn hoá");
-  expect(fetchMock).toHaveBeenCalledTimes(2);
-  expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).model).toBe("google/gemma-4-31b-it:free");
-  expect(JSON.parse(String(fetchMock.mock.calls[1][1].body)).model).toBe("qwen/qwen3.5-flash-02-23");
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).model).toBe("openai/gpt-6-luna");
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).not.toHaveProperty("temperature");
 });
 
 it("sets the requested output cap when a caller provides one", async () => {
@@ -79,7 +79,7 @@ it("requires an OpenRouter key instead of switching to FreeLLM when fallback is 
     model: "openai/gpt-6-luna",
     allowFallback: false,
     messages: [{ role: "user", content: "Return a floor plan" }],
-  })).rejects.toThrow("OPENROUTER_API_KEY is required");
+  })).rejects.toThrow("OPENROUTER_API_KEY");
 
   expect(fetchMock).not.toHaveBeenCalled();
 });

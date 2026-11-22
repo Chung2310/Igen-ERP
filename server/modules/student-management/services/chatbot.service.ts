@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../shared/llm-model";
 import { logger } from "../config/logger";
 import { Student } from "../models/student.model";
 import { Exam } from "../models/exam.model";
@@ -6,7 +7,7 @@ import { Payment } from "../models/payment.model";
 export class ChatbotService {
   static async getResponse(ownerId: string, messages: { role: string; content: string }[]): Promise<string> {
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
-    const model = process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
+    const model = ERP_LLM_MODEL;
 
     if (!apiKey) {
       throw new Error("Cấu hình khóa API (OPENROUTER_API_KEY) chưa được thiết lập trên Server.");

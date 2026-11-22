@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   GEMINI_TEXT_MODEL,
@@ -132,8 +133,7 @@ Do not include markdown blocks or any text other than the JSON object.`
         maxRetries: 1,
         fallbackMaxRetries: 1,
         fallbackModel:
-          process.env.IMAGE_PROMPT_FALLBACK_MODEL ||
-          "google/gemini-2.5-flash",
+          ERP_LLM_MODEL,
       });
       const parsed = safeParseJson(result.text);
       return parsed && typeof parsed === "object" && !Array.isArray(parsed)

@@ -1,0 +1,418 @@
+[
+  {
+    "scenario": "EXISTING REJECTION product.list mirrors generic api-rejection-probe",
+    "before": {
+      "calls": 1,
+      "charged": 1,
+      "statuses": [
+        "failed"
+      ]
+    },
+    "after": {
+      "calls": 1,
+      "charged": 1,
+      "statuses": [
+        "failed"
+      ]
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION inventory.product.detail mirrors generic api-rejection-probe",
+    "before": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "failed"
+      ]
+    },
+    "after": {
+      "calls": 2,
+      "charged": 1,
+      "statuses": [
+        "failed"
+      ]
+    }
+  },
+  {
+    "scenario": "CONTROL product.list mirrors existing generic success-probe shape",
+    "before": {
+      "calls": 1,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 1,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "CG02 unique detail traces parent product and every physical read",
+    "before": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 2,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P2 by its public product code without variant retargeting",
+    "before": {
+      "calls": 7,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 6,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P3 by its public product code without variant retargeting",
+    "before": {
+      "calls": 7,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 6,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 retains free-text product code recovery from same-name choices",
+    "before": {
+      "calls": 6,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 5,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are missing",
+    "before": {
+      "calls": 8,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ]
+    },
+    "after": {
+      "calls": 8,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are same",
+    "before": {
+      "calls": 8,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ]
+    },
+    "after": {
+      "calls": 8,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 keeps an ambiguous pre-fix pending selection safe and allows choosing again after restating the name",
+    "before": {
+      "calls": 15,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "collecting",
+        "collecting",
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 14,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "collecting",
+        "collecting",
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 rejects a fabricated option that was not offered by the server",
+    "before": {
+      "calls": 3,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "failed"
+      ]
+    },
+    "after": {
+      "calls": 3,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "failed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 respects revoked permission between showing and selecting an option",
+    "before": {
+      "calls": 3,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "failed"
+      ]
+    },
+    "after": {
+      "calls": 3,
+      "charged": 0,
+      "statuses": [
+        "collecting",
+        "failed"
+      ]
+    }
+  },
+  {
+    "scenario": "P1 still requires configured confirmation after selecting a product",
+    "before": {
+      "calls": 7,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "confirmation",
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 6,
+      "charged": 1,
+      "statuses": [
+        "collecting",
+        "confirmation",
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "O14 CG05 F25 succeeds because executor requests limit100 instead of API default20",
+    "before": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 2,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "O14 CG05 F101 compares revalidation beyond first100",
+    "before": {
+      "calls": 3,
+      "charged": 0,
+      "statuses": [
+        "failed"
+      ]
+    },
+    "after": {
+      "calls": 2,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "O15 CG03 fallback reads are counted physically but not all in the current journal",
+    "before": {
+      "calls": 4,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "CG06 empty variants preserves existing transport parent but projects zero rows",
+    "before": {
+      "calls": 1,
+      "charged": 0,
+      "statuses": []
+    },
+    "after": {
+      "calls": 1,
+      "charged": 0,
+      "statuses": []
+    }
+  },
+  {
+    "scenario": "CG06 nonempty detail projects SKU ids while keeping a separate productId",
+    "before": {
+      "calls": 1,
+      "charged": 0,
+      "statuses": []
+    },
+    "after": {
+      "calls": 1,
+      "charged": 0,
+      "statuses": []
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION two sequential read steps keep independent physical calls",
+    "before": {
+      "calls": 4,
+      "charged": 2,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 3,
+      "charged": 2,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "CONTROL raw-ID reference after first100 is distinct from product absence",
+    "before": {
+      "calls": 2,
+      "charged": 0,
+      "statuses": []
+    },
+    "after": {
+      "calls": 2,
+      "charged": 0,
+      "statuses": []
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION nine distinct detail steps compare physical reads with9 charged",
+    "before": {
+      "calls": 27,
+      "charged": 9,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 18,
+      "charged": 9,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "SAFETY external fetch and direct DB/provider calls fail before real I/O",
+    "before": {
+      "calls": 0,
+      "charged": 0,
+      "statuses": []
+    },
+    "after": {
+      "calls": 0,
+      "charged": 0,
+      "statuses": []
+    }
+  },
+  {
+    "scenario": "P2 detail with no SKU preserves the existing parent product",
+    "before": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 2,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  },
+  {
+    "scenario": "P2 flag is off when unset, regardless of the comparison group",
+    "before": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    },
+    "after": {
+      "calls": 3,
+      "charged": 1,
+      "statuses": [
+        "completed"
+      ]
+    }
+  }
+]

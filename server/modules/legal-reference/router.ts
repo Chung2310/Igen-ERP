@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../shared/llm-model";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import { requirePermission, type AuthenticatedRequest } from "../../middleware/auth";
@@ -303,7 +304,7 @@ legalReferenceRouter.post("/answer", readPermission as never, async (request, re
     if (!sources.length) return response.json({ query, asOf: asOf.toISOString(), answer: "Kho văn bản chưa có đoạn đã được xác nhận phù hợp với câu hỏi tại ngày đã chọn.", sources });
     const context = sources.map((source) => `${source.citation} ${source.symbol}, ${[source.chapter, source.article, source.clause && `Khoản ${source.clause}`, source.point && `Điểm ${source.point}`].filter(Boolean).join(" / ")} (bản ${source.versionNumber}, ${source.sourceUrl})\n${source.text}`).join("\n\n");
     const result = await openrouterChat({
-      model: process.env.LEGAL_REFERENCE_ANSWER_MODEL || process.env.OPENROUTER_TEXT_MODEL || "openai/gpt-6-luna",
+      model: ERP_LLM_MODEL,
       temperature: 0.1,
       maxTokens: 1200,
       messages: [

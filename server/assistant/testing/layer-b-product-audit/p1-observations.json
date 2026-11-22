@@ -1,0 +1,4805 @@
+{
+  "generatedAt": "2026-11-21T03:42:52.610Z",
+  "scope": [
+    "product.list",
+    "inventory.product.detail"
+  ],
+  "method": "real processTurn/executor/catalog/budget; mocked interpretation, auth, assistant persistence and HTTP product API",
+  "runtimeSourceChanged": true,
+  "phase": "P1 product option labels",
+  "scenarios": [
+    {
+      "scenario": "EXISTING REJECTION product.list mirrors generic api-rejection-probe",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "9e88cfed-8d1c-4c5c-bf7e-d9a81b3abcd3",
+          "status": "failed",
+          "reply": "Dữ liệu chưa được chấp nhận: Fixture từ chối API chính.\nBạn sửa thông tin được nêu rồi gửi lại nhé.\n\nHướng dẫn dự phòng:\n1. Mở Kho & Sản phẩm → Hàng hóa / Dịch vụ.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Sửa thông tin hoặc điều kiện được nêu trong nguyên nhân ở trên. Nếu bản ghi đã thay đổi, tải lại dữ liệu mới trước khi sửa.\n4. Mở danh sách hàng hóa hoặc dịch vụ. Xác định bản ghi theo tên sản phẩm, SKU và ngành hàng. Dùng ô tìm kiếm hoặc bộ lọc phù hợp đang hiển thị trên màn hình.\n5. Đối chiếu đúng bản ghi và phạm vi chi nhánh trước khi đọc kết quả. Nếu cần chi tiết, mở bản ghi từ danh sách. Không chọn thao tác sửa, xóa hoặc xác nhận ghi dữ liệu."
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "9e88cfed-8d1c-4c5c-bf7e-d9a81b3abcd3",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 422
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "9e88cfed-8d1c-4c5c-bf7e-d9a81b3abcd3",
+          "charged": [
+            {
+              "actionId": "product.list",
+              "values": {},
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "9e88cfed-8d1c-4c5c-bf7e-d9a81b3abcd3",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "8ed6c95bccc4b75e3e148f18c472d03abf90bd21866048e5191e33fc2f3d0fa0",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.341Z",
+          "updatedAt": "2026-11-21T03:42:52.341Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "9e88cfed-8d1c-4c5c-bf7e-d9a81b3abcd3",
+              "actionId": "product.list",
+              "status": "executing"
+            }
+          ],
+          "actionId": "product.list",
+          "workflowVersion": 0,
+          "payload": {},
+          "result": {
+            "status": "failed",
+            "reply": "Dữ liệu chưa được chấp nhận: Fixture từ chối API chính.\nBạn sửa thông tin được nêu rồi gửi lại nhé.\n\nHướng dẫn dự phòng:\n1. Mở Kho & Sản phẩm → Hàng hóa / Dịch vụ.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Sửa thông tin hoặc điều kiện được nêu trong nguyên nhân ở trên. Nếu bản ghi đã thay đổi, tải lại dữ liệu mới trước khi sửa.\n4. Mở danh sách hàng hóa hoặc dịch vụ. Xác định bản ghi theo tên sản phẩm, SKU và ngành hàng. Dùng ô tìm kiếm hoặc bộ lọc phù hợp đang hiển thị trên màn hình.\n5. Đối chiếu đúng bản ghi và phạm vi chi nhánh trước khi đọc kết quả. Nếu cần chi tiết, mở bản ghi từ danh sách. Không chọn thao tác sửa, xóa hoặc xác nhận ghi dữ liệu.",
+            "link": "/kho-san-pham?sub=san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 3,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "EXISTING REJECTION inventory.product.detail mirrors generic api-rejection-probe",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+          "status": "failed",
+          "reply": "Dữ liệu chưa được chấp nhận: Fixture từ chối API chính.\nBạn sửa thông tin được nêu rồi gửi lại nhé.\n\nHướng dẫn dự phòng:\n1. Mở Kho & Sản phẩm → Hàng hóa / Dịch vụ.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Sửa thông tin hoặc điều kiện được nêu trong nguyên nhân ở trên. Nếu bản ghi đã thay đổi, tải lại dữ liệu mới trước khi sửa.\n4. Mở danh sách hàng hóa hoặc dịch vụ. Xác định bản ghi theo tên sản phẩm, SKU và ngành hàng. Dùng ô tìm kiếm hoặc bộ lọc phù hợp đang hiển thị trên màn hình.\n5. Đối chiếu đúng bản ghi và phạm vi chi nhánh trước khi đọc kết quả. Nếu cần chi tiết, mở bản ghi từ danh sách. Không chọn thao tác sửa, xóa hoặc xác nhận ghi dữ liệu."
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 422,
+          "target": "65aa00000000000000000001"
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000001"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "6bb2e42a0c3f2e519ac45fab2ae72b60d66a63ca7a6e7f22df62412e8f894b93",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.385Z",
+          "updatedAt": "2026-11-21T03:42:52.385Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "50467503-ccf5-440e-a415-5d171949b8c4",
+              "actionId": "inventory.product.detail",
+              "status": "executing"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000001"
+          },
+          "result": {
+            "status": "failed",
+            "reply": "Dữ liệu chưa được chấp nhận: Fixture từ chối API chính.\nBạn sửa thông tin được nêu rồi gửi lại nhé.\n\nHướng dẫn dự phòng:\n1. Mở Kho & Sản phẩm → Hàng hóa / Dịch vụ.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Sửa thông tin hoặc điều kiện được nêu trong nguyên nhân ở trên. Nếu bản ghi đã thay đổi, tải lại dữ liệu mới trước khi sửa.\n4. Mở danh sách hàng hóa hoặc dịch vụ. Xác định bản ghi theo tên sản phẩm, SKU và ngành hàng. Dùng ô tìm kiếm hoặc bộ lọc phù hợp đang hiển thị trên màn hình.\n5. Đối chiếu đúng bản ghi và phạm vi chi nhánh trước khi đọc kết quả. Nếu cần chi tiết, mở bản ghi từ danh sách. Không chọn thao tác sửa, xóa hoặc xác nhận ghi dữ liệu.",
+            "link": "/kho-san-pham?sub=san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 3,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "CONTROL product.list mirrors existing generic success-probe shape",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "94bbd5a0-4958-4717-912d-7efcc95f130b",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "94bbd5a0-4958-4717-912d-7efcc95f130b",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-MAY-A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001"
+          ],
+          "total": 1
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "94bbd5a0-4958-4717-912d-7efcc95f130b",
+          "charged": [
+            {
+              "actionId": "product.list",
+              "values": {
+                "search": "SP-MAY-A1"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "94bbd5a0-4958-4717-912d-7efcc95f130b",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "29c148e481b3ce8ecff534327eab9859e95b033f8cb6a5ae6c475a77680bfdff",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.408Z",
+          "updatedAt": "2026-11-21T03:42:52.408Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "94bbd5a0-4958-4717-912d-7efcc95f130b",
+              "actionId": "product.list",
+              "status": "completed"
+            }
+          ],
+          "actionId": "product.list",
+          "workflowVersion": 0,
+          "payload": {
+            "search": "SP-MAY-A1"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 4,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "CG02 unique detail traces parent product and every physical read",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-MAY-A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000001",
+          "returnedProductId": "65aa00000000000000000001",
+          "variantIds": [
+            "66cc00000000000000000101",
+            "66cc00000000000000000102"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000001"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "d4d20c50e08983e1a163acebfae00416f2487a2c3d2478dba6cd5745fc45c5fa",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.425Z",
+          "updatedAt": "2026-11-21T03:42:52.425Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "2a11e1e3-2d51-46e4-8ec1-71ef6c34f9d0",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000001"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 4,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "P1 O02 selects P2 by its public product code without variant retargeting",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "fc508b13-f114-4b68-b4c5-62efbda7b097",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "1f9edf72-1d5f-4558-bf3e-83de11ebc5f8",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-DEN · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "fc508b13-f114-4b68-b4c5-62efbda7b097",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "fc508b13-f114-4b68-b4c5-62efbda7b097",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "fc508b13-f114-4b68-b4c5-62efbda7b097",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000002",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000002",
+          "returnedProductId": "65aa00000000000000000002",
+          "variantIds": [
+            "66cc00000000000000000201",
+            "66cc00000000000000000202"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "fc508b13-f114-4b68-b4c5-62efbda7b097",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000002"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "fc508b13-f114-4b68-b4c5-62efbda7b097",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.436Z",
+          "updatedAt": "2026-11-21T03:42:52.436Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "1f9edf72-1d5f-4558-bf3e-83de11ebc5f8",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "f339061f71d0f10374c07ab235425db0f8c7d1c5a87369e967d1e8a6e6ef9cf3",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.449Z",
+          "updatedAt": "2026-11-21T03:42:52.449Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "90057113-a3de-46a8-a3ee-fa9854f9a4e5",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000002"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-DEN · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 5,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 O02 selects P3 by its public product code without variant retargeting",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "de1b7f76-ce1e-479a-8f1f-298674bf01c3",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "ec654517-3dfe-4c20-9151-04c19943951f",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "de1b7f76-ce1e-479a-8f1f-298674bf01c3",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "de1b7f76-ce1e-479a-8f1f-298674bf01c3",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "de1b7f76-ce1e-479a-8f1f-298674bf01c3",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000003",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000003",
+          "returnedProductId": "65aa00000000000000000003",
+          "variantIds": [
+            "66cc00000000000000000301",
+            "66cc00000000000000000302"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "de1b7f76-ce1e-479a-8f1f-298674bf01c3",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000003"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "de1b7f76-ce1e-479a-8f1f-298674bf01c3",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.457Z",
+          "updatedAt": "2026-11-21T03:42:52.457Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "ec654517-3dfe-4c20-9151-04c19943951f",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2e27cb77d18cb40959e75706206b44558e38786e39db1945a3606f284ed57564",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.460Z",
+          "updatedAt": "2026-11-21T03:42:52.460Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "eaeb8b60-9fe3-4750-a988-e73ad60fbc33",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000003"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 5,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 retains free-text product code recovery from same-name choices",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "d6a6bf5d-20f5-4e94-9d51-9085ba59148e",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "43638f7e-d639-46df-87cf-724ad051ec06",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "d6a6bf5d-20f5-4e94-9d51-9085ba59148e",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "d6a6bf5d-20f5-4e94-9d51-9085ba59148e",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "d6a6bf5d-20f5-4e94-9d51-9085ba59148e",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-SONG-TRANG",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000003"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000003",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000003",
+          "returnedProductId": "65aa00000000000000000003",
+          "variantIds": [
+            "66cc00000000000000000301",
+            "66cc00000000000000000302"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "d6a6bf5d-20f5-4e94-9d51-9085ba59148e",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000003"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "d6a6bf5d-20f5-4e94-9d51-9085ba59148e",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.466Z",
+          "updatedAt": "2026-11-21T03:42:52.466Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "43638f7e-d639-46df-87cf-724ad051ec06",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "57a35e57f9d6745103b3de776fb0cbfffd41c0805ce58ee7e8c7e99d9d3bb903",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.469Z",
+          "updatedAt": "2026-11-21T03:42:52.469Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "5302e662-f39b-434c-b034-d49d288eb1c6",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000003"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 5,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 keeps asking when duplicate product codes are missing",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "a6765e04-06e9-4b17-bf96-3a5886a947b1",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "6e806db9-287b-4f19-94a4-df9825f11819",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                  "label": "Tai nghe Sóng [trùng tên, cần thêm thông tin]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "status": "collecting",
+          "reply": "Mình cần bạn kiểm tra lại một chút:\nTên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\nChưa có lựa chọn khả dụng cho Tên hoặc mã sản phẩm.",
+          "action": {
+            "id": "12a74ab7-eff4-4c15-9e5c-62f92d100e71",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "a6765e04-06e9-4b17-bf96-3a5886a947b1",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "a6765e04-06e9-4b17-bf96-3a5886a947b1",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "a6765e04-06e9-4b17-bf96-3a5886a947b1",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "a6765e04-06e9-4b17-bf96-3a5886a947b1",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "a6765e04-06e9-4b17-bf96-3a5886a947b1",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.473Z",
+          "updatedAt": "2026-11-21T03:42:52.473Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "6e806db9-287b-4f19-94a4-df9825f11819",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                    "label": "Tai nghe Sóng [trùng tên, cần thêm thông tin]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "ca67ae3e-6265-4cac-91d8-86e44e74f7b4",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "04af03dfe4d45eb7a421c7885ac2c070e7413b0afb7f968d0a33446a18978792",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.476Z",
+          "updatedAt": "2026-11-21T03:42:52.476Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình cần bạn kiểm tra lại một chút:\nTên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\nChưa có lựa chọn khả dụng cho Tên hoặc mã sản phẩm.",
+            "action": {
+              "id": "12a74ab7-eff4-4c15-9e5c-62f92d100e71",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                  "defaulted": false
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "journalWriteCount": 2,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 keeps asking when duplicate product codes are same",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "4dc647ca-e2b8-49fb-b95a-4f4bc3f6a610",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "826d9ecb-1711-4781-9e2e-6820d2130d25",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                  "label": "Tai nghe Sóng [trùng tên, cần thêm thông tin]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "status": "collecting",
+          "reply": "Mình cần bạn kiểm tra lại một chút:\nTên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\nChưa có lựa chọn khả dụng cho Tên hoặc mã sản phẩm.",
+          "action": {
+            "id": "b3b0620d-d2b7-4269-be52-47b5b8a053d1",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "4dc647ca-e2b8-49fb-b95a-4f4bc3f6a610",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "4dc647ca-e2b8-49fb-b95a-4f4bc3f6a610",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "4dc647ca-e2b8-49fb-b95a-4f4bc3f6a610",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "4dc647ca-e2b8-49fb-b95a-4f4bc3f6a610",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "4dc647ca-e2b8-49fb-b95a-4f4bc3f6a610",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.480Z",
+          "updatedAt": "2026-11-21T03:42:52.480Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "826d9ecb-1711-4781-9e2e-6820d2130d25",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                    "label": "Tai nghe Sóng [trùng tên, cần thêm thông tin]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "ebddffa3-f0c4-48a2-b83e-14afb0d0569c",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "04af03dfe4d45eb7a421c7885ac2c070e7413b0afb7f968d0a33446a18978792",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.484Z",
+          "updatedAt": "2026-11-21T03:42:52.484Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình cần bạn kiểm tra lại một chút:\nTên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\nChưa có lựa chọn khả dụng cho Tên hoặc mã sản phẩm.",
+            "action": {
+              "id": "b3b0620d-d2b7-4269-be52-47b5b8a053d1",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                  "defaulted": false
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "journalWriteCount": 2,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 keeps an ambiguous pre-fix pending selection safe and allows choosing again after restating the name",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "f02c008e-a13c-4030-a927-c8bb9c2c2e25",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "05e5fc92-37df-40c4-8181-e52ebd8bbaaa",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "status": "collecting",
+          "reply": "Mình cần bạn kiểm tra lại một chút:\nTên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\nChưa có lựa chọn khả dụng cho Tên hoặc mã sản phẩm.",
+          "action": {
+            "id": "1d344ec2-5527-4813-a462-45f0b270d010",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                "defaulted": false
+              }
+            ]
+          }
+        },
+        {
+          "requestId": "ceae6bde-750f-4ec7-a769-50af2e932482",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "7e8fb6ce-a5cf-4f7d-a858-f2c803f36df4",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "f02c008e-a13c-4030-a927-c8bb9c2c2e25",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "f02c008e-a13c-4030-a927-c8bb9c2c2e25",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "f02c008e-a13c-4030-a927-c8bb9c2c2e25",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "ceae6bde-750f-4ec7-a769-50af2e932482",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "ceae6bde-750f-4ec7-a769-50af2e932482",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "ceae6bde-750f-4ec7-a769-50af2e932482",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000003",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000003",
+          "returnedProductId": "65aa00000000000000000003",
+          "variantIds": [
+            "66cc00000000000000000301",
+            "66cc00000000000000000302"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "f02c008e-a13c-4030-a927-c8bb9c2c2e25",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "ceae6bde-750f-4ec7-a769-50af2e932482",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000003"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "f02c008e-a13c-4030-a927-c8bb9c2c2e25",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.489Z",
+          "updatedAt": "2026-11-21T03:42:52.489Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "05e5fc92-37df-40c4-8181-e52ebd8bbaaa",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "2a5c483c-96f7-4783-80b8-e0bd0be23b40",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "04af03dfe4d45eb7a421c7885ac2c070e7413b0afb7f968d0a33446a18978792",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.491Z",
+          "updatedAt": "2026-11-21T03:42:52.491Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình cần bạn kiểm tra lại một chút:\nTên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\nChưa có lựa chọn khả dụng cho Tên hoặc mã sản phẩm.",
+            "action": {
+              "id": "1d344ec2-5527-4813-a462-45f0b270d010",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng [trùng tên, cần thêm thông tin]",
+                  "defaulted": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "ceae6bde-750f-4ec7-a769-50af2e932482",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "14be18551532671bda2d0965d2e3bae160ca8b9e600adfc093089572c2e44463",
+          "_id": "turn-3",
+          "createdAt": "2026-11-21T03:42:52.495Z",
+          "updatedAt": "2026-11-21T03:42:52.495Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "7e8fb6ce-a5cf-4f7d-a858-f2c803f36df4",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2e27cb77d18cb40959e75706206b44558e38786e39db1945a3606f284ed57564",
+          "_id": "turn-4",
+          "createdAt": "2026-11-21T03:42:52.500Z",
+          "updatedAt": "2026-11-21T03:42:52.500Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "453d5ecd-e1d3-43a7-a06e-b74f500392e5",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000003"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 7,
+      "sessionWriteCount": 12,
+      "turnCreateCount": 4,
+      "violations": []
+    },
+    {
+      "scenario": "P1 rejects a fabricated option that was not offered by the server",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "8c6b7fd1-266b-49eb-9a84-10e7a7579d69",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "ddb1da58-8a1c-4fc0-b2c1-ad38613d4a47",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "f19ce3fd-5c17-49cb-a013-ef6833772313",
+          "status": "failed",
+          "reply": "Mình chưa làm được việc này: Một lựa chọn cho Tên hoặc mã sản phẩm không còn trong danh sách. Bạn chọn lại giúp mình nhé.\n\nHướng dẫn dự phòng:\n1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra."
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "8c6b7fd1-266b-49eb-9a84-10e7a7579d69",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "8c6b7fd1-266b-49eb-9a84-10e7a7579d69",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "8c6b7fd1-266b-49eb-9a84-10e7a7579d69",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "8c6b7fd1-266b-49eb-9a84-10e7a7579d69",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "f19ce3fd-5c17-49cb-a013-ef6833772313",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "8c6b7fd1-266b-49eb-9a84-10e7a7579d69",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.506Z",
+          "updatedAt": "2026-11-21T03:42:52.506Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "ddb1da58-8a1c-4fc0-b2c1-ad38613d4a47",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "f19ce3fd-5c17-49cb-a013-ef6833772313",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "584db3f9c664c2cd499802ea9bb45777163b886450b4ee0a05ee827957bfccdb",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.509Z",
+          "updatedAt": "2026-11-21T03:42:52.509Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "failed",
+            "reply": "Mình chưa làm được việc này: Một lựa chọn cho Tên hoặc mã sản phẩm không còn trong danh sách. Bạn chọn lại giúp mình nhé.\n\nHướng dẫn dự phòng:\n1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra."
+          }
+        }
+      ],
+      "journalWriteCount": 2,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 respects revoked permission between showing and selecting an option",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "42089592-6728-4a93-a25d-462893b980d1",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "de5f9a1c-5b46-497b-9feb-0d81ee96ce76",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "fba49857-619d-4ce8-a15d-82c4dd9a7a7d",
+          "status": "failed",
+          "reply": "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.\n\nHướng dẫn dự phòng:\n1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra."
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "42089592-6728-4a93-a25d-462893b980d1",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "42089592-6728-4a93-a25d-462893b980d1",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "42089592-6728-4a93-a25d-462893b980d1",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "42089592-6728-4a93-a25d-462893b980d1",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "fba49857-619d-4ce8-a15d-82c4dd9a7a7d",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "42089592-6728-4a93-a25d-462893b980d1",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.511Z",
+          "updatedAt": "2026-11-21T03:42:52.511Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "de5f9a1c-5b46-497b-9feb-0d81ee96ce76",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "fba49857-619d-4ce8-a15d-82c4dd9a7a7d",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "f339061f71d0f10374c07ab235425db0f8c7d1c5a87369e967d1e8a6e6ef9cf3",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.513Z",
+          "updatedAt": "2026-11-21T03:42:52.513Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "failed",
+            "reply": "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.\n\nHướng dẫn dự phòng:\n1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra."
+          }
+        }
+      ],
+      "journalWriteCount": 2,
+      "sessionWriteCount": 6,
+      "turnCreateCount": 2,
+      "violations": []
+    },
+    {
+      "scenario": "P1 still requires configured confirmation after selecting a product",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "81ae5f2e-bd33-4281-9c68-d3efd1da2b59",
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "e1f505fd-1b6c-4cb6-abc0-3e33319dcdae",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          },
+          "referenceSelections": [
+            {
+              "key": "path_id",
+              "label": "Tên hoặc mã sản phẩm",
+              "required": true,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                },
+                {
+                  "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                  "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "requestId": "ef23244f-68f1-4648-b921-006e6ad2f0f7",
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "1c6b639a-9abb-486c-9501-dbcf2faaf2c5",
+            "requiresPassword": false,
+            "title": "Xem chi tiết sản phẩm và SKU",
+            "values": [
+              {
+                "label": "Tên hoặc mã sản phẩm",
+                "value": "Tai nghe Sóng",
+                "defaulted": false
+              }
+            ]
+          }
+        },
+        {
+          "requestId": "528438dd-3e6f-432b-a591-b62d8239b62e",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "81ae5f2e-bd33-4281-9c68-d3efd1da2b59",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "81ae5f2e-bd33-4281-9c68-d3efd1da2b59",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "81ae5f2e-bd33-4281-9c68-d3efd1da2b59",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 2
+        },
+        {
+          "requestId": "ef23244f-68f1-4648-b921-006e6ad2f0f7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "ef23244f-68f1-4648-b921-006e6ad2f0f7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "528438dd-3e6f-432b-a591-b62d8239b62e",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "528438dd-3e6f-432b-a591-b62d8239b62e",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000003",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000003",
+          "returnedProductId": "65aa00000000000000000003",
+          "variantIds": [
+            "66cc00000000000000000301",
+            "66cc00000000000000000302"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "81ae5f2e-bd33-4281-9c68-d3efd1da2b59",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "ef23244f-68f1-4648-b921-006e6ad2f0f7",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        },
+        {
+          "requestId": "528438dd-3e6f-432b-a591-b62d8239b62e",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000003"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "81ae5f2e-bd33-4281-9c68-d3efd1da2b59",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2b4e644d00cedca3db07431af382fee3b8e63b3821c034ad2ee749d2dbfc4fa9",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.515Z",
+          "updatedAt": "2026-11-21T03:42:52.515Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "collecting",
+            "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+            "action": {
+              "id": "e1f505fd-1b6c-4cb6-abc0-3e33319dcdae",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            },
+            "referenceSelections": [
+              {
+                "key": "path_id",
+                "label": "Tên hoặc mã sản phẩm",
+                "required": true,
+                "multiple": false,
+                "options": [
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-DEN]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-DEN]"
+                  },
+                  {
+                    "value": "Tai nghe Sóng [mã: SP-SONG-TRANG]",
+                    "label": "Tai nghe Sóng [mã: SP-SONG-TRANG]"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "ef23244f-68f1-4648-b921-006e6ad2f0f7",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2e27cb77d18cb40959e75706206b44558e38786e39db1945a3606f284ed57564",
+          "_id": "turn-2",
+          "createdAt": "2026-11-21T03:42:52.517Z",
+          "updatedAt": "2026-11-21T03:42:52.517Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "confirmation",
+            "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+            "action": {
+              "id": "1c6b639a-9abb-486c-9501-dbcf2faaf2c5",
+              "requiresPassword": false,
+              "title": "Xem chi tiết sản phẩm và SKU",
+              "values": [
+                {
+                  "label": "Tên hoặc mã sản phẩm",
+                  "value": "Tai nghe Sóng",
+                  "defaulted": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "528438dd-3e6f-432b-a591-b62d8239b62e",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "2ed36e602f6c93b79ded4c21f2296f68ad5eb3c889ee465bc32db060002a1c72",
+          "_id": "turn-3",
+          "createdAt": "2026-11-21T03:42:52.526Z",
+          "updatedAt": "2026-11-21T03:42:52.526Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "528438dd-3e6f-432b-a591-b62d8239b62e",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000003"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Tai nghe Sóng · Mã sản phẩm: SP-SONG-TRANG · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 6,
+      "sessionWriteCount": 9,
+      "turnCreateCount": 3,
+      "violations": []
+    },
+    {
+      "scenario": "O14 CG05 F25 succeeds because executor requests limit100 instead of API default20",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Zzz Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-MAY-A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65dd00000000000000000000",
+            "65dd00000000000000000001",
+            "65dd00000000000000000002",
+            "65dd00000000000000000003",
+            "65dd00000000000000000004",
+            "65dd00000000000000000005",
+            "65dd00000000000000000006",
+            "65dd00000000000000000007",
+            "65dd00000000000000000008",
+            "65dd00000000000000000009",
+            "65dd00000000000000000010",
+            "65dd00000000000000000011",
+            "65dd00000000000000000012",
+            "65dd00000000000000000013",
+            "65dd00000000000000000014",
+            "65dd00000000000000000015",
+            "65dd00000000000000000016",
+            "65dd00000000000000000017",
+            "65dd00000000000000000018",
+            "65dd00000000000000000019",
+            "65dd00000000000000000020",
+            "65dd00000000000000000021",
+            "65dd00000000000000000022",
+            "65dd00000000000000000023",
+            "65aa00000000000000000001"
+          ],
+          "total": 25
+        },
+        {
+          "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000001",
+          "returnedProductId": "65aa00000000000000000001",
+          "variantIds": [
+            "66cc00000000000000000101",
+            "66cc00000000000000000102"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000001"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "d4d20c50e08983e1a163acebfae00416f2487a2c3d2478dba6cd5745fc45c5fa",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.533Z",
+          "updatedAt": "2026-11-21T03:42:52.533Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "098a6760-e2df-4f45-877b-8eb784053ea8",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000001"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Zzz Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 4,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "O14 CG05 F101 reproduces false-negative when revalidating a product beyond first100",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "78846704-5d91-4882-b7e4-a2045630b033",
+          "status": "failed",
+          "reply": "Mình chưa tìm được thông tin phù hợp. Tên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\n\nHướng dẫn dự phòng:\n1. Mở Kho & Sản phẩm → Hàng hóa / Dịch vụ.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách hàng hóa hoặc dịch vụ. Xác định bản ghi theo tên sản phẩm, SKU và ngành hàng. Dùng ô tìm kiếm hoặc bộ lọc phù hợp đang hiển thị trên màn hình.\n4. Đối chiếu đúng bản ghi và phạm vi chi nhánh trước khi đọc kết quả. Nếu cần chi tiết, mở bản ghi từ danh sách. Không chọn thao tác sửa, xóa hoặc xác nhận ghi dữ liệu."
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "78846704-5d91-4882-b7e4-a2045630b033",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-MAY-A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "78846704-5d91-4882-b7e4-a2045630b033",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65dd00000000000000000000",
+            "65dd00000000000000000001",
+            "65dd00000000000000000002",
+            "65dd00000000000000000003",
+            "65dd00000000000000000004",
+            "65dd00000000000000000005",
+            "65dd00000000000000000006",
+            "65dd00000000000000000007",
+            "65dd00000000000000000008",
+            "65dd00000000000000000009",
+            "65dd00000000000000000010",
+            "65dd00000000000000000011",
+            "65dd00000000000000000012",
+            "65dd00000000000000000013",
+            "65dd00000000000000000014",
+            "65dd00000000000000000015",
+            "65dd00000000000000000016",
+            "65dd00000000000000000017",
+            "65dd00000000000000000018",
+            "65dd00000000000000000019",
+            "65dd00000000000000000020",
+            "65dd00000000000000000021",
+            "65dd00000000000000000022",
+            "65dd00000000000000000023",
+            "65dd00000000000000000024",
+            "65dd00000000000000000025",
+            "65dd00000000000000000026",
+            "65dd00000000000000000027",
+            "65dd00000000000000000028",
+            "65dd00000000000000000029",
+            "65dd00000000000000000030",
+            "65dd00000000000000000031",
+            "65dd00000000000000000032",
+            "65dd00000000000000000033",
+            "65dd00000000000000000034",
+            "65dd00000000000000000035",
+            "65dd00000000000000000036",
+            "65dd00000000000000000037",
+            "65dd00000000000000000038",
+            "65dd00000000000000000039",
+            "65dd00000000000000000040",
+            "65dd00000000000000000041",
+            "65dd00000000000000000042",
+            "65dd00000000000000000043",
+            "65dd00000000000000000044",
+            "65dd00000000000000000045",
+            "65dd00000000000000000046",
+            "65dd00000000000000000047",
+            "65dd00000000000000000048",
+            "65dd00000000000000000049",
+            "65dd00000000000000000050",
+            "65dd00000000000000000051",
+            "65dd00000000000000000052",
+            "65dd00000000000000000053",
+            "65dd00000000000000000054",
+            "65dd00000000000000000055",
+            "65dd00000000000000000056",
+            "65dd00000000000000000057",
+            "65dd00000000000000000058",
+            "65dd00000000000000000059",
+            "65dd00000000000000000060",
+            "65dd00000000000000000061",
+            "65dd00000000000000000062",
+            "65dd00000000000000000063",
+            "65dd00000000000000000064",
+            "65dd00000000000000000065",
+            "65dd00000000000000000066",
+            "65dd00000000000000000067",
+            "65dd00000000000000000068",
+            "65dd00000000000000000069",
+            "65dd00000000000000000070",
+            "65dd00000000000000000071",
+            "65dd00000000000000000072",
+            "65dd00000000000000000073",
+            "65dd00000000000000000074",
+            "65dd00000000000000000075",
+            "65dd00000000000000000076",
+            "65dd00000000000000000077",
+            "65dd00000000000000000078",
+            "65dd00000000000000000079",
+            "65dd00000000000000000080",
+            "65dd00000000000000000081",
+            "65dd00000000000000000082",
+            "65dd00000000000000000083",
+            "65dd00000000000000000084",
+            "65dd00000000000000000085",
+            "65dd00000000000000000086",
+            "65dd00000000000000000087",
+            "65dd00000000000000000088",
+            "65dd00000000000000000089",
+            "65dd00000000000000000090",
+            "65dd00000000000000000091",
+            "65dd00000000000000000092",
+            "65dd00000000000000000093",
+            "65dd00000000000000000094",
+            "65dd00000000000000000095",
+            "65dd00000000000000000096",
+            "65dd00000000000000000097",
+            "65dd00000000000000000098",
+            "65dd00000000000000000099"
+          ],
+          "total": 101
+        },
+        {
+          "requestId": "78846704-5d91-4882-b7e4-a2045630b033",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65dd00000000000000000000",
+            "65dd00000000000000000001",
+            "65dd00000000000000000002",
+            "65dd00000000000000000003",
+            "65dd00000000000000000004",
+            "65dd00000000000000000005",
+            "65dd00000000000000000006",
+            "65dd00000000000000000007",
+            "65dd00000000000000000008",
+            "65dd00000000000000000009",
+            "65dd00000000000000000010",
+            "65dd00000000000000000011",
+            "65dd00000000000000000012",
+            "65dd00000000000000000013",
+            "65dd00000000000000000014",
+            "65dd00000000000000000015",
+            "65dd00000000000000000016",
+            "65dd00000000000000000017",
+            "65dd00000000000000000018",
+            "65dd00000000000000000019",
+            "65dd00000000000000000020",
+            "65dd00000000000000000021",
+            "65dd00000000000000000022",
+            "65dd00000000000000000023",
+            "65dd00000000000000000024",
+            "65dd00000000000000000025",
+            "65dd00000000000000000026",
+            "65dd00000000000000000027",
+            "65dd00000000000000000028",
+            "65dd00000000000000000029",
+            "65dd00000000000000000030",
+            "65dd00000000000000000031",
+            "65dd00000000000000000032",
+            "65dd00000000000000000033",
+            "65dd00000000000000000034",
+            "65dd00000000000000000035",
+            "65dd00000000000000000036",
+            "65dd00000000000000000037",
+            "65dd00000000000000000038",
+            "65dd00000000000000000039",
+            "65dd00000000000000000040",
+            "65dd00000000000000000041",
+            "65dd00000000000000000042",
+            "65dd00000000000000000043",
+            "65dd00000000000000000044",
+            "65dd00000000000000000045",
+            "65dd00000000000000000046",
+            "65dd00000000000000000047",
+            "65dd00000000000000000048",
+            "65dd00000000000000000049",
+            "65dd00000000000000000050",
+            "65dd00000000000000000051",
+            "65dd00000000000000000052",
+            "65dd00000000000000000053",
+            "65dd00000000000000000054",
+            "65dd00000000000000000055",
+            "65dd00000000000000000056",
+            "65dd00000000000000000057",
+            "65dd00000000000000000058",
+            "65dd00000000000000000059",
+            "65dd00000000000000000060",
+            "65dd00000000000000000061",
+            "65dd00000000000000000062",
+            "65dd00000000000000000063",
+            "65dd00000000000000000064",
+            "65dd00000000000000000065",
+            "65dd00000000000000000066",
+            "65dd00000000000000000067",
+            "65dd00000000000000000068",
+            "65dd00000000000000000069",
+            "65dd00000000000000000070",
+            "65dd00000000000000000071",
+            "65dd00000000000000000072",
+            "65dd00000000000000000073",
+            "65dd00000000000000000074",
+            "65dd00000000000000000075",
+            "65dd00000000000000000076",
+            "65dd00000000000000000077",
+            "65dd00000000000000000078",
+            "65dd00000000000000000079",
+            "65dd00000000000000000080",
+            "65dd00000000000000000081",
+            "65dd00000000000000000082",
+            "65dd00000000000000000083",
+            "65dd00000000000000000084",
+            "65dd00000000000000000085",
+            "65dd00000000000000000086",
+            "65dd00000000000000000087",
+            "65dd00000000000000000088",
+            "65dd00000000000000000089",
+            "65dd00000000000000000090",
+            "65dd00000000000000000091",
+            "65dd00000000000000000092",
+            "65dd00000000000000000093",
+            "65dd00000000000000000094",
+            "65dd00000000000000000095",
+            "65dd00000000000000000096",
+            "65dd00000000000000000097",
+            "65dd00000000000000000098",
+            "65dd00000000000000000099"
+          ],
+          "total": 101
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "78846704-5d91-4882-b7e4-a2045630b033",
+          "charged": [],
+          "reads": 0,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "78846704-5d91-4882-b7e4-a2045630b033",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "d4d20c50e08983e1a163acebfae00416f2487a2c3d2478dba6cd5745fc45c5fa",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.541Z",
+          "updatedAt": "2026-11-21T03:42:52.541Z",
+          "status": "completed",
+          "steps": [],
+          "result": {
+            "status": "failed",
+            "reply": "Mình chưa tìm được thông tin phù hợp. Tên hoặc mã sản phẩm: chưa tìm thấy bản ghi theo tên hoặc mã. Vui lòng nêu tên chính xác.\n\nHướng dẫn dự phòng:\n1. Mở Kho & Sản phẩm → Hàng hóa / Dịch vụ.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách hàng hóa hoặc dịch vụ. Xác định bản ghi theo tên sản phẩm, SKU và ngành hàng. Dùng ô tìm kiếm hoặc bộ lọc phù hợp đang hiển thị trên màn hình.\n4. Đối chiếu đúng bản ghi và phạm vi chi nhánh trước khi đọc kết quả. Nếu cần chi tiết, mở bản ghi từ danh sách. Không chọn thao tác sửa, xóa hoặc xác nhận ghi dữ liệu.",
+            "link": "/kho-san-pham?sub=san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 1,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "O15 CG03 fallback reads are counted physically but not all in the current journal",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "Điện thoại Mây A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [],
+          "total": 0
+        },
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000001",
+          "returnedProductId": "65aa00000000000000000001",
+          "variantIds": [
+            "66cc00000000000000000101",
+            "66cc00000000000000000102"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000001"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 1,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "6f2157342343b8a814529dabe7a503a602ff88ff541d4c7d7532ecf8aeaaf204",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.549Z",
+          "updatedAt": "2026-11-21T03:42:52.549Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000001"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 4,
+      "sessionWriteCount": 3,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "CG06 empty variants preserves existing transport parent but projects zero rows",
+      "outcome": "pass",
+      "replies": [],
+      "calls": [
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000001",
+          "returnedProductId": "65aa00000000000000000001",
+          "variantIds": []
+        }
+      ],
+      "budgets": [],
+      "turns": [],
+      "journalWriteCount": 0,
+      "sessionWriteCount": 0,
+      "turnCreateCount": 0,
+      "violations": []
+    },
+    {
+      "scenario": "CG06 nonempty detail projects SKU ids while keeping a separate productId",
+      "outcome": "pass",
+      "replies": [],
+      "calls": [
+        {
+          "requestId": "c5a16233-544d-4cf5-9354-90d9bd8d3ab7",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000003",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000003",
+          "returnedProductId": "65aa00000000000000000003",
+          "variantIds": [
+            "66cc00000000000000000301",
+            "66cc00000000000000000302"
+          ]
+        }
+      ],
+      "budgets": [],
+      "turns": [],
+      "journalWriteCount": 0,
+      "sessionWriteCount": 0,
+      "turnCreateCount": 0,
+      "violations": []
+    },
+    {
+      "scenario": "DISTRIBUTION two sequential read steps keep independent physical calls",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "status": "completed",
+          "reply": "Kết quả các yêu cầu · 2 kết quả:\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n2. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-MAY-A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-MAY-A1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65aa00000000000000000001",
+            "65aa00000000000000000004",
+            "65aa00000000000000000002",
+            "65aa00000000000000000003"
+          ],
+          "total": 4
+        },
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65aa00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65aa00000000000000000001",
+          "returnedProductId": "65aa00000000000000000001",
+          "variantIds": [
+            "66cc00000000000000000101",
+            "66cc00000000000000000102"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "charged": [
+            {
+              "actionId": "product.list",
+              "values": {
+                "search": "SP-MAY-A1"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65aa00000000000000000001"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 2,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "0c81412ca1bda3e29e71e60036ad883a38bb7a9620e25da0e7baedcd57304d7c",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.554Z",
+          "updatedAt": "2026-11-21T03:42:52.554Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+              "actionId": "product.list",
+              "status": "completed"
+            },
+            {
+              "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb:1",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65aa00000000000000000001"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Kết quả các yêu cầu · 2 kết quả:\n1. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n2. Tên: Điện thoại Mây A1 · Mã sản phẩm: SP-MAY-A1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 8,
+      "sessionWriteCount": 4,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "CONTROL raw-ID reference after first100 is distinct from product absence",
+      "outcome": "pass",
+      "replies": [],
+      "calls": [
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65dd00000000000000000000",
+            "65dd00000000000000000001",
+            "65dd00000000000000000002",
+            "65dd00000000000000000003",
+            "65dd00000000000000000004",
+            "65dd00000000000000000005",
+            "65dd00000000000000000006",
+            "65dd00000000000000000007",
+            "65dd00000000000000000008",
+            "65dd00000000000000000009",
+            "65dd00000000000000000010",
+            "65dd00000000000000000011",
+            "65dd00000000000000000012",
+            "65dd00000000000000000013",
+            "65dd00000000000000000014",
+            "65dd00000000000000000015",
+            "65dd00000000000000000016",
+            "65dd00000000000000000017",
+            "65dd00000000000000000018",
+            "65dd00000000000000000019",
+            "65dd00000000000000000020",
+            "65dd00000000000000000021",
+            "65dd00000000000000000022",
+            "65dd00000000000000000023",
+            "65dd00000000000000000024",
+            "65dd00000000000000000025",
+            "65dd00000000000000000026",
+            "65dd00000000000000000027",
+            "65dd00000000000000000028",
+            "65dd00000000000000000029",
+            "65dd00000000000000000030",
+            "65dd00000000000000000031",
+            "65dd00000000000000000032",
+            "65dd00000000000000000033",
+            "65dd00000000000000000034",
+            "65dd00000000000000000035",
+            "65dd00000000000000000036",
+            "65dd00000000000000000037",
+            "65dd00000000000000000038",
+            "65dd00000000000000000039",
+            "65dd00000000000000000040",
+            "65dd00000000000000000041",
+            "65dd00000000000000000042",
+            "65dd00000000000000000043",
+            "65dd00000000000000000044",
+            "65dd00000000000000000045",
+            "65dd00000000000000000046",
+            "65dd00000000000000000047",
+            "65dd00000000000000000048",
+            "65dd00000000000000000049",
+            "65dd00000000000000000050",
+            "65dd00000000000000000051",
+            "65dd00000000000000000052",
+            "65dd00000000000000000053",
+            "65dd00000000000000000054",
+            "65dd00000000000000000055",
+            "65dd00000000000000000056",
+            "65dd00000000000000000057",
+            "65dd00000000000000000058",
+            "65dd00000000000000000059",
+            "65dd00000000000000000060",
+            "65dd00000000000000000061",
+            "65dd00000000000000000062",
+            "65dd00000000000000000063",
+            "65dd00000000000000000064",
+            "65dd00000000000000000065",
+            "65dd00000000000000000066",
+            "65dd00000000000000000067",
+            "65dd00000000000000000068",
+            "65dd00000000000000000069",
+            "65dd00000000000000000070",
+            "65dd00000000000000000071",
+            "65dd00000000000000000072",
+            "65dd00000000000000000073",
+            "65dd00000000000000000074",
+            "65dd00000000000000000075",
+            "65dd00000000000000000076",
+            "65dd00000000000000000077",
+            "65dd00000000000000000078",
+            "65dd00000000000000000079",
+            "65dd00000000000000000080",
+            "65dd00000000000000000081",
+            "65dd00000000000000000082",
+            "65dd00000000000000000083",
+            "65dd00000000000000000084",
+            "65dd00000000000000000085",
+            "65dd00000000000000000086",
+            "65dd00000000000000000087",
+            "65dd00000000000000000088",
+            "65dd00000000000000000089",
+            "65dd00000000000000000090",
+            "65dd00000000000000000091",
+            "65dd00000000000000000092",
+            "65dd00000000000000000093",
+            "65dd00000000000000000094",
+            "65dd00000000000000000095",
+            "65dd00000000000000000096",
+            "65dd00000000000000000097",
+            "65dd00000000000000000098",
+            "65dd00000000000000000099"
+          ],
+          "total": 101
+        },
+        {
+          "requestId": "b8d75068-0015-4c0d-9328-4b1faec055bb",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65dd00000000000000000000",
+            "65dd00000000000000000001",
+            "65dd00000000000000000002",
+            "65dd00000000000000000003",
+            "65dd00000000000000000004",
+            "65dd00000000000000000005",
+            "65dd00000000000000000006",
+            "65dd00000000000000000007",
+            "65dd00000000000000000008",
+            "65dd00000000000000000009",
+            "65dd00000000000000000010",
+            "65dd00000000000000000011",
+            "65dd00000000000000000012",
+            "65dd00000000000000000013",
+            "65dd00000000000000000014",
+            "65dd00000000000000000015",
+            "65dd00000000000000000016",
+            "65dd00000000000000000017",
+            "65dd00000000000000000018",
+            "65dd00000000000000000019",
+            "65dd00000000000000000020",
+            "65dd00000000000000000021",
+            "65dd00000000000000000022",
+            "65dd00000000000000000023",
+            "65dd00000000000000000024",
+            "65dd00000000000000000025",
+            "65dd00000000000000000026",
+            "65dd00000000000000000027",
+            "65dd00000000000000000028",
+            "65dd00000000000000000029",
+            "65dd00000000000000000030",
+            "65dd00000000000000000031",
+            "65dd00000000000000000032",
+            "65dd00000000000000000033",
+            "65dd00000000000000000034",
+            "65dd00000000000000000035",
+            "65dd00000000000000000036",
+            "65dd00000000000000000037",
+            "65dd00000000000000000038",
+            "65dd00000000000000000039",
+            "65dd00000000000000000040",
+            "65dd00000000000000000041",
+            "65dd00000000000000000042",
+            "65dd00000000000000000043",
+            "65dd00000000000000000044",
+            "65dd00000000000000000045",
+            "65dd00000000000000000046",
+            "65dd00000000000000000047",
+            "65dd00000000000000000048",
+            "65dd00000000000000000049",
+            "65dd00000000000000000050",
+            "65dd00000000000000000051",
+            "65dd00000000000000000052",
+            "65dd00000000000000000053",
+            "65dd00000000000000000054",
+            "65dd00000000000000000055",
+            "65dd00000000000000000056",
+            "65dd00000000000000000057",
+            "65dd00000000000000000058",
+            "65dd00000000000000000059",
+            "65dd00000000000000000060",
+            "65dd00000000000000000061",
+            "65dd00000000000000000062",
+            "65dd00000000000000000063",
+            "65dd00000000000000000064",
+            "65dd00000000000000000065",
+            "65dd00000000000000000066",
+            "65dd00000000000000000067",
+            "65dd00000000000000000068",
+            "65dd00000000000000000069",
+            "65dd00000000000000000070",
+            "65dd00000000000000000071",
+            "65dd00000000000000000072",
+            "65dd00000000000000000073",
+            "65dd00000000000000000074",
+            "65dd00000000000000000075",
+            "65dd00000000000000000076",
+            "65dd00000000000000000077",
+            "65dd00000000000000000078",
+            "65dd00000000000000000079",
+            "65dd00000000000000000080",
+            "65dd00000000000000000081",
+            "65dd00000000000000000082",
+            "65dd00000000000000000083",
+            "65dd00000000000000000084",
+            "65dd00000000000000000085",
+            "65dd00000000000000000086",
+            "65dd00000000000000000087",
+            "65dd00000000000000000088",
+            "65dd00000000000000000089",
+            "65dd00000000000000000090",
+            "65dd00000000000000000091",
+            "65dd00000000000000000092",
+            "65dd00000000000000000093",
+            "65dd00000000000000000094",
+            "65dd00000000000000000095",
+            "65dd00000000000000000096",
+            "65dd00000000000000000097",
+            "65dd00000000000000000098",
+            "65dd00000000000000000099"
+          ],
+          "total": 101
+        }
+      ],
+      "budgets": [],
+      "turns": [],
+      "journalWriteCount": 0,
+      "sessionWriteCount": 0,
+      "turnCreateCount": 0,
+      "violations": []
+    },
+    {
+      "scenario": "DISTRIBUTION nine distinct detail steps produce27 leaf reads with9 charged",
+      "outcome": "pass",
+      "replies": [
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "status": "completed",
+          "reply": "Kết quả các yêu cầu · 9 kết quả:\n1. Tên: Sản phẩm chuỗi 0 · Mã sản phẩm: SP-CHAIN-0 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n2. Tên: Sản phẩm chuỗi 1 · Mã sản phẩm: SP-CHAIN-1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n3. Tên: Sản phẩm chuỗi 2 · Mã sản phẩm: SP-CHAIN-2 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n4. Tên: Sản phẩm chuỗi 3 · Mã sản phẩm: SP-CHAIN-3 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n5. Tên: Sản phẩm chuỗi 4 · Mã sản phẩm: SP-CHAIN-4 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n6. Tên: Sản phẩm chuỗi 5 · Mã sản phẩm: SP-CHAIN-5 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n7. Tên: Sản phẩm chuỗi 6 · Mã sản phẩm: SP-CHAIN-6 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n8. Tên: Sản phẩm chuỗi 7 · Mã sản phẩm: SP-CHAIN-7 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n9. Tên: Sản phẩm chuỗi 8 · Mã sản phẩm: SP-CHAIN-8 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động"
+        }
+      ],
+      "calls": [
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-0",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000000",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000000",
+          "returnedProductId": "65ee00000000000000000000",
+          "variantIds": [
+            "66ee00000000000000000000",
+            "66ee00000000000000000001"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-1",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000001"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000001",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000001",
+          "returnedProductId": "65ee00000000000000000001",
+          "variantIds": [
+            "66ee00000000000000000100",
+            "66ee00000000000000000101"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-2",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000002"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000002",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000002",
+          "returnedProductId": "65ee00000000000000000002",
+          "variantIds": [
+            "66ee00000000000000000200",
+            "66ee00000000000000000201"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-3",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000003"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000003",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000003",
+          "returnedProductId": "65ee00000000000000000003",
+          "variantIds": [
+            "66ee00000000000000000300",
+            "66ee00000000000000000301"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-4",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000004"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000004",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000004",
+          "returnedProductId": "65ee00000000000000000004",
+          "variantIds": [
+            "66ee00000000000000000400",
+            "66ee00000000000000000401"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-5",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000005"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000005",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000005",
+          "returnedProductId": "65ee00000000000000000005",
+          "variantIds": [
+            "66ee00000000000000000500",
+            "66ee00000000000000000501"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-6",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000006"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000006",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000006",
+          "returnedProductId": "65ee00000000000000000006",
+          "variantIds": [
+            "66ee00000000000000000600",
+            "66ee00000000000000000601"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-7",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000007"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000007",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000007",
+          "returnedProductId": "65ee00000000000000000007",
+          "variantIds": [
+            "66ee00000000000000000700",
+            "66ee00000000000000000701"
+          ]
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "SP-CHAIN-8",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000008"
+          ],
+          "total": 1
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products",
+          "query": {
+            "q": "",
+            "companyCode": "FIX-A",
+            "limit": "100",
+            "page": "1"
+          },
+          "kind": "list",
+          "status": 200,
+          "returnedIds": [
+            "65ee00000000000000000000",
+            "65ee00000000000000000001",
+            "65ee00000000000000000002",
+            "65ee00000000000000000003",
+            "65ee00000000000000000004",
+            "65ee00000000000000000005",
+            "65ee00000000000000000006",
+            "65ee00000000000000000007",
+            "65ee00000000000000000008"
+          ],
+          "total": 9
+        },
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "method": "GET",
+          "path": "/api/v1/inventory/catalog/products/65ee00000000000000000008",
+          "query": {
+            "branchId": "65bb00000000000000000002",
+            "companyCode": "FIX-A"
+          },
+          "kind": "detail",
+          "status": 200,
+          "target": "65ee00000000000000000008",
+          "returnedProductId": "65ee00000000000000000008",
+          "variantIds": [
+            "66ee00000000000000000800",
+            "66ee00000000000000000801"
+          ]
+        }
+      ],
+      "budgets": [
+        {
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "charged": [
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000000"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000001"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000002"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000003"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000004"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000005"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000006"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000007"
+              },
+              "readOnly": true
+            },
+            {
+              "actionId": "inventory.product.detail",
+              "values": {
+                "path_id": "65ee00000000000000000008"
+              },
+              "readOnly": true
+            }
+          ],
+          "reads": 9,
+          "writes": 0,
+          "stoppedForNoProgress": false
+        }
+      ],
+      "turns": [
+        {
+          "userId": "65bb00000000000000000001",
+          "companyCode": "FIX-A",
+          "branchId": "65bb00000000000000000002",
+          "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+          "conversationId": "77777777-7777-4777-8777-777777777777",
+          "digest": "8118490c63e742af662984d12e30484f142801a26b7f86abc8c9200cfcb52ec4",
+          "_id": "turn-1",
+          "createdAt": "2026-11-21T03:42:52.567Z",
+          "updatedAt": "2026-11-21T03:42:52.567Z",
+          "status": "completed",
+          "steps": [
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:1",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:2",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:3",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:4",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:5",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:6",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:7",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            },
+            {
+              "requestId": "5c17328d-b2fc-47e1-bcf3-c4f60c1761b5:8",
+              "actionId": "inventory.product.detail",
+              "status": "completed"
+            }
+          ],
+          "actionId": "inventory.product.detail",
+          "workflowVersion": 0,
+          "payload": {
+            "path_id": "65ee00000000000000000008"
+          },
+          "result": {
+            "status": "completed",
+            "reply": "Kết quả các yêu cầu · 9 kết quả:\n1. Tên: Sản phẩm chuỗi 0 · Mã sản phẩm: SP-CHAIN-0 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n2. Tên: Sản phẩm chuỗi 1 · Mã sản phẩm: SP-CHAIN-1 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n3. Tên: Sản phẩm chuỗi 2 · Mã sản phẩm: SP-CHAIN-2 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n4. Tên: Sản phẩm chuỗi 3 · Mã sản phẩm: SP-CHAIN-3 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n5. Tên: Sản phẩm chuỗi 4 · Mã sản phẩm: SP-CHAIN-4 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n6. Tên: Sản phẩm chuỗi 5 · Mã sản phẩm: SP-CHAIN-5 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n7. Tên: Sản phẩm chuỗi 6 · Mã sản phẩm: SP-CHAIN-6 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n8. Tên: Sản phẩm chuỗi 7 · Mã sản phẩm: SP-CHAIN-7 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động\n9. Tên: Sản phẩm chuỗi 8 · Mã sản phẩm: SP-CHAIN-8 · Mã thể loại / thư mục: DT · Loại sản phẩm: Hàng hóa · Trạng thái: Đang hoạt động",
+            "link": "/kho-san-pham"
+          }
+        }
+      ],
+      "journalWriteCount": 36,
+      "sessionWriteCount": 11,
+      "turnCreateCount": 1,
+      "violations": []
+    },
+    {
+      "scenario": "SAFETY external fetch and direct DB/provider calls fail before real I/O",
+      "outcome": "pass",
+      "replies": [],
+      "calls": [],
+      "budgets": [],
+      "turns": [],
+      "journalWriteCount": 0,
+      "sessionWriteCount": 0,
+      "turnCreateCount": 0,
+      "violations": [
+        "GET https://example.invalid/",
+        "provider",
+        "mongoose.connect",
+        "http.request"
+      ]
+    }
+  ]
+}

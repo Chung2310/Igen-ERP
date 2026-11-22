@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { openrouterChat } from "../service/openrouter.service";
 import { containsSensitiveMemoryContent } from "./memory";
 
@@ -26,7 +27,7 @@ export async function summarizeAssistantSession(previous: string, messages: { ro
   try {
     const response = await Promise.race([
       openrouterChat({
-        model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0,
         jsonMode: true,
         maxRetries: 3,

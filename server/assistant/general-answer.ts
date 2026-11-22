@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { openrouterChat, type OpenRouterCitation, type OpenRouterContentPart } from "../service/openrouter.service";
 import type { AssistantIllustration } from "../../src/shared/assistant-document";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
@@ -338,7 +339,7 @@ export async function answerAssistantGeneralQuestion(input: AssistantGeneralAnsw
   try {
     const result = await Promise.race([
       openrouterChat({
-        model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0.4,
         maxRetries: 3,
         messages: [
@@ -391,7 +392,7 @@ export async function answerAssistantResearchQuestion(input: AssistantGeneralAns
   try {
     const result = await Promise.race([
       openrouterChat({
-        model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0.2,
         maxRetries: 3,
         webSearch: true,

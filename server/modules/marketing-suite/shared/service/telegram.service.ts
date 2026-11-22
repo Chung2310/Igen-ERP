@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 import { getMarketingApprovalSecret, getMarketingAppUrl } from "../runtime-settings";
 import { companyModuleEnabled } from "../access";
 import { getEffectivePermissions } from "../../../../middleware/auth";
@@ -3054,7 +3055,7 @@ Trả về ĐÚNG 1 JSON object (không thêm markdown hay giải thích ngoài 
 }`;
 
       const aiRes = await openrouterChat({
-        model: "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0.3,
         jsonMode: true,
         messages: [
@@ -3136,7 +3137,7 @@ Trả về duy nhất JSON object theo cấu trúc:
 
       const { openrouterChat } = await import("./openrouter.service.ts");
       const res = await openrouterChat({
-        model: process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
         jsonMode: true,

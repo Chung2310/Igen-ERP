@@ -1,8 +1,9 @@
+import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
 /* eslint-disable @typescript-eslint/no-explicit-any, prefer-const */
 import { exec } from "child_process";
 import { AIMediaModel } from "../../model/ai-media.model.ts";
 import { openrouterChat, mapModelName, type OpenRouterMessage, type OpenRouterContentPart, type OpenRouterChatDiagnostics } from "../openrouter.service.ts";
-import { AI_REPLY_PRIMARY_MODEL, AI_REPLY_FALLBACK_MODEL } from "../../../../../../shared/marketing-suite/ai-reply-models";
+import { AI_REPLY_PRIMARY_MODEL } from "../../../../../../shared/marketing-suite/ai-reply-models";
 import type {
   ChatIntent,
   FaithFulVisualGuardrailInput,
@@ -12,8 +13,8 @@ import type {
 } from "./types";
 
 // Legacy model variable names remain compatible; all requests use OpenRouter.
-export const GEMINI_TEXT_MODEL = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
-export const GEMINI_HEAVY_MODEL = process.env.OPENROUTER_HEAVY_MODEL || process.env.GEMINI_HEAVY_MODEL || "gemini-3.5-flash";
+export const GEMINI_TEXT_MODEL = ERP_LLM_MODEL;
+export const GEMINI_HEAVY_MODEL = ERP_LLM_MODEL;
 export const AI_REPLY_MESSAGE_MODEL = AI_REPLY_PRIMARY_MODEL;
 export const AI_REPLY_COMMENT_MODEL = AI_REPLY_PRIMARY_MODEL;
 
@@ -390,7 +391,7 @@ export async function generateText(
   contents: any,
   config?: GenerateTextConfig
 ): Promise<{ text: string }> {
-  let modelId = model || GEMINI_TEXT_MODEL;
+  const modelId = ERP_LLM_MODEL;
   const needsJson = !!config?.responseMimeType?.includes("json") || !!config?.responseSchema;
 
   const messages = await buildOpenRouterMessages(
@@ -439,9 +440,7 @@ export async function generateText(
   } catch (error: any) {
     // A text fallback must not silently answer a visual question without vision support.
     if (hasImages && config?.allowImageFallback === false) throw error;
-    const fallbackModel = modelId === AI_REPLY_PRIMARY_MODEL
-      ? AI_REPLY_FALLBACK_MODEL
-      : config?.fallbackModel || process.env.OPENROUTER_FALLBACK_MODEL || process.env.FALLBACK_MODEL || AI_REPLY_FALLBACK_MODEL;
+    const fallbackModel = ERP_LLM_MODEL;
     console.warn(`[generateText] Primary model ${modelId} failed or returned invalid JSON: ${error?.message || error}. Falling back to ${fallbackModel}...`);
 
     try {

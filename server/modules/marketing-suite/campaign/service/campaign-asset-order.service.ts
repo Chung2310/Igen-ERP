@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 import crypto from "crypto";
 import { completeCampaignAIJob, recoverCampaignAIJobs, runLeasedCampaignAIJob } from "./campaign-ai-job-lease";
 import mongoose from "mongoose";
@@ -46,8 +47,8 @@ const AI_FILL_ALL_BATCH_SIZE = 2;
 const AI_FILL_ALL_BATCH_CONCURRENCY = 2;
 const AI_FILL_ALL_TIMEOUT_MS = 35_000;
 const AI_FILL_ALL_MAX_TOKENS = 1_800;
-const ASSET_ORDER_AI_MODEL = process.env.ASSET_ORDER_AI_MODEL || "qwen/qwen3.7-flash";
-const ASSET_ORDER_AI_FALLBACK_MODEL = process.env.ASSET_ORDER_AI_FALLBACK_MODEL || "qwen/qwen3.5-flash-02-23";
+const ASSET_ORDER_AI_MODEL = ERP_LLM_MODEL;
+const ASSET_ORDER_AI_FALLBACK_MODEL = ERP_LLM_MODEL;
 const terminalSlotStatuses = ["published", "cancelled"] as const;
 const aiWritableFieldKeys = [
   "contentGroup",

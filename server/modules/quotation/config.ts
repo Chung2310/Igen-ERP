@@ -1,5 +1,5 @@
 /** ERP owns environment loading, secrets and database connections. No QUOS auth/billing config. */
-const GPT_6_LUNA = "openai/gpt-6-luna";
+import { ERP_LLM_MODEL as GPT_6_LUNA } from "../../../shared/llm-model";
 
 export const config = {
   get nodeEnv() { return process.env.NODE_ENV || "development"; },

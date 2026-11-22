@@ -5,8 +5,10 @@ import { TRAINING_CATEGORY_VALUES } from "../../src/shared/training-categories";
 import { HEALTHCARE_OPERATIONS, healthcareWorkflowInstructions } from "./healthcare-catalog";
 import { QUOTATION_OPERATIONS, quotationWorkflowInstructions } from "./quotation-catalog";
 import type { AnalysisContract } from "./list-analysis";
+import { buildAssistantOperationMetadata, type AssistantOperationMetadata } from "./operation-metadata";
 
 export interface AssistantOperation {
+  assistantMetadata?: AssistantOperationMetadata;
   unavailableReason?: string;
   analysis?: AnalysisContract;
   partialUpdate?: boolean;
@@ -1853,7 +1855,7 @@ if (laborKpi) {
     partnerName: { label: "Đối tác", type: "text" },
     partnerCode: { label: "Mã đối tác", type: "text" },
     targetReferrals: { label: "Chỉ tiêu", type: "number" },
-    actualReferrals: { label: "Đã giới thiệu", type: "number" },
+    actualReferrals: { label: "Đã giới thiệu", type: "number", aliases: ["lao động được giới thiệu", "số lao động giới thiệu", "số lao động được giới thiệu", "lao động giới thiệu", "lao động", "người được giới thiệu", "số người giới thiệu", "số lượt giới thiệu", "lượt giới thiệu", "giới thiệu"] },
     remainingReferrals: { label: "Còn thiếu", type: "number" },
     completionRate: { label: "Tỷ lệ đạt (%)", type: "number" },
     status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" } },
@@ -1965,7 +1967,10 @@ for (const operation of operations) {
     if (version) version.referenceValueKey = "version";
   }
 }
-export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
+export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations.map(operation => ({
+  ...operation,
+  assistantMetadata: buildAssistantOperationMetadata(operation),
+}));
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
   const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : op.id === "hr.contract.create"

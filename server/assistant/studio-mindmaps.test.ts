@@ -24,7 +24,7 @@ const completion = {
 };
 
 describe("createStudioMindmap", () => {
-  it("uses the free Gemma model with Qwen fallback and returns a validated tree", async () => {
+  it("uses GPT-6 Luna for language generation and returns a validated tree", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "test-key");
     vi.stubEnv("IGENAI_MINDMAP_MODEL", "");
     vi.stubEnv("IGENAI_MINDMAP_FALLBACK_MODEL", "");
@@ -37,8 +37,8 @@ describe("createStudioMindmap", () => {
     expect(result.title).toBe("Kế hoạch kinh doanh");
     expect(result.root.children).toHaveLength(2);
     expect(openrouterChat).toHaveBeenCalledWith(expect.objectContaining({
-      model: "google/gemma-4-31b-it:free",
-      fallbackModel: "qwen/qwen3.7-flash",
+      model: "openai/gpt-6-luna",
+      fallbackModel: "openai/gpt-6-luna",
       jsonMode: true,
       responseSchema: expect.any(Object),
     }));

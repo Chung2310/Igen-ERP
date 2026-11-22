@@ -3,8 +3,9 @@ const scope = { userId: { type: String, required: true }, companyCode: { type: S
 const workflowSchema = new Schema({ ...scope, actionId: { type: String, required: true }, config: { type: Schema.Types.Mixed, required: true }, version: { type: Number, default: 0 } }, { timestamps: true });
 workflowSchema.index({ companyCode: 1, userId: 1, actionId: 1 }, { unique: true });
 export const AssistantWorkflowModel = model("AssistantWorkflow", workflowSchema);
-const sessionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, conversationId: { type: String, required: true }, mode: { type: String, enum: ["work", "qa"], default: "work" }, busy: { type: Boolean, default: false }, pending: { type: Schema.Types.Mixed, default: null }, remainingRequests: { type: [String], default: [] }, pendingMemoryProposal: { type: String, default: "", maxlength: 300 }, pendingDocumentRequest: { type: String, default: "", maxlength: 12000 }, messages: { type: [Schema.Types.Mixed], default: [] }, messageCount: { type: Number, default: 0, min: 0 }, sessionMemory: { type: String, default: "", maxlength: 2400 }, sessionMemoryMessageCount: { type: Number, default: 0, min: 0 }, sessionMemoryVersion: { type: Number, default: 0, min: 0 }, lastReply: { type: Schema.Types.Mixed, default: null } }, { timestamps: true });
+const sessionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, conversationId: { type: String, required: true }, mode: { type: String, enum: ["work", "qa"], default: "work" }, busy: { type: Boolean, default: false }, pending: { type: Schema.Types.Mixed, default: null }, workflowChoice: { type: Schema.Types.Mixed, default: null }, remainingRequests: { type: [String], default: [] }, pendingMemoryProposal: { type: String, default: "", maxlength: 300 }, pendingDocumentRequest: { type: String, default: "", maxlength: 12000 }, messages: { type: [Schema.Types.Mixed], default: [] }, messageCount: { type: Number, default: 0, min: 0 }, sessionMemory: { type: String, default: "", maxlength: 2400 }, sessionMemoryMessageCount: { type: Number, default: 0, min: 0 }, sessionMemoryVersion: { type: Number, default: 0, min: 0 }, lastReply: { type: Schema.Types.Mixed, default: null } }, { timestamps: true });
 sessionSchema.add({ activeRequestId: { type: String, default: "" } });
+sessionSchema.add({ readV2Context: { type: Schema.Types.Mixed, default: undefined } });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, conversationId: 1 }, { unique: true });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, updatedAt: -1, _id: -1 });
 export const AssistantSessionModel = model("AssistantSession", sessionSchema);
@@ -26,7 +27,7 @@ projectFileSchema.index({ companyCode: 1, userId: 1, branchId: 1, projectId: 1, 
 projectFileSchema.index({ companyCode: 1, userId: 1, branchId: 1, projectId: 1, updatedAt: -1 });
 export const AssistantProjectFileModel = model("AssistantProjectFile", projectFileSchema);
 const turnSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, requestId: { type: String, required: true }, conversationId: { type: String, required: true }, digest: { type: String, required: true }, status: { type: String, enum: ["processing", "executing", "completed", "uncertain"], default: "processing" }, actionId: String, workflowVersion: Number, payload: Schema.Types.Mixed, result: Schema.Types.Mixed }, { timestamps: true });
-turnSchema.add({ steps: { type: [Schema.Types.Mixed], default: [] } });
+turnSchema.add({ steps: { type: [Schema.Types.Mixed], default: [] }, businessCallJournal: { type: Schema.Types.Mixed, default: undefined }, readV2: { type: Schema.Types.Mixed, default: undefined } });
 turnSchema.index({ companyCode: 1, userId: 1, branchId: 1, requestId: 1 }, { unique: true });
 turnSchema.index({ companyCode: 1, userId: 1, conversationId: 1, createdAt: -1 });
 export const AssistantTurnModel = model("AssistantTurn", turnSchema);
