@@ -3,7 +3,7 @@ import "dotenv/config";
 import { writeFile } from "node:fs/promises";
 import { openrouterChat } from "../../service/openrouter.service";
 import { ASSISTANT_OPERATIONS, defaultWorkflow, type AssistantOperation } from "../catalog";
-import { interpretRequest } from "../interpreter";
+import { interpretRequest } from "../semantic-interpreter";
 
 type CrudAction = "view" | "create" | "update" | "delete";
 
@@ -157,6 +157,15 @@ const evaluate = argumentsList.includes("--evaluate");
 const evaluateInterpreter = argumentsList.includes("--evaluate-interpreter");
 const sampleInterpreter = argumentsList.includes("--sample-interpreter");
 const probeInterpreter = argumentsList.includes("--probe-interpreter");
+const moduleFilter = argumentsList.find(argument => argument.startsWith("--module="))?.slice("--module=".length);
+const maxCasesArgument = argumentsList.find(argument => argument.startsWith("--limit="))?.slice("--limit=".length);
+const maxCases = maxCasesArgument === undefined ? undefined : Number(maxCasesArgument);
+if (moduleFilter && !ASSISTANT_OPERATIONS.some(operation => operation.module === moduleFilter)) {
+  throw new Error(`Unknown module "${moduleFilter}". Choose one of: ${[...new Set(ASSISTANT_OPERATIONS.map(operation => operation.module))].join(", ")}`);
+}
+if (maxCases !== undefined && (!Number.isInteger(maxCases) || maxCases < 1)) {
+  throw new Error("--limit must be a positive integer.");
+}
 if (resume) {
   try {
     const existing = JSON.parse(await (await import("node:fs/promises")).readFile(outputPath, "utf8"));
@@ -182,7 +191,8 @@ console.log(JSON.stringify({ outputPath, operationCount: report.operationCount, 
 if (evaluateInterpreter) {
   const batchSize = Math.max(10, Math.min(100, Number(process.env.INTENT_AUDIT_BATCH_SIZE) || 25));
   const concurrency = Math.max(1, Math.min(16, Number(process.env.INTENT_AUDIT_CONCURRENCY) || 6));
-  const allCases = [...groups.entries()].flatMap(([key, rows]) => {
+  const scopedGroups = [...groups.entries()].filter(([key]) => !moduleFilter || key.split("\t")[0] === moduleFilter);
+  let allCases = scopedGroups.flatMap(([key, rows]) => {
     const casesByPhrase = new Map<string, Set<string>>();
     for (const operation of rows) for (const phrase of sampleInterpreter ? operation.variants.slice(0, 1) : operation.variants) {
       const expectedIds = casesByPhrase.get(phrase) || new Set<string>();
@@ -193,8 +203,11 @@ if (evaluateInterpreter) {
     const workflows = ASSISTANT_OPERATIONS.filter(operation => operation.module === module && operation.link === tab).map(defaultWorkflow);
     return [...casesByPhrase].map(([phrase, expectedIds]) => ({ groupKey: key, module, tab, phrase, expectedIds: [...expectedIds], workflows }));
   });
+  if (maxCases !== undefined) allCases = allCases.slice(0, maxCases);
   const signature = (item: { groupKey: string; phrase: string; expectedIds: string[] }) => `${item.groupKey}\t${item.phrase}\t${JSON.stringify(item.expectedIds)}`;
-  const targetMatrix: any[] = sampleInterpreter ? report.interpreterSamples : report.interpreterMatrix;
+  const fullTargetMatrix: any[] = sampleInterpreter ? report.interpreterSamples : report.interpreterMatrix;
+  const selectedSignatures = new Set(allCases.map(signature));
+  const targetMatrix = fullTargetMatrix.filter(entry => selectedSignatures.has(signature(entry)));
   const completed = new Set(targetMatrix.filter(entry => entry.passed && !entry.error).map(signature));
   const pending = allCases.filter(testCase => !completed.has(signature(testCase)));
   let done = allCases.length - pending.length;
@@ -209,7 +222,7 @@ if (evaluateInterpreter) {
         if (index >= batch.length) return;
         const testCase = batch[index];
         try {
-          const result = await interpretRequest(testCase.phrase, testCase.workflows, null, []);
+          const result = await interpretRequest(testCase.phrase, testCase.workflows, null, [], "", [], "", [testCase.module]);
           const values = result.values && typeof result.values === "object" ? result.values as Record<string, unknown> : {};
           batchResults[index] = {
             groupKey: testCase.groupKey, module: testCase.module, tab: testCase.tab, phrase: testCase.phrase,
@@ -226,16 +239,22 @@ if (evaluateInterpreter) {
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, batch.length) }, worker));
     for (const result of batchResults) resultBySignature.set(signature(result as any), result);
-    if (sampleInterpreter) report.interpreterSamples = [...resultBySignature.values()];
-    else report.interpreterMatrix = [...resultBySignature.values()];
+    const mergedMatrix = [
+      ...fullTargetMatrix.filter(entry => !selectedSignatures.has(signature(entry))),
+      ...resultBySignature.values(),
+    ];
+    if (sampleInterpreter) report.interpreterSamples = mergedMatrix;
+    else report.interpreterMatrix = mergedMatrix;
     await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     done += batch.length;
     const failed = batchResults.filter(result => !result.passed).length;
     console.log(`Production interpreter ${done}/${allCases.length}: ${failed} lệch trong lô vừa xong.`);
   }
-  const results = sampleInterpreter ? report.interpreterSamples as Array<any> : report.interpreterMatrix as Array<any>;
+  const results = (sampleInterpreter ? report.interpreterSamples : report.interpreterMatrix)
+    .filter((entry: any) => selectedSignatures.has(signature(entry))) as Array<any>;
   const failures = results.filter(entry => !entry.passed);
-  console.log(JSON.stringify({ interpreterCases: results.length, passed: results.length - failures.length, mismatches: failures.length, concurrency, sampleInterpreter, reportPath: outputPath }, null, 2));
+  console.log(JSON.stringify({ interpreterCases: results.length, passed: results.length - failures.length, mismatches: failures.length, concurrency, sampleInterpreter,
+    scope: { module: moduleFilter || "all", limit: maxCases ?? null }, reportPath: outputPath }, null, 2));
 }
 
 if (evaluate) {
@@ -406,7 +425,7 @@ if (probeInterpreter) {
     const workflows = ASSISTANT_OPERATIONS.filter(operation => operation.module === module && operation.link === tab).map(defaultWorkflow);
     for (const testCase of cases) {
       try {
-        const result = await interpretRequest(testCase.phrase, workflows, null, []);
+        const result = await interpretRequest(testCase.phrase, workflows, null, [], "", [], "", [testCase.module]);
         const values = result.values && typeof result.values === "object" ? result.values as Record<string, unknown> : {};
         const valuesMatch = Object.entries(testCase.expectedValues || {}).every(([key, value]) => values[key] === value);
         report.interpreterEvaluations.push({
