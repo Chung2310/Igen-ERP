@@ -4,7 +4,7 @@ import { formatAssistantResultTable } from "../../src/shared/assistant-result-ta
 export interface AnalysisContract {
   scopeLabel?: string;
   pagination?: { pageField: string; sizeField: string };
-  fields: Record<string, { label: string; type: "number" | "text"; values?: Record<string, string> }>;
+  fields: Record<string, { label: string; type: "number" | "text"; values?: Record<string, string>; aliases?: string[] }>;
 }
 export async function collectAnalysisPages(contract: AnalysisContract, values: Record<string, any>, dispatch: (values: Record<string, any>) => Promise<any>) {
   if (!contract.pagination) return dispatch(values);
@@ -37,6 +37,65 @@ export interface ListAnalysis {
   groupBy?: string;
   aggregate?: { operation: "count" | "sum" | "avg"; field?: string };
 }
+const normalizeAnalysisText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+
+/** Recover an explicitly requested ranking when the model omitted or mismapped
+ * its analysis plan. Ambiguous ranking metrics are returned as a question so no
+ * unranked or differently ranked report is dispatched. */
+export function reconcileRequestedRanking(text: string, contract: AnalysisContract, raw: unknown):
+  | { kind: "none" }
+  | { kind: "resolved"; analysis: ListAnalysis }
+  | { kind: "clarify"; question: string } {
+  const request = normalizeAnalysisText(text);
+  const topCountMatch = request.match(/\btop\s+(\d+)\b/);
+  const hasTopCue = /\btop\b/.test(request);
+  const topCount = topCountMatch ? Number(topCountMatch[1]) : undefined;
+  const maximum = /\b(?:nhieu(?:\s+[a-z]+){0,4}\s+nhat|cao(?:\s+[a-z]+){0,4}\s+nhat|lon(?:\s+[a-z]+){0,4}\s+nhat|dung dau)\b/.test(request);
+  const minimum = /\b(?:it\s+(?:[a-z]+\s+){1,3}nhat|thap nhat|nho nhat)\b/.test(request);
+  const sorting = /\b(?:sap xep|xep theo|xep hang)\b/.test(request) && /\b(?:giam dan|tang dan|cao xuong thap|thap len cao)\b/.test(request);
+  const invalidTopCount = hasTopCue && (!topCount || topCount < 1 || topCount > 1000);
+  if (!maximum && !minimum && !sorting && !hasTopCue) return { kind: "none" };
+
+  const numericFields = Object.entries(contract.fields).filter(([, definition]) => definition.type === "number");
+  const requestTerms = new Set(request.split(/[^a-z0-9]+/).filter(Boolean));
+  const stopWords = new Set(["con", "thieu", "gioi", "da", "tong", "tien", "so", "ty", "le", "dat", "nhan", "su"]);
+  const matches = numericFields.filter(([key, definition]) => {
+    const phrases = [...(definition.aliases || []), definition.label, key]
+      .map(normalizeAnalysisText).filter(term => term.length >= 4);
+    const labelWords = normalizeAnalysisText(definition.label).split(/[^a-z0-9]+/)
+      .filter(term => term.length >= 4 && !stopWords.has(term));
+    return phrases.some(term => request.includes(term)) || labelWords.some(term => requestTerms.has(term));
+  });
+  const candidates = matches.length ? matches : numericFields.length === 1 ? numericFields : [];
+  if (candidates.length !== 1) {
+    const labels = numericFields.map(([, definition]) => `“${definition.label}”`).join(", ");
+    return { kind: "clarify", question: `Báo cáo có thể xếp hạng theo ${labels}. Bạn muốn so sánh theo chỉ tiêu nào${invalidTopCount ? " và lấy bao nhiêu kết quả (từ 1 đến 1.000)" : ""}?` };
+  }
+  if (invalidTopCount) {
+    return { kind: "clarify", question: "Bạn muốn lấy bao nhiêu kết quả trong danh sách top (từ 1 đến 1.000)?" };
+  }
+
+  let existing: ListAnalysis = {};
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) existing = parsed as ListAnalysis;
+  } catch { /* The regular analysis validator reports malformed model output. */ }
+  const [field] = candidates[0];
+  if (hasTopCue && topCount) {
+    const { extreme: _ignored, sort: _oldSort, ...rest } = existing;
+    const direction = minimum && !maximum ? "asc" : "desc";
+    return { kind: "resolved", analysis: { ...rest, sort: { field, direction }, limit: topCount } };
+  }
+  if (sorting) {
+    const direction = /\b(?:giam dan|cao xuong thap)\b/.test(request) ? "desc" : "asc";
+    const { extreme: _ignored, ...rest } = existing;
+    return { kind: "resolved", analysis: { ...rest, sort: { field, direction } } };
+  }
+  const { sort: _ignored, ...rest } = existing;
+  const analysis: ListAnalysis = { ...rest, extreme: { field, direction: maximum ? "max" : "min" } };
+  return { kind: "resolved", analysis };
+}
+
 const fail = (message: string): never => { throw new AssistantError(message); };
 const plain = (value: unknown): value is Record<string, any> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 export function validateListAnalysis(raw: unknown, contract: AnalysisContract): ListAnalysis {

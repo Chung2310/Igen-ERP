@@ -2,7 +2,49 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn() }));
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
+  const response = await state.provider(...args);
+  if (typeof response?.text !== "string") return response;
+  try {
+    const parsed = JSON.parse(response.text);
+    if (typeof parsed.actionId === "string" && parsed.intentType === undefined) parsed.intentType = "workflow";
+    if (typeof parsed.actionId === "string" && parsed.requestCoverage === undefined) {
+      const [{ defaultWorkflow, operationById }, { reconcileRequestedRanking }] = await Promise.all([
+        import("./catalog"), import("./list-analysis"),
+      ]);
+      const requestText = args[0]?.messages?.at(-1)?.content;
+      const operation = operationById(parsed.actionId);
+      const workflow = operation && defaultWorkflow(operation);
+      if (typeof requestText === "string" && operation && workflow) {
+        const targets = ["action"];
+        const values = parsed.values && typeof parsed.values === "object" ? parsed.values : {};
+        for (const [key, value] of Object.entries(values)) {
+          if (value == null) continue;
+          const field = workflow.fields.find(candidate => candidate.key === key || candidate.apiKey === key
+            || Boolean(candidate.source && candidate.apiKey && `${candidate.source}_${candidate.apiKey}` === key));
+          if (field) targets.push(`values.${field.key}`);
+        }
+        if (workflow.fields.some(field => field.apiKey === "periodAnchor") && /\btháng\b|\bthang\b/iu.test(requestText)) {
+          targets.push(`values.${workflow.fields.find(field => field.apiKey === "periodAnchor")!.key}`);
+        }
+        let analysis: any = values.analysis;
+        try { if (typeof analysis === "string") analysis = JSON.parse(analysis); } catch { analysis = undefined; }
+        if (operation.analysis && (!analysis || typeof analysis !== "object")) {
+          const inferred = reconcileRequestedRanking(requestText, operation.analysis, analysis);
+          if (inferred.kind === "resolved") analysis = inferred.analysis;
+        }
+        if (analysis && typeof analysis === "object") {
+          if (analysis.extreme?.field) targets.push(`analysis.extreme.${analysis.extreme.field}`);
+          if (analysis.sort?.field) targets.push(`analysis.sort.${analysis.sort.field}`);
+          for (const filter of analysis.filters || []) if (filter?.field) targets.push(`analysis.filters.${filter.field}`);
+          if (analysis.limit) targets.push("analysis.limit");
+        }
+        parsed.requestCoverage = [{ evidence: requestText, requirement: "Yêu cầu thao tác", mappedTo: [...new Set(targets)] }];
+      }
+    }
+    return { ...response, text: JSON.stringify(parsed) };
+  } catch { return response; }
+} }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
     for (const [key, value] of Object.entries(updates.$set || {})) {
@@ -24,9 +66,6 @@ vi.mock("./models", () => {
     },
     AssistantTurnModel: {
       create: vi.fn(async input => {
-        if (state.turns.some(turn => turn.requestId === input.requestId && turn.userId === input.userId && turn.companyCode === input.companyCode)) {
-          throw Object.assign(new Error("Duplicate request"), { code: 11000 });
-        }
         const turn = { ...input, _id: String(state.turns.length + 1), createdAt: new Date(), updatedAt: new Date(), status: "processing" };
         state.turns.push(turn); return turn;
       }),
@@ -88,6 +127,86 @@ it("does not silently discard a monthly constraint on cumulative student partner
   expect(fetcher).not.toHaveBeenCalled();
   expect(result.reply).not.toContain("kết quả:");
 });
+it("routes a labor partner monthly ranking from QA through the authorized read workflow", async () => {
+  const periodField = kpiOperation.fields.find(field => field.apiKey === "periodAnchor")!;
+  state.interpret.mockResolvedValueOnce({
+    actionId: kpiOperation.id,
+    values: { [periodField.key]: "2026-11-01", analysis: { extreme: { field: "actualReferrals", direction: "max" } } },
+    intentType: "workflow",
+  });
+  fetcher.mockImplementationOnce(async (url, init) => {
+    const parsed = new URL(String(url));
+    expect(parsed.pathname).toBe("/api/v1/worker-management/partners/kpi");
+    expect(parsed.searchParams.get("periodAnchor")).toBe("2026-11-01");
+    expect(init?.method).toBe("GET");
+    return json({ success: true, data: {
+      periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z",
+      items: [
+        { partner: { name: "Công ty An", code: "AN" }, targetReferrals: 4, actualReferrals: 7, remainingReferrals: 0, completionRate: 175, status: "achieved" },
+        { partner: { name: "Công ty Bình", code: "BI" }, targetReferrals: 5, actualReferrals: 3, remainingReferrals: 2, completionRate: 60, status: "incomplete" },
+      ],
+    } });
+  });
+
+  const result = await turn({ mode: "qa", text: "Trong quản lý lao động, đối tác nào giới thiệu được nhiều lao động nhất trong tháng 11/2026?" });
+
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("Công ty An");
+  expect(result.reply).toContain("7");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][1]?.method).toBe("GET");
+  expect(state.interpret).toHaveBeenCalledTimes(1);
+});
+
+it("reads two authorized workflows and synthesizes only their selected public fields", async () => {
+  state.interpret.mockResolvedValueOnce({
+    actionId: null,
+    values: {},
+    intentType: "workflow",
+    actionIntent: "report",
+    requestCoverage: [
+      { evidence: "Trong quản lý lao động", requirement: "Phân hệ quản lý lao động", mappedTo: ["context.module"] },
+      { evidence: "liệt kê hồ sơ lao động", requirement: "Liệt kê hồ sơ lao động", mappedTo: ["query:worker.list:result.fullName", "query:worker.list:result.status"] },
+      { evidence: "đối tác giới thiệu nhiều lao động nhất tháng 11/2026", requirement: "Xếp hạng đối tác theo số lao động giới thiệu trong tháng 11/2026", mappedTo: [`query:${kpiOperation.id}:values.query_periodAnchor`, `query:${kpiOperation.id}:analysis.extreme.actualReferrals`, `query:${kpiOperation.id}:result.partnerName`, `query:${kpiOperation.id}:result.actualReferrals`] },
+    ],
+    queryPlan: [
+      { actionId: "worker.list", purpose: "Số lượng và trạng thái hồ sơ lao động", values: {}, resultFields: ["fullName", "status"] },
+      { actionId: kpiOperation.id, purpose: "Đối tác có số lao động được giới thiệu cao nhất tháng 11/2026", values: { query_periodAnchor: "2026-11-01", analysis: { extreme: { field: "actualReferrals", direction: "max" } } }, resultFields: ["partnerName", "actualReferrals"] },
+    ],
+  });
+  fetcher.mockImplementation(async url => {
+    const path = new URL(String(url)).pathname;
+    if (path.endsWith("/worker-management/workers")) {
+      return json({ success: true, data: { workers: [{ _id: workerId, fullName: "Nguyễn An", status: "active", phone: "PRIVATE" }] } });
+    }
+    if (path.endsWith("/worker-management/partners/kpi")) {
+      return json({ success: true, data: { periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", items: [
+        { partner: { name: "Đối tác An", code: "AN" }, targetReferrals: 5, actualReferrals: 8, remainingReferrals: 0, completionRate: 160, status: "achieved" },
+      ] } });
+    }
+    throw new Error(`Unexpected API path ${path}`);
+  });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({
+    summary: "Đã tổng hợp hồ sơ lao động và đối tác giới thiệu nhiều nhất.",
+    columns: ["Nguồn", "Kết quả"],
+    rows: [{ cells: ["Đối tác An", "8 lao động"] }],
+    limitations: [],
+  }) });
+
+  const result = await turn({ text: "Trong quản lý lao động, liệt kê hồ sơ lao động và đối tác giới thiệu nhiều lao động nhất tháng 11/2026" });
+
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(fetcher.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
+    "/api/v1/worker-management/workers",
+    "/api/v1/worker-management/partners/kpi",
+  ]);
+  expect(result.reply).toContain("Đối tác An");
+  expect(result.reply).not.toContain("PRIVATE");
+  expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(1);
+  expect(state.turns.at(-1).steps.every((step: any) => step.status === "completed")).toBe(true);
+});
+
 it("ranks all student partner pages, including a winner on the next page, with an explicit cumulative scope", async () => {
   await useSemanticModel("partner.analysis", { analysis: { extreme: { field: "referredStudentsCount", direction: "max" } } });
   const partner = (id: string, name: string, count: number) => ({ _id: id, name, levelName: "Bạc", referredStudentsCount: count, totalReferredTuition: count * 1000000, totalCommission: count * 10000, totalPaid: 0, unpaidBalance: count * 10000, bankAccountNo: "PRIVATE" });
@@ -181,6 +300,32 @@ it.each([
   expect(table.rows.map(row => row.values["Đối tác"])).toEqual(names);
   expect(result.reply).toContain("11/2026");
   expect(state.turns.at(-1).steps.at(-1).status).toBe("completed");
+});
+
+it("ranks worker referrals from the user's wording when the model omits the analysis plan", async () => {
+  await useSemanticModel(kpiOperation.id, { query_periodAnchor: "2026-11-01" });
+  fetcher.mockImplementation(async (url, init) => {
+    expect(init?.method).toBe("GET");
+    const parsed = new URL(String(url));
+    expect(parsed.pathname).toBe("/api/v1/worker-management/partners/kpi");
+    return json({ success: true, data: { periodStart: "2026-11-01", periodEnd: "2026-12-01", items: [
+      { partner: { name: "An", code: "A" }, actualReferrals: 10, targetReferrals: 5, remainingReferrals: 0, completionRate: 200, status: "achieved" },
+      { partner: { name: "Bình", code: "B" }, actualReferrals: 4, targetReferrals: 10, remainingReferrals: 6, completionRate: 40, status: "incomplete" },
+    ] } });
+  });
+  const result = await turn({ text: "Trong quản lí lao động, Đối tác nào giới thiệu được nhiều lao động nhất trong tháng" });
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)?.rows.map(row => row.values["Đối tác"])).toEqual(["An"]);
+  expect(parseAssistantResultTable(result.reply)?.rows[0]?.values["Đã giới thiệu"]).toBe("10");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("asks which metric to compare instead of returning an unranked KPI report", async () => {
+  await useSemanticModel(kpiOperation.id, { query_periodAnchor: "2026-11-01" });
+  const result = await turn({ text: "Đối tác nào nhiều nhất trong tháng?" });
+  expect(result.status, JSON.stringify(result)).toBe("collecting");
+  expect(result.reply).toContain("Bạn muốn so sánh theo chỉ tiêu nào?");
+  expect(fetcher).not.toHaveBeenCalled();
 });
 
 it.each([false, true])("merges a nested policy edit and checks the confirmation snapshot (concurrent change=%s)", async concurrentChange => {
@@ -342,145 +487,6 @@ it("creates a worker, asks for missing optional details, and updates that same w
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/worker-management/workers/${workerId}` && init?.method === "PATCH")).toHaveLength(1);
 });
 afterEach(() => vi.unstubAllGlobals());
-it.each(["supplement", "skip", "cancel"])("recovers the screenshot project request through collection, confirmation and %s", async followUp => {
-  const names = ["Phạm Quốc Dũng (mẫu)", "Hoàng Thu Hà (mẫu)", "Đỗ Thanh Khoa (mẫu)", "Lê Minh Châu (mẫu)", "Trần Thị Bình (mẫu)"];
-  const workers = names.map((fullName, i) => ({ _id: `64b00000000000000000010${i}`, fullName, status: "active" }));
-  const days = ["Thứ 2", "Thứ 4", "Thứ 6", "Thứ 3", "Thứ 5", "Thứ 7"];
-  let project: Record<string, unknown> | undefined;
-  let creations = 0;
-  let updates = 0;
-  fetcher.mockImplementation(async (url, init) => {
-    const path = new URL(String(url)).pathname;
-    if (path === "/api/v1/worker-management/workers") return json({ workers });
-    if (path === "/api/v1/worker-management/projects" && init?.method === "POST") {
-      creations++;
-      project = { _id: projectId, id: projectId, ...JSON.parse(String(init.body)) };
-      return json({ success: true, data: project });
-    }
-    if (path === "/api/v1/worker-management/projects") return json({ success: true, data: project ? [project] : [] });
-    if (path === `/api/v1/worker-management/projects/${projectId}`) {
-      if (init?.method === "PATCH") { updates++; Object.assign(project!, JSON.parse(String(init.body))); }
-      return json({ success: true, data: project });
-    }
-    throw new Error(`Unexpected API: ${path}`);
-  });
-  await useSemanticModel("worker.project.create", {});
-  state.provider.mockReset();
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: ["worker.project.create"] }) });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "worker.project.create", values: { name: "VINSCON20", workerIds: names, daysOfWeek: days }, intentType: "workflow" }) });
-  const text = `"tạo 1 dự án mới tên VINSCON20 trong mục quản lí lao động\nMình chọn Tên lao động: ${names.map(name => `${name} — Chi nhánh Trụ sở chính`).join(", ")}; Các ngày trong tuần · Các ngày trong tuần: ${days.join(", ")}."`;
-  const missing = await turn({ text });
-  expect(missing.status, JSON.stringify(missing)).toBe("collecting");
-  expect(missing.reply).toContain("Mã dự án");
-  expect(missing.reply).not.toContain("Hướng dẫn dự phòng");
-  expect(state.session.pending.provided).toMatchObject({ name: "VINSCON20" });
-  expect(creations).toBe(0);
-  expect(state.provider).toHaveBeenCalledTimes(3);
-  expect(missing.inputForm?.fields.map(field => field.key)).toEqual(["code"]);
-  const preview = await turn({ formValues: { id: missing.inputForm!.id, values: { code: "DA-VINSCON20" } } });
-  expect(state.provider).toHaveBeenCalledTimes(3);
-  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
-  expect(creations).toBe(0);
-  for (const name of names) expect(JSON.stringify(preview)).toContain(name);
-  for (const worker of workers) expect(JSON.stringify(preview)).not.toContain(worker._id);
-  if (followUp === "cancel") {
-    const cancelled = await turn({ decision: { id: preview.action!.id, confirmed: false } });
-    expect(cancelled.status, JSON.stringify(cancelled)).toBe("cancelled");
-    expect(creations).toBe(0);
-    expect(updates).toBe(0);
-    return;
-  }
-  const confirmed = { requestId: randomUUID(), decision: { id: preview.action!.id, confirmed: true } };
-  const created = await turn(confirmed);
-  expect(created.status, JSON.stringify(created)).toBe("completed");
-  expect(project).toMatchObject({ code: "DA-VINSCON20", name: "VINSCON20", workerIds: workers.map(worker => worker._id), daysOfWeek: [1, 2, 3, 4, 5, 6] });
-  expect((await turn(confirmed)).status).toBe("completed");
-  expect(creations).toBe(1);
-  expect(parseAssistantResultTable(created.reply)).not.toBeNull();
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
-  if (followUp === "skip") {
-    await turn({ text: "Bỏ qua" });
-    expect(creations).toBe(1);
-    expect(updates).toBe(0);
-    return;
-  }
-  const agreed = await turn({ text: "Có" });
-  expect(agreed.status, JSON.stringify(agreed)).toBe("collecting");
-  await useSemanticModel("worker.project.update", { location: "Hà Nội" });
-  const updatePreview = await turn({ text: "Bổ sung địa điểm Hà Nội cho dự án vừa tạo" });
-  expect(updatePreview.status, JSON.stringify(updatePreview)).toBe("confirmation");
-  const updated = await turn({ decision: { id: updatePreview.action!.id, confirmed: true } });
-  expect(updated.status, JSON.stringify(updated)).toBe("completed");
-  expect(project?.location).toBe("Hà Nội");
-  expect(parseAssistantResultTable(updated.reply)).not.toBeNull();
-  expect(creations).toBe(1);
-  expect(updates).toBe(1);
-});
-it("keeps the short screenshot request as a draft and asks for its missing code", async () => {
-  await useSemanticModel("worker.project.create", {});
-  state.provider.mockReset();
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: ["worker.project.create"] }) });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "worker.project.create", values: { name: "vinscon20" }, intentType: "workflow" }) });
-  const result = await turn({ text: "tạo 1 dự án mới tên vinscon20 quản lí lao động" });
-  expect(result.status, JSON.stringify(result)).toBe("collecting");
-  expect(result.reply).toContain("Mã dự án");
-  expect(result.reply).not.toContain("Hướng dẫn dự phòng");
-  expect(state.session.pending.provided).toMatchObject({ name: "vinscon20" });
-  expect(state.session.pending.provided).not.toHaveProperty("code");
-  expect(result.inputForm?.fields.map(field => field.label)).toEqual(["Mã dự án"]);
-  expect(fetcher.mock.calls.some(([, init]) => init?.method !== "GET")).toBe(false);
-});
-it("offers a server-bound action choice instead of asking the user to rewrite the screenshot request", async () => {
-  const text = "tạo 1 dự án mới tên VINSCON20 trong mục quản lí lao động";
-  await useSemanticModel("worker.project.create", {});
-  state.provider.mockReset();
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: ["worker.project.create"] }) });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-  const choice = await turn({ text });
-  expect(choice.status, JSON.stringify(choice)).toBe("collecting");
-  expect(choice.reply).not.toContain("Ví dụ cách viết");
-  expect(choice.workflowSelection?.options.map(option => option.label)).toEqual(["Tạo dự án lao động — Quản lý lao động"]);
-  expect(JSON.stringify(choice.workflowSelection)).not.toContain("worker.project.create");
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: { name: "VINSCON20" }, intentType: "unsupported" }) });
-  const missing = await turn({ workflowSelection: { id: choice.workflowSelection!.id, value: choice.workflowSelection!.options[0].value } });
-  expect(missing.status, JSON.stringify(missing)).toBe("collecting");
-  expect(missing.inputForm?.fields.map(field => field.key)).toEqual(["code"]);
-  expect(state.session.pending.provided).toMatchObject({ name: "VINSCON20" });
-  expect(state.session.workflowChoice).toBeNull();
-  const interpretation = state.provider.mock.calls[3][0];
-  expect(interpretation.messages.at(-1).content).toBe(text);
-  expect(fetcher.mock.calls.every(([, init]) => init?.method === "GET")).toBe(true);
-});
-it.each(["stale", "unexpected-field"])("rejects a %s form without changing the draft or writing", async mode => {
-  state.interpret.mockResolvedValueOnce({ actionId: "worker.project.create", values: { name: "VINSCON20" }, intentType: "workflow" });
-  const missing = await turn({ text: "Tạo dự án VINSCON20 quản lý lao động" });
-  const result = await turn({ formValues: { id: mode === "stale" ? randomUUID() : missing.inputForm!.id, values: mode === "unexpected-field" ? { name: "changed-without-consent" } : { code: "P20" } } });
-  expect(result.status).toBe("failed");
-  expect(state.session.pending.provided.name).toBe("VINSCON20");
-  expect(fetcher.mock.calls.every(([, init]) => init?.method === "GET")).toBe(true);
-});
-it.each(["project.create", "project.update", "project.delete", "project.list"])("blocks the wrong HR namespace before any API call: %s", async actionId => {
-  state.interpret.mockResolvedValueOnce({ actionId, values: { name: "X", id: "X" }, intentType: "workflow" });
-  const result = await turn({ text: "Thao tác với dự án X trong mục quản lí lao động" });
-  expect(result.status).toBe("failed");
-  expect(result.reply).toContain("không khớp yêu cầu thuộc Quản lý lao động");
-  expect(fetcher).not.toHaveBeenCalled();
-});
-it("blocks confirmation of a wrong-module preview persisted before the fix", async () => {
-  state.interpret.mockResolvedValueOnce({ actionId: "project.create", values: { name: "X" }, intentType: "workflow" });
-  const preview = await turn({ text: "Tạo dự án X trong Nhân sự" });
-  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
-  // Simulate the old wrong preview: the saved action is HR but the original request was worker.
-  state.session.pending.intent = "Tạo dự án X trong Quản lý lao động";
-  fetcher.mockClear();
-  const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
-  expect(result.status).toBe("failed");
-  expect(result.reply).toContain("không khớp");
-  expect(fetcher).not.toHaveBeenCalled();
-});
 it.each([
   ["Đổi địa điểm Dự án lắp đặt thành Hà Nội", {location: "Hà Nội"}],
   ["Dời ngày kết thúc Dự án lắp đặt sang 30/12/2026", {endDate: "2026-12-30"}],

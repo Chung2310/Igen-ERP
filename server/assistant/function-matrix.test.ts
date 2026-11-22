@@ -23,7 +23,7 @@ for (const op of operations) describe(`${op.module} / ${op.id}`, () => {
   const workflow = defaultWorkflow(op);
   if(op.unavailableReason) {
     it('rejects an unavailable legacy operation', async()=>{
-      provider.mockResolvedValue({text:JSON.stringify({actionId:op.id,values:{}})});
+      provider.mockResolvedValue({text:JSON.stringify({intentType:"workflow",actionIntent:op.assistantMetadata?.intent||"unknown",actionId:op.id,values:{},requestCoverage:[]})});
       await expect(interpretRequest(op.title,[workflow],null,[])).rejects.toThrow();
       evidence.push({operation:op.id,caseId:'unavailable-operation',status:'passed',expected:op.unavailableReason,actual:'Rejected',stage:'interpretation/validation'});
     });
@@ -35,9 +35,9 @@ for (const op of operations) describe(`${op.module} / ${op.id}`, () => {
     catch (error) { row.status = "failed"; row.error = String(error); throw error; }
     finally { evidence.push(row); }
   };
-  const phrase = `${op.title}. Xử lý đúng thông tin đã cung cấp.`;
-  it.each([phrase, `Nhờ bạn ${op.title.toLocaleLowerCase("vi")} giúp mình`, phrase.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d")])("accepts a mocked action without inventing supplied values: %s", async text => record(`wording:${text}`, { text, ai: { actionId: op.id, values: {} } }, "Preserve selected action and leave unsupplied values empty", async () => {
-    provider.mockResolvedValue({ text: JSON.stringify({ actionId: op.id, values: {} }) });
+  const phrase = "Thực hiện thao tác này.";
+  it.each([phrase, "Vui lòng thực hiện thao tác này.", "Làm theo thao tác này."])("accepts a mocked action without inventing supplied values: %s", async text => record("wording:" + text, { text, ai: { actionId: op.id, values: {} } }, "Preserve selected action and leave unsupplied values empty", async () => {
+    provider.mockResolvedValue({ text: JSON.stringify({ intentType: "workflow", actionId: op.id, actionIntent: op.assistantMetadata?.intent || "unknown", values: {}, requestCoverage: [{ evidence: text, requirement: "Yêu cầu thao tác", mappedTo: ["action"] }] }) });
     const result = await interpretRequest(text, [workflow], null, []);
     expect(result.actionId).toBe(op.id);
     expect(result.values).toEqual({});
@@ -45,14 +45,14 @@ for (const op of operations) describe(`${op.module} / ${op.id}`, () => {
   }));
   it("honors cancellation even if AI also proposes this action", async () => record("cancel", { actionId: op.id, cancel: true }, "No executable action", async () => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: op.id, values: {}, cancel: true }) });
-    const result = await interpretRequest("Hủy yêu cầu này", [workflow], null, []);
+    const result = await interpretRequest("HÃ¡Â»Â§y yÃƒÂªu cÃ¡ÂºÂ§u nÃƒÂ y", [workflow], null, []);
     expect(result.actionId).toBeNull();
     expect(result.values).toEqual({});
     return result;
   }));
   it("blocks an additional condition the chosen function cannot represent", async () => record("unknown-condition", { matrixUnsupportedFilter: "must-preserve" }, "Ask rather than discard a condition", async () => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: op.id, values: { matrixUnsupportedFilter: "must-preserve" } }) });
-    const result = await interpretRequest("Thực hiện yêu cầu với đầy đủ điều kiện tôi nêu", [workflow], null, []);
+    const result = await interpretRequest("ThÃ¡Â»Â±c hiÃ¡Â»â€¡n yÃƒÂªu cÃ¡ÂºÂ§u vÃ¡Â»â€ºi Ã„â€˜Ã¡ÂºÂ§y Ã„â€˜Ã¡Â»Â§ Ã„â€˜iÃ¡Â»Âu kiÃ¡Â»â€¡n tÃƒÂ´i nÃƒÂªu", [workflow], null, []);
     expect(result.actionId).toBeNull();
     return result;
   }));

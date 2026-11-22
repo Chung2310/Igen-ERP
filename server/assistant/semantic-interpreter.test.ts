@@ -1,12 +1,79 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-const provider = vi.hoisted(() => vi.fn());
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: provider }));
+const mockState = vi.hoisted(() => ({ provider: vi.fn(), inferIntentType: true, autoCoverage: true, coverageBuilder: null as any, lastCoverage: null as any, lastPendingActionId: null as any }));
+const provider = mockState.provider;
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
+  const response = await mockState.provider(...args);
+  if (typeof response?.text !== "string") return response;
+  try {
+    const parsed = JSON.parse(response.text);
+    if (mockState.inferIntentType && typeof parsed.actionId === "string" && parsed.intentType === undefined) parsed.intentType = "workflow";
+    if (typeof parsed.actionId === "string" && parsed.actionIntent === undefined) parsed.actionIntent = operationById(parsed.actionId)?.assistantMetadata?.intent;
+    if (mockState.autoCoverage && typeof parsed.actionId === "string" && parsed.requestCoverage === undefined) {
+      let requestText = args[0]?.messages?.at(-1)?.content;
+      let pendingActionId: string | undefined;
+      try { const context = JSON.parse(requestText); requestText = context.text ?? requestText; pendingActionId = context.pending?.actionId; } catch { /* last user message is already the request */ }
+      if (!pendingActionId) {
+        const systemPrompt = args[0]?.messages?.find((message: any) => message.role === "system" && message.content.includes("ĐANG CHỜ:"))?.content || "";
+        const pendingLine = systemPrompt.split("ĐANG CHỜ:").at(-1)?.split("\n")[0]?.trim();
+        try { pendingActionId = JSON.parse(pendingLine).actionId; } catch { /* no pending workflow in this test */ }
+      }
+      if (typeof requestText === "string") {
+        mockState.lastPendingActionId = pendingActionId;
+        mockState.lastCoverage = mockState.coverageBuilder?.(requestText, parsed, pendingActionId)
+          || [{ evidence: requestText, requirement: "Yêu cầu thao tác", mappedTo: ["action"] }];
+        parsed.requestCoverage = mockState.lastCoverage;
+      }
+    }
+    return { ...response, text: JSON.stringify(parsed) };
+  } catch { return response; }
+} }));
 import { interpretRequest, validateRemainingRequests } from "./semantic-interpreter";
 import { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } from "./catalog";
-import { quotationIntent } from "./quotation-intent";
-import { withAssistantExecution } from "./execution-control";
-afterEach(() => { provider.mockReset(); vi.unstubAllEnvs(); });
+import { explicitlyRequestsBudgetCreation, quotationIntent } from "./quotation-intent";
+import { reconcileRequestedRanking } from "./list-analysis";
+afterEach(() => { provider.mockReset(); mockState.inferIntentType = true; mockState.autoCoverage = true; });
 const employee = defaultWorkflow(operationById("employee.update")!);
+mockState.coverageBuilder = (text: string, parsed: any, pendingActionId?: string) => {
+  const requestedAction = quotationIntent(text).actionId;
+  const estimateActions = new Set(["quotation.request.create", "quotation.estimate.create", "quotation.estimate.from-customer"]);
+  const explicitBudget = explicitlyRequestsBudgetCreation(text);
+  const budgetSupplement = !requestedAction && parsed.actionId === "quotation.budget.create" && !explicitBudget;
+  const targetAction = requestedAction && requestedAction !== "quotation.budget.create"
+    ? requestedAction
+    : budgetSupplement ? pendingActionId && estimateActions.has(pendingActionId) ? pendingActionId : "quotation.request.create"
+      : requestedAction || parsed.actionId;
+  const targetOperation = operationById(targetAction);
+  if (!targetOperation) return undefined;
+  const targetWorkflow = defaultWorkflow(targetOperation);
+  const targets = ["action"];
+  if (targetWorkflow.fields.some(field => field.key === "requestText")) targets.push("values.requestText");
+  const values = parsed.values && typeof parsed.values === "object" ? parsed.values : {};
+  for (const [key, value] of Object.entries(values)) {
+    if (value == null) continue;
+    const field = targetWorkflow.fields.find(candidate => candidate.key === key || candidate.apiKey === key
+      || Boolean(candidate.source && candidate.apiKey && `${candidate.source}_${candidate.apiKey}` === key));
+    if (field) targets.push(`values.${field.key}`);
+  }
+  if (targetOperation.id === "quotation.estimate.from-customer" && values.budget != null
+    && targetWorkflow.fields.some(field => field.key === "sourceRequirements")) targets.push("values.sourceRequirements");
+  if (targetWorkflow.fields.some(field => field.apiKey === "periodAnchor") && /\btháng\b|\bthang\b/iu.test(text)) {
+    const periodField = targetWorkflow.fields.find(field => field.apiKey === "periodAnchor")!;
+    targets.push(`values.${periodField.key}`);
+  }
+  let analysis: any = values.analysis;
+  try { if (typeof analysis === "string") analysis = JSON.parse(analysis); } catch { analysis = undefined; }
+  if (targetOperation.analysis && (!analysis || typeof analysis !== "object")) {
+    const reconciled = reconcileRequestedRanking(text, targetOperation.analysis, analysis);
+    if (reconciled.kind === "resolved") analysis = reconciled.analysis;
+  }
+  if (analysis && typeof analysis === "object") {
+    if (analysis.extreme?.field) targets.push(`analysis.extreme.${analysis.extreme.field}`);
+    if (analysis.sort?.field) targets.push(`analysis.sort.${analysis.sort.field}`);
+    for (const filter of analysis.filters || []) if (filter?.field) targets.push(`analysis.filters.${filter.field}`);
+    if (analysis.limit) targets.push("analysis.limit");
+  }
+  return [{ evidence: text, requirement: "Yêu cầu thao tác", mappedTo: [...new Set(targets)] }];
+};
 describe("estimate versus budget routing", () => {
   const workflows = ["quotation.budget.create", "quotation.request.create", "quotation.estimate.create", "quotation.estimate.from-customer"].map(id => defaultWorkflow(operationById(id)!));
   it.each([
@@ -16,27 +83,34 @@ describe("estimate versus budget routing", () => {
     ["Tôi cần một dự toán cho công trình", "quotation.request.create"],
     ["Tạo dự toán, không tạo ngân sách", "quotation.request.create"],
     ["Tạo dự toán từ báo giá BG-001 với ngân sách 100 triệu", "quotation.estimate.from-customer"],
+    ["Lập dự toán dựa trên báo giá BG-2026-001", "quotation.estimate.from-customer"],
+    ["Tạo dự toán căn cứ vào BG-2026-001", "quotation.estimate.from-customer"],
     ["Lập dự toán từ yêu cầu đã phân tích, ngân sách 100 triệu", "quotation.estimate.create"],
   ])("corrects an incorrect model budget choice: %s", async (text, actionId) => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: { customerName: "An", budget: 100000000 }, remainingRequests: ["Tạo ngân sách"] }) });
     expect(quotationIntent(text).actionId).toBe(actionId);
     const result = await interpretRequest(text, workflows, null, []);
-    expect(result.actionId).toBe(actionId);
+    expect(result.actionId, JSON.stringify({ result, lastCoverage: mockState.lastCoverage })).toBe(actionId);
     expect(result.values).not.toHaveProperty("budget");
     expect(result.remainingRequests).toEqual([]);
     if (actionId === "quotation.request.create") {
       expect(result.values.requestText).toBe(text);
       expect(result.values.customerName).toBe("An");
     }
+    if (actionId === "quotation.estimate.from-customer" && /ngân sách/i.test(text)) {
+      expect(result.values.sourceRequirements).toContain(text);
+    }
   });
   it("keeps a budget constraint on the pending estimate even if AI calls it a new request", async () => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {}, newRequest: true }) });
     const result = await interpretRequest("Ngân sách 100 triệu nhé", workflows, { actionId: "quotation.request.create", values: { requestText: "Lắp 10 camera" } }, []);
-    expect(result).toMatchObject({ actionId: "quotation.request.create", newRequest: false, values: { requestText: "Lắp 10 camera\nNgân sách 100 triệu nhé" } });
+    expect(result, JSON.stringify({ result, lastCoverage: mockState.lastCoverage, lastPendingActionId: mockState.lastPendingActionId })).toMatchObject({ actionId: "quotation.request.create", newRequest: false, values: { requestText: "Lắp 10 camera\nNgân sách 100 triệu nhé" } });
   });
   it.each(["Tạo phương án dự toán ngân sách 100 triệu", "Lập ngân sách 100 triệu", "Đề xuất phương án ngân sách cho dự toán"])("preserves an explicit budget request: %s", async text => {
-    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {} }) });
-    expect((await interpretRequest(text, workflows, { actionId: "quotation.request.create" }, [])).actionId).toBe("quotation.budget.create");
+    const amount = text.match(/(\d+)\s*triệu/i);
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: amount ? { budget: Number(amount[1]) * 1_000_000 } : {} }) });
+    const result = await interpretRequest(text, workflows, { actionId: "quotation.request.create" }, []);
+    expect(result.actionId, JSON.stringify(result)).toBe("quotation.budget.create");
   });
   it("does not substitute a budget when estimate permission is absent", async () => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {} }) });
@@ -48,121 +122,295 @@ describe("estimate versus budget routing", () => {
   });
 });
 describe("semantic interpretation", () => {
-  const recoveryCases: Array<[string, string, Record<string, unknown>]> = [
-    ["worker.project.create", "tạo 1 dự án mới tên vinscon20 quản lí lao động", { name: "vinscon20" }],
-    ["employee.update", "Đổi chức danh nhân viên Lan thành kế toán", { id: "Lan", jobTitle: "kế toán" }],
-    ["worker.project.delete", "Xóa dự án P-10 trong quản lý lao động", { path_id: "P-10" }],
-    ["product.list", "Xem danh sách sản phẩm", {}],
-  ];
-  it.each(recoveryCases)("rechecks a false unsupported decision against authorized tools: %s", async (id, text, values) => {
-    const workflows = [defaultWorkflow(operationById(id)!)];
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [id] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: id, values, intentType: "workflow" }) });
-    expect(await interpretRequest(text, workflows, null, [])).toMatchObject({ actionId: id, values, intentType: "workflow" });
+  it("routes a labor-partner referral ranking to the labor KPI workflow", async () => {
+    const laborKpi = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
+    const studentPartners = defaultWorkflow(operationById("partner.list")!);
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: laborKpi.id, values: {} }) });
+
+    const laborPartnerWorkflows = ASSISTANT_OPERATIONS.filter(candidate => candidate.module === "labor-partner").map(defaultWorkflow);
+    const result = await interpretRequest(
+      "Trong quản lí lao động, Đối tác nào giới thiệu được nhiều lao động nhất trong tháng",
+      [studentPartners, ...laborPartnerWorkflows],
+      null,
+      [],
+    );
+
+    expect(result.actionId, JSON.stringify(result)).toBe(laborKpi.id);
+    expect(result.values.analysis).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
+    expect(provider).toHaveBeenCalledTimes(1);
+    const prompt = provider.mock.calls[0][0].messages.map((message: any) => message.content).join("\n");
+    expect(prompt).toContain(laborKpi.id);
+    expect(prompt).not.toContain(studentPartners.actionId);
+    expect(prompt).not.toContain(operationById("worker.partner.policy.list")!.id);
+    expect(prompt).not.toContain(operationById("worker.partner.referrals.list")!.id);
+  });
+
+  it("does not route an explicit labor-partner request into student-partner when labor tools are unavailable", async () => {
+    const studentPartners = defaultWorkflow(operationById("partner.list")!);
+
+    const result = await interpretRequest(
+      "Tìm đối tác giới thiệu nhiều lao động nhất",
+      [studentPartners],
+      null,
+      [],
+      "",
+      [],
+      "",
+      ["student-partner", "labor-partner"],
+    );
+
+    expect(result).toMatchObject({ actionId: null, values: {}, intentType: "unsupported", unsupportedModule: "labor-partner" });
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("gives the model the real analysis measures and output contract", async () => {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
+    const workflow = defaultWorkflow(operation);
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, intentType: "ambiguous", values: {}, requestCoverage: [], clarification: "Bạn muốn xem chỉ số nào?" }) });
+
+    await interpretRequest("Đối tác nào giới thiệu nhiều lao động nhất?", [workflow], null, []);
+
+    const prompt = provider.mock.calls[0][0].messages.map((message: any) => message.content).join("\n");
+    expect(prompt).toContain("actualReferrals");
+    expect(prompt).toContain("lao động được giới thiệu");
+    expect(prompt).toContain("periodStart");
+    expect(prompt).not.toContain(operation.path);
+  });
+
+  it("recovers a parent module phrase even when the model leaves its mapping empty", async () => {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
+    const workflow = defaultWorkflow(operation);
+    const periodField = workflow.fields.find(field => field.apiKey === "periodAnchor")!;
+    const text = "Trong quản lí lao động, Đối tác nào giới thiệu được nhiều lao động nhất trong tháng";
+    provider.mockResolvedValue({ text: JSON.stringify({
+      actionId: operation.id,
+      intentType: "workflow",
+      values: {
+        [periodField.key]: "2026-11-01",
+        analysis: { extreme: { field: "actualReferrals", direction: "max" } },
+      },
+      requestCoverage: [
+        { evidence: "Trong quản lí lao động", requirement: "Phân hệ quản lý lao động", mappedTo: [], unresolved: true },
+        { evidence: "Đối tác nào", requirement: "Tra cứu đối tác", mappedTo: ["action"] },
+        { evidence: "giới thiệu được nhiều lao động nhất", requirement: "Xếp theo số lao động được giới thiệu cao nhất", mappedTo: ["analysis.extreme.actualReferrals"] },
+        { evidence: "trong tháng", requirement: "Kỳ tháng hiện tại", mappedTo: [`values.${periodField.key}`] },
+      ],
+    }) });
+
+    const result = await interpretRequest(text, [workflow], null, []);
+
+    expect(result.actionId).toBe(operation.id);
+    expect(result.values.analysis).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
+  });
+
+  it("repairs a single-workflow plan once when request evidence omitted the reporting period", async () => {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
+    const workflow = defaultWorkflow(operation);
+    const periodField = workflow.fields.find(field => field.apiKey === "periodAnchor")!;
+    const text = "Đối tác giới thiệu nhiều lao động nhất trong tháng 11/2026";
+    const values = {
+      [periodField.key]: "2026-11-01",
+      analysis: { extreme: { field: "actualReferrals", direction: "max" } },
+    };
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: operation.id,
+      intentType: "workflow",
+      values,
+      requestCoverage: [
+        { evidence: "Đối tác giới thiệu", requirement: "Tra cứu đối tác", mappedTo: ["action"] },
+        { evidence: "nhiều lao động nhất", requirement: "Xếp hạng theo số lao động giới thiệu", mappedTo: ["analysis.extreme.actualReferrals"] },
+      ],
+    }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: operation.id,
+      intentType: "workflow",
+      values,
+      requestCoverage: [
+        { evidence: "Đối tác giới thiệu", requirement: "Tra cứu đối tác", mappedTo: ["action"] },
+        { evidence: "nhiều lao động nhất", requirement: "Xếp hạng theo số lao động giới thiệu", mappedTo: ["analysis.extreme.actualReferrals"] },
+        { evidence: "trong tháng 11/2026", requirement: "Giới hạn theo tháng 11 năm 2026", mappedTo: [`values.${periodField.key}`] },
+      ],
+    }) });
+
+    const result = await interpretRequest(text, [workflow], null, []);
+
+    expect(result.actionId).toBe(operation.id);
+    expect(result.values.analysis).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
+    expect(provider).toHaveBeenCalledTimes(2);
+    expect(provider.mock.calls[1][0].messages.map((message: any) => message.content).join("\n")).toContain("11/2026");
+  });
+
+  it("accepts a verified ranking map when the plan already matches", async () => {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
+    const workflow = defaultWorkflow(operation);
+    const text = "Đối tác giới thiệu nhiều lao động nhất";
+    const values = { analysis: { extreme: { field: "actualReferrals", direction: "max" } } };
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: operation.id,
+      intentType: "workflow",
+      values,
+      requestCoverage: [{ evidence: text, requirement: "Xếp hạng đối tác theo số lao động giới thiệu", mappedTo: ["action"] }],
+    }) });
+
+    const result = await interpretRequest(text, [workflow], null, []);
+
+    expect(result.actionId).toBe(operation.id);
+    expect(result.values.analysis).toEqual(values.analysis);
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+
+  it("repairs a composite plan once when it omitted a period clause", async () => {
+    const employeeList = defaultWorkflow(operationById("employee.list")!);
+    const calendarList = defaultWorkflow(operationById("hr.calendar.events.list")!);
+    const text = "Tổng hợp danh sách nhân sự và lịch sự kiện trong tháng 11/2026";
+    const plan = [
+      { actionId: employeeList.actionId, purpose: "Danh sách nhân sự", values: {}, resultFields: ["displayName"] },
+      { actionId: calendarList.actionId, purpose: "Lịch sự kiện", values: { rangeStart: "2026-11-01", rangeEnd: "2026-11-30" }, resultFields: ["title", "startDate"] },
+    ];
+    const baseCoverage = [
+      { evidence: "Tổng hợp", requirement: "Tổng hợp dữ liệu", mappedTo: ["action"] },
+      { evidence: "danh sách nhân sự", requirement: "Danh sách nhân sự", mappedTo: [`query:${employeeList.actionId}:result.displayName`] },
+      { evidence: "lịch sự kiện", requirement: "Lịch sự kiện", mappedTo: [`query:${calendarList.actionId}:result.title`] },
+    ];
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: null,
+      intentType: "workflow",
+      actionIntent: "report",
+      values: {},
+      queryPlan: plan,
+      requestCoverage: baseCoverage,
+    }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: null,
+      intentType: "workflow",
+      actionIntent: "report",
+      values: {},
+      queryPlan: plan,
+      requestCoverage: [
+        ...baseCoverage,
+        { evidence: "trong tháng 11/2026", requirement: "Chỉ lấy sự kiện của tháng 11 năm 2026", mappedTo: [`query:${calendarList.actionId}:values.rangeStart`] },
+      ],
+    }) });
+
+    const result = await interpretRequest(text, [employeeList, calendarList], null, [], "", [], "", [], true);
+
+    expect(result.queryPlan?.map(query => query.actionId), JSON.stringify(result)).toEqual([employeeList.actionId, calendarList.actionId]);
+    expect(provider).toHaveBeenCalledTimes(2);
+    expect(provider.mock.calls[1][0].messages.map((message: any) => message.content).join("\n")).toContain("11/2026");
+  });
+
+  it("does not promote an unclassified action proposal into a workflow", async () => {
+    mockState.inferIntentType = false;
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.update", values: { id: "Lan" } }) });
+    const result = await interpretRequest("Cập nhật nhân sự Lan", [employee], null, []);
+    expect(result).toMatchObject({ actionId: null, values: {}, intentType: "ambiguous" });
+  });
+  it("rejects a selected workflow whose action category conflicts with the request classification", async () => {
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.update", actionIntent: "delete", intentType: "workflow", values: { id: "Lan" } }) });
+    const result = await interpretRequest("Xóa nhân sự Lan", [employee], null, []);
+    expect(result).toMatchObject({ actionId: null, values: {}, intentType: "ambiguous" });
+    expect(result.clarification).toContain("xóa");
+  });
+  it("routes multi-module requests before choosing an action and workflow", async () => {
+    const student = defaultWorkflow(operationById("student.list")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["student"] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: student.actionId, intentType: "workflow", values: { search: "Lan" } }) });
+
+    const result = await interpretRequest("Trong phân hệ học viên, tìm Lan", [employee, student], null, []);
+
+    expect(result.actionId).toBe(student.actionId);
+    expect(provider).toHaveBeenCalledTimes(2);
+    const actionPrompt = provider.mock.calls[1][0].messages[0].content;
+    const capabilityCatalog = actionPrompt.slice(actionPrompt.indexOf("DANH MỤC NĂNG LỰC:"), actionPrompt.indexOf("\nPHÂN HỆ CÓ THỂ TRUY CẬP:"));
+    expect(capabilityCatalog).toContain(student.actionId);
+    expect(capabilityCatalog).not.toContain(employee.actionId);
+  });
+  it("selects a business function inside HR before selecting the CRUD action", async () => {
+    const employeeList = defaultWorkflow(operationById("employee.list")!);
+    const applicantList = defaultWorkflow(operationById("recruitment.applicant.list")!);
+    const contractCreate = defaultWorkflow(operationById("hr.contract.create")!);
+    const calendarCreate = defaultWorkflow(operationById("hr.calendar.event.create")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ featureKeys: ["hr:recruitment"], ambiguous: false, clarification: "" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: applicantList.actionId, intentType: "workflow", values: {} }) });
+
+    const result = await interpretRequest("Tìm ứng viên tên Lan", [employeeList, applicantList, contractCreate, calendarCreate], null, []);
+
+    expect(result.actionId).toBe(applicantList.actionId);
+    expect(provider).toHaveBeenCalledTimes(2);
+    const functionPrompt = provider.mock.calls[0][0].messages[0].content;
+    expect(functionPrompt).toContain("Tuyển dụng");
+    expect(functionPrompt).toContain("Hợp đồng");
+    expect(functionPrompt).toContain("Lịch");
+    const actionPrompt = provider.mock.calls[1][0].messages[0].content;
+    const capabilityStart = actionPrompt.indexOf("DANH MỤC NĂNG LỰC:") + "DANH MỤC NĂNG LỰC:".length;
+    const capabilityEnd = actionPrompt.indexOf("\nPHÂN HỆ CÓ THỂ TRUY CẬP", capabilityStart);
+    const capabilityCatalogText = actionPrompt.slice(capabilityStart, capabilityEnd).trim();
+    const capabilityActionIds = JSON.parse(capabilityCatalogText).map((item: any) => item.actionId);
+    expect(capabilityActionIds).toEqual([applicantList.actionId]);
+  });
+  it("plans multiple authorized read APIs for a cross-function HR summary", async () => {
+    const employeeList = defaultWorkflow(operationById("employee.list")!);
+    const calendarList = defaultWorkflow(operationById("hr.calendar.events.list")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ featureKeys: ["hr:employee", "hr:calendar"], ambiguous: false, clarification: "" }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      intentType: "workflow",
+      actionId: null,
+      actionIntent: "report",
+      values: {},
+      queryPlan: [
+        { actionId: "employee.list", purpose: "nhân sự trong phạm vi", values: {}, resultFields: ["displayName"] },
+        { actionId: "hr.calendar.events.list", purpose: "sự kiện tháng được nêu", values: { rangeStart: "2026-11-01", rangeEnd: "2026-11-30" }, resultFields: ["title", "startDate"] },
+      ],
+      requestCoverage: [
+        { evidence: "Tổng hợp", requirement: "tổng hợp thông tin", mappedTo: ["action"] },
+        { evidence: "nhân sự", requirement: "danh sách nhân sự", mappedTo: ["query:employee.list:result.displayName"] },
+        { evidence: "lịch sự kiện tháng 11/2026", requirement: "sự kiện lịch trong tháng 11/2026", mappedTo: ["query:hr.calendar.events.list:values.rangeStart", "query:hr.calendar.events.list:values.rangeEnd", "query:hr.calendar.events.list:result.title"] },
+      ],
+    }) });
+
+    const result = await interpretRequest("Tổng hợp nhân sự và lịch sự kiện tháng 11/2026", [employeeList, calendarList], null, []);
+
+    expect(result.actionId).toBeNull();
+    expect(result.queryPlan?.map(query => query.actionId), JSON.stringify(result)).toEqual(["employee.list", "hr.calendar.events.list"]);
+    expect(provider).toHaveBeenCalledTimes(2);
+  });
+  it("asks for the function area when the module is known but the requested area is not", async () => {
+    const workflows = ["employee.list", "recruitment.applicant.list", "hr.contract.create", "hr.calendar.event.create"]
+      .map(id => defaultWorkflow(operationById(id)!));
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      featureKeys: [],
+      ambiguous: true,
+      clarification: "Bạn muốn làm việc với tuyển dụng, hồ sơ nhân sự, hợp đồng hay lịch?",
+    }) });
+
+    const result = await interpretRequest("Trong phân hệ nhân sự", workflows, null, []);
+
+    expect(result).toMatchObject({ actionId: null, values: {}, intentType: "ambiguous" });
+    expect(result.clarification).toContain("tuyển dụng");
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it("retries the authorized workflows when module discovery picks an incompatible workflow", async () => {
+    const employeeList = defaultWorkflow(operationById("employee.list")!);
+    const studentList = defaultWorkflow(operationById("student.list")!);
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["student"] }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: studentList.actionId,
+      intentType: "workflow",
+      values: {},
+      requestCoverage: [{ evidence: "Trong nhân sự", requirement: "Phân hệ nhân sự", mappedTo: ["context.module"] }],
+    }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: employeeList.actionId, intentType: "workflow", values: {} }) });
+
+    const result = await interpretRequest("Trong nhân sự, tìm Lan", [employeeList, studentList], null, []);
+
+    expect(result.actionId).toBe(employeeList.actionId);
     expect(provider).toHaveBeenCalledTimes(3);
   });
-  it("recovers a worker create excluded by module discovery using the full authorized catalog", async () => {
-    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["hr"] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: { name: "invented" }, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: ["worker.project.create"] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "worker.project.create", values: { name: "VINSCON20" }, intentType: "workflow" }) });
-    const result = await interpretRequest("Tạo dự án VINSCON20 cho 5 công nhân", workflows, null, []);
-    expect(result).toMatchObject({ actionId: "worker.project.create", values: { name: "VINSCON20" } });
-    expect(result.values).not.toHaveProperty("code");
-    const routing = provider.mock.calls[2][0];
-    const focused = provider.mock.calls[3][0];
-    expect(routing.messages[0].content).toContain("worker.project.create");
-    expect(focused.messages[0].content).toContain('"actionId":"worker.project.create"');
-    expect(focused.messages[0].content).not.toContain('"actionId":"employee.create"');
-    expect(provider).toHaveBeenCalledTimes(4);
-  });
-  it.each(["not.allowed", "worker.project.create"])("rejects an unauthorized or disabled recovery candidate: %s", async id => {
-    const disabled = { ...defaultWorkflow(operationById("worker.project.create")!), enabled: false };
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [id] }) });
-    await expect(interpretRequest("Tạo dự án", [employee, disabled], null, [])).rejects.toThrow("ngoài danh mục");
-    expect(provider).toHaveBeenCalledTimes(2);
-    expect(provider.mock.calls[1][0].messages[0].content).not.toContain('"actionId":"worker.project.create"');
-  });
-  it.each([
-    { intentType: "ambiguous", cancel: true },
-    { intentType: "unsupported", cancel: true },
-    { intentType: "general_question" },
-    { intentType: "ambiguous", clarification: "Bạn muốn dự án nội bộ hay lao động?" },
-  ])("does not recover cancellation, questions, or an existing clarification: %j", async classification => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, ...classification }) });
-    expect((await interpretRequest("Không tạo nữa", [employee], null, [])).actionId).toBeNull();
-    expect(provider).toHaveBeenCalledTimes(1);
-  });
-  it("does not loop if the focused interpreter still cannot select a tool", async () => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    expect(await interpretRequest("Sửa nhân sự", [employee], null, [])).toMatchObject({ actionId: null, intentType: "ambiguous", values: {} });
-    expect(provider).toHaveBeenCalledTimes(3);
-  });
-  it("does not invent a tool if the capability check has no match", async () => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [] }) });
-    expect((await interpretRequest("Chức năng không có", [employee], null, [])).intentType).toBe("unsupported");
-    expect(provider).toHaveBeenCalledTimes(2);
-  });
-  it("does not recover with an empty authorized catalog", async () => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    expect((await interpretRequest("Tạo dự án", [], null, [])).actionId).toBeNull();
-    expect(provider).toHaveBeenCalledTimes(1);
-  });
-  it.each([{ cancel: null }, { newRequest: "yes" }])("rejects invalid control flags before attempting recovery: %j", async flags => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported", ...flags }) });
-    await expect(interpretRequest("Tạo dự án", [employee], null, [])).rejects.toThrow("không hợp lệ");
-    expect(provider).toHaveBeenCalledTimes(1);
-  });
-  it("keeps clarification when recovery finds multiple possible tools", async () => {
-    const create = defaultWorkflow(operationById("employee.create")!);
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId, create.actionId] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn tạo nhân viên mới hay sửa hồ sơ đã có?" }) });
-    expect(await interpretRequest("Bổ sung nhân viên Lan", [employee, create], null, [])).toMatchObject({ actionId: null, intentType: "ambiguous", clarification: "Bạn muốn tạo nhân viên mới hay sửa hồ sơ đã có?" });
-    expect(provider).toHaveBeenCalledTimes(3);
-  });
-  it("does not use payload values from the tool shortlist", async () => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId], values: { id: "invented", monthlySalary: 999 } }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: employee.actionId, values: { id: "Lan", jobTitle: "kế toán" }, intentType: "workflow" }) });
-    const result = await interpretRequest("Đổi chức danh Lan thành kế toán", [employee], null, []);
-    expect(result.values).toEqual({ id: "Lan", jobTitle: "kế toán" });
-    expect(JSON.stringify(provider.mock.calls[2][0])).not.toContain("invented");
-  });
-  it("does not allow focused extraction to select a tool outside its shortlist", async () => {
-    const create = defaultWorkflow(operationById("employee.create")!);
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionIds: [employee.actionId] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: create.actionId, values: {}, intentType: "workflow" }) });
-    await expect(interpretRequest("Đổi chức danh Lan", [employee, create], null, [])).rejects.toThrow("ngoài danh mục");
-  });
-  it("surfaces a capability provider failure without dispatch or another fallback", async () => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockRejectedValueOnce(new Error("fixture provider unavailable"));
-    await expect(interpretRequest("Sửa nhân viên Lan", [employee], null, [])).rejects.toThrow("fixture provider unavailable");
-    expect(provider).toHaveBeenCalledTimes(2);
-  });
-  it("stops before recovery if cancellation arrives after the first classification", async () => {
-    vi.stubEnv("ASSISTANT_SAFE_EXECUTION", "true");
-    const controller = new AbortController();
-    provider.mockImplementationOnce(async () => {
-      controller.abort();
-      return { text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) };
-    });
-    await expect(withAssistantExecution({ deadlineAt: Date.now() + 10_000, signal: controller.signal }, () => interpretRequest("Sửa nhân viên Lan", [employee], null, []))).rejects.toThrow("Đã dừng");
-    expect(provider).toHaveBeenCalledTimes(1);
-  });
-  it.each(["invalid JSON", '{"actionIds":null}', '{"actionIds":[1]}', '{"actionIds":["a","b","c","d","e","f"]}'])("fails safely on invalid capability output: %s", async raw => {
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "unsupported" }) });
-    provider.mockResolvedValueOnce({ text: raw });
-    await expect(interpretRequest("Tạo dự án", [employee], null, [])).rejects.toThrow();
-    expect(provider).toHaveBeenCalledTimes(2);
+  it("does not execute a workflow proposal without requirement coverage", async () => {
+    mockState.autoCoverage = false;
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.update", intentType: "workflow", values: { id: "Lan" } }) });
+    const result = await interpretRequest("Cập nhật nhân sự Lan", [employee], null, []);
+    expect(result).toMatchObject({ actionId: null, values: {}, intentType: "ambiguous" });
   });
   it.each(["worker.list", "student.list", "retail.partner.update"])("does not silently execute a partial request in %s", async id => {
     const workflow = defaultWorkflow(operationById(id)!);
@@ -196,7 +444,7 @@ describe("semantic interpretation", () => {
     const workflow = defaultWorkflow(operationById("hr.calendar.event.create")!);
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: workflow.actionId, values: { title: "Họp tuần", startDate: "2026-11-21T09:00:00+07:00", endDate: "2026-11-21T10:00:00+07:00" } }) });
     const result = await interpretRequest("Tạo sự kiện Họp tuần vào thứ bảy", [workflow], null, []);
-    expect(result.values).toEqual({ title: "Họp tuần" });
+    expect(result, JSON.stringify(result)).toMatchObject({ actionId: null, intentType: "ambiguous", values: {} });
   });
   it("normalizes structured JSON arrays without changing reference names", async () => {
     const workflow = defaultWorkflow(operationById("recruitment.interview.update")!);
