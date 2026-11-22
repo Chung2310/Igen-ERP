@@ -288,9 +288,9 @@ function friendlyFailure(error: unknown) {
   if (error instanceof AssistantApiRejection && [400, 409, 422].includes(error.status)) {
     return `Dữ liệu chưa được chấp nhận: ${error.message}\nBạn sửa thông tin được nêu rồi gửi lại nhé.`;
   }
-  if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.";
-  const message = error.message || "";
+  const message = error instanceof Error ? error.message : "";
   if (message === AI_PROVIDER_TEMPORARY_ERROR || isAiProviderBillingError(message)) return AI_PROVIDER_TEMPORARY_ERROR;
+  if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.";
   if (/dữ liệu yêu cầu không hợp lệ/i.test(message)) {
     return `Dữ liệu chưa được chấp nhận: ${message}\nBạn sửa thông tin được nêu rồi gửi lại nhé.`;
   }
@@ -2633,23 +2633,38 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       && !pendingMemoryProposal && memoryCommand === null && forgetMemoryCommand === null
       && !legalQuestionValues(input.text, session.messages, session.lastReply?.link)) {
       availableWorkflows = await listWorkflows(req);
-      const workflows = availableWorkflows.filter(workflow => workflow.enabled);
-      const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
-      budget.plan();
-      const candidate = await interpretRequest(input.text.trim(), workflows, null, session.messages as any,
-        [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n"), memories,
-        sessionMemory, knownModules);
-      const candidateOperation = operationById(candidate.actionId || "");
-      const authorizedReadQuery = candidateOperation
-        && workflows.some(workflow => workflow.actionId === candidateOperation.id)
-        && (candidateOperation.method === "GET" || candidateOperation.readOnly)
-        && ["lookup", "report"].includes(candidateOperation.assistantMetadata?.intent || "");
-      const needsReadClarification = candidate.intentType === "ambiguous" && !candidate.actionId
-        && ["lookup", "report"].includes(candidate.actionIntent || "");
-      if (candidate.queryPlan?.length || needsReadClarification
-        || (candidate.intentType === "workflow" && authorizedReadQuery)) {
-        qaBusinessInterpretation = candidate;
-      } else {
+      const readWorkflows = availableWorkflows.filter(workflow => {
+        const operation = operationById(workflow.actionId);
+        return workflow.enabled && operation
+          && (operation.method === "GET" || operation.readOnly)
+          && ["lookup", "report"].includes(operation.assistantMetadata?.intent || "");
+      });
+      try {
+        if (readWorkflows.length) {
+          const knownModules = [...new Set(readWorkflows.map(workflow => workflow.module))];
+          budget.plan();
+          const candidate = await interpretRequest(input.text.trim(), readWorkflows, null, session.messages as any,
+            [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n"), memories,
+            sessionMemory, knownModules);
+          const candidateOperation = operationById(candidate.actionId || "");
+          const authorizedReadQuery = candidateOperation
+            && readWorkflows.some(workflow => workflow.actionId === candidateOperation.id)
+            && (candidateOperation.method === "GET" || candidateOperation.readOnly)
+            && ["lookup", "report"].includes(candidateOperation.assistantMetadata?.intent || "");
+          const needsReadClarification = candidate.intentType === "ambiguous" && !candidate.actionId
+            && ["lookup", "report"].includes(candidate.actionIntent || "");
+          if (candidate.queryPlan?.length || needsReadClarification
+            || (candidate.intentType === "workflow" && authorizedReadQuery)) {
+            qaBusinessInterpretation = candidate;
+          }
+        }
+      } catch (error) {
+        const status = error instanceof AssistantError ? error.status
+          : typeof error === "object" && error !== null && "status" in error && Number.isInteger((error as { status?: unknown }).status)
+            ? (error as { status: number }).status : undefined;
+        console.warn(`[assistant] QA read-query routing failed; continuing with conversation response (status=${status ?? "unknown"}).`);
+      }
+      if (!qaBusinessInterpretation) {
         availableWorkflows = [];
       }
     }

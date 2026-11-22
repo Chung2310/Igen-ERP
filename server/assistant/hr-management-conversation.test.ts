@@ -65,6 +65,8 @@ import { conversationState, processTurn } from "./service";
 import { completeAssistantOperation } from "./completion";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { ASSISTANT_OPERATIONS } from "./catalog";
+import { answerAssistantConversation } from "./documents";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 const employeeId = "507f1f77bcf86cd799439022";
 const secondEmployeeId = "507f1f77bcf86cd799439023";
@@ -414,6 +416,7 @@ beforeEach(() => {
   state.memoryEnabled = false; state.saveMemory.mockReset();
   vi.mocked(completeAssistantOperation).mockClear();
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();
+  vi.mocked(answerAssistantConversation).mockReset();
   state.includeStudentCourses = false;
   state.includeRecruitmentReport = true;
   trainingCourses = [{ _id: trainingCourseId, title: "hát", category: "Văn hóa", duration: "2 giờ", instructor: "Mai Anh" }];
@@ -1164,6 +1167,32 @@ it("answers active applicant counts by department through the recruitment report
   expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(2);
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(state.provider).not.toHaveBeenCalled();
+});
+
+it("continues in conversation mode when the read-query precheck is unavailable", async () => {
+  state.interpret.mockRejectedValueOnce(Object.assign(new Error("Provider rejected read-query routing"), { status: 402 }));
+  vi.mocked(answerAssistantConversation).mockResolvedValueOnce({
+    status: "completed",
+    reply: "Mình có thể giúp bạn soạn bản nháp hợp đồng lao động.",
+  } as any);
+
+  const result = await turn({ mode: "qa", text: "tạo hợp đồng lao động cho vị trí marketing" });
+
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("soạn bản nháp hợp đồng lao động");
+  expect(answerAssistantConversation).toHaveBeenCalledTimes(1);
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("shows a provider limit hint when the conversation response is rejected", async () => {
+  state.interpret.mockRejectedValueOnce(Object.assign(new Error(AI_PROVIDER_TEMPORARY_ERROR), { status: 402 }));
+  vi.mocked(answerAssistantConversation).mockRejectedValueOnce(Object.assign(new Error(AI_PROVIDER_TEMPORARY_ERROR), { status: 402 }));
+
+  const result = await turn({ mode: "qa", text: "tạo hợp đồng lao động cho vị trí marketing" });
+
+  expect(result.status).toBe("failed");
+  expect(result.reply).toContain("kiểm tra tín dụng hoặc hạn mức API AI");
+  expect(fetcher).not.toHaveBeenCalled();
 });
 
 it("does not substitute calendar events when the recruitment report workflow is unavailable", async () => {
