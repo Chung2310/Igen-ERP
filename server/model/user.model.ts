@@ -111,6 +111,7 @@ const SuperAdminSecuritySchema = new Schema({
 function removeSuperAdminSecrets(_doc: unknown, ret: Record<string, any>) {
   if (ret.superAdminSecurity) { delete ret.superAdminSecurity.totpSecretEncrypted; delete ret.superAdminSecurity.recoveryCodeHashes; }
   if (ret.elevenlabsAccess) delete ret.elevenlabsAccess.apiKey;
+  if (ret.heygenAccess) delete ret.heygenAccess.apiKey;
   if (ret.canvaIntegration) {
     for (const field of ["accessToken", "refreshToken", "oauthState", "oauthStateExpiresAt", "oauthCodeVerifier"]) delete ret.canvaIntegration[field];
   }
@@ -119,6 +120,12 @@ function removeSuperAdminSecrets(_doc: unknown, ret: Record<string, any>) {
 
 const UserSchema = new Schema<IUser>({
   elevenlabsAccess: { type: new Schema({ apiKey: { type: String, default: "", select: false } }, { _id: false }), default: () => ({}) },
+  heygenAccess: { type: new Schema({
+    avatarId: { type: String, default: "" },
+    avatarIds: { type: [String], default: [] },
+    voiceId: { type: String, default: "" },
+    apiKey: { type: String, default: "", select: false },
+  }, { _id: false }), default: () => ({}) },
   canvaIntegration: { type: new Schema({ connected: { type: Boolean, default: false }, accessToken: { type: String, select: false }, refreshToken: { type: String, select: false }, tokenExpiresAt: Date, connectedAt: Date, oauthState: { type: String, select: false }, oauthStateExpiresAt: { type: Date, select: false }, oauthCodeVerifier: { type: String, select: false } }, { _id: false }), default: null },
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },

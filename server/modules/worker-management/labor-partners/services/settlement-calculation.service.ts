@@ -32,7 +32,7 @@ export const LaborPartnerSettlementCalculationService = {
     const anchor = normalizeDate(input.periodAnchor, "Ngày kỳ đối soát");
     const partner = await LaborPartnerModel.findOne({ _id: partnerId, ...scopeQuery(scope), deletedAt: null }).lean();
     if (!partner) throw new LaborPartnerError("LABOR_PARTNER_NOT_FOUND", "Không tìm thấy đối tác lao động.", 404);
-    const referrals = await WorkerReferralModel.find({ partnerId, ...scopeQuery(scope), status: "active" }).populate("policyId").lean() as any[];
+    const referrals = await WorkerReferralModel.find({ partnerId, ...scopeQuery(scope), status: { $in: ["active", "ended"] } }).populate("policyId").lean() as any[];
     if (!referrals.length) throw new LaborPartnerError("SETTLEMENT_HAS_NO_ELIGIBLE_LINES", "Đối tác chưa có referral đang hiệu lực.", 409);
 
     const policyPeriods = new Map<string, { policy: any; start: string; end: string }>();
@@ -40,7 +40,9 @@ export const LaborPartnerSettlementCalculationService = {
       const policy: any = referral.policyId;
       if (!policy) throw new LaborPartnerError("POLICY_NOT_ACTIVE", "Nguồn giới thiệu chưa có chính sách hoa hồng.", 409, { referralId: id(referral._id), scheme: referral.commissionScheme });
       const period = resolveSettlementPeriod(anchor, policy.settlementCycle);
-      if (!activeAt(referral, period.start) && !activeAt(referral, period.end)) continue;
+      const overlapsPeriod = referral.effectiveFrom < period.end
+        && (!referral.effectiveTo || referral.effectiveTo >= period.start);
+      if (!overlapsPeriod) continue;
       if (policy.status !== "active") throw new LaborPartnerError("POLICY_NOT_ACTIVE", "Nguồn giới thiệu đang gắn chính sách chưa hoạt động.", 409, { referralId: id(referral._id), scheme: referral.commissionScheme });
       if (!supportsCommissionScheme(policy, referral.commissionScheme)) throw new LaborPartnerError("POLICY_SCHEME_MISMATCH", "Nguồn giới thiệu đang gắn chính sách không phù hợp với cơ chế hoa hồng.", 409, { referralId: id(referral._id), scheme: referral.commissionScheme, policyId: id(policy._id) });
       const existingPeriod = [...policyPeriods.values()][0];
@@ -61,10 +63,14 @@ export const LaborPartnerSettlementCalculationService = {
     if (existing && !["draft", "calculated"].includes(String(existing.status))) throw new LaborPartnerError("SETTLEMENT_NOT_EDITABLE", "Chỉ có thể tính lại kỳ chưa duyệt và chưa chi trả.", 409);
 
     const workerIds = [...new Set(referrals.map((item) => id(item.workerId)))].filter(Boolean);
+    const branchFilter = scope.branchId ? { branchId: requiredObjectId(scope.branchId, "INVALID_BRANCH") } : {};
+    const officialReferralIds = referrals
+      .filter((referral) => referral.commissionScheme === "official_monthly")
+      .map((referral) => referral._id);
     const [attendance, contracts, approvedOfficial] = await Promise.all([
-      WorkerAttendanceLogModel.find({ companyCode: scope.companyCode, workerId: { $in: workerIds.map((value) => new mongoose.Types.ObjectId(value)) }, date: { $gte: periodStart, $lt: periodEnd }, "checkIn.time": { $exists: true }, "checkOut.time": { $exists: true } }).lean() as Promise<AttendanceRow[]>,
-      WorkerLaborContractModel.find({ companyCode: scope.companyCode, workerId: { $in: workerIds.map((value) => new mongoose.Types.ObjectId(value)) }, deletedAt: null }).lean() as Promise<any[]>,
-      (LaborPartnerCommissionLineModel as any).find({ partnerId, scheme: "official_monthly", status: "approved" }).select("referralId officialMilestone").lean(),
+      WorkerAttendanceLogModel.find({ companyCode: scope.companyCode, ...branchFilter, workerId: { $in: workerIds.map((value) => new mongoose.Types.ObjectId(value)) }, date: { $gte: periodStart, $lt: periodEnd }, "checkIn.time": { $exists: true }, "checkOut.time": { $exists: true } }).lean() as Promise<AttendanceRow[]>,
+      WorkerLaborContractModel.find({ companyCode: scope.companyCode, ...branchFilter, workerId: { $in: workerIds.map((value) => new mongoose.Types.ObjectId(value)) }, deletedAt: null }).lean() as Promise<any[]>,
+      (LaborPartnerCommissionLineModel as any).find({ partnerId, referralId: { $in: officialReferralIds }, scheme: "official_monthly", status: "approved" }).select("referralId officialMilestone").lean(),
     ]);
     const attendanceByWorker = new Map<string, AttendanceRow[]>();
     for (const row of attendance) attendanceByWorker.set(id(row.workerId), [...(attendanceByWorker.get(id(row.workerId)) || []), row]);

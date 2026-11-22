@@ -13,6 +13,7 @@ const paymentSchema = new Schema<IPayment>(
     // trong báo cáo. Xem utils/payment-date.util.ts
     paidOn: { type: Date, index: true },
     note: { type: String, default: "" },
+    installmentAllocations: { type: [{ _id: false, installmentNo: { type: Number, required: true }, amount: { type: Number, required: true, min: 0.01 } }], default: undefined },
     ownerId: { type: String, required: true, index: true },
     branchId: { type: String, index: true },
   },

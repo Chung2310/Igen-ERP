@@ -235,6 +235,7 @@ async function scanCountUnitOnce(scope: Scope, countId: string, rawCode: unknown
 
   const unit: any = await SerialUnitModel.findOne({
     companyCode: normalizedCompany(scope.companyCode),
+    branchId: scope.branchId,
     $or: [{ normalizedSerialNumber: normalizeSerialNumber(value) }, { normalizedInternalBarcode: normalizeInternalBarcode(value) }, { normalizedBarcodeAliases: normalizeInternalBarcode(value) }, { normalizedImeis: normalizeInternalBarcode(value) }],
   }).lean();
 
@@ -275,6 +276,14 @@ async function scanCountUnitOnce(scope: Scope, countId: string, rawCode: unknown
 async function transition(scope: Scope, countId: string, status: InventoryCountStatus, actor: Actor) {
   const count = await InventoryCountModel.findOne({ _id: countId, companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId });
   if (!count) fail("Không tìm thấy phiếu kiểm kê.", 404);
+  // A client may retry after the transition was saved but its response was lost.
+  // Return the current record without rewriting timestamps or audit fields.
+  if (count.status === status) {
+    if (status === "pending_approval" && count.submittedById !== code(actor.id)) {
+      fail("Phiếu đã được gửi duyệt bởi người khác.", 409);
+    }
+    return count.toObject();
+  }
   assertCountTransition(count.status as InventoryCountStatus, status);
   count.status = status;
   if (status === "pending_approval") {
@@ -309,7 +318,7 @@ export async function approveCount(scope: Scope, countId: string, actor: Actor, 
         if (isUnitTracked(item.trackingMode)) {
           const expected = (item.expectedUnits || []).map((unit: any) => String(unit.serialUnitId));
           const scanned = (item.scannedUnitIds || []).map(String);
-          if (new Set(expected).size !== expected.length || expected.length !== item.systemQuantity || new Set(scanned).size !== scanned.length || scanned.length !== item.countedQuantity || scanned.some((id: string) => !expected.includes(id))) fail("Danh sách máy và số lượng trên phiếu không khớp. Cần đối soát lại.", 409);
+          if (new Set(expected).size !== expected.length || new Set(scanned).size !== scanned.length || scanned.length !== item.countedQuantity || scanned.some((id: string) => !expected.includes(id))) fail("Danh sách máy và số lượng trên phiếu không khớp. Cần đối soát lại.", 409);
         }
       }
       const missingCount = count.items.reduce((total: number, item: any) => total + (isUnitTracked(item.trackingMode) ? (item.expectedUnits || []).filter((unit: any) => !(item.scannedUnitIds || []).includes(String(unit.serialUnitId))).length : 0), 0);

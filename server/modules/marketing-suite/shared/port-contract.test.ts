@@ -66,9 +66,10 @@ test("integration secrets are sealed at rest and opened only by getters", () => 
 test("suite guard leaves existing ERP routes alone and closes internal endpoints without secrets", () => {
   assert.equal(isMarketingSuitePath("/resource"), false);
   assert.equal(isMarketingSuitePath("/webhooks/unrelated-erp-webhook"), false);
-  assert.equal(isMarketingSuitePath("/heygen/library"), false);
+  assert.equal(isMarketingSuitePath("/heygen/library"), true);
   assert.equal(isMarketingSuitePath("/html-video-generations"), false);
-  assert.equal(isMarketingSuitePath("/opusclip/projects"), false);
+  assert.equal(isMarketingSuitePath("/kling/motion-control"), true);
+  assert.equal(isMarketingSuitePath("/opusclip/projects"), true);
   assert.equal(isMarketingSuitePath("/professional/render"), false);
   const saved = process.env.CAMPAIGN_WORKER_SECRET;
   delete process.env.CAMPAIGN_WORKER_SECRET;

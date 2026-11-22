@@ -191,6 +191,7 @@ export function ModuleNavigation({
 interface ModuleNavigationButtonProps extends ComponentProps<'button'> {
   active: boolean;
   icon?: ReactNode;
+  filledIcon?: ReactNode;
   preferProvidedIcon?: boolean;
   filledOnHover?: boolean;
 }
@@ -201,10 +202,10 @@ function getMenuLabel(children: ReactNode): string {
   return '';
 }
 
-export function ModuleNavigationButton({ active, icon, preferProvidedIcon = false, filledOnHover = true, children, className, ...props }: ModuleNavigationButtonProps) {
+export function ModuleNavigationButton({ active, icon, filledIcon: customFilledIcon, preferProvidedIcon = false, filledOnHover = true, children, className, ...props }: ModuleNavigationButtonProps) {
   const menuLabel = getMenuLabel(children).trim();
   const displayIcon = preferProvidedIcon ? icon : (menuLabel ? getSidebarMenuIcon(menuLabel) : null) ?? icon;
-  const filledIcon = filledOnHover && !preferProvidedIcon && menuLabel ? getSidebarMenuFilledIcon(menuLabel) : null;
+  const filledIcon = filledOnHover ? customFilledIcon ?? (!preferProvidedIcon && menuLabel ? getSidebarMenuFilledIcon(menuLabel) : null) : null;
   return (
     <button
       {...props}

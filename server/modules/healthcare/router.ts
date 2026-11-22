@@ -1,4 +1,5 @@
 import { Router, type RequestHandler, type Response } from "express";
+import { logisticsRouter } from "./logistics/router";
 import Joi from "joi";
 import multer from "multer";
 import type { Db, Filter } from "mongodb";
@@ -14,6 +15,7 @@ export const healthcareRouter = Router();
 healthcareRouter.use(requirePermission("healthcare:read") as RequestHandler);
 healthcareRouter.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 
+healthcareRouter.use("/logistics", logisticsRouter);
 type Handler = (req: AuthenticatedRequest, res: Response, db: Db, actor: HealthcareActor) => Promise<unknown>;
 function route(handler: Handler): RequestHandler {
   return (request, response, next) => {

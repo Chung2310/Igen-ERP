@@ -103,6 +103,7 @@ beforeEach(() => {
       if(parsed.pathname.endsWith('/catalog/import/preview')) Object.assign(envelope,{invalidCount:0,errors:[],rows:call.body.rows});
       if(selected.id==='api.patch.cbf8c2b9d544f837' && !parsed.pathname.endsWith('/branches')) envelope.data={latitude:21.03,longitude:105.85,allowedRadius:100,addressName:'QA',checkInLimit:'08:00',checkOutLimit:'17:00',lunchBreakStart:'12:00',lunchBreakEnd:'13:00',workingDays:[1,2,3,4,5],annualLeaveDays:12};
       if(!['hr','student','quotation'].includes(selected.module)) extendedFunctionFixture(selected,parsed,row,envelope);
+      if(selected.id==='inventory.count.approve') Object.assign(row,{countCode:'QA',status:'pending_approval',items:[],unexpectedScans:[],version:fixtureVersion});
       if(isTarget && responseStatus===200 && !selected.readOnly && selected.method!=='GET') {
         Object.assign(row,call.body||{});
         envelope.data=row;envelope.user=row;envelope.project=row;envelope.request=row;envelope.notification=row;envelope.student=row;
@@ -289,6 +290,7 @@ for(const op of operations) describe(op.id,()=>{
         } else expect(targetCalls.length,JSON.stringify(record.lastReply)).toBeGreaterThan(0);
         if(scenario==='success-probe') {
           expect(record.lastReply.status,JSON.stringify(record.lastReply)).toBe('completed');
+          if(op.id==='inventory.count.approve') expect(targetCalls[0].body.expectedVersion).toBe(1);
           if(!op.readOnly && op.method!=='GET') {
             expect(savedRecords).toHaveLength(1);
             expect(savedRecords[0].body).toEqual(targetCalls[0].body);

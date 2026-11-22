@@ -2001,7 +2001,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     if (finalValidation.missing.length || finalValidation.errors.length) throw new AssistantError([...(finalValidation.missing.length ? [`Cần bổ sung: ${finalValidation.missing.join(", ")}.`] : []), ...finalValidation.errors].join("\n"));
     // Resolve again immediately before writing, including after a confirmation wait.
     const pinnedOperations = op.id.startsWith("recruitment.")
-      || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
+      || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk", "inventory.count.item.update", "inventory.count.approve"].includes(op.id);
     const productProof = (productExactVerify || Boolean(control.readV2 && pending?.readV2)) && op.id === "inventory.product.detail" ? pending?.productReadProof : undefined;
     if (control.readV2 && op.id === "inventory.product.detail" && !productProof) throw new AssistantError("Chưa xác thực được sản phẩm đã chọn. Bạn gửi lại yêu cầu nhé.", 409);
     if (productProof) validateProductReadProof(productProof, req, input.conversationId, pending!.id, op, latest, values);
@@ -2009,6 +2009,11 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       ? { values: { ...finalValidation.values }, errors: [], confirmationDetails: {} as Record<string, Array<{ label: string; value: string }>> }
       : await resolveReferences(req, operationForRequest(op, requestIntent), input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
+    if (input.decision?.confirmed && op.id.startsWith("retail.order.")) {
+      const changed = ["expectedVersion", "expectedGrandTotal", "posSessionId", "terminalId", "cashSessionId"]
+        .some(key => values[key] !== checked.values[key]);
+      if (changed) throw new AssistantError("Thông tin đơn hàng hoặc ca POS đã thay đổi sau bản xem trước. Mình chưa thực hiện. Bạn gửi lại yêu cầu để kiểm tra và xác nhận thông tin mới nhé.", 409);
+    }
     if (op.partialUpdate && input.decision?.confirmed && values.__assistantExistingRecord !== checked.values.__assistantExistingRecord) {
       throw new AssistantError("Cấu hình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Bạn gửi lại yêu cầu để kiểm tra bản mới nhé.", 409);
     }
@@ -2370,6 +2375,11 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       selectedValues.query_periodAnchor = `${parts.find(part => part.type === "year")!.value}-${parts.find(part => part.type === "month")!.value}-01`;
     }
     let inheritedUpdateFields: string[] = [];
+    // The retail API treats manualOrderDiscount as the canonical discount input.
+    // An explicit edit using its older alias must win over the saved value.
+    if (op.id === "retail.order.draft.update" && selectedValues.orderDiscount !== undefined && selectedValues.manualOrderDiscount === undefined) {
+      selectedValues.manualOrderDiscount = selectedValues.orderDiscount;
+    }
     const requestedPartialChanges = op.partialUpdate ? structuredClone(selectedValues) : undefined;
     const selectingPartialTarget = op.partialUpdate && op.fields.some(field => field.source === "path" && isBlank(selectedValues[field.key]));
     if (selectingPartialTarget) {
@@ -2570,7 +2580,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         ...(acceptanceLinesNeedForm && acceptanceForm ? { quotationAcceptanceForm: acceptanceForm } : {}),
       };
     }
-    if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, collected.values)) {
+    if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, requestedPartialChanges || collected.values)) {
       if (op.path === "/inventory/catalog/variants/:id"
         && typeof references.values.path_id === "string"
         && typeof references.values.query_productId === "string") {

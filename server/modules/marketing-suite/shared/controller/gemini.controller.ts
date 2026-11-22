@@ -7,6 +7,7 @@ import { geminiService } from "../service/gemini.service.ts";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
 import { walletService, API_COSTS } from "../service/wallet.service.ts";
+import { billAiCall } from "../service/ai-subscription.service";
 import { AIMediaModel } from "../model/ai-media.model.ts";
 import { SocialIntegrationModel } from "../model/social-integration.model.ts";
 import { UserModel } from "../../../../model/user.model.ts";
@@ -1036,6 +1037,61 @@ export const geminiController = {
   },
 
   /**
+   * POST /api/v1/gemini/generate-video
+   */
+  async generateVideo(req: Request, res: Response) {
+    try {
+      const { prompt, durationSeconds, aspectRatio, modelName, resolution, referenceVideoUri, referenceImageUris, frameMode, activeCardId } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_VIDEO);
+      const result = await billAiCall<{ url: string; isMock: boolean; jobId?: string }>("video", modelName || "google/veo-3.1-fast", () =>
+        geminiService.generateVideo(prompt, durationSeconds, {
+          aspectRatio,
+          modelName,
+          resolution,
+          referenceVideoUri,
+          referenceImageUris,
+          frameMode,
+        })
+      );
+
+      let record = null;
+      if (result.url) {
+        const isPending = result.url.startsWith("pending://");
+        record = await geminiService.saveGeneratedMediaRecord(userId, "video", result.url, prompt, {
+          aspectRatio,
+          resolution,
+          modelName,
+          duration: Number(durationSeconds) || 8,
+          originalVeoUrl: referenceVideoUri,
+          referenceImageUrls: referenceImageUris,
+          activeCardId,
+          provider: "openrouter",
+          openrouterVideoJobId: (result as any).jobId,
+          status: isPending ? "processing" : "completed",
+          progress: isPending ? 1 : 100,
+        });
+        if (isPending && (result as any).jobId) {
+          geminiService.pollOpenRouterVideoStatusBackground(record._id.toString(), (result as any).jobId, userId);
+        }
+      }
+
+      return res.status(200).json({
+        ...result,
+        url: record ? record.url : result.url,
+        record,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.generateVideo] Error:", error);
+      return handleGeminiError(res, error, "Lỗi sinh video AI");
+    }
+  },
+
+  /**
    * POST /api/v1/gemini/edit-image
    * Region-aware image edit. Reference image 1 is always the authoritative source.
    */
@@ -1503,6 +1559,29 @@ export const geminiController = {
     } catch (error: any) {
       console.error("[geminiController.optimizeImagePrompt] Error:", error);
       return handleGeminiError(res, error, "Lỗi tối ưu prompt ảnh");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/optimize-video-prompt
+   */
+  async optimizeVideoPrompt(req: Request, res: Response) {
+    try {
+      const { description, imageUris } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
+      const result = await geminiService.optimizeVideoPrompt(description, imageUris);
+      if (result?.isLocalFallback !== true) {
+        await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Phí tối ưu prompt sinh video AI");
+      }
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeVideoPrompt] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tối ưu prompt video");
     }
   },
 
