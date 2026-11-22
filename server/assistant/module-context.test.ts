@@ -17,7 +17,12 @@ describe("assistant module context metadata", () => {
     expect(mentionsCompatibleModule("Trong đối tác giới thiệu", "student-partner")).toBe(false);
     expect(isKnownModuleContextClause("Trong đối tác")).toBe(false);
     expect(mentionsCompatibleModule("Trong kho hàng", "inventory")).toBe(true);
+    expect(mentionsCompatibleModule("Tôi muốn thêm dự án cho nhân sự", "hr")).toBe(true);
+    expect(mentionsCompatibleModule("Tôi muốn thêm dự án cho nhân sự", "worker")).toBe(false);
     expect(mentionsCompatibleModule("Trong quản lí lao động", "labor-partner")).toBe(true);
+    expect(mentionsCompatibleModule("Dự án lao động", "worker")).toBe(true);
+    expect(mentionsCompatibleModule("Thêm dự án lao động", "worker")).toBe(true);
+    expect(mentionsCompatibleModule("Dự án lao động", "labor-partner")).toBe(false);
     expect(mentionsCompatibleModule("Trong quản lý học viên", "labor-partner")).toBe(false);
     expect(assistantModuleContext("labor-partner").relatedLabels).toContain("Quản lý lao động");
   });

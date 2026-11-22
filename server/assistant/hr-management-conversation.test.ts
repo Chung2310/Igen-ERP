@@ -1400,6 +1400,33 @@ it("keeps the named training scope from the reported request through the result 
   expect(result.reply).not.toContain("An toàn lao động");
 });
 
+it("routes explicit internal training creation to HR when student courses are also enabled", async () => {
+  state.includeStudentCourses = true;
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const result = await turn({ text: "tạo khóa đào tạo" });
+
+  expect(result.status).toBe("collecting");
+  expect(state.session.pending.actionId).toBe("training.create");
+  expect(result.reply).toContain("Tên khóa học");
+  expect(result.reply).not.toContain("Mã khóa học");
+  expect(result.reply).not.toContain("Hiện chưa có danh mục khóa học trong phạm vi đang chọn");
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/courses/categories")).toBe(false);
+
+  const supplemented = await turn({ text: "Mình bổ sung Mã khóa học: khoahocabc; Tên khóa học: khóa học abc; Số buổi hoặc thời lượng học: 20." });
+  expect(supplemented.status).toBe("collecting");
+  expect(state.session.pending.actionId).toBe("training.create");
+  expect(state.session.pending.provided).toMatchObject({ title: "khóa học abc", duration: "20 buổi" });
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/courses/categories")).toBe(false);
+
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn bổ sung danh mục đào tạo nào?" });
+  const confirmation = await turn({ text: "xác nhận" });
+  expect(confirmation.status).toBe("collecting");
+  expect(confirmation.reply).toContain("Yêu cầu trước vẫn được giữ.");
+  expect(state.session.pending.actionId).toBe("training.create");
+});
+
 it.each(["tạo khóa học mới", "thêm khóa học mới"])("asks for the course type and then required details: %s", async text => {
   state.includeStudentCourses = true;
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");

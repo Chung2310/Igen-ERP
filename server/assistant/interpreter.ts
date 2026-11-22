@@ -1106,15 +1106,34 @@ function contextualPendingTrainingDetails(text: string, workflows: AssistantWork
   const provided = current.values || {};
   const titleMissing = provided.title === undefined || provided.title === null || String(provided.title).trim() === "";
   const durationMissing = provided.duration === undefined || provided.duration === null || String(provided.duration).trim() === "";
-  if (!titleMissing && !durationMissing) return null;
+
+  // Keep labeled follow-up values in the pending internal-training workflow.
+  // In particular, "Mã khóa học" is also a strong student-course cue, but it
+  // must not replace a pending HR training request when the user is answering
+  // the assistant's question.
+  const labelPattern = /(?:mã\s+khóa(?:\s+học|\s+đào\s+tạo)|tên\s+khóa(?:\s+học|\s+đào\s+tạo)?|số\s+buổi(?:\s+hoặc\s+thời\s+lượng(?:\s+học)?)?|thời\s+lượng(?:\s+học)?|thời\s+gian(?:\s+học)?)\s*(?:là(?=\s|$)\s*)?[:：,-]\s*/giu;
+  const labeledFields = [...text.matchAll(labelPattern)];
+  const labeledValues = labeledFields.map((match, index) => ({
+    label: normalizeIntentText(match[0]),
+    value: text.slice((match.index || 0) + match[0].length, labeledFields[index + 1]?.index ?? text.length)
+      .replace(/^[\s:,-]+|[\s,;.!?]+$/g, "").trim(),
+  })).filter(field => field.value);
+  if (!titleMissing && !durationMissing && !labeledFields.length) return null;
 
   const durationMatch = text.match(/\b\d+(?:[.,]\d+)?\s*(?:ngày|tháng|tuần|năm|giờ|phút)\b/iu);
   const titlePrefix = /^\s*tên(?:\s+khóa(?:\s+học|\s+đào\s+tạo)?)?\s*(?:là(?=\s|$)\s*)?[:,-]?\s*/iu;
-  if (!durationMatch && !titlePrefix.test(text)) return null;
+  if (!labeledFields.length && !durationMatch && !titlePrefix.test(text)) return null;
 
   const values: Record<string, unknown> = {};
-  if (durationMissing && durationMatch) values.duration = durationMatch[0].trim();
-  if (titleMissing) {
+  const labeledTitle = labeledValues.find(field => field.label.startsWith("ten "))?.value;
+  const labeledDuration = labeledValues.find(field => /^(?:so buoi|thoi luong|thoi gian)/.test(field.label));
+  if (titleMissing && labeledTitle) values.title = labeledTitle;
+  if (durationMissing && labeledDuration) {
+    const numericSessionCount = labeledDuration.label.startsWith("so buoi")
+      && /^\d+(?:[.,]\d+)?$/.test(labeledDuration.value);
+    values.duration = numericSessionCount ? `${labeledDuration.value} buổi` : labeledDuration.value;
+  } else if (durationMissing && durationMatch) values.duration = durationMatch[0].trim();
+  if (titleMissing && !labeledTitle) {
     let title = text.replace(durationMatch?.[0] || "", " ").replace(titlePrefix, " ");
     title = title.replace(/^\s*(?:khóa\s+học|khóa\s+đào\s+tạo)\s*(?:là(?=\s|$)\s*)?[:,-]?\s*/iu, " ");
     title = title.replace(/^\s*(?:thời\s+lượng|thời\s+gian)\s*(?:là(?=\s|$)\s*)?[:,-]?\s*/iu, " ");
@@ -1125,7 +1144,7 @@ function contextualPendingTrainingDetails(text: string, workflows: AssistantWork
       values.title = title;
     }
   }
-  return Object.keys(values).length
+  return Object.keys(values).length || labeledFields.length
     ? { actionId: workflow.actionId, values, intentType: "workflow", newRequest: false }
     : null;
 }
@@ -1163,9 +1182,16 @@ type PartnerCreateResolution = { actionId: string } | { suggestedActionIds: stri
 function isPartnerCreateSelectionReply(messages: { role: string; content: string }[]) {
   const lastAssistant = [...messages].reverse().find(message => message.role === "assistant")?.content || "";
   const prompt = normalizeIntentText(lastAssistant);
+  const previousUser = [...messages].reverse().find(message => message.role === "user")?.content || "";
+  const priorPartnerCreate = /\b(?:tao|them|lap|bo sung|khai bao|dang ky)\b/.test(normalizeIntentText(previousUser))
+    && /\b(?:doi tac|partner)\b/.test(normalizeIntentText(previousUser));
   const offeredModules = ["ban le", "lao dong", "hoc vien"].filter(module => prompt.includes(module));
-  return /\b(?:ban dang muon lam viec nao|chon dung viec)\b/.test(prompt)
-    && /\btao\b/.test(prompt)
+  const explicitPartnerModulePrompt = /\bban muon tao doi tac\b/.test(prompt);
+  const partnerCreateChoicePrompt = explicitPartnerModulePrompt
+    || /\b(?:ban dang muon lam viec nao|chon dung viec)\b/.test(prompt)
+    || (priorPartnerCreate && /\b(?:ban muon|chon|lua chon|loai|phan he)\b/.test(prompt));
+  return partnerCreateChoicePrompt
+    && (priorPartnerCreate || /\btao\b/.test(prompt))
     && /\b(?:cong tac vien|doi tac)\b/.test(prompt)
     && offeredModules.length >= 2;
 }

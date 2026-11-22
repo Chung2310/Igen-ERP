@@ -8,6 +8,26 @@ vi.mock("../service/openrouter.service", () => ({ openrouterChat: provider }));
 const workflows = ASSISTANT_OPERATIONS.filter(op => ["hr", "student"].includes(op.module)).map(defaultWorkflow);
 afterEach(() => provider.mockReset());
 
+it.each(["tạo khóa đào tạo", "thêm khóa đào tạo", "tạo khóa đào tạo cho nhân sự"])("routes explicit internal training creation to HR: %s", async text => {
+  const result = await interpretRequest(text, workflows, null, []);
+  expect(result).toMatchObject({ actionId: "training.create", intentType: "workflow" });
+  expect(provider).not.toHaveBeenCalled();
+});
+
+it("keeps labeled course details in the pending internal training workflow", async () => {
+  const text = "Mình bổ sung Mã khóa học: khoahocabc; Tên khóa học: khóa học abc; Số buổi hoặc thời lượng học: 20.";
+  const result = await interpretRequest(text, workflows, { actionId: "training.create", values: {} }, []);
+  expect(result).toMatchObject({ actionId: "training.create", intentType: "workflow", newRequest: false });
+  expect(result.values).toMatchObject({ title: "khóa học abc", duration: "20 buổi" });
+  expect(provider).not.toHaveBeenCalled();
+});
+
+it("does not switch pending internal training to student courses for a course-code answer", async () => {
+  const result = await interpretRequest("Mã khóa học: khoahocabc", workflows, { actionId: "training.create", values: {} }, []);
+  expect(result).toMatchObject({ actionId: "training.create", intentType: "workflow", newRequest: false, values: {} });
+  expect(provider).not.toHaveBeenCalled();
+});
+
 it.each(["tạo khóa học mới", "thêm khóa học mới"])("asks which course type to create for %s", async text => {
   const result = await interpretRequest(text, workflows, null, []);
   expect(result).toMatchObject({ actionId: null, intentType: "ambiguous", suggestedActionIds: ["training.create", "course.create"] });
