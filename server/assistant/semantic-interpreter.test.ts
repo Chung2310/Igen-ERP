@@ -122,6 +122,29 @@ describe("estimate versus budget routing", () => {
   });
 });
 describe("semantic interpretation", () => {
+  it("routes active applicants grouped by department to the recruitment report without an AI routing guess", async () => {
+    const workflows = ASSISTANT_OPERATIONS.filter(candidate => candidate.module === "hr").map(defaultWorkflow);
+
+    const result = await interpretRequest("Thống kê số ứng viên đang ứng tuyển vào từng phòng ban", workflows, null, []);
+
+    expect(result).toMatchObject({
+      actionId: "recruitment.report",
+      intentType: "workflow",
+      actionIntent: "report",
+      values: { query_reportType: "applicants-by-department" },
+    });
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("does not route a department applicant report when the recruitment report workflow is unavailable", async () => {
+    const workflows = ASSISTANT_OPERATIONS.filter(candidate => candidate.module === "hr" && candidate.id !== "recruitment.report").map(defaultWorkflow);
+
+    const result = await interpretRequest("Thống kê số ứng viên đang ứng tuyển vào từng phòng ban", workflows, null, [], "", [], "", ["hr"]);
+
+    expect(result).toMatchObject({ actionId: null, intentType: "unsupported", unsupportedModule: "hr" });
+    expect(provider).not.toHaveBeenCalled();
+  });
+
   it("routes a labor-partner referral ranking to the labor KPI workflow", async () => {
     const laborKpi = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
     const studentPartners = defaultWorkflow(operationById("partner.list")!);

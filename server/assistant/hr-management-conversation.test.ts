@@ -1079,6 +1079,36 @@ it("routes tomorrow's interview schedule question to the recruitment report", as
   }
 });
 
+it("answers active applicant counts by department through the recruitment report", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    const requestUrl = new URL(String(url));
+    if (requestUrl.pathname === "/api/v1/recruitment/reports/assistant") {
+      expect(init?.method || "GET").toBe("GET");
+      expect(requestUrl.searchParams.get("reportType")).toBe("applicants-by-department");
+      return json({ data: {
+        reportType: "applicants-by-department",
+        summary: "2 phÃ²ng ban cÃ³ á»©ng viÃªn Ä‘ang á»©ng tuyá»ƒn.",
+        total: 2,
+        items: [{ name: "PhÃ²ng kinh doanh", count: 3 }, { name: "PhÃ²ng Marketing", count: 2 }],
+      } });
+    }
+    throw new Error(`Unexpected API path ${requestUrl.pathname}`);
+  });
+
+  const result = await turn({ mode: "qa", text: "Thống kê số ứng viên đang ứng tuyển vào từng phòng ban" });
+
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("PhÃ²ng kinh doanh");
+  expect(result.reply).toContain("PhÃ²ng Marketing");
+  expect(result.reply).toContain("3");
+  expect(result.reply).toContain("2");
+  expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(2);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(state.provider).not.toHaveBeenCalled();
+});
+
 it("does not substitute calendar events when the recruitment report workflow is unavailable", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
   state.includeRecruitmentReport = false;

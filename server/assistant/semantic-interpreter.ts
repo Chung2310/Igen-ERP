@@ -27,6 +27,23 @@ async function boundedInterpretation<T>(work: Promise<T>, timeout = 90000): Prom
   try { return await Promise.race([work, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new AssistantError("AI phản hồi quá lâu. Bạn thử lại nhé.", 504)), timeout); })]); }
   finally { if (timer) clearTimeout(timer); }
 }
+function contextualApplicantsByDepartmentReport(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const intent = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d")
+    .toLocaleLowerCase("vi").replace(/[^a-z0-9]+/g, " ").trim();
+  const asksForCount = /\b(?:thong ke|so luong|bao nhieu|dem)\b/.test(intent);
+  const mentionsApplicants = /\b(?:ung vien|ung tuyen)\b/.test(intent);
+  const groupsByDepartment = /\b(?:theo tung phong ban|vao tung phong ban|theo phong ban|tung phong ban|moi phong ban)\b/.test(intent);
+  if (!asksForCount || !mentionsApplicants || !groupsByDepartment) return null;
+  const reportWorkflow = workflows.find(workflow => workflow.actionId === "recruitment.report" && workflow.enabled);
+  if (!reportWorkflow) return { actionId: null, values: {}, intentType: "unsupported", unsupportedModule: "hr", actionIntent: "report" };
+  return {
+    actionId: reportWorkflow.actionId,
+    values: { query_reportType: "applicants-by-department" },
+    intentType: "workflow",
+    actionIntent: "report",
+  };
+}
+
 export async function interpretRequest(text: string, workflows: AssistantWorkflow[], pending: unknown, messages: {role: string; content: string}[], instructions = "", memories: string[] = [], sessionMemory = "", knownModules: string[] = [], expanded = false, _capabilityChecked = false, selectedActionId?: string, coverageRepairAttempted = false): Promise<AssistantInterpretation> {
   workflows = workflows.filter(workflow => workflow.enabled);
   const requestedPartnerModule = inferPartnerModule(text);
@@ -43,6 +60,8 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   }
   const allWorkflows = requestedPartnerModule ? requestedPartnerWorkflows : workflows;
   workflows = allWorkflows;
+  const applicantDepartmentReport = contextualApplicantsByDepartmentReport(text, workflows);
+  if (applicantDepartmentReport) return applicantDepartmentReport;
   if (selectedActionId && (workflows.length !== 1 || workflows[0].actionId !== selectedActionId)) {
     throw new AssistantError("Lựa chọn thao tác không còn khả dụng.", 403);
   }
