@@ -197,7 +197,12 @@ export function validateRequestCoverage(
       : `Điều kiện “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với trường lọc. Mình chưa gọi API.` };
     for (const target of mappedTargets) {
       if (target === "context.module") {
-        if (mentionsCompatibleModule(rawItem.evidence, workflow.module)) continue;
+        // The model may map a short evidence span (for example "dự án") to
+        // the module while the module name appears elsewhere in the same user
+        // request (for example "...dự án cho nhân sự"). Validate against the
+        // complete request so a clipped evidence span does not lose context.
+        if (mentionsCompatibleModule(rawItem.evidence, workflow.module)
+          || mentionsCompatibleModule(text, workflow.module)) continue;
         return { ok: false, clarification: `Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở ${workflow.title.toLocaleLowerCase("vi")}. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?` };
       }
       if (/^(?:values\.)?(?:module|moduleName|moduleKey|workspace|area)$/i.test(target)

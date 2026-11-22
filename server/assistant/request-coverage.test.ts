@@ -80,6 +80,24 @@ describe("validateRequestCoverage", () => {
     ], partnerWorkflow, operation, {})).toEqual({ ok: true });
   });
 
+  it.each(["dự án lao động", "thêm dự án lao động"])("accepts worker-project wording as module context: %s", evidence => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "worker.project.create")!;
+    const workerProjectWorkflow = defaultWorkflow(operation);
+    expect(validateRequestCoverage(evidence, [
+      { evidence, requirement: "Tạo dự án trong phân hệ lao động", mappedTo: ["context.module"] },
+    ], workerProjectWorkflow, operation, {})).toEqual({ ok: true });
+  });
+
+  it("accepts HR project wording as module context", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "project.create")!;
+    const projectWorkflow = defaultWorkflow(operation);
+    const evidence = "tôi muốn thêm dự án cho nhân sự";
+    expect(validateRequestCoverage(evidence, [
+      { evidence: "muốn thêm dự án cho nhân sự", requirement: "Tạo dự án cho Nhân sự", mappedTo: ["action"] },
+      { evidence: "dự án", requirement: "Tạo dự án trong phân hệ Nhân sự", mappedTo: ["context.module"] },
+    ], projectWorkflow, operation, {})).toEqual({ ok: true });
+  });
+
   it.each([
     { mappedTo: [], unresolved: true },
     { mappedTo: ["values.module"] },
