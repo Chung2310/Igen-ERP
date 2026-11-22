@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { openrouterChat } from "./openrouter.service";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
@@ -47,6 +48,60 @@ it("uses an environment output cap when the request does not set one", async () 
   await openrouterChat({ model: "google/gemini-2.5-flash", maxRetries: 1, messages: [{ role: "user", content: "Return JSON" }] });
 
   expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).max_tokens).toBe(3072);
+});
+
+it("logs the safe OpenRouter 402 limit reason without exposing credentials", async () => {
+  const apiKey = "sk-or-v1-local-test-secret";
+  vi.stubEnv("OPENROUTER_API_KEY", apiKey);
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ error: {
+    code: 402,
+    message: `Key spend limit reached; token ${apiKey}`,
+    metadata: { limit_source: "openrouter_key_limit", provider_name: "OpenRouter", key: apiKey },
+  } }, { status: 402 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  try {
+    await expect(openrouterChat({
+      model: "openai/gpt-6-luna",
+      maxRetries: 3,
+      messages: [{ role: "user", content: "Return JSON" }],
+    })).rejects.toThrow(AI_PROVIDER_TEMPORARY_ERROR);
+
+    const diagnostic = String(log.mock.calls[0]?.[0] || "");
+    expect(diagnostic).toContain("limit_source=openrouter_key_limit");
+    expect(diagnostic).toContain("detail=Key spend limit reached; token [redacted]");
+    expect(diagnostic).not.toContain(apiKey);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    log.mockRestore();
+  }
+});
+
+it("retries an OpenRouter in-flight budget 402 using Retry-After", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ error: {
+      code: 402,
+      message: "In-flight budget exceeded",
+      metadata: { limit_source: "openrouter_in_flight_budget" },
+    } }, { status: 402, headers: { "retry-after": "0" } }))
+    .mockResolvedValueOnce(Response.json({ choices: [{ message: { content: "ok" } }] }));
+  vi.stubGlobal("fetch", fetchMock);
+  const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  try {
+    const result = await openrouterChat({
+      model: "openai/gpt-6-luna",
+      maxRetries: 2,
+      messages: [{ role: "user", content: "Return JSON" }],
+    });
+
+    expect(result.text).toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  } finally {
+    log.mockRestore();
+  }
 });
 
 it("keeps the requested OpenRouter model when fallback is disabled", async () => {

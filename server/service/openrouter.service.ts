@@ -56,6 +56,35 @@ function buildHeaders(apiKey: string): Record<string, string> {
   };
 }
 
+function logPaymentRequiredDetails(response: Response, errorText: string) {
+  let providerError: any = {};
+  try {
+    providerError = JSON.parse(errorText)?.error || {};
+  } catch {
+    // Keep the client-facing error stable if OpenRouter returns a non-JSON body.
+  }
+  const metadata = providerError?.metadata && typeof providerError.metadata === "object" ? providerError.metadata : {};
+  const safe = (value: unknown, maxLength = 160) => String(value ?? "unknown")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/sk-or-v1-[A-Za-z0-9_-]+/gi, "[redacted]")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .slice(0, maxLength);
+  const retryAfter = response.headers.get("retry-after");
+  const limitSource = typeof metadata.limit_source === "string" ? metadata.limit_source : "";
+  console.warn(
+    `[OpenRouter] HTTP 402 | code=${safe(providerError?.code)} | limit_source=${safe(limitSource)} | provider=${safe(metadata.provider_name)} | retry_after=${safe(retryAfter)} | detail=${safe(providerError?.message, 240)}`,
+  );
+  return { limitSource, retryAfter };
+}
+
+function retryAfterDelayMs(value: unknown, fallbackMs: number) {
+  if (typeof value !== "string" || !value.trim()) return fallbackMs;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1000);
+  const retryAt = Date.parse(value);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : fallbackMs;
+}
+
 export type OpenRouterMessage =
   | { role: "system"; content: string }
   | { role: "user"; content: string | OpenRouterContentPart[] }
@@ -190,8 +219,11 @@ async function chatWithRetries(
 
         if (!response.ok) {
           const errText = await response.text();
+          const paymentRequired = response.status === 402 ? logPaymentRequiredDetails(response, errText) : undefined;
           const err = new Error(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `OpenRouter API lỗi ${response.status}: ${errText}`) as any;
           err.status = response.status;
+          err.providerLimitSource = paymentRequired?.limitSource;
+          err.retryAfter = paymentRequired?.retryAfter;
           throw err;
         }
 
@@ -250,16 +282,19 @@ async function chatWithRetries(
       lastError = error;
       const status = error?.status ?? 0;
       const msg = error?.message || String(error);
+      const inFlightBudgetExceeded = status === 402 && error?.providerLimitSource === "openrouter_in_flight_budget";
       const isRetryable =
         status === 429 || status === 503 || status === 502 ||
+        inFlightBudgetExceeded ||
         msg.includes("RESOURCE_EXHAUSTED") || msg.includes("fetch failed") ||
         msg.includes("ECONNRESET") || msg.includes("ETIMEDOUT");
 
       if (isRetryable && attempt < maxRetries) {
-        console.warn(`[OpenRouter] Attempt ${attempt} failed, retrying in ${delay}ms... Error: ${msg}`);
-        await withAssistantRequestControl(delay + 100, signal => new Promise<void>((resolve, reject) => {
+        const retryDelay = inFlightBudgetExceeded ? retryAfterDelayMs(error?.retryAfter, delay) : delay;
+        console.warn(`[OpenRouter] Attempt ${attempt} failed, retrying in ${retryDelay}ms... Error: ${msg}`);
+        await withAssistantRequestControl(retryDelay + 100, signal => new Promise<void>((resolve, reject) => {
           const done = () => { signal?.removeEventListener("abort", abort); resolve(); };
-          const timer = setTimeout(done, delay);
+          const timer = setTimeout(done, retryDelay);
           const abort = () => { clearTimeout(timer); reject(signal?.reason); };
           signal?.addEventListener("abort", abort, { once: true });
           if (signal?.aborted) abort();
