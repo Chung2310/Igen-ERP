@@ -54,20 +54,22 @@ function missingCoverageReply(text: string, rawCoverage: unknown) {
 function requiredMappingKinds(evidence: string) {
   const phrase = normalize(evidence);
   const kinds: Array<"filter" | "ranking"> = [];
-  const maximum = /(?:^| )(?:top|nhieu(?: [a-z]+){0,4} nhat|cao(?: [a-z]+){0,4} nhat|lon(?: [a-z]+){0,4} nhat|dung dau)(?: |$)/.test(phrase);
+  const maximum = /(?:^| )(?:top|nhieu(?: [a-z]+){0,4} nhat|cao nhat|lon nhat|dung dau)(?: |$)/.test(phrase);
   const minimum = /(?:^| )(?:it(?: [a-z]+){1,3} nhat|thap nhat|nho nhat)(?: |$)/.test(phrase);
   const ordering = /(?:^| )(?:sap xep|xep theo|xep hang)(?: |$)/.test(phrase)
     || /(?:^| )(?:giam dan|tang dan)(?: |$)/.test(phrase);
   if (maximum || minimum || ordering) kinds.push("ranking");
   const hasNumericValue = evidence.split(/\s+/).some(token => /^\d+(?:[.,]\d+)*(?:\/\d{1,4})?$/.test(token))
     || /\b\d{4}-\d{2}-\d{2}\b/.test(evidence);
+  const hasLocationContext = /\b(?:o|tai)\s+(?:chi nhanh|phong ban|du an|khu vuc|dia ban|tinh|huyen|quan|phuong|thanh pho|ha noi|ho chi minh|da nang|hai phong|can tho|khu cong nghiep|kcn)\b/.test(phrase);
   if (hasNumericValue
     || /phường/iu.test(evidence)
-    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|o|tai|khu vuc|dia ban|tinh|huyen|quan|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(phrase)) kinds.push("filter");
+    || hasLocationContext
+    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tinh|huyen|quan|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(phrase)) kinds.push("filter");
   return kinds;
 }
 
-function requiredMappingMissing(evidence: string, targets: string[], composite = false) {
+function requiredMappingMissing(evidence: string, targets: string[], composite = false, rankingCoveredByAction = false) {
   const mappings = targets.flatMap(target => {
     if (!composite) return [target];
     if (!target.startsWith("query:")) return [];
@@ -75,11 +77,33 @@ function requiredMappingMissing(evidence: string, targets: string[], composite =
     return separator < 0 ? [] : [target.slice(separator + 1)];
   });
   const kinds = requiredMappingKinds(evidence);
-  if (kinds.includes("ranking") && !mappings.some(mapping => mapping.startsWith("analysis.extreme.")
+  if (kinds.includes("ranking") && !rankingCoveredByAction && !mappings.some(mapping => mapping.startsWith("analysis.extreme.")
     || mapping.startsWith("analysis.sort.") || mapping.startsWith("analysis.limit"))) return "ranking";
   if (kinds.includes("filter") && !mappings.some(mapping => mapping.startsWith("values.")
     || mapping.startsWith("analysis.filters."))) return "filter";
   return undefined;
+}
+
+function actionEncodesEvidence(evidence: string, workflow: AssistantWorkflow, operation: AssistantOperation) {
+  const phrase = normalize(evidence);
+  if (!phrase) return false;
+  const positiveDescriptions = [operation.description, workflow.description]
+    .flatMap(description => description.split(/[.!?;]+/))
+    .filter(clause => !/(?:^| )(?:khong|chua|not|except|unless)(?: |$)/.test(normalize(clause)));
+  const actionDescription = normalize(`${operation.id.replaceAll(".", " ")} ${operation.title} ${workflow.title} ${positiveDescriptions.join(" ")}`);
+  return actionDescription.includes(phrase);
+}
+
+function actionEncodesRanking(evidence: string, operation: AssistantOperation) {
+  const request = normalize(evidence);
+  const id = normalize(operation.id.replaceAll(".", " "));
+  const action = normalize(`${operation.title} ${operation.description}`);
+  const hasBuiltInRanking = /(?:^| )(?:most|nhieu nhat|cao nhat|sap xep)(?: |$)/.test(`${id} ${action}`);
+  if (!hasBuiltInRanking) return false;
+  if (id.includes("most late")) return /(?:^| )(?:tre|muon|late)(?: |$)/.test(request);
+  if (id.includes("most absent")) return /(?:^| )(?:vang|nghi|absent)(?: |$)/.test(request);
+  if (id.includes("most leave")) return /(?:^| )(?:nghi phep|leave)(?: |$)/.test(request);
+  return false;
 }
 
 function parsedAnalysis(value: unknown): Record<string, any> | undefined {
@@ -165,8 +189,10 @@ export function validateRequestCoverage(
       ...(rawItem.mappedTo as string[]),
       ...reconciledRankingMappingTargets(rawItem.evidence, operation, values),
     ])];
-    const missingKind = requiredMappingMissing(rawItem.evidence, mappedTargets);
-    if (missingKind) return { ok: false, clarification: missingKind === "ranking"
+    const actionCapturesEvidence = mappedTargets.includes("action") && actionEncodesEvidence(rawItem.evidence, workflow, operation);
+    const actionCapturesRanking = mappedTargets.includes("action") && actionEncodesRanking(rawItem.evidence, operation);
+    const missingKind = requiredMappingMissing(rawItem.evidence, mappedTargets, false, actionCapturesRanking);
+    if (missingKind && !actionCapturesEvidence) return { ok: false, clarification: missingKind === "ranking"
       ? `Tiêu chí xếp hạng “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với phép xếp hạng cụ thể. Mình chưa gọi API.`
       : `Điều kiện “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với trường lọc. Mình chưa gọi API.` };
     for (const target of mappedTargets) {

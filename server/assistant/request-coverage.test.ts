@@ -155,6 +155,69 @@ describe("validateRequestCoverage", () => {
     expect(result).toMatchObject({ ok: false, clarification: expect.stringContaining("trường lọc") });
   });
 
+  it("does not mistake the noun 'tài khoản' for the preposition 'tại'", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "employee.delete")!;
+    const employeeWorkflow = defaultWorkflow(operation);
+    const text = "Xóa tài khoản nhân sự";
+
+    expect(validateRequestCoverage(text, [
+      { evidence: text, requirement: "Xóa tài khoản nhân sự", mappedTo: ["action"] },
+    ], employeeWorkflow, operation, {})).toEqual({ ok: true });
+  });
+
+  it("accepts constraints implemented by a dedicated workflow action", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "department.unmanaged.list")!;
+    const dedicatedWorkflow = defaultWorkflow(operation);
+    const request = operation.title;
+
+    expect(validateRequestCoverage(request, [
+      { evidence: request, requirement: request, mappedTo: ["action"] },
+    ], dedicatedWorkflow, operation, {})).toEqual({ ok: true });
+  });
+
+  it("still requires a field mapping for a location outside a dedicated action's scope", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "department.unmanaged.list")!;
+    const dedicatedWorkflow = defaultWorkflow(operation);
+    const request = `${operation.title} ở Hà Nội`;
+
+    expect(validateRequestCoverage(request, [
+      { evidence: request, requirement: request, mappedTo: ["action"] },
+    ], dedicatedWorkflow, operation, {})).toMatchObject({ ok: false });
+  });
+
+  it("does not treat a constraint mentioned only as excluded behavior as action coverage", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "timekeeping.records.monthly.leave-summary")!;
+    const dedicatedWorkflow = defaultWorkflow(operation);
+    const request = "Nhân sự nghỉ phép nhiều nhất trong tháng";
+
+    expect(validateRequestCoverage(request, [
+      { evidence: request, requirement: request, mappedTo: ["action"] },
+    ], dedicatedWorkflow, operation, {})).toMatchObject({ ok: false });
+  });
+
+  it("accepts a dedicated pre-ranked report when the requested metric matches its action", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "timekeeping.records.monthly.most-late")!;
+    const rankingWorkflow = defaultWorkflow(operation);
+    const request = "Báo cáo những người đi trễ nhiều nhất tháng 11 năm 2026";
+    const month = rankingWorkflow.fields.find(field => field.apiKey === "month")!;
+    const year = rankingWorkflow.fields.find(field => field.apiKey === "year")!;
+    const values = { [month.key]: 11, [year.key]: 2026 };
+
+    expect(validateRequestCoverage(request, [
+      { evidence: request, requirement: request, mappedTo: ["action", `values.${month.key}`, `values.${year.key}`] },
+    ], rankingWorkflow, operation, values)).toEqual({ ok: true });
+  });
+
+  it("does not apply a dedicated ranking action to a different metric", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.id === "timekeeping.records.monthly.most-late")!;
+    const rankingWorkflow = defaultWorkflow(operation);
+    const request = "Nhân sự có lương cao nhất trong tháng";
+
+    expect(validateRequestCoverage(request, [
+      { evidence: request, requirement: request, mappedTo: ["action"] },
+    ], rankingWorkflow, operation, {})).toMatchObject({ ok: false });
+  });
+
   it("requires an extreme ranking to map to an analysis operation", () => {
     const result = validateRequestCoverage("Đối tác giới thiệu nhiều lao động nhất", [
       { evidence: "Đối tác", requirement: "Tra cứu đối tác", mappedTo: ["action"] },

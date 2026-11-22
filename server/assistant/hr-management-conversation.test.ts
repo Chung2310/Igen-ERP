@@ -64,6 +64,7 @@ vi.mock("./conversation-file", () => ({
 import { conversationState, processTurn } from "./service";
 import { completeAssistantOperation } from "./completion";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
+import { ASSISTANT_OPERATIONS } from "./catalog";
 
 const employeeId = "507f1f77bcf86cd799439022";
 const secondEmployeeId = "507f1f77bcf86cd799439023";
@@ -84,6 +85,33 @@ const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", com
 const audit = conversationAudit("hr");
 const turn = (input: any) => audit.turn(input, () => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input }));
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+function simulatedWorkflowResult(text: string, actionId: string, values: Record<string, unknown>) {
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === actionId);
+  return {
+    intentType: "workflow",
+    actionId,
+    actionIntent: operation?.assistantMetadata?.intent || "unknown",
+    values,
+    requestCoverage: [{
+      evidence: text,
+      requirement: operation?.title || actionId,
+      mappedTo: ["action", ...Object.keys(values)
+        .filter(key => operation?.fields.some(field => field.key === key) && values[key] !== undefined)
+        .map(key => `values.${key}`)],
+    }],
+  };
+}
+function mockSemanticWorkflow(actionId: string, values: Record<string, unknown>) {
+  state.provider.mockImplementation(async (request: any) => {
+    const latestUser = [...(request.messages || [])].reverse().find((message: any) => message.role === "user");
+    let text = typeof latestUser?.content === "string" ? latestUser.content : "";
+    try {
+      const payload = JSON.parse(text);
+      if (typeof payload.text === "string") text = payload.text;
+    } catch { /* Final interpretation prompts already contain the raw request. */ }
+    return { text: JSON.stringify(simulatedWorkflowResult(text, actionId, values)) };
+  });
+}
 
 it.each([
   ["Cho tôi tổng số nhân sự được thêm từ 01/11 đến 30/11/2026", "employee.count", { createdFrom: "2026-11-01", createdTo: "2026-11-30" }, "/auth/users/count", "12"],
@@ -92,7 +120,7 @@ it.each([
 ] as const)("simulated AI report: %s", async (text, actionId, values, path, expected) => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId, values }) });
+  mockSemanticWorkflow(actionId, values);
   const reply = await turn({ text });
   expect(reply.status, JSON.stringify(reply)).toBe("completed");
   expect(reply.reply).toContain(expected);
@@ -128,7 +156,7 @@ it("must not answer an unfiltered headcount when simulated AI omits the user's s
 it("simulated AI reads the overall business report with an explicit date range", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "dashboard.business-overview", values: { query_filter: "custom", query_startDate: "2026-11-01", query_endDate: "2026-11-30" } }) });
+  mockSemanticWorkflow("dashboard.business-overview", { query_filter: "custom", query_startDate: "2026-11-01", query_endDate: "2026-11-30" });
   fetcher.mockImplementation(async (url: URL) => {
     expect(new URL(String(url)).pathname).toBe("/api/v1/dashboard/business-overview");
     return json({ status: "success", data: { businessType: "education", range: { from: "2026-11-01", to: "2026-11-30" }, generatedAt: "2026-11-19T03:00:00.000Z", access: { education: true, hr: true }, errors: [],
@@ -867,6 +895,35 @@ it("lets a beginner choose the employee by name and confirms before deleting", a
   const deleted = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(deleted.status).toBe("completed");
   expect(deleted.reply).toContain("La Văn Sến");
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE")).toHaveLength(1);
+});
+
+it("routes a missing employee target through shared collection and confirms before deletion", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["hr"] }) });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({
+    featureKeys: ["hr:employee"], ambiguous: true, clarification: "Bạn muốn xóa nhân sự nào?",
+  }) });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({
+    intentType: "workflow", actionId: "employee.delete", actionIntent: "delete", values: {},
+    requestCoverage: [{ evidence: "Xóa tài khoản nhân sự", requirement: "xóa tài khoản nhân sự", mappedTo: ["action"] }],
+  }) });
+
+  const collecting = await turn({ text: "Xóa tài khoản nhân sự" });
+
+  expect(collecting.status, JSON.stringify(collecting)).toBe("collecting");
+  const selection = collecting.referenceSelections?.find(group => group.key === "id");
+  expect(selection?.options.map(option => option.label)).toContain("La Văn Sến");
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.startsWith("/api/v1/auth/users/") && init?.method === "DELETE")).toBe(false);
+
+  const preview = await turn({ referenceSelections: { id: [selection!.options.find(option => option.label === "La Văn Sến")!.value] } });
+  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
+  expect(preview.action?.title).toBe("Xóa tài khoản nhân sự");
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE")).toBe(false);
+
+  const completed = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(completed.status).toBe("completed");
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE")).toHaveLength(1);
 });
 

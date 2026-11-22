@@ -2065,7 +2065,11 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     if (op.id === "legal.document.answer") {
       const result = await dispatch(checked.values);
       pending = null;
-      return legalAnswerReply(result);
+      const legalReply = legalAnswerReply(result);
+      const asOf = typeof checked.values.asOf === "string" ? formatAssistantTemporalValue(checked.values.asOf) : undefined;
+      return asOf && legalReply.status === "completed"
+        ? { ...legalReply, reply: `${legalReply.reply}\n\nNgÃ y Ã¡p dá»¥ng: ${asOf}` }
+        : legalReply;
     }
     if (op.module === "quotation") {
       const result = await dispatch(checked.values);
@@ -3094,7 +3098,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           needsIntentClarification = true;
           reply = { status: "collecting", reply: businessDiscoveryReply(interpreted.businessDiscovery, workflows, interpreted.clarification)
             + (pending ? "\n\nYêu cầu trước vẫn được giữ." : "") };
-        } else if (choice) {
+        } else if (choice && !salaryChoice && !courseChoice) {
           needsIntentClarification = true;
           workflowChoice = choice.state;
           reply = { status: "collecting", reply: `Bạn chọn thao tác muốn thực hiện bên dưới nhé.${pending ? " Yêu cầu trước vẫn được giữ." : ""}`, workflowSelection: choice.selection };

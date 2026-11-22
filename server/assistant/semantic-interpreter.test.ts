@@ -31,6 +31,7 @@ import { interpretRequest, validateRemainingRequests } from "./semantic-interpre
 import { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } from "./catalog";
 import { explicitlyRequestsBudgetCreation, quotationIntent } from "./quotation-intent";
 import { reconcileRequestedRanking } from "./list-analysis";
+import { collectValues } from "./policy";
 afterEach(() => { provider.mockReset(); mockState.inferIntentType = true; mockState.autoCoverage = true; });
 const employee = defaultWorkflow(operationById("employee.update")!);
 mockState.coverageBuilder = (text: string, parsed: any, pendingActionId?: string) => {
@@ -371,6 +372,38 @@ describe("semantic interpretation", () => {
     const capabilityActionIds = JSON.parse(capabilityCatalogText).map((item: any) => item.actionId);
     expect(capabilityActionIds).toEqual([applicantList.actionId]);
   });
+  it("continues from a selected function to workflow routing when only record fields are missing", async () => {
+    const employeeDelete = defaultWorkflow(operationById("employee.delete")!);
+    const employeeList = defaultWorkflow(operationById("employee.list")!);
+    const applicantList = defaultWorkflow(operationById("recruitment.applicant.list")!);
+    provider.mockResolvedValue({ text: JSON.stringify({
+      actionId: employeeDelete.actionId,
+      intentType: "workflow",
+      actionIntent: "delete",
+      values: {},
+      requestCoverage: [{ evidence: "Xóa tài khoản nhân sự", requirement: "xóa tài khoản nhân sự", mappedTo: ["action"] }],
+    }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      featureKeys: ["hr:employee"],
+      ambiguous: true,
+      clarification: "Bạn muốn xóa nhân sự nào?",
+    }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      actionId: employeeDelete.actionId,
+      intentType: "workflow",
+      actionIntent: "delete",
+      values: {},
+      requestCoverage: [{ evidence: "Xóa tài khoản nhân sự", requirement: "xóa tài khoản nhân sự", mappedTo: ["action"] }],
+    }) });
+
+    const result = await interpretRequest("Xóa tài khoản nhân sự", [employeeDelete, employeeList, applicantList], null, []);
+
+    expect(result, JSON.stringify({ result, coverage: mockState.lastCoverage, calls: provider.mock.calls.length }))
+      .toMatchObject({ actionId: "employee.delete", intentType: "workflow", values: {} });
+    const collected = collectValues(employeeDelete, result.values);
+    expect(collected.missing).toContain(employeeDelete.fields.find(field => field.key === "id")?.label);
+    expect(provider).toHaveBeenCalledTimes(2);
+  });
   it("plans multiple authorized read APIs for a cross-function HR summary", async () => {
     const employeeList = defaultWorkflow(operationById("employee.list")!);
     const calendarList = defaultWorkflow(operationById("hr.calendar.events.list")!);
@@ -410,6 +443,20 @@ describe("semantic interpretation", () => {
 
     expect(result).toMatchObject({ actionId: null, values: {}, intentType: "ambiguous" });
     expect(result.clarification).toContain("tuyển dụng");
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the function question when multiple candidate areas remain", async () => {
+    const workflows = ["employee.update", "payroll.policy.update"].map(id => defaultWorkflow(operationById(id)!));
+    provider.mockResolvedValueOnce({ text: JSON.stringify({
+      featureKeys: ["hr:employee", "hr:payroll"],
+      ambiguous: true,
+      clarification: "Bạn muốn cập nhật lương của nhân viên hay lương cơ bản trong chính sách?",
+    }) });
+
+    const result = await interpretRequest("Cập nhật lương cơ bản lên 3450k", workflows, null, []);
+
+    expect(result).toMatchObject({ actionId: null, intentType: "ambiguous" });
+    expect(result.clarification).toContain("nhân viên hay lương cơ bản trong chính sách");
     expect(provider).toHaveBeenCalledTimes(1);
   });
   it("retries the authorized workflows when module discovery picks an incompatible workflow", async () => {

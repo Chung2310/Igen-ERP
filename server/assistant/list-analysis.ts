@@ -50,7 +50,7 @@ export function reconcileRequestedRanking(text: string, contract: AnalysisContra
   const topCountMatch = request.match(/\btop\s+(\d+)\b/);
   const hasTopCue = /\btop\b/.test(request);
   const topCount = topCountMatch ? Number(topCountMatch[1]) : undefined;
-  const maximum = /\b(?:nhieu(?:\s+[a-z]+){0,4}\s+nhat|cao(?:\s+[a-z]+){0,4}\s+nhat|lon(?:\s+[a-z]+){0,4}\s+nhat|dung dau)\b/.test(request);
+  const maximum = /\b(?:nhieu(?:\s+[a-z]+){0,4}\s+nhat|cao\s+nhat|lon\s+nhat|dung dau)\b/.test(request);
   const minimum = /\b(?:it\s+(?:[a-z]+\s+){1,3}nhat|thap nhat|nho nhat)\b/.test(request);
   const sorting = /\b(?:sap xep|xep theo|xep hang)\b/.test(request) && /\b(?:giam dan|tang dan|cao xuong thap|thap len cao)\b/.test(request);
   const invalidTopCount = hasTopCue && (!topCount || topCount < 1 || topCount > 1000);

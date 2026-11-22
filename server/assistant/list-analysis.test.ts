@@ -28,6 +28,11 @@ describe("declarative list analysis independent of business modules", () => {
     expect(reconcileRequestedRanking("Đối tác nào giới thiệu được nhiều lao động nhất trong tháng", rankingContract, undefined))
       .toEqual({ kind: "resolved", analysis: { extreme: { field: "actualReferrals", direction: "max" } } });
   });
+  it.each(["Báo cáo sinh nhật nhân sự tháng tới", "Báo cáo lịch chủ nhật"])("does not mistake calendar words for ranking cues: %s", request => {
+    expect(reconcileRequestedRanking(request, {
+      fields: { count: { label: "Số lượng", type: "number" } },
+    }, undefined)).toEqual({ kind: "none" });
+  });
   it("maps labor referral wording onto the declared labor KPI field", () => {
     const operation = ASSISTANT_OPERATIONS.find(item => item.path === "/worker-management/partners/kpi")!;
     expect(reconcileRequestedRanking("Đối tác nào giới thiệu được nhiều lao động nhất trong tháng", {

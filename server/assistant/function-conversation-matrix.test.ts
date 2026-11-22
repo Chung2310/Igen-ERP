@@ -213,9 +213,28 @@ for(const op of operations) describe(op.id,()=>{
       if(['api.post.5905a76c5b33f482','api.post.435334a57fb9c949'].includes(op.id)) for(const v of values.variants as any[]) v.mediaIds=[];
       for(const f of op.fields) if(f.requiredWhen && values[f.requiredWhen.field]!==undefined && (f.requiredWhen.present || f.requiredWhen.equals===values[f.requiredWhen.field])) values[f.key]??=fieldValue(f);
     }
-    const ai={actionId:op.id,values,...(scenario==='cancel'?{cancel:true}:{})};
-    state.provider.mockResolvedValue({text:JSON.stringify(ai)});
     const input={conversationId:'matrix-'+op.id,requestId:randomUUID(),text:scenario==='cancel'?'Hủy yêu cầu này':op.title+(probe && op.fields.some(f=>f.type==='datetime')?' bắt đầu 8h ngày 20/11/2026, kết thúc 9h cùng ngày':'')};
+    if(probe && op.id==='student.batch.update') { values.location='QA Room'; input.text+=' location QA Room'; }
+    if(probe && op.id==='payroll.reconciliation.schedule.update') input.text+=' monthly schedule enabled';
+    const coverageTargets = [
+      'action',
+      ...Object.keys(values)
+        .filter(key => op.fields.some(field => field.key === key) && values[key] !== undefined)
+        .map(key => `values.${key}`),
+    ];
+    const ai=scenario==='cancel'
+      ? {intentType:'workflow',actionId:null,actionIntent:'other',values:{},requestCoverage:[],cancel:true}
+      : {
+          intentType:'workflow',
+          actionId:op.id,
+          actionIntent:op.assistantMetadata?.intent || 'unknown',
+          values,
+          requestCoverage:[{evidence:input.text,requirement:op.title,mappedTo:coverageTargets}],
+        };
+    // The service uses semantic-interpreter. Supply its required contract so this
+    // matrix exercises collection, confirmation, API handling, and replay rather
+    // than failing every case on an obsolete minimal model response.
+    state.provider.mockResolvedValue({text:JSON.stringify(ai)});
     const record:any={operation:op.id,module:op.module,scenario,input,ai,stage:'service conversation',fixture:`Offline mock API: target HTTP ${responseStatus}. Saved records are in-memory test evidence, not database persistence.`};
     try {
       record.reply=await processTurn(req,input);
@@ -241,7 +260,9 @@ for(const op of operations) describe(op.id,()=>{
           record.followups.push({input:next,reply});
         }
         if(op.id==='student.batch.update' && reply.status==='collecting' && !reply.referenceSelections?.length) {
-          const next={conversationId:input.conversationId,requestId:randomUUID(),text:'Đổi địa điểm học thành Phòng QA'};
+          const followupText='Update location to QA Room';
+          state.provider.mockResolvedValueOnce({text:JSON.stringify({intentType:'workflow',actionId:op.id,actionIntent:'update',values:{location:'QA Room'},requestCoverage:[{evidence:followupText,requirement:'Update the learning location',mappedTo:['action','values.location']}]})});
+          const next={conversationId:input.conversationId,requestId:randomUUID(),text:followupText};
           reply=await processTurn(req,next);lastInput=next;record.followups.push({input:next,reply});
         }
         if(scenario==='stale-version') {
