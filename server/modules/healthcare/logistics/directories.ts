@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../../../shared/email-policy";
 import { Router, type RequestHandler } from "express";
 import { ObjectId, type Db } from "mongodb";
 import Joi from "joi";
@@ -14,7 +15,7 @@ const schema = Joi.object({
   name: Joi.string().trim().max(200).required(),
   active: Joi.boolean().default(true),
   phone: text,
-  email: Joi.string().email().allow("").default(""),
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).allow("").default(""),
   address: text,
   taxCode: text,
   contactPerson: text,

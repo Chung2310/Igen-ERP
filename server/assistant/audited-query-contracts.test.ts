@@ -112,9 +112,12 @@ const cases: Array<{ id: string; input: Record<string, string | number> }> = [
 
 it.each(cases)("preserves model filters through interpretation and HTTP for $id", async ({ id, input }) => {
   const op = operationById(id)!;
-  provider.mockResolvedValue({ text: JSON.stringify({ actionId: id, values: input }) });
-  const result = await interpretRequest("Tra cứu theo đúng khoảng ngày và các điều kiện đã nêu", [defaultWorkflow(op)], null, []);
-  expect(result.actionId).toBe(id);
+  const text = "Tra cứu theo đúng khoảng ngày và các điều kiện đã nêu";
+  provider.mockResolvedValue({ text: JSON.stringify({ actionId: id, values: input, intentType: "workflow",
+    requestCoverage: [{ evidence: text, requirement: "Giữ các điều kiện fixture", mappedTo: ["action", ...Object.keys(input).map(key => `values.${key}`)] }],
+  }) });
+  const result = await interpretRequest(text, [defaultWorkflow(op)], null, []);
+  expect(result.actionId, JSON.stringify(result)).toBe(id);
   expect(result.values).toMatchObject(input);
   const fetcher = vi.fn(async () => new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }));
   vi.stubGlobal("fetch", fetcher);

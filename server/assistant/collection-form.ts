@@ -2,14 +2,44 @@ import { randomUUID } from "node:crypto";
 import type { AssistantInputField, AssistantValue, AssistantWorkflow, AssistantWorkflowSelection } from "../../src/shared/assistant-workflow";
 import { AssistantError } from "./policy";
 import { assistantModuleLabel, scopeAssistantWorkflows } from "./module-scope";
+import { assistantModuleContext } from "./module-context";
 
 export interface PendingWorkflowChoice {
+  kind?: "workflow";
   id: string;
   intent: string;
   pendingId: string | null;
   newRequest: boolean;
   expiresAt: number;
   options: { value: string; actionId: string; version: number }[];
+}
+export interface PendingModuleChoice {
+  kind: "module"; id: string; intent: string; pendingId: string | null; newRequest: boolean; expiresAt: number;
+  options: { value: string; module: string }[];
+}
+export type PendingAssistantChoice = PendingWorkflowChoice | PendingModuleChoice;
+export function clarificationModuleIds(text: string, workflows: AssistantWorkflow[]) {
+  const normalize = (value: string) => ` ${value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+  const phrase = normalize(text);
+  return [...new Set(workflows.filter(workflow => workflow.enabled).map(workflow => workflow.module))].filter(module => {
+    const context = assistantModuleContext(module);
+    return [module, context.label, ...context.aliases].some(name => phrase.includes(normalize(name)));
+  });
+}
+export function createModuleChoice(workflows: AssistantWorkflow[], modules: string[], intent: string, pendingId: string | null, newRequest = false) {
+  const allowed = [...new Set(modules)].filter(module => workflows.some(workflow => workflow.enabled && workflow.module === module)).slice(0, 8);
+  if (allowed.length < 2) return;
+  const id = randomUUID();
+  const options = allowed.map(module => ({ value: randomUUID(), module }));
+  const state: PendingModuleChoice = { kind: 'module', id, intent, pendingId, newRequest, expiresAt: Date.now() + 15 * 60_000, options };
+  const selection: AssistantWorkflowSelection = { kind: 'module', id, options: options.map(option => ({ value: option.value, label: assistantModuleContext(option.module).label })) };
+  return { state, selection };
+}
+export function resolveModuleChoice(state: PendingAssistantChoice | null, selection: { id: string; value: string }, pendingId: string | null) {
+  if (state?.kind !== 'module' || state.id !== selection.id || state.pendingId !== pendingId || state.expiresAt <= Date.now()) throw new AssistantError('Lựa chọn phân hệ đã hết hiệu lực. Bạn chọn lại giúp mình nhé.', 409);
+  const option = state.options.find(option => option.value === selection.value);
+  if (!option) throw new AssistantError('Lựa chọn phân hệ không hợp lệ.', 409);
+  return { ...option, intent: state.intent, newRequest: state.newRequest };
 }
 export function createWorkflowChoice(workflows: AssistantWorkflow[], ids: string[], intent: string, pendingId: string | null, newRequest = false): { state: PendingWorkflowChoice; selection: AssistantWorkflowSelection } | undefined {
   const scoped = scopeAssistantWorkflows(intent, workflows).workflows;
@@ -20,7 +50,8 @@ export function createWorkflowChoice(workflows: AssistantWorkflow[], ids: string
   return { state: { id, intent, pendingId, newRequest, expiresAt: Date.now() + 15 * 60_000, options },
     selection: { id, options: options.map((option, i) => ({ value: option.value, label: `${candidates[i].title} — ${assistantModuleLabel(candidates[i].module)}` })) } };
 }
-export function resolveWorkflowChoice(state: PendingWorkflowChoice | null | undefined, selection: { id: string; value: string }, pendingId: string | null) {
+export function resolveWorkflowChoice(state: PendingAssistantChoice | null | undefined, selection: { id: string; value: string }, pendingId: string | null) {
+  if (state?.kind === 'module') throw new AssistantError('Lựa chọn chưa đúng loại. Bạn chọn lại giúp mình nhé.', 409);
   const option = state?.options.find(option => option.value === selection.value);
   if (!state || state.id !== selection.id || state.expiresAt <= Date.now() || state.pendingId !== pendingId || !option) {
     throw new AssistantError("Lựa chọn thao tác đã hết hiệu lực. Bạn gửi lại yêu cầu để chọn thao tác mới nhé.", 409);

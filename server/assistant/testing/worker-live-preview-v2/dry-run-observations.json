@@ -1,0 +1,4907 @@
+{
+  "mode": "offline-harness-check",
+  "startedAt": "2026-11-23T01:34:43.697Z",
+  "sourceCommit": "1f95e4fcaddadfd99f6aa7f1ea523c0fbe429009",
+  "data": "Artificial entity names only; no screenshot names; no real business API or DB",
+  "settings": {
+    "alwaysConfirm": true,
+    "memoryEnabled": false,
+    "responseRules": "application default"
+  },
+  "cases": [
+    {
+      "id": "L01",
+      "screenshotRow": 2,
+      "control": false,
+      "input": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+      "expectedActions": [
+        "worker.project.create"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Bạn bổ sung giúp mình các thông tin sau nhé:\n- Mã dự án",
+          "action": {
+            "id": "444c4d6c-4889-486d-af17-d8db20b9edf0",
+            "requiresPassword": false,
+            "title": "Tạo dự án lao động",
+            "values": [
+              {
+                "label": "Tên dự án",
+                "value": "QA-LAB-NEW-20",
+                "defaulted": false
+              },
+              {
+                "label": "Danh sách lao động tham gia",
+                "value": "[\n  \"LAO-DONG-MAU-01 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-02 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-03 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-04 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-05 — Chi nhánh MẪU-QA\"\n]",
+                "defaulted": false
+              },
+              {
+                "label": "Các ngày trong tuần",
+                "value": "[\n  \"Thứ 2\",\n  \"Thứ 4\",\n  \"Thứ 6\",\n  \"Thứ 3\",\n  \"Thứ 5\",\n  \"Thứ 7\"\n]",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "444c4d6c-4889-486d-af17-d8db20b9edf0",
+            "fields": [
+              {
+                "key": "code",
+                "label": "Mã dự án",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "4360d16c-3324-4b9a-8df5-7d37d5a82b51",
+            "requiresPassword": false,
+            "title": "Tạo dự án lao động",
+            "values": [
+              {
+                "label": "Mã dự án",
+                "value": "QA-PREVIEW-20",
+                "defaulted": false
+              },
+              {
+                "label": "Tên dự án",
+                "value": "QA-LAB-NEW-20",
+                "defaulted": false
+              },
+              {
+                "label": "Danh sách lao động tham gia",
+                "value": "[\n  \"LAO-DONG-MAU-01 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-02 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-03 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-04 — Chi nhánh MẪU-QA\",\n  \"LAO-DONG-MAU-05 — Chi nhánh MẪU-QA\"\n]",
+                "defaulted": false
+              },
+              {
+                "label": "Các ngày trong tuần",
+                "value": "[\n  \"Thứ 2\",\n  \"Thứ 4\",\n  \"Thứ 6\",\n  \"Thứ 3\",\n  \"Thứ 5\",\n  \"Thứ 7\"\n]",
+                "defaulted": false
+              }
+            ]
+          },
+          "supplied": {
+            "values": {
+              "code": "QA-PREVIEW-20"
+            },
+            "selectedKeys": [],
+            "skippedKeys": []
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:43.813Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.project.create",
+      "namespace": "worker",
+      "pendingResolved": {
+        "code": "QA-PREVIEW-20",
+        "name": "QA-LAB-NEW-20",
+        "workerIds": "[\"000000000000000000000065\",\"000000000000000000000066\",\"000000000000000000000067\",\"000000000000000000000068\",\"000000000000000000000069\"]",
+        "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+      },
+      "readCalls": [
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-02 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-03 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-04 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-02 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-03 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-04 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L01",
+          "stage": "discovery",
+          "bytes": 7638,
+          "sha256": "3103f9739f822e91c3cef9b028f8a7abc8a5c685a8ff8cb875b6af938b91c93c",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L01",
+          "stage": "function-selection",
+          "bytes": 6845,
+          "sha256": "9b7be6ab49b1d6117eacdebef58bfe0e055551a6e151839e3eb7164146dc3240",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L01",
+          "stage": "interpretation",
+          "bytes": 88872,
+          "sha256": "45bfcd27062cf36c67524d9771438d01c2f338e8ec1e880bee0856c3633b7222",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.project.create",
+            "values": {
+              "name": "QA-LAB-NEW-20",
+              "workerIds": [
+                "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA",
+                "LAO-DONG-MAU-02 — Chi nhánh MẪU-QA",
+                "LAO-DONG-MAU-03 — Chi nhánh MẪU-QA",
+                "LAO-DONG-MAU-04 — Chi nhánh MẪU-QA",
+                "LAO-DONG-MAU-05 — Chi nhánh MẪU-QA"
+              ],
+              "daysOfWeek": [
+                "Thứ 2",
+                "Thứ 4",
+                "Thứ 6",
+                "Thứ 3",
+                "Thứ 5",
+                "Thứ 7"
+              ]
+            },
+            "intentType": "workflow",
+            "actionIntent": "create",
+            "requestCoverage": [
+              {
+                "evidence": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.name",
+                  "values.workerIds",
+                  "values.daysOfWeek"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 193
+    },
+    {
+      "id": "L02",
+      "screenshotRow": 3,
+      "control": false,
+      "input": "Báo cáo tình hình chấm công các lao động hôm nay",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 9 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-01 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Đi muộn · Giờ vào: 09:00, 23/11/2026\n2. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-02 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: on-time · Giờ vào: 07:00, 23/11/2026\n3. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-03 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)\n4. Dự án: QA-BANLE-02 · Người lao động: LAO-DONG-MAU-04 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)\n5. Dự án: QA-BANLE-02 · Người lao động: LAO-DONG-MAU-05 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)\n6. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-04 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)\n7. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-05 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)\n8. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-06 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)\nCòn 1 kết quả chưa hiển thị."
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.010Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L02",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "all",
+            "date": "2026-11-23",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L02",
+          "stage": "discovery",
+          "bytes": 7278,
+          "sha256": "cede69c28a70cfbdbc0d01f1efedd98c80cc1c93172865259607b6fdd0b493b6",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "function-selection",
+          "bytes": 6125,
+          "sha256": "07d52b7523823df3a3eb576f25538a1aa6526021a9d3fecddd2797a39e081701",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 88513,
+          "sha256": "c606b458503f9ed6d68dd774d07b7e5820361dc5b231abbb4514831eed366b75",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.report",
+            "values": {
+              "mode": "all",
+              "date": "2026-11-23"
+            },
+            "intentType": "workflow",
+            "actionIntent": "report",
+            "requestCoverage": [
+              {
+                "evidence": "Báo cáo tình hình chấm công các lao động hôm nay",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.mode",
+                  "values.date"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 52
+    },
+    {
+      "id": "L03",
+      "screenshotRow": 4,
+      "control": false,
+      "input": "báo cáo tình hình chấm công các lao động trong dự án: QA-KHO-01",
+      "expectedActions": [
+        "worker.report",
+        "worker.attendance.list"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 3 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-01 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Đi muộn · Giờ vào: 09:00, 23/11/2026\n2. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-02 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: on-time · Giờ vào: 07:00, 23/11/2026\n3. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-03 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)"
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.064Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-KHO-01",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "all",
+            "projectId": "0000000000000000000000c9",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L03",
+          "stage": "discovery",
+          "bytes": 7295,
+          "sha256": "796e39fc041898497ac1f523fdd249816750cb024a1bd00a89a43a9cf5a84539",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L03",
+          "stage": "function-selection",
+          "bytes": 6159,
+          "sha256": "26af60093c91ae8cbeac4c6d877e9c91969df9c1d8038d0085212d01d15e0839",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L03",
+          "stage": "interpretation",
+          "bytes": 88530,
+          "sha256": "785fb8698abc79618129ff4e7aa1e63ba7be4077ec39496827d508969b60f14e",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.report",
+            "values": {
+              "mode": "all",
+              "projectId": "QA-KHO-01"
+            },
+            "intentType": "workflow",
+            "actionIntent": "report",
+            "requestCoverage": [
+              {
+                "evidence": "báo cáo tình hình chấm công các lao động trong dự án: QA-KHO-01",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.mode",
+                  "values.projectId"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 38
+    },
+    {
+      "id": "L04",
+      "screenshotRow": 5,
+      "control": false,
+      "input": "Dự án QA-KHO-01 có ai đi muộn",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-01 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Đi muộn · Giờ vào: 09:00, 23/11/2026"
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.104Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L04",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-KHO-01",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L04",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L04",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L04",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L04",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "late",
+            "projectId": "0000000000000000000000c9",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L04",
+          "stage": "discovery",
+          "bytes": 7254,
+          "sha256": "aa2d90c909f4348b7f4c481d44539316519f19851bc282a208c53423051a6de7",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L04",
+          "stage": "function-selection",
+          "bytes": 6077,
+          "sha256": "47142be28c465a4e3bc1ff99a9d07f6c7141d77fd7088ff159c830f1ed0eb775",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L04",
+          "stage": "interpretation",
+          "bytes": 88489,
+          "sha256": "7d42dbbe3da8184236f85fb0cd2cdebeb628ab4ba01b9d48562c39fdd2ce6743",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.report",
+            "values": {
+              "mode": "late",
+              "projectId": "QA-KHO-01"
+            },
+            "intentType": "workflow",
+            "actionIntent": "report",
+            "requestCoverage": [
+              {
+                "evidence": "Dự án QA-KHO-01 có ai đi muộn",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.mode",
+                  "values.projectId"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 43
+    },
+    {
+      "id": "L05",
+      "screenshotRow": 6,
+      "control": false,
+      "input": "Dự án QA-KHO-01 có ai vắng",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 1 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-03 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)"
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.152Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L05",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-KHO-01",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L05",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L05",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L05",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L05",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "absent",
+            "projectId": "0000000000000000000000c9",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L05",
+          "stage": "discovery",
+          "bytes": 7250,
+          "sha256": "8facdd276d162e72da898956ae86f6d50147fc26edb290c1dbde1dbb15273ca4",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L05",
+          "stage": "function-selection",
+          "bytes": 6069,
+          "sha256": "62e65a4d312c78b37955c9f629bd70764c595c23326c97effb73a7360cba753e",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L05",
+          "stage": "interpretation",
+          "bytes": 88485,
+          "sha256": "992a632b611f0522385b221e7ee90ba6bec10c469d888a348cbf7ef9c5cade13",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.report",
+            "values": {
+              "mode": "absent",
+              "projectId": "QA-KHO-01"
+            },
+            "intentType": "workflow",
+            "actionIntent": "report",
+            "requestCoverage": [
+              {
+                "evidence": "Dự án QA-KHO-01 có ai vắng",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.mode",
+                  "values.projectId"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 55
+    },
+    {
+      "id": "L06",
+      "screenshotRow": 7,
+      "control": false,
+      "input": "Cập nhật địa điểm cho dự án QA-BANLE-02 thành 140 Đường Kiểm Thử",
+      "expectedActions": [
+        "worker.project.update"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "6685669a-0d09-4fd7-a906-a0991c03f6be",
+            "requiresPassword": false,
+            "title": "Cập nhật dự án lao động",
+            "values": [
+              {
+                "label": "Dự án cần sửa",
+                "value": "QA-BANLE-02 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              },
+              {
+                "label": "Địa điểm",
+                "value": "140 Đường Kiểm Thử",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.211Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.project.update",
+      "namespace": "worker",
+      "pendingResolved": {
+        "path_id": "0000000000000000000000ca",
+        "location": "140 Đường Kiểm Thử"
+      },
+      "readCalls": [
+        {
+          "caseId": "L06",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-BANLE-02",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L06",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L06",
+          "stage": "discovery",
+          "bytes": 7304,
+          "sha256": "4deaa06f84db315c5190bd14bd7602bfd3f501f6a6e48c0d735f19778fd1b222",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L06",
+          "stage": "function-selection",
+          "bytes": 6177,
+          "sha256": "0c7c3b346b18b6518c5c94078c881d055133bfd5e8d94a478ea585024451d04b",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L06",
+          "stage": "interpretation",
+          "bytes": 88539,
+          "sha256": "3235c4476521d620c69c2f5d5ef074b0d00692af985ba3ffafa537dd36935d1f",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.project.update",
+            "values": {
+              "path_id": "QA-BANLE-02",
+              "location": "140 Đường Kiểm Thử"
+            },
+            "intentType": "workflow",
+            "actionIntent": "update",
+            "requestCoverage": [
+              {
+                "evidence": "Cập nhật địa điểm cho dự án QA-BANLE-02 thành 140 Đường Kiểm Thử",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.path_id",
+                  "values.location"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 57
+    },
+    {
+      "id": "L07",
+      "screenshotRow": 8,
+      "control": false,
+      "input": "xóa nhân sự LAO-DONG-MAU-06 khỏi dự án QA-LAB-03",
+      "expectedActions": [
+        "worker.project.worker.remove"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "bafd990c-fe9f-42a2-9f2f-1f29a96661c1",
+            "requiresPassword": false,
+            "title": "Gỡ lao động khỏi dự án",
+            "values": [
+              {
+                "label": "Tên hoặc mã hoặc mã dự án",
+                "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              },
+              {
+                "label": "Tên lao động cần gỡ",
+                "value": "LAO-DONG-MAU-06 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.270Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.project.worker.remove",
+      "namespace": "worker",
+      "pendingResolved": {
+        "path_id": "0000000000000000000000cb",
+        "path_workerId": "00000000000000000000006a"
+      },
+      "readCalls": [
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-LAB-03",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-06",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L07",
+          "stage": "discovery",
+          "bytes": 7275,
+          "sha256": "d20b7978703103b32128abbda914c376ca805e8c330a69021df797aa1bbcaf84",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L07",
+          "stage": "function-selection",
+          "bytes": 6119,
+          "sha256": "318328e10d5bf72cdf6495e7eb58c4546815a262a2537acd26dd5685feb036c1",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L07",
+          "stage": "interpretation",
+          "bytes": 88510,
+          "sha256": "207f41236eb91eb6f0b9c49f225204b0fd5bd95dfbe7dbbd0a53512c9882e0f4",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.project.worker.remove",
+            "values": {
+              "path_id": "QA-LAB-03",
+              "path_workerId": "LAO-DONG-MAU-06"
+            },
+            "intentType": "workflow",
+            "actionIntent": "delete",
+            "requestCoverage": [
+              {
+                "evidence": "xóa nhân sự LAO-DONG-MAU-06 khỏi dự án QA-LAB-03",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.path_id",
+                  "values.path_workerId"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 37
+    },
+    {
+      "id": "L08",
+      "screenshotRow": 9,
+      "control": false,
+      "input": "những dự án nào đang thiếu lao động",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 2 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Chỉ tiêu lao động: 5 · Đã bố trí: 3 · Còn thiếu: 2\n2. Dự án: QA-LAB-03 · Chỉ tiêu lao động: 6 · Đã bố trí: 4 · Còn thiếu: 2"
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.309Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L08",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "shortage",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L08",
+          "stage": "discovery",
+          "bytes": 7265,
+          "sha256": "6ed188e62e38cf374073ffbe3ea9b0e2bb5e6a59491c7f6d0eaa777f264e903e",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L08",
+          "stage": "function-selection",
+          "bytes": 6099,
+          "sha256": "fc03565024691e5102e6629feafdcf0205253ed7d910994136a921601d51b597",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L08",
+          "stage": "interpretation",
+          "bytes": 88500,
+          "sha256": "9a93f7b0a3cb243ade3e0c072c2d3df162a8b72151bc934874311d5d34550f12",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.report",
+            "values": {
+              "mode": "shortage"
+            },
+            "intentType": "workflow",
+            "actionIntent": "report",
+            "requestCoverage": [
+              {
+                "evidence": "những dự án nào đang thiếu lao động",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.mode"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 49
+    },
+    {
+      "id": "L09",
+      "screenshotRow": 10,
+      "control": false,
+      "input": "Dự án QA-LAB-03 có lao động nào vắng trên 3 buổi",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Bạn bổ sung giúp mình các thông tin sau nhé:\n- Từ ngày\n- Đến ngày",
+          "action": {
+            "id": "1ad3af44-1d7f-4dd5-b832-77b75ff44186",
+            "requiresPassword": false,
+            "title": "Báo cáo chấm công và thiếu lao động theo dự án",
+            "values": [
+              {
+                "label": "Loại báo cáo",
+                "value": "absence-threshold",
+                "defaulted": false
+              },
+              {
+                "label": "Tên hoặc mã dự án",
+                "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              },
+              {
+                "label": "Số buổi vượt quá",
+                "value": 3,
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "1ad3af44-1d7f-4dd5-b832-77b75ff44186",
+            "fields": [
+              {
+                "key": "from",
+                "label": "Từ ngày",
+                "type": "date",
+                "required": true
+              },
+              {
+                "key": "to",
+                "label": "Đến ngày",
+                "type": "date",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "b855a5b0-d152-4375-b07f-6ad3845b1a51",
+            "requiresPassword": false,
+            "title": "Báo cáo chấm công và thiếu lao động theo dự án",
+            "values": [
+              {
+                "label": "Loại báo cáo",
+                "value": "absence-threshold",
+                "defaulted": false
+              },
+              {
+                "label": "Tên hoặc mã dự án",
+                "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              },
+              {
+                "label": "Từ ngày",
+                "value": "01/11/2026",
+                "defaulted": false
+              },
+              {
+                "label": "Đến ngày",
+                "value": "21/11/2026",
+                "defaulted": false
+              },
+              {
+                "label": "Số buổi vượt quá",
+                "value": 3,
+                "defaulted": false
+              }
+            ]
+          },
+          "supplied": {
+            "values": {
+              "from": "2026-11-01",
+              "to": "2026-11-21"
+            },
+            "selectedKeys": [],
+            "skippedKeys": []
+          }
+        },
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 4 kết quả phù hợp cho bạn.\n1. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-04 · Từ ngày: 01/11/2026 · Đến ngày: 21/11/2026 · Số ngày chưa chấm công: 21 · Ghi chú: Số ngày có lịch làm nhưng chưa có giờ vào; cần đối chiếu trước khi xác nhận vắng.\n2. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-05 · Từ ngày: 01/11/2026 · Đến ngày: 21/11/2026 · Số ngày chưa chấm công: 21 · Ghi chú: Số ngày có lịch làm nhưng chưa có giờ vào; cần đối chiếu trước khi xác nhận vắng.\n3. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-06 · Từ ngày: 01/11/2026 · Đến ngày: 21/11/2026 · Số ngày chưa chấm công: 21 · Ghi chú: Số ngày có lịch làm nhưng chưa có giờ vào; cần đối chiếu trước khi xác nhận vắng.\n4. Dự án: QA-LAB-03 · Người lao động: LAO-DONG-MAU-07 · Từ ngày: 01/11/2026 · Đến ngày: 21/11/2026 · Số ngày chưa chấm công: 21 · Ghi chú: Số ngày có lịch làm nhưng chưa có giờ vào; cần đối chiếu trước khi xác nhận vắng.",
+          "supplied": {
+            "confirmedPureGetOnly": true
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.363Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-LAB-03",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-LAB-03",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L09",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "absence-threshold",
+            "projectId": "0000000000000000000000cb",
+            "from": "2026-11-01",
+            "to": "2026-11-21",
+            "threshold": "3",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L09",
+          "stage": "discovery",
+          "bytes": 7279,
+          "sha256": "6a1b0424f8d28f9fe2d0422b849cc6d6d5adee554a4a43d25119e469693e30c2",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L09",
+          "stage": "function-selection",
+          "bytes": 6127,
+          "sha256": "c01ba27d8542e57a425ce890339f2176320b56c425ecb36c2cb6671f4bba3870",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L09",
+          "stage": "interpretation",
+          "bytes": 88514,
+          "sha256": "514e19969a518a4369baed3f390f217787fe1bb48a4118abd993cbef70215ae0",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.report",
+            "values": {
+              "mode": "absence-threshold",
+              "projectId": "QA-LAB-03",
+              "threshold": 3
+            },
+            "intentType": "workflow",
+            "actionIntent": "report",
+            "requestCoverage": [
+              {
+                "evidence": "Dự án QA-LAB-03 có lao động nào vắng trên 3 buổi",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.mode",
+                  "values.projectId",
+                  "values.threshold"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 93
+    },
+    {
+      "id": "L10",
+      "screenshotRow": 11,
+      "control": false,
+      "input": "thêm lao động LAO-DONG-MAU-08 vào quản lý lao động",
+      "expectedActions": [
+        "worker.create"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "c81800cc-f0ec-4d95-8183-c347b304aef0",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ lao động",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "LAO-DONG-MAU-08",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "c81800cc-f0ec-4d95-8183-c347b304aef0",
+            "fields": []
+          },
+          "referenceSelections": [
+            {
+              "key": "projectId",
+              "label": "Tên dự án",
+              "required": false,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "QA-KHO-01 — Chi nhánh MẪU-QA",
+                  "label": "QA-KHO-01 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-BANLE-02 — Chi nhánh MẪU-QA",
+                  "label": "QA-BANLE-02 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                  "label": "QA-LAB-03 — Chi nhánh MẪU-QA"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "7c2eaa8e-b4bd-467d-b0f7-e4fc4ccd8449",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ lao động",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "LAO-DONG-MAU-08",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "7c2eaa8e-b4bd-467d-b0f7-e4fc4ccd8449",
+            "fields": []
+          },
+          "referenceSelections": [
+            {
+              "key": "projectId",
+              "label": "Tên dự án",
+              "required": false,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "QA-KHO-01 — Chi nhánh MẪU-QA",
+                  "label": "QA-KHO-01 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-BANLE-02 — Chi nhánh MẪU-QA",
+                  "label": "QA-BANLE-02 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                  "label": "QA-LAB-03 — Chi nhánh MẪU-QA"
+                }
+              ]
+            }
+          ],
+          "supplied": {
+            "values": {},
+            "selectedKeys": [],
+            "skippedKeys": [
+              "projectId"
+            ]
+          }
+        },
+        {
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "8d13c5f3-9edf-41cf-93d6-05edd82756d4",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ lao động",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "LAO-DONG-MAU-08",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "8d13c5f3-9edf-41cf-93d6-05edd82756d4",
+            "fields": []
+          },
+          "referenceSelections": [
+            {
+              "key": "projectId",
+              "label": "Tên dự án",
+              "required": false,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "QA-KHO-01 — Chi nhánh MẪU-QA",
+                  "label": "QA-KHO-01 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-BANLE-02 — Chi nhánh MẪU-QA",
+                  "label": "QA-BANLE-02 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                  "label": "QA-LAB-03 — Chi nhánh MẪU-QA"
+                }
+              ]
+            }
+          ],
+          "supplied": {
+            "values": {},
+            "selectedKeys": [],
+            "skippedKeys": [
+              "projectId"
+            ]
+          }
+        },
+        {
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "4660bd0c-4689-4758-83a8-859b7c7faf43",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ lao động",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "LAO-DONG-MAU-08",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "4660bd0c-4689-4758-83a8-859b7c7faf43",
+            "fields": []
+          },
+          "referenceSelections": [
+            {
+              "key": "projectId",
+              "label": "Tên dự án",
+              "required": false,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "QA-KHO-01 — Chi nhánh MẪU-QA",
+                  "label": "QA-KHO-01 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-BANLE-02 — Chi nhánh MẪU-QA",
+                  "label": "QA-BANLE-02 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                  "label": "QA-LAB-03 — Chi nhánh MẪU-QA"
+                }
+              ]
+            }
+          ],
+          "supplied": {
+            "values": {},
+            "selectedKeys": [],
+            "skippedKeys": [
+              "projectId"
+            ]
+          }
+        },
+        {
+          "status": "collecting",
+          "reply": "Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé.",
+          "action": {
+            "id": "0dc974db-6fdc-431c-b301-dc4b6dcf2326",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ lao động",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "LAO-DONG-MAU-08",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "0dc974db-6fdc-431c-b301-dc4b6dcf2326",
+            "fields": []
+          },
+          "referenceSelections": [
+            {
+              "key": "projectId",
+              "label": "Tên dự án",
+              "required": false,
+              "multiple": false,
+              "options": [
+                {
+                  "value": "QA-KHO-01 — Chi nhánh MẪU-QA",
+                  "label": "QA-KHO-01 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-BANLE-02 — Chi nhánh MẪU-QA",
+                  "label": "QA-BANLE-02 — Chi nhánh MẪU-QA"
+                },
+                {
+                  "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                  "label": "QA-LAB-03 — Chi nhánh MẪU-QA"
+                }
+              ]
+            }
+          ],
+          "supplied": {
+            "values": {},
+            "selectedKeys": [],
+            "skippedKeys": [
+              "projectId"
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.461Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "collecting",
+      "actionId": "worker.create",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L10",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L10",
+          "stage": "discovery",
+          "bytes": 7279,
+          "sha256": "aa21a61b14a797f469e38b49a356f4c26d601974b8cf3cddad0fc7175c6021f0",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L10",
+          "stage": "function-selection",
+          "bytes": 6127,
+          "sha256": "64d69061b51958deb8e54f6412ef2b0d50b09f628b7dc846b30fd6352df76e8d",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L10",
+          "stage": "interpretation",
+          "bytes": 88514,
+          "sha256": "628bae7adf425c011a2dbab5c8be50777e4dcc0675447668e982e57d2ae427cd",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.create",
+            "values": {
+              "fullName": "LAO-DONG-MAU-08"
+            },
+            "intentType": "workflow",
+            "actionIntent": "create",
+            "requestCoverage": [
+              {
+                "evidence": "thêm lao động LAO-DONG-MAU-08 vào quản lý lao động",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.fullName"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [
+        "NOT_AT_CONFIRMATION"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 140
+    },
+    {
+      "id": "L11",
+      "screenshotRow": 12,
+      "control": false,
+      "input": "trong quản lí lao động, báo cáo Danh sách các lao động chưa có hợp đồng",
+      "expectedActions": [
+        "worker.list",
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Chưa có bộ lọc lao động không có hợp đồng cho nguồn này. Bạn muốn chọn phạm vi nào?\n\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\n- “Xem danh sách [đối tượng]”\n- “Thêm [đối tượng]: [thông tin đã có]”"
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.610Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "collecting",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "L11",
+          "stage": "discovery",
+          "bytes": 7309,
+          "sha256": "095a8b33edf53da930913be0c229c036cb4c4d650ede627786e50ff3ded30000",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker",
+              "hr"
+            ]
+          }
+        },
+        {
+          "caseId": "L11",
+          "stage": "function-selection",
+          "bytes": 14923,
+          "sha256": "661687b878da462b828211e714be32bec612fd83a2895465a2f9817460beb9e6",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L11",
+          "stage": "interpretation",
+          "bytes": 442728,
+          "sha256": "cb17f2607c8c619874a384a6fef62d25b4b9798b759d58e4ebc0eac7e471cea9",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": null,
+            "values": {},
+            "intentType": "ambiguous",
+            "clarification": "Chưa có bộ lọc lao động không có hợp đồng cho nguồn này. Bạn muốn chọn phạm vi nào?",
+            "actionIntent": "unknown",
+            "requestCoverage": [
+              {
+                "evidence": "trong quản lí lao động, báo cáo Danh sách các lao động chưa có hợp đồng",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L11",
+          "stage": "interpretation",
+          "bytes": 1909761,
+          "sha256": "4a0b4d9a1c6fbfac872346821c648b56d413da86d2ab4b61bc603756f372a341",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": null,
+            "values": {},
+            "intentType": "ambiguous",
+            "clarification": "Chưa có bộ lọc lao động không có hợp đồng cho nguồn này. Bạn muốn chọn phạm vi nào?",
+            "actionIntent": "unknown",
+            "requestCoverage": [
+              {
+                "evidence": "trong quản lí lao động, báo cáo Danh sách các lao động chưa có hợp đồng",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "contractAbsenceCheck": {
+        "expected": [
+          "LAO-DONG-MAU-02",
+          "LAO-DONG-MAU-03",
+          "LAO-DONG-MAU-06",
+          "LAO-DONG-MAU-07"
+        ],
+        "actual": [],
+        "usedBothSources": false,
+        "safeClarification": true
+      },
+      "issues": [
+        "WRONG_OR_MISSING_ACTION",
+        "READ_NOT_COMPLETED",
+        "CAPABILITY_GAP_NEEDS_SUPPORTED_FILTER"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 233
+    },
+    {
+      "id": "L12",
+      "screenshotRow": 13,
+      "control": false,
+      "input": "xuất cho tôi file excel danh sách hợp đồng lao động",
+      "expectedActions": [
+        "worker.labor.contract.list"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Đã xuất 3 dòng ra Excel. File gồm dữ liệu API trả về ở trang 1 theo bộ lọc đã chọn. Không tự mở rộng sang các trang khác.\n\nBạn tải file bên dưới nhé.",
+          "files": [
+            {
+              "id": "bb8b066c-6982-4bd5-a9d2-365fd4e0545a",
+              "fileName": "Tra cứu hợp đồng lao động-v1.xlsx",
+              "format": "xlsx",
+              "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "size": 6908,
+              "documentId": "3c4b7d0a-9604-4fb6-adaf-471aea088786",
+              "conversationId": "preview-L12",
+              "version": 1
+            }
+          ]
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:44.851Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.labor.contract.list",
+      "namespace": "worker",
+      "pendingResolved": {
+        "query_page": 1,
+        "query_limit": 10
+      },
+      "readCalls": [
+        {
+          "caseId": "L12",
+          "method": "GET",
+          "path": "/api/v1/worker-management/labor-contracts",
+          "query": {
+            "page": "1",
+            "limit": "10",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L12",
+          "stage": "discovery",
+          "bytes": 7281,
+          "sha256": "34ef3ed9fa2aec7cc98b79eb2b74494c5a2ae357515ce023dd3787de0fc5a425",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L12",
+          "stage": "function-selection",
+          "bytes": 6131,
+          "sha256": "0aa880c71a396c7167a4929cf8a0767b391c5e1ebe6f5af147cc913cc691187d",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L12",
+          "stage": "interpretation",
+          "bytes": 88516,
+          "sha256": "a751c6abe8d16daa9232ce5609c445d89d6ed72d8661ea30020be256b71ecb71",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.labor.contract.list",
+            "values": {},
+            "intentType": "workflow",
+            "actionIntent": "lookup",
+            "requestCoverage": [
+              {
+                "evidence": "xuất cho tôi file excel danh sách hợp đồng lao động",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "exportFile": {
+        "fileName": "Tra cứu hợp đồng lao động-v1.xlsx",
+        "size": 6908
+      },
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 217
+    },
+    {
+      "id": "L13",
+      "screenshotRow": 14,
+      "control": false,
+      "input": "chuyển lao động LAO-DONG-MAU-07 sang hình thức thời vụ",
+      "expectedActions": [
+        "worker.update"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "afe03cf5-8cec-4081-a569-9c65c03bf7f1",
+            "requiresPassword": false,
+            "title": "Cập nhật hồ sơ lao động",
+            "values": [
+              {
+                "label": "Tên hoặc mã hoặc mã lao động cần cập nhật",
+                "value": "LAO-DONG-MAU-07 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              },
+              {
+                "label": "Họ và tên",
+                "value": "Tên hiện tại (giữ nguyên)",
+                "defaulted": false
+              },
+              {
+                "label": "Trạng thái",
+                "value": "Trạng thái hiện tại (giữ nguyên)",
+                "defaulted": false
+              },
+              {
+                "label": "Loại lao động",
+                "value": "seasonal",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.080Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.update",
+      "namespace": "worker",
+      "pendingResolved": {
+        "path_id": "00000000000000000000006b",
+        "laborType": "seasonal",
+        "fullName": "LAO-DONG-MAU-07",
+        "status": "active"
+      },
+      "readCalls": [
+        {
+          "caseId": "L13",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-07",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L13",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L13",
+          "stage": "discovery",
+          "bytes": 7284,
+          "sha256": "655212f6ccb58ff60b86e026b335d92d8ddf6a8628b7fd8a47f217c730df8895",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L13",
+          "stage": "function-selection",
+          "bytes": 6137,
+          "sha256": "429c753d2ddd62dfb5a33323da62f1617b5a85b33c754c47dc75257788351383",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L13",
+          "stage": "interpretation",
+          "bytes": 88519,
+          "sha256": "adbd97e6a5ab4926ec18497eb4f6566bcc5a64377cee8ed40de200903814e6cd",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.update",
+            "values": {
+              "path_id": "LAO-DONG-MAU-07",
+              "laborType": "seasonal"
+            },
+            "intentType": "workflow",
+            "actionIntent": "update",
+            "requestCoverage": [
+              {
+                "evidence": "chuyển lao động LAO-DONG-MAU-07 sang hình thức thời vụ",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.path_id",
+                  "values.laborType"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 131
+    },
+    {
+      "id": "L14",
+      "screenshotRow": 15,
+      "control": false,
+      "input": "xóa hợp đồng của lao động LAO-DONG-MAU-04",
+      "expectedActions": [
+        "worker.labor.contract.delete"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "e72e7a11-279b-43c6-b417-4d42edf21320",
+            "requiresPassword": false,
+            "title": "Xóa hợp đồng lao động",
+            "values": [
+              {
+                "label": "Hợp đồng cần xóa",
+                "value": "MẪU-QA — mã HD-QA-4",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.217Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.labor.contract.delete",
+      "namespace": "worker",
+      "pendingResolved": {
+        "path_id": "00000000000000000000012e"
+      },
+      "readCalls": [
+        {
+          "caseId": "L14",
+          "method": "GET",
+          "path": "/api/v1/worker-management/labor-contracts",
+          "query": {
+            "search": "LAO-DONG-MAU-04",
+            "page": "1",
+            "limit": "100",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L14",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L14",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L14",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L14",
+          "stage": "discovery",
+          "bytes": 7270,
+          "sha256": "95a754ca5749f26577a3ad842fc5e7cd1aef68371f0bfc89ec3d54f5da6a2d55",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L14",
+          "stage": "function-selection",
+          "bytes": 6109,
+          "sha256": "26f382cd2cf7e403a68c3cfc01155e4d083d7c013cfbc1cf28605e5ced399360",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L14",
+          "stage": "interpretation",
+          "bytes": 88505,
+          "sha256": "5e18abb00ecc1e8f211eb754b2c6e8f9f811c4d8b627cb01074655fce81fc35e",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.labor.contract.delete",
+            "values": {
+              "path_id": "LAO-DONG-MAU-04"
+            },
+            "intentType": "workflow",
+            "actionIntent": "delete",
+            "requestCoverage": [
+              {
+                "evidence": "xóa hợp đồng của lao động LAO-DONG-MAU-04",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.path_id"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 73
+    },
+    {
+      "id": "L15",
+      "screenshotRow": 16,
+      "control": false,
+      "input": "đổi đơn vị sử dụng của LAO-DONG-MAU-05 thành CÔNG TY MẪU QA-EMPLOYER",
+      "expectedActions": [
+        "worker.labor.contract.update"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "a3a71eb0-1354-4bc3-956d-c58b6c20c0f7",
+            "requiresPassword": false,
+            "title": "Cập nhật hợp đồng lao động",
+            "values": [
+              {
+                "label": "Hợp đồng cần sửa",
+                "value": "MẪU-QA — mã HD-QA-5",
+                "defaulted": false
+              },
+              {
+                "label": "Khách hàng hoặc đơn vị sử dụng lao động",
+                "value": "CÔNG TY MẪU QA-EMPLOYER",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.296Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.labor.contract.update",
+      "namespace": "worker",
+      "pendingResolved": {
+        "path_id": "00000000000000000000012f",
+        "clientName": "CÔNG TY MẪU QA-EMPLOYER"
+      },
+      "readCalls": [
+        {
+          "caseId": "L15",
+          "method": "GET",
+          "path": "/api/v1/worker-management/labor-contracts",
+          "query": {
+            "search": "LAO-DONG-MAU-05",
+            "page": "1",
+            "limit": "100",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L15",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L15",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L15",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L15",
+          "stage": "discovery",
+          "bytes": 7303,
+          "sha256": "7c27eb638c70e2376fb67191ca28ff983e2648fd811f11aa19687e776b9d9941",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L15",
+          "stage": "function-selection",
+          "bytes": 6175,
+          "sha256": "a056d5577c4d16d33aca649b9860be067fa45c62608beb5cccbbec76ebd1caff",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L15",
+          "stage": "interpretation",
+          "bytes": 88538,
+          "sha256": "5135adeb3dc2c8e89582fa2e806452f9c9fb4a854da69107fec5db04103c309e",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "worker.labor.contract.update",
+            "values": {
+              "path_id": "LAO-DONG-MAU-05",
+              "clientName": "CÔNG TY MẪU QA-EMPLOYER"
+            },
+            "intentType": "workflow",
+            "actionIntent": "update",
+            "requestCoverage": [
+              {
+                "evidence": "đổi đơn vị sử dụng của LAO-DONG-MAU-05 thành CÔNG TY MẪU QA-EMPLOYER",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.path_id",
+                  "values.clientName"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 73
+    },
+    {
+      "id": "C01",
+      "screenshotRow": null,
+      "control": true,
+      "input": "Tạo dự án mới tên QA-TYPE-CHOICE",
+      "expectedActions": [],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Dự án thuộc phân hệ Nhân sự hay quản lý lao động?\n\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\n- “Thêm dự án: [thông tin đã có]”\n- “Xem danh sách dự án”"
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.375Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": true,
+      "finalStatus": "collecting",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "C01",
+          "stage": "discovery",
+          "bytes": 7258,
+          "sha256": "de97161624db394f6faa6043952eee4cac5f00513ba03052515bcf393be2ea70",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "worker",
+              "hr"
+            ]
+          }
+        },
+        {
+          "caseId": "C01",
+          "stage": "function-selection",
+          "bytes": 14821,
+          "sha256": "52ab5d575baa1af27b38c864785c9ba87708aee6151764dbc97bb633daf70b14",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "C01",
+          "stage": "interpretation",
+          "bytes": 442677,
+          "sha256": "4e4ee32d8578c2706e8216c604552280d72eea1096de22b0966549b2005ff464",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": null,
+            "values": {},
+            "intentType": "ambiguous",
+            "clarification": "Dự án thuộc phân hệ Nhân sự hay quản lý lao động?",
+            "actionIntent": "unknown",
+            "requestCoverage": [
+              {
+                "evidence": "Tạo dự án mới tên QA-TYPE-CHOICE",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "C01",
+          "stage": "interpretation",
+          "bytes": 1909710,
+          "sha256": "7fc85a697eaea20c493298905346dbc8f32bf52d950212620d825653e39a12b4",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": null,
+            "values": {},
+            "intentType": "ambiguous",
+            "clarification": "Dự án thuộc phân hệ Nhân sự hay quản lý lao động?",
+            "actionIntent": "unknown",
+            "requestCoverage": [
+              {
+                "evidence": "Tạo dự án mới tên QA-TYPE-CHOICE",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 257
+    },
+    {
+      "id": "C02",
+      "screenshotRow": null,
+      "control": true,
+      "input": "Tạo dự án mới tên QA-HR-ONLY trong phân hệ Nhân sự",
+      "expectedActions": [
+        "project.create"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "76c96955-e6da-48b6-b818-482ebbc53819",
+            "requiresPassword": false,
+            "title": "Tạo dự án",
+            "values": [
+              {
+                "label": "Tên dự án",
+                "value": "QA-HR-ONLY",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.641Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "project.create",
+      "namespace": "hr",
+      "pendingResolved": {
+        "name": "QA-HR-ONLY",
+        "priority": "medium"
+      },
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "C02",
+          "stage": "discovery",
+          "bytes": 7282,
+          "sha256": "c2123d5cff2e21832076c804800277ef77e2c977c82c11a8a5ead599b7698315",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "hr"
+            ]
+          }
+        },
+        {
+          "caseId": "C02",
+          "stage": "function-selection",
+          "bytes": 11437,
+          "sha256": "8570ca38da1e07f4cfb8bde681aad16b02c80a8133b1b42d65f3eda0187b5ef6",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "C02",
+          "stage": "interpretation",
+          "bytes": 388676,
+          "sha256": "c6f291ce49e40c727ddc385f3709e39e97f45afc2bbd425e2bf072e52e74b0fa",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "project.create",
+            "values": {
+              "name": "QA-HR-ONLY"
+            },
+            "intentType": "workflow",
+            "actionIntent": "create",
+            "requestCoverage": [
+              {
+                "evidence": "Tạo dự án mới tên QA-HR-ONLY trong phân hệ Nhân sự",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.name"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 88
+    },
+    {
+      "id": "E01",
+      "screenshotRow": null,
+      "control": true,
+      "input": "Tạo học viên HOC-VIEN-MAU-01, số điện thoại 0900000001, email qa@example.test, ngày đăng ký 23/11/2026",
+      "expectedActions": [
+        "student.create"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "ac75bf92-8fb3-4113-89a0-c04f34d957cb",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ học viên",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "HOC-VIEN-MAU-01",
+                "defaulted": false
+              },
+              {
+                "label": "Số điện thoại",
+                "value": "0900000001",
+                "defaulted": false
+              },
+              {
+                "label": "Email",
+                "value": "qa@example.test",
+                "defaulted": false
+              },
+              {
+                "label": "Ngày đăng ký (DD/MM/YYYY hoặc YYYY-MM-DD)",
+                "value": "2026-11-23",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.737Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "student.create",
+      "namespace": "student",
+      "pendingResolved": {
+        "fullName": "HOC-VIEN-MAU-01",
+        "phone": "0900000001",
+        "email": "qa@example.test",
+        "registrationDate": "2026-11-23"
+      },
+      "readCalls": [
+        {
+          "caseId": "E01",
+          "method": "GET",
+          "path": "/api/v1/courses",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "E01",
+          "stage": "discovery",
+          "bytes": 7336,
+          "sha256": "dfbc9262207ea8c8d1ceb35980c8f5009502d607484e32e6a75deb257db576c9",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "student"
+            ]
+          }
+        },
+        {
+          "caseId": "E01",
+          "stage": "function-selection",
+          "bytes": 12882,
+          "sha256": "bd3c6051393b7bb991ca447b3f70d7dab2b4157967f1c8a19c46867c576268b9",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "E01",
+          "stage": "interpretation",
+          "bytes": 223749,
+          "sha256": "558ad0127aae5df89fd294115ffbaa9c59116fe9baacabf820b11eab41f7adb6",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "student.create",
+            "values": {
+              "fullName": "HOC-VIEN-MAU-01",
+              "phone": "0900000001",
+              "email": "qa@example.test",
+              "registrationDate": "2026-11-23"
+            },
+            "intentType": "workflow",
+            "actionIntent": "create",
+            "requestCoverage": [
+              {
+                "evidence": "Tạo học viên HOC-VIEN-MAU-01, số điện thoại 0900000001, email qa@example.test, ngày đăng ký 23/11/2026",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.fullName",
+                  "values.phone",
+                  "values.email",
+                  "values.registrationDate"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "backendSchemaPreflight": {
+        "sentToApi": false,
+        "valid": false,
+        "errors": [
+          {
+            "path": [
+              "email"
+            ],
+            "type": "string.email",
+            "message": "Định dạng email không hợp lệ."
+          }
+        ]
+      },
+      "issues": [
+        "PREVIEW_ACCEPTS_API_INVALID_INPUT"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 120
+    },
+    {
+      "id": "E02",
+      "screenshotRow": null,
+      "control": true,
+      "input": "Tạo học viên HOC-VIEN-MAU-02, số điện thoại 0900000002, email qa@company.vn, ngày đăng ký 23/11/2026",
+      "expectedActions": [
+        "student.create"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "2945fce8-e34d-440d-9130-30bef136ae38",
+            "requiresPassword": false,
+            "title": "Tạo hồ sơ học viên",
+            "values": [
+              {
+                "label": "Họ và tên",
+                "value": "HOC-VIEN-MAU-02",
+                "defaulted": false
+              },
+              {
+                "label": "Số điện thoại",
+                "value": "0900000002",
+                "defaulted": false
+              },
+              {
+                "label": "Email",
+                "value": "qa@company.vn",
+                "defaulted": false
+              },
+              {
+                "label": "Ngày đăng ký (DD/MM/YYYY hoặc YYYY-MM-DD)",
+                "value": "2026-11-23",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:34:45.890Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "student.create",
+      "namespace": "student",
+      "pendingResolved": {
+        "fullName": "HOC-VIEN-MAU-02",
+        "phone": "0900000002",
+        "email": "qa@company.vn",
+        "registrationDate": "2026-11-23"
+      },
+      "readCalls": [
+        {
+          "caseId": "E02",
+          "method": "GET",
+          "path": "/api/v1/courses",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "E02",
+          "stage": "discovery",
+          "bytes": 7334,
+          "sha256": "a54c7359771bbc80e5606ea6c61dbd583e2d5cdab80205cd35776fb622e024a3",
+          "reservedUSD": 0,
+          "output": {
+            "modules": [
+              "student"
+            ]
+          }
+        },
+        {
+          "caseId": "E02",
+          "stage": "function-selection",
+          "bytes": 12878,
+          "sha256": "c61d3a287fd863c32f2d2ba52a8c1f3172700a3159a992fc934491d17c30c6e2",
+          "reservedUSD": 0,
+          "output": {
+            "featureKeys": [],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "E02",
+          "stage": "interpretation",
+          "bytes": 223747,
+          "sha256": "075d21551079bb8bb07d1bd29712e3f3581009f2401b0bdec7c73e7c691fe64f",
+          "reservedUSD": 0,
+          "output": {
+            "actionId": "student.create",
+            "values": {
+              "fullName": "HOC-VIEN-MAU-02",
+              "phone": "0900000002",
+              "email": "qa@company.vn",
+              "registrationDate": "2026-11-23"
+            },
+            "intentType": "workflow",
+            "actionIntent": "create",
+            "requestCoverage": [
+              {
+                "evidence": "Tạo học viên HOC-VIEN-MAU-02, số điện thoại 0900000002, email qa@company.vn, ngày đăng ký 23/11/2026",
+                "requirement": "Fixture plumbing only",
+                "mappedTo": [
+                  "action",
+                  "values.fullName",
+                  "values.phone",
+                  "values.email",
+                  "values.registrationDate"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "backendSchemaPreflight": {
+        "sentToApi": false,
+        "valid": true,
+        "errors": []
+      },
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 93
+    }
+  ],
+  "previousStoppedCases": [],
+  "resumed": false,
+  "pricingGuard": {
+    "prompt": 0.2,
+    "completion": 0.75,
+    "cacheMode": "explicit-no-markers"
+  },
+  "ledger": {
+    "capUSD": 1,
+    "maxRequests": 100,
+    "spentUSD": 0,
+    "reservedUSD": 0,
+    "calls": [
+      {
+        "caseId": "L01",
+        "stage": "discovery",
+        "bytes": 7638,
+        "sha256": "3103f9739f822e91c3cef9b028f8a7abc8a5c685a8ff8cb875b6af938b91c93c",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L01",
+        "stage": "function-selection",
+        "bytes": 6845,
+        "sha256": "9b7be6ab49b1d6117eacdebef58bfe0e055551a6e151839e3eb7164146dc3240",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L01",
+        "stage": "interpretation",
+        "bytes": 88872,
+        "sha256": "45bfcd27062cf36c67524d9771438d01c2f338e8ec1e880bee0856c3633b7222",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.project.create",
+          "values": {
+            "name": "QA-LAB-NEW-20",
+            "workerIds": [
+              "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA",
+              "LAO-DONG-MAU-02 — Chi nhánh MẪU-QA",
+              "LAO-DONG-MAU-03 — Chi nhánh MẪU-QA",
+              "LAO-DONG-MAU-04 — Chi nhánh MẪU-QA",
+              "LAO-DONG-MAU-05 — Chi nhánh MẪU-QA"
+            ],
+            "daysOfWeek": [
+              "Thứ 2",
+              "Thứ 4",
+              "Thứ 6",
+              "Thứ 3",
+              "Thứ 5",
+              "Thứ 7"
+            ]
+          },
+          "intentType": "workflow",
+          "actionIntent": "create",
+          "requestCoverage": [
+            {
+              "evidence": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.name",
+                "values.workerIds",
+                "values.daysOfWeek"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "discovery",
+        "bytes": 7278,
+        "sha256": "cede69c28a70cfbdbc0d01f1efedd98c80cc1c93172865259607b6fdd0b493b6",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "function-selection",
+        "bytes": 6125,
+        "sha256": "07d52b7523823df3a3eb576f25538a1aa6526021a9d3fecddd2797a39e081701",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 88513,
+        "sha256": "c606b458503f9ed6d68dd774d07b7e5820361dc5b231abbb4514831eed366b75",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.report",
+          "values": {
+            "mode": "all",
+            "date": "2026-11-23"
+          },
+          "intentType": "workflow",
+          "actionIntent": "report",
+          "requestCoverage": [
+            {
+              "evidence": "Báo cáo tình hình chấm công các lao động hôm nay",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.mode",
+                "values.date"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "discovery",
+        "bytes": 7295,
+        "sha256": "796e39fc041898497ac1f523fdd249816750cb024a1bd00a89a43a9cf5a84539",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "function-selection",
+        "bytes": 6159,
+        "sha256": "26af60093c91ae8cbeac4c6d877e9c91969df9c1d8038d0085212d01d15e0839",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "interpretation",
+        "bytes": 88530,
+        "sha256": "785fb8698abc79618129ff4e7aa1e63ba7be4077ec39496827d508969b60f14e",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.report",
+          "values": {
+            "mode": "all",
+            "projectId": "QA-KHO-01"
+          },
+          "intentType": "workflow",
+          "actionIntent": "report",
+          "requestCoverage": [
+            {
+              "evidence": "báo cáo tình hình chấm công các lao động trong dự án: QA-KHO-01",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.mode",
+                "values.projectId"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "discovery",
+        "bytes": 7254,
+        "sha256": "aa2d90c909f4348b7f4c481d44539316519f19851bc282a208c53423051a6de7",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "function-selection",
+        "bytes": 6077,
+        "sha256": "47142be28c465a4e3bc1ff99a9d07f6c7141d77fd7088ff159c830f1ed0eb775",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "interpretation",
+        "bytes": 88489,
+        "sha256": "7d42dbbe3da8184236f85fb0cd2cdebeb628ab4ba01b9d48562c39fdd2ce6743",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.report",
+          "values": {
+            "mode": "late",
+            "projectId": "QA-KHO-01"
+          },
+          "intentType": "workflow",
+          "actionIntent": "report",
+          "requestCoverage": [
+            {
+              "evidence": "Dự án QA-KHO-01 có ai đi muộn",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.mode",
+                "values.projectId"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "discovery",
+        "bytes": 7250,
+        "sha256": "8facdd276d162e72da898956ae86f6d50147fc26edb290c1dbde1dbb15273ca4",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "function-selection",
+        "bytes": 6069,
+        "sha256": "62e65a4d312c78b37955c9f629bd70764c595c23326c97effb73a7360cba753e",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "interpretation",
+        "bytes": 88485,
+        "sha256": "992a632b611f0522385b221e7ee90ba6bec10c469d888a348cbf7ef9c5cade13",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.report",
+          "values": {
+            "mode": "absent",
+            "projectId": "QA-KHO-01"
+          },
+          "intentType": "workflow",
+          "actionIntent": "report",
+          "requestCoverage": [
+            {
+              "evidence": "Dự án QA-KHO-01 có ai vắng",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.mode",
+                "values.projectId"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "discovery",
+        "bytes": 7304,
+        "sha256": "4deaa06f84db315c5190bd14bd7602bfd3f501f6a6e48c0d735f19778fd1b222",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "function-selection",
+        "bytes": 6177,
+        "sha256": "0c7c3b346b18b6518c5c94078c881d055133bfd5e8d94a478ea585024451d04b",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "interpretation",
+        "bytes": 88539,
+        "sha256": "3235c4476521d620c69c2f5d5ef074b0d00692af985ba3ffafa537dd36935d1f",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.project.update",
+          "values": {
+            "path_id": "QA-BANLE-02",
+            "location": "140 Đường Kiểm Thử"
+          },
+          "intentType": "workflow",
+          "actionIntent": "update",
+          "requestCoverage": [
+            {
+              "evidence": "Cập nhật địa điểm cho dự án QA-BANLE-02 thành 140 Đường Kiểm Thử",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.path_id",
+                "values.location"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L07",
+        "stage": "discovery",
+        "bytes": 7275,
+        "sha256": "d20b7978703103b32128abbda914c376ca805e8c330a69021df797aa1bbcaf84",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L07",
+        "stage": "function-selection",
+        "bytes": 6119,
+        "sha256": "318328e10d5bf72cdf6495e7eb58c4546815a262a2537acd26dd5685feb036c1",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L07",
+        "stage": "interpretation",
+        "bytes": 88510,
+        "sha256": "207f41236eb91eb6f0b9c49f225204b0fd5bd95dfbe7dbbd0a53512c9882e0f4",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.project.worker.remove",
+          "values": {
+            "path_id": "QA-LAB-03",
+            "path_workerId": "LAO-DONG-MAU-06"
+          },
+          "intentType": "workflow",
+          "actionIntent": "delete",
+          "requestCoverage": [
+            {
+              "evidence": "xóa nhân sự LAO-DONG-MAU-06 khỏi dự án QA-LAB-03",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.path_id",
+                "values.path_workerId"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L08",
+        "stage": "discovery",
+        "bytes": 7265,
+        "sha256": "6ed188e62e38cf374073ffbe3ea9b0e2bb5e6a59491c7f6d0eaa777f264e903e",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L08",
+        "stage": "function-selection",
+        "bytes": 6099,
+        "sha256": "fc03565024691e5102e6629feafdcf0205253ed7d910994136a921601d51b597",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L08",
+        "stage": "interpretation",
+        "bytes": 88500,
+        "sha256": "9a93f7b0a3cb243ade3e0c072c2d3df162a8b72151bc934874311d5d34550f12",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.report",
+          "values": {
+            "mode": "shortage"
+          },
+          "intentType": "workflow",
+          "actionIntent": "report",
+          "requestCoverage": [
+            {
+              "evidence": "những dự án nào đang thiếu lao động",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.mode"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L09",
+        "stage": "discovery",
+        "bytes": 7279,
+        "sha256": "6a1b0424f8d28f9fe2d0422b849cc6d6d5adee554a4a43d25119e469693e30c2",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L09",
+        "stage": "function-selection",
+        "bytes": 6127,
+        "sha256": "c01ba27d8542e57a425ce890339f2176320b56c425ecb36c2cb6671f4bba3870",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L09",
+        "stage": "interpretation",
+        "bytes": 88514,
+        "sha256": "514e19969a518a4369baed3f390f217787fe1bb48a4118abd993cbef70215ae0",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.report",
+          "values": {
+            "mode": "absence-threshold",
+            "projectId": "QA-LAB-03",
+            "threshold": 3
+          },
+          "intentType": "workflow",
+          "actionIntent": "report",
+          "requestCoverage": [
+            {
+              "evidence": "Dự án QA-LAB-03 có lao động nào vắng trên 3 buổi",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.mode",
+                "values.projectId",
+                "values.threshold"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L10",
+        "stage": "discovery",
+        "bytes": 7279,
+        "sha256": "aa21a61b14a797f469e38b49a356f4c26d601974b8cf3cddad0fc7175c6021f0",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L10",
+        "stage": "function-selection",
+        "bytes": 6127,
+        "sha256": "64d69061b51958deb8e54f6412ef2b0d50b09f628b7dc846b30fd6352df76e8d",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L10",
+        "stage": "interpretation",
+        "bytes": 88514,
+        "sha256": "628bae7adf425c011a2dbab5c8be50777e4dcc0675447668e982e57d2ae427cd",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.create",
+          "values": {
+            "fullName": "LAO-DONG-MAU-08"
+          },
+          "intentType": "workflow",
+          "actionIntent": "create",
+          "requestCoverage": [
+            {
+              "evidence": "thêm lao động LAO-DONG-MAU-08 vào quản lý lao động",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.fullName"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L11",
+        "stage": "discovery",
+        "bytes": 7309,
+        "sha256": "095a8b33edf53da930913be0c229c036cb4c4d650ede627786e50ff3ded30000",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker",
+            "hr"
+          ]
+        }
+      },
+      {
+        "caseId": "L11",
+        "stage": "function-selection",
+        "bytes": 14923,
+        "sha256": "661687b878da462b828211e714be32bec612fd83a2895465a2f9817460beb9e6",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L11",
+        "stage": "interpretation",
+        "bytes": 442728,
+        "sha256": "cb17f2607c8c619874a384a6fef62d25b4b9798b759d58e4ebc0eac7e471cea9",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": null,
+          "values": {},
+          "intentType": "ambiguous",
+          "clarification": "Chưa có bộ lọc lao động không có hợp đồng cho nguồn này. Bạn muốn chọn phạm vi nào?",
+          "actionIntent": "unknown",
+          "requestCoverage": [
+            {
+              "evidence": "trong quản lí lao động, báo cáo Danh sách các lao động chưa có hợp đồng",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L11",
+        "stage": "interpretation",
+        "bytes": 1909761,
+        "sha256": "4a0b4d9a1c6fbfac872346821c648b56d413da86d2ab4b61bc603756f372a341",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": null,
+          "values": {},
+          "intentType": "ambiguous",
+          "clarification": "Chưa có bộ lọc lao động không có hợp đồng cho nguồn này. Bạn muốn chọn phạm vi nào?",
+          "actionIntent": "unknown",
+          "requestCoverage": [
+            {
+              "evidence": "trong quản lí lao động, báo cáo Danh sách các lao động chưa có hợp đồng",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L12",
+        "stage": "discovery",
+        "bytes": 7281,
+        "sha256": "34ef3ed9fa2aec7cc98b79eb2b74494c5a2ae357515ce023dd3787de0fc5a425",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L12",
+        "stage": "function-selection",
+        "bytes": 6131,
+        "sha256": "0aa880c71a396c7167a4929cf8a0767b391c5e1ebe6f5af147cc913cc691187d",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L12",
+        "stage": "interpretation",
+        "bytes": 88516,
+        "sha256": "a751c6abe8d16daa9232ce5609c445d89d6ed72d8661ea30020be256b71ecb71",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.labor.contract.list",
+          "values": {},
+          "intentType": "workflow",
+          "actionIntent": "lookup",
+          "requestCoverage": [
+            {
+              "evidence": "xuất cho tôi file excel danh sách hợp đồng lao động",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L13",
+        "stage": "discovery",
+        "bytes": 7284,
+        "sha256": "655212f6ccb58ff60b86e026b335d92d8ddf6a8628b7fd8a47f217c730df8895",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L13",
+        "stage": "function-selection",
+        "bytes": 6137,
+        "sha256": "429c753d2ddd62dfb5a33323da62f1617b5a85b33c754c47dc75257788351383",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L13",
+        "stage": "interpretation",
+        "bytes": 88519,
+        "sha256": "adbd97e6a5ab4926ec18497eb4f6566bcc5a64377cee8ed40de200903814e6cd",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.update",
+          "values": {
+            "path_id": "LAO-DONG-MAU-07",
+            "laborType": "seasonal"
+          },
+          "intentType": "workflow",
+          "actionIntent": "update",
+          "requestCoverage": [
+            {
+              "evidence": "chuyển lao động LAO-DONG-MAU-07 sang hình thức thời vụ",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.path_id",
+                "values.laborType"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L14",
+        "stage": "discovery",
+        "bytes": 7270,
+        "sha256": "95a754ca5749f26577a3ad842fc5e7cd1aef68371f0bfc89ec3d54f5da6a2d55",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L14",
+        "stage": "function-selection",
+        "bytes": 6109,
+        "sha256": "26f382cd2cf7e403a68c3cfc01155e4d083d7c013cfbc1cf28605e5ced399360",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L14",
+        "stage": "interpretation",
+        "bytes": 88505,
+        "sha256": "5e18abb00ecc1e8f211eb754b2c6e8f9f811c4d8b627cb01074655fce81fc35e",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.labor.contract.delete",
+          "values": {
+            "path_id": "LAO-DONG-MAU-04"
+          },
+          "intentType": "workflow",
+          "actionIntent": "delete",
+          "requestCoverage": [
+            {
+              "evidence": "xóa hợp đồng của lao động LAO-DONG-MAU-04",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.path_id"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L15",
+        "stage": "discovery",
+        "bytes": 7303,
+        "sha256": "7c27eb638c70e2376fb67191ca28ff983e2648fd811f11aa19687e776b9d9941",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L15",
+        "stage": "function-selection",
+        "bytes": 6175,
+        "sha256": "a056d5577c4d16d33aca649b9860be067fa45c62608beb5cccbbec76ebd1caff",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L15",
+        "stage": "interpretation",
+        "bytes": 88538,
+        "sha256": "5135adeb3dc2c8e89582fa2e806452f9c9fb4a854da69107fec5db04103c309e",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "worker.labor.contract.update",
+          "values": {
+            "path_id": "LAO-DONG-MAU-05",
+            "clientName": "CÔNG TY MẪU QA-EMPLOYER"
+          },
+          "intentType": "workflow",
+          "actionIntent": "update",
+          "requestCoverage": [
+            {
+              "evidence": "đổi đơn vị sử dụng của LAO-DONG-MAU-05 thành CÔNG TY MẪU QA-EMPLOYER",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.path_id",
+                "values.clientName"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "C01",
+        "stage": "discovery",
+        "bytes": 7258,
+        "sha256": "de97161624db394f6faa6043952eee4cac5f00513ba03052515bcf393be2ea70",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "worker",
+            "hr"
+          ]
+        }
+      },
+      {
+        "caseId": "C01",
+        "stage": "function-selection",
+        "bytes": 14821,
+        "sha256": "52ab5d575baa1af27b38c864785c9ba87708aee6151764dbc97bb633daf70b14",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "C01",
+        "stage": "interpretation",
+        "bytes": 442677,
+        "sha256": "4e4ee32d8578c2706e8216c604552280d72eea1096de22b0966549b2005ff464",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": null,
+          "values": {},
+          "intentType": "ambiguous",
+          "clarification": "Dự án thuộc phân hệ Nhân sự hay quản lý lao động?",
+          "actionIntent": "unknown",
+          "requestCoverage": [
+            {
+              "evidence": "Tạo dự án mới tên QA-TYPE-CHOICE",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "C01",
+        "stage": "interpretation",
+        "bytes": 1909710,
+        "sha256": "7fc85a697eaea20c493298905346dbc8f32bf52d950212620d825653e39a12b4",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": null,
+          "values": {},
+          "intentType": "ambiguous",
+          "clarification": "Dự án thuộc phân hệ Nhân sự hay quản lý lao động?",
+          "actionIntent": "unknown",
+          "requestCoverage": [
+            {
+              "evidence": "Tạo dự án mới tên QA-TYPE-CHOICE",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "C02",
+        "stage": "discovery",
+        "bytes": 7282,
+        "sha256": "c2123d5cff2e21832076c804800277ef77e2c977c82c11a8a5ead599b7698315",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "hr"
+          ]
+        }
+      },
+      {
+        "caseId": "C02",
+        "stage": "function-selection",
+        "bytes": 11437,
+        "sha256": "8570ca38da1e07f4cfb8bde681aad16b02c80a8133b1b42d65f3eda0187b5ef6",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "C02",
+        "stage": "interpretation",
+        "bytes": 388676,
+        "sha256": "c6f291ce49e40c727ddc385f3709e39e97f45afc2bbd425e2bf072e52e74b0fa",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "project.create",
+          "values": {
+            "name": "QA-HR-ONLY"
+          },
+          "intentType": "workflow",
+          "actionIntent": "create",
+          "requestCoverage": [
+            {
+              "evidence": "Tạo dự án mới tên QA-HR-ONLY trong phân hệ Nhân sự",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.name"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "E01",
+        "stage": "discovery",
+        "bytes": 7336,
+        "sha256": "dfbc9262207ea8c8d1ceb35980c8f5009502d607484e32e6a75deb257db576c9",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "student"
+          ]
+        }
+      },
+      {
+        "caseId": "E01",
+        "stage": "function-selection",
+        "bytes": 12882,
+        "sha256": "bd3c6051393b7bb991ca447b3f70d7dab2b4157967f1c8a19c46867c576268b9",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "E01",
+        "stage": "interpretation",
+        "bytes": 223749,
+        "sha256": "558ad0127aae5df89fd294115ffbaa9c59116fe9baacabf820b11eab41f7adb6",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "student.create",
+          "values": {
+            "fullName": "HOC-VIEN-MAU-01",
+            "phone": "0900000001",
+            "email": "qa@example.test",
+            "registrationDate": "2026-11-23"
+          },
+          "intentType": "workflow",
+          "actionIntent": "create",
+          "requestCoverage": [
+            {
+              "evidence": "Tạo học viên HOC-VIEN-MAU-01, số điện thoại 0900000001, email qa@example.test, ngày đăng ký 23/11/2026",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.fullName",
+                "values.phone",
+                "values.email",
+                "values.registrationDate"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "E02",
+        "stage": "discovery",
+        "bytes": 7334,
+        "sha256": "a54c7359771bbc80e5606ea6c61dbd583e2d5cdab80205cd35776fb622e024a3",
+        "reservedUSD": 0,
+        "output": {
+          "modules": [
+            "student"
+          ]
+        }
+      },
+      {
+        "caseId": "E02",
+        "stage": "function-selection",
+        "bytes": 12878,
+        "sha256": "c61d3a287fd863c32f2d2ba52a8c1f3172700a3159a992fc934491d17c30c6e2",
+        "reservedUSD": 0,
+        "output": {
+          "featureKeys": [],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "E02",
+        "stage": "interpretation",
+        "bytes": 223747,
+        "sha256": "075d21551079bb8bb07d1bd29712e3f3581009f2401b0bdec7c73e7c691fe64f",
+        "reservedUSD": 0,
+        "output": {
+          "actionId": "student.create",
+          "values": {
+            "fullName": "HOC-VIEN-MAU-02",
+            "phone": "0900000002",
+            "email": "qa@company.vn",
+            "registrationDate": "2026-11-23"
+          },
+          "intentType": "workflow",
+          "actionIntent": "create",
+          "requestCoverage": [
+            {
+              "evidence": "Tạo học viên HOC-VIEN-MAU-02, số điện thoại 0900000002, email qa@company.vn, ngày đăng ký 23/11/2026",
+              "requirement": "Fixture plumbing only",
+              "mappedTo": [
+                "action",
+                "values.fullName",
+                "values.phone",
+                "values.email",
+                "values.registrationDate"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "business": [
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-02 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-03 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-04 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-02 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-03 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-04 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L02",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "all",
+        "date": "2026-11-23",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-KHO-01",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "all",
+        "projectId": "0000000000000000000000c9",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L04",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-KHO-01",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L04",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L04",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L04",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L04",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "late",
+        "projectId": "0000000000000000000000c9",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L05",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-KHO-01",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L05",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L05",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L05",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L05",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "absent",
+        "projectId": "0000000000000000000000c9",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L06",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-BANLE-02",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L06",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-LAB-03",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-06",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L08",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "shortage",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-LAB-03",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-LAB-03",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L09",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "absence-threshold",
+        "projectId": "0000000000000000000000cb",
+        "from": "2026-11-01",
+        "to": "2026-11-21",
+        "threshold": "3",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L10",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L12",
+      "method": "GET",
+      "path": "/api/v1/worker-management/labor-contracts",
+      "query": {
+        "page": "1",
+        "limit": "10",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L13",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-07",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L13",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L14",
+      "method": "GET",
+      "path": "/api/v1/worker-management/labor-contracts",
+      "query": {
+        "search": "LAO-DONG-MAU-04",
+        "page": "1",
+        "limit": "100",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L14",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L14",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L14",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L15",
+      "method": "GET",
+      "path": "/api/v1/worker-management/labor-contracts",
+      "query": {
+        "search": "LAO-DONG-MAU-05",
+        "page": "1",
+        "limit": "100",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L15",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L15",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L15",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "E01",
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "E02",
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    }
+  ],
+  "forbiddenBusinessWrites": [],
+  "violations": [],
+  "finishedAt": "2026-11-23T01:34:45.988Z"
+}

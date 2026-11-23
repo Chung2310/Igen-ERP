@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn() }));
+const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], includeHr: false, interpret: vi.fn(), provider: vi.fn() }));
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
   const response = await state.provider(...args);
   if (typeof response?.text !== "string") return response;
@@ -82,7 +82,7 @@ vi.mock("./workflows", async () => {
     actorScope: () => ({ userId: "actor", companyCode: "TEST" }),
     assertOperation: vi.fn(async (_req, id) => operationById(id)),
     currentWorkflow: vi.fn(async (_req, id) => defaultWorkflow(operationById(id)!)),
-    listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(op => ["worker", "labor-partner", "student-partner", "retail-partner"].includes(op.module) || op.path === "/retail/finance/commission/kpi").map(defaultWorkflow)),
+    listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(op => state.includeHr && op.module === 'hr' || ["worker", "labor-partner", "student-partner", "retail-partner"].includes(op.module) || op.path === "/retail/finance/commission/kpi").map(defaultWorkflow)),
   };
 });
 vi.mock("./settings", async () => {
@@ -112,8 +112,61 @@ let savedWorker: Record<string, unknown> | undefined;
 async function useSemanticModel(actionId: string, values: Record<string, unknown>) {
   const actual = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(actual.interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId, values, intentType: "workflow" }) });
+  const [{ operationById, defaultWorkflow }, { assistantFunctionKey }] = await Promise.all([import('./catalog'), import('./function-context')]);
+  const operation = operationById(actionId)!;
+  state.provider.mockImplementation(async input => {
+    const properties = input.responseSchema?.properties || {};
+    if (properties.modules) return { text: JSON.stringify({ modules: [operation.module] }) };
+    if (properties.featureKeys) return { text: JSON.stringify({ featureKeys: [assistantFunctionKey(defaultWorkflow(operation))], ambiguous: false, clarification: "" }) };
+    if (properties.actionIds) return { text: JSON.stringify({ actionIds: [actionId] }) };
+    return { text: JSON.stringify({ actionId, values, intentType: "workflow" }) };
+  });
 }
+it('performs an ID-based absence comparison through audited read dispatch, including all contract pages', async () => {
+  const otherId = '64b000000000000000000099';
+  state.interpret.mockResolvedValueOnce({ intentType: 'workflow', actionId: null, values: {}, actionIntent: 'report', queryPlan: [
+    { actionId: 'worker.list', purpose: 'Lao động', values: {}, resultFields: ['fullName'], relation: 'workers-without-contracts' },
+    { actionId: 'worker.labor.contract.list', purpose: 'Hợp đồng', values: {}, resultFields: ['workerName'] },
+  ], requestCoverage: [{ evidence: 'Danh sách lao động chưa có hợp đồng', requirement: 'Không có hợp đồng liên quan', mappedTo: ['query:worker.list:relation'] }] });
+  fetcher.mockImplementation(async (input: any) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith('/workers')) return json({ workers: [{ _id: workerId, fullName: 'QA Trùng Tên', laborType: 'official' }, { _id: otherId, fullName: 'QA Trùng Tên', laborType: 'seasonal' }] });
+    if (url.pathname.endsWith('/labor-contracts')) return json({ success: true, data: [{ _id: url.searchParams.get('page') === '2' ? '64b000000000000000000042' : contractId, workerId, workerName: 'QA Trùng Tên' }], total: 2, page: Number(url.searchParams.get('page') || 1), limit: 1 });
+    if (url.pathname.endsWith('/auth/branches')) return json({ branches: [{ _id: req.user.branchId, name: 'QA Branch' }] });
+    throw new Error('UNEXPECTED_READ_RELATION_ROUTE:' + url.pathname);
+  });
+  const result = await turn({ text: 'Danh sách lao động chưa có hợp đồng' });
+  expect(result.status, JSON.stringify(result)).toBe('completed');
+  expect(result.reply).toContain('seasonal'); expect(result.reply).not.toContain('official');
+  expect(result.reply).not.toContain(workerId); expect(result.reply).not.toContain(otherId);
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).searchParams.get('page') === '2')).toBe(true);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
+it('continues a module option through normal interpretation and confirmation without writing', async () => {
+  state.includeHr = true;
+  state.interpret.mockResolvedValueOnce({ actionId: null, intentType: 'ambiguous', values: {}, clarificationModules: ['hr', 'worker'], clarification: 'Nhân sự hay dự án lao động?' });
+  const choice = await turn({ text: 'Cập nhật địa điểm dự án QA thành Địa điểm QA' });
+  expect(choice.workflowSelection?.kind).toBe('module');
+  const workerOption = choice.workflowSelection!.options.find(option => option.label === 'Quản lý lao động')!;
+  state.interpret.mockResolvedValueOnce({ actionId: 'worker.project.update', intentType: 'workflow', values: { path_id: projectId, location: 'Địa điểm QA' } });
+  const preview = await turn({ workflowSelection: { id: choice.workflowSelection!.id, value: workerOption.value } });
+  expect(preview.status, JSON.stringify(preview)).toBe('confirmation');
+  expect(state.interpret.mock.calls[1][0]).toContain('Trong phân hệ Quản lý lao động');
+  expect(state.interpret.mock.calls[1][1].every((workflow: any) => workflow.module === 'worker')).toBe(true);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
+it('rechecks module access after an option was issued', async () => {
+  state.includeHr = true;
+  state.interpret.mockResolvedValueOnce({ actionId: null, intentType: 'ambiguous', values: {}, clarificationModules: ['hr', 'worker'] });
+  const choice = await turn({ text: 'Tạo dự án QA' });
+  state.includeHr = false;
+  const option = choice.workflowSelection!.options.find(item => item.label === 'Nhân sự')!;
+  const reply = await turn({ workflowSelection: { id: choice.workflowSelection!.id, value: option.value } });
+  expect(reply.status).toBe('failed');
+  expect(state.interpret).toHaveBeenCalledTimes(1);
+});
 const kpiOperation = ASSISTANT_OPERATIONS.find(op => op.path === "/worker-management/partners/kpi")!;
 it("does not write a legacy student commission value that cannot change the calculated commission", async () => {
   const op = ASSISTANT_OPERATIONS.find(op => op.id === "partner.commission.update")!;
@@ -415,6 +468,7 @@ it("collects missing commission rules instead of inventing them for a named new 
 });
 
 beforeEach(() => {
+  state.includeHr = false;
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();
   savedWorker = undefined;
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
@@ -456,13 +510,15 @@ it("lets the user choose a contract by its worker and contract code before confi
   expect(fetcher.mock.calls.every(([url]) => !new URL(String(url)).pathname.includes("/renew"))).toBe(true);
 });
 
-it("creates a worker, asks for missing optional details, and updates that same worker", async () => {
+it.each([false, true])("creates a worker, skips optional references, and updates that same worker (form=%s)", async form => {
   state.interpret.mockResolvedValueOnce({ actionId: "worker.create", values: { fullName: "Lê Minh", phone: "0900000000" }, intentType: "workflow" });
 
   const optionalProjectPrompt = await turn({ text: "Tạo hồ sơ lao động cho Lê Minh, số điện thoại 0900000000" });
   expect(optionalProjectPrompt.status).toBe("collecting");
   expect(optionalProjectPrompt.referenceSelections?.find(group => group.key === "projectId")?.required).toBe(false);
-  const preview = await turn({ skipReferenceKeys: ["projectId"] });
+  const preview = await turn(form
+    ? { formValues: { id: optionalProjectPrompt.inputForm!.id, values: {}, skipReferenceKeys: ["projectId"] } }
+    : { skipReferenceKeys: ["projectId"] });
   expect(preview.status).toBe("confirmation");
   expect(savedWorker).toBeUndefined();
 

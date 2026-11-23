@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../shared/email-policy";
 import { Router } from "express";
 import Joi from "joi";
 import { requireAuth, requirePermission } from "../middleware/auth";
@@ -10,7 +11,7 @@ import { sourceUploadFinalizer } from "../service/source-upload-finalizer.servic
 export const companyEmailRouter = Router();
 companyEmailRouter.use(requireAuth as any);
 const companyCode = (req: any) => String(req.user?.companyCode || "").toUpperCase();
-const smtpSchema = Joi.object({ host: Joi.string().trim().required(), port: Joi.number().integer().min(1).max(65535).required(), secure: Joi.boolean().required(), user: Joi.string().trim().required(), password: Joi.string().allow("").optional(), fromEmail: Joi.string().email().required(), fromName: Joi.string().trim().required() });
+const smtpSchema = Joi.object({ host: Joi.string().trim().required(), port: Joi.number().integer().min(1).max(65535).required(), secure: Joi.boolean().required(), user: Joi.string().trim().required(), password: Joi.string().allow("").optional(), fromEmail: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).required(), fromName: Joi.string().trim().required() });
 export const normalizeSmtpPayload = (body: any) => {
   let payload = body;
   while (payload?.data && typeof payload.data === "object" && !Array.isArray(payload.data) && !payload.host) payload = payload.data;

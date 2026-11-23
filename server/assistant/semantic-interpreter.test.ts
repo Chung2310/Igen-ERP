@@ -340,7 +340,7 @@ describe("semantic interpretation", () => {
     provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["student"] }) });
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: student.actionId, intentType: "workflow", values: { search: "Lan" } }) });
 
-    const result = await interpretRequest("Trong phân hệ học viên, tìm Lan", [employee, student], null, []);
+    const result = await interpretRequest("Tìm hồ sơ Lan", [employee, student], null, []);
 
     expect(result.actionId).toBe(student.actionId);
     expect(provider).toHaveBeenCalledTimes(2);
@@ -459,22 +459,16 @@ describe("semantic interpretation", () => {
     expect(result.clarification).toContain("nhân viên hay lương cơ bản trong chính sách");
     expect(provider).toHaveBeenCalledTimes(1);
   });
-  it("retries the authorized workflows when module discovery picks an incompatible workflow", async () => {
+  it("scopes an explicit module before asking the model to choose a workflow", async () => {
     const employeeList = defaultWorkflow(operationById("employee.list")!);
     const studentList = defaultWorkflow(operationById("student.list")!);
-    provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["student"] }) });
-    provider.mockResolvedValueOnce({ text: JSON.stringify({
-      actionId: studentList.actionId,
-      intentType: "workflow",
-      values: {},
-      requestCoverage: [{ evidence: "Trong nhân sự", requirement: "Phân hệ nhân sự", mappedTo: ["context.module"] }],
-    }) });
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: employeeList.actionId, intentType: "workflow", values: {} }) });
 
     const result = await interpretRequest("Trong nhân sự, tìm Lan", [employeeList, studentList], null, []);
 
     expect(result.actionId).toBe(employeeList.actionId);
-    expect(provider).toHaveBeenCalledTimes(3);
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(provider.mock.calls[0][0].responseSchema.properties.actionId.enum).not.toContain(studentList.actionId);
   });
   it("does not execute a workflow proposal without requirement coverage", async () => {
     mockState.autoCoverage = false;
@@ -545,26 +539,31 @@ describe("semantic interpretation", () => {
     expect(await interpretRequest("Không chuyển nhân viên Lan nữa", [employee], null, [])).toMatchObject({actionId:null,cancel:true});
   });
   it("discovers new tools from the authorized catalog without a twelve-tool cutoff", async () => {
-    const workflows = Array.from({length:121}, (_, i) => ({...employee, actionId:`custom.${i}`, module:"custom"}));
-    provider.mockResolvedValueOnce({text:JSON.stringify({modules:["custom"]})});
-    provider.mockResolvedValueOnce({text:JSON.stringify({actionId:"custom.120", values:{}, intentType:"workflow"})});
-    expect((await interpretRequest("chức năng mới", workflows, null, [])).actionId).toBe("custom.120");
+    const workflows = Array.from({length:120}, (_, i) => ({...employee, actionId:`custom.${i}`, module:"custom"}));
+    provider.mockResolvedValueOnce({text:JSON.stringify({actionIds:["custom.119"]})});
+    provider.mockResolvedValueOnce({text:JSON.stringify({actionId:"custom.119", values:{}, intentType:"workflow"})});
+    expect((await interpretRequest("chức năng mới", workflows, null, [], "", [], "", [], true)).actionId).toBe("custom.119");
+    expect(provider).toHaveBeenCalledTimes(2);
+    expect(provider.mock.calls[1][0].responseSchema.properties.actionId.enum).toEqual(["custom.119", null]);
   });
   it.each(['{"modules":["employee","department"]}', 'not json', '{"modules":["hr","unknown"]}', '{"modules":null}'])("recovers from invalid discovery without losing authorized tools: %s", async discovery => {
     const create = defaultWorkflow(operationById("employee.create")!);
-    const workflows = [create, ...Array.from({length:120}, (_, i) => ({...employee, actionId:`custom.${i}`}))];
+    const workflows = [create, ...Array.from({length:119}, (_, i) => ({...employee, actionId:`custom.${i}`, module:"worker"}))];
     provider.mockResolvedValueOnce({text:discovery});
+    provider.mockResolvedValueOnce({text:JSON.stringify({actionIds:[create.actionId]})});
     provider.mockResolvedValueOnce({text:JSON.stringify({actionId:create.actionId, values:{displayName:"Hoàng Tài",department:"công nghệ thông tin"}, intentType:"workflow"})});
-    const result = await interpretRequest("thêm cho tôi nhân sự tên là Hoàng Tài, thuộc phòng công nghệ thông tin", workflows, null, []);
+    const result = await interpretRequest("thêm hồ sơ Hoàng Tài thuộc phòng công nghệ thông tin", workflows, null, []);
     expect(result.actionId).toBe("employee.create");
     expect(result.values.displayName).toBe("Hoàng Tài");
-    expect(provider).toHaveBeenCalledTimes(2);
-    expect(JSON.stringify(provider.mock.calls[1][0].messages)).toContain("custom.119");
+    expect(provider).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(provider.mock.calls[1][0].messages)).toContain("custom.118");
+    expect(provider.mock.calls[2][0].responseSchema.properties.actionId.enum).toEqual([create.actionId, null]);
   });
   it("retains the permission boundary after discovery fails", async () => {
-    const workflows = Array.from({length:121}, (_, i) => ({...employee, actionId:`custom.${i}`}));
+    const workflows = Array.from({length:121}, (_, i) => ({...employee, actionId:`custom.${i}`, module:i ? "worker" : "hr"}));
     provider.mockRejectedValueOnce(new Error("Discovery unavailable"));
     provider.mockResolvedValueOnce({text:JSON.stringify({actionId:"employee.create",values:{},intentType:"workflow"})});
-    await expect(interpretRequest("thêm nhân sự", workflows, null, [])).rejects.toThrow("ngoài danh mục");
+    expect(await interpretRequest("thêm hồ sơ", workflows, null, [])).toMatchObject({ actionId:null, values:{}, intentType:"ambiguous" });
+    expect(provider).toHaveBeenCalledTimes(1);
   });
 });
