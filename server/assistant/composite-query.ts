@@ -1,14 +1,17 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
-import { isKnownModuleContextClause, mentionsCompatibleModule } from "./module-context";
+import { isKnownModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence } from "./module-context";
 import { AssistantError } from "./policy";
-import { findUncoveredRequestTerms, reconciledRankingMappingTargets, requiredCompositeMappingIsMissing } from "./request-coverage";
+import { privateAssistantResultField as privateField, publicAssistantResultFields } from "./result-field-policy";
+import { relationEvidenceSupported, validateReadRelations } from "./read-relations";
+import { combinedModuleContextIsValid, findUncoveredRequestTerms, reconciledRankingMappingTargets, requiredCompositeMappingIsMissing } from "./request-coverage";
 
 export interface AssistantCompositeQuery {
   actionId: string;
   purpose: string;
   values: Record<string, unknown>;
   resultFields: string[];
+  relation?: string;
 }
 
 export interface AssistantCompositeCoverage {
@@ -23,14 +26,8 @@ const plain = (value: unknown): value is Record<string, unknown> => Boolean(valu
 const populated = (value: unknown) => value !== undefined && value !== null && value !== "";
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d")
   .toLocaleLowerCase("vi").replace(/[^a-z0-9]+/g, " ").trim();
-const privateField = (key: string) => key.startsWith("__assistant")
-  || ["id", "uid", "version", "token", "password", "secret", "credential"].includes(key.toLocaleLowerCase("en"))
-  || /(?:Id|ID|Uid|UID|Version|Token|Password|Secret|Credential)$/.test(key)
-  || /(?:_|-)(?:id|uid|version|token|password|secret|credential)$/i.test(key);
-
 export function publicCompositeResultFields(operation: AssistantOperation) {
-  return [...new Set([...operation.resultFields, ...Object.keys(operation.analysis?.fields || {})])]
-    .filter(field => !privateField(field));
+  return publicAssistantResultFields(operation);
 }
 
 function normalizeQueryValues(workflow: AssistantWorkflow, raw: Record<string, unknown>) {
@@ -91,8 +88,10 @@ export function validateCompositeQueryPlan(
     if (resultFields.some(field => !publicFields.has(field))) {
       return { ok: false, clarification: `Kế hoạch yêu cầu trường kết quả chưa được phép gửi cho AI trong “${workflow.title}”. Mình chưa gọi API nào.` };
     }
-    queries.push({ actionId: item.actionId, purpose: item.purpose.trim(), values, resultFields });
+    if (item.relation !== undefined && typeof item.relation !== 'string') return { ok: false, clarification: 'Phép đối chiếu chưa hợp lệ.' };
+    queries.push({ actionId: item.actionId, purpose: item.purpose.trim(), values, resultFields, ...(item.relation ? { relation: item.relation as string } : {}) });
   }
+  if (!validateReadRelations(queries, workflows)) return { ok: false, clarification: 'Phép đối chiếu cần đủ hai nguồn cùng phạm vi và không được lọc thiếu dữ liệu. Bạn kiểm tra lại phạm vi nhé.' };
   return { ok: true, queries };
 }
 
@@ -173,7 +172,9 @@ export function validateCompositeRequestCoverage(
         : [];
     });
     const mappedTargets = [...new Set([...(item.mappedTo as string[]), ...reconciledMappings])];
-    const missingKind = requiredCompositeMappingIsMissing(evidenceText, mappedTargets);
+    const relationalTarget = queries.find(query => query.relation && mappedTargets.includes(`query:${query.actionId}:relation`));
+    const relationCoversEvidence = relationalTarget?.relation && relationEvidenceSupported(evidenceText, relationalTarget.relation);
+    const missingKind = relationCoversEvidence ? undefined : requiredCompositeMappingIsMissing(evidenceText, mappedTargets);
     if (missingKind) return { ok: false, clarification: missingKind === "ranking"
       ? `Tiêu chí xếp hạng “${evidenceText.trim().slice(0, 120)}” chưa được gắn với phép xếp hạng cụ thể. Mình chưa gọi API.`
       : `Điều kiện “${evidenceText.trim().slice(0, 120)}” chưa được gắn với bộ lọc của nguồn dữ liệu. Mình chưa gọi API.` };
@@ -182,7 +183,8 @@ export function validateCompositeRequestCoverage(
       if (target === "context.module") {
         if (queries.some(query => {
           const workflow = workflowById.get(query.actionId);
-          return workflow && mentionsCompatibleModule(evidenceText, workflow.module);
+          return workflow && (matchesModuleContextEvidence(evidenceText, workflow.module, text)
+            || combinedModuleContextIsValid(evidenceText, workflow.module, mappedTargets));
         })) continue;
         return { ok: false, clarification: "Mình chưa xác định được phân hệ phù hợp cho yêu cầu tổng hợp." };
       }
@@ -195,7 +197,9 @@ export function validateCompositeRequestCoverage(
       const operation = operationById.get(actionId);
       if (!query || !workflow || !operation) return { ok: false, clarification: "Kế hoạch tham chiếu một nguồn dữ liệu chưa được chọn." };
       const mapping = target.slice(separator + 1);
-      if (mapping.startsWith("values.")) {
+      if (mapping === 'relation') {
+        if (!query.relation || !relationEvidenceSupported(evidenceText, query.relation)) return { ok: false, clarification: 'Điều kiện đối chiếu chưa khớp với phép lọc được hỗ trợ. Mình chưa gọi API.' };
+      } else if (mapping.startsWith("values.")) {
         const fieldKey = mapping.slice("values.".length);
         const field = workflow.fields.find(candidate => candidate.key === fieldKey);
         if (!field || !populated(query.values[fieldKey])) return { ok: false, clarification: `Điều kiện “${requirementText.trim().slice(0, 120)}” chưa được áp dụng vào truy vấn “${workflow.title}”.` };

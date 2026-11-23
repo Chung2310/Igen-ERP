@@ -4,8 +4,8 @@ import { ExecutionBudget, PlanStoppedError, PlanCancelledError } from "./executi
 import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantDataShape, AssistantField, AssistantFormSubmission, AssistantInputField, AssistantQuotationAcceptanceForm, AssistantQuotationAcceptanceLinesInput, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
-import { createWorkflowChoice, missingInputFields, resolveWorkflowChoice, validateFormValues, type PendingWorkflowChoice } from "./collection-form";
-import { assertAssistantModuleScope, scopeAssistantWorkflows } from "./module-scope";
+import { clarificationModuleIds, createModuleChoice, createWorkflowChoice, missingInputFields, resolveModuleChoice, resolveWorkflowChoice, validateFormValues, type PendingAssistantChoice } from "./collection-form";
+import { assertAssistantModuleScope, assistantModuleLabel, scopeAssistantWorkflows } from "./module-scope";
 import { TRAINING_CATEGORY_OPTIONS } from "../../src/shared/training-categories";
 import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../../src/shared/ai-provider-error";
 import { AssistantDocumentModel, AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
@@ -34,9 +34,10 @@ import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { formatQuotationResult, quotationResultLink, quotationValue } from "./quotation-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
-import { collectAnalysisPages, renderListAnalysis, validateListAnalysis } from "./list-analysis";
+import { collectAnalysisPages, renderListAnalysis, validateListAnalysis, reconcileRequestedValueFilters } from "./list-analysis";
 import { compositeQueryRequestText, projectCompositeSourceData, validateCompositeQueryPlan, validateCompositeRequestCoverage } from "./composite-query";
 import { synthesizeCompositeAssistantReport } from "./composite-report";
+import { collectRelationRows, relationSourceFor, renderReadRelation } from "./read-relations";
 import { hydratePartialUpdate } from "./partial-update";
 import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
@@ -1243,6 +1244,12 @@ export async function missingReferencePrompts(
       ? { ...values, [referenceSearchKey(field.key)]: String(values[field.key]) }
       : values;
     try { options = await suggestOptions(req, op, field, referenceValues); } catch { lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
+    if (!lookupFailed && !options.length && mustResolve && unresolvedReferenceKeys.has(field.key) && referenceValues[referenceSearchKey(field.key)]) {
+      // Keep branch/parent/permission constraints; clear only the failed name
+      // search so the user can explicitly choose an available scoped record.
+      try { options = await suggestOptions(req, op, field, { ...referenceValues, [referenceSearchKey(field.key)]: '' }); }
+      catch { lookupFailed = true; }
+    }
     if (!mustResolve && options.length === 0) continue;
     if (!mustResolve) { awaitingOptional.push(field.key); awaitingLabels[field.key] = field.label; }
     const skipHint = mustResolve ? ""
@@ -1895,12 +1902,14 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   let stepRequestId = input.requestId;
   const steps: Array<{ requestId: string; actionId: string; status: string }> = [];
   let pendingDocumentRequest = session.pendingDocumentRequest || "";
-  let workflowChoice = (session.workflowChoice || null) as PendingWorkflowChoice | null;
+  let workflowChoice = (session.workflowChoice || null) as PendingAssistantChoice | null;
+  let selectedModule: string | undefined;
   if (workflowChoice && workflowChoice.expiresAt <= Date.now()) workflowChoice = null;
   if (input.text || input.decision || input.formValues || input.referenceSelections) workflowChoice = null;
   if (pending) pending.preview = sanitizeActionPreview(pending.preview, operationById(pending.actionId));
   let hasDispatched = false;
   let activeDispatchIntent: string | undefined;
+  let activeRelationSource: string | undefined;
   let completion: AssistantCompletion | undefined;
   let reply: AssistantReply;
   let needsIntentClarification = false;
@@ -2018,6 +2027,9 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       throw new AssistantError("Cấu hình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Bạn gửi lại yêu cầu để kiểm tra bản mới nhé.", 409);
     }
     if (op.analysis) {
+      const filters = reconcileRequestedValueFilters(requestIntent, op.analysis, checked.values.analysis);
+      if (filters.kind === 'clarify') return {status:'collecting',reply:filters.question};
+      if (filters.kind === 'resolved') checked.values.analysis = JSON.stringify(filters.analysis);
       const plan = validateListAnalysis(checked.values.analysis, op.analysis);
       const result = await collectAnalysisPages(op.analysis, checked.values, dispatch);
       // Keep the complete, bounded result for audited composite reads too; the
@@ -2029,6 +2041,12 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       const summary = `${op.title}${match ? ` tháng ${match[2]}/${match[1]}` : range.every(Boolean) ? ` từ ${range[0]} đến ${range[1]}` : op.analysis.scopeLabel ? ` (${op.analysis.scopeLabel})` : ""}`;
       pending = null;
       return { status: "completed", reply: renderListAnalysis(op.analysis, result.data, plan, result.analysisComplete === true, summary), link: op.link };
+    }
+    if (activeRelationSource === op.id) {
+      if (op.method !== 'GET') throw new AssistantError('Nguồn đối chiếu phải là thao tác đọc.', 403);
+      const result = await dispatch(checked.values);
+      pending = null;
+      return { status: 'completed', reply: friendlyResult(op, result), link: op.link };
     }
     // Quotation document exports have their own job/download lifecycle. Only
     // list lookups may become generic workbooks, never export-job responses.
@@ -2633,6 +2651,15 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       conversationFile = await readAssistantConversationFile({ buffer: input.conversationUpload.buffer, fileName: input.conversationUpload.fileName, req });
     }
     const settings = await getSettings(req);
+    if (input.workflowSelection && workflowChoice?.kind === 'module') {
+      const selected = resolveModuleChoice(workflowChoice, input.workflowSelection, pending?.id || null);
+      const available = await listWorkflows(req);
+      if (!available.some(workflow => workflow.enabled && workflow.module === selected.module)) throw new AssistantError('Phân hệ đã chọn không còn khả dụng hoặc bạn không còn quyền truy cập.', 403);
+      selectedModule = selected.module;
+      input.text = `Trong phân hệ ${assistantModuleLabel(selected.module)}, ${selected.intent}`;
+      input.workflowSelection = undefined;
+      workflowChoice = null;
+    }
     responseRules = control.readV2 ? "" : settings.responseRules || "";
     autoMemoryEnabled = !control.readV2 && (settings.autoMemoryEnabled ?? false);
     const memories = !control.readV2 && input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
@@ -2813,6 +2840,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       } else {
         const values = validateFormValues(pending.inputFields, input.formValues.values);
         const applied = applyReferenceSelections(pending, operation, input.formValues.referenceSelections || {}, input.formValues.skipReferenceKeys || []);
+        pending.skippedReferenceKeys = [...new Set([...(pending.skippedReferenceKeys || []), ...applied.skipped])];
         for (const key of applied.skipped) if (operation.fields.some(field => field.key === key)) delete applied.provided[key];
         reply = await prepare(pending.actionId, { ...applied.provided, ...values }, true, pending.intent, Object.keys(input.formValues.referenceSelections || {}));
       }
@@ -2856,7 +2884,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         : { status: "collecting", reply: "Được nhé. Bạn gửi giúp mình mục muốn bổ sung và nội dung cụ thể. Mình sẽ chuẩn bị bản cập nhật để bạn kiểm tra trước khi lưu." };
     } else {
       if (!qaBusinessInterpretation) availableWorkflows = await listWorkflows(req);
-      const workflows = availableWorkflows.filter(w => w.enabled);
+      const workflows = availableWorkflows.filter(w => w.enabled && (!selectedModule || w.module === selectedModule));
       const missingInfoQuestion = isMissingProfileInfoIntent(input.text || "");
       const laborPartnerUpdateRequest = isLaborPartnerProfileUpdateIntent(input.text || "");
       const previousAction = missingInfoQuestion || laborPartnerUpdateRequest ? await latestCompletedAction(req, input.conversationId) : null;
@@ -3046,6 +3074,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       }
       else if (interpreted.queryPlan?.length) {
         const sources: Array<{ title: string; purpose: string; rows: Array<Record<string, unknown>> }> = [];
+        const relationSources = new Map<string, Record<string, unknown>[]>();
         let blockedReply: AssistantReply | undefined;
         const plan = validateCompositeQueryPlan(interpreted.queryPlan, workflows);
         if (plan.ok === false) blockedReply = { status: "collecting", reply: plan.clarification };
@@ -3074,9 +3103,11 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           }
           completion = undefined;
           activeDispatchIntent = queryText;
+          const relationSource = relationSourceFor(plan.ok ? plan.queries : [], query.actionId);
+          activeRelationSource = relationSource?.actionId;
           let queryReply: AssistantReply;
           try { queryReply = await prepare(query.actionId, query.values, false, queryText); }
-          finally { activeDispatchIntent = undefined; }
+          finally { activeDispatchIntent = undefined; activeRelationSource = undefined; }
           const queryCompletion = completion;
           completion = undefined;
           const checkedReply = await completeAssistantOperation(queryReply, queryCompletion, ASSISTANT_OPERATIONS, async operation => {
@@ -3089,6 +3120,30 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           }
           if (!queryCompletion || queryCompletion.operation.id !== query.actionId) {
             throw new AssistantError(`Chưa nhận được kết quả đã xác minh từ “${queryWorkflow.title}”. Mình chưa tổng hợp dữ liệu.`, 502);
+          }
+
+          if (relationSource) {
+            const records = await collectRelationRows(relationSource, queryOperation, queryCompletion.result, queryCompletion.values,
+              async pageValues => {
+                budget.plan();
+                stepRequestId = `${input.requestId}:query:${index + 1}:page:${String(pageValues[queryOperation.fields.find(field => field.apiKey === 'page')!.key])}`;
+                completion = undefined;
+                activeDispatchIntent = queryText;
+                activeRelationSource = relationSource.actionId;
+                let pageReply: AssistantReply;
+                try { pageReply = await prepare(query.actionId, pageValues, false, queryText); }
+                finally { activeDispatchIntent = undefined; activeRelationSource = undefined; }
+                const pageCompletion = completion as AssistantCompletion | undefined;
+                completion = undefined;
+                const checked = await completeAssistantOperation(pageReply, pageCompletion, ASSISTANT_OPERATIONS, async operation => {
+                  await assertOperation(req, operation.id);
+                  return (await currentWorkflow(req, operation.id)).enabled;
+                });
+                if (checked.status !== 'completed' || pageCompletion?.operation.id !== query.actionId) throw new AssistantError('Chưa đọc đầy đủ nguồn đối chiếu. Mình chưa có kết luận.', 502);
+                return pageCompletion.result;
+              });
+            relationSources.set(query.actionId, records);
+            continue;
           }
 
           const rawCompletion = queryCompletion.result && typeof queryCompletion.result === "object"
@@ -3106,12 +3161,19 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           sources.push({ title: queryOperation.title, purpose: query.purpose, rows });
         }
         if (blockedReply) reply = blockedReply;
+        else if (plan.ok && plan.queries.some(query => query.relation)) {
+          const relational = plan.queries.filter(query => query.relation);
+          if (relational.length !== 1) throw new AssistantError('Mỗi lượt chỉ đối chiếu một quan hệ đã khai báo.', 400);
+          reply = { status: 'completed', reply: renderReadRelation(relational[0].relation!, relationSources) };
+        }
         else {
           const summary = await synthesizeCompositeAssistantReport(input.text || effectiveInputText, sources);
           reply = { status: "completed", reply: summary };
         }
       }
       else if (!interpreted.actionId) {
+        const moduleChoice = interpreted.intentType === 'ambiguous' && !interpreted.cancel && !interpreted.businessDiscovery
+          ? createModuleChoice(workflows, interpreted.clarificationModules?.length ? interpreted.clarificationModules : clarificationModuleIds(interpreted.clarification || '', workflows), input.text || '', pending?.id || null, Boolean(interpreted.newRequest)) : undefined;
         const salaryChoice = interpreted.intentType === "ambiguous"
           && interpreted.suggestedActionIds?.includes("employee.update")
           && interpreted.suggestedActionIds?.includes("payroll.policy.update");
@@ -3119,7 +3181,11 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
           ? assistantCourseChoiceGuidance(workflows, interpreted.suggestedActionIds) : "";
         const choice = interpreted.intentType === "ambiguous" && !interpreted.cancel && !interpreted.businessDiscovery
           ? createWorkflowChoice(workflows, interpreted.suggestedActionIds || [], input.text || "", pending?.id || null, Boolean(interpreted.newRequest)) : undefined;
-        if (interpreted.businessDiscovery) {
+        if (moduleChoice) {
+          needsIntentClarification = true;
+          workflowChoice = moduleChoice.state;
+          reply = { status: 'collecting', reply: 'Bạn chọn phân hệ cần xử lý bên dưới nhé.', workflowSelection: moduleChoice.selection };
+        } else if (interpreted.businessDiscovery) {
           needsIntentClarification = true;
           reply = { status: "collecting", reply: businessDiscoveryReply(interpreted.businessDiscovery, workflows, interpreted.clarification)
             + (pending ? "\n\nYêu cầu trước vẫn được giữ." : "") };

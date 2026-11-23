@@ -3,6 +3,13 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { operationById } from "./catalog";
 import { formatFriendlyAssistantResult } from "./result-format";
 
+it('keeps the selected class recurring weekdays and times in its shared result table', () => {
+  const reply = formatFriendlyAssistantResult(operationById('student.batch.detail')!, {data:{_id:'private-class',name:'QA-KY-NANG-SO',daysOfWeek:[1,3],startTime:'19:00',endTime:'21:00',startDate:'2026-11-01',endDate:'2026-12-31'}});
+  expect(parseAssistantResultTable(reply)?.rows).toHaveLength(1);
+  expect(reply).toContain('19:00'); expect(reply).toContain('21:00'); expect(reply).toContain('Thứ 2');
+  expect(reply).not.toContain('private-class');
+});
+
 it("renders an uncoded retail draft as a document rather than its line items", () => {
   const reply = formatFriendlyAssistantResult(operationById("retail.order.draft.create")!, { data: {
     _id: "private-order", status: "draft", grandTotal: 100000, dueAmount: 100000, version: 0,

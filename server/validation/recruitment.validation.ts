@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../shared/email-policy";
 import type { NextFunction, Request, Response } from "express";
 import Joi from "joi";
 
@@ -12,7 +13,7 @@ export const jobBodySchema = Joi.object({
   jdFileUrl: Joi.string().uri().allow(""), jdFilePublicId: Joi.string().allow(""),
 }).unknown(false);
 export const applicantBodySchema = Joi.object({
-  jobId: id, fullName: Joi.string().trim().required(), email: Joi.string().email().allow(""), phone: Joi.string().allow(""),
+  jobId: id, fullName: Joi.string().trim().required(), email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).allow(""), phone: Joi.string().allow(""),
   birthDate: Joi.date().iso().allow(null), address: Joi.string().allow(""), experience: Joi.string().allow(""), education: Joi.string().allow(""),
   skills: Joi.array().items(Joi.string().trim()), expectedSalary: Joi.number().min(0).allow(null), availableDate: Joi.date().iso().allow(null),
   source: Joi.string().allow(""), notes: Joi.string().allow(""), recruiterId: Joi.string().allow(null, ""), confirmDuplicate: Joi.boolean(),

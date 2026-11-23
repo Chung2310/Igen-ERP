@@ -103,7 +103,7 @@ export interface AssistantFormSubmission {
   referenceSelections?: Record<string, string[]>;
   skipReferenceKeys?: string[];
 }
-export interface AssistantWorkflowSelection { id: string; options: { value: string; label: string }[]; }
+export interface AssistantWorkflowSelection { id: string; kind?: "module"; options: { value: string; label: string }[]; }
 export type AssistantTrainingLessonType = "youtube" | "document" | "other" | "text" | "video";
 export interface AssistantTrainingLessonAnswer {
   title: string;

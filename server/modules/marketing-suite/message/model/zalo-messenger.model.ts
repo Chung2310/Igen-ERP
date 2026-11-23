@@ -14,6 +14,7 @@ export interface IZaloConversation extends Document {
   tags: string[];
   isVip: boolean;
   aiPausedUntil?: Date;
+  lastHumanReplyAt?: Date;
   lastSender?: "user" | "assistant";
   lastAssistantMessageAt?: Date;
   lastAssistantMessageId?: string;
@@ -57,6 +58,7 @@ const ZaloConversationSchema: Schema = new Schema(
     tags: { type: [String], default: [] },
     isVip: { type: Boolean, default: false },
     aiPausedUntil: { type: Date, default: null },
+    lastHumanReplyAt: { type: Date, default: null },
     lastSender: { type: String, enum: ["user", "assistant"], default: "user" },
     lastAssistantMessageAt: { type: Date, default: null },
     lastAssistantMessageId: { type: String },

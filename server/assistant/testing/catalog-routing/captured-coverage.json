@@ -1,0 +1,408 @@
+[
+  {
+    "id": "L01",
+    "text": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.project.create",
+      "actionIntent": "create",
+      "values": {
+        "name": "QA-LAB-NEW-20",
+        "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+        "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "tạo 1 dự án mới",
+          "requirement": "Tạo một dự án lao động",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "trong mục quản lí lao động",
+          "requirement": "Thực hiện trong phân hệ Quản lý lao động",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "tên QA-LAB-NEW-20",
+          "requirement": "Tên dự án là QA-LAB-NEW-20",
+          "mappedTo": [
+            "values.name"
+          ]
+        },
+        {
+          "evidence": "Mình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+          "requirement": "Chọn năm lao động được nêu tham gia dự án",
+          "mappedTo": [
+            "values.workerIds"
+          ]
+        },
+        {
+          "evidence": "Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+          "requirement": "Lịch làm việc gồm các ngày Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5 và Thứ 7",
+          "mappedTo": [
+            "values.daysOfWeek"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L03",
+    "text": "báo cáo tình hình chấm công các lao động trong dự án: QA-KHO-01",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.report",
+      "actionIntent": "report",
+      "values": {
+        "mode": "all",
+        "projectId": "QA-KHO-01"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "báo cáo",
+          "requirement": "Lập báo cáo.",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "tình hình chấm công",
+          "requirement": "Báo cáo tổng quan tình hình chấm công.",
+          "mappedTo": [
+            "values.mode"
+          ]
+        },
+        {
+          "evidence": "các lao động trong dự án: QA-KHO-01",
+          "requirement": "Báo cáo lao động thuộc dự án QA-KHO-01.",
+          "mappedTo": [
+            "context.module",
+            "values.projectId"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L09",
+    "text": "Dự án QA-LAB-03 có lao động nào vắng trên 3 buổi",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.report",
+      "actionIntent": "report",
+      "values": {
+        "mode": "absence-threshold",
+        "projectId": "QA-LAB-03",
+        "threshold": 3
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Dự án QA-LAB-03",
+          "requirement": "Báo cáo cho dự án QA-LAB-03",
+          "mappedTo": [
+            "values.projectId"
+          ]
+        },
+        {
+          "evidence": "lao động nào vắng",
+          "requirement": "Tìm người lao động vắng mặt",
+          "mappedTo": [
+            "values.mode"
+          ]
+        },
+        {
+          "evidence": "trên 3 buổi",
+          "requirement": "Lọc người lao động vắng quá 3 buổi",
+          "mappedTo": [
+            "values.threshold"
+          ]
+        }
+      ],
+      "clarification": "Bạn muốn kiểm tra trong khoảng thời gian nào?"
+    }
+  },
+  {
+    "id": "L10",
+    "text": "thêm lao động LAO-DONG-MAU-08 vào quản lý lao động",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.create",
+      "actionIntent": "create",
+      "values": {
+        "fullName": "LAO-DONG-MAU-08"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "thêm lao động",
+          "requirement": "Tạo hồ sơ lao động mới",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "LAO-DONG-MAU-08",
+          "requirement": "Dùng nguyên văn làm họ và tên hồ sơ lao động",
+          "mappedTo": [
+            "values.fullName"
+          ]
+        },
+        {
+          "evidence": "vào quản lý lao động",
+          "requirement": "Thực hiện trong phân hệ Quản lý lao động",
+          "mappedTo": [
+            "context.module"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "C02",
+    "text": "Tạo dự án mới tên QA-HR-ONLY trong phân hệ Nhân sự",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "project.create",
+      "actionIntent": "create",
+      "values": {
+        "name": "QA-HR-ONLY"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tạo dự án mới tên QA-HR-ONLY trong phân hệ Nhân sự",
+          "requirement": "Tạo dự án có tên QA-HR-ONLY trong phân hệ Nhân sự",
+          "mappedTo": [
+            "action",
+            "context.module",
+            "values.name"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L01-selection-header",
+    "text": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.project.create",
+      "actionIntent": "create",
+      "values": {
+        "name": "QA-LAB-NEW-20",
+        "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+        "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "tạo 1 dự án mới",
+          "requirement": "Tạo một dự án lao động mới",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "tên QA-LAB-NEW-20",
+          "requirement": "Tên dự án là QA-LAB-NEW-20",
+          "mappedTo": [
+            "values.name"
+          ]
+        },
+        {
+          "evidence": "trong mục quản lí lao động",
+          "requirement": "Thực hiện trong phân hệ Quản lý lao động",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+          "requirement": "Chọn năm lao động được nêu tham gia dự án",
+          "mappedTo": [
+            "values.workerIds"
+          ]
+        },
+        {
+          "evidence": "Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+          "requirement": "Lịch dự án gồm Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5 và Thứ 7",
+          "mappedTo": [
+            "values.daysOfWeek"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L01-refined-span",
+    "text": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.project.create",
+      "actionIntent": "create",
+      "values": {
+        "name": "QA-LAB-NEW-20",
+        "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+        "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "tạo 1 dự án mới",
+          "requirement": "Tạo dự án lao động mới",
+          "mappedTo": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "tên QA-LAB-NEW-20",
+          "requirement": "Đặt tên dự án là QA-LAB-NEW-20",
+          "mappedTo": [
+            "values.name"
+          ]
+        },
+        {
+          "evidence": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+          "requirement": "Chọn năm lao động đã nêu",
+          "mappedTo": [
+            "values.workerIds"
+          ]
+        },
+        {
+          "evidence": "Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+          "requirement": "Đặt các ngày làm việc theo danh sách đã nêu",
+          "mappedTo": [
+            "values.daysOfWeek"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L03-refined-span",
+    "text": "báo cáo tình hình chấm công các lao động trong dự án: QA-KHO-01",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.report",
+      "actionIntent": "report",
+      "values": {
+        "mode": "all",
+        "projectId": "QA-KHO-01"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "báo cáo tình hình chấm công",
+          "requirement": "Báo cáo tổng quan tình hình chấm công.",
+          "mappedTo": [
+            "action",
+            "values.mode"
+          ]
+        },
+        {
+          "evidence": "các lao động",
+          "requirement": "Tra cứu lao động thuộc phân hệ Quản lý lao động.",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "dự án: QA-KHO-01",
+          "requirement": "Giới hạn báo cáo trong dự án QA-KHO-01.",
+          "mappedTo": [
+            "values.projectId"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L09-refined-span",
+    "text": "Dự án QA-LAB-03 có lao động nào vắng trên 3 buổi",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.report",
+      "actionIntent": "report",
+      "values": {
+        "projectId": "Dự án QA-LAB-03",
+        "mode": "absence-threshold",
+        "threshold": 3
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Dự án QA-LAB-03",
+          "requirement": "Báo cáo cho dự án QA-LAB-03",
+          "mappedTo": [
+            "values.projectId"
+          ]
+        },
+        {
+          "evidence": "vắng trên 3 buổi",
+          "requirement": "Tìm lao động vắng vượt quá 3 buổi",
+          "mappedTo": [
+            "values.mode",
+            "values.threshold"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L06-value-connector",
+    "text": "Cập nhật địa điểm cho dự án QA-BANLE-02 thành 140 Đường Kiểm Thử",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.project.update",
+      "actionIntent": "update",
+      "values": {
+        "path_id": "QA-BANLE-02",
+        "location": "140 Đường Kiểm Thử"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Cập nhật địa điểm cho dự án QA-BANLE-02",
+          "requirement": "Cập nhật địa điểm của dự án QA-BANLE-02",
+          "mappedTo": [
+            "action",
+            "values.path_id"
+          ]
+        },
+        {
+          "evidence": "140 Đường Kiểm Thử",
+          "requirement": "Đặt địa điểm thành 140 Đường Kiểm Thử",
+          "mappedTo": [
+            "values.location"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "L12-single-source",
+    "text": "xuất cho tôi file excel danh sách hợp đồng lao động",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "worker.labor.contract.list",
+      "actionIntent": "export",
+      "values": {},
+      "requestCoverage": [
+        {
+          "evidence": "xuất cho tôi file excel danh sách hợp đồng lao động",
+          "requirement": "Xuất danh sách hợp đồng lao động ra file Excel bằng cách lấy danh sách hợp đồng.",
+          "mappedTo": [
+            "action",
+            "query:worker.labor.contract.list:source",
+            "query:worker.labor.contract.list:result.code",
+            "query:worker.labor.contract.list:result.clientName",
+            "query:worker.labor.contract.list:result.workerName",
+            "query:worker.labor.contract.list:result.startDate",
+            "query:worker.labor.contract.list:result.endDate",
+            "query:worker.labor.contract.list:result.status",
+            "query:worker.labor.contract.list:result.alertLevel",
+            "query:worker.labor.contract.list:result.note"
+          ]
+        }
+      ]
+    }
+  }
+]

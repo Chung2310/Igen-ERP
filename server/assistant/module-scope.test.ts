@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 const provider = vi.hoisted(() => vi.fn());
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: provider }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (input: any) => {
+  const response = await provider(input);
+  const parsed = JSON.parse(response.text);
+  if (parsed.actionId && !parsed.requestCoverage) parsed.requestCoverage = [{ evidence: input.messages.at(-1).content, requirement: "Namespace fixture", mappedTo: ["action", ...Object.keys(parsed.values || {}).map(key => `values.${key}`)] }];
+  return { ...response, text: JSON.stringify(parsed) };
+} }));
 import { explicitAssistantModules, assertAssistantModuleScope } from "./module-scope";
 import { interpretRequest } from "./semantic-interpreter";
 import { defaultWorkflow, operationById } from "./catalog";
@@ -44,7 +49,7 @@ describe("distinct HR and labor project namespaces", () => {
   });
   it("asks for the project namespace instead of defaulting to HR", async () => {
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "project.create", values: { name: "X" }, intentType: "workflow" }) });
-    expect(await interpretRequest("Tạo dự án X", projectActions, null, [])).toMatchObject({ actionId: null, intentType: "ambiguous", suggestedActionIds: ["project.create", "worker.project.create"] });
+    expect(await interpretRequest("Tạo dự án X", projectActions, null, [], "", [], "", [], true)).toMatchObject({ actionId: null, intentType: "ambiguous", suggestedActionIds: ["project.create", "worker.project.create"] });
   });
   it("does not route into HR when labor workflows are unavailable", async () => {
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "project.create", values: { name: "X" }, intentType: "workflow" }) });
