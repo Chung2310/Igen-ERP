@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent, type Dispatch, type SetStateAction } from "react";
 import { Check, ChevronDown, Download, Expand, ImagePlus, LoaderCircle, Maximize2, RefreshCw, Sparkles, WandSparkles, X, ZoomIn, ZoomOut } from "lucide-react";
-import { HrPageTitle } from "../../components/hr/HrPageTitle";
 import type { ArchitectureImageToolKind, ArchitectureRenderAsset, ArchitectureSyncCategory } from "../../shared/architecture-assistant";
 import { cn } from "../student-management/lib/utils";
 
@@ -14,12 +13,12 @@ type ToolPage = {
 };
 
 const fieldClass =
-  "h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-xs text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
+  "h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
 
 const textareaClass =
-  "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-2 text-xs leading-relaxed text-on-surface focus:border-primary focus:outline-none disabled:opacity-60 resize-y";
+  "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-xs leading-relaxed text-on-surface focus:border-primary focus:outline-none disabled:opacity-60 resize-y";
 
-const labelClass = "block space-y-1 text-xs font-medium text-on-surface-variant";
+const labelClass = "flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant";
 
 const renderModes = [
   { value: "Ngoại thất", label: "Ngoại thất" },
@@ -267,18 +266,16 @@ export default function ArchitectureImageWorkspace({
   const visibleAssets = assets.filter(asset => assetUrls[asset.id]).slice(0, 8);
 
   return (
-    <form onSubmit={onGenerate} aria-busy={busy || optimizing} className="space-y-2.5">
+    <form onSubmit={onGenerate} aria-busy={busy || optimizing} aria-label={page.title} className="space-y-3">
       {!canUseAi && (
-        <p className="rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-xs text-on-surface-variant" role="status">
+        <p className="rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-xs text-on-surface-variant" role="status">
           Cần quyền `architect-ai:manage` để tạo hình bằng AI.
         </p>
       )}
 
-      {/* Compact 1-row header + underline mode tabs for Render */}
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <HrPageTitle level={2}>{page.title}</HrPageTitle>
-        {page.id === "visual" && (
-          <div className="flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest p-0.5" role="group" aria-label="Chế độ visual">
+      {page.id === "visual" && (
+        <div className="flex justify-end">
+          <div className="flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest p-0.5" role="group" aria-label="Chế độ visual">
             {(["render", "edit", "mood"] as const).map(mode => (
               <button
                 key={mode}
@@ -294,8 +291,8 @@ export default function ArchitectureImageWorkspace({
               </button>
             ))}
           </div>
-        )}
-      </header>
+        </div>
+      )}
 
       {page.id === "render" && (
         <nav className="flex gap-1 overflow-x-auto border-b border-outline-variant" aria-label="Chế độ rendering">
@@ -323,8 +320,8 @@ export default function ArchitectureImageWorkspace({
 
       {/* Studio 2-column split: compact scrollable controls on left, spacious preview on right */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[23.5rem_minmax(0,1fr)]">
-        <aside className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-2xs lg:max-h-[calc(100dvh-10.5rem)]">
-          <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
+        <aside className="flex min-w-0 flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-2xs lg:max-h-[calc(100dvh-10.5rem)]">
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
             {/* Render: Side-by-side compact upload zones */}
             {page.id === "render" && (
               <div className="space-y-2">
@@ -332,9 +329,11 @@ export default function ArchitectureImageWorkspace({
                   <div className="space-y-1">
                     <span className="flex items-center justify-between text-xs font-medium text-on-surface">
                       <span>Ảnh nguồn</span>
-                      <span className={cn("text-[11px]", renderNeedsSource ? "font-semibold text-primary" : "text-on-surface-variant")}>
-                        {renderNeedsSource ? "Bắt buộc" : "Tùy chọn"}
-                      </span>
+                      {renderNeedsSource && (
+                        <span className="text-[11px] font-semibold text-primary">
+                          Bắt buộc
+                        </span>
+                      )}
                     </span>
                     <label
                       onDragOver={event => event.preventDefault()}
@@ -362,9 +361,8 @@ export default function ArchitectureImageWorkspace({
                   </div>
 
                   <div className="space-y-1">
-                    <span className="flex items-center justify-between text-xs font-medium text-on-surface">
-                      <span>Ảnh phong cách</span>
-                      <span className="text-[11px] text-on-surface-variant">Tùy chọn</span>
+                    <span className="block text-xs font-medium text-on-surface">
+                      Ảnh phong cách
                     </span>
                     <label
                       htmlFor={inputId}
@@ -517,9 +515,11 @@ export default function ArchitectureImageWorkspace({
                   <label htmlFor={inputId} className="font-medium text-on-surface">
                     Ảnh tham chiếu
                   </label>
-                  <span className={cn("text-[11px]", page.reference === "required" ? "font-semibold text-primary" : "text-on-surface-variant")}>
-                    {page.reference === "required" ? "Bắt buộc" : "Tùy chọn"}
-                  </span>
+                  {page.reference === "required" && (
+                    <span className="text-[11px] font-semibold text-primary">
+                      Bắt buộc
+                    </span>
+                  )}
                 </div>
                 <label
                   htmlFor={inputId}
@@ -1005,7 +1005,7 @@ export default function ArchitectureImageWorkspace({
             {/* Prompt textarea for non-render tools */}
             {page.id !== "render" && (
               <label className={labelClass}>
-                <span>{page.id === "human" ? "Mô tả thêm (tùy chọn)" : page.id === "staging" ? "Ghi chú yêu cầu" : page.id === "utilities" ? "Yêu cầu bổ sung" : "Mô tả thiết kế"}</span>
+                <span>{page.id === "human" ? "Mô tả thêm" : page.id === "staging" ? "Ghi chú yêu cầu" : page.id === "utilities" ? "Yêu cầu bổ sung" : "Mô tả thiết kế"}</span>
                 <textarea
                   required={page.id !== "human" && page.id !== "utilities"}
                   minLength={page.id === "human" || page.id === "utilities" ? 0 : 3}

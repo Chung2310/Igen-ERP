@@ -36,15 +36,15 @@ const riskTone = {
 } as const;
 
 const equipmentColumnWidths = [
-  "21%",
-  "8.5%",
-  "14%",
-  "10.5%",
-  "12.5%",
-  "8%",
-  "6.5%",
-  "7%",
-  "12%",
+  "270px",
+  "135px",
+  "210px",
+  "135px",
+  "215px",
+  "150px",
+  "145px",
+  "165px",
+  "130px",
 ];
 
 export default function EquipmentTable({
@@ -167,9 +167,9 @@ export default function EquipmentTable({
           </article>
         ))}
       </div>
-      <div className="hidden md:block">
+      <div className="hidden md:flex md:min-h-0 md:flex-1 md:flex-col">
         <Table
-          minWidth="1080px"
+          minWidth="1555px"
           columnWidths={equipmentColumnWidths}
           headers={[
             "Mã & Tên thiết bị",
@@ -287,12 +287,12 @@ export default function EquipmentTable({
                   )}
                 </Cell>
                 <Cell className="min-w-0 whitespace-nowrap align-middle">
-                  <div className="space-y-1">
+                  <div className="flex items-center gap-2">
                     <HrStatusBadge dot tone={inspectionTone}>
                       {inspectionText}
                     </HrStatusBadge>
                     {row.nextInspectionDay && (
-                      <span className="block text-xs tabular-nums text-on-surface-variant">
+                      <span className="text-xs tabular-nums text-on-surface-variant">
                         {dayLabel(row.nextInspectionDay)}
                       </span>
                     )}
@@ -301,9 +301,9 @@ export default function EquipmentTable({
                         href={row.lastInspectionReportUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block text-xs font-medium text-primary underline underline-offset-2"
+                        className="text-xs font-medium text-primary underline underline-offset-2"
                       >
-                        Xem biên bản
+                        Biên bản
                       </a>
                     )}
                   </div>

@@ -92,7 +92,8 @@ export type OpenRouterMessage =
 
 export type OpenRouterContentPart =
   | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "file"; file: { filename: string; file_data: string } };
 
 export interface OpenRouterChatParams {
   /** Caller metadata retained for compatibility; the text wire model is ERP_LLM_MODEL. */

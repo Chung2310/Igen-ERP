@@ -26,7 +26,7 @@ export const ARCHITECTURE_TOOL_NAV: Array<{ id: ArchitectureToolId; label: strin
   { id: "enhance", label: "Cải thiện ảnh" },
   { id: "upscale", label: "Phóng to ảnh" },
   { id: "sync", label: "Đồng bộ công trình" },
-  { id: "canvas", label: "Canvas / Presentation board" },
+  { id: "canvas", label: "Canvas" },
   { id: "utilities", label: "Tiện ích khác" },
   { id: "video", label: "Video" },
   { id: "library", label: "Thư viện" },

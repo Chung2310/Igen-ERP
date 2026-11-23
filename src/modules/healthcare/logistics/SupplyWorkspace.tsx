@@ -1,6 +1,5 @@
 import "./logistics.css";
 import { useMemo, useState } from "react";
-import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 import { healthcareApi } from "../api";
 import { cn } from "../../student-management/lib/utils";
 import type { DirectoryKind } from "../../../../shared/healthcare-logistics";
@@ -32,7 +31,6 @@ export default function SupplyWorkspace({
     return tabs.some(([key]) => key === value) ? value! : "supplies";
   });
   const [version, setVersion] = useState(0);
-  const [headerActionsEl, setHeaderActionsEl] = useState<HTMLDivElement | null>(null);
   const canManage = hasPermission("healthcare:manage");
   function navigate(value: string) {
     setActive(value);
@@ -41,14 +39,14 @@ export default function SupplyWorkspace({
     history.replaceState(history.state, "", url);
   }
   return (
-    <section className="healthcare-logistics min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-2 lg:pl-0">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <HrPageTitle>Quản lý Vật tư &amp; Thiết bị tiêu hao</HrPageTitle>
-        <div ref={setHeaderActionsEl} className="flex flex-wrap items-center gap-2" />
-      </div>
+    <div className="healthcare-logistics flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
+      <section
+        aria-label="Quản lý vật tư"
+        className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4"
+      >
       <nav
         aria-label="Điều hướng quản lý vật tư"
-        className="flex gap-1 overflow-x-auto border-b border-outline-variant"
+        className="flex min-w-0 gap-1 overflow-x-auto border-b border-outline-variant"
       >
         {tabs.map(([key, label]) => {
           const isActive = key === active;
@@ -75,7 +73,6 @@ export default function SupplyWorkspace({
           key={version}
           api={api}
           canManage={canManage}
-          headerActionsContainer={headerActionsEl}
         />
       )}
       {active === "transactions" && (
@@ -108,6 +105,7 @@ export default function SupplyWorkspace({
           onChanged={() => setVersion((v) => v + 1)}
         />
       )}
-    </section>
+      </section>
+    </div>
   );
 }

@@ -77,8 +77,8 @@ export function Table({ headers, children, empty, emptyKind = "search", selectAl
     <HrEmptyIllustration kind={emptyKind} className="h-14 w-24" />
     <p className="text-pretty text-sm text-on-surface-variant">{empty}</p>
   </div>;
-  return <div className="overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
-    <table className={cn(columnWidths ? "w-full table-fixed" : "min-w-full", "border-collapse text-left text-sm tabular-nums")}
+  return <div className="healthcare-table-scroll min-h-0 flex-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
+    <table className={cn(columnWidths ? "w-full table-fixed" : "min-w-full", "border-collapse text-left text-sm tabular-nums [&_th]:whitespace-nowrap")}
       style={minWidth ? { minWidth } : undefined}>
       {columnWidths && <colgroup>
         {selectAll && <col style={{ width: "44px" }} />}

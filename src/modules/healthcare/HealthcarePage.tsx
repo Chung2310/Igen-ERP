@@ -314,8 +314,8 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
 
   const tabs = sections.filter(section => canFeature(hasPermission, section.key, "read"));
   if (tab === "equipment" || tab === "supplies") return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
-    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
-      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} />} filledIcon={<HealthcareSidebarIcon name={key} />} preferProvidedIcon onClick={() => navigate(key)}>{label}</ModuleNavigationButton>)}
+    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab} className="mb-2 lg:mb-0" id="healthcare_sub_tabs_bar">
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} className="size-5" />} filledIcon={<HealthcareSidebarIcon name={key} className="size-5" />} preferProvidedIcon title={label} onClick={() => navigate(key)}>{label}</ModuleNavigationButton>)}
     </ModuleNavigation>
     {tab === "supplies" ? <SupplyWorkspace key={branchId} branchId={branchId} hasPermission={hasPermission} /> : <LogisticsPage key={`${branchId}:${tab}`} kind={tab} branchId={branchId} hasPermission={hasPermission} />}
   </div>;
@@ -343,12 +343,12 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   );
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
-    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
-      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} />} filledIcon={<HealthcareSidebarIcon name={key} />} preferProvidedIcon onClick={() => navigate(key)}>
+    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab} className="mb-2 lg:mb-0" id="healthcare_sub_tabs_bar">
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} className="size-5" />} filledIcon={<HealthcareSidebarIcon name={key} className="size-5" />} preferProvidedIcon title={label} onClick={() => navigate(key)}>
         {label}
       </ModuleNavigationButton>)}
     </ModuleNavigation>
-    <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
+    <div ref={content} className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
       {notice && <p role="status" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm">{notice}</p>}
       {editor && <RecordEditor key={`${editor.kind}:${editor.record?._id || "new"}`} editor={editor} api={api}
         catalog={catalog.data || []} staff={staff.data || []} directory={editorDirectory}
@@ -403,7 +403,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
+      <section className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
         {!hasTable && <div className="flex justify-end">{pageActions}</div>}
         {hasTable && <TableFilterToolbar
           appearance="plain"
@@ -581,9 +581,9 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
               </div></Cell>
             </tr>)}
           </Table>}
-          {activeData && <TablePagination appearance="erp" currentPage={currentPage} pageSize={pageSize} totalItems={totalItems}
+          {activeData && <div className="sticky bottom-0 z-20 -mx-3 -mb-3 mt-auto sm:-mx-4 sm:-mb-4"><TablePagination appearance="erp" className="rounded-b-lg" currentPage={currentPage} pageSize={pageSize} totalItems={totalItems}
             totalPages={totalPages} onPageChange={setPage} onPageSizeChange={value => { setPageSize(value); setPage(1); }}
-            pageSizeOptions={[10, 25, 50, 100]} />}
+            pageSizeOptions={[10, 25, 50, 100]} /></div>}
         </>}
         {directory !== editorDirectory && <Feedback error={directory?.error} onRetry={directory?.refresh} />}
       </section>
