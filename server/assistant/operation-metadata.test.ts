@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { ASSISTANT_OPERATIONS } from "./catalog";
 
 describe("assistant operation metadata", () => {
+  it('never derives a mutation from words inside a read capability title', () => {
+    for (const op of ASSISTANT_OPERATIONS.filter(op=>op.method==='GET'||op.readOnly)) expect(op.assistantMetadata?.action,op.id).toBe('read');
+    expect(ASSISTANT_OPERATIONS.find(op=>op.id==='hr.training.progress')?.assistantMetadata).toMatchObject({action:'read',intent:'report'});
+  });
   it("classifies every catalog operation from its canonical contract", () => {
     expect(ASSISTANT_OPERATIONS.length).toBeGreaterThan(0);
     for (const operation of ASSISTANT_OPERATIONS) {

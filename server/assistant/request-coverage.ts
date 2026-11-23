@@ -1,7 +1,9 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import type { AssistantOperation } from "./catalog";
 import { reconcileRequestedRanking } from "./list-analysis";
-import { isKnownModuleContextClause, isModuleContextClause, mentionsCompatibleModule } from "./module-context";
+import { assistantModuleContext, isKnownModuleContextClause, isModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence, containsModuleContextEvidence } from "./module-context";
+import { scopeAssistantWorkflows } from "./module-scope";
+import { publicAssistantResultFields } from "./result-field-policy";
 
 export interface RequestCoverageItem {
   evidence: string;
@@ -14,6 +16,11 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
   .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const plain = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 const populated = (value: unknown) => value !== undefined && value !== null && value !== "";
+export function normalizeAssistantCoverageTarget(target: string, operation: AssistantOperation) {
+  if (target === 'actionId') return 'action';
+  if (operation.analysis && target.startsWith('values.analysis.')) return target.slice('values.'.length);
+  return target;
+}
 function hasDeclaredCurrentMonthDefault(workflow: AssistantWorkflow, fieldKey: string, evidence: string) {
   const field = workflow.fields.find(candidate => candidate.key === fieldKey);
   return field?.apiKey === "periodAnchor"
@@ -27,14 +34,65 @@ const COVERAGE_STOP_WORDS = new Set(normalize(`
 `).split(" "));
 
 /** Find meaningful request words that were omitted from the model's quoted evidence. */
-export function findUncoveredRequestTerms(text: string, rawCoverage: unknown) {
+export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, workflow?: AssistantWorkflow, values: Record<string, unknown> = {}) {
   const evidence = Array.isArray(rawCoverage)
     ? rawCoverage.flatMap(item => plain(item) && typeof item.evidence === "string" ? [item.evidence] : [])
     : [];
   const coveredWords = new Set(evidence.flatMap(item => normalize(item).split(" ").filter(Boolean)));
-  return text.split(/\s+/)
+  const referenceWords = new Set<string>();
+  const valueWords = new Set<string>();
+  let content = text;
+  if (workflow) {
+    for (const field of workflow.fields) {
+      if (!populated(values[field.key]) || !Array.isArray(rawCoverage) || !rawCoverage.some(item => plain(item) && Array.isArray(item.mappedTo)
+        && item.mappedTo.some(target => [field.key, field.apiKey, `values.${field.key}`, field.apiKey && `values.${field.apiKey}`].includes(target)))) continue;
+      // A server-declared form label before ':'/'·' is presentation, not data.
+      const label = field.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      content = content.replace(new RegExp(`${label}\\s*(?=[:·])`, 'giu'), ' ');
+    }
+    const context = assistantModuleContext(workflow.module);
+    // Quoted names are record data, never automatic context evidence.
+    const request = ` ${normalize(text.replace(/["“][^"”]+["”]/gu, ' '))} `;
+    const explicit = scopeAssistantWorkflows(text, [workflow]);
+    for (const name of [context.label, ...context.aliases].map(normalize)) {
+      if (explicit.modules.length && explicit.workflows.length) {
+        const framing = new RegExp(`(?:^| )(?:(?:trong|vao|o|tai|thuoc|phan he|module|muc) ){1,3}${name}(?= |$)`, 'g');
+        for (const match of request.matchAll(framing)) for (const word of match[0].trim().split(' ')) coveredWords.add(word);
+      }
+      const entity = name.replace(/^(?:quan l[yi]|ho so)\s+/, '');
+      for (const match of request.matchAll(new RegExp(`(?:^| )${entity} nao(?= |$)`, 'g'))) {
+        if (/\b(?:ten|ma)\s*$/.test(request.slice(0, match.index))) continue;
+        for (const word of match[0].trim().split(' ')) coveredWords.add(word);
+      }
+    }
+    for (const item of Array.isArray(rawCoverage) ? rawCoverage : []) {
+      if (!plain(item) || typeof item.evidence !== 'string' || !Array.isArray(item.mappedTo)) continue;
+      if (item.mappedTo.some(target => typeof target === 'string' && workflow.fields.some(field => populated(values[field.key])
+        && [field.key, field.apiKey, `values.${field.key}`, field.apiKey && `values.${field.apiKey}`].includes(target)))) {
+        for (const word of normalize(item.evidence).split(' ')) valueWords.add(word);
+      }
+      if (item.mappedTo.some(target => typeof target === 'string' && workflow.fields.some(field => field.reference
+        && [field.key, field.apiKey, `values.${field.key}`, field.apiKey && `values.${field.apiKey}`].includes(target)))) {
+        for (const word of normalize(item.evidence).split(' ')) referenceWords.add(word);
+      }
+    }
+  }
+  return content.split(/\s+/)
     .flatMap(original => normalize(original).split(" ").filter(Boolean).map(word => ({ original: original.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""), word })))
-    .filter(({ original, word }) => original && !COVERAGE_STOP_WORDS.has(word) && !coveredWords.has(word))
+    .filter(({ original, word }, index, words) => {
+      if (!original || COVERAGE_STOP_WORDS.has(word) || coveredWords.has(word)) return false;
+      // Labels/grammar are dispensable only when their content is still quoted.
+      if (word === "ten" && coveredWords.has(words[index + 1]?.word)) return false;
+      if (word === 'phan' && coveredWords.has(words[index+1]?.word) && workflow?.fields.some(field => field.type==='json' && populated(values[field.key]) && Array.isArray(rawCoverage) && rawCoverage.some(item=>plain(item) && Array.isArray(item.mappedTo) && item.mappedTo.includes(`values.${field.key}`)))) return false;
+      if (word === "chon" && (coveredWords.has(words[index + 1]?.word)
+        || words[index + 1]?.word === "ten" && coveredWords.has(words[index + 2]?.word))) return false;
+      if (word === "co" && words.slice(index + 1, index + 7).some(item => item.word === "ai" || item.word === "nao")) return false;
+      if (word === "trong" && referenceWords.has(words[index + 1]?.word)) return false;
+      if (word === "thanh" && words[index - 1]?.word !== 'hoan' && valueWords.has(words[index + 1]?.word)) return false;
+      if ((word === "nao" || word === "ai") && coveredWords.has(words[index - 1]?.word)
+        && (!words[index + 1] || coveredWords.has(words[index + 1].word))) return false;
+      return true;
+    })
     .map(({ original }) => original)
     .filter((word, index, words) => words.indexOf(word) === index)
     .slice(0, 12);
@@ -45,13 +103,13 @@ export function shouldRepairRequestCoverage(text: string, rawCoverage: unknown, 
   return /chưa (?:được gắn với|được áp dụng vào|ánh xạ được|chuyển được|lấy trường)/iu.test(clarification);
 }
 
-function missingCoverageReply(text: string, rawCoverage: unknown) {
-  const missing = findUncoveredRequestTerms(text, rawCoverage);
+function missingCoverageReply(text: string, rawCoverage: unknown, workflow: AssistantWorkflow, values: Record<string, unknown>) {
+  const missing = findUncoveredRequestTerms(text, rawCoverage, workflow, values);
   if (!missing.length) return undefined;
   return `Mình chưa đưa đủ chi tiết “${missing.join(" ").slice(0, 160)}” vào kế hoạch tra cứu. Mình chưa gọi API để tránh bỏ sót điều kiện; bạn xác nhận lại giúp mình nhé.`;
 }
 
-function requiredMappingKinds(evidence: string) {
+function requiredMappingKinds(evidence: string, singularCreate = false) {
   const phrase = normalize(evidence);
   const kinds: Array<"filter" | "ranking"> = [];
   const maximum = /(?:^| )(?:top|nhieu(?: [a-z]+){0,4} nhat|cao nhat|lon nhat|dung dau)(?: |$)/.test(phrase);
@@ -59,24 +117,25 @@ function requiredMappingKinds(evidence: string) {
   const ordering = /(?:^| )(?:sap xep|xep theo|xep hang)(?: |$)/.test(phrase)
     || /(?:^| )(?:giam dan|tang dan)(?: |$)/.test(phrase);
   if (maximum || minimum || ordering) kinds.push("ranking");
-  const hasNumericValue = evidence.split(/\s+/).some(token => /^\d+(?:[.,]\d+)*(?:\/\d{1,4})?$/.test(token))
+  const numericEvidence = singularCreate ? evidence.replace(/(^|\s)(?:tạo|tao|thêm|them|lập|lap|mở|mo)\s+1(?=\s)/giu, "$1") : evidence;
+  const hasNumericValue = numericEvidence.split(/\s+/).some(token => /^\d+(?:[.,]\d+)*(?:\/\d{1,4})?$/.test(token))
     || /\b\d{4}-\d{2}-\d{2}\b/.test(evidence);
   const hasLocationContext = /\b(?:o|tai)\s+(?:chi nhanh|phong ban|du an|khu vuc|dia ban|tinh|huyen|quan|phuong|thanh pho|ha noi|ho chi minh|da nang|hai phong|can tho|khu cong nghiep|kcn)\b/.test(phrase);
   if (hasNumericValue
-    || /phường/iu.test(evidence)
+    || /(?:^|\s)(?:tỉnh|huyện|quận|phường)(?=\s|$)/iu.test(evidence.normalize("NFC"))
     || hasLocationContext
-    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tinh|huyen|quan|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(phrase)) kinds.push("filter");
+    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(phrase)) kinds.push("filter");
   return kinds;
 }
 
-function requiredMappingMissing(evidence: string, targets: string[], composite = false, rankingCoveredByAction = false) {
+function requiredMappingMissing(evidence: string, targets: string[], composite = false, rankingCoveredByAction = false, singularCreate = false) {
   const mappings = targets.flatMap(target => {
     if (!composite) return [target];
     if (!target.startsWith("query:")) return [];
     const separator = target.indexOf(":", "query:".length);
     return separator < 0 ? [] : [target.slice(separator + 1)];
   });
-  const kinds = requiredMappingKinds(evidence);
+  const kinds = requiredMappingKinds(evidence, singularCreate);
   if (kinds.includes("ranking") && !rankingCoveredByAction && !mappings.some(mapping => mapping.startsWith("analysis.extreme.")
     || mapping.startsWith("analysis.sort.") || mapping.startsWith("analysis.limit"))) return "ranking";
   if (kinds.includes("filter") && !mappings.some(mapping => mapping.startsWith("values.")
@@ -84,12 +143,26 @@ function requiredMappingMissing(evidence: string, targets: string[], composite =
   return undefined;
 }
 
+/** Redundant context in a combined span must not invalidate otherwise valid
+ * action/reference mappings. Conditional spans still need separate evidence. */
+export function combinedModuleContextIsValid(evidence: string, module: string, targets: string[], singularCreate = false) {
+  return targets.some(target => target !== "context.module" && target !== "action")
+    && requiredMappingKinds(evidence, singularCreate).length === 0
+    && containsModuleContextEvidence(evidence, module);
+}
+
 function actionEncodesEvidence(evidence: string, workflow: AssistantWorkflow, operation: AssistantOperation) {
   const phrase = normalize(evidence);
   if (!phrase) return false;
   const positiveDescriptions = [operation.description, workflow.description]
     .flatMap(description => description.split(/[.!?;]+/))
-    .filter(clause => !/(?:^| )(?:khong|chua|not|except|unless)(?: |$)/.test(normalize(clause)));
+    .filter(clause => {
+      const phrase = normalize(clause);
+      // A terminal polar-question marker in a read capability describes what
+      // its report answers; it is not a negative filter such as "chưa có".
+      const meaning = operation.method==='GET' || operation.readOnly ? phrase.replace(/ khong$/, '') : phrase;
+      return !/(?:^| )(?:khong|chua|not|except|unless)(?: |$)/.test(meaning);
+    });
   const actionDescription = normalize(`${operation.id.replaceAll(".", " ")} ${operation.title} ${workflow.title} ${positiveDescriptions.join(" ")}`);
   return actionDescription.includes(phrase);
 }
@@ -163,6 +236,10 @@ export function validateRequestCoverage(
     return { ok: false, clarification: "Mình chưa đối chiếu được đầy đủ yêu cầu với các trường của thao tác. Bạn nói rõ hơn mục tiêu và điều kiện cần áp dụng nhé." };
   }
   const request = normalize(text);
+  const explicit = scopeAssistantWorkflows(text, [workflow]);
+  if (explicit.modules.length && !explicit.workflows.length) {
+    return { ok: false, clarification: "Thao tác đang chọn thuộc phân hệ khác với phân hệ bạn nêu. Bạn xác nhận lại phân hệ cần xử lý nhé." };
+  }
   const knownFields = new Set(workflow.fields.flatMap(field => [field.key, field.apiKey, field.source && field.apiKey ? `${field.source}_${field.apiKey}` : undefined].filter((value): value is string => Boolean(value))));
   for (const rawItem of raw) {
     if (!plain(rawItem) || typeof rawItem.evidence !== "string" || !rawItem.evidence.trim()
@@ -185,13 +262,25 @@ export function validateRequestCoverage(
         ? rawItem.clarification.trim().slice(0, 500)
         : `Mình chưa rõ cách áp dụng yêu cầu “${rawItem.requirement.trim().slice(0, 160)}”. Bạn làm rõ ý này giúp mình nhé.` };
     }
+    const normalizeTarget = (target: string) => {
+      target = normalizeAssistantCoverageTarget(target, operation);
+      const prefix = `query:${operation.id}:`;
+      if (operation.method !== 'GET' || !target.startsWith(prefix)) return target;
+      const mapping = normalizeAssistantCoverageTarget(target.slice(prefix.length), operation);
+      if (mapping === 'source') return 'action';
+      if (mapping.startsWith('result.') && operation.resultFields.includes(mapping.slice(7))
+        && publicAssistantResultFields(operation).includes(mapping.slice(7))) return 'action';
+      if (mapping.startsWith('values.') || mapping.startsWith('analysis.')) return mapping;
+      return target;
+    };
     const mappedTargets = [...new Set([
-      ...(rawItem.mappedTo as string[]),
+      ...(rawItem.mappedTo as string[]).map(normalizeTarget),
       ...reconciledRankingMappingTargets(rawItem.evidence, operation, values),
     ])];
     const actionCapturesEvidence = mappedTargets.includes("action") && actionEncodesEvidence(rawItem.evidence, workflow, operation);
     const actionCapturesRanking = mappedTargets.includes("action") && actionEncodesRanking(rawItem.evidence, operation);
-    const missingKind = requiredMappingMissing(rawItem.evidence, mappedTargets, false, actionCapturesRanking);
+    const singularCreate = operation.assistantMetadata?.intent === "create" && mappedTargets.includes("action");
+    const missingKind = requiredMappingMissing(rawItem.evidence, mappedTargets, false, actionCapturesRanking, singularCreate);
     if (missingKind && !actionCapturesEvidence) return { ok: false, clarification: missingKind === "ranking"
       ? `Tiêu chí xếp hạng “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với phép xếp hạng cụ thể. Mình chưa gọi API.`
       : `Điều kiện “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với trường lọc. Mình chưa gọi API.` };
@@ -201,8 +290,9 @@ export function validateRequestCoverage(
         // the module while the module name appears elsewhere in the same user
         // request (for example "...dự án cho nhân sự"). Validate against the
         // complete request so a clipped evidence span does not lose context.
-        if (mentionsCompatibleModule(rawItem.evidence, workflow.module)
-          || mentionsCompatibleModule(text, workflow.module)) continue;
+        if (matchesModuleContextEvidence(rawItem.evidence, workflow.module, text)
+          || combinedModuleContextIsValid(rawItem.evidence, workflow.module, mappedTargets, singularCreate)
+          || explicit.modules.length > 0 && mappedTargets.includes('action') && requiredMappingKinds(rawItem.evidence, singularCreate).length === 0) continue;
         return { ok: false, clarification: `Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở ${workflow.title.toLocaleLowerCase("vi")}. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?` };
       }
       if (/^(?:values\.)?(?:module|moduleName|moduleKey|workspace|area)$/i.test(target)
@@ -223,7 +313,7 @@ export function validateRequestCoverage(
       }
     }
   }
-  const missingCoverage = missingCoverageReply(text, raw);
+  const missingCoverage = missingCoverageReply(text, raw, workflow, values);
   if (missingCoverage) return { ok: false, clarification: missingCoverage };
   return { ok: true };
 }

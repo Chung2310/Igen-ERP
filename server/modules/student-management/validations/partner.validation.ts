@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../../../shared/email-policy";
 import Joi from "joi";
 
 export const createPartnerSchema = Joi.object({
@@ -9,7 +10,7 @@ export const createPartnerSchema = Joi.object({
     "any.required": "Số điện thoại là bắt buộc.",
     "string.empty": "Số điện thoại không được để trống.",
   }),
-  email: Joi.string().email().allow("").optional().messages({
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).allow("").optional().messages({
     "string.email": "Định dạng email không hợp lệ.",
   }),
   commissionType: Joi.string().valid("percentage", "fixed").optional().messages({
@@ -31,7 +32,7 @@ export const updatePartnerSchema = Joi.object({
   expectedVersion: Joi.number().integer().min(0).optional(),
   name: Joi.string().optional(),
   phone: Joi.string().optional(),
-  email: Joi.string().email().allow("").optional(),
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).allow("").optional(),
   commissionType: Joi.string().valid("percentage", "fixed").optional(),
   commissionValue: Joi.number().min(0).optional(),
   bankName: Joi.string().allow("").optional(),

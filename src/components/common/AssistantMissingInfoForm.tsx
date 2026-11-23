@@ -23,10 +23,11 @@ export function AssistantWorkflowSelectionForm({ selection, disabled, onSubmit }
 }) {
   const id = useId();
   const [value, setValue] = useState("");
+  const moduleChoice = selection.kind === "module";
   return <form aria-labelledby={`${id}-title`} className="max-w-4xl space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface sm:p-4" onSubmit={event => { event.preventDefault(); if (!disabled && value) onSubmit(value); }}>
-    <h3 id={`${id}-title`} className="text-balance font-semibold">Chọn thao tác</h3>
-    <StyledSelect value={value} options={selection.options} onChange={setValue} ariaLabel="Thao tác muốn thực hiện" placeholder="Chọn thao tác muốn thực hiện" required disabled={disabled} describedBy={`${id}-help`} />
-    <p id={`${id}-help`} className="text-pretty text-xs text-on-surface-variant">Chọn để mở các thông tin cần bổ sung. Bạn sẽ kiểm tra lại trước khi thực hiện.</p>
+    <h3 id={`${id}-title`} className="text-balance font-semibold">{moduleChoice ? "Chọn phân hệ" : "Chọn thao tác"}</h3>
+    <StyledSelect value={value} options={selection.options} onChange={setValue} ariaLabel={moduleChoice ? "Phân hệ cần xử lý" : "Thao tác muốn thực hiện"} placeholder={moduleChoice ? "Chọn phân hệ cần xử lý" : "Chọn thao tác muốn thực hiện"} required disabled={disabled} describedBy={`${id}-help`} />
+    <p id={`${id}-help`} className="text-pretty text-xs text-on-surface-variant">{moduleChoice ? "Chọn nơi bạn muốn xử lý yêu cầu. Bạn sẽ kiểm tra lại trước khi thực hiện." : "Chọn để mở các thông tin cần bổ sung. Bạn sẽ kiểm tra lại trước khi thực hiện."}</p>
     <button type="submit" disabled={disabled || !value} aria-describedby={`${id}-help`} className={buttonClass}>Tiếp tục</button>
   </form>;
 }
