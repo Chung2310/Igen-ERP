@@ -1,0 +1,1922 @@
+{
+  "generatedAt": "2026-11-21T04:22:07.536Z",
+  "mode": "offline-scripted-provider",
+  "corpusVersion": "S-v1-approved-2026-11-21",
+  "liveProviderRequests": 0,
+  "realBusinessRequests": 0,
+  "realDatabaseConnections": 0,
+  "budgetUSD": 0,
+  "modelAccuracy": null,
+  "actualProviderTokens": null,
+  "actualProviderCost": null,
+  "usageNote": "Mock Responses omit usage;request bytes are not token counts or a cost estimate.",
+  "fixtureProviderResponses": 81,
+  "blockedAttempts": [
+    {
+      "caseId": "CONTROL-ZERO-BUDGET",
+      "reason": "DRY_RUN_TRANSPORT_DISABLED"
+    }
+  ],
+  "profiles": [
+    {
+      "profile": "CAT-NARROW",
+      "cases": 24,
+      "workflowCount": 2,
+      "mockRequests": 24,
+      "discoveryRequests": 0,
+      "requestBodyBytes": {
+        "min": 18951,
+        "max": 19178,
+        "total": 455758
+      },
+      "excludedFromFutureFullCatalogExactScoring": []
+    },
+    {
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "cases": 24,
+      "workflowCount": 1003,
+      "mockRequests": 54,
+      "discoveryRequests": 24,
+      "requestBodyBytes": {
+        "min": 119984,
+        "max": 1456319,
+        "total": 20466482
+      },
+      "excludedFromFutureFullCatalogExactScoring": [
+        "S18",
+        "S19",
+        "S20"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "caseId": "S01",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S01",
+          "stage": "interpretation",
+          "bodyBytes": 18970,
+          "bodySha256": "058696d0035c5164b61c4264bb335574bee966b57c90831baeab6e9d2272c5d2",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 8.698100000000068,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S02",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S02",
+          "stage": "interpretation",
+          "bodyBytes": 18970,
+          "bodySha256": "5d3e4f283de28550e64f24fea53f6256750cf8c811df8e13744a131dd3767d33",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 6.710100000000011,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S03",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "Tai nghe Sóng"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S03",
+          "stage": "interpretation",
+          "bodyBytes": 18971,
+          "bodySha256": "55eaa993ba21d20804b15e62faf8082b37520490f31567ee278826ad63ce6da4",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.0154999999999745,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S04",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S04",
+          "stage": "interpretation",
+          "bodyBytes": 18961,
+          "bodySha256": "bce00d26d1b20f14ffa160b2b71fcc71e46bd4603356e5529738447fb14244f3",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.623299999999972,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S05",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S05",
+          "stage": "interpretation",
+          "bodyBytes": 18956,
+          "bodySha256": "9119300357b4447b31e81e9df7fb143b48e8559522e5a2957753e85e56a21e52",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.415000000000191,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S06",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S06",
+          "stage": "interpretation",
+          "bodyBytes": 18962,
+          "bodySha256": "bb650ce3c9b58698f6b59149f2b1cebee33b553c174f6ae78d953147bc6d7ad9",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 1.9230999999999767,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S07",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SKU-MAY-A1-128"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S07",
+          "stage": "interpretation",
+          "bodyBytes": 18970,
+          "bodySha256": "f33972b6e4e9d773178eeae900941838ef8cafa7356ff58f201e38ff14fffbed",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 5.626400000000103,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S08",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-TRANG"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S08",
+          "stage": "interpretation",
+          "bodyBytes": 18974,
+          "bodySha256": "8ec35f22760ca6bfd9cc201367f15c55054c8c899d0315179a91cffeeb758f67",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 6.022100000000137,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S09",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S09",
+          "stage": "interpretation",
+          "bodyBytes": 18951,
+          "bodySha256": "2b7bf9b0bc67caee4da493ad5ff98d49634af748a5a98605ac433b43ec9b34ed",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 7.517899999999827,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S10",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S10",
+          "stage": "interpretation",
+          "bodyBytes": 18965,
+          "bodySha256": "f1057b789a6ba37a32d8c02d71c51a37731c71e32bea93a4039edb9e90557ae1",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 3.8940999999999804,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S11",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S11",
+          "stage": "interpretation",
+          "bodyBytes": 18986,
+          "bodySha256": "a0e7d5ecd4658fe8d67576edd3a4d0e18b21f7c94866e4d470f1d91e0738640e",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.149799999999914,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S12",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-OP-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S12",
+          "stage": "interpretation",
+          "bodyBytes": 18977,
+          "bodySha256": "0c2e137f3972d9e7fbc12b4403095623f43ba8960031bce9865c242431f87e00",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 1.9406000000001313,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S13",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S13",
+          "stage": "interpretation",
+          "bodyBytes": 18956,
+          "bodySha256": "71e8d9057d732ad8cbadf649627238bbc8deb3858b0b675da9fdfe5b33d6cf5b",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 3.451699999999846,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S14",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Không Có 999"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S14",
+          "stage": "interpretation",
+          "bodyBytes": 18961,
+          "bodySha256": "0e8da57847d8e96dc1da9a0e1adbb7b780db536f63aa9ff561e0fb7190037e1f",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 6.882999999999811,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S15",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-KHONG-CO"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S15",
+          "stage": "interpretation",
+          "bodyBytes": 18968,
+          "bodySha256": "e4a04de91dc758819c997af9c728e460640c89cd33c763b4c55dcee6d7d23099",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 5.973099999999931,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S16",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được trạng thái. Bạn có muốn xem danh sách chưa lọc trạng thái không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S16",
+          "stage": "interpretation",
+          "bodyBytes": 18973,
+          "bodySha256": "4862a977ebc9388e32cc32c535569e9e369a92e81035bee5233825bb409b1daf",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.5954999999999018,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S17",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được ngày tạo. Bạn có muốn tìm Mây không lọc ngày không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S17",
+          "stage": "interpretation",
+          "bodyBytes": 18988,
+          "bodySha256": "7664a6574d1c1fa469f1d341588c21990ca1e498bb48642005bf7c2e590234ab",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.7980999999999767,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S18",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S18",
+          "stage": "interpretation",
+          "bodyBytes": 18974,
+          "bodySha256": "5562792a76d4908cf75e378dbbc6ab82b47a214cc73c5987482f29626c087382",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 3.115199999999959,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S19",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S19",
+          "stage": "interpretation",
+          "bodyBytes": 18979,
+          "bodySha256": "b498f4656b4c0cb373ad58ae1d23cbc1b5e349d2c038fc08addcdd4704cdbe80",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 3.263400000000047,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S20",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S20",
+          "stage": "interpretation",
+          "bodyBytes": 18956,
+          "bodySha256": "f14c2a847124688ef00b49da0c7f3873d82a4dbf17e5daa94559464c910501f2",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 3.1829999999999927,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S21",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S21",
+          "stage": "interpretation",
+          "bodyBytes": 19161,
+          "bodySha256": "537abad8f736f57cc0c9c858974f233c4ae726dad3b5f4b6e4fdb8cd4f2aed5b",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.447300000000041,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S22",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Bạn muốn xem Tai nghe Sóng mã SP-SONG-DEN hay SP-SONG-TRANG?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S22",
+          "stage": "interpretation",
+          "bodyBytes": 19178,
+          "bodySha256": "df86d381cdf247a337835881d5c1594434f5f2a7234925fa7520ceb0cd29186b",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 3.6013000000000375,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S23",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-2026-11-21"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S23",
+          "stage": "interpretation",
+          "bodyBytes": 18966,
+          "bodySha256": "4ea650963032fab81f75946b864a856dd7aba4bebe8d597e8fc8d2059a65eb35",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.5911000000000968,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S24",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "cancel": true,
+        "newRequest": false,
+        "intentType": "workflow",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S24",
+          "stage": "interpretation",
+          "bodyBytes": 19085,
+          "bodySha256": "8be3fbe27b33c2acbc629731bc80e0a2791af8d8ec27063b115332a6ac929c3d",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.0092999999999392,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S01",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S01",
+          "stage": "discovery",
+          "bodyBytes": 368690,
+          "bodySha256": "881463cf34316b17d970826ae637cd4a8e78aad87e4a4eae236cf49960ee3e78",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S01",
+          "stage": "interpretation",
+          "bodyBytes": 120003,
+          "bodySha256": "28cb66912d5e839a552fe67fdc33ba8963d4fc59d09f02c6934ee1560cf57673",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 19.01110000000017,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S02",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S02",
+          "stage": "discovery",
+          "bodyBytes": 368690,
+          "bodySha256": "d5390859863578d6e5f424a4de5387740e580ff7890eb2649eb90233d4df03b9",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S02",
+          "stage": "interpretation",
+          "bodyBytes": 120003,
+          "bodySha256": "1e72be11cbab876aebbf0efcb056b867035ba3ee68175df4ef0f8c6a64180131",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 13.410200000000032,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S03",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "Tai nghe Sóng"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S03",
+          "stage": "discovery",
+          "bodyBytes": 368691,
+          "bodySha256": "9d4f964ad253b61ffb42f6b2b964f33453231c77b288475ecfd799d019ed82f1",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S03",
+          "stage": "interpretation",
+          "bodyBytes": 120004,
+          "bodySha256": "13bd4f705af1ccf2cea40ffc670e48043e58c657f64a0a9ba8c0739ec147b8c7",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.464300000000094,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S04",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S04",
+          "stage": "discovery",
+          "bodyBytes": 368681,
+          "bodySha256": "7468cf2aa43c3f199dd2d433162e79660e48b0e7f6153198ed4fc2dc226829e6",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S04",
+          "stage": "interpretation",
+          "bodyBytes": 119994,
+          "bodySha256": "4bffc8839b2f92a9aa0fa570cf2724c5ae9db83c73570704d364a0fce5948bbd",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.4525000000001,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S05",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S05",
+          "stage": "discovery",
+          "bodyBytes": 368676,
+          "bodySha256": "07396709f711bcfe0a72a5128128e01c5cba0fde6a4b55ceba3ef36cf6d21c87",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S05",
+          "stage": "interpretation",
+          "bodyBytes": 119989,
+          "bodySha256": "efb45a49e681aea8cf87c8f5eb30de766120d31414c3cbd95d92d21f4732827f",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.943500000000085,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S06",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S06",
+          "stage": "discovery",
+          "bodyBytes": 368682,
+          "bodySha256": "5d10fd7827dc3eb050daa4ccf55b516b0e360d356182a3fd00dce2a340a9feb6",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S06",
+          "stage": "interpretation",
+          "bodyBytes": 119995,
+          "bodySha256": "a7a65374386b2b0d003d37de28e3c4d8b1171e4b12fac327af2760a06a64bb67",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 11.630499999999984,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S07",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SKU-MAY-A1-128"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S07",
+          "stage": "discovery",
+          "bodyBytes": 368690,
+          "bodySha256": "527cab90bdc8aa49c855c077eaf867c346ce2eb6ffe83695b64881201b1b53b1",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S07",
+          "stage": "interpretation",
+          "bodyBytes": 120003,
+          "bodySha256": "806c9f395fb6fdd1423b8b7e5903cd5908115d104515eeb690d7281762d68eba",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 19.064100000000053,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S08",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-TRANG"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S08",
+          "stage": "discovery",
+          "bodyBytes": 368694,
+          "bodySha256": "a7b37289173aee45b365f95c8600248537487f1e3d7a85d6f5a769a2c0d391c1",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S08",
+          "stage": "interpretation",
+          "bodyBytes": 120007,
+          "bodySha256": "a039cf94cdbb613815453cd1a8859cca6c744f77b4cdfb74d5b045bb6048c50c",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.692599999999857,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S09",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S09",
+          "stage": "discovery",
+          "bodyBytes": 368671,
+          "bodySha256": "76813e34918a59b6b423d102a63710afdfcd5c6038dbca582dfcb919d910025c",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S09",
+          "stage": "interpretation",
+          "bodyBytes": 119984,
+          "bodySha256": "2a535a6352f411d0ceccbcdf6ba182b2435f966a913e7510239fad415a87eece",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.642399999999952,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S10",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S10",
+          "stage": "discovery",
+          "bodyBytes": 368685,
+          "bodySha256": "8daa865ff177fdb96f530bd926a44e7c0e4bf6b498b18821cc7d524060fc471f",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S10",
+          "stage": "interpretation",
+          "bodyBytes": 119998,
+          "bodySha256": "b30ae6df2a868610580e529b160dd4415f1f08b7f2c6016174d99aa5f645cecf",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.194600000000037,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S11",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S11",
+          "stage": "discovery",
+          "bodyBytes": 368706,
+          "bodySha256": "2fad3cd2adc41c63204a637c83681089424655d8e1cb3243d9e9389ed93a7e6b",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S11",
+          "stage": "interpretation",
+          "bodyBytes": 120019,
+          "bodySha256": "c56284b3cae76b6f2b7e002e52c42d5d85ac5609e2a9c0c6fb85668f166b21be",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.707200000000057,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S12",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-OP-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S12",
+          "stage": "discovery",
+          "bodyBytes": 368697,
+          "bodySha256": "33ec62b3266a16214c5d93bc58aeb9d1b90ccb2c402877fe207b525f2a10608f",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S12",
+          "stage": "interpretation",
+          "bodyBytes": 120010,
+          "bodySha256": "6b5a7e366195a1bc84c122b3227328311936648a97052e08e89c95117717a7f0",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.482099999999946,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S13",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S13",
+          "stage": "discovery",
+          "bodyBytes": 368676,
+          "bodySha256": "dc9b78404997f86a4c1402488ef7a26a1f2eab501ac7f949b3522fbb2c706d7a",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S13",
+          "stage": "interpretation",
+          "bodyBytes": 119989,
+          "bodySha256": "00bed454f9f9e9cce94a379207c9a79069e46b3bd12060832e2e18ebc5510de5",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 19.80659999999989,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S14",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Không Có 999"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S14",
+          "stage": "discovery",
+          "bodyBytes": 368681,
+          "bodySha256": "f14a930462e622bce67b82cb240fb3a6ed3b3b357fc8406aa2a3bb7624531f81",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S14",
+          "stage": "interpretation",
+          "bodyBytes": 119994,
+          "bodySha256": "1a1dc3240af4df5664a23bb846c8d8cf39da7eea7c707ae4c34c264edd999ac0",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 22.609699999999975,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S15",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-KHONG-CO"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S15",
+          "stage": "discovery",
+          "bodyBytes": 368688,
+          "bodySha256": "04a7c14bd9f44f7f627e17ac869f28749973f4466ed34ff2f92ecb18b796ba0c",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S15",
+          "stage": "interpretation",
+          "bodyBytes": 120001,
+          "bodySha256": "7e7562174fc9832e36852a053a757726cb127c464e52402263480851485fa414",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 16.662500000000136,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S16",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được trạng thái. Bạn có muốn xem danh sách chưa lọc trạng thái không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S16",
+          "stage": "discovery",
+          "bodyBytes": 368693,
+          "bodySha256": "d30885364b12ffc609b0303d2a61d35935fb452b10367b83ce89481401aba13c",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S16",
+          "stage": "interpretation",
+          "bodyBytes": 120006,
+          "bodySha256": "e3c307e21e8f25b81887cfe9e179b20b75cf0546c4bc801c2ae806625f13bf3b",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S16",
+          "stage": "interpretation",
+          "bodyBytes": 1456114,
+          "bodySha256": "838515873371c23664e0b6c410341cb25766fd93fe287558414869c56fca7905",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 59.57369999999992,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S17",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được ngày tạo. Bạn có muốn tìm Mây không lọc ngày không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S17",
+          "stage": "discovery",
+          "bodyBytes": 368708,
+          "bodySha256": "d088b3cb2adaa5c4a9686af7f868a8a6cace6f45fd579549ce7b3916fd502620",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S17",
+          "stage": "interpretation",
+          "bodyBytes": 120021,
+          "bodySha256": "9e68d5150783af838a60e828ad6d0f66e5faf8053bd9824532c61d51eec098b1",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S17",
+          "stage": "interpretation",
+          "bodyBytes": 1456129,
+          "bodySha256": "2f128fdebcbad15682dd2e08ee1d8ca1cde961052f328b9357e2a9d5ddf9cd70",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 48.58789999999999,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S18",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S18",
+          "stage": "discovery",
+          "bodyBytes": 368694,
+          "bodySha256": "b4fa45e11aad231361ab037dc525a37a13d0ae19736f2db29f703ff75bb6d687",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S18",
+          "stage": "interpretation",
+          "bodyBytes": 120007,
+          "bodySha256": "f3bfd9bb32393c8e0a1a826a2909b92546aa0132337966df5819012a48aa3ace",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S18",
+          "stage": "interpretation",
+          "bodyBytes": 1456115,
+          "bodySha256": "72ba442cc463a2425ebbda28dad98eabaafa77bd5e282279bf9cad8d5fa63a92",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 42.13650000000007,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S19",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S19",
+          "stage": "discovery",
+          "bodyBytes": 368699,
+          "bodySha256": "85e71e5520a363c319e4d23268cc3cd87a445f25bc63d2c88d234688d7d2ebd3",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S19",
+          "stage": "interpretation",
+          "bodyBytes": 120012,
+          "bodySha256": "c8a98342c8faba937ec12ffa99b0e3efb3639e30deb9dd8278cec72028084201",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S19",
+          "stage": "interpretation",
+          "bodyBytes": 1456120,
+          "bodySha256": "36cc4d8bc80e13be37eb6c8f9f1475026f38306f1759dc33123cf6d4cacebd43",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 47.79390000000012,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S20",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S20",
+          "stage": "discovery",
+          "bodyBytes": 368676,
+          "bodySha256": "065a3325a2e283212c98ca6d5ff087f77af34d5470eca06628faa30d2bc9a8cb",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S20",
+          "stage": "interpretation",
+          "bodyBytes": 119989,
+          "bodySha256": "d669b0731ad5b1e077fc26fe6b34253f751086ee21791a721c59300c9dff6a80",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S20",
+          "stage": "interpretation",
+          "bodyBytes": 1456097,
+          "bodySha256": "a95be4875f3c7d76ee10bd09d7cf20bd69b4b7449c776dcd97fbc931e452f024",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 41.56259999999975,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S21",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S21",
+          "stage": "discovery",
+          "bodyBytes": 368881,
+          "bodySha256": "c13700d166028c9a3c185047867bda4f13db58196e449fe988f432658fe01665",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S21",
+          "stage": "interpretation",
+          "bodyBytes": 120194,
+          "bodySha256": "3ca88b872325c07c13e0ded375cb9d81e0078b1f3c14e30f5bdf99c321ed0b3b",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.306299999999737,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S22",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Bạn muốn xem Tai nghe Sóng mã SP-SONG-DEN hay SP-SONG-TRANG?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S22",
+          "stage": "discovery",
+          "bodyBytes": 368898,
+          "bodySha256": "b24909f6cdd728114ddea756a257f363b009a564bc6a18e7d2c135a379731f9f",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S22",
+          "stage": "interpretation",
+          "bodyBytes": 120211,
+          "bodySha256": "dadd89a1c020909b48854fa924abacdc49703d609bf69d232c37273283f570dc",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S22",
+          "stage": "interpretation",
+          "bodyBytes": 1456319,
+          "bodySha256": "eb79831115104e16e3125feac928f9ad9abdf61ee78df7762432f2ae4fcb4c17",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 46.42059999999992,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S23",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-2026-11-21"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S23",
+          "stage": "discovery",
+          "bodyBytes": 368686,
+          "bodySha256": "b113f8ff9ba8eeace4b46d14c4bd9f4169f1cb71a7179efa70b0aa811e92982d",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S23",
+          "stage": "interpretation",
+          "bodyBytes": 119999,
+          "bodySha256": "e6c14b877bebde54832f4adee81cc4547270283b31f51e860bb1bc1976d7397a",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 8.242999999999938,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S24",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "cancel": true,
+        "newRequest": false,
+        "intentType": "workflow",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S24",
+          "stage": "discovery",
+          "bodyBytes": 368805,
+          "bodySha256": "a9fa55f80805f75f9f6f705531210a73937e882168c3a46f36c36ae1ed6944bc",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S24",
+          "stage": "interpretation",
+          "bodyBytes": 120118,
+          "bodySha256": "2f9e5c4432de3d5978eb72fcf283e6ce35e8764af885bd43a1cdb7a94e0556df",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 8.17619999999988,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "CONTROL-DISCOVERY-FALLBACK",
+      "profile": "control",
+      "calls": [
+        {
+          "caseId": "S01",
+          "stage": "discovery",
+          "bodyBytes": 368690,
+          "bodySha256": "881463cf34316b17d970826ae637cd4a8e78aad87e4a4eae236cf49960ee3e78",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S01",
+          "stage": "interpretation",
+          "bodyBytes": 1452114,
+          "bodySha256": "f720fdfb9a21cd330c40924626b61dd647ea5d675373a1587b0b6d46a0415d97",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      }
+    },
+    {
+      "caseId": "CONTROL-OUTSIDE-ACTION",
+      "profile": "control",
+      "calls": [
+        {
+          "caseId": "CONTROL-OUTSIDE-ACTION",
+          "stage": "interpretation",
+          "bodyBytes": 18946,
+          "bodySha256": "63723f3646abe452cca6bf65aa7967db239379952ef4028a50bf216411b7d354",
+          "model": "google/gemini-2.5-flash",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "outcome": "rejected-outside-catalog"
+    }
+  ]
+}

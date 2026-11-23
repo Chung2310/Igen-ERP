@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 import {
   BULK_FONT_FAMILIES,
   type IBulkBackground,
@@ -699,7 +700,7 @@ export const bulkCreateAiService = {
       content: message.content.slice(0, 4_000),
     })) as OpenRouterMessage[];
     const response = await openrouterChat({
-      model: process.env.BULK_CREATE_AI_MODEL || "z-ai/glm-5.3-flash",
+      model: ERP_LLM_MODEL,
       temperature: 0.25,
       jsonMode: true,
       maxRetries: 2,

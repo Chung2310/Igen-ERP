@@ -3,13 +3,15 @@
  * ──────────────────
  * OpenAI-compatible client trỏ tới https://openrouter.ai/api/v1.
  * Hỗ trợ: chat completions (text + vision), image generation.
- * Khi model chính lỗi hết retry, tự fallback sang model dự phòng
- * (OPENROUTER_FALLBACK_MODEL / OPENROUTER_FALLBACK_IMAGE_MODEL).
+ * LLM chữ/phân tích dùng chính sách GPT-6 Luna dùng chung.
+ * Model tạo/chỉnh ảnh và fallback ảnh được cấu hình riêng.
  */
 
 import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, META_MUSE_IMAGE_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
+import { ERP_LLM_MODEL, llmSamplingParameters } from "../../shared/llm-model";
+import { withAssistantRequestControl, assertAssistantExecutionActive } from "../assistant/execution-control";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -24,34 +26,19 @@ function getApiKey(): string {
  * "qwen3.6-flash"    → "qwen/qwen3.6-flash"
  */
 export function mapModelName(modelName: string): string {
-  if (!modelName) return "google/gemini-2.5-flash";
+  if (!modelName) return ERP_LLM_MODEL;
   if (modelName.includes("/")) return modelName; // already namespaced
 
   if (modelName.startsWith("gemini-")) return `google/${modelName}`;
   if (modelName.startsWith("claude-")) return `anthropic/${modelName}`;
   if (modelName.startsWith("qwen")) return `qwen/${modelName}`;
+  if (modelName.startsWith("gpt-")) return `openai/${modelName}`;
 
   return modelName;
 }
 
-function getFallbackModel(): string {
-  return mapModelName(process.env.OPENROUTER_FALLBACK_MODEL || "qwen/qwen3.6-flash");
-}
-
 function getFallbackImageModel(): string {
   return mapModelName(process.env.OPENROUTER_FALLBACK_IMAGE_MODEL || "google/gemini-3.1-flash-image");
-}
-
-/** Tầng fallback thứ 3: server LLM free tự host (OpenAI-compatible). Null nếu chưa cấu hình. */
-function getFreeLlmConfig(): { baseUrl: string; apiKey: string; model: string } | null {
-  const baseUrl = process.env.FREELLM_API_URL;
-  const apiKey = process.env.FREELLM_API_KEY;
-  if (!baseUrl || !apiKey) return null;
-  return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
-    apiKey,
-    model: process.env.FREELLM_API_MODEL || "auto",
-  };
 }
 
 /** Lỗi mà đổi model cũng không cứu được (sai key / hết credit) → không fallback */
@@ -69,6 +56,35 @@ function buildHeaders(apiKey: string): Record<string, string> {
   };
 }
 
+function logPaymentRequiredDetails(response: Response, errorText: string) {
+  let providerError: any = {};
+  try {
+    providerError = JSON.parse(errorText)?.error || {};
+  } catch {
+    // Keep the client-facing error stable if OpenRouter returns a non-JSON body.
+  }
+  const metadata = providerError?.metadata && typeof providerError.metadata === "object" ? providerError.metadata : {};
+  const safe = (value: unknown, maxLength = 160) => String(value ?? "unknown")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/sk-or-v1-[A-Za-z0-9_-]+/gi, "[redacted]")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .slice(0, maxLength);
+  const retryAfter = response.headers.get("retry-after");
+  const limitSource = typeof metadata.limit_source === "string" ? metadata.limit_source : "";
+  console.warn(
+    `[OpenRouter] HTTP 402 | code=${safe(providerError?.code)} | limit_source=${safe(limitSource)} | provider=${safe(metadata.provider_name)} | retry_after=${safe(retryAfter)} | detail=${safe(providerError?.message, 240)}`,
+  );
+  return { limitSource, retryAfter };
+}
+
+function retryAfterDelayMs(value: unknown, fallbackMs: number) {
+  if (typeof value !== "string" || !value.trim()) return fallbackMs;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1000);
+  const retryAt = Date.parse(value);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : fallbackMs;
+}
+
 export type OpenRouterMessage =
   | { role: "system"; content: string }
   | { role: "user"; content: string | OpenRouterContentPart[] }
@@ -76,13 +92,15 @@ export type OpenRouterMessage =
 
 export type OpenRouterContentPart =
   | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "file"; file: { filename: string; file_data: string } };
 
 export interface OpenRouterChatParams {
+  /** Caller metadata retained for compatibility; the text wire model is ERP_LLM_MODEL. */
   model: string;
-  /** Disable switching to fallback models or the self-hosted FreeLLM provider. */
+  /** Kept for caller compatibility. Language calls are pinned to ERP_LLM_MODEL. */
   allowFallback?: boolean;
-  /** Model dự phòng riêng cho tác vụ này khi model chính lỗi hoặc hết lượt. */
+  /** Legacy caller metadata; cross-model text fallback is disabled by the shared model policy. */
   fallbackModel?: string;
   messages: OpenRouterMessage[];
   temperature?: number;
@@ -97,6 +115,8 @@ export interface OpenRouterChatParams {
   /** Exa search depth; use fast for current quotes and deep for research synthesis. */
   webSearchMode?: "instant" | "fast" | "auto" | "deep-lite" | "deep" | "deep-reasoning";
   maxRetries?: number;
+  /** Server-only request timeout, bounded by the current assistant turn when safe execution is enabled. */
+  timeoutMs?: number;
 }
 
 export interface OpenRouterCitation {
@@ -106,26 +126,19 @@ export interface OpenRouterCitation {
 
 /**
  * Chat completions — text và/hoặc vision (base64 images).
- * Chuỗi fallback 3 tầng:
- *   1. Model chính qua OpenRouter
- *   2. getFallbackModel() qua OpenRouter (mặc định qwen/qwen3.6-flash)
- *   3. FreeLLM server tự host (FREELLM_API_URL) nếu được cấu hình
+ * Model LLM được pin theo chính sách ứng dụng; retry giữ cùng GPT-6 Luna.
+ * Không chuyển qua model khác hoặc FreeLLM sau lỗi.
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
-  const { model, temperature = 0.7, jsonMode, responseSchema, maxRetries = 4 } = params;
+  const { temperature = 0.7, jsonMode, responseSchema, maxRetries = 4 } = params;
   const envMaxTokens = Number(process.env.OPENROUTER_MAX_TOKENS);
   const maxTokens = params.maxTokens ?? (Number.isFinite(envMaxTokens) && envMaxTokens > 0 ? envMaxTokens : undefined);
   const apiKey = getApiKey();
-  const freeLlm = getFreeLlmConfig();
-
-  if (params.allowFallback === false && !apiKey) {
-    throw new Error("[OpenRouter] OPENROUTER_API_KEY is required when model fallback is disabled.");
-  }
-  if (!apiKey && !freeLlm) {
+  if (!apiKey) {
     throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
   }
 
-  const mappedModel = mapModelName(model);
+  const mappedModel = ERP_LLM_MODEL;
 
   // Nếu có responseSchema, inject vào system prompt
   let messages = [...params.messages];
@@ -147,39 +160,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   }
   const jsonRequested = Boolean(jsonMode || responseSchema);
 
-  let lastError: any;
-
-  // Tầng 1 + 2: OpenRouter (model chính → model fallback)
-  if (apiKey) {
-    try {
-      return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode, maxTokens);
-    } catch (error: any) {
-      lastError = error;
-      const fallbackModel = params.fallbackModel ? mapModelName(params.fallbackModel) : getFallbackModel();
-
-      if (params.allowFallback !== false && !isNonFallbackableError(error) && fallbackModel !== mappedModel) {
-        console.warn(
-          `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
-        );
-        try {
-          return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, fallbackModel, messages, temperature, jsonRequested, 2, params.webSearch, params.webSearchMode, maxTokens);
-        } catch (fallbackError: any) {
-          lastError = fallbackError;
-        }
-      }
-    }
-  }
-
-  // Tầng 3: FreeLLM server tự host
-  if (freeLlm && params.allowFallback !== false) {
-    console.warn(
-      `[OpenRouter] Fallback tầng 3 → FreeLLM server ${freeLlm.baseUrl} | model=${freeLlm.model}. Lỗi trước đó: ${lastError?.message || lastError || "OpenRouter chưa cấu hình"}`
-    );
-    if (params.webSearch) throw new Error("Fallback AI hiện không hỗ trợ tìm kiếm web.");
-    return await chatWithRetries(freeLlm.baseUrl, freeLlm.apiKey, freeLlm.model, messages, temperature, jsonRequested, 2, false, undefined, maxTokens);
-  }
-
-  throw lastError ?? new Error("[OpenRouter] Chat completions failed with no error details.");
+  return chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode, maxTokens, params.timeoutMs);
 }
 
 async function chatWithRetries(
@@ -193,11 +174,12 @@ async function chatWithRetries(
   webSearch = false,
   webSearchMode: OpenRouterChatParams["webSearchMode"] = "deep",
   maxTokens?: number,
+  timeoutMs = 40_000,
 ): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const body: Record<string, any> = {
     model,
     messages,
-    temperature,
+    ...llmSamplingParameters(model, temperature),
   };
   if (Number.isFinite(maxTokens) && (maxTokens as number) > 0) body.max_tokens = Math.floor(maxTokens as number);
 
@@ -227,20 +209,27 @@ async function chatWithRetries(
       const startTime = Date.now();
       console.log(`[OpenRouter] POST ${baseUrl}/chat/completions | model=${model} | attempt=${attempt}`);
 
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: buildHeaders(apiKey),
-        body: JSON.stringify(body),
+      await assertAssistantExecutionActive();
+      const data = await withAssistantRequestControl(timeoutMs, async signal => {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: buildHeaders(apiKey),
+          body: JSON.stringify(body),
+          signal,
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          const paymentRequired = response.status === 402 ? logPaymentRequiredDetails(response, errText) : undefined;
+          const err = new Error(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `OpenRouter API lỗi ${response.status}: ${errText}`) as any;
+          err.status = response.status;
+          err.providerLimitSource = paymentRequired?.limitSource;
+          err.retryAfter = paymentRequired?.retryAfter;
+          throw err;
+        }
+
+        return (await response.json()) as any;
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        const err = new Error(response.status === 402 ? AI_PROVIDER_TEMPORARY_ERROR : `OpenRouter API lỗi ${response.status}: ${errText}`) as any;
-        err.status = response.status;
-        throw err;
-      }
-
-      const data = (await response.json()) as any;
       const message = data.choices?.[0]?.message;
       const text: string = typeof message?.content === "string" ? message.content : "";
       const parseCitation = (citation: any): OpenRouterCitation | null => {
@@ -290,17 +279,27 @@ async function chatWithRetries(
       console.log(`[OpenRouter] Success | model=${data.model || model} | ${elapsed}ms | len=${text.length}`);
       return { text, ...(citations.length ? { citations } : {}) };
     } catch (error: any) {
+      await assertAssistantExecutionActive();
       lastError = error;
       const status = error?.status ?? 0;
       const msg = error?.message || String(error);
+      const inFlightBudgetExceeded = status === 402 && error?.providerLimitSource === "openrouter_in_flight_budget";
       const isRetryable =
         status === 429 || status === 503 || status === 502 ||
+        inFlightBudgetExceeded ||
         msg.includes("RESOURCE_EXHAUSTED") || msg.includes("fetch failed") ||
         msg.includes("ECONNRESET") || msg.includes("ETIMEDOUT");
 
       if (isRetryable && attempt < maxRetries) {
-        console.warn(`[OpenRouter] Attempt ${attempt} failed, retrying in ${delay}ms... Error: ${msg}`);
-        await new Promise((r) => setTimeout(r, delay));
+        const retryDelay = inFlightBudgetExceeded ? retryAfterDelayMs(error?.retryAfter, delay) : delay;
+        console.warn(`[OpenRouter] Attempt ${attempt} failed, retrying in ${retryDelay}ms... Error: ${msg}`);
+        await withAssistantRequestControl(retryDelay + 100, signal => new Promise<void>((resolve, reject) => {
+          const done = () => { signal?.removeEventListener("abort", abort); resolve(); };
+          const timer = setTimeout(done, retryDelay);
+          const abort = () => { clearTimeout(timer); reject(signal?.reason); };
+          signal?.addEventListener("abort", abort, { once: true });
+          if (signal?.aborted) abort();
+        }));
         delay *= 2;
       } else {
         break;

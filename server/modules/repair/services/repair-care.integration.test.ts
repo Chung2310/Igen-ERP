@@ -31,4 +31,27 @@ describe("CSKH theo phiếu sửa chữa", () => {
     await expect(addRepairCareMessage(scope, ticketId, { ...input, body: "Nội dung khác" }, actor)).rejects.toMatchObject({ code: "REPAIR_CARE_KEY_REUSED" });
     await expect(repairCareForTicket({ ...scope, branchId: "other" }, ticketId)).rejects.toMatchObject({ code: "REPAIR_TICKET_NOT_FOUND" });
   });
+
+  it("keeps the latest 500 care events in chronological display order", async () => {
+    const base = Date.now() - 600_000;
+    await RepairCareEventModel.insertMany(Array.from({ length: 501 }, (_, index) => ({
+      ...scope,
+      ticketId,
+      customerId: "customer-1",
+      idempotencyKey: `history-${index}`,
+      type: "message",
+      channel: "phone",
+      direction: "incoming",
+      body: `Trao đổi ${index}`,
+      actorId: actor.id,
+      actorName: actor.name,
+      createdAt: new Date(base + index * 1000),
+    })));
+
+    const care = await repairCareForTicket(scope, ticketId);
+
+    expect(care.events).toHaveLength(500);
+    expect(care.events[0].body).toBe("Trao đổi 1");
+    expect(care.events.at(-1)?.body).toBe("Trao đổi 500");
+  });
 });

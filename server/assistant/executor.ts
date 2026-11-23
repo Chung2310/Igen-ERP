@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { observeAssistantOperation } from "./call-observer";
+import { businessCallFetch, withBusinessOperation } from "./business-call-gate";
 import { normalizeBusinessResult } from "./business-result";
 import { AssistantApiRejection } from "./api-rejection";
 import type { AuthenticatedRequest } from "../middleware/auth";
@@ -283,6 +285,9 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  return observeAssistantOperation(() => withBusinessOperation(() => callOperationUnobserved(req, op, input, password, requestId)));
+}
+async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
   if (op.unavailableReason) throw new AssistantError(op.unavailableReason, 409);
   if (op.id === "student.batch.attendance.summary") {
     const detail = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "student.batch.detail")!;
@@ -488,6 +493,44 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       const item = Array.isArray(count?.data?.items) ? count.data.items.find((entry: any) => String(entry?._id || entry?.id || "") === String(input.path_itemId || "")) : undefined;
       if (!item) throw new AssistantError("Không tìm thấy dòng SKU trong phiếu đã chọn; chưa cập nhật.", 404);
       if (["serial", "unit_barcode"].includes(String(item.trackingMode || ""))) throw new AssistantError(`SKU ${String(item.sku || "đã chọn")} phải đếm bằng cách quét mã nội bộ/IMEI từng máy.`);
+    }
+  }
+  if (op.id === "inventory.count.approve") {
+    const detailOp = operationById("inventory.count.detail");
+    if (!detailOp) throw new AssistantError("Không tìm thấy thao tác đọc phiếu kiểm kê; chưa phê duyệt.");
+    const branch = input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch };
+    const response = await callOperation(req, detailOp, { path_id: String(input.path_id || ""), ...branch });
+    const count = response?.data && typeof response.data === "object" ? response.data : {};
+    const items = Array.isArray(count.items) ? count.items : [];
+    const missingUnits = items.reduce((total: number, item: any) => {
+      if (!["serial", "unit_barcode"].includes(String(item.trackingMode || ""))) return total;
+      const scanned = new Set((Array.isArray(item.scannedUnitIds) ? item.scannedUnitIds : []).map(String));
+      return total + (Array.isArray(item.expectedUnits) ? item.expectedUnits.filter((unit: any) => !scanned.has(String(unit.serialUnitId))).length : 0);
+    }, 0);
+    if (items.some((item: any) => !Number.isFinite(Number(item.quantityDelta)))) {
+      throw new AssistantError("Không đọc được chênh lệch trên phiếu kiểm kê; chưa phê duyệt để tránh cập nhật sai tồn kho.");
+    }
+    const hasDiscrepancy = missingUnits > 0 || items.some((item: any) => Number(item.quantityDelta) !== 0);
+    const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+    if (hasDiscrepancy && input.discrepancyConfirmed !== true) {
+      const lines = items.filter((item: any) => Number(item.quantityDelta) !== 0)
+        .slice(0, 8).map((item: any) => `${String(item.sku || "SKU")} lệch ${Number(item.quantityDelta) > 0 ? "+" : ""}${Number(item.quantityDelta)}`);
+      throw new AssistantError(`Phiếu ${String(count.countCode || "đã chọn")} có chênh lệch${lines.length ? `: ${lines.join(", ")}` : ""}${missingUnits ? `; còn ${missingUnits} máy chưa quét thấy` : ""}. Hãy xác nhận đã kiểm tra và nêu lý do trước khi phê duyệt.`);
+    }
+    if (hasDiscrepancy && !reason) throw new AssistantError("Cần nêu lý do chấp nhận chênh lệch trước khi phê duyệt kiểm kê.");
+    const unexpected = Array.isArray(count.unexpectedScans) ? count.unexpectedScans : [];
+    let resolutions: any[] = Array.isArray(input.unexpectedScanResolutions) ? input.unexpectedScanResolutions : [];
+    if (typeof input.unexpectedScanResolutions === "string") {
+      try {
+        const parsed = JSON.parse(input.unexpectedScanResolutions);
+        if (Array.isArray(parsed)) resolutions = parsed;
+      } catch { /* Shared structured-field validation returns the user-facing JSON error below. */ }
+    }
+    const resolvedCodes = new Set(resolutions.filter((entry: any) => entry && typeof entry.code === "string" && typeof entry.reason === "string" && entry.reason.trim()).map((entry: any) => entry.code));
+    const unresolved = unexpected.filter((scan: any) => !resolvedCodes.has(String(scan.code || "")));
+    if (unresolved.length) {
+      const examples = unresolved.slice(0, 8).map((scan: any) => `${String(scan.code || "mã chưa rõ")}${scan.sku ? ` (${String(scan.sku)})` : ""}`);
+      throw new AssistantError(`Cần ghi kết quả đối chiếu cho ${unresolved.length} mã ngoài dự kiến${examples.length ? `: ${examples.join(", ")}` : ""}${unresolved.length > examples.length ? ` và ${unresolved.length - examples.length} mã khác` : ""}. Nêu mã cùng lý do xử lý cho từng mã rồi gửi lại.`);
     }
   }
   if (op.path === "/student-quality/batches/:batchId/students/:studentId/mini-tests" && Number(input.score) > Number(input.maxScore)) {
@@ -1017,6 +1060,13 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     delete body.shiftSelector;
   }
   if (op.contextBody?.includes("idempotencyKey")) { if (!requestId) throw new AssistantError("Thiếu mã yêu cầu để bảo vệ thao tác trùng."); body.idempotencyKey = requestId; }
+  if (op.id === "retail.order.quote") {
+    // Unlike checkout, the quote endpoint receives order fields at the root.
+    const orderInput = body.input;
+    if (!orderInput || typeof orderInput !== "object" || Array.isArray(orderInput)) throw new AssistantError("Chưa có thông tin đơn hàng để tính giá.");
+    delete body.input;
+    Object.assign(body, orderInput);
+  }
   for (const key of op.contextBody || []) if (key !== "idempotencyKey") {
     if (!requestId) throw new AssistantError("Thiếu mã yêu cầu để bảo vệ thao tác trùng.");
     body[key] = requestId;
@@ -1135,8 +1185,9 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   let response: globalThis.Response;
   try {
-    response = await fetch(url, { method: op.method, headers, redirect: "error", signal: AbortSignal.timeout(45_000), ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
-  } catch {
+    response = await businessCallFetch(req, op, input, url, { method: op.method, headers, redirect: "error", ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
+  } catch (error) {
+    if (error instanceof AssistantError) throw error;
     if (op.method !== "GET" && !op.readOnly) throw new UncertainExecutionError("Chưa xác định được thao tác đã hoàn tất hay chưa. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; hệ thống sẽ không tự chạy lại.");
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
@@ -3457,9 +3508,12 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     "finance.treasury.periods.list": "periods",
   };
   const treasuryCollection = treasuryCollectionByOperation[op.id];
-  const items = treasuryCollection && Array.isArray(responseData?.[treasuryCollection])
+  const treasuryItems = treasuryCollection && Array.isArray(responseData?.[treasuryCollection])
     ? responseData[treasuryCollection].filter((item: any) => item && typeof item === "object")
     : rawRecords(sourceData);
+  const items = op.id === "finance.treasury.bank-lines.list"
+    ? treasuryItems.filter((item: any) => !item.voucherId)
+    : treasuryItems;
   const companyWideCategoryOperation = op.id.startsWith("category.") || op.id === "hr.workflow.list";
   return items.filter((item: any) => (!item.companyCode || item.companyCode === req.user?.companyCode)
     && (companyWideCategoryOperation || !req.user?.branchId || !item.branchId || String(item.branchId) === req.user.branchId
@@ -3471,6 +3525,9 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     // Contracts may refer to Mongo's _id while projection exposes id for lookup.
     // Preserve the alias privately so selecting the displayed option can resolve it.
     if (safe.id) Object.defineProperty(safe, "_id", { value: safe.id, enumerable: false });
+    if (op.module === "finance" && Number.isSafeInteger(item.version) && item.version >= 0) {
+      Object.defineProperty(safe, "version", { value: item.version, enumerable: false });
+    }
     if (op.id === "chat.room.members.list" && ["admin", "deputy", "member"].includes(String(item.role))) {
       Object.defineProperty(safe, "role", { value: item.role, enumerable: false });
     }
@@ -3527,6 +3584,9 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       const value = item[field];
       if (["string", "boolean", "number"].includes(typeof value)) safe[field] = value;
       else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[field] = value.toISOString();
+    }
+    if (op.id === "inventory.count.list" && Number.isSafeInteger(item.version) && item.version >= 0) {
+      Object.defineProperty(safe, "__assistantRefVersion", { value: item.version, enumerable: false });
     }
     if (op.id === "student.assignment.submissions.list" && typeof item.studentId === "string") {
       Object.defineProperty(safe, "studentId", { value: item.studentId, enumerable: false });
@@ -3620,6 +3680,14 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     }
     if (op.id === "recruitment.pipeline.get" && typeof item.id === "string") safe.id = item.id;
     if (op.id === "retail.partner.list" && Array.isArray(item.roles) && typeof item.roles[0] === "string") safe.role = item.roles[0];
+    if (op.id === "retail.order.list" && item.status === "draft" && Number.isInteger(item.heldSlot) && item.heldSlot > 0) {
+      Object.defineProperty(safe, "__assistantHeldSlot", { value: item.heldSlot, enumerable: false });
+      // Held slots are unique per creator, not per branch. Use the public
+      // creator name to distinguish cashiers without exposing their IDs.
+      if (typeof item.createdByName === "string" && item.createdByName.trim()) {
+        Object.defineProperty(safe, "__assistantDraftCreatorName", { value: item.createdByName.trim(), enumerable: false });
+      }
+    }
     // Keep branch scope internally so name resolution can disambiguate records;
     // response redaction and list rendering remove this internal field.
     if (!companyWideCategoryOperation && typeof item.branchId === "string") safe.branchId = item.branchId;
@@ -3641,6 +3709,9 @@ function referenceValues(record: Record<string, any>) {
   return [record.id, record._id, record.uid, record.studentId, record.installmentNo, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.amountDue, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
 }
 function referenceLabel(record: Record<string, any>) {
+  if (record.status === "draft" && !record.orderCode && typeof record.grandTotal === "number") {
+    return `Đơn nháp · ${new Intl.NumberFormat("vi-VN").format(record.grandTotal)} ₫${record.customerName ? ` · ${record.customerName}` : ""}`;
+  }
   if ((record.config || record.partnerId !== undefined) && record.effectiveAt && typeof record.effectiveAt === "string") {
     return `${record.partnerName || (record.partnerId ? "Chính sách đối tác" : "Chính sách chung")} — áp dụng ${formatAssistantTemporalValue(record.effectiveAt) || record.effectiveAt}`;
   }
@@ -3888,7 +3959,9 @@ function referenceLabel(record: Record<string, any>) {
   return parts.join(" — ");
 }
 const referenceOptionDisambiguators = [
-  { label: "mã", keys: ["code", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
+  { label: "ô giữ đơn", keys: ["__assistantHeldSlot"] },
+  { label: "người tạo", keys: ["__assistantDraftCreatorName"] },
+  { label: "mã", keys: ["code", "productCode", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
   { label: "SĐT", keys: ["__assistantReferencePhone", "phone", "studentPhone"] },
   { label: "email", keys: ["email"] },
   { label: "phòng ban", keys: ["departmentName", "department"] },
@@ -3897,10 +3970,14 @@ const referenceOptionDisambiguators = [
   { label: "trạng thái", keys: ["status"] },
 ] as const;
 function referenceDisambiguatorValues(record: Record<string, any>) {
-  return referenceOptionDisambiguators.flatMap(({ label, keys }) => {
+  const values: { label: string; value: string }[] = referenceOptionDisambiguators.flatMap(({ label, keys }) => {
     const value = keys.map(key => record[key]).find(candidate => typeof candidate === "string" && candidate.trim());
     return typeof value === "string" ? [{ label, value: value.trim() }] : [];
   });
+  if (record.status === "draft" && Number.isInteger(record.__assistantHeldSlot)) {
+    values.push({ label: "ô giữ đơn", value: String(record.__assistantHeldSlot) });
+  }
+  return values;
 }
 function referenceOptionLabel(record: Record<string, any>, records: Record<string, any>[]) {
   const label = referenceLabel(record);
@@ -4130,6 +4207,13 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
   }
   let result = await callOperation(req, op, input);
   let records = projectRecords(op, result, req, input);
+  // Draft labels are composed locally (amount and held slot), not searchable
+  // order codes. Preserve the scope and let reference matching resolve them.
+  if (op.id === "retail.order.list" && !records.length && search && !searchByInternalId && searchField) {
+    const retryInput = { ...input, search: "", [searchField.key]: "" };
+    result = await callOperation(req, op, retryInput);
+    records = projectRecords(op, result, req, retryInput);
+  }
   if (["department.list", "hr.workflow.list"].includes(op.id) && !records.some(record => matchesReference(record, search))) {
     const prefix = op.id === "department.list" ? /^(?:phòng ban|phong ban|phòng|phong|ban)\s+/iu : /^(?:quy trình|quy trinh)\s+/iu;
     const shortName = search.replace(prefix, "").trim();
@@ -4394,6 +4478,13 @@ async function lookupReferenceCandidates(
   context: Record<string, AssistantValue>,
 ) {
   const normalizedSearch = field.reference === "batch.list" ? normalizeBatchClassSearch(search) : search.trim();
+  if (ownerOperation.id === "retail.order.cancel" && field.reference === "retail.order.list") {
+    // The retail list separates held drafts from posted sales. Cancellation
+    // supports both, so search both within the same authorized branch.
+    const groups = await Promise.all([false, true].map(query_heldOnly =>
+      lookupRecords(req, field.reference!, normalizedSearch, { ...context, query_heldOnly })));
+    return [...new Map(groups.flat().map(record => [String(record.id || record._id), record])).values()];
+  }
   if (ownerOperation.id.startsWith("recruitment.interview.") && field.source === "path"
     && field.reference === "recruitment.interview.list" && normalizedSearch && !isRecordIdentifier(normalizedSearch)) {
     const applicantList = operationById("recruitment.applicant.list");
@@ -4707,6 +4798,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     if (op.id === "inventory.serial.transfer.local" && field.key === "toWarehouseId") {
       candidates = candidates.filter(row => row.isActive === true && row.kind !== "transit");
     }
+    if (op.id === "inventory.count.approve" && field.apiKey === "id") candidates = candidates.filter(row => row.status === "pending_approval");
+    if (op.id === "inventory.count.recreate" && field.apiKey === "id") candidates = candidates.filter(row => row.status === "conflict");
     if (op.id === "resource.google-drive.move" && field.apiKey === "fileId") candidates = candidates.filter(candidate => candidate.mimeType !== "application/vnd.google-apps.folder");
     if (op.id === "resource.google-drive.move" && field.apiKey === "newParentId") candidates = candidates.filter(candidate => candidate.mimeType === "application/vnd.google-apps.folder");
     const confirmingReferral = op.method === "POST" && op.path.endsWith("/referrals/:referralId/confirm") && field.source === "path" && field.apiKey === "referralId";
@@ -5268,6 +5361,10 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         resolved.expectedVersion = version;
         labels.expectedVersion = "Phiên bản hiện tại (được lấy tự động)";
       } else errors.push(`${field.label}: không đọc được phiên bản hiện tại; chưa thể ghi thay đổi an toàn.`);
+    } else if (needsExpectedVersion && values.__assistantPinnedVersion === true) {
+      const version = Number(record.version ?? record.__assistantRef?.version ?? record.__assistantRefVersion ?? record.__v);
+      if (!Number.isSafeInteger(version) || version < 0) errors.push(`${field.label}: không đọc được phiên bản hiện tại; chưa thể ghi thay đổi an toàn.`);
+      else if (Number(values.expectedVersion) !== version) errors.push("Phiếu kiểm kê đã thay đổi sau khi bạn xem bản xác nhận. Hãy gửi lại yêu cầu để kiểm tra chênh lệch mới.");
     }
     if (needsExpectedRevision && resolved.expectedRevision === undefined) {
       const revision = Number(record.revision ?? record.__assistantRef?.revision);
@@ -5636,6 +5733,22 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         else {
           const version = Number(order.version);
           if (op.id === "retail.order.draft.update") {
+            // A partial edit still uses the API's full replacement contract.
+            // Hydrate from current persisted input fields, not calculated line totals.
+            resolved.__assistantExistingRecord = JSON.stringify({
+              ...order,
+              items: (Array.isArray(order.items) ? order.items : []).map((item: any) => ({
+                productId: item.productId || item.variantId, quantity: item.quantity,
+                discount: item.discount || { type: "amount", value: Number(item.discountAmount || 0) },
+                ...(item.serialNumbers ? { serialNumbers: item.serialNumbers } : {}),
+                ...(item.internalBarcodes ? { internalBarcodes: item.internalBarcodes } : {}),
+                ...(item.note ? { note: item.note } : {}),
+              })),
+              orderDiscount: typeof order.orderDiscount === "object" && order.orderDiscount
+                ? order.orderDiscount : { type: "amount", value: Number(order.manualOrderDiscount ?? order.orderDiscount ?? 0) },
+              manualOrderDiscount: typeof order.manualOrderDiscount === "object" && order.manualOrderDiscount
+                ? order.manualOrderDiscount : { type: "amount", value: Number(order.manualOrderDiscount || 0) },
+            });
             resolved.version = version;
             labels.version = `Phiên bản hiện tại của ${String(order.orderCode || "đơn nháp")}`;
           } else {
@@ -5649,7 +5762,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
                 : { type: "amount", value: Number(storedDiscount || 0) };
               const orderInput = {
                 items: (Array.isArray(order.items) ? order.items : []).map((item: any) => ({
-                  productId: item.productId || item.variantId, quantity: item.quantity, discount: item.discount,
+                  productId: item.productId || item.variantId, quantity: item.quantity,
+                  discount: item.discount || { type: "amount", value: Number(item.discountAmount || 0) },
                   serialNumbers: item.serialNumbers, internalBarcodes: item.internalBarcodes, note: item.note,
                 })),
                 customerId: order.customerId, billingProfileId: order.billingProfileId, taxRate: order.taxRate,
@@ -5657,7 +5771,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
                 pointsToRedeem: order.pointsToRedeem, dueDate: order.dueDate, installment: order.installment,
               };
               const [quoteResult, shiftResult] = await Promise.all([
-                callOperation(req, quoteOp, { ...branchValues, input: JSON.stringify(orderInput) }),
+                callOperation(req, quoteOp, { ...branchValues, input: JSON.stringify(orderInput, (_key, value) => value === null ? undefined : value) }),
                 callOperation(req, shiftOp, branchValues),
               ]);
               const total = Number(quoteResult?.data?.grandTotal);
@@ -5685,8 +5799,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
             }
           }
         }
-      } catch {
-        errors.push("Không thể kiểm tra đơn nháp, giá hiện tại và ca POS; chưa xác nhận đơn.");
+      } catch (error) {
+        errors.push(error instanceof AssistantError ? error.message : "Không thể kiểm tra đơn nháp, giá hiện tại và ca POS; chưa xác nhận đơn.");
       }
     }
   }

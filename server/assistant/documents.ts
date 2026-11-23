@@ -1,8 +1,11 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { randomUUID } from "node:crypto";
 import Joi from "joi";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantReply } from "../../src/shared/assistant-workflow";
 import { assistantDocumentFormats, type AssistantDocumentFormat, type AssistantGeneratedFile } from "../../src/shared/assistant-document";
+import { gymScope } from "../modules/gym/access";
+import { searchKnowledge } from "../modules/gym/knowledge-index";
 import { openrouterChat } from "../service/openrouter.service";
 import { AssistantDocumentModel } from "./models";
 import { actorScope } from "./workflows";
@@ -185,15 +188,26 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
   if (!input.pendingDocumentRequest && !isAssistantDocumentRequest(input.question, hasSourceDocument)) {
     const refersToDocument = filePattern.test(prompt) || /\b(?:bang nay|cot|sheet|vua tao|ban truoc)\b/.test(prompt);
     const stored = source && refersToDocument ? await AssistantDocumentModel.findOne({ ...scope, documentId: source.documentId, version: source.version }).select("+content").lean() : null;
+    const currentGoldPrices = shouldAutoResearchGoldPrices(input.question, input.messages);
+    let gymKnowledgeHits: Awaited<ReturnType<typeof searchKnowledge>> = [];
+    if (!currentGoldPrices) {
+      try {
+        const actor = await gymScope(req);
+        const rawHits = await searchKnowledge(actor, input.question, 5);
+        gymKnowledgeHits = rawHits.filter(hit => hit.score >= 0.25);
+      } catch {
+        // User has no gym branch context or knowledge index is unavailable; continue normally.
+      }
+    }
     const answerInput = {
       ...input,
       ...(!input.documentContext && stored ? { documentContext: { title: stored.title, version: stored.version, content: stored.content } } : {}),
+      ...(gymKnowledgeHits.length ? { gymKnowledgeHits } : {}),
     };
-    if (input.documentContext || input.visualAttachments?.length) {
+    if (input.documentContext || input.visualAttachments?.length || gymKnowledgeHits.length > 0) {
       const reply: AssistantReply = { status: "completed", reply: await answerAssistantGeneralQuestion(answerInput) };
       return addRecommendedIllustration(answerInput, reply);
     }
-    const currentGoldPrices = shouldAutoResearchGoldPrices(input.question, input.messages);
     const mode = currentGoldPrices ? "gold-prices" : "deep";
     const reply: AssistantReply = { status: "completed", ...await answerAssistantResearchQuestion(answerInput, mode) };
     return addRecommendedIllustration(answerInput, reply);
@@ -222,7 +236,7 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
       });
       const result = await Promise.race([
         openrouterChat({
-          model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+          model: ERP_LLM_MODEL,
           temperature: 0.2, jsonMode: true, maxRetries: 3,
           messages: [
             { role: "system", content: `Bạn soạn tài liệu theo yêu cầu trong cuộc trò chuyện tiếng Việt. Chỉ trả JSON có đúng các khóa: reply (lời nhắn ngắn), sourceDocumentId (null khi tạo mới; UUID trong danh sách khi chỉnh sửa/đổi định dạng), formats (mảng định dạng xlsx,csv,docx,pdf,txt,md,json), document.

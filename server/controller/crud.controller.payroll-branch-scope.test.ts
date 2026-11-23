@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   timekeepingFindOne: vi.fn(),
   attendanceFindOne: vi.fn(),
   payrollFindOne: vi.fn(),
+  periodMutation: vi.fn(),
 }));
 
 vi.mock("../service/crud.service", () => ({
@@ -18,6 +19,9 @@ vi.mock("../model/attendance-period-result.model", () => ({
 }));
 vi.mock("../model/payroll-run.model", () => ({
   PayrollRunModel: { findOne: mocks.payrollFindOne },
+}));
+vi.mock("../service/attendance-period-mutation.service", () => ({
+  runAttendancePeriodMutation: mocks.periodMutation,
 }));
 
 import { crudController } from "./crud.controller";
@@ -46,6 +50,7 @@ describe("crudController payroll period guard branch scope", () => {
     });
     mocks.attendanceFindOne.mockImplementation((filter) => branchSensitiveQuery(filter, { _id: "branch-b-result" }));
     mocks.payrollFindOne.mockImplementation((filter) => branchSensitiveQuery(filter, { _id: "branch-b-run" }));
+    mocks.periodMutation.mockImplementation((_scope, _periodKey, operation) => operation(undefined));
   });
 
   it("does not let another branch or a supplemental run block a timekeeping edit", async () => {

@@ -13,12 +13,13 @@ const accentPalettes = {
 } as const;
 
 const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
+  "GYM": "orange",
   "BÁO GIÁ": "teal", "TỔNG QUAN": "blue", "TRỢ LÝ AI": "blue", "NHÂN SỰ": "coral", "ĐỐI TÁC LAO ĐỘNG": "orange",
   "ĐỐI TÁC": "violet", "KHO & SẢN PHẨM": "teal", "SỬA CHỮA & BẢO HÀNH": "orange",
   "QUẢN LÝ HỌC VIÊN": "blue", "QUẢN LÝ LAO ĐỘNG": "teal", "QUẢN LÝ Y TẾ": "teal",
   "QUẢN LÝ KHÁCH HÀNG": "coral", "BÁN LẺ": "orange",
   "ĐỐI TÁC BÁN LẺ": "teal", "TÀI CHÍNH": "blue",
-  "TRỢ LÝ KIẾN TRÚC": "orange",
+  "TRỢ LÝ KIẾN TRÚC": "blue",
   "OMNI INBOX": "violet",
   "MARKETING": "orange", "KHO TRI THỨC": "teal",
   "TÍCH HỢP MARKETING": "blue", "GÓI AI & LƯỢT SỬ DỤNG": "violet",
@@ -35,8 +36,33 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
   };
   let art: ReactNode;
   switch (module) {
+    case "GYM":
+      art = (
+        <g transform="rotate(-35 24 24)">
+          <rect x="14" y="21" width="20" height="6" rx="2" fill={a.gold} />
+          <path d="M18 24h12" stroke={a.white} strokeWidth="1.8" strokeLinecap="round" opacity=".75" />
+          <rect x="9.5" y="10.5" width="6" height="27" rx="3" fill={a.blue} />
+          <rect x="3.5" y="14.5" width="5" height="19" rx="2.5" fill={a.mint} />
+          <rect x="1.5" y="21" width="2.5" height="6" rx="1.2" fill={a.coral} />
+          <rect x="32.5" y="10.5" width="6" height="27" rx="3" fill={a.blue} />
+          <rect x="39.5" y="14.5" width="5" height="19" rx="2.5" fill={a.mint} />
+          <rect x="44" y="21" width="2.5" height="6" rx="1.2" fill={a.coral} />
+        </g>
+      ); break;
     case "TRỢ LÝ KIẾN TRÚC":
-      art = <><rect x="8" y="5" width="32" height="38" rx="4" fill={a.blue}/><path d="M13 12h17M13 16h11" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><path d="M13 23h9v7h-9zm11 0h11v13H24zm-11 9h9v4h-9z" fill={a.mint}/><path d="M14 22h9v8m0-8v-5h6l7 5v14" fill="none" stroke={a.coral} strokeWidth="2" strokeLinejoin="round"/><path d="M27 29h4v7h-4z" fill={a.gold}/><path d="m31 14 7-7 4 4-7 7-5 1z" fill={a.coral}/><path d="m31 14 4 4m-5 1 2-2" stroke={a.gold} strokeWidth="1.5" strokeLinecap="round"/></>; break;
+      art = (
+        <>
+          <path d="M7 40V10l30 30H7Z" fill={a.gold} />
+          <path d="M13 34V22l12 12H13Z" fill={a.white} />
+          <path d="M7 18h3M7 24h2.4M7 30h3M15 40v-3M21 40v-2.4M27 40v-3" stroke={a.white} strokeWidth="1.8" strokeLinecap="round" />
+          <g transform="rotate(-40 26 24)">
+            <rect x="23" y="18" width="6" height="23" rx="3" fill={a.coral} />
+            <rect x="24.5" y="21" width="1.6" height="16" rx="0.8" fill={a.mint} opacity=".55" />
+            <path d="M14 9.5h19c2.6 0 5 1.3 6.4 3.4l-3.3 2.3c-.8-.9-1.9-1.4-3.1-1.4H29v4.8a1.6 1.6 0 0 1-1.6 1.6h-2.8a1.6 1.6 0 0 1-1.6-1.6v-4.8h-4.5v1.6a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 0 1-2-2v-3.4a2 2 0 0 1 2-2Z" fill={a.blue} />
+            <rect x="23" y="18" width="6" height="2.6" rx="1" fill={a.mint} />
+          </g>
+        </>
+      ); break;
     case "TỔNG QUAN":
       art = <><path d="M7 36V25h8v11z" fill={a.mint}/><path d="M18 36V17h8v19z" fill={a.blue}/><path d="M29 36V10h8v26z" fill={a.gold}/><path d="M6 39h33" stroke={a.white} strokeWidth="3" strokeLinecap="round"/><circle cx="33" cy="10" r="4" fill={a.coral}/></>; break;
     case "TRỢ LÝ AI":

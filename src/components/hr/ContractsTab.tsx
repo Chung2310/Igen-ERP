@@ -721,13 +721,13 @@ export default function ContractsTab({
                         <td className="px-4 py-3 text-center tabular-nums">
                           <div>{date(c.endDate)}</div>
                           {expiringSoon && (
-                            <span className="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-normal text-amber-700">
+                            <span className="mt-1 inline-block rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[10px] font-semibold text-white">
                               Sắp hết hạn · Còn {remainingDays} ngày
                             </span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <HrStatusBadge tone={statusTone[c.status]}>{statusLabel[c.status]}</HrStatusBadge>
+                          <HrStatusBadge variant="hr" tone={statusTone[c.status]}>{statusLabel[c.status]}</HrStatusBadge>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {c.contractFileUrl && (

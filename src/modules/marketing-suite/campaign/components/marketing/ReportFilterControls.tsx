@@ -57,7 +57,12 @@ export default function ReportFilterControls({
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
+  const [yearText, setYearText] = useState(() => String(new Date().getFullYear()));
   const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useEffect(() => {
+    setYearText(String(visibleMonth.getFullYear()));
+  }, [visibleMonth]);
   const anchors = useRef<Record<FilterKey, HTMLButtonElement | null>>({ campaign: null, platform: null, from: null, to: null });
   const popoverRef = useRef<HTMLDivElement>(null);
   const focusedFilter = useRef<FilterKey | null>(null);
@@ -198,9 +203,38 @@ export default function ReportFilterControls({
         >
           {isDateOpen ? (
             <div className="p-2">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm capitalize text-slate-800">{monthLabel}</span>
-                <div className="flex gap-1">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="sr-only">{monthLabel}</span>
+                <span aria-hidden="true" className="text-sm capitalize text-slate-800">{new Intl.DateTimeFormat("vi-VN", { month: "long" }).format(visibleMonth)}</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="Nhập năm"
+                    placeholder="Năm"
+                    value={yearText}
+                    maxLength={4}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      const next = event.target.value.replace(/\D/g, "").slice(0, 4);
+                      setYearText(next);
+                      if (next.length === 4 && Number(next) >= 1000) {
+                        setVisibleMonth((current) => new Date(Number(next), current.getMonth(), 1));
+                      }
+                    }}
+                    onBlur={() => setYearText(String(visibleMonth.getFullYear()))}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (yearText.length === 4 && Number(yearText) >= 1000) {
+                          setVisibleMonth((current) => new Date(Number(yearText), current.getMonth(), 1));
+                        } else {
+                          setYearText(String(visibleMonth.getFullYear()));
+                        }
+                      }
+                    }}
+                    className="h-7 w-16 rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-medium tabular-nums text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
                   <button type="button" aria-label="Tháng trước" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-sky-600"><ChevronLeft size={17} /></button>
                   <button type="button" aria-label="Tháng sau" onClick={() => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-sky-600"><ChevronRight size={17} /></button>
                 </div>

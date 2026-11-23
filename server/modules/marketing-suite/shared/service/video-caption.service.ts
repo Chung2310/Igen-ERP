@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 import { randomUUID } from "crypto";
 import { allocateCaptionVersion, discardCaptionVersion } from "./video-caption-version";
 import mongoose from "mongoose";
@@ -1309,8 +1310,7 @@ export const videoCaptionService = {
       contextBrief: project.contextBrief,
       contextLinks: project.contextLinks,
       model:
-        process.env.VIDEO_CAPTION_CONTEXT_MODEL ||
-        "google/gemini-2.5-flash",
+        ERP_LLM_MODEL,
     });
     const idempotencyKey = buildCaptionJobIdempotencyKey({
       companyCode: project.companyCode,
@@ -1353,8 +1353,7 @@ export const videoCaptionService = {
         maxAttempts: 3,
         provider: "openrouter",
         providerModel:
-          process.env.VIDEO_CAPTION_CONTEXT_MODEL ||
-          "google/gemini-2.5-flash",
+          ERP_LLM_MODEL,
         estimatedCost: estimateDurationCost(
           project.video.durationMs,
           "VIDEO_CAPTION_CONTEXT_COST_PER_MINUTE"

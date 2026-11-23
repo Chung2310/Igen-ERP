@@ -84,6 +84,26 @@ export interface AssistantReferenceSelection {
   multiple: boolean;
   options: { label: string; value: string }[];
 }
+export interface AssistantInputField {
+  key: string;
+  label: string;
+  type: "text" | "email" | "phone" | "date" | "datetime" | "number" | "boolean";
+  required: boolean;
+  value?: AssistantValue;
+  error?: string;
+  min?: number;
+  max?: number;
+  integer?: boolean;
+  pattern?: string;
+}
+export interface AssistantInputForm { id: string; fields: AssistantInputField[]; }
+export interface AssistantFormSubmission {
+  id: string;
+  values: Record<string, AssistantValue>;
+  referenceSelections?: Record<string, string[]>;
+  skipReferenceKeys?: string[];
+}
+export interface AssistantWorkflowSelection { id: string; kind?: "module"; options: { value: string; label: string }[]; }
 export type AssistantTrainingLessonType = "youtube" | "document" | "other" | "text" | "video";
 export interface AssistantTrainingLessonAnswer {
   title: string;
@@ -127,6 +147,8 @@ export interface AssistantReply {
   status: "collecting" | "confirmation" | "completed" | "cancelled" | "unsupported" | "failed" | "processing" | "uncertain";
   action?: { requiresPassword?: boolean; id: string; title: string; values: { label: string; value: AssistantValue; defaulted?: boolean }[] };
   referenceSelections?: AssistantReferenceSelection[];
+  inputForm?: AssistantInputForm;
+  workflowSelection?: AssistantWorkflowSelection;
   trainingContentForm?: AssistantTrainingContentForm;
   quotationAcceptanceForm?: AssistantQuotationAcceptanceForm;
   link?: string;

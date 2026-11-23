@@ -60,7 +60,7 @@ export function PayrollReconciliationConversation({ record, staff = false, onAct
           </span>
         </div>
         {confirmed && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold text-white">
             <CheckCircle2 size={12} /> Đã chốt số liệu
           </span>
         )}
@@ -142,7 +142,7 @@ export function PayrollReconciliationConversation({ record, staff = false, onAct
               {/* Header vấn đề */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-2.5">
                 <div className="flex items-center gap-1.5 font-bold text-on-surface text-xs">
-                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-primary border border-primary/30">
+                  <span className="rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium text-[#555555]">
                     {fieldDef?.label}
                   </span>
                   <span className="text-slate-400">—</span>
@@ -151,11 +151,11 @@ export function PayrollReconciliationConversation({ record, staff = false, onAct
                   </span>
                 </div>
                 {isOpen ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[10px] font-semibold text-white">
                     Chưa hoàn tất
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[10px] font-semibold text-white">
                     <CheckCircle2 size={10} /> Đã xử lý xong
                   </span>
                 )}
@@ -182,8 +182,8 @@ export function PayrollReconciliationConversation({ record, staff = false, onAct
                             {isStaff ? "KT" : "NV"}
                           </span>
                           <span className="font-bold text-on-surface">{message.authorName}</span>
-                          <span className={`rounded px-1.5 py-0.2 text-[10px] font-semibold ${
-                            isStaff ? "bg-primary/15 text-primary" : "bg-slate-200 text-on-surface-variant"
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            isStaff ? "bg-[#D9EDF7] text-[#286090]" : "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]"
                           }`}>
                             {isStaff ? "Kế toán" : "Nhân viên"}
                           </span>

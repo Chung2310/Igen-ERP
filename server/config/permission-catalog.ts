@@ -27,6 +27,7 @@ const feature = (feature: string, label: string, group: string): PermissionFeatu
 });
 
 export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
+  feature("gym", "Gym", "Gym"),
   feature("architect-assistant", "Trợ lý kiến trúc", "Kiến trúc"),
   feature("architect-ai", "AI kiến trúc", "Kiến trúc"),
   feature("quotation", "Báo giá và dự toán", "Báo giá"),

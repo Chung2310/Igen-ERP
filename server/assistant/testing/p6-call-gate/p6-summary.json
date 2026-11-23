@@ -1,0 +1,187 @@
+{
+  "generatedAt": "2026-11-21T05:40:21.071Z",
+  "method": "19 shared synthetic conversation scenarios;31 turns/cohort;nearest-rank;observer ON;gate/C toggled separately",
+  "accounting": "legacy_primary",
+  "approvedReadCap": 24,
+  "verification": {
+    "passedTests": 359,
+    "failedTests": 0
+  },
+  "caveats": [
+    "No real model, network, business API, Redis or MongoDB access;all transport mocked and lower-level I/O guarded.",
+    "Workflow lookups are function calls to a mock,not counts of actual ACL/MongoDB/Redis operations.",
+    "Timing is one synthetic mock run,not production latency or evidence of a speedup.",
+    "Journal prepared/sent marks durable intent;sent does not prove receipt by the remote API."
+  ],
+  "sourceHashes": {
+    "server/assistant/business-call-gate.ts": "cedf4f3fcc927023a622d84bde02aad6e55d10a201f5842a63a401bd0812f499",
+    "server/assistant/execution-control.ts": "a7dc600280a4bd31ca1377b661c4f02f815ee04456367536b072cdcc98dfc7b8",
+    "server/assistant/service.ts": "9419260401e18bca132fda1f220af277af63a1acd0957a62b0fd2620f4e6dd76",
+    "server/assistant/executor.ts": "0e4d21309e5187a9183f82a21e8816fbb2ab7409f2df3c2fafb457804bd257cc",
+    "server/assistant/models.ts": "66be66d6086b0ecbe187ef1659d862c352b0b8d1dd1a56f26c7ae26a9bff0bca",
+    "server/assistant/router.ts": "99909191811c01ff591c770fad5df8e2fccd6829fe1605e3e787cceb81ead6fc",
+    "server/assistant/semantic-interpreter.ts": "47dded69a8f192bd962de61255f70fcf03e688fc23f73f6211597702de9d0d24",
+    "server/service/openrouter.service.ts": "ae7f769e24d135167f0cd6b0f1b3c0c06e4c008569d93c75529f18d653cfdebd",
+    "server/assistant/execution-budget.ts": "440627bceee07157191f6c93d12adb846b96434398d6b59c3e0ea28edf06ecd7"
+  },
+  "cohorts": [
+    {
+      "exactVerify": false,
+      "gate": false,
+      "scenarioCount": 19,
+      "turnCount": 31,
+      "physicalReads": 116,
+      "chargedReads": 23,
+      "perTurn": {
+        "histogram": {
+          "0": 2,
+          "1": 2,
+          "2": 2,
+          "3": 16,
+          "4": 5,
+          "5": 3,
+          "27": 1
+        },
+        "p50": 3,
+        "p95": 5,
+        "max": 27
+      },
+      "journalEntries": 0,
+      "journalPurposes": {
+        "primary": 0,
+        "reference": 0,
+        "verification": 0
+      },
+      "persistenceMock": {
+        "turnCreates": 31,
+        "turnUpdates": 107,
+        "sessionWrites": 102,
+        "callJournalWrites": 0,
+        "callJournalReads": 0,
+        "workflowLookupsMock": 70
+      },
+      "timingMock": {
+        "p50Ms": 5.458700000000135,
+        "p95Ms": 13.692199999999502
+      }
+    },
+    {
+      "exactVerify": false,
+      "gate": true,
+      "scenarioCount": 19,
+      "turnCount": 31,
+      "physicalReads": 116,
+      "chargedReads": 23,
+      "perTurn": {
+        "histogram": {
+          "0": 2,
+          "1": 2,
+          "2": 2,
+          "3": 16,
+          "4": 5,
+          "5": 3,
+          "27": 1
+        },
+        "p50": 3,
+        "p95": 5,
+        "max": 27
+      },
+      "journalEntries": 116,
+      "journalPurposes": {
+        "primary": 23,
+        "reference": 71,
+        "verification": 22
+      },
+      "persistenceMock": {
+        "turnCreates": 31,
+        "turnUpdates": 455,
+        "sessionWrites": 102,
+        "callJournalWrites": 348,
+        "callJournalReads": 29,
+        "workflowLookupsMock": 302
+      },
+      "timingMock": {
+        "p50Ms": 4.76260000000002,
+        "p95Ms": 12.575799999999617
+      }
+    },
+    {
+      "exactVerify": true,
+      "gate": false,
+      "scenarioCount": 19,
+      "turnCount": 31,
+      "physicalReads": 95,
+      "chargedReads": 24,
+      "perTurn": {
+        "histogram": {
+          "0": 2,
+          "1": 3,
+          "2": 7,
+          "3": 15,
+          "5": 3,
+          "18": 1
+        },
+        "p50": 3,
+        "p95": 5,
+        "max": 18
+      },
+      "journalEntries": 0,
+      "journalPurposes": {
+        "primary": 0,
+        "reference": 0,
+        "verification": 0
+      },
+      "persistenceMock": {
+        "turnCreates": 31,
+        "turnUpdates": 110,
+        "sessionWrites": 102,
+        "callJournalWrites": 0,
+        "callJournalReads": 0,
+        "workflowLookupsMock": 70
+      },
+      "timingMock": {
+        "p50Ms": 2.8522000000002663,
+        "p95Ms": 6.712800000000243
+      }
+    },
+    {
+      "exactVerify": true,
+      "gate": true,
+      "scenarioCount": 19,
+      "turnCount": 31,
+      "physicalReads": 95,
+      "chargedReads": 24,
+      "perTurn": {
+        "histogram": {
+          "0": 2,
+          "1": 3,
+          "2": 7,
+          "3": 15,
+          "5": 3,
+          "18": 1
+        },
+        "p50": 3,
+        "p95": 5,
+        "max": 18
+      },
+      "journalEntries": 95,
+      "journalPurposes": {
+        "primary": 24,
+        "reference": 71,
+        "verification": 0
+      },
+      "persistenceMock": {
+        "turnCreates": 31,
+        "turnUpdates": 395,
+        "sessionWrites": 102,
+        "callJournalWrites": 285,
+        "callJournalReads": 29,
+        "workflowLookupsMock": 260
+      },
+      "timingMock": {
+        "p50Ms": 6.03859999999986,
+        "p95Ms": 10.698300000000017
+      }
+    }
+  ]
+}

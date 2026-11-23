@@ -51,6 +51,37 @@ afterEach(() => {
 });
 
 describe("ChatbotWidget welcome", () => {
+  it("submits missing scalar fields and reference choices together without sending prose to the model", async () => {
+    const scope = "missing-info-form-test";
+    localStorage.setItem(`igen_erp_chatbot_mode:${scope}:company`, "work");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [{ role: "assistant", content: "Bạn bổ sung thông tin nhé.", createdAt: new Date().toISOString() }], busy: false, mode: "work", lastReply: {
+      status: "collecting", reply: "Bạn bổ sung thông tin nhé.", inputForm: { id: "draft-token", fields: [{ key: "code", label: "Mã dự án", type: "text", required: true }] },
+      referenceSelections: [{ key: "workerIds", label: "Tên lao động", multiple: true, required: false, options: [{ value: "worker-token", label: "Lê Minh" }] }],
+    } });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "confirmation", reply: "Bạn kiểm tra thông tin nhé." });
+    render(<ChatbotWidget storageScope={scope} mode="standalone" />);
+    fireEvent.change(await screen.findByRole("textbox", { name: /Mã dự án/ }), { target: { value: "VIN20" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lê Minh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(assistantService.turn).mock.calls[0][0]).toMatchObject({ formValues: { id: "draft-token", values: { code: "VIN20" }, referenceSelections: { workerIds: ["worker-token"] }, skipReferenceKeys: [] } });
+    expect(vi.mocked(assistantService.turn).mock.calls[0][0]).not.toHaveProperty("text");
+  });
+  it("submits the opaque server-owned workflow choice", async () => {
+    const scope = "workflow-choice-form-test";
+    localStorage.setItem(`igen_erp_chatbot_mode:${scope}:company`, "work");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [{ role: "assistant", content: "Bạn chọn thao tác nhé.", createdAt: new Date().toISOString() }], busy: false, mode: "work", lastReply: {
+      status: "collecting", reply: "Bạn chọn thao tác nhé.", workflowSelection: { id: "choice-token", options: [{ value: "option-token", label: "Tạo dự án lao động" }] },
+    } });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "collecting", reply: "Bạn bổ sung mã dự án nhé." });
+    render(<ChatbotWidget storageScope={scope} mode="standalone" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Thao tác muốn thực hiện" }));
+    fireEvent.click(screen.getByRole("option", { name: "Tạo dự án lao động" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(assistantService.turn).mock.calls[0][0]).toMatchObject({ workflowSelection: { id: "choice-token", value: "option-token" } });
+    expect(vi.mocked(assistantService.turn).mock.calls[0][0]).not.toHaveProperty("text");
+  });
   it("keeps the Trợ lý AI tab locked in desktop and mobile navigation", () => {
     const { container } = render(<ChatbotWidget storageScope="agents-navigation-test" mode="standalone" />);
     const sidebar = container.querySelector(".assistant-sidebar")!;
@@ -289,17 +320,16 @@ describe("ChatbotWidget welcome", () => {
     render(<ChatbotWidget storageScope="course-selector-test" mode="standalone" />);
 
     const search = await screen.findByRole("searchbox", { name: "Tìm trong danh sách tên hoặc mã khóa học" });
-    expect(screen.getAllByRole("radio")).toHaveLength(12);
+    expect(screen.getByRole("button", { name: "Tên hoặc mã khóa học" })).toBeTruthy();
     fireEvent.change(search, { target: { value: "khong-co" } });
-    expect(screen.queryAllByRole("radio")).toHaveLength(0);
-    expect(screen.getByText(/gửi tên hoặc mã trong tin nhắn/)).toBeTruthy();
+    expect(screen.getByText(/Không tìm thấy lựa chọn/)).toBeTruthy();
     fireEvent.change(search, { target: { value: "nang cao" } });
-    expect(screen.getAllByRole("radio")).toHaveLength(1);
-    expect(screen.getByText("Có 1 lựa chọn phù hợp.")).toBeTruthy();
-    const selectedCourse = screen.getByRole("radio", { name: "Khóa học nâng cao — KH12" });
+    expect(screen.getByText("1 lựa chọn phù hợp.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Tên hoặc mã khóa học" }));
+    const selectedCourse = screen.getByRole("option", { name: "Khóa học nâng cao — KH12" });
     fireEvent.click(selectedCourse);
     expect(screen.getByText("Đang chọn: Khóa học nâng cao — KH12")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Dùng lựa chọn" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
 
     await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
     expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
@@ -335,7 +365,7 @@ describe("ChatbotWidget welcome", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Nguyễn An — 0900000000" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Trần Bình — 0910000000" }));
     expect(screen.getByText("Đang chọn: Nguyễn An — 0900000000, Trần Bình — 0910000000")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Dùng lựa chọn" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
 
     await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
     expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({

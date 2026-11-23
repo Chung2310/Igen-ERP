@@ -49,6 +49,7 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
  * Danh sách mã quyền mặc định của hệ thống cho từng vai trò
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  pt: ["gym:manage"],
   superadmin: ["*"],
   admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll-period:manage", "payroll-policy:manage", "payroll-payment:manage", "finance-wallet:manage", "finance-receivable:manage", "asset:manage", "labor-partner:manage", "labor-partner-policy:manage", "labor-partner-settlement:manage", "labor-partner-payout:manage", "work:manage", "inventory:manage", "retail:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
   pos_cashier: ["pos:manage"],
@@ -66,6 +67,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
   teacher: ["people:manage"]
 };
+DEFAULT_ROLE_PERMISSIONS.admin.push("gym:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("retail-partner:manage", "retail-partner-policy:manage", "retail-partner-payout:manage", "retail-shift-approve:manage", "retail-shift-assign:manage", "retail-payment-review:manage", "retail-coupon:manage", "retail-points:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("inventory-count-approval:manage");
@@ -82,6 +84,7 @@ DEFAULT_ROLE_PERMISSIONS.admin.push("legal-reference:manage");
  * Cấp bậc mặc định của các vai trò hệ thống (Số nhỏ hơn = cấp cao hơn)
  */
 export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
+  pt: 4,
   superadmin: 0,
   admin: 1,
   branch_owner: 2,
@@ -236,6 +239,11 @@ export async function getEffectivePermissions(
   // an older company-specific admin permission record without people:manage.
   if (role === "admin" && !rolePermissions.includes("people:manage")) {
     rolePermissions = [...rolePermissions, "people:manage"];
+  }
+
+  // Company admins also act as PTs; the tenant module guard still controls activation.
+  if (role === "admin" && !rolePermissions.includes("gym:manage")) {
+    rolePermissions = [...rolePermissions, "gym:manage"];
   }
 
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));

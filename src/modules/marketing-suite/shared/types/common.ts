@@ -74,6 +74,13 @@ export interface CompanyTelegramOrderConfig {
   lastTestError: string;
 }
 
+export interface CompanyHeyGenConfig {
+  companyCode: string;
+  companyName: string;
+  hasCompanyApiKey: boolean;
+  hasEnvironmentKey: boolean;
+}
+
 export interface CompanySepayConfig {
   companyCode: string;
   companyName: string;

@@ -123,7 +123,7 @@ export default function AttendanceDailyOverview({ date, onDateChange, result, lo
                         <div className="truncate text-sm font-normal text-slate-800">{employee.displayName || "Nhân viên iGen"}</div>
                         <div className="truncate text-[11px] text-slate-500">{employee.email || "—"}</div>
                       </div>
-                      <span className="justify-self-end rounded-lg bg-[#e8f7ff] px-2 py-1 text-[10px] font-normal text-[#008dcc] md:justify-self-start">{employee.status}</span>
+                      <span className="justify-self-end rounded-full bg-[#D9EDF7] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-[#286090] md:justify-self-start">{employee.status}</span>
                       <div className="hidden text-xs font-mono text-slate-600 md:block"><span className="mr-1 text-slate-400">Vào</span>{employee.checkIn}</div>
                       <div className="hidden text-xs font-mono text-slate-600 md:block"><span className="mr-1 text-slate-400">Ra</span>{employee.checkOut}</div>
                     </div>

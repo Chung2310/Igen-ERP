@@ -25,7 +25,7 @@ const moneyFormatter = new Intl.NumberFormat("vi-VN", {
 
 const numberFormatter = new Intl.NumberFormat("vi-VN");
 const percentFormatter = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
-const KPI_TONES = ["blue", "cyan", "purple", "green", "orange", "rose"] as const;
+const KPI_TONES = ["blue", "cyan", "purple", "green", "orange", "rose", "blue", "green", "purple"] as const;
 
 type Kpi = {
   label: string;
@@ -115,28 +115,41 @@ export default function RetailKpiGrid({ report }: RetailKpiGridProps) {
       {kpis.map(({ label, value, amount, sublabel, icon: Icon, isPrimary }, index) => (
         <article
           key={label}
-          className={cn("retail-stat-card min-w-0 overflow-hidden rounded-md p-3", `retail-stat-card--${KPI_TONES[index % KPI_TONES.length]}`)}
+          className={cn(
+            "retail-report-kpi-card min-w-0 overflow-hidden rounded-[4px] border border-outline-variant bg-surface-container-lowest p-3.5 shadow-2xs",
+            `retail-report-kpi-card--${KPI_TONES[index % KPI_TONES.length]}`,
+          )}
         >
-          {/* Row 1: Icon + Value on same row */}
-          <div className="flex items-center justify-between gap-1.5">
-            <div className="flex flex-1 items-center gap-2 min-w-0">
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-white/15">
-                <Icon aria-hidden="true" className="size-4 text-white" />
+          {/* Row 1: Icon + Colored Value */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div className="retail-report-kpi-card__icon flex size-8 shrink-0 items-center justify-center rounded-[4px]">
+                <Icon aria-hidden="true" className="size-4" />
               </div>
-              {typeof amount === "number" ? <AdaptiveMoney value={amount} /> : <p className="min-w-0 text-base font-semibold text-white [overflow-wrap:anywhere] sm:text-lg" title={value}>
-                {value}
-              </p>}
+              <div className="retail-report-kpi-card__value min-w-0 flex-1 tabular-nums">
+                {typeof amount === "number" ? (
+                  <AdaptiveMoney value={amount} />
+                ) : (
+                  <p className="min-w-0 text-base font-semibold [overflow-wrap:anywhere] sm:text-lg" title={value}>
+                    {value}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Row 2: Metric label & Sublabel */}
-          <div className="mt-1.5 flex items-center justify-between gap-1 text-[11px]">
-            <p className="truncate font-medium text-white" title={label}>
+          <div className="mt-2 flex items-center justify-between gap-1.5 border-t border-outline-variant/60 pt-2 text-xs">
+            <p className="truncate font-medium text-on-surface" title={label}>
               {label}
             </p>
-            {isPrimary && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 text-[9px] font-medium text-white"><Sparkles className="size-2.5" />Chủ đạo</span>}
-            {!isPrimary && (
-              <span className="max-w-[100px] shrink-0 truncate text-[10px] font-medium text-white/90" title={sublabel}>
+            {isPrimary ? (
+              <span className="retail-report-kpi-card__badge inline-flex shrink-0 items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[10px] font-medium">
+                <Sparkles className="size-2.5" aria-hidden="true" />
+                Chủ đạo
+              </span>
+            ) : (
+              <span className="max-w-[110px] shrink-0 truncate text-[11px] text-on-surface-variant" title={sublabel}>
                 {sublabel}
               </span>
             )}

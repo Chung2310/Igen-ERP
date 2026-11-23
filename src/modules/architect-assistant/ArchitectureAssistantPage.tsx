@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Armchair, ArrowLeft, Check, ChevronRight, Download, FolderOpen, Image as ImageIcon, Layers, LayoutGrid, Maximize2, Pencil, PenTool, Plus, RefreshCw, Sparkles, Trash2, Video, Wrench } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronRight, Download, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { useAuth } from "../../context/AuthContext";
@@ -9,37 +9,24 @@ import { cn } from "../student-management/lib/utils";
 import { architectAssistantApi } from "./api";
 import { ARCHITECTURE_TOOL_NAV, ArchitectureCreativeTools } from "./ArchitectureCreativeTools";
 import ArchitectAssistantHome from "./ArchitectAssistantHome";
+import ArchitectSidebarIcon from "./ArchitectSidebarIcon";
 import FloorPlanEditor, { ArchitecturePlanSvg } from "./FloorPlanEditor";
 import "./architect-assistant.css";
 
-const inputClass = "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
+const inputClass = "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
 const emptyPlan = (): ArchitecturePlan => ({ rooms: [], notes: "" });
 const blankProject: ArchitectureProjectInput = { name: "", areaM2: 100, floors: 1, style: "Hiện đại", requirements: "" };
 type ArchitecturePage = "home" | "projects" | "rendering" | ArchitectureToolId;
-const RENDERING_TABS: Array<{ label: string; tool: ArchitectureToolId; icon: ReactNode }> = [
-  { label: "Render", tool: "render", icon: <ImageIcon /> },
-  { label: "Cải thiện Render", tool: "enhance", icon: <Sparkles /> },
-  { label: "Upscale", tool: "upscale", icon: <Maximize2 /> },
-  { label: "Đồng bộ", tool: "sync", icon: <Layers /> },
-  { label: "Chỉnh sửa ảnh", tool: "edit", icon: <Pencil /> },
-  { label: "Virtual staging", tool: "staging", icon: <Armchair /> },
-  { label: "Canvas", tool: "canvas", icon: <LayoutGrid /> },
-  { label: "Tiện ích khác", tool: "utilities", icon: <Wrench /> },
+const RENDERING_TABS: Array<{ label: string; tool: ArchitectureToolId }> = [
+  { label: "Render", tool: "render" },
+  { label: "Cải thiện Render", tool: "enhance" },
+  { label: "Upscale", tool: "upscale" },
+  { label: "Đồng bộ", tool: "sync" },
+  { label: "Chỉnh sửa ảnh", tool: "edit" },
+  { label: "Virtual staging", tool: "staging" },
+  { label: "Canvas", tool: "canvas" },
+  { label: "Tiện ích khác", tool: "utilities" },
 ];
-const TOOL_ICONS: Partial<Record<ArchitectureToolId, ReactNode>> = {
-  plan: <PenTool />,
-  render: <ImageIcon />,
-  enhance: <Sparkles />,
-  upscale: <Maximize2 />,
-  sync: <Layers />,
-  edit: <Pencil />,
-  staging: <Armchair />,
-  canvas: <LayoutGrid />,
-  utilities: <Wrench />,
-  video: <Video />,
-  library: <FolderOpen />,
-  renders: <FolderOpen />,
-};
 function apiMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -305,9 +292,16 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
   const activeTool: ArchitectureToolId | null = page === "projects" || page === "rendering" ? tab : page;
   const activeToolIsUnavailable = Boolean(activeTool && !(page === "rendering" ? AVAILABLE_RENDERING_TOOLS : AVAILABLE_ARCHITECTURE_TOOLS).has(activeTool));
 
-  return <div className="architect-assistant-source flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface" aria-busy={busy || loading}>
-    <ModuleNavigation label="Công cụ kiến trúc" activeValue={activeTool || page}>
-      <ModuleNavigationButton active={false} icon={<ArrowLeft />} preferProvidedIcon onClick={() => setPage("home")}>
+  return <div id="architect_tab_wrapper" data-flush-card="true" className="architect-assistant-source flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface" aria-busy={busy || loading}>
+    <ModuleNavigation id="architect_sub_tabs_bar" label="Công cụ kiến trúc" activeValue={activeTool || page} className="mb-2 lg:mb-0">
+      <ModuleNavigationButton
+        active={false}
+        icon={<ArchitectSidebarIcon name="back" className="size-5" />}
+        filledIcon={<ArchitectSidebarIcon name="back" className="size-5" />}
+        preferProvidedIcon
+        title="Về công cụ kiến trúc"
+        onClick={() => setPage("home")}
+      >
         Về công cụ kiến trúc
       </ModuleNavigationButton>
       {page === "projects" ? ARCHITECTURE_TOOL_NAV.map(item => {
@@ -315,7 +309,8 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
         return <ModuleNavigationButton
           key={item.id}
           active={tab === item.id}
-          icon={TOOL_ICONS[item.id] ?? <Sparkles />}
+          icon={<ArchitectSidebarIcon name={item.id} className="size-5" />}
+          filledIcon={<ArchitectSidebarIcon name={item.id} className="size-5" />}
           preferProvidedIcon
           disabled={!available}
           title={available ? item.label : `${item.label} (đang phát triển)`}
@@ -326,8 +321,10 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
       }) : <>
         <ModuleNavigationButton
           active={page === "plan"}
-          icon={<PenTool />}
+          icon={<ArchitectSidebarIcon name="plan" className="size-5" />}
+          filledIcon={<ArchitectSidebarIcon name="plan" className="size-5" />}
           preferProvidedIcon
+          title="Vẽ bản vẽ AI"
           onClick={() => { setTab("plan"); setPage("plan"); }}
         >
           Vẽ bản vẽ AI
@@ -337,7 +334,8 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
           return <ModuleNavigationButton
             key={item.tool}
             active={page === "rendering" && tab === item.tool}
-            icon={item.icon}
+            icon={<ArchitectSidebarIcon name={item.tool} className="size-5" />}
+            filledIcon={<ArchitectSidebarIcon name={item.tool} className="size-5" />}
             preferProvidedIcon
             disabled={!available}
             title={available ? item.label : `${item.label} (đang phát triển)`}
@@ -349,96 +347,93 @@ function ArchitectureWorkspace({ branchId, canManage, canUseAi }: { branchId: st
       </>}
     </ModuleNavigation>
 
-    <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto px-2 pb-4 pt-1 lg:px-0">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
 
-    {error && <div className="flex items-start justify-between gap-3 rounded-lg border border-error/40 bg-error-container/20 px-4 py-3 text-sm text-on-surface" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Đóng</button></div>}
-    {notice && <p className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface" role="status"><Check className="size-4 text-primary" aria-hidden="true" />{notice}</p>}
+      {error && <div className="flex items-start justify-between gap-3 rounded-lg border border-error/40 bg-error-container/20 px-4 py-3 text-sm text-on-surface" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Đóng</button></div>}
+      {notice && <p className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface" role="status"><Check className="size-4 text-primary" aria-hidden="true" />{notice}</p>}
 
-    <div className={cn("grid items-start gap-5", showProjectsPanel ? "xl:grid-cols-[17rem_minmax(0,1fr)]" : "grid-cols-1")}>
-      {showProjectsPanel && <aside className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-        <div className="flex items-center justify-between gap-2"><h3 data-typography="section-title" className="text-sm font-semibold text-on-surface">Dự án</h3>
-          <div className="flex items-center gap-1">
-            {page === "projects" && <button type="button" onClick={() => void loadProjects()} disabled={loading} aria-label="Làm mới dự án" className="flex size-9 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><RefreshCw className="size-4" aria-hidden="true" /></button>}
-            {canManage && <button type="button" aria-label="Tạo dự án" onClick={() => { setShowCreate(value => !value); setError(""); }} className="flex size-9 items-center justify-center rounded-lg bg-primary text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" /></button>}
+      <div className={cn("grid items-start gap-5", showProjectsPanel ? "xl:grid-cols-[17rem_minmax(0,1fr)]" : "grid-cols-1")}>
+        {showProjectsPanel && <aside className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="flex items-center justify-between gap-2"><h3 data-typography="section-title" className="text-sm font-semibold text-on-surface">Dự án</h3>
+            <div className="flex items-center gap-1">
+              {page === "projects" && <button type="button" onClick={() => void loadProjects()} disabled={loading} aria-label="Làm mới dự án" className="flex size-9 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><RefreshCw className="size-4" aria-hidden="true" /></button>}
+              {canManage && <button type="button" aria-label="Tạo dự án" onClick={() => { setShowCreate(value => !value); setError(""); }} className="flex size-9 items-center justify-center rounded-lg bg-primary text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" /></button>}
+            </div>
           </div>
-        </div>
-        {showCreate && <form className="space-y-3 border-t border-outline-variant pt-3" onSubmit={createProject}>
-          <label className="block space-y-1 text-sm text-on-surface-variant"><span>Tên dự án</span><input required minLength={2} maxLength={120} className={inputClass} value={createDraft.name} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} /></label>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Diện tích (m²)</span><input required type="number" min={20} max={20000} className={inputClass} value={createDraft.areaM2} onChange={event => setCreateDraft({ ...createDraft, areaM2: Number(event.target.value) })} /></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Số tầng</span><input required type="number" min={1} max={12} className={inputClass} value={createDraft.floors} onChange={event => setCreateDraft({ ...createDraft, floors: Number(event.target.value) })} /></label>
-          </div>
-          <label className="block space-y-1 text-sm text-on-surface-variant"><span>Phong cách</span><input required minLength={2} maxLength={100} className={inputClass} value={createDraft.style} onChange={event => setCreateDraft({ ...createDraft, style: event.target.value })} /></label>
-          <label className="block space-y-1 text-sm text-on-surface-variant"><span>Yêu cầu</span><textarea maxLength={3000} className={`${inputClass} min-h-20 resize-y`} value={createDraft.requirements} onChange={event => setCreateDraft({ ...createDraft, requirements: event.target.value })} /></label>
-          <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} className="min-h-9 rounded-lg border border-outline-variant px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Hủy</button><button type="submit" disabled={busy} className="min-h-9 rounded-lg bg-primary px-3 text-sm font-medium text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">Tạo dự án</button></div>
-        </form>}
-        {loading ? <p className="py-4 text-sm text-on-surface-variant" role="status">Đang tải dự án…</p> : !projects.length ? <p className="py-4 text-pretty text-sm text-on-surface-variant">Chưa có dự án trong chi nhánh này. {canManage ? "Dùng nút Tạo dự án để bắt đầu." : ""}</p> : <ul className="space-y-1" aria-label="Danh sách dự án">{projects.map(project => <li key={project._id}>
-          <button type="button" onClick={() => { setSelectedId(project._id); if (page === "projects") setTab("plan"); setNotice(""); }} aria-current={project._id === selectedId ? "page" : undefined} className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary", project._id === selectedId ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface-container")}>
-            <span className="min-w-0"><span className="block truncate font-medium">{project.name}</span><span className="mt-0.5 block text-xs tabular-nums text-on-surface-variant">{project.areaM2} m² · {project.floors} tầng</span></span><ChevronRight className="size-4 shrink-0" aria-hidden="true" />
-          </button>
-        </li>)}</ul>}
-      </aside>}
+          {showCreate && <form className="space-y-3 border-t border-outline-variant pt-3" onSubmit={createProject}>
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Tên dự án</span><input required minLength={2} maxLength={120} className={inputClass} value={createDraft.name} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} /></label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Diện tích (m²)</span><input required type="number" min={20} max={20000} className={inputClass} value={createDraft.areaM2} onChange={event => setCreateDraft({ ...createDraft, areaM2: Number(event.target.value) })} /></label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Số tầng</span><input required type="number" min={1} max={12} className={inputClass} value={createDraft.floors} onChange={event => setCreateDraft({ ...createDraft, floors: Number(event.target.value) })} /></label>
+            </div>
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Phong cách</span><input required minLength={2} maxLength={100} className={inputClass} value={createDraft.style} onChange={event => setCreateDraft({ ...createDraft, style: event.target.value })} /></label>
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Yêu cầu</span><textarea maxLength={3000} className={`${inputClass} min-h-20 resize-y`} value={createDraft.requirements} onChange={event => setCreateDraft({ ...createDraft, requirements: event.target.value })} /></label>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} className="min-h-9 rounded-lg border border-outline-variant px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Hủy</button><button type="submit" disabled={busy} className="min-h-9 rounded-lg bg-primary px-3 text-sm font-medium text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">Tạo dự án</button></div>
+          </form>}
+          {loading ? <p className="py-4 text-sm text-on-surface-variant" role="status">Đang tải dự án…</p> : !projects.length ? <p className="py-4 text-pretty text-sm text-on-surface-variant">Chưa có dự án trong chi nhánh này. {canManage ? "Dùng nút Tạo dự án để bắt đầu." : ""}</p> : <ul className="space-y-1" aria-label="Danh sách dự án">{projects.map(project => <li key={project._id}>
+            <button type="button" onClick={() => { setSelectedId(project._id); if (page === "projects") setTab("plan"); setNotice(""); }} aria-current={project._id === selectedId ? "page" : undefined} className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm focus-visible:outline-2 focus-visible:outline-primary", project._id === selectedId ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface-container")}>
+              <span className="min-w-0"><span className="block truncate font-medium">{project.name}</span><span className="mt-0.5 block text-xs tabular-nums text-on-surface-variant">{project.areaM2} m² · {project.floors} tầng</span></span><ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+            </button>
+          </li>)}</ul>}
+        </aside>}
 
-      {!selected ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-8 text-center" role={busy ? "status" : undefined}>
-        {busy ? <><RefreshCw className="mb-4 size-8 animate-spin text-primary" aria-hidden="true" /><h2 className="text-balance text-xl font-semibold text-on-surface">Đang mở công cụ…</h2></> : <><h2 className="text-balance text-xl font-semibold text-on-surface">Không mở được công cụ</h2><p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">{error || "Hãy quay lại danh sách công cụ và thử lại."}</p></>}
-      </section> : activeToolIsUnavailable ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-8 text-center" aria-labelledby="architecture-tool-development-title">
-        <h2 id="architecture-tool-development-title" className="text-balance text-xl font-semibold text-on-surface">Tính năng đang phát triển</h2>
-        <p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">Công cụ này hiện chưa khả dụng. Bạn có thể tiếp tục với Vẽ bản vẽ AI hoặc Rendering.</p>
-        <button type="button" onClick={() => { setPage("projects"); setTab("plan"); }} className="mt-5 inline-flex min-h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary">Mở Vẽ bản vẽ AI</button>
-      </section> : <section className="min-w-0 space-y-3 rounded-xl bg-surface">
-        {page === "projects" && <>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><p className="text-xs text-on-surface-variant">Dự án kiến trúc</p><h3 data-typography="section-title" className="mt-1 text-balance text-lg font-semibold text-on-surface">{selected.name}</h3><p className="mt-1 text-sm tabular-nums text-on-surface-variant">{selected.areaM2} m² · {selected.floors} tầng · {selected.style}</p></div>
-          <div className="flex flex-wrap items-center gap-2">
-            {tab === "plan" && canUseAi && <button type="button" onClick={() => void generatePlan()} disabled={busy} className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Sparkles className="size-4" aria-hidden="true" />{busy ? "Đang tạo…" : "Tạo mặt bằng bằng AI"}</button>}
-            {canManage && <button type="button" onClick={() => setDeleteOpen(true)} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm text-error hover:bg-error-container/20 focus-visible:outline-2 focus-visible:outline-primary"><Trash2 className="size-4" aria-hidden="true" />Xóa</button>}
-          </div>
-        </div>
-        {canManage && <details className="rounded-lg border border-outline-variant">
-          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Thông tin dự án</summary>
-          <form onSubmit={saveProject} className="grid gap-3 border-t border-outline-variant p-4 sm:grid-cols-2">
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Tên dự án</span><input required minLength={2} maxLength={120} className={inputClass} value={projectDraft.name} onChange={event => setProjectDraft({ ...projectDraft, name: event.target.value })} /></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Phong cách</span><input required minLength={2} maxLength={100} className={inputClass} value={projectDraft.style} onChange={event => setProjectDraft({ ...projectDraft, style: event.target.value })} /></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Diện tích (m²)</span><input required type="number" min={20} max={20000} className={inputClass} value={projectDraft.areaM2} onChange={event => setProjectDraft({ ...projectDraft, areaM2: Number(event.target.value) })} /></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Số tầng</span><input required type="number" min={1} max={12} className={inputClass} value={projectDraft.floors} onChange={event => setProjectDraft({ ...projectDraft, floors: Number(event.target.value) })} /></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant sm:col-span-2"><span>Yêu cầu thiết kế</span><textarea maxLength={3000} className={`${inputClass} min-h-20 resize-y`} value={projectDraft.requirements} onChange={event => setProjectDraft({ ...projectDraft, requirements: event.target.value })} /></label>
-            <div className="sm:col-span-2"><button type="submit" disabled={busy} className="min-h-9 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">Lưu thông tin</button></div>
-          </form>
-        </details>}
+        {!selected ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-8 text-center" role={busy ? "status" : undefined}>
+          {busy ? <><RefreshCw className="mb-4 size-8 animate-spin text-primary" aria-hidden="true" /><h2 className="text-balance text-xl font-semibold text-on-surface">Đang mở công cụ…</h2></> : <><h2 className="text-balance text-xl font-semibold text-on-surface">Không mở được công cụ</h2><p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">{error || "Hãy quay lại danh sách công cụ và thử lại."}</p></>}
+        </section> : activeToolIsUnavailable ? <section className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-8 text-center" aria-labelledby="architecture-tool-development-title">
+          <h2 id="architecture-tool-development-title" className="text-balance text-xl font-semibold text-on-surface">Tính năng đang phát triển</h2>
+          <p className="mt-2 max-w-md text-pretty text-sm text-on-surface-variant">Công cụ này hiện chưa khả dụng. Bạn có thể tiếp tục với Vẽ bản vẽ AI hoặc Rendering.</p>
+          <button type="button" onClick={() => { setPage("projects"); setTab("plan"); }} className="mt-5 inline-flex min-h-10 items-center rounded-full bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary">Mở Vẽ bản vẽ AI</button>
+        </section> : <section className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4">
+          {page === "projects" && <>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h3 data-typography="section-title" className="text-balance text-lg font-semibold text-on-surface">{selected.name}</h3><p className="mt-1 text-sm tabular-nums text-on-surface-variant">{selected.areaM2} m² · {selected.floors} tầng · {selected.style}</p></div>
+              <div className="flex flex-wrap items-center gap-2">
+                {tab === "plan" && canUseAi && <button type="button" onClick={() => void generatePlan()} disabled={busy} className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Sparkles className="size-4" aria-hidden="true" />{busy ? "Đang tạo…" : "Tạo mặt bằng bằng AI"}</button>}
+                {canManage && <button type="button" onClick={() => setDeleteOpen(true)} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm text-error hover:bg-error-container/20 focus-visible:outline-2 focus-visible:outline-primary"><Trash2 className="size-4" aria-hidden="true" />Xóa</button>}
+              </div>
+            </div>
+            {canManage && <details className="rounded-lg border border-outline-variant">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Thông tin dự án</summary>
+              <form onSubmit={saveProject} className="grid gap-3 border-t border-outline-variant p-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Tên dự án</span><input required minLength={2} maxLength={120} className={inputClass} value={projectDraft.name} onChange={event => setProjectDraft({ ...projectDraft, name: event.target.value })} /></label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Phong cách</span><input required minLength={2} maxLength={100} className={inputClass} value={projectDraft.style} onChange={event => setProjectDraft({ ...projectDraft, style: event.target.value })} /></label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Diện tích (m²)</span><input required type="number" min={20} max={20000} className={inputClass} value={projectDraft.areaM2} onChange={event => setProjectDraft({ ...projectDraft, areaM2: Number(event.target.value) })} /></label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Số tầng</span><input required type="number" min={1} max={12} className={inputClass} value={projectDraft.floors} onChange={event => setProjectDraft({ ...projectDraft, floors: Number(event.target.value) })} /></label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant sm:col-span-2"><span>Yêu cầu thiết kế</span><textarea maxLength={3000} className={`${inputClass} min-h-20 resize-y`} value={projectDraft.requirements} onChange={event => setProjectDraft({ ...projectDraft, requirements: event.target.value })} /></label>
+                <div className="sm:col-span-2"><button type="submit" disabled={busy} className="min-h-9 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">Lưu thông tin</button></div>
+              </form>
+            </details>}
 
-        </>}
+          </>}
 
-        {(page === "plan" || (page === "projects" && tab === "plan")) && selected.floors > 1 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Chọn tầng">
-          <span className="text-sm text-on-surface-variant">Tầng</span>
-          {Array.from({ length: selected.floors }, (_, index) => index + 1).map(floor => <button key={floor} type="button" aria-pressed={activeFloor === floor} onClick={() => setActiveFloor(floor)} className={cn("min-h-9 min-w-9 rounded-lg border px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary", activeFloor === floor ? "border-primary bg-primary/10 text-primary" : "border-outline-variant text-on-surface hover:bg-surface-container")}>{floor}</button>)}
-        </div>}
+          {(page === "plan" || (page === "projects" && tab === "plan")) && selected.floors > 1 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Chọn tầng">
+            <span className="text-sm text-on-surface-variant">Tầng</span>
+            {Array.from({ length: selected.floors }, (_, index) => index + 1).map(floor => <button key={floor} type="button" aria-pressed={activeFloor === floor} onClick={() => setActiveFloor(floor)} className={cn("min-h-9 min-w-9 rounded-lg border px-3 text-sm focus-visible:outline-2 focus-visible:outline-primary", activeFloor === floor ? "border-primary bg-primary/10 text-primary" : "border-outline-variant text-on-surface hover:bg-surface-container")}>{floor}</button>)}
+          </div>}
 
-        {(page === "plan" || (page === "projects" && tab === "plan")) ? <div className="space-y-4">
-          <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} projectAreaM2={selected.areaM2} projectStyle={selected.style} projectRequirements={selected.requirements} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline, settings) => void generatePlan(prompt, outline, settings)} onGenerate3DRender={(image, mode, ratio) => void generateRenderFrom3D(image, mode, ratio)} />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant pt-4">
-            <p className="text-xs text-on-surface-variant">AI đề xuất phương án tham khảo; hãy kiểm tra kích thước và quy chuẩn trước khi triển khai.</p>
-            <div className="flex flex-wrap gap-2">
+          {(page === "plan" || (page === "projects" && tab === "plan")) ? <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <FloorPlanEditor key={selected._id} plan={planDraft} onChange={setPlanDraft} disabled={!canManage || busy} floor={activeFloor} floorsCount={selected.floors} projectAreaM2={selected.areaM2} projectStyle={selected.style} projectRequirements={selected.requirements} canGenerateAi={canUseAi && planDraft.rooms.some(room => room.floor === activeFloor)} canAskAi={canUseAi} aiGenerating={busy} generationError={error} rendering={busy} onGeneratePlan={(prompt, outline, settings) => void generatePlan(prompt, outline, settings)} onGenerate3DRender={(image, mode, ratio) => void generateRenderFrom3D(image, mode, ratio)} />
+            <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-outline-variant pt-3">
               <button type="button" onClick={() => void downloadPlan()} disabled={busy || !planDraft.rooms.length} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-outline-variant px-3 text-sm text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Download className="size-4" aria-hidden="true" />Tải bản vẽ PNG</button>
               {canManage && <button type="button" onClick={() => void savePlan()} disabled={busy || !planDraft.rooms.length} className="min-h-9 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">{busy ? "Đang lưu…" : "Lưu mặt bằng"}</button>}
             </div>
-          </div>
-        </div> : page === "projects" && tab === "renders" ? <div className="space-y-5">
-          <div className="grid gap-4 rounded-lg border border-outline-variant p-4 md:grid-cols-[minmax(12rem,0.6fr)_minmax(12rem,1fr)_auto] md:items-end">
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Tỷ lệ ảnh</span><select className={inputClass} value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="1:1">1:1</option><option value="3:2">3:2</option><option value="2:3">2:3</option></select></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Độ phân giải</span><select className={inputClass} value={resolution} onChange={event => setResolution(event.target.value)}><option value="1K">1K · tiêu chuẩn</option><option value="2K">2K · cao</option><option value="4K">4K · tối đa</option></select></label>
-            <label className="block space-y-1 text-sm text-on-surface-variant"><span>Yêu cầu phối cảnh</span><input className={inputClass} maxLength={1200} value={renderPrompt} onChange={event => setRenderPrompt(event.target.value)} placeholder="Ví dụ: ánh sáng tự nhiên buổi sáng" /></label>
-            {canUseAi && <button type="button" onClick={() => void generateRender()} disabled={busy || !planDraft.rooms.some(room => room.floor === activeFloor)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Sparkles className="size-4" aria-hidden="true" />{busy ? "Đang tạo…" : "Tạo phối cảnh"}</button>}
-          </div>
-          {!planDraft.rooms.some(room => room.floor === activeFloor) && <p className="rounded-lg border border-outline-variant p-4 text-sm text-on-surface-variant">Hãy tạo hoặc thêm mặt bằng cho tầng này trước khi tạo phối cảnh.</p>}
-          {selected.renders.length > 0 && <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{[...selected.renders].reverse().map(asset => <figure key={asset.id} className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
-            {assetUrls[asset.id] ? asset.mimeType === "video/mp4" ? <video src={assetUrls[asset.id]} controls playsInline className="aspect-video w-full bg-surface" aria-label={asset.filename} /> : <img src={assetUrls[asset.id]} alt={`Phối cảnh ${selected.name}, tạo ngày ${new Date(asset.createdAt).toLocaleDateString("vi-VN")}`} className="aspect-[4/3] w-full object-cover" /> : <div className="flex aspect-[4/3] items-center justify-center text-sm text-on-surface-variant" role="status">Đang tải tệp…</div>}
-            <figcaption className="flex flex-wrap items-center justify-between gap-3 p-3 text-xs text-on-surface-variant"><span>{new Date(asset.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · <span className="tabular-nums">{Math.round(asset.bytes / 1024)} KB</span></span>{assetUrls[asset.id] && <a href={assetUrls[asset.id]} download={asset.filename} className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"><Download className="size-4" aria-hidden="true" />Tải ảnh</a>}</figcaption>
-          </figure>)}</div>}
-          {!selected.renders.length && <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant text-center"><Sparkles className="mb-2 size-8 text-on-surface-variant" aria-hidden="true" /><p className="text-sm text-on-surface-variant">Chưa có ảnh được tạo trong phiên này.</p></div>}
-          {selected.plan && <details className="rounded-lg border border-outline-variant p-4"><summary className="cursor-pointer text-sm font-medium text-on-surface">Xem lại mặt bằng gốc</summary><div className="mt-4 max-w-xl"><ArchitecturePlanSvg plan={selected.plan} floor={activeFloor} /></div></details>}
-        </div> : page === "rendering" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_RENDERING_TOOLS.has(tool)) setTab(tool); }} /> : page === "projects" && tab !== "renders" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) setTab(tool); }} /> : page !== "projects" ? <ArchitectureCreativeTools tool={page} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (!AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) return; setTab(tool); setPage(tool === "render" ? "rendering" : tool); }} /> : null}
-      </section>}
-    </div>
+          </div> : page === "projects" && tab === "renders" ? <div className="space-y-5">
+            <div className="grid gap-4 rounded-md border border-outline-variant p-4 md:grid-cols-[minmax(12rem,0.6fr)_minmax(12rem,1fr)_auto] md:items-end">
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Tỷ lệ ảnh</span><select className={inputClass} value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="4:3">4:3</option><option value="16:9">16:9</option><option value="1:1">1:1</option><option value="3:2">3:2</option><option value="2:3">2:3</option></select></label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Độ phân giải</span><select className={inputClass} value={resolution} onChange={event => setResolution(event.target.value)}><option value="1K">1K · tiêu chuẩn</option><option value="2K">2K · cao</option><option value="4K">4K · tối đa</option></select></label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant"><span>Yêu cầu phối cảnh</span><input className={inputClass} maxLength={1200} value={renderPrompt} onChange={event => setRenderPrompt(event.target.value)} placeholder="Ví dụ: ánh sáng tự nhiên buổi sáng" /></label>
+              {canUseAi && <button type="button" onClick={() => void generateRender()} disabled={busy || !planDraft.rooms.some(room => room.floor === activeFloor)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"><Sparkles className="size-4" aria-hidden="true" />{busy ? "Đang tạo…" : "Tạo phối cảnh"}</button>}
+            </div>
+            {!planDraft.rooms.some(room => room.floor === activeFloor) && <p className="rounded-lg border border-outline-variant p-4 text-sm text-on-surface-variant">Hãy tạo hoặc thêm mặt bằng cho tầng này trước khi tạo phối cảnh.</p>}
+            {selected.renders.length > 0 && <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{[...selected.renders].reverse().map(asset => <figure key={asset.id} className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
+              {assetUrls[asset.id] ? asset.mimeType === "video/mp4" ? <video src={assetUrls[asset.id]} controls playsInline className="aspect-video w-full bg-surface" aria-label={asset.filename} /> : <img src={assetUrls[asset.id]} alt={`Phối cảnh ${selected.name}, tạo ngày ${new Date(asset.createdAt).toLocaleDateString("vi-VN")}`} className="aspect-[4/3] w-full object-cover" /> : <div className="flex aspect-[4/3] items-center justify-center text-sm text-on-surface-variant" role="status">Đang tải tệp…</div>}
+              <figcaption className="flex flex-wrap items-center justify-between gap-3 p-3 text-xs text-on-surface-variant"><span>{new Date(asset.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · <span className="tabular-nums">{Math.round(asset.bytes / 1024)} KB</span></span>{assetUrls[asset.id] && <a href={assetUrls[asset.id]} download={asset.filename} className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"><Download className="size-4" aria-hidden="true" />Tải ảnh</a>}</figcaption>
+            </figure>)}</div>}
+            {!selected.renders.length && <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant text-center"><Sparkles className="mb-2 size-8 text-on-surface-variant" aria-hidden="true" /><p className="text-sm text-on-surface-variant">Chưa có ảnh được tạo trong phiên này.</p></div>}
+            {selected.plan && <details className="rounded-lg border border-outline-variant p-4"><summary className="cursor-pointer text-sm font-medium text-on-surface">Xem lại mặt bằng gốc</summary><div className="mt-4 max-w-xl"><ArchitecturePlanSvg plan={selected.plan} floor={activeFloor} /></div></details>}
+          </div> : page === "rendering" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_RENDERING_TOOLS.has(tool)) setTab(tool); }} /> : page === "projects" && tab !== "renders" ? <ArchitectureCreativeTools tool={tab} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) setTab(tool); }} /> : page !== "projects" ? <ArchitectureCreativeTools tool={page} project={selected} api={api} assetUrls={assetUrls} canUseAi={canUseAi} canManage={canManage} onProjectUpdated={replaceProject} onNavigate={tool => { if (!AVAILABLE_ARCHITECTURE_TOOLS.has(tool)) return; setTab(tool); setPage(tool === "render" ? "rendering" : tool); }} /> : null}
+        </section>}
+      </div>
     </div>
     <ConfirmDialog appearance="erp" native isOpen={deleteOpen} title="Xóa dự án kiến trúc?" description={`Dự án “${selected?.name || ""}” sẽ bị xóa khỏi chi nhánh hiện tại.`} error={deleteOpen ? error : undefined} confirmLabel="Xóa dự án" isSubmitting={deleting} onClose={() => setDeleteOpen(false)} onConfirm={deleteProject} />
   </div>;

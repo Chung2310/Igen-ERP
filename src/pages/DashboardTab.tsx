@@ -8,6 +8,7 @@ import {
   MessagesSquare,
   FileText,
   AlertCircle,
+  Dumbbell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { StethoscopeIcon } from "@phosphor-icons/react/dist/csr/Stethoscope";
@@ -46,6 +47,9 @@ const HealthcareOverviewSection = lazy(
 );
 const QuotationOverviewSection = lazy(
   () => import("../components/dashboard/QuotationOverviewSection")
+);
+const GymOverviewSection = lazy(
+  () => import("../components/dashboard/GymOverviewSection")
 );
 
 interface SectionConfig {
@@ -112,6 +116,13 @@ const ALL_SECTIONS: SectionConfig[] = [
     label: "Y tế",
     subtitle: "Bệnh nhân, Lượt khám, Lịch hẹn & Chăm sóc",
     icon: StethoscopeIcon,
+  },
+  {
+    value: "PHONG_GYM",
+    slug: "phong-gym",
+    label: "Phòng Gym",
+    subtitle: "Bảng điều khiển HLV, Tiến độ BF-AT & InBody",
+    icon: Dumbbell,
   },
 ];
 
@@ -230,6 +241,14 @@ export default function DashboardTab() {
         case "Y_TE":
           return isModuleEnabled(modules, "healthcare") &&
             (checkPerm("healthcare:read") || checkPerm("healthcare:manage"));
+        case "PHONG_GYM":
+          return (
+            isModuleEnabled(modules, "gym") &&
+            (isAdmin ||
+              userProfile?.role === "pt" ||
+              checkPerm("gym:read") ||
+              checkPerm("gym:manage"))
+          );
         default:
           return true;
       }
@@ -299,6 +318,12 @@ export default function DashboardTab() {
             <HealthcareOverviewSection />
           </SectionErrorBoundary>
         );
+      case "PHONG_GYM":
+        return (
+          <SectionErrorBoundary fallbackTitle="Phòng Gym">
+            <GymOverviewSection />
+          </SectionErrorBoundary>
+        );
       default:
         return null;
     }
@@ -334,7 +359,11 @@ export default function DashboardTab() {
               key={tab.value}
               active={isActive}
               icon={iconName ? <HrSidebarIcon name={iconName} /> : <tab.icon />}
-              preferProvidedIcon={tab.value === "MARKETING" || tab.value === "Y_TE"}
+              preferProvidedIcon={
+                tab.value === "MARKETING" ||
+                tab.value === "Y_TE" ||
+                tab.value === "PHONG_GYM"
+              }
               onClick={() => setActiveSubTab(tab.value)}
             >
               {tab.label}

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 import crypto from "crypto";
 import mongoose, { type ClientSession } from "mongoose";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model.ts";
@@ -1865,7 +1866,7 @@ export const aiKnowledgeService = {
         {
           companyCode,
           enabled: true,
-          model: "gemini-3.5-flash",
+          model: ERP_LLM_MODEL,
           replyDelay: 0,
           advancedInstructions: "",
           trainingKnowledge: "",

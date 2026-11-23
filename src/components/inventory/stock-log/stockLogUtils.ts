@@ -85,9 +85,9 @@ export function getLogStatus(log: StockLog): TransactionStatus {
 }
 
 export function getStatusTone(status: TransactionStatus) {
-  if (status === "Hoàn thành") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (status === "Đang xử lý") return "bg-amber-50 text-amber-700 border-amber-200";
-  return "bg-slate-100 text-slate-700 border-slate-200";
+  if (status === "Hoàn thành") return "bg-[#5CB85C] text-white border-transparent";
+  if (status === "Đang xử lý") return "bg-[#D9EDF7] text-[#286090] border-transparent";
+  return "bg-[#F0AD4E] text-white border-transparent";
 }
 
 export function getStatusKey(status: TransactionStatus) {

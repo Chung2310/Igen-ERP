@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { openrouterChat, openrouterGenerateImage } from "../service/openrouter.service";
 import { META_MUSE_IMAGE_MODEL } from "../service/openrouter-image-api";
 import { maxAssistantImageCount } from "../../src/shared/assistant-image-generation";
@@ -37,8 +38,8 @@ export async function enhanceStudioImagePrompt(
   }
   try {
     const response = await openrouterChat({
-      model: process.env.IGENAI_PROMPT_MODEL?.trim() || "google/gemma-4-31b-it:free",
-      fallbackModel: process.env.IGENAI_PROMPT_FALLBACK_MODEL?.trim() || "qwen/qwen3.5-flash-02-23",
+      model: ERP_LLM_MODEL,
+      fallbackModel: ERP_LLM_MODEL,
       temperature: 0.3,
       maxRetries: 3,
       jsonMode: true,

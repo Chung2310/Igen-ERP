@@ -5,8 +5,12 @@ import { TRAINING_CATEGORY_VALUES } from "../../src/shared/training-categories";
 import { HEALTHCARE_OPERATIONS, healthcareWorkflowInstructions } from "./healthcare-catalog";
 import { QUOTATION_OPERATIONS, quotationWorkflowInstructions } from "./quotation-catalog";
 import type { AnalysisContract } from "./list-analysis";
+import { buildAssistantOperationMetadata, type AssistantOperationMetadata } from "./operation-metadata";
 
 export interface AssistantOperation {
+  /** Additional business function views for a cross-cutting read capability. */
+  functionAreas?: Array<{ key: string; label: string }>;
+  assistantMetadata?: AssistantOperationMetadata;
   unavailableReason?: string;
   analysis?: AnalysisContract;
   partialUpdate?: boolean;
@@ -308,10 +312,10 @@ if (employeeUpdate) {
 const treasuryBranch = () => queryField(ref("targetBranch", "Chi nhánh tài chính", "branch.list"), "branchId");
 const treasuryReadPermissions = ["finance-wallet:read", "finance-wallet:manage"];
 operations.push(
-  { id: "finance.treasury.accounts.list", title: "Tra các quỹ tiền mặt và tài khoản ngân hàng", description: "Xem số dư các quỹ trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["name", "kind", "openingOn", "openingBalance", "balance", "version"] },
-  { id: "finance.treasury.vouchers.list", title: "Tra phiếu thu chi", description: "Xem phiếu thu chi trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["description", "kind", "amount", "occurredOn", "status", "reference", "version"] },
-  { id: "finance.treasury.bank-lines.list", title: "Tra giao dịch ngân hàng chờ đối soát", description: "Xem các giao dịch ngân hàng đã nhập trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["bankKey", "description", "amount", "occurredOn", "voucherId"] },
-  { id: "finance.treasury.periods.list", title: "Tra cứu kỳ tài chính", description: "Xem trạng thái các kỳ tài chính trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["month", "status", "version", "closedAt"] },
+  { id: "finance.treasury.accounts.list", title: "Tra các quỹ tiền mặt và tài khoản ngân hàng", description: "Xem số dư các quỹ trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["name", "kind", "openingOn", "openingBalance", "balance"] },
+  { id: "finance.treasury.vouchers.list", title: "Tra phiếu thu chi", description: "Xem phiếu thu chi trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["description", "kind", "amount", "occurredOn", "status", "reference"] },
+  { id: "finance.treasury.bank-lines.list", title: "Tra giao dịch ngân hàng chờ đối soát", description: "Xem các giao dịch sao kê chưa ghép với phiếu thu chi trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["bankKey", "description", "amount", "occurredOn"] },
+  { id: "finance.treasury.periods.list", title: "Tra cứu kỳ tài chính", description: "Xem trạng thái các kỳ tài chính trong chi nhánh đã chọn.", module: "finance", permissions: treasuryReadPermissions, permissionGroups: [["finance-wallet:read"], ["finance-wallet:manage"]], method: "GET", path: "/finance/reporting/treasury", link: "/tai-chinh", fields: [treasuryBranch()], resultFields: ["month", "status", "closedAt"] },
 );
 operations.push({
   id: "omni-inbox.account.list",
@@ -575,6 +579,7 @@ operations.push(...expandedOperations.map(op => {
   const workerPartnerPolicyList = op.method === "GET" && op.path === "/worker-management/partners/policies";
   const workerPartnerPolicyPath = op.path.startsWith("/worker-management/partners/policies/");
   const inventoryCount = op.path.startsWith("/inventory/counts");
+  const inventoryCountApproval = op.method === "POST" && op.path === "/inventory/counts/:id/approve";
   const markInstallmentPaid = op.method === "PATCH" && op.path === "/students/:id/installment/:no/mark-paid";
   const studentList = op.method === "GET" && op.path === "/students";
   const unassignedStudentList = op.method === "GET" && op.path === "/students/unassigned";
@@ -746,7 +751,7 @@ operations.push(...expandedOperations.map(op => {
       if (op.id === "retail.payment-review.review" && field.key === "path_id") return { ...field, label: "Mã đơn hoặc mã thanh toán cần rà soát", reference: "retail.payment-review.pending" };
       if (op.path === "/retail/partners/:id" && field.key === "path_id") return { ...field, label: "Tên hoặc mã đối tác bán lẻ", reference: "retail.partner.list" };
       if (retailShiftPath && field.key === "path_id") return { ...field, label: "Mã ca POS hoặc tên nhân viên thu ngân", reference: "retail.shift.list" };
-      if (retailOrderPath && field.key === "path_id") return { ...field, label: "Mã hoặc tên đơn bán lẻ", reference: "retail.order.list" };
+      if (retailOrderPath && field.key === "path_id") return { ...field, label: "Mã hoặc tên đơn bán lẻ", reference: "retail.order.list", ...((retailOrderDraftUpdate || retailOrderConfirm) ? { referenceContext: { query_heldOnly: true } } : {}) };
       if (customerBillingProfileOperation && field.key === "path_id") return { ...field, label: "Tên hoặc số điện thoại khách hàng", reference: "customer.list" };
       if (customerBillingProfileCreate && field.source === "body" && billingProfileFieldLabels[field.apiKey || field.key]) return { ...field, label: billingProfileFieldLabels[field.apiKey || field.key] };
       if (financeDebtPayment && field.key === "path_id") return { ...field, label: "Mã chứng từ hoặc đối tượng công nợ", reference: "finance.debt.list" };
@@ -902,14 +907,14 @@ operations.push(...expandedOperations.map(op => {
     ...(retailOrderQuote ? { id: "retail.order.quote", title: "Tính thử đơn bán lẻ" } : {}),
     ...(retailOrderCheckout ? { id: "retail.order.checkout", title: "Tạo và thanh toán đơn bán lẻ", contextBody: ["idempotencyKey"] } : {}),
     ...(retailOrderDraftCreate ? { id: "retail.order.draft.create", title: "Tạo đơn nháp bán lẻ", contextBody: ["idempotencyKey"] } : {}),
-    ...(retailOrderDraftUpdate ? { id: "retail.order.draft.update", title: "Cập nhật đơn nháp bán lẻ", contextBody: ["idempotencyKey"] } : {}),
+    ...(retailOrderDraftUpdate ? { id: "retail.order.draft.update", title: "Cập nhật đơn nháp bán lẻ", description: "Sửa các thông tin được yêu cầu trên đơn nháp. Đọc bản hiện tại để giữ nguyên dòng hàng và thông tin không sửa. Cần xác nhận trước khi lưu, từ chối nếu đơn thay đổi sau bản xem trước.", contextBody: ["idempotencyKey"], partialUpdate: true, mergeBodyWithReference: true } : {}),
     ...(retailOrderConfirm ? { id: "retail.order.confirm", title: "Xác nhận đơn nháp bán lẻ", contextBody: ["idempotencyKey"] } : {}),
     ...(retailOrderCollect ? { id: "retail.order.collect", title: "Thu thêm tiền đơn bán lẻ", contextBody: ["idempotencyKey"] } : {}),
     ...(retailOrderCancel ? { id: "retail.order.cancel", title: "Hủy đơn bán lẻ", contextBody: ["idempotencyKey"] } : {}),
     ...(retailCashierList ? { id: "retail.shift.cashier.list", title: "Tra cứu nhân viên thu ngân", resultFields: ["id", "name"] } : {}),
     ...(retailDrawerList ? { id: "retail.shift.drawer.list", title: "Tra cứu quầy và két POS", resultFields: ["code", "name", "isActive"] } : {}),
     ...(retailSettlementList ? { id: "retail.shift.settlements.list", title: "Tra cứu khoản thu POS chưa đối soát", resultFields: ["orderCode", "paymentIndex", "paymentMethod", "paymentAmount"] } : {}),
-    ...(financeDebtList ? { id: "finance.debt.list", title: "Tra cứu công nợ", resultFields: ["source", "direction", "partyKind", "partyName", "reference", "amount", "balance", "dueOn", "daysOverdue", "daysUntilDue", "bucket", "alert", "version"] } : {}),
+    ...(financeDebtList ? { id: "finance.debt.list", title: "Tra cứu công nợ", resultFields: ["source", "direction", "partyKind", "partyName", "reference", "amount", "balance", "dueOn", "daysOverdue", "daysUntilDue", "bucket", "alert"] } : {}),
     ...(financeManagementDebtList ? { id: "finance.management.debts.list", title: "Tra cứu khoản phải thu, phải trả và phiếu nhập chưa ghi công nợ", description: "Tra cứu trong chi nhánh đã chọn; chỉ dùng các thông tin cần thiết để chọn chứng từ hoặc khoản công nợ.", resultFields: ["targetType", "code", "name", "amount", "balance", "dueDate", "status"] } : {}),
     ...(financeReceivableList ? { id: "finance.receivable.list", title: "Tra cứu khoản phải thu", resultFields: ["receivableCode", "customerName", "sourceCode", "sourceType", "occurredAt", "dueDate", "originalAmount", "paidAmount", "adjustedAmount", "balance", "status", "daysOverdue", "reminderCount"] } : {}),
     ...(financeReceivableDetail ? { id: "finance.receivable.detail", title: "Xem khoản phải thu và các bút toán có thể đảo", resultFields: ["receivableCode", "customerName", "balance", "status"] } : {}),
@@ -921,6 +926,8 @@ operations.push(...expandedOperations.map(op => {
     ...(financeVatList ? { id: "finance.vat.list", title: "Tra cứu hóa đơn VAT", resultFields: ["invoiceNumber", "series", "direction", "partyName", "taxId", "issuedOn", "taxableAmount", "vatAmount", "deductibleVat"] } : {}),
     ...(inventoryCatalogTitles[`${op.method} ${op.path}`] ? { title: inventoryCatalogTitles[`${op.method} ${op.path}`] } : {}),
     ...(inventoryCountTitles[`${op.method} ${op.path}`] ? { title: inventoryCountTitles[`${op.method} ${op.path}`] } : {}),
+    ...(op.method === "PATCH" && op.path === "/inventory/counts/:id/items/:itemId" ? { id: "inventory.count.item.update", systemBodyFields: ["expectedVersion"] } : {}),
+    ...(inventoryCountApproval ? { id: "inventory.count.approve", title: "Phê duyệt kiểm kê và cập nhật tồn kho", systemBodyFields: ["expectedVersion"], description: "Chỉ phê duyệt phiếu đang chờ duyệt. Tồn kho sẽ thay đổi theo kết quả đếm. Nếu có chênh lệch, cần xác nhận đã kiểm tra và nêu lý do. Mỗi mã ngoài dự kiến cần có kết quả đối chiếu riêng. Cần xác nhận trước khi cập nhật tồn kho." } : {}),
     ...(markInstallmentPaid ? { title: "Đánh dấu đợt học phí đã thu", description: "Đánh dấu một đợt học phí đã thu cho học viên đã xác định. Thao tác cần xác nhận.", allowEmptyUpdate: true } : {}),
     ...(partnerCreate ? { title: "Tạo cộng tác viên giới thiệu học viên", description: "Tạo cộng tác viên giới thiệu học viên; cần tên và số điện thoại. Cần xác nhận trước khi lưu." } : {}),
     ...(partnerBulkCreate ? {
@@ -999,7 +1006,11 @@ operations.push(...expandedOperations.map(op => {
       }
       if (!inventorySerialOperation && !inventoryCount && !financeReceivableOperation && !financeDebtList && !commissionLevel && !retailSettingsOperation && !retailPosOperation && !retailCashbookOperation && !retailFinanceCommissionOperation && !retailReceivableOperation && !retailAfterSaleOperation) return mapped;
       const label = inventorySerialOperation ? "Chi nhánh" : inventoryCount ? "Chi nhánh kiểm kê" : financeReceivableOperation ? "Chi nhánh hạch toán" : retailSettingsOperation || retailPosOperation || retailCashbookOperation || retailFinanceCommissionOperation || retailReceivableOperation || retailAfterSaleOperation ? "Chi nhánh bán lẻ" : "Chi nhánh áp dụng";
-      return [queryField(ref("targetBranch", label, "branch.list", false), "branchId"), ...mapped.filter(field => field.apiKey !== "branchId")];
+      return [queryField(ref("targetBranch", label, "branch.list", false), "branchId"), ...mapped.filter(field => field.apiKey !== "branchId"), ...(inventoryCountApproval ? [
+        { key: "discrepancyConfirmed", apiKey: "discrepancyConfirmed", source: "body" as const, type: "boolean" as const, label: "Xác nhận đã kiểm tra và chấp nhận chênh lệch", required: false },
+        { key: "reason", apiKey: "reason", source: "body" as const, type: "text" as const, label: "Lý do chấp nhận chênh lệch", max: 2000, required: false, requiredWhen: { field: "discrepancyConfirmed", equals: true } },
+        { key: "unexpectedScanResolutions", apiKey: "unexpectedScanResolutions", source: "body" as const, type: "json" as const, label: "Kết quả đối chiếu từng mã ngoài dự kiến", required: false, structure: { type: "array", maxItems: 100, items: { type: "object", keys: { code: { type: "string", required: true, max: 160 }, reason: { type: "string", required: true, max: 2000 } } } } },
+      ] : [])];
     })(),
     resultFields: inventoryResource ? (op.method === "DELETE" ? ["deletedId"] : ["code", "name", "status", "parentCode", "description", "website", "symbol", "category", "decimalPlaces", "baseUnitCode", "conversionFactor", "type", "options", "unitCode"])
       : batchDetail ? ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"]
@@ -1047,7 +1058,7 @@ operations.push(...expandedOperations.map(op => {
       : retailOrderConfirm ? ["orderCode", "status", "paymentStatus", "grandTotal", "paidAmount", "dueAmount", "version"]
       : retailOrderList ? ["orderCode", "customerName", "customerPhone", "status", "paymentStatus", "grandTotal", "paidAmount", "refundedAmount", "dueAmount", "version", "businessDate", "createdAt"]
       : retailOrderDetail ? ["orderCode", "customerName", "customerPhone", "status", "paymentStatus", "grandTotal", "paidAmount", "refundedAmount", "dueAmount", "version", "businessDate", "createdAt", "items", "payments"]
-      : financeDebtList ? ["source", "direction", "partyKind", "partyName", "reference", "amount", "balance", "dueOn", "daysOverdue", "daysUntilDue", "bucket", "alert", "version"]
+      : financeDebtList ? ["source", "direction", "partyKind", "partyName", "reference", "amount", "balance", "dueOn", "daysOverdue", "daysUntilDue", "bucket", "alert"]
       : financeManagementDebtList ? ["targetType", "code", "name", "amount", "balance", "dueDate", "status"]
       : financeReceivableList ? ["receivableCode", "customerName", "sourceCode", "sourceType", "occurredAt", "dueDate", "originalAmount", "paidAmount", "adjustedAmount", "balance", "status", "daysOverdue", "reminderCount"]
       : financeReceivableDetail ? ["receivableCode", "customerName", "balance", "status"]
@@ -1816,6 +1827,7 @@ const interviewList = operations.find(op => op.id === "recruitment.interview.lis
 if (interviewList) interviewList.resultFields = ["applicantName", "jobTitle", "interviewers", ...interviewList.resultFields];
 operations.push({
   id: "student.batch.attendance.summary", title: "Báo cáo điểm danh lớp học theo ngày", description: "Kiểm tra lớp/khóa học học viên hôm nay có đi đủ không; đếm có mặt, đi muộn, vắng, có phép và chưa ghi nhận. Cần chọn lớp theo tên hoặc mã; không thay bằng lịch học hoặc đào tạo nội bộ.",
+  functionAreas: [{ key: 'attendance', label: 'Điểm danh học viên' }],
   module: "student", permissions: ["people:read"], method: "GET", path: "/batches/:id", adapter: "contract", rawResponse: true, readOnly: true, link: "/quan-ly-hoc-vien",
   fields: [{ ...ref("path_id", "Tên hoặc mã lớp", "batch.list"), source: "path", apiKey: "id" }, queryField(date("date", "Ngày điểm danh"))],
   resultFields: ["className", "courseTitle", "date", "total", "present", "late", "absent", "excused", "unrecorded", "note"],
@@ -1836,6 +1848,12 @@ operations.push({
 });
 const trainingIncomplete = operations.find(op => op.id === "hr.training.incomplete.list")!;
 operations.push({ ...trainingIncomplete, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
+const studentClassDetail = operations.find(op => op.id === 'student.batch.detail');
+if (studentClassDetail) {
+  studentClassDetail.functionAreas = [{key:'schedule',label:'Lịch học'}];
+  studentClassDetail.resultFields = [...new Set([...studentClassDetail.resultFields, 'daysOfWeek', 'startTime', 'endTime'])];
+  studentClassDetail.description += ' Xem lịch học định kỳ của một lớp/khóa học: ngày trong tuần, giờ bắt đầu/kết thúc và khoảng ngày của lớp. Không phải báo cáo điểm danh hoặc lịch đào tạo nội bộ. Chọn đúng lớp theo tên hoặc mã; nếu nhiều lớp cùng khóa thì hỏi chọn lớp.';
+}
 
 operations.push(...HEALTHCARE_OPERATIONS);
 operations.push(...QUOTATION_OPERATIONS);
@@ -1846,10 +1864,11 @@ if (laborKpi) {
     partnerName: { label: "Đối tác", type: "text" },
     partnerCode: { label: "Mã đối tác", type: "text" },
     targetReferrals: { label: "Chỉ tiêu", type: "number" },
-    actualReferrals: { label: "Đã giới thiệu", type: "number" },
+    actualReferrals: { label: "Đã giới thiệu", type: "number", aliases: ["lao động được giới thiệu", "số lao động giới thiệu", "số lao động được giới thiệu", "lao động giới thiệu", "lao động", "người được giới thiệu", "số người giới thiệu", "số lượt giới thiệu", "lượt giới thiệu", "giới thiệu"] },
     remainingReferrals: { label: "Còn thiếu", type: "number" },
     completionRate: { label: "Tỷ lệ đạt (%)", type: "number" },
-    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" } },
+    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" },
+      valueAliases: { incomplete:['thiếu KPI','chưa đạt KPI','chưa đủ KPI'], not_set:['chưa thiết lập KPI','chưa đặt KPI','chưa có chỉ tiêu KPI'], achieved:['đã đạt KPI','đạt đủ KPI'] } },
   } };
   laborKpi.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
   laborKpi.assistantOnlyFields = ["analysis"];
@@ -1889,6 +1908,7 @@ for (const op of operations.filter(op => op.method === "PATCH" && ["/partners/co
   op.description += " Chỉ gửi thuộc tính người dùng muốn sửa. Máy chủ đọc bản hiện tại và giữ các phần không đổi, kể cả thuộc tính lồng trong config. Chọn đúng bản ghi trước khi sửa và xác nhận trước khi lưu. Không tự tạo bản ghi mới khi người dùng yêu cầu sửa.";
 }
 const retailPolicyList = operations.find(op => op.id === "retail.partner.commission.policy.list")!;
+operations.find(op => op.id === "retail.order.list")!.fields.push({ key: "query_heldOnly", apiKey: "heldOnly", source: "query", type: "boolean", label: "Chỉ đơn nháp đang giữ" });
 retailPolicyList.resultFields.push("partnerName");
 retailPolicyList.description += " Chính sách được phân biệt bằng ngày áp dụng và cộng tác viên (hoặc chính sách chung). Không tự chọn một bản khi chưa xác định được.";
 for (const op of operations.filter(op => /\/retail\/partners\/commission-policies/.test(op.path) && ["POST", "PATCH"].includes(op.method))) {
@@ -1957,7 +1977,10 @@ for (const operation of operations) {
     if (version) version.referenceValueKey = "version";
   }
 }
-export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
+export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations.map(operation => ({
+  ...operation,
+  assistantMetadata: buildAssistantOperationMetadata(operation),
+}));
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
   const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : op.id === "hr.contract.create"

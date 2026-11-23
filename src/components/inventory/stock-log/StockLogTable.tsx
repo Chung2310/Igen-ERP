@@ -159,14 +159,14 @@ export function StockLogTable({
                     {/* Cột 2: Loại giao dịch & Nguồn gốc */}
                     <td className="px-4 py-3 align-middle">
                       {isInbound ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/90 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-2xs">
-                          <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
+                          <ArrowDownLeft className="h-3.5 w-3.5 text-white" />
                           Nhập kho
                         </span>
                       ) : isPos ? (
                         <div className="space-y-0.5">
-                          <span className="inline-flex items-center gap-1 rounded-full border border-sky-200/90 bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700 shadow-2xs">
-                            <ShoppingCart className="h-3.5 w-3.5 text-sky-600" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#D9EDF7] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-[#286090]">
+                            <ShoppingCart className="h-3.5 w-3.5 text-[#286090]" />
                             Bán POS
                           </span>
                           <span className="block text-[10px] font-medium text-slate-400 pl-1">
@@ -175,8 +175,8 @@ export function StockLogTable({
                         </div>
                       ) : (
                         <div className="space-y-0.5">
-                          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200/90 bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 shadow-2xs">
-                            <ArrowUpRight className="h-3.5 w-3.5 text-rose-600" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
+                            <ArrowUpRight className="h-3.5 w-3.5 text-white" />
                             Xuất kho
                           </span>
                           {log.purpose && (

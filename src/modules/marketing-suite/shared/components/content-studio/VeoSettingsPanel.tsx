@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyledSelect } from '../../../../../components/common/StyledSelect';
 import { VIDEO_DURATION_OPTIONS, VIDEO_MODEL_OPTIONS, VIDEO_QUALITY_OPTIONS } from './video-generation.constants';
 
 interface VeoSettingsPanelProps {
@@ -11,6 +12,11 @@ interface VeoSettingsPanelProps {
   onDurationChange: (value: string) => void;
   onQualityChange: (value: string) => void;
 }
+
+const ASPECT_RATIO_OPTIONS = [
+  { value: '16:9', label: '16:9 · Ngang' },
+  { value: '9:16', label: '9:16 · Dọc' },
+];
 
 export function VeoSettingsPanel(props: VeoSettingsPanelProps) {
   const {
@@ -25,69 +31,70 @@ export function VeoSettingsPanel(props: VeoSettingsPanelProps) {
   } = props;
 
   return (
-    <>
-      <div className="flex flex-col gap-1 border-t border-slate-100 pt-3.5">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô hình tạo video</span>
-        <select
+    <div className="flex flex-col gap-3.5 border-t border-outline-variant pt-4">
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-on-surface">Mô hình tạo video</span>
+        <StyledSelect
+          appearance="erp"
+          ariaLabel="Mô hình tạo video"
           value={videoModel}
-          onChange={(e) => onVideoModelChange(e.target.value)}
-          className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
-        >
-          {VIDEO_MODEL_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={onVideoModelChange}
+          options={[...VIDEO_MODEL_OPTIONS]}
+          className="h-10 rounded-md"
+          menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+        />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3.5">
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Khung hình</span>
-          <select
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-on-surface">Khung hình</span>
+          <StyledSelect
+            appearance="erp"
+            ariaLabel="Khung hình"
             value={videoAspectRatio}
-            onChange={(e) => onAspectRatioChange(e.target.value)}
-            className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
-          >
-            <option value="16:9">16:9 Ngang</option>
-            <option value="9:16">9:16 Doc</option>
-          </select>
+            onChange={onAspectRatioChange}
+            options={ASPECT_RATIO_OPTIONS}
+            className="h-10 rounded-md"
+            menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+          />
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Thời lượng</span>
-          <select
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-on-surface">Thời lượng</span>
+          <StyledSelect
+            appearance="erp"
+            ariaLabel="Thời lượng"
             value={videoDuration}
-            onChange={(e) => onDurationChange(e.target.value)}
-            className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
-          >
-            {VIDEO_DURATION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={onDurationChange}
+            options={[...VIDEO_DURATION_OPTIONS]}
+            className="h-10 rounded-md"
+            menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+          />
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-3.5">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Độ phân giải</span>
-        <div className="grid grid-cols-2 gap-2">
-          {VIDEO_QUALITY_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onQualityChange(option.value)}
-              className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                videoQuality === option.value
-                  ? 'border-[#0891b2] bg-white text-[#0891b2] shadow-xs'
-                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {option.value}
-            </button>
-          ))}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-on-surface">Độ phân giải</span>
+        <div role="group" aria-label="Độ phân giải" className="grid grid-cols-2 gap-2">
+          {VIDEO_QUALITY_OPTIONS.map((option) => {
+            const isSelected = videoQuality === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onQualityChange(option.value)}
+                className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium tabular-nums transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                  isSelected
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                }`}
+              >
+                {option.value}
+              </button>
+            );
+          })}
         </div>
       </div>
-    </>
+    </div>
   );
 }

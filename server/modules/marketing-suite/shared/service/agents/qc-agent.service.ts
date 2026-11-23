@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
 import { IMarketingCampaignSlot } from "../../../campaign/interface/marketing-campaign-slot.interface.ts";
 import { IMarketingCampaign } from "../../../campaign/interface/marketing-campaign.interface.ts";
 import { MarketingContentModel } from "../../../campaign/model/marketing-content.model.ts";
@@ -116,7 +117,7 @@ ${content.bodyText}
       required: ["score", "passed", "rejectionReasons"],
     };
 
-    const model = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const model = ERP_LLM_MODEL;
 
     console.log(`[QcAgent] Auditing content for slot ${slot._id}...`);
     try {

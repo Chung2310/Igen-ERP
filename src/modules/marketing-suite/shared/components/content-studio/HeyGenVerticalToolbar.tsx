@@ -15,7 +15,7 @@ const TABS = [
 
 export function HeyGenVerticalToolbar({ activeTab, onChangeTab }: HeyGenVerticalToolbarProps) {
   return (
-    <div className={`flex h-full w-[64px] shrink-0 flex-col items-center border-l ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} py-3 text-slate-400 transition-all duration-300`}>
+    <div className={`flex h-full w-16 shrink-0 flex-col items-center border-l ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} py-3 text-on-surface-variant`}>
       <div className="flex w-full flex-col gap-1.5 px-1">
         {TABS.map((tab) => {
           const Icon = tab.icon;
@@ -25,12 +25,12 @@ export function HeyGenVerticalToolbar({ activeTab, onChangeTab }: HeyGenVertical
               key={tab.id}
               type="button"
               onClick={() => onChangeTab(tab.id)}
-              className={`group relative flex w-full flex-col items-center justify-center gap-1 rounded-xl py-2.5 transition-all duration-200 ${isActive ? "bg-cyan-50 font-bold text-cyan-700 shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
+              className={`group relative flex w-full flex-col items-center justify-center gap-1 rounded-lg py-2.5 transition-colors duration-150 cursor-pointer ${isActive ? "bg-primary/10 font-medium text-primary" : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"}`}
               title={tab.label}
             >
-              {isActive ? <div className="absolute left-0 top-1/4 h-1/2 w-0.5 rounded-r bg-cyan-600" /> : null}
-              <Icon className="h-4.5 w-4.5 transition group-hover:scale-105" />
-              <span className="mt-0.5 text-[8px] font-semibold tracking-tight">{tab.label}</span>
+              {isActive ? <div className="absolute left-0 top-1/4 h-1/2 w-0.5 rounded-r bg-primary" /> : null}
+              <Icon className="size-4" aria-hidden="true" />
+              <span className="text-[11px] font-medium">{tab.label}</span>
             </button>
           );
         })}

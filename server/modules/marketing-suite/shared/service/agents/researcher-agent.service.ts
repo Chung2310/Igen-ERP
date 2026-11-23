@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
 import { createHash } from "crypto";
 import { IMarketingCampaignSlot } from "../../../campaign/interface/marketing-campaign-slot.interface.ts";
 import { IMarketingCampaign } from "../../../campaign/interface/marketing-campaign.interface.ts";
@@ -133,8 +134,7 @@ ${evidenceContext || "Không có evidence Apify khả dụng. Chỉ dùng brief 
       required: ["angles", "painPoints", "facts", "summary"],
     };
 
-    const model = process.env.CAMPAIGN_RESEARCH_MODEL
-      || (collected.evidence.length > 0 ? process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash" : "perplexity/sonar");
+    const model = ERP_LLM_MODEL;
 
     console.log(`[ResearcherAgent] Researching slot ${slot._id} for campaign "${campaign.title}"...`);
     const result = await openrouterChat({

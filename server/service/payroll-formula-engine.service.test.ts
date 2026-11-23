@@ -30,6 +30,7 @@ describe("payroll formula engine", () => {
 
   it("rejects unknown variables and excessive depth", () => {
     expect(validatePayrollFormulaDefinition(formula({ expression: { type: "variable", key: "secret" } }))).toMatchObject({ code: "PAYROLL_FORMULA_VARIABLE_INVALID" });
+    expect(validatePayrollFormulaDefinition(formula({ expression: { type: "variable", key: "toString" } }))).toMatchObject({ code: "PAYROLL_FORMULA_VARIABLE_INVALID" });
     let expression: any = { type: "constant", value: 1 };
     for (let index = 0; index < 10; index += 1) expression = { type: "binary", operator: "add", left: expression, right: { type: "constant", value: 1 } };
     expect(validatePayrollFormulaDefinition(formula({ expression }))).toMatchObject({ code: "PAYROLL_FORMULA_DEPTH_EXCEEDED" });
@@ -38,5 +39,26 @@ describe("payroll formula engine", () => {
   it("reports missing variables and division by zero", () => {
     expect(() => evaluatePayrollFormula(formula(), {})).toThrow(/actualWorkDays/);
     expect(validatePayrollFormulaDefinition(formula({ expression: { type: "binary", operator: "divide", left: { type: "constant", value: 1 }, right: { type: "constant", value: 0 } } }))).toMatchObject({ code: "PAYROLL_FORMULA_DIVISION_BY_ZERO" });
+  });
+
+  it("rejects invalid effective-date windows", () => {
+    expect(validatePayrollFormulaDefinition(formula({ effectiveFrom: "2026-09-01", effectiveTo: "2026-08-31" })))
+      .toMatchObject({ code: "PAYROLL_FORMULA_EFFECTIVE_WINDOW_INVALID" });
+    expect(validatePayrollFormulaDefinition(formula({ effectiveFrom: "not-a-date" })))
+      .toMatchObject({ code: "PAYROLL_FORMULA_EFFECTIVE_DATE_INVALID" });
+  });
+
+  it("fails instead of returning an infinite payroll amount", () => {
+    const overflow = formula({
+      conditions: { combinator: "and", items: [] },
+      expression: {
+        type: "binary", operator: "multiply",
+        left: { type: "constant", value: 1e308 },
+        right: { type: "constant", value: 2 },
+      },
+    });
+
+    expect(() => evaluatePayrollFormula(overflow, {}))
+      .toThrowError(expect.objectContaining({ code: "PAYROLL_FORMULA_RESULT_INVALID" }));
   });
 });

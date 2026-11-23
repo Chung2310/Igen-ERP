@@ -18,9 +18,9 @@ describe("student status validation", () => {
 });
 
 describe("publicRegisterStudentSchema", () => {
-  it("accepts a worker registration without an email address", () => {
+  it("accepts a public registration with a signed context token", () => {
     const result = publicRegisterStudentSchema.validate({
-      teacherId: "6a4c5d666ca790ac78608698",
+      registrationToken: "signed-context-token",
       fullName: "Nguyễn Văn A",
       phone: "0900000000",
     });
@@ -28,20 +28,9 @@ describe("publicRegisterStudentSchema", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("accepts the worker QR registration preset", () => {
+  it("does not accept editable company, branch, or preset fields", () => {
     const result = publicRegisterStudentSchema.validate({
-      teacherId: "6a4c5d666ca790ac78608698",
-      fullName: "Nguyễn Văn A",
-      phone: "0900000000",
-      entityPreset: "worker",
-    });
-
-    expect(result.error).toBeUndefined();
-  });
-
-  it("accepts the company and branch encoded in a worker QR", () => {
-    const result = publicRegisterStudentSchema.validate({
-      teacherId: "6a4c5d666ca790ac78608698",
+      registrationToken: "signed-context-token",
       fullName: "Nguyễn Văn A",
       phone: "0900000000",
       entityPreset: "worker",
@@ -49,6 +38,6 @@ describe("publicRegisterStudentSchema", () => {
       registrationBranchId: "branch-1",
     });
 
-    expect(result.error).toBeUndefined();
+    expect(result.error).toBeDefined();
   });
 });

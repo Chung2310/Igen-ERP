@@ -7,7 +7,7 @@ import { InventoryLedgerEntryModel } from "../../../model/inventory-ledger-entry
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { WarehouseModel } from "../../../model/warehouse.model";
-import { approveCount as approveReviewedCount, createCount, recreateCount, scanCountUnit, submitCount, updateCountItem } from "./inventory-count.service";
+import { approveCount as approveReviewedCount, cancelCount, createCount, recreateCount, scanCountUnit, startCount, submitCount, updateCountItem } from "./inventory-count.service";
 import { SerialUnitModel } from "../serials/serial-unit.model";
 import { SerialEventModel } from "../serials/serial-event.model";
 
@@ -92,6 +92,32 @@ describe("inventory count approval integration", () => {
     const saved: any = await InventoryCountModel.findById(count._id).lean();
     expect(saved.unexpectedScans.map((scan: any) => scan.code).sort()).toEqual(["UNKNOWN-A", "UNKNOWN-B"]);
     expect(saved.items[0].scannedUnitIds).toHaveLength(0);
+  });
+  it("does not reveal serial details belonging to another branch", async () => {
+    const count = await scanningCount();
+    await SerialUnitModel.create({
+      companyCode,
+      branchId: "branch-other",
+      warehouseId: new mongoose.Types.ObjectId().toString(),
+      productId,
+      variantId,
+      sku: "REMOTE-SKU",
+      productName: "Other branch product",
+      serialNumber: "REMOTE-UNIT",
+      normalizedSerialNumber: "REMOTE-UNIT",
+      internalBarcode: "REMOTE-BARCODE",
+      normalizedInternalBarcode: "REMOTE-BARCODE",
+      status: "in_stock",
+      createdBy: "other-branch",
+      updatedBy: "other-branch",
+    });
+
+    const result = await scanCountUnit(scope, String(count._id), "REMOTE-UNIT");
+
+    expect(result).toMatchObject({ outcome: "unexpected", reason: "unknown" });
+    expect(result.count.unexpectedScans[0]).not.toHaveProperty("serialUnitId");
+    expect(result.count.unexpectedScans[0]).not.toHaveProperty("warehouseId");
+    expect(result.count.unexpectedScans[0]).not.toHaveProperty("sku");
   });
   it("rejects an item edit that was read before the count was submitted", async () => {
     const count: any = await seedCount();
@@ -275,6 +301,28 @@ describe("inventory count approval integration", () => {
     const approved = await approveCount(scope, String(count._id), { id: "approve-id", email: "same@example.test" });
     expect(approved.approvedById).toBe("approve-id");
   });
+  it("safely retries start and submit without rewriting the transition audit", async () => {
+    const count: any = await seedCount();
+    count.status = "draft"; await count.save();
+
+    const started = await startCount(scope, String(count._id), { id: "counter" });
+    const startRetry = await startCount(scope, String(count._id), { id: "counter" });
+    expect(startRetry).toMatchObject({ status: "counting", version: started.version });
+
+    const submitted = await submitCount(scope, String(count._id), { id: "submitter" });
+    const submittedAt = submitted.submittedAt;
+    const submitRetry = await submitCount(scope, String(count._id), { id: "submitter" });
+    expect(submitRetry).toMatchObject({ status: "pending_approval", version: submitted.version, submittedById: "submitter", submittedAt });
+    await expect(submitCount(scope, String(count._id), { id: "another-user" })).rejects.toMatchObject({ statusCode: 409 });
+  });
+  it("safely retries cancellation without changing its saved timestamp", async () => {
+    const count: any = await seedCount();
+    count.status = "draft"; await count.save();
+
+    const cancelled = await cancelCount(scope, String(count._id), { id: "counter" });
+    const retry = await cancelCount(scope, String(count._id), { id: "counter" });
+    expect(retry).toMatchObject({ status: "cancelled", version: cancelled.version, cancelledAt: cancelled.cancelledAt });
+  });
   it("recreates a conflicted count from current stock with empty counts and reciprocal links", async () => {
     const source: any = await scanningCount();
     source.status = "conflict"; source.items[0].scannedUnitIds = [source.items[0].expectedUnits[0].serialUnitId]; await source.save();
@@ -358,6 +406,27 @@ describe("inventory count approval integration", () => {
     count.items[0].scannedUnitIds = [count.items[0].expectedUnits[0].serialUnitId];
     await count.save(); return count;
   }
+  it("reconciles an initial mismatch between tracked stock and registered serial units", async () => {
+    await seedCount(0);
+    await ProductVariantModel.updateOne({ _id: variantId }, { trackingMode: "serial" });
+    await InventoryBalanceModel.updateOne({ variantId }, { quantity: 2 });
+    await SerialUnitModel.create({ ...scope, warehouseId, productId, variantId, sku: "SKU-1", productName: "Test", serialNumber: "ONLY-UNIT", normalizedSerialNumber: "ONLY-UNIT", internalBarcode: "BAR-ONLY-UNIT", normalizedInternalBarcode: "BAR-ONLY-UNIT", status: "in_stock", createdBy: "test", updatedBy: "test" });
+
+    const count: any = await createCount(scope, warehouseId, { id: "counter" });
+    expect(count.items[0]).toMatchObject({ systemQuantity: 2, countedQuantity: 0, quantityDelta: -2 });
+    expect(count.items[0].expectedUnits).toHaveLength(1);
+    await startCount(scope, String(count._id), { id: "counter" });
+    await scanCountUnit(scope, String(count._id), "ONLY-UNIT");
+    await submitCount(scope, String(count._id), { id: "submitter" });
+
+    const approved: any = await approveCount(scope, String(count._id), { id: "approver" });
+    expect(approved.status).toBe("completed");
+    expect(approved.items[0]).toMatchObject({ systemQuantity: 2, countedQuantity: 1, quantityDelta: -1 });
+    expect((await InventoryBalanceModel.findOne({ warehouseId, productId, variantId }).lean())?.quantity).toBe(1);
+    expect((await SerialUnitModel.findOne({ serialNumber: "ONLY-UNIT" }).lean())?.status).toBe("in_stock");
+    expect(await InventoryLedgerEntryModel.countDocuments({ sourceId: String(count._id) })).toBe(1);
+  });
+
   it("records confirmed missing machines with their count reference atomically", async () => {
     const count = await missingMachineCount();
     await approveCount(scope, String(count._id), { id: "approver" });

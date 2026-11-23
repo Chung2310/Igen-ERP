@@ -1,0 +1,2467 @@
+{
+  "generatedAt": "2026-11-21T07:10:40.424Z",
+  "scope": [
+    "product.list",
+    "inventory.product.detail"
+  ],
+  "transport": "direct-only",
+  "accounting": "legacy_primary",
+  "readCap": 24,
+  "modelCallsAreMocked": true,
+  "realModelRequests": 0,
+  "realBusinessRequests": 0,
+  "realDatabaseRequests": 0,
+  "reports": {
+    "v2": {
+      "passed": 122,
+      "failed": 0
+    },
+    "p6": {
+      "passed": 359,
+      "failed": 0
+    },
+    "p3": {
+      "passed": 161,
+      "failed": 0
+    },
+    "llm": {
+      "passed": 84,
+      "failed": 0
+    },
+    "shared": {
+      "passed": 69,
+      "failed": 0
+    },
+    "p5Offline": {
+      "passed": 52,
+      "failed": 0
+    }
+  },
+  "totalTestInstances": 847,
+  "method": "Actual V2 schemas/interpreter/adapter/service/dispatch/completion;scripted provider output and in-memory persistence/auth/business transport;native wire and router tested separately with mocks.",
+  "caveats": [
+    "No model accuracy, provider token usage/cost/latency or actual database latency has been measured.",
+    "Scenario counters include preflight reads and explicit negative cases;do not treat them as production traffic distribution.",
+    "Turn updates/session writes count mocks;workflow/ACL/cache/retention sweeps are additional metadata work,not physical business HTTP."
+  ],
+  "hashes": {
+    "server/assistant/read-v2-contract.ts": "06d6ab32385e6c2453682a31758ef61c44bb7d319deed59099e87e2d2d5f2ca1",
+    "server/assistant/read-v2-runtime.ts": "c86ca762f5a7933168119802e9233cf9021f6b553adb04ede55baa0d5982044b",
+    "server/assistant/read-v2-service.ts": "7de689b885048f29c823b0e79ff6c6fca23130d5fea6185fc2567a82bea58489",
+    "server/assistant/read-v2-cache.ts": "5b78cc5047b4f450dc9ca7b280605c6b7d57ee8cf0a42c670ae10140977fd5e0",
+    "server/assistant/read-v2-retention.ts": "cd65cb8fa92983698b04adc190bc66407159ed17c16de64ce5be7dcc0265250f",
+    "server/assistant/semantic-read-v2.ts": "8789817112aa9688e6086cd4c2c952667195358263b61f38e5f6e2edfe7fdaf8",
+    "server/assistant/service.ts": "c6a2a3eeafe8eb55402a0687ae799c1ce14b4468902aa8a200ac68e9f63eca0c",
+    "server/assistant/router.ts": "b89011f1ece95d6e7f8e201d5df8a7ffb67d402f0899e7b344a337402b49da1e",
+    "server/assistant/models.ts": "9a5117d4de41cb9476bed911159089846e50d0f45f3f789d45d3e0d80542f922",
+    "server/assistant/execution-budget.ts": "440627bceee07157191f6c93d12adb846b96434398d6b59c3e0ea28edf06ecd7",
+    "server/assistant/business-call-gate.ts": "cedf4f3fcc927023a622d84bde02aad6e55d10a201f5842a63a401bd0812f499",
+    "server/assistant/product-read-prototype.ts": "97634d82038534e0a5ed314fde9afcf00ba24f8273e8078d9ad36cce5bc17bc9"
+  },
+  "scenarios": [
+    {
+      "scenario": "V2 list quote uses common dispatch, table and unchanged primary budget",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 8,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 exact target bypasses first-page recheck independently of C flag",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 duplicate name selects P2 by opaque token without another interpretation",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P2"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 duplicate name selects P3 by opaque token without another interpretation",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P3"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 missing target asks for data and accepts a free-text continuation",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 indistinguishable product labels remain a question, never a positional choice",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 5,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 respects custom confirmation for product.list",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 10,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 respects custom confirmation for inventory.product.detail",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 option selection does not satisfy required confirmation or allow the previous decision",
+      "userCalls": 4,
+      "uniqueTurns": 4,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "collecting",
+        "confirmation",
+        "completed"
+      ],
+      "detailTargets": [
+        "P3"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 16,
+      "sessionWritesMock": 15
+    },
+    {
+      "scenario": "V2 decline cancels without primary read",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "confirmation",
+        "cancelled"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 7,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 screen context is exact-verified before exposing a model-safe handle",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 context_field extraction matches the verified public value and source",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 session context is revalidated without raw legacy history, memory or pending",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 4,
+      "chargedReads": 2,
+      "completedSteps": 2,
+      "statuses": [
+        "completed",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 4,
+      "turnUpdatesMock": 22,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 multiple selection requires a unique public mention, explicit=false",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [
+        "P2",
+        "P3"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 7,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 multiple selection requires a unique public mention, explicit=true",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 3,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P2",
+        "P3",
+        "P3"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 3,
+      "turnUpdatesMock": 14,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 rejects a mismatched handle binding",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 rejects a mismatched context binding",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 bad evidence input sends no query",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 bad evidence quote sends no query",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 bad evidence case sends no query",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 bad evidence source sends no query",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 bad evidence repeat sends no query",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 NFC evidence supports NFD Vietnamese and server-computed code-point offsets",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 8,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 strict model contract rejects write",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects id",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects field",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects offset",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects default",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects array",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects intent",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 strict model contract rejects json",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 multistep output is rejected as a whole without partial execution",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 unsupported produces no command and no untrusted model reply",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "unsupported"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 2,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 ambiguous produces no command and no untrusted model reply",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 2,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 general_question produces no command and no untrusted model reply",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "unsupported"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 2,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 cancel produces no command and no untrusted model reply",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "cancelled"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 2,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 request rejects schema before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects mode before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects action before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects scope before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects file before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects payload before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects context-field before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 request rejects duplicate before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 disabled in production sends no model or API",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 disabled in staging sends no model or API",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 disabled in unset sends no model or API",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 disabled in off sends no model or API",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 disabled in gate-off sends no model or API",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 completed replay after flag-off ignores DB and context age changes",
+      "userCalls": 2,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 stable input digest tolerates key ordering, but rejects semantic changes",
+      "userCalls": 2,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed",
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 8,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 encrypted collecting replay and conversation restore recover the same public tokens",
+      "userCalls": 3,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P3"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 corrupted replay cache fails closed without regenerating a choice",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 5,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 invalid selection token sends no primary",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 invalid selection version sends no primary",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 invalid selection pending sends no primary",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 invalid selection scope sends no primary",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 consumed option with a new request ID cannot send another detail",
+      "userCalls": 3,
+      "uniqueTurns": 3,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed",
+        "collecting"
+      ],
+      "detailTargets": [
+        "P2"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 14,
+      "sessionWritesMock": 11
+    },
+    {
+      "scenario": "V2 option TTL is independent of context at 6 minutes",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 3,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P2",
+        "P2"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 3,
+      "turnUpdatesMock": 16,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 option TTL is independent of context at 16 minutes",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 pending expires without renewal; fresh text prepares a new preview",
+      "userCalls": 3,
+      "uniqueTurns": 3,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 2,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "confirmation",
+        "collecting",
+        "confirmation"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 11
+    },
+    {
+      "scenario": "V2 stale or future client context is rejected before provider and reads",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 2,
+      "sessionWritesMock": 6
+    },
+    {
+      "scenario": "V2 regressing page revision is rejected and session handles expire for new interpretation",
+      "userCalls": 3,
+      "uniqueTurns": 3,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed",
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 10
+    },
+    {
+      "scenario": "V2 long-lived confirmation after ingress off revalidates its target rather than reusing a handle",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 3,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 3,
+      "turnUpdatesMock": 16,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 changed workflow version creates a new preview and rejects the old one",
+      "userCalls": 4,
+      "uniqueTurns": 4,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 3,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "confirmation",
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 3,
+      "turnUpdatesMock": 19,
+      "sessionWritesMock": 15
+    },
+    {
+      "scenario": "V2 changed workflow digest creates a new preview and rejects the old one",
+      "userCalls": 4,
+      "uniqueTurns": 4,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 3,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "confirmation",
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 3,
+      "turnUpdatesMock": 19,
+      "sessionWritesMock": 15
+    },
+    {
+      "scenario": "V2 deleted selected record never retargets another record with the same name",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "failed"
+      ],
+      "detailTargets": [
+        "P2"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 404
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 12,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 revoked permission blocks confirmation without sending the primary",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "confirmation",
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 exact context rejects P5 before sending model context",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [
+        "P5"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 404
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 exact context rejects variant before sending model context",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [
+        "fixture-other"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 404
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 exact context rejects parent before sending model context",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 exact context rejects company before sending model context",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 exact context rejects variant-owner before sending model context",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 F101 succeeds via code without unfiltered list recheck",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 F101 succeeds via context without unfiltered list recheck",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 incomplete result page cannot prove a unique reference",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 4,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 empty variants do not erase the parent Product",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 a single fuzzy/SKU hit still needs explicit parent selection",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 never silently drops a client screen search filter",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 cannot be resumed by a legacy decision",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "confirmation",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 unknown pending version is not downgraded to legacy",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "confirmation",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    },
+    {
+      "scenario": "V2 cancellation prevents provider/context/reference requests",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "cancelled"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 journal failure prevents model access to any context handle",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 retention sweep removes old private pins but preserves completed replay identity and results",
+      "userCalls": 3,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 3,
+      "chargedReads": 2,
+      "completedSteps": 2,
+      "statuses": [
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 3,
+      "turnUpdatesMock": 19,
+      "sessionWritesMock": 9
+    },
+    {
+      "scenario": "V2 selected request replay sends no additional detail call",
+      "userCalls": 3,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed",
+        "completed"
+      ],
+      "detailTargets": [
+        "P2"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 13,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 recorded model DTOs contain no raw IDs, scopes, option tokens or legacy state",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 server defaults stay internal while explicit equal values remain visible: explicit=false",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 10,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 server defaults stay internal while explicit equal values remain visible: explicit=true",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 10,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 decline still cancels the owned draft after business permission is revoked",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "confirmation",
+        "cancelled"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 7,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 failed turn pin persistence blocks primary send",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 failed session pin persistence blocks primary send",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 2,
+      "sessionWritesMock": 2
+    },
+    {
+      "scenario": "V2 preserves legacy-pending without migrating or calling the model",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 preserves legacy-plan without migrating or calling the model",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 normalizes internal ObjectId casing at the server boundary, without exposing it",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 duplicate IDs differing only in hex case are rejected before claim",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 interrupted turn replay stays processing/uncertain without another API: stale=false",
+      "userCalls": 2,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed",
+        "processing"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 interrupted turn replay stays processing/uncertain without another API: stale=true",
+      "userCalls": 2,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 2,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed",
+        "uncertain"
+      ],
+      "detailTargets": [
+        "P1"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 2,
+      "turnUpdatesMock": 11,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 public results and clarification metadata never display internal Product/SKU IDs",
+      "userCalls": 0,
+      "uniqueTurns": 0,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 0,
+      "sessionWritesMock": 0
+    },
+    {
+      "scenario": "V2 configured required search asks a field question and accepts the continuation",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 10,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 blocks private identifier/credential text before the model: prefix65aa00000000000000000001suffix",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 blocks private identifier/credential text before the model: Xem 77777777-7777-4777-8777-777777777777",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 blocks private identifier/credential text before the model: Bearer fixture-token-not-a-real-token",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 0,
+      "physicalGETs": 0,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [],
+      "journalEntries": 0,
+      "turnUpdatesMock": 1,
+      "sessionWritesMock": 3
+    },
+    {
+      "scenario": "V2 cache authentication binds tokens to actor/scope/request/digest, not just ciphertext",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 5,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 a new explicit target invalidates the old confirmation and preserves required review",
+      "userCalls": 4,
+      "uniqueTurns": 4,
+      "scriptedModelInterpretations": 2,
+      "physicalGETs": 4,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "confirmation",
+        "confirmation",
+        "collecting",
+        "completed"
+      ],
+      "detailTargets": [
+        "P1",
+        "P4"
+      ],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        },
+        {
+          "kind": "list",
+          "status": 200
+        },
+        {
+          "kind": "detail",
+          "status": 200
+        }
+      ],
+      "journalEntries": 4,
+      "turnUpdatesMock": 22,
+      "sessionWritesMock": 15
+    },
+    {
+      "scenario": "V2 corrupt private target cannot fall back to a legacy reference lookup",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "failed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 7,
+      "sessionWritesMock": 8
+    },
+    {
+      "scenario": "V2 long history never triggers the legacy background summarizer or sends raw history to a model",
+      "userCalls": 1,
+      "uniqueTurns": 1,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 1,
+      "completedSteps": 1,
+      "statuses": [
+        "completed"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 8,
+      "sessionWritesMock": 4
+    },
+    {
+      "scenario": "V2 a pasted bearer option token is neither forwarded to a model nor stored as raw chat history",
+      "userCalls": 2,
+      "uniqueTurns": 2,
+      "scriptedModelInterpretations": 1,
+      "physicalGETs": 1,
+      "chargedReads": 0,
+      "completedSteps": 0,
+      "statuses": [
+        "collecting",
+        "collecting"
+      ],
+      "detailTargets": [],
+      "transport": [
+        {
+          "kind": "list",
+          "status": 200
+        }
+      ],
+      "journalEntries": 1,
+      "turnUpdatesMock": 6,
+      "sessionWritesMock": 7
+    }
+  ]
+}
