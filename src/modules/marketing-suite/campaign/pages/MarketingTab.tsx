@@ -628,7 +628,7 @@ export default function MarketingTab() {
         })}
       </ModuleNavigation>
 
-      <div className="flex-1 overflow-y-auto p-6" id="marketing_tab_content">
+      <div className="flex-1 overflow-y-auto px-3 py-2.5" id="marketing_tab_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu marketing..." />}>
           {/* LÊN Ý TƯỞNG AI */}
           {subTab === "LÊN Ý TƯỞNG AI" && (
