@@ -232,6 +232,12 @@ export async function getEffectivePermissions(
     rolePermissions = [...rolePermissions, "legal-reference:manage"];
   }
 
+  // Preserve the mobile worker-management admin contract when a tenant has
+  // an older company-specific admin permission record without people:manage.
+  if (role === "admin" && !rolePermissions.includes("people:manage")) {
+    rolePermissions = [...rolePermissions, "people:manage"];
+  }
+
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));
 }
 
