@@ -41,13 +41,14 @@ describe("Facebook reply reconciliation", () => {
     stop();
   });
 
-  it("preserves other channels' socket fallback behavior", async () => {
+  it("reconciles native Zalo OA sends even when the selected socket is connected", async () => {
     vi.useFakeTimers();
     const refresh = vi.fn(async () => {});
     const stop = startInboxMessagePolling({ channel: "zalo", isVisible: () => true,
       isSocketConnected: () => true, refresh, onError: vi.fn() });
     await vi.advanceTimersByTimeAsync(60000);
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(4);
+    expect(refresh).toHaveBeenLastCalledWith(true);
     stop();
   });
 

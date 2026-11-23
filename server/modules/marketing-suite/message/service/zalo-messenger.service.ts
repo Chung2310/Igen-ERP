@@ -7,6 +7,8 @@ import { SocialIntegrationModel } from "../../shared/model/social-integration.mo
 import { emitToMessengerAccount } from "../../shared/socket";
 import { aiAutoReplyService } from "./ai-auto-reply.service.ts";
 import { enqueueLeadContractOcr } from "./messenger-background-jobs";
+import { syncZaloNativeHandoff } from "./zalo-native-handoff";
+import { ZaloReplyCancelledError } from "./zalo-reply-context";
 
 const syncTimestamps = new Map<string, number>();
 
@@ -519,6 +521,19 @@ export const zaloMessengerService = {
       };
     }
 
+    if (options?.sync && !options.before) {
+      const [user, integration] = await Promise.all([
+        UserModel.findOne({ "zaloIntegration.isConnected": true, "zaloIntegration.oaId": oaId }),
+        SocialIntegrationModel.findOne({ platform: "Zalo", username: oaId, isConnected: true }).lean(),
+      ]);
+      const isMock = integration ? !!integration.isMock : !!user?.zaloIntegration?.isMock;
+      if (!isMock) {
+        const token = await this.getAccessTokenByOAId(oaId);
+        if (!token) throw new Error("Zalo token đã hết hạn. Vui lòng kết nối lại Zalo OA để đồng bộ tin nhắn.");
+        await syncZaloNativeHandoff(oaId, conversationId, token, { forceRead: true });
+      }
+    }
+
     // Reset sá»‘ lÆ°á»£ng tin nháº¯n chÆ°a Ä‘á»c
     if (conversation.unreadCount > 0) {
       conversation.unreadCount = 0;
@@ -702,6 +717,11 @@ export const zaloMessengerService = {
         }
       };
 
+      if (senderType === "ai") {
+        if (await syncZaloNativeHandoff(oaId, conversationId, token)) throw new ZaloReplyCancelledError();
+      }
+      // Claim delivery only after the read succeeds; a failed history check is
+      // retryable and must not be recorded as an uncertain outgoing send.
       await prepareDelivery();
       const response = await (globalThis as any).fetch(url, {
         method: "POST",

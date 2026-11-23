@@ -1,6 +1,7 @@
 type Channel = "facebook" | "zalo" | "tiktok" | undefined;
 
-/** Read DB as a fallback until the selected account's realtime subscription is confirmed. */
+/** Zalo reconciles native OA sends even with a healthy socket: that socket only
+ * relays events already received by ERP, not events missing from Zalo webhooks. */
 export function startInboxMessagePolling(options: {
   channel: Channel;
   isVisible: () => boolean;
@@ -12,7 +13,7 @@ export function startInboxMessagePolling(options: {
   const timer = setInterval(async () => {
     if (pending || !options.isVisible()) return;
     const connected = options.isSocketConnected();
-    if (connected) return;
+    if (connected && options.channel !== "zalo") return;
     pending = true;
     try {
       // Facebook Graph synchronization is explicit/on reconnect, never a permanent polling loop.
@@ -22,6 +23,6 @@ export function startInboxMessagePolling(options: {
     } finally {
       pending = false;
     }
-  }, options.channel === "facebook" ? 15000 : 60000);
+  }, options.channel === "facebook" || options.channel === "zalo" ? 15000 : 60000);
   return () => clearInterval(timer);
 }
