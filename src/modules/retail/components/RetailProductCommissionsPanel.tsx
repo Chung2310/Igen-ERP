@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, ChevronRight, Folder, Percent, Search, Settings2, Smartphone, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, Layers, Package, Percent, Search, Settings2, Smartphone, X } from "lucide-react";
 import { apiFetch } from "../../shared/lib/apiFetch";
 import { ErpCard, ErpLoadingState, ErpPrimaryButton, erpInputClass } from "../../student-management/components/Erp/ErpUI";
 import { cn } from "../../student-management/lib/utils";
@@ -178,7 +178,22 @@ export default function RetailProductCommissionsPanel({ companyCode }: { company
   const configuredCount = data?.variants.filter((variant) => configured.get(variant.sku)).length || 0;
   return <section aria-labelledby="retail-product-commission-heading" className="space-y-3">
     <h2 id="retail-product-commission-heading" className="sr-only">Hoa hồng sản phẩm</h2>
-    {data && <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{[["Nhóm ngành hàng", data.categories.length], ["Sản phẩm", data.products.length], ["Tổng SKU", data.variants.length], ["Đã đặt mức riêng", configuredCount]].map(([label, count]) => <div key={label} className="rounded-lg border border-outline-variant bg-surface p-3"><p className="text-pretty text-xs text-on-surface-variant">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-on-surface">{count}</p></div>)}</div>}
+    {data && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      {([
+        { label: "Nhóm ngành hàng", count: data.categories.length, icon: Folder, tone: "blue" },
+        { label: "Sản phẩm", count: data.products.length, icon: Package, tone: "green" },
+        { label: "Tổng SKU", count: data.variants.length, icon: Layers, tone: "cyan" },
+        { label: "Đã đặt mức riêng", count: configuredCount, icon: Percent, tone: "orange" },
+      ] as const).map(({ label, count, icon: Icon, tone }) => (
+        <div key={label} className={cn("retail-stat-card rounded-md px-3.5 py-2.5", `retail-stat-card--${tone}`)}>
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">{label}</span>
+            <Icon className="size-4 shrink-0" aria-hidden="true" />
+          </div>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl">{count}</p>
+        </div>
+      ))}
+    </div>}
     {message && <p role="status" className="text-sm text-on-surface-variant">{message}</p>}
 
     <div className="flex flex-wrap items-center gap-3"><label className="relative min-w-48 flex-1"><span className="sr-only">Tìm nhóm, sản phẩm hoặc SKU</span><Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm nhóm, sản phẩm, SKU..." className={cn(fieldClass, "pl-9")} /></label><div role="group" aria-label="Lọc cấu hình SKU" className="flex flex-wrap gap-1">{([["all", "Tất cả"], ["configured", "Có mức riêng"], ["default", "Chính sách chung"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)} className={cn("min-h-9 rounded-lg px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-primary", filter === key ? "bg-primary text-on-primary" : "border border-outline-variant text-on-surface hover:bg-surface")}>{label}</button>)}</div></div>

@@ -395,7 +395,7 @@ export function KlingMotionWorkspace({
               id="kling-motion-prompt"
               rows={3}
               placeholder="Ví dụ: nhân vật đang nhảy điệu samba trên sân khấu ngoài trời…"
-              className="w-full min-h-20 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full min-h-20 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               disabled={isGenerating}

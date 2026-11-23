@@ -1,6 +1,7 @@
 import CashSessionPicker from "../components/orders/CashSessionPicker";
 import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import { Dropdown } from "../../../components/common/Dropdown";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import React from "react";
 import {
   AlertCircle,
@@ -281,19 +282,17 @@ export default function RetailOrdersPageV2() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${isCompleted
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        <HrStatusBadge
+                          tone={
+                            isCompleted
+                              ? "success"
                               : isCancelled
-                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                ? "danger"
                                 : isConfirmed
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : "bg-slate-100 text-slate-700 border border-slate-200"
-                            }`}
+                                  ? "info"
+                                  : "warning"
+                          }
                         >
-                          {isCompleted && <CheckCircle2 className="h-3 w-3" />}
-                          {isCancelled && <Ban className="h-3 w-3" />}
-                          {isConfirmed && <Clock className="h-3 w-3" />}
                           {order.status === "completed"
                             ? "Hoàn tất"
                             : order.status === "cancelled"
@@ -301,20 +300,21 @@ export default function RetailOrdersPageV2() {
                               : order.status === "confirmed"
                                 ? "Còn xử lý"
                                 : "Chờ xử lý"}
-                        </span>
+                        </HrStatusBadge>
                         <AfterSaleBadge order={order} />
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         {order.paymentStatus ? (
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${order.paymentStatus === "paid"
-                                ? "bg-cyan-50 text-cyan-700"
+                          <HrStatusBadge
+                            tone={
+                              order.paymentStatus === "paid"
+                                ? "success"
                                 : order.paymentStatus === "partial"
-                                  ? "bg-amber-50 text-amber-700"
+                                  ? "warning"
                                   : order.paymentStatus === "refunded"
-                                    ? "bg-rose-50 text-rose-700"
-                                    : "bg-slate-100 text-slate-600"
-                              }`}
+                                    ? "danger"
+                                    : "neutral"
+                            }
                           >
                             {order.paymentStatus === "paid"
                               ? "Đã thanh toán"
@@ -323,7 +323,7 @@ export default function RetailOrdersPageV2() {
                                 : order.paymentStatus === "refunded"
                                   ? "Đã hoàn tiền"
                                   : "Chưa thanh toán"}
-                          </span>
+                          </HrStatusBadge>
                         ) : (
                           <span className="text-slate-400">—</span>
                         )}
@@ -412,7 +412,9 @@ function OrderDialog({
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 sm:px-6">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="text-balance text-lg font-semibold text-slate-900">Đơn hàng</h2>
-            <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", order.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : order.status === "cancelled" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-blue-200 bg-blue-50 text-blue-700")}>{order.status === "completed" ? "Hoàn tất" : order.status === "cancelled" ? "Đã hủy" : "Còn xử lý"}</span>
+            <HrStatusBadge tone={order.status === "completed" ? "success" : order.status === "cancelled" ? "danger" : "info"}>
+              {order.status === "completed" ? "Hoàn tất" : order.status === "cancelled" ? "Đã hủy" : "Còn xử lý"}
+            </HrStatusBadge>
           </div>
           <button type="button" aria-label="Đóng chi tiết đơn hàng" onClick={onClose} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close><X className="size-5" aria-hidden="true" /></button>
         </header>

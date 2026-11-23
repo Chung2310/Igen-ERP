@@ -89,9 +89,8 @@ export function ChatTestTab({ accounts, onConfigureLead, settingsRevision = 0, i
   const selectedSession = sessions.find(session => session.id === selectedId);
 
   return <div className="flex h-full min-h-0 flex-col bg-surface">
-    <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant p-3">
-      <h2 data-typography="page-title" className="mr-auto text-balance text-lg font-semibold">Thử nghiệm chat</h2>
-      {selectedSession && <span className="text-sm text-on-surface-variant" role="status">
+    <div className="flex flex-wrap items-center justify-end gap-2 border-b border-outline-variant p-3">
+      {selectedSession && <span className="mr-auto text-sm text-on-surface-variant" role="status">
         Đang thử: {selectedSession.documentDomain === "telecom" ? "Nhà mạng" : "Thông thường"}
       </span>}
       <StyledSelect ariaLabel="Chế độ hội thoại" appearance="erp" value={selectedSession?.documentDomain || documentDomain} disabled={creating || changingDomain || loading || selectedSession?.pending}
