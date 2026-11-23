@@ -99,10 +99,10 @@
 
 #hr_sub_tabs_bar nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
   background: linear-gradient(
-    90deg,
-    #00adfc 0%,
-    #199bff 55%,
-    #7567ff 100%
+    115deg,
+    #4db2fa 0%,
+    #2196f3 48%,
+    #1982e6 100%
   );
   background-clip: text;
   -webkit-background-clip: text;

@@ -325,9 +325,9 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] hover:bg-surface-container-low hover:text-on-surface focus-visible:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isCollapsed ? "justify-center" : "justify-between"} ${itemsInGroup.some((item) => item.label === activeTab) ? "text-on-surface" : "text-on-surface-variant"}`}
                   >
                     <span className="flex items-center gap-3">
-                      <span className="relative size-6 shrink-0 text-primary" aria-hidden="true">
-                        <MegaphoneIcon size={24} weight="regular" className={`${itemsInGroup.some((item) => item.label === activeTab) ? "hidden" : "group-hover:hidden group-focus-visible:hidden"}`} />
-                        <MegaphoneIcon size={24} weight="fill" className={`${itemsInGroup.some((item) => item.label === activeTab) ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />
+                      <span className="relative size-5 shrink-0 text-[#2196f3]" aria-hidden="true">
+                        <MegaphoneIcon size={20} weight="regular" className={`${itemsInGroup.some((item) => item.label === activeTab) ? "hidden" : "group-hover:hidden group-focus-visible:hidden"}`} />
+                        <MegaphoneIcon size={20} weight="fill" className={`${itemsInGroup.some((item) => item.label === activeTab) ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />
                       </span>
                       {!isCollapsed && <span>Marketing</span>}
                     </span>
@@ -377,9 +377,9 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        <span className={`relative size-6 shrink-0 transition-colors ${item.locked ? "text-on-surface-variant/50" : "text-on-surface group-hover:text-primary group-focus-visible:text-primary group-aria-[current=page]:text-primary"}`} aria-hidden="true">
-                          <Icon size={24} weight="regular" className={isActive ? "hidden" : item.locked ? "" : "group-hover:hidden group-focus-visible:hidden"} />
-                          {!item.locked && <Icon size={24} weight="fill" className={`${isActive ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />}
+                        <span className={`relative size-5 shrink-0 transition-colors ${item.locked ? "text-on-surface-variant/50" : "text-[#2196f3]"}`} aria-hidden="true">
+                          <Icon size={20} weight="regular" className={isActive ? "hidden" : item.locked ? "" : "group-hover:hidden group-focus-visible:hidden"} />
+                          {!item.locked && <Icon size={20} weight="fill" className={`${isActive ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />}
                         </span>
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>

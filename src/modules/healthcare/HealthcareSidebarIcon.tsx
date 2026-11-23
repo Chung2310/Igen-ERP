@@ -122,10 +122,10 @@ export default function HealthcareSidebarIcon({
       focusable="false"
     >
       <defs>
-        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
-          <stop offset="0%" stopColor="#00adfc" />
-          <stop offset="55%" stopColor="#199bff" />
-          <stop offset="100%" stopColor="#7567ff" />
+        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="22" y2="22">
+          <stop offset="0%" stopColor="#4db2fa" />
+          <stop offset="48%" stopColor="#2196f3" />
+          <stop offset="100%" stopColor="#1982e6" />
         </linearGradient>
       </defs>
       {shapes[name]}

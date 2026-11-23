@@ -49,7 +49,6 @@ import { TablePagination } from "../../../../../components/common/TablePaginatio
 import { DateInput24 } from "../../../../../components/common/TimeInput24";
 import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
-import { HrPageTitle } from "../../../../../components/hr/HrPageTitle";
 import { cn } from "../../../../student-management/lib/utils";
 import {
   crmService,
@@ -1206,9 +1205,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-surface p-3 sm:overflow-hidden sm:p-4">
-      {/* Page Header & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
-        <HrPageTitle>Bảng dữ liệu Lead</HrPageTitle>
+      {/* Page Actions */}
+      <div className="flex flex-wrap items-center justify-end gap-3 px-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <ErpRefreshButton
             loading={loading}

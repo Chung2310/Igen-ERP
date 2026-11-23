@@ -1546,14 +1546,14 @@ export default function CalendarTab({
                   return activeMonthItems.map((item) => {
                     const badgeColor =
                       item.type === "leave"
-                        ? "bg-rose-50 text-rose-700 border-rose-100"
+                        ? "bg-[#E06666] text-white"
                         : item.type === "wfh"
-                          ? "bg-teal-50 text-teal-700 border-teal-100"
+                          ? "bg-[#5CB85C] text-white"
                           : item.type === "exception"
-                            ? "bg-violet-50 text-violet-700 border-violet-100"
+                            ? "bg-[#8E6CEF] text-white"
                             : item.type === "reminder"
-                              ? "bg-amber-50 text-amber-700 border-amber-100"
-                              : "bg-blue-50 text-blue-700 border-blue-100";
+                              ? "bg-[#F0AD4E] text-white"
+                              : "bg-[#D9EDF7] text-[#286090]";
 
                     const typeLabel =
                       item.type === "leave"
@@ -1590,7 +1590,7 @@ export default function CalendarTab({
                         className={`border border-slate-150 bg-white border-l-4 ${leftBorderColor} rounded-2xl p-4 flex flex-col gap-2 hover:border-slate-200 hover:shadow-md transition-all duration-300 cursor-pointer`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className={`text-[9px] px-2 py-0.5 font-normal rounded-lg border   ${badgeColor}`}>
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold leading-4 uppercase ${badgeColor}`}>
                             {typeLabel}
                           </span>
                           <span className="text-[10px] text-slate-550 font-normal bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200/50">
@@ -1674,24 +1674,24 @@ export default function CalendarTab({
                         </div>
 
                         {isCurrentMonth && holiday && (
-                          <div className="text-[9px] px-2 py-0.5 rounded-lg border font-normal truncate bg-rose-50/80 text-rose-700 border-rose-100/60">
+                          <div className="mb-0.5 truncate rounded-full bg-[#E06666] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">
                             🎌 {holiday.name}
                           </div>
                         )}
 
                         {/* Day events visual list */}
-                        <div className="min-h-0 flex-1 flex flex-col gap-0.5 overflow-hidden">
+                        <div className="min-h-0 flex-1 flex flex-col gap-1 overflow-hidden">
                           {isCurrentMonth && dayItems.slice(0, 3).map((item, idx) => {
                             const styleClass =
                               item.type === "leave"
-                                ? "bg-rose-50/80 text-rose-700 border-rose-100/60 hover:bg-rose-100/60"
+                                ? "bg-[#E06666] text-white hover:opacity-90"
                                 : item.type === "wfh"
-                                  ? "bg-teal-50/80 text-teal-700 border-teal-100/60 hover:bg-teal-100/60"
+                                  ? "bg-[#5CB85C] text-white hover:opacity-90"
                                   : item.type === "exception"
-                                    ? "bg-violet-50/80 text-violet-700 border-violet-100/60 hover:bg-violet-100/60"
+                                    ? "bg-[#8E6CEF] text-white hover:opacity-90"
                                     : item.type === "reminder"
-                                      ? "bg-amber-50/80 text-amber-700 border-amber-100/60 hover:bg-amber-100/60"
-                                      : "bg-blue-50/80 text-blue-700 border-blue-100/60 hover:bg-blue-100/60";
+                                      ? "bg-[#F0AD4E] text-white hover:opacity-90"
+                                      : "bg-[#D9EDF7] text-[#286090] hover:opacity-90";
 
                             return (
                               <div
@@ -1701,11 +1701,10 @@ export default function CalendarTab({
                                   setSelectedDayDate(dayDate);
                                   setIsDetailModalOpen(true);
                                 }}
-                                className={`truncate rounded px-1 py-0.5 text-[10px] font-normal transition-colors ${styleClass}`}
+                                className={`truncate rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4 transition-opacity ${styleClass}`}
                                 title={`${item.title} (${item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
                                   })`}
                               >
-                                <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />
                                 {(["meeting", "event", "reminder"].includes(item.type)) && `${new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} · `}
                                 {item.title}
                               </div>

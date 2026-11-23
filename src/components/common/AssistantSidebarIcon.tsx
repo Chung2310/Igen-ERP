@@ -15,51 +15,66 @@ export function AssistantSidebarIcon({
   const main = `url(#${id})`;
   const cutout = "var(--color-surface-container-lowest)";
 
+  const studioMaskId = `${id}-studio-cut`;
+  const studioSparklePath =
+    "M18.6 1.5c.3-.65 1.2-.65 1.5 0l.72 1.75c.14.34.41.61.75.75l1.75.72c.65.3.65 1.2 0 1.5l-1.75.72c-.34.14-.61.41-.75.75l-.72 1.75c-.3.65-1.2.65-1.5 0l-.72-1.75a1.4 1.4 0 0 0-.75-.75l-1.75-.72c-.65-.3-.65-1.2 0-1.5l1.75-.72c.34-.14.61-.41.75-.75l.72-1.75Z";
+
   const shapes = {
+    // Trò chuyện: Bộ sao AI lấp lánh bo tròn (không dùng khung chat)
     chat: (
       <>
-        <path d="M5.4 3.5h13.2A2.9 2.9 0 0 1 21.5 6.4v8.6a2.9 2.9 0 0 1-2.9 2.9H9.3l-4.7 3.1a.65.65 0 0 1-1-.54V6.4a2.9 2.9 0 0 1 1.8-2.9Z" />
-        <path
-          d="M7.8 8.9h8.4m-8.4 3.8h5.4"
-          fill="none"
-          stroke={cutout}
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M10.4 3.1c.4-.9 1.6-.9 2 0l1.6 3.9c.3.7.9 1.3 1.6 1.6l3.9 1.6c.9.4.9 1.6 0 2l-3.9 1.6c-.7.3-1.3.9-1.6 1.6l-1.6 3.9c-.4.9-1.6.9-2 0l-1.6-3.9c-.3-.7-.9-1.3-1.6-1.6l-3.9-1.6c-.9-.4-.9-1.6 0-2l3.9-1.6c.7-.3 1.3-.9 1.6-1.6l1.6-3.9Z" />
+        <path d="M18.6 15.2c.2-.5.9-.5 1.1 0l.6 1.4c.1.3.4.5.7.7l1.4.6c.5.2.5.9 0 1.1l-1.4.6c-.3.1-.5.4-.7.7l-.6 1.4c-.2.5-.9.5-1.1 0l-.6-1.4c-.1-.3-.4-.5-.7-.7l-1.4-.6c-.5-.2-.5-.9 0-1.1l1.4-.6c.3-.1.5-.4.7-.7l.6-1.4Z" />
+        <circle cx="11.4" cy="11.2" r="1.4" fill={cutout} />
       </>
     ),
+    // AI Studio: Khung sáng tạo đa phương tiện bo tròn tách khoảng hở rõ với ngôi sao AI
     studio: (
       <>
-        <rect x="2.6" y="4.8" width="15.8" height="15.8" rx="3" />
-        <circle cx="7.4" cy="9.6" r="1.4" fill={cutout} />
-        <path
-          d="m4.8 17.6 3.7-3.7 2.5 2.3 2.2-2.1 2.8 3.5"
-          fill="none"
-          stroke={cutout}
-          strokeWidth="1.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="m19.3 1.8.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1Z" />
+        <g mask={`url(#${studioMaskId})`}>
+          <rect x="2.2" y="5.8" width="16" height="15.6" rx="4" />
+          <circle cx="7.4" cy="11" r="1.65" fill={cutout} />
+          <path
+            d="M4.8 18.2c1.5-2.3 3.1-3.3 4.2-2.2l1 .95c.65.6 1.55.5 2.1-.2l1.15-1.35c.65-.75 1.7-.55 2.2.3l.7 1.35"
+            fill="none"
+            stroke={cutout}
+            strokeWidth="1.85"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+        <path d={studioSparklePath} />
       </>
     ),
+    // Notebook: Cuốn sổ tay bo tròn với gáy sổ và dòng ghi chú mềm
     notebook: (
       <>
-        <rect x="4" y="2.6" width="16.4" height="18.8" rx="2.8" />
+        <rect x="4.2" y="2.6" width="16.2" height="18.8" rx="3.8" />
         <path
-          d="M8.2 3.2v17.6M11.4 8.5h5.6m-5.6 3.7h5.6m-5.6 3.7h3.6"
+          d="M8.5 3.4v17.2"
           fill="none"
           stroke={cutout}
-          strokeWidth="1.8"
+          strokeWidth="1.9"
           strokeLinecap="round"
         />
+        <path
+          d="M11.6 8.4h5.4m-5.4 3.7h5.4m-5.4 3.7h3.4"
+          fill="none"
+          stroke={cutout}
+          strokeWidth="1.85"
+          strokeLinecap="round"
+        />
+        <rect x="2.6" y="6.4" width="3.2" height="2" rx="1" />
+        <rect x="2.6" y="11" width="3.2" height="2" rx="1" />
+        <rect x="2.6" y="15.6" width="3.2" height="2" rx="1" />
       </>
     ),
+    // Ghi chép cuộc họp: Micro tròn trịa cân đối kèm chân đế mềm
     meeting: (
       <>
-        <rect x="8.3" y="2.4" width="7.4" height="11.8" rx="3.7" />
+        <rect x="8.2" y="2.5" width="7.6" height="11.6" rx="3.8" />
         <path
-          d="M5.4 10.8a6.6 6.6 0 0 0 13.2 0M12 17.4v3.4m-3.4 0h6.8"
+          d="M5.5 10.7a6.5 6.5 0 0 0 13 0M12 17.2v3.6m-3.4 0h6.8"
           fill="none"
           stroke={main}
           strokeWidth="2.1"
@@ -67,31 +82,7 @@ export function AssistantSidebarIcon({
           strokeLinejoin="round"
         />
         <path
-          d="M10.4 7.2h3.2m-3.2 2.8h3.2"
-          fill="none"
-          stroke={cutout}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </>
-    ),
-    assistant: (
-      <>
-        <path
-          d="M12 2.4v2.8"
-          fill="none"
-          stroke={main}
-          strokeWidth="2.1"
-          strokeLinecap="round"
-        />
-        <circle cx="12" cy="2.6" r="1.3" />
-        <rect x="3" y="5.4" width="18" height="14.2" rx="4.2" />
-        <rect x="1.3" y="10" width="1.9" height="4.8" rx=".95" />
-        <rect x="20.8" y="10" width="1.9" height="4.8" rx=".95" />
-        <circle cx="8.8" cy="11.6" r="1.45" fill={cutout} />
-        <circle cx="15.2" cy="11.6" r="1.45" fill={cutout} />
-        <path
-          d="M9.1 15.6a3.5 3.5 0 0 0 5.8 0"
+          d="M10.5 7.2h3m-3 2.8h3"
           fill="none"
           stroke={cutout}
           strokeWidth="1.7"
@@ -99,82 +90,86 @@ export function AssistantSidebarIcon({
         />
       </>
     ),
+    // Trợ lý ERP: Robot thân thiện bo tròn mềm mại với mắt cười & ăng-ten tròn
+    assistant: (
+      <>
+        <rect x="3" y="6" width="18" height="14.2" rx="5.2" />
+        <path
+          d="M12 3.4v2.8"
+          fill="none"
+          stroke={main}
+          strokeWidth="2.1"
+          strokeLinecap="round"
+        />
+        <circle cx="12" cy="3" r="1.6" />
+        <rect x="6.3" y="9.4" width="11.4" height="7.2" rx="3.4" fill={cutout} />
+        <circle cx="9.6" cy="12.9" r="1.35" />
+        <circle cx="14.4" cy="12.9" r="1.35" />
+      </>
+    ),
+    // Dự án: Thư mục bo tròn 2 tầng gọn gàng
     project: (
       <>
-        <path d="M2.6 6.4A2.6 2.6 0 0 1 5.2 3.8h4.2l2.1 2.2h7.3a2.6 2.6 0 0 1 2.6 2.6v9.2a2.6 2.6 0 0 1-2.6 2.6H5.2a2.6 2.6 0 0 1-2.6-2.6V6.4Z" />
+        <path d="M2.6 7A3.2 3.2 0 0 1 5.8 3.8h3.7c.9 0 1.7.4 2.2 1.1l.8 1h5.7a3.2 3.2 0 0 1 3.2 3.2v8.1a3.2 3.2 0 0 1-3.2 3.2H5.8a3.2 3.2 0 0 1-3.2-3.2V7Z" />
         <path
-          d="M3.2 9.8h17.6"
+          d="M6.4 10.6h11.2"
           fill="none"
           stroke={cutout}
-          strokeWidth="1.8"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+        />
+        <path
+          d="M6.4 14.4h6.4"
+          fill="none"
+          stroke={cutout}
+          strokeWidth="1.9"
+          strokeLinecap="round"
         />
       </>
     ),
+    // Công cụ: Lưới 4 mô-đun bo tròn (1 ô hình thoi sáng tạo)
     tools: (
       <>
-        <circle cx="12" cy="12" r="9.4" />
-        <path
-          d="m16.2 7.8-2.3 5.7-6.1 2.7 2.3-5.7 6.1-2.7Z"
-          fill={cutout}
+        <rect x="3" y="3" width="7.8" height="7.8" rx="2.6" />
+        <rect x="3" y="13.2" width="7.8" height="7.8" rx="2.6" />
+        <rect x="13.2" y="13.2" width="7.8" height="7.8" rx="2.6" />
+        <rect
+          x="13.6"
+          y="3.4"
+          width="7"
+          height="7"
+          rx="2.2"
+          transform="rotate(45 17.1 6.9)"
         />
-        <circle cx="12" cy="12" r="1.25" />
       </>
     ),
+    // Trợ lý AI: Biểu tượng trợ lý thông minh (hồ sơ tròn + ngôi sao AI)
     agents: (
       <>
-        <path
-          d="M5.4 15.4V10a6.6 6.6 0 0 1 13.2 0v5.4"
-          fill="none"
-          stroke={main}
-          strokeWidth="2.1"
-          strokeLinecap="round"
-        />
-        <rect x="2.4" y="10" width="3.8" height="6.8" rx="1.8" />
-        <rect x="17.8" y="10" width="3.8" height="6.8" rx="1.8" />
-        <path
-          d="M6.4 16.5a3.5 3.5 0 0 0 3.5 3.2h1.6"
-          fill="none"
-          stroke={main}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <rect x="10.4" y="18.3" width="4.8" height="2.7" rx="1.35" />
-        <circle cx="9.2" cy="13.2" r="1.05" />
-        <circle cx="12" cy="13.2" r="1.05" />
-        <circle cx="14.8" cy="13.2" r="1.05" />
+        <circle cx="9.6" cy="8.2" r="3.8" />
+        <path d="M2.8 19.2c0-3.3 2.9-5.4 6.8-5.4 2.2 0 4.1.7 5.3 1.9a4.4 4.4 0 0 1 1.3 3.1v.4a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6Z" />
+        <path d="M18.3 4.2c.25-.6 1.05-.6 1.3 0l.65 1.55c.12.3.36.54.66.66l1.55.65c.6.25.6 1.05 0 1.3l-1.55.65c-.3.12-.54.36-.66.66l-.65 1.55c-.25.6-1.05.6-1.3 0l-.65-1.55a1.2 1.2 0 0 0-.66-.66l-1.55-.65c-.6-.25-.6-1.05 0-1.3l1.55-.65c.3-.12.54-.36.66-.66l.65-1.55Z" />
       </>
     ),
+    // Lịch sử: Đồng hồ tròn đặc đồng nhất độ dày với các icon còn lại
     history: (
       <>
+        <circle cx="12" cy="12" r="9.2" />
         <path
-          d="M4.2 8.2A8.6 8.6 0 1 1 3.9 15"
+          d="M12 7.2v5l3.3 2"
           fill="none"
-          stroke={main}
-          strokeWidth="2.3"
-          strokeLinecap="round"
-        />
-        <path
-          d="M3.4 4.3v4.4h4.4"
-          fill="none"
-          stroke={main}
-          strokeWidth="2.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M12.2 7.5v4.8l3.2 1.9"
-          fill="none"
-          stroke={main}
+          stroke={cutout}
           strokeWidth="2.1"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </>
     ),
+    // Quản trị và thiết lập: Bánh răng bo tròn mềm mại 6 cánh
     settings: (
       <>
-        <path d="M9.9 2.6h4.2l.65 2.4a7.3 7.3 0 0 1 1.7 1l2.35-.78 2.1 3.64-1.72 1.7a7.5 7.5 0 0 1 0 2l1.72 1.7-2.1 3.64-2.35-.78a7.3 7.3 0 0 1-1.7 1l-.65 2.4H9.9l-.65-2.4a7.3 7.3 0 0 1-1.7-1l-2.35.78-2.1-3.64 1.72-1.7a7.5 7.5 0 0 1 0-2L3.1 8.86l2.1-3.64 2.35.78a7.3 7.3 0 0 1 1.7-1l.65-2.4Z" />
-        <circle cx="12" cy="11.56" r="3" fill={cutout} />
+        <path d="M9.7 3.1a2.4 2.4 0 0 1 4.6 0l.4 1.3a6.8 6.8 0 0 1 1.6.9l1.3-.3a2.4 2.4 0 0 1 2.3 4l-.9 1a6.8 6.8 0 0 1 0 1.8l.9 1a2.4 2.4 0 0 1-2.3 4l-1.3-.3a6.8 6.8 0 0 1-1.6.9l-.4 1.3a2.4 2.4 0 0 1-4.6 0l-.4-1.3a6.8 6.8 0 0 1-1.6-.9l-1.3.3a2.4 2.4 0 0 1-2.3-4l.9-1a6.8 6.8 0 0 1 0-1.8l-.9-1a2.4 2.4 0 0 1 2.3-4l1.3.3a6.8 6.8 0 0 1 1.6-.9l.4-1.3Z" />
+        <circle cx="12" cy="12" r="3.1" fill={cutout} />
       </>
     ),
   };
@@ -189,11 +184,23 @@ export function AssistantSidebarIcon({
       focusable="false"
     >
       <defs>
-        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
-          <stop offset="0%" stopColor="#00adfc" />
-          <stop offset="55%" stopColor="#199bff" />
-          <stop offset="100%" stopColor="#7567ff" />
+        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="22" y2="22">
+          <stop offset="0%" stopColor="#4db2fa" />
+          <stop offset="48%" stopColor="#2196f3" />
+          <stop offset="100%" stopColor="#1982e6" />
         </linearGradient>
+        {name === "studio" && (
+          <mask id={studioMaskId}>
+            <rect width="24" height="24" fill="#fff" />
+            <path
+              d={studioSparklePath}
+              fill="#000"
+              stroke="#000"
+              strokeWidth="3.6"
+              strokeLinejoin="round"
+            />
+          </mask>
+        )}
       </defs>
       {shapes[name]}
     </svg>

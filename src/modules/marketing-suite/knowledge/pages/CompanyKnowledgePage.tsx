@@ -21,8 +21,9 @@ import {
   Upload,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { cn } from "../../../student-management/lib/utils";
+import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
 import { useAuth } from "../../shared/context/AuthContext";
 import { PageChatSimulator } from "../components/knowledge/PageChatSimulator";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
@@ -84,6 +85,107 @@ const DOCUMENT_TYPES: Array<{ id: KnowledgeDocumentType; label: string }> = [
   { id: "brand_guideline", label: "Nhận diện thương hiệu" },
   { id: "scenario", label: "Kịch bản chăm sóc khách hàng" },
 ];
+
+function KnowledgeNavIcon({ id }: { id: KnowledgeDocumentType | "page_chat" }) {
+  const gradientId = useId().replace(/:/g, "");
+  const main = `url(#${gradientId})`;
+  const cutout = "var(--color-surface-container-lowest)";
+
+  const shape = (() => {
+    switch (id) {
+      case "company_profile":
+        return (
+          <>
+            <rect x="3.6" y="2.8" width="16.8" height="18.4" rx="3.8" />
+            <path d="M9.6 21.2v-4.2a2.4 2.4 0 0 1 4.8 0v4.2" fill={cutout} />
+            <rect x="7.4" y="6.8" width="2.5" height="2.5" rx="0.9" fill={cutout} />
+            <rect x="14.1" y="6.8" width="2.5" height="2.5" rx="0.9" fill={cutout} />
+            <rect x="7.4" y="11" width="2.5" height="2.5" rx="0.9" fill={cutout} />
+            <rect x="14.1" y="11" width="2.5" height="2.5" rx="0.9" fill={cutout} />
+          </>
+        );
+      case "policy":
+        return (
+          <>
+            <path d="M12 2.4c3 1.6 5.9 2.2 8 2.4.7.1 1.2.6 1.2 1.3v5.1c0 5.1-3.3 8.6-8.4 10.3a2.4 2.4 0 0 1-1.6 0C6.1 19.8 2.8 16.3 2.8 11.2V6.1c0-.7.5-1.2 1.2-1.3 2.1-.2 5-.8 8-2.4Z" />
+            <path
+              d="m8.6 12.1 2.3 2.3 4.6-4.7"
+              fill="none"
+              stroke={cutout}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
+        );
+      case "scenario":
+        return (
+          <>
+            <path d="M5.6 3.2h12.8A3.4 3.4 0 0 1 21.8 6.6v8.2a3.4 3.4 0 0 1-3.4 3.4H10l-4.7 3.1a.9.9 0 0 1-1.4-.75V18a3.3 3.3 0 0 1-1.7-2.9V6.6a3.4 3.4 0 0 1 3.4-3.4Z" />
+            <path
+              d="M7.5 9.2h9m-9 3.6h5.6"
+              fill="none"
+              stroke={cutout}
+              strokeWidth="1.9"
+              strokeLinecap="round"
+            />
+          </>
+        );
+      case "product":
+        return (
+          <>
+            <path d="M10.8 2.8a2.5 2.5 0 0 1 2.4 0l6.8 3.8a2.4 2.4 0 0 1 1.2 2.1v6.6a2.4 2.4 0 0 1-1.2 2.1l-6.8 3.8a2.5 2.5 0 0 1-2.4 0L4 17.4a2.4 2.4 0 0 1-1.2-2.1V8.7A2.4 2.4 0 0 1 4 6.6l6.8-3.8Z" />
+            <path
+              d="M4 7.7 12 12l8-4.3M12 12v8.8"
+              fill="none"
+              stroke={cutout}
+              strokeWidth="1.85"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
+        );
+      case "page_chat":
+      default:
+        return (
+          <>
+            <rect x="3" y="6" width="18" height="14.2" rx="5.2" />
+            <path
+              d="M12 3.4v2.8"
+              fill="none"
+              stroke={main}
+              strokeWidth="2.1"
+              strokeLinecap="round"
+            />
+            <circle cx="12" cy="3" r="1.6" />
+            <rect x="6.3" y="9.4" width="11.4" height="7.2" rx="3.4" fill={cutout} />
+            <circle cx="9.6" cy="12.9" r="1.35" />
+            <circle cx="14.4" cy="12.9" r="1.35" />
+          </>
+        );
+    }
+  })();
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={main}
+      style={{ stroke: "none" }}
+      className="size-5"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="22" y2="22">
+          <stop offset="0%" stopColor="#4db2fa" />
+          <stop offset="48%" stopColor="#2196f3" />
+          <stop offset="100%" stopColor="#1982e6" />
+        </linearGradient>
+      </defs>
+      {shape}
+    </svg>
+  );
+}
 
 const KNOWLEDGE_SECTIONS: Array<{
   id: KnowledgeDocumentType;
@@ -474,138 +576,146 @@ export default function CompanyKnowledgePage() {
     }
   }
 
-  return (
-    <div className="marketing-workspace h-full min-w-0 overflow-y-auto bg-surface-container-lowest pb-8">
-      <div className="min-h-full w-full bg-surface-container-lowest px-4 pb-4 sm:px-5 sm:pb-5">
+  const activeNavValue =
+    activeSection === "page_chat"
+      ? "page_chat"
+      : selectedKnowledgeSection;
 
-        {/* Sub-Navigation Tabs */}
-        <div className="sticky top-0 z-10 border-b border-outline-variant bg-surface-container-lowest">
-          <div className="flex min-h-14 flex-col items-stretch xl:flex-row xl:items-center xl:gap-3">
-            <div className="grid w-full max-w-lg grid-cols-2 xl:self-stretch xl:w-1/2 xl:flex-none" role="group" aria-label="Điều hướng kho tri thức">
-              <button
-                type="button"
-                onClick={() => setActiveSection("documents")}
-                aria-current={activeSection === "documents" ? "page" : undefined}
-                className={cn(
-                  "flex min-w-0 items-center justify-center gap-2 border-b-2 border-transparent px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                  activeSection === "documents"
-                    ? "border-primary text-primary"
-                    : "text-on-surface-variant hover:text-on-surface",
+  return (
+    <div className="marketing-workspace flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface">
+      {/* Vertical ModuleNavigation Sidebar */}
+      <ModuleNavigation
+        label="Điều hướng kho tri thức"
+        activeValue={activeNavValue}
+      >
+        {KNOWLEDGE_SECTIONS.map((section) => {
+          const isActive = activeSection === "documents" && selectedKnowledgeSection === section.id;
+          const count = documents.filter((document) => section.types.includes(document.documentType)).length;
+          return (
+            <ModuleNavigationButton
+              key={section.id}
+              active={isActive}
+              disabled={busy}
+              icon={<KnowledgeNavIcon id={section.id} />}
+              filledIcon={<KnowledgeNavIcon id={section.id} />}
+              preferProvidedIcon
+              onClick={() => {
+                setActiveSection("documents");
+                setSelectedKnowledgeSection(section.id);
+                setDocumentType(section.id);
+              }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <span>{section.label}</span>
+                {count > 0 && (
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[11px] leading-none tabular-nums", isActive ? "bg-primary/15 text-primary" : "bg-surface-container text-on-surface-variant")}>
+                    {count}
+                  </span>
                 )}
-              >
-                <span className="whitespace-nowrap">
-                  <span className="sm:hidden">Kho tài liệu</span>
-                  <span className="hidden sm:inline">Tài liệu &amp; Tệp Kho Tri Thức</span>
-                </span>
-                <span
+              </span>
+            </ModuleNavigationButton>
+          );
+        })}
+        <ModuleNavigationButton
+          active={activeSection === "page_chat"}
+          icon={<KnowledgeNavIcon id="page_chat" />}
+          filledIcon={<KnowledgeNavIcon id="page_chat" />}
+          preferProvidedIcon
+          onClick={() => setActiveSection("page_chat")}
+        >
+          Mô phỏng chat Page
+        </ModuleNavigationButton>
+      </ModuleNavigation>
+
+      <div
+        className={cn(
+          "min-h-0 flex-1 rounded-md border border-outline-variant bg-surface-container-lowest",
+          activeSection === "page_chat"
+            ? "flex flex-col overflow-hidden"
+            : "overflow-y-auto px-4 pb-8 sm:px-5",
+        )}
+      >
+        {activeSection === "page_chat" && (
+          <div className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-outline-variant px-4 py-2.5">
+            <div ref={setPageChatToolbarContainer} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-2" />
+          </div>
+        )}
+        {activeSection === "documents" && (
+          <div className="flex flex-wrap items-center justify-end gap-2 border-b border-outline-variant py-2.5">
+            <div className="flex shrink-0 items-center gap-1.5">
+              {([["all", "Tất cả tài liệu"], ["other", "Tài liệu khác"]] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={busy}
+                  aria-pressed={selectedKnowledgeSection === id}
+                  onClick={() => setSelectedKnowledgeSection(id)}
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                    activeSection === "documents"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-surface-container text-on-surface-variant",
+                    "h-9 rounded-lg border px-3 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50",
+                    selectedKnowledgeSection === id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface",
                   )}
                 >
-                  {health?.documentsCount || 0}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveSection("page_chat")}
-                aria-current={activeSection === "page_chat" ? "page" : undefined}
-                className={cn(
-                  "flex min-w-0 items-center justify-center gap-2 border-b-2 border-transparent px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                  activeSection === "page_chat"
-                    ? "border-primary text-primary"
-                    : "text-on-surface-variant hover:text-on-surface",
-                )}
-              >
-                <span className="whitespace-nowrap">Mô phỏng chat Page</span>
-              </button>
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {activeSection === "page_chat" && (
-              <div ref={setPageChatToolbarContainer} className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-2 py-1 xl:flex-1" />
-            )}
-
-            {activeSection === "documents" && (
-              <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-2 xl:flex-1">
-                <div className="flex shrink-0 gap-2">
-                  {([['all', 'Tất cả tài liệu'], ['other', 'Tài liệu khác']] as const).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      disabled={busy}
-                      aria-pressed={selectedKnowledgeSection === id}
-                      onClick={() => setSelectedKnowledgeSection(id)}
-                      className={cn(
-                        "rounded-lg px-3 py-2 text-sm font-normal",
-                        selectedKnowledgeSection === id
-                          ? "bg-slate-800 text-white"
-                          : "bg-slate-100 text-slate-600",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
+            {canManage && (
+              <>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="hidden shrink-0 text-xs font-medium text-on-surface-variant 2xl:inline">Mục lưu</span>
+                  <KnowledgeDocumentTypeSelect
+                    value={documentType}
+                    disabled={busy}
+                    className="w-40"
+                    compact
+                    onChange={(type) => {
+                      setDocumentType(type);
+                      setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
+                    }}
+                    groups={[
+                      { options: KNOWLEDGE_SECTIONS.map((section) => ({ id: section.id, label: section.label })) },
+                      { label: "Các loại tài liệu khác", options: DOCUMENT_TYPES.filter((type) => !KNOWLEDGE_SECTIONS.some((section) => section.id === type.id)) },
+                    ]}
+                  />
                 </div>
 
-                {canManage && (
-                  <>
-                    <div className="flex min-w-0 items-center gap-2 xl:flex-none">
-                      <span className="shrink-0 text-sm font-normal text-on-surface-variant">Mục lưu tài liệu</span>
-                      <KnowledgeDocumentTypeSelect
-                        value={documentType}
-                        disabled={busy}
-                        className="w-44"
-                        compact
-                        onChange={(type) => {
-                          setDocumentType(type);
-                          setSelectedKnowledgeSection(KNOWLEDGE_SECTIONS.find((section) => section.types.includes(type))?.id || "other");
-                        }}
-                        groups={[
-                          { options: KNOWLEDGE_SECTIONS.map((section) => ({ id: section.id, label: section.label })) },
-                          { label: "Các loại tài liệu khác", options: DOCUMENT_TYPES.filter((type) => !KNOWLEDGE_SECTIONS.some((section) => section.id === type.id)) },
-                        ]}
-                      />
-                    </div>
-
-                    <div className="grid w-52 shrink-0 grid-cols-2 gap-1 rounded-xl border border-slate-100 bg-slate-50/80 p-1">
-                      <button
-                        type="button"
-                        onClick={() => setImportMethod("file")}
-                        aria-pressed={importMethod === "file"}
-                        className={cn(
-                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-sm font-normal leading-4 transition select-none",
-                          importMethod === "file"
-                            ? "bg-blue-600 text-white shadow-xs"
-                            : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
-                        )}
-                      >
-                        <Upload className={cn("size-3.5", importMethod === "file" ? "text-white" : "text-slate-500")} aria-hidden="true" />
-                        Tải file
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImportMethod("drive")}
-                        aria-pressed={importMethod === "drive"}
-                        className={cn(
-                          "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-1 text-sm font-normal leading-4 transition select-none",
-                          importMethod === "drive"
-                            ? "bg-blue-600 text-white shadow-xs"
-                            : "text-slate-600 hover:bg-slate-100/60 hover:text-slate-900",
-                        )}
-                      >
-                        <Link2 className={cn("size-3.5", importMethod === "drive" ? "text-white" : "text-slate-500")} aria-hidden="true" />
-                        Google Drive
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                <div className="grid h-9 w-48 shrink-0 grid-cols-2 gap-1 rounded-lg border border-outline-variant bg-surface-container-low p-1">
+                  <button
+                    type="button"
+                    onClick={() => setImportMethod("file")}
+                    aria-pressed={importMethod === "file"}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 text-xs font-medium transition-colors select-none cursor-pointer",
+                      importMethod === "file"
+                        ? "bg-primary text-on-primary shadow-xs"
+                        : "text-on-surface-variant hover:text-on-surface",
+                    )}
+                  >
+                    <Upload className="size-3.5" aria-hidden="true" />
+                    Tải file
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportMethod("drive")}
+                    aria-pressed={importMethod === "drive"}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 text-xs font-medium transition-colors select-none cursor-pointer",
+                      importMethod === "drive"
+                        ? "bg-primary text-on-primary shadow-xs"
+                        : "text-on-surface-variant hover:text-on-surface",
+                    )}
+                  >
+                    <Link2 className="size-3.5" aria-hidden="true" />
+                    Google Drive
+                  </button>
+                </div>
+              </>
             )}
           </div>
-        </div>
+        )}
 
         {activeSection === "page_chat" && <PageChatSimulator toolbarContainer={pageChatToolbarContainer} />}
         {activeSection === "faq_learning" && (
@@ -753,36 +863,6 @@ export default function CompanyKnowledgePage() {
 
         {activeSection === "documents" && (
           <>
-            <section className="mt-5" aria-label="Các mục kho tri thức">
-              <div className="grid gap-x-2.5 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
-                {KNOWLEDGE_SECTIONS.map((section) => (
-                  <button
-                    key={section.id}
-                    type="button"
-                    disabled={busy}
-                    aria-pressed={selectedKnowledgeSection === section.id}
-                    onClick={() => { setSelectedKnowledgeSection(section.id); setDocumentType(section.id); }}
-                    className={cn(
-                      "rounded-md border p-4 text-left transition disabled:opacity-50",
-                      selectedKnowledgeSection === section.id
-                        ? "border-primary bg-primary-container/30"
-                        : "border-outline-variant bg-surface-container-lowest hover:border-primary/60",
-                    )}
-                  >
-                    <span className="flex items-center gap-3">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-container text-on-primary-container">
-                        <section.icon className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="text-sm font-semibold text-on-surface">{section.label}</span>
-                    </span>
-                    <span className="mt-2 block text-xs text-on-surface-variant">{section.description}</span>
-                    <span className="mt-3 block text-xs font-semibold text-primary">
-                      {documents.filter((document) => section.types.includes(document.documentType)).length} tài liệu
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
             {!canManage && (
               <div className="mt-5 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
                 <ShieldCheck className="h-4 w-4 text-blue-650" />

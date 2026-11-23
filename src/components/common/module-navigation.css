@@ -235,8 +235,10 @@
     padding-inline: 0;
   }
 
-  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] nav > button > span:first-child,
-  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] nav > button > span:first-child > svg {
+  [data-module-navigation]:not([data-layout="horizontal"]) nav > button > span:first-child,
+  [data-module-navigation]:not([data-layout="horizontal"]) nav > button > span:first-child svg,
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-footer] button > span:first-child,
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-footer] button > span:first-child svg {
     width: 1.25rem;
     height: 1.25rem;
   }
@@ -306,7 +308,7 @@
   }
 
   [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
-    background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
+    background: linear-gradient(90deg, #4db2fa 0%, #2196f3 50%, #1982e6 100%);
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;

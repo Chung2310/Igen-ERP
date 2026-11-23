@@ -95,14 +95,14 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể mô phỏng câu trả lời."); }
     finally { setBusy(false); }
   }
-  const button = "inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
+  const button = "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
   const showModeHint = Boolean(active?.turns.length || active?.mode === "erp");
   const pageIdMissing = active?.mode === "erp" && !active.pageId?.trim();
   return (
-    <section aria-label="Chatbot Page" className="mt-5 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm">
+    <section aria-label="Chatbot Page" className="flex min-h-0 flex-1 flex-col bg-surface-container-lowest text-on-surface">
       {toolbarContainer && createPortal(
         <>
-          <span className="text-sm font-medium">Chế độ chat</span>
+          <span className="text-xs font-medium text-on-surface-variant">Chế độ chat</span>
           <StyledSelect
             value={active?.mode || "simulation"}
             disabled={Boolean(active?.turns.length)}
@@ -110,14 +110,14 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
               ? { ...item, mode: value as "simulation" | "erp" } : item))}
             ariaLabel="Chế độ chat"
             describedBy={showModeHint ? "page-sim-mode-hint" : undefined}
-            className="w-[23rem] max-w-full"
+            className="w-72 max-w-full"
             options={[
               { value: "simulation", label: "Mô phỏng · không lưu" },
               { value: "erp", label: "Chạy thật · lưu khách và đơn vào ERP" },
             ]}
           />
           {showModeHint && (
-            <p id="page-sim-mode-hint" className="max-w-3xl text-pretty text-xs text-on-surface-variant">
+            <p id="page-sim-mode-hint" className="max-w-xl text-pretty text-xs text-on-surface-variant">
               {active?.turns.length
                 ? "Chế độ đã khóa cho cuộc trò chuyện này. Tạo cuộc trò chuyện mới để đổi chế độ."
                 : "Dùng Page và flow đang lưu. Đơn chỉ được tạo sau khi khách xác nhận; đơn ở trạng thái nháp, chưa thanh toán. Không gửi tin hoặc QR ra Facebook."}
@@ -128,9 +128,9 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
               <span aria-hidden="true">+</span> Tạo cuộc trò chuyện
             </button>
             <details className="group relative z-20 shrink-0">
-              <summary aria-label="Cài đặt chat" title="Cài đặt chat" className="flex size-10 cursor-pointer list-none items-center justify-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+              <summary aria-label="Cài đặt chat" title="Cài đặt chat" className="flex h-9 w-11 cursor-pointer list-none items-center justify-center gap-0.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
                 <Settings2 className="size-4" aria-hidden="true" />
-                <ChevronDown className="size-4" aria-hidden="true" />
+                <ChevronDown className="size-3.5" aria-hidden="true" />
               </summary>
               <div className="absolute right-0 top-full mt-2 grid w-[calc(100vw-2rem)] max-w-2xl gap-4 rounded-xl border border-outline-variant bg-surface p-4 shadow-md sm:grid-cols-2">
                 <label className="block space-y-1 text-sm">
@@ -161,11 +161,11 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
         </>,
         toolbarContainer,
       )}
-      <div className="grid grid-cols-1 md:h-[min(68vh,48rem)] md:min-h-[32rem] md:grid-cols-[16rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[15.5rem_minmax(0,1fr)]">
         <aside aria-label="Lịch sử chat Page" className="min-w-0 border-b border-outline-variant bg-surface-container-lowest p-3 md:flex md:min-h-0 md:flex-col md:border-b-0 md:border-r">
           <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <h3 className="text-sm font-semibold">Lịch sử chat</h3>
-            <span className="tabular-nums text-xs text-on-surface-variant">{recentConversations.length} phiên</span>
+            <h3 className="text-xs font-semibold text-on-surface">Lịch sử chat</h3>
+            <span className="rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-medium tabular-nums text-on-surface-variant">{recentConversations.length} phiên</span>
           </div>
           <ul className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 md:min-h-0 md:flex-1 md:flex-col md:overflow-x-hidden md:overflow-y-auto">
             {recentConversations.map(item => {
@@ -181,12 +181,16 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
                 </li>
               );
             })}
-            {!recentConversations.length && <li className="px-2 py-2 text-sm text-on-surface-variant">Chưa có lịch sử chat.</li>}
+            {!recentConversations.length && (
+              <li className="flex flex-1 flex-col items-center justify-center px-3 py-8 text-center text-xs text-on-surface-variant/70">
+                Chưa có lịch sử chat.
+              </li>
+            )}
           </ul>
         </aside>
 
-        <main aria-label="Cuộc trò chuyện đang chọn" className="flex min-h-[30rem] min-w-0 flex-col md:min-h-0">
-          <ol ref={messagesRef} aria-live="polite" aria-label="Tin nhắn cuộc hội thoại" className="flex min-h-[16rem] flex-1 flex-col gap-4 overflow-y-auto px-4 py-5">
+        <main aria-label="Cuộc trò chuyện đang chọn" className="flex min-h-[24rem] min-w-0 flex-col md:min-h-0">
+          <ol ref={messagesRef} aria-live="polite" aria-label="Tin nhắn cuộc hội thoại" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
             {active?.turns.length ? active.turns.map((turn, index) => (
               <li key={index} className={cn("flex items-end gap-2", turn.role === "customer" ? "justify-end" : "justify-start")}>
                 {turn.role === "bot" && <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant" aria-hidden="true"><Bot className="size-4" /></span>}
@@ -208,19 +212,29 @@ export function PageChatSimulator({ toolbarContainer }: { toolbarContainer: HTML
                 </div>
                 {turn.role === "customer" && <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary" aria-hidden="true"><UserRound className="size-4" /></span>}
               </li>
-            )) : null}
+            )) : (
+              <li className="m-auto flex max-w-sm flex-col items-center gap-2 text-center">
+                <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+                  <Bot className="size-5" />
+                </span>
+                <p className="text-sm font-medium text-on-surface">Bắt đầu mô phỏng hội thoại</p>
+                <p className="text-pretty text-xs text-on-surface-variant">
+                  Nhập câu hỏi như khách hàng ở ô bên dưới để kiểm tra AI trả lời theo Kho tri thức.
+                </p>
+              </li>
+            )}
             {busy && <li role="status" className="ml-10 text-sm text-on-surface-variant">Trợ lý Page đang soạn câu trả lời…</li>}
           </ol>
 
-          <form onSubmit={event => { event.preventDefault(); void send(); }} className="border-t border-outline-variant bg-surface-container-lowest px-3 py-3 sm:px-4">
+          <form onSubmit={event => { event.preventDefault(); void send(); }} className="shrink-0 border-t border-outline-variant bg-surface-container-lowest px-3 py-2.5 sm:px-4">
             <div className="flex items-end gap-2">
               <label className="sr-only" htmlFor="page-sim-message">Nội dung tin nhắn</label>
-              <textarea id="page-sim-message" value={draft} rows={2} onChange={event => setDraft(event.target.value)}
+              <textarea id="page-sim-message" value={draft} rows={1} onChange={event => setDraft(event.target.value)}
                 onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }}
                 placeholder="Nhập tin nhắn của khách…" aria-describedby={pageIdMissing ? "page-sim-compose-hint" : undefined}
-                className="min-h-11 min-w-0 flex-1 resize-y rounded-xl border border-outline-variant bg-surface px-3 py-2.5 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
+                className="min-h-10 max-h-28 min-w-0 flex-1 resize-none rounded-xl border border-outline-variant bg-surface px-3.5 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus-visible:outline-2 focus-visible:outline-primary" />
               <button type="submit" disabled={busy || !draft.trim() || (active?.mode === "erp" && !active.pageId?.trim())} aria-label={active?.mode === "erp" ? "Gửi tin vào flow ERP" : "Gửi thử"}
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">
                 <Send className="size-4" aria-hidden="true" />
               </button>
             </div>

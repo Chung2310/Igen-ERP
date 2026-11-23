@@ -546,7 +546,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
               id="simple-video-prompt"
               placeholder="Mô tả ngắn gọn nội dung, bối cảnh và chuyển động bạn muốn…"
               rows={4}
-              className="w-full min-h-24 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full min-h-24 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               disabled={isGenerating}
@@ -598,7 +598,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                   <textarea
                     id="simple-video-opt-prompt"
                     rows={3}
-                    className="w-full min-h-20 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm leading-relaxed text-on-surface focus:border-primary focus:outline-none"
+                    className="w-full min-h-20 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none"
                     value={optimizedData.optimized_english_prompt}
                     onChange={(e) => setOptimizedData({
                       ...optimizedData,
@@ -616,7 +616,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                     <input
                       id="simple-video-opt-motion"
                       type="text"
-                      className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:border-primary focus:outline-none"
+                      className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none"
                       value={optimizedData.motion_analysis || ''}
                       onChange={(e) => setOptimizedData({
                         ...optimizedData,
@@ -633,7 +633,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                     <input
                       id="simple-video-opt-camera"
                       type="text"
-                      className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:border-primary focus:outline-none"
+                      className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none"
                       value={optimizedData.camera_movement || ''}
                       onChange={(e) => setOptimizedData({
                         ...optimizedData,

@@ -1610,7 +1610,7 @@ export default function CRMTab() {
         </div>}>
         {[
           { key: "LEAD" as CRMSubTabType, label: "Lead", icon: Users },
-          { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại ", icon: MessageSquare },
+          { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại", icon: MessageSquare },
           { key: "AI COMMENT AUTO-REPLY" as CRMSubTabType, label: "AI phản hồi bình luận", icon: Zap },
           ...(hasPermission("omni-inbox:manage") ? [{ key: "CHAT TEST" as CRMSubTabType, label: "Thử nghiệm chat", icon: FlaskConical }] : []),
         ].map(({ key, label, icon: Icon }) => <ModuleNavigationButton key={key} active={subTab === key} icon={<Icon />} onClick={() => setSubTab(key)}>{label}</ModuleNavigationButton>)}
