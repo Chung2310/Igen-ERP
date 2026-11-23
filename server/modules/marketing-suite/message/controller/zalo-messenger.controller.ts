@@ -70,9 +70,23 @@ export const zaloMessengerController = {
 
       const { verifyZaloWebhook } = await import("../webhook-signature");
       const rawBody = (req as Request & { rawBody?: string }).rawBody;
-      if (!verifyZaloWebhook({ signature: req.get("x-zevent-signature"), rawBody, appId: String(body?.app_id || ""), timestamp: body?.timestamp, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY })) return res.status(401).json({ success: false, message: "Invalid Zalo webhook signature." });
+      if (!verifyZaloWebhook({ signature: req.get("x-zevent-signature"), rawBody, appId: String(body?.app_id || ""), timestamp: body?.timestamp, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY })) {
+        console.warn("[Zalo Webhook] Signature rejected", {
+          eventName, appIdMatches: String(body?.app_id || "") === process.env.ZALO_APP_ID,
+          hasRawBody: Boolean(rawBody), hasSignature: Boolean(req.get("x-zevent-signature")),
+          hasSecret: Boolean(process.env.ZALO_OA_SECRET_KEY),
+        });
+        return res.status(401).json({ success: false, message: "Invalid Zalo webhook signature." });
+      }
 
-      await enqueueZaloWebhook(body, rawBody);
+      const outcome = await enqueueZaloWebhook(body, rawBody);
+      if (eventName.startsWith("oa_send_")) {
+        // Metadata only: never log message content, signature, or credentials.
+        console.info("[Zalo Webhook] OA send received", {
+          eventName, oaId: String(body?.sender?.id || ""), messageId: String(body?.message?.msg_id || ""),
+          hasAdminId: typeof body?.sender?.admin_id === "string" && Boolean(body.sender.admin_id.trim()), outcome,
+        });
+      }
       return res.status(200).json({ success: true, message: "EVENT_RECEIVED" });
     } catch (error) {
       console.error("[Zalo Webhook Event] Lỗi tiếp nhận webhook:", error instanceof Error ? error.name : "Unknown error");

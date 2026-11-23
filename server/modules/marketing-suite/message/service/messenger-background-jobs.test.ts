@@ -83,6 +83,44 @@ function webhook(timestamp = Date.now()) {
   return { req, res, submit };
 }
 
+it("diagnoses signed OA admin events and API echoes without logging content or credentials", async () => {
+  const log = vi.spyOn(console, "info").mockImplementation(() => {});
+  for (const admin of [true, false]) {
+    const body = { app_id: "test-app", event_name: "oa_send_text", timestamp: Date.now(),
+      sender: { id: "oa", ...(admin ? { admin_id: "staff" } : {}) }, recipient: { id: "customer" },
+      message: { msg_id: admin ? "native" : "api", text: "private customer content" } };
+    const rawBody = JSON.stringify(body);
+    const signature = createHash("sha256").update(`${body.app_id}${rawBody}${body.timestamp}test-secret`).digest("hex");
+    const req = { body, rawBody, get: () => `mac=${signature}` } as unknown as Request;
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    await zaloMessengerController.receiveWebhookEvent(req, res as unknown as Response);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(log).toHaveBeenLastCalledWith("[Zalo Webhook] OA send received", {
+      eventName: "oa_send_text", oaId: "oa", messageId: admin ? "native" : "api",
+      hasAdminId: admin, outcome: admin ? "queued" : "ignored_event",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain(body.message.text);
+    expect(JSON.stringify(log.mock.calls)).not.toContain(signature);
+    expect(JSON.stringify(log.mock.calls)).not.toContain("test-secret");
+  }
+  expect(await MessengerBackgroundJobModel.countDocuments({ kind: "zalo-webhook" })).toBe(1);
+});
+
+it("diagnoses rejected OA webhook signatures without accepting or logging the payload", async () => {
+  const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const { req, res, submit } = webhook();
+  req.body.sender = { id: "oa", admin_id: "staff" };
+  req.body.event_name = "oa_send_text";
+  (req as Request & { rawBody: string }).rawBody = JSON.stringify(req.body);
+  await submit();
+  expect(res.status).toHaveBeenCalledWith(401);
+  expect(log).toHaveBeenCalledWith("[Zalo Webhook] Signature rejected", {
+    eventName: "oa_send_text", appIdMatches: true, hasRawBody: true, hasSignature: true, hasSecret: true,
+  });
+  expect(await MessengerBackgroundJobModel.countDocuments({})).toBe(0);
+  expect(JSON.stringify(log.mock.calls)).not.toContain(req.body.message.text);
+});
+
 it.each(["oa_send_text", "oa_send_image", "oa_send_gif", "oa_send_list", "oa_send_file", "oa_send_sticker"])("pauses only the targeted OA conversation, cancels queued AI and deduplicates %s from OA Admin", async eventName => {
   const timestamp = Date.now();
   const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer", lastMessageAt: new Date(timestamp - 1000) });

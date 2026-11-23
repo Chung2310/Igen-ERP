@@ -892,7 +892,12 @@ export const zaloMessengerService = {
     if (isZaloHumanReply(body)) {
       const oaId = String(body.sender?.id || "");
       const { canProcessMessengerWebhook } = await import("../webhook-access");
-      if (await canProcessMessengerWebhook("Zalo", oaId)) await handleZaloHumanReply(body, oaId);
+      if (await canProcessMessengerWebhook("Zalo", oaId)) {
+        await handleZaloHumanReply(body, oaId);
+        console.info("[Zalo Webhook] OA admin reply processed", { oaId, messageId: String(body.message?.msg_id || "") });
+      } else {
+        console.warn("[Zalo Webhook] OA admin reply skipped by account access", { oaId, messageId: String(body.message?.msg_id || "") });
+      }
       return;
     }
 
