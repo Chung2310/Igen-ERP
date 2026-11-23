@@ -24,7 +24,12 @@ function dateKey(date: Date) {
 export default function SheetDatePicker({ value, min, max, onChange }: SheetDatePickerProps) {
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => parseDateKey(value || min || '') || new Date());
+  const [yearText, setYearText] = useState(() => String((parseDateKey(value || min || '') || new Date()).getUTCFullYear()));
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setYearText(String(month.getUTCFullYear()));
+  }, [month]);
 
   const [previousValue, setPreviousValue] = useState(value);
   if (previousValue !== value) {
@@ -75,9 +80,40 @@ export default function SheetDatePicker({ value, min, max, onChange }: SheetDate
       </button>
       {open && (
         <div className="absolute left-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-sky-100 bg-white p-3 shadow-2xl shadow-slate-900/15">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-1.5">
             <button type="button" onClick={() => setMonth(new Date(Date.UTC(year, monthIndex - 1, 1)))} disabled={Boolean(min && previousMonthLastDay < min)} aria-label="Tháng trước" className="rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="text-sm font-semibold capitalize text-slate-800">{new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(month)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="sr-only">{new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(month)}</span>
+              <span aria-hidden="true" className="text-sm font-semibold capitalize text-slate-800">{new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', month: 'long' }).format(month)}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label="Nhập năm"
+                placeholder="Năm"
+                value={yearText}
+                maxLength={4}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => {
+                  const next = event.target.value.replace(/\D/g, '').slice(0, 4);
+                  setYearText(next);
+                  if (next.length === 4 && Number(next) >= 1000) {
+                    setMonth(new Date(Date.UTC(Number(next), monthIndex, 1)));
+                  }
+                }}
+                onBlur={() => setYearText(String(year))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (yearText.length === 4 && Number(yearText) >= 1000) {
+                      setMonth(new Date(Date.UTC(Number(yearText), monthIndex, 1)));
+                    } else {
+                      setYearText(String(year));
+                    }
+                  }
+                }}
+                className="h-7 w-16 rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-semibold tabular-nums text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+            </div>
             <button type="button" onClick={() => setMonth(new Date(Date.UTC(year, monthIndex + 1, 1)))} disabled={Boolean(max && nextMonthFirstDay > max)} aria-label="Tháng sau" className="rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center">

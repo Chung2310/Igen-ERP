@@ -85,33 +85,32 @@ function StatusBadge({ status }: { status: CouponStatus }) {
   switch (status) {
     case "Đang áp dụng":
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="inline-flex items-center rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
           Đang áp dụng
         </span>
       );
     case "Chưa bắt đầu":
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+        <span className="inline-flex items-center rounded-full bg-[#D9EDF7] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-[#286090]">
           Chưa bắt đầu
         </span>
       );
     case "Tạm dừng":
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+        <span className="inline-flex items-center rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-[#555555]">
           Tạm dừng
         </span>
       );
     case "Hết lượt":
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
           <AlertCircle className="h-3 w-3" />
           Hết lượt
         </span>
       );
     case "Hết hạn":
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+        <span className="inline-flex items-center rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
           Hết hạn
         </span>
       );

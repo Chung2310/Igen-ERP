@@ -137,7 +137,7 @@ gymRouter.delete(
 );
 gymRouter.get(
   "/dashboard",
-  route((_req, actor) => dashboard(actor)),
+  route((req, actor) => dashboard(actor, req.query as Record<string, unknown>)),
 );
 gymRouter.post(
   "/food-images/seed-defaults",

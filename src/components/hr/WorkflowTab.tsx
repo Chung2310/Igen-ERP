@@ -667,7 +667,7 @@ export default function WorkflowTab({
                     <td className="px-4 py-2.5">
                       <button type="button" onClick={() => openDetail(wf)} className="block max-w-72 truncate text-left font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary" title={wf.name}>{wf.name}</button>
                     </td>
-                    <td className="max-w-40 px-4 py-2.5 text-on-surface-variant">{wf.category ? <HrStatusBadge tone="info" className="max-w-36" title={wf.category}>{wf.category}</HrStatusBadge> : "—"}</td>
+                    <td className="max-w-40 px-4 py-2.5 text-on-surface-variant">{wf.category ? <HrStatusBadge variant="hr" tone="info" className="max-w-36" title={wf.category}>{wf.category}</HrStatusBadge> : "—"}</td>
                     <td className="px-4 py-2.5 text-center tabular-nums text-on-surface">{total}</td>
                     <td className="px-4 py-2.5 text-on-surface-variant"><span className="block max-w-80 truncate" title={wf.description || undefined}>{wf.description || "—"}</span></td>
                     <td className="px-4 py-2.5">
@@ -737,7 +737,7 @@ export default function WorkflowTab({
                 {wfName || "Quy trình chưa đặt tên"}
               </h2>
               {wfCategory && (
-                <span className="shrink-0 rounded-md bg-cyan-50 border border-cyan-200 px-2 py-0.5 text-[10px] font-medium tracking-wider text-cyan-700">
+                <span className="shrink-0 rounded-full bg-[#D9EDF7] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-[#286090]">
                   {wfCategory}
                 </span>
               )}
@@ -944,7 +944,7 @@ export default function WorkflowTab({
                     {s.title || "(Chưa đặt tên)"}
                   </span>
                   {i === 0 && (
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] px-1.5 py-0.5 rounded-md font-medium shadow-3xs">
+                    <span className="rounded-full bg-[#5CB85C] px-2 py-0.5 text-[10px] font-semibold text-white">
                       Bắt đầu
                     </span>
                   )}
@@ -2114,7 +2114,7 @@ function WizardStepEditorModal({
               <h3 className={`text-base font-medium ${isDark ? "text-zinc-100" : "text-slate-900"}`}>Chỉnh sửa giai đoạn</h3>
               <p className={`mt-0.5 truncate text-xs ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Giai đoạn {stepIndex + 1}: {title || "Chưa đặt tên"}</p>
             </div>
-            {isFirstStep && <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">Bắt đầu</span>}
+            {isFirstStep && <span className="shrink-0 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[10px] font-semibold text-white">Bắt đầu</span>}
           </div>
           <button
             type="button"

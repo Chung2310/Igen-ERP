@@ -336,11 +336,11 @@ export default function RetailShiftWorkspace() {
 }
 function ShiftStatusBadge({ status }: { status: RetailShift["status"] }) {
   const styles: Record<RetailShift["status"], string> = {
-    open: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
-    closed: "bg-amber-50 text-amber-700 ring-amber-600/15",
-    reconciled: "bg-slate-100 text-slate-600 ring-slate-500/15",
+    open: "bg-[#5CB85C] text-white",
+    closed: "bg-[#F0AD4E] text-white",
+    reconciled: "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]",
   };
-  return <span className={"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset " + styles[status]}><span className="h-1.5 w-1.5 rounded-full bg-current" />{statuses[status]}</span>;
+  return <span className={"inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 uppercase " + styles[status]}>{statuses[status]}</span>;
 }
 function Action({ children, onClick, variant = "default" }: { children: React.ReactNode; onClick: () => void; variant?: "default" | "primary" | "warning" | "success" }) {
   const styles = {

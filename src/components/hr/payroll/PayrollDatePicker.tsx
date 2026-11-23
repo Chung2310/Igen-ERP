@@ -28,7 +28,12 @@ export function PayrollDatePicker({ value, onChange, label, clearable = true, po
     const initial = parseDate(value) ?? new Date();
     return new Date(initial.getFullYear(), initial.getMonth(), 1);
   });
+  const [yearText, setYearText] = useState(() => String((parseDate(value) ?? new Date()).getFullYear()));
   const [position, setPosition] = useState({ top: 0, left: 0, width: 300 });
+
+  useEffect(() => {
+    setYearText(String(month.getFullYear()));
+  }, [month]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -95,6 +100,7 @@ export function PayrollDatePicker({ value, onChange, label, clearable = true, po
       onClick={() => {
         const date = selected ?? new Date();
         setMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+        setYearText(String(date.getFullYear()));
         setOpen((current) => !current);
       }}
       className="flex min-h-11 w-full items-center justify-between rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm text-on-surface hover:border-primary focus-visible:outline-2 focus-visible:outline-primary"
@@ -104,9 +110,38 @@ export function PayrollDatePicker({ value, onChange, label, clearable = true, po
     </button>
     {open && createPortal(
       <div ref={calendarRef} role="dialog" aria-label={`Chọn ${label.toLowerCase()}`} className="fixed z-50 max-h-[calc(100dvh-24px)] overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-lg" style={position}>
-        <div className="mb-2 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1">
-          <span className="text-sm font-medium capitalize text-on-surface">{month.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+        <div className="mb-2 flex items-center justify-between gap-2 rounded-md bg-primary/10 px-2 py-1">
+          <span className="sr-only">{month.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+          <span aria-hidden="true" className="text-sm font-medium capitalize text-on-surface">{month.toLocaleDateString("vi-VN", { month: "long" })}</span>
           <div className="flex items-center gap-1">
+            <input
+              type="text"
+              inputMode="numeric"
+              aria-label="Nhập năm"
+              placeholder="Năm"
+              value={yearText}
+              maxLength={4}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => {
+                const next = event.target.value.replace(/\D/g, "").slice(0, 4);
+                setYearText(next);
+                if (next.length === 4 && Number(next) >= 1000) {
+                  setMonth(new Date(Number(next), month.getMonth(), 1));
+                }
+              }}
+              onBlur={() => setYearText(String(month.getFullYear()))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (yearText.length === 4 && Number(yearText) >= 1000) {
+                    setMonth(new Date(Number(yearText), month.getMonth(), 1));
+                  } else {
+                    setYearText(String(month.getFullYear()));
+                  }
+                }
+              }}
+              className="h-7 w-16 rounded-md border border-outline-variant bg-surface-container-lowest px-1.5 text-center text-sm font-medium tabular-nums text-on-surface focus:border-primary focus:outline-none"
+            />
             <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-md p-1.5 text-on-surface hover:bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft size={16} /></button>
             <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-md p-1.5 text-on-surface hover:bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight size={16} /></button>
           </div>

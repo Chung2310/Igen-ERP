@@ -72,11 +72,11 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject, onPrintAd
                 </button>
               </div>
             ) : item.status === "approved" ? (
-              <span className="rounded-full bg-primary-container px-2 py-0.5 text-xs text-on-primary-container">
+              <span className="rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold text-white">
                 Đã duyệt
               </span>
             ) : (
-              <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-xs text-on-surface-variant">
+              <span className="rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold text-white">
                 Đã từ chối
               </span>
             )}

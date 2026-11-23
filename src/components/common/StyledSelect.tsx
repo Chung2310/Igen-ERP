@@ -183,7 +183,12 @@ export function StyledSelect({
         disabled={disabled}
         value={value}
         onChange={(event) => { setInvalid(false); onChange(event.target.value); }}
-        onInvalid={(event) => { event.preventDefault(); setInvalid(true); triggerRef.current?.focus(); }}
+        onInvalid={(event) => {
+          event.preventDefault();
+          setInvalid(true);
+          triggerRef.current?.scrollIntoView?.({ block: "nearest" });
+          triggerRef.current?.focus();
+        }}
       >
         {!options.some((option) => option.value === "") && <option value="">{placeholder}</option>}
         {options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}

@@ -136,7 +136,7 @@ export default function ReceivablesPage({
                     </td>
                     <td className="p-3">
                       {item.daysOverdue > 0 ? (
-                        <span className="rounded-full bg-error-container px-2 py-1 text-xs font-bold text-on-error-container">
+                        <span className="inline-flex items-center rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
                           Quá hạn {item.daysOverdue} ngày
                         </span>
                       ) : (
