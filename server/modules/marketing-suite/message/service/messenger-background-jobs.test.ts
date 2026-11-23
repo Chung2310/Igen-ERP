@@ -20,9 +20,9 @@ import { assertZaloDeliveryCurrent, beginZaloFollowUpDelivery, expireZaloFollowU
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
 
-const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
+const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), cancel: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
 vi.mock("./ai-auto-reply.service.ts", () => ({
-  aiAutoReplyService: { triggerAutoReply: mocks.dispatch, cancelPendingReply: vi.fn() },
+  aiAutoReplyService: { triggerAutoReply: mocks.dispatch, cancelPendingReply: mocks.cancel },
   recoverZaloAutoReplyJobs: vi.fn(),
 }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: vi.fn() }));
@@ -51,6 +51,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   mocks.dispatch.mockReset();
+  mocks.cancel.mockReset();
   mocks.intake.mockReset();
   mocks.contractOcr.mockReset();
   vi.spyOn(UserModel, "findOne").mockResolvedValue({ zaloIntegration: { isMock: true } } as never);
@@ -103,6 +104,77 @@ it.each(["oa_send_text", "oa_send_image", "oa_send_gif", "oa_send_list", "oa_sen
   await zaloMessengerService.handleWebhookEvent(body);
   expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil).toBeFalsy();
   expect(mocks.dispatch).not.toHaveBeenCalled();
+});
+
+it("counts Zalo's pause from the latest OA Admin send, including delayed and reordered webhooks", async () => {
+  const now = Date.now();
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer", followUpStatus: "pending",
+    lastMessageAt: new Date(now - 11 * 60_000), lastAssistantMessageAt: new Date(now - 11 * 60_000) });
+  const send = (id: string, timestamp: number) => zaloMessengerService.handleWebhookEvent({
+    event_name: "oa_send_text", sender: { id: "oa", admin_id: "staff" }, recipient: { id: "customer" },
+    timestamp, message: { msg_id: id, text: "Tôi đang hỗ trợ" },
+  });
+  await send("first", now - 10 * 60_000);
+  await send("latest", now - 2 * 60_000);
+  await send("older-delayed", now - 5 * 60_000);
+  await send("latest", now - 2 * 60_000);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(now + 28 * 60_000);
+  expect((await ZaloConversationModel.findById(conversation._id))?.followUpStatus).toBe("responded");
+});
+
+it.each(["text", "image"])("pauses Facebook from the latest native %s send and ignores replay after manual resume", async kind => {
+  const now = Date.now();
+  const conversation = await FBConversationModel.create({ pageId: "page", recipientId: "customer", followUpStatus: "pending" });
+  const other = await FBConversationModel.create({ pageId: "page", recipientId: "other" });
+  const echo = (id: string, timestamp: number) => fbMessengerService.processMessageEcho({
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp,
+    message: { is_echo: true, mid: id, ...(kind === "text" ? { text: "Tôi đang hỗ trợ" }
+      : { attachments: [{ type: "image", payload: { url: "https://example.com/photo.jpg" } }] }) },
+  }, "page");
+  await echo("first", now - 10 * 60_000);
+  await echo("latest", now - 2 * 60_000);
+  await echo("older-delayed", now - 5 * 60_000);
+  await echo("latest", now - 2 * 60_000);
+  const saved = await FBConversationModel.findById(conversation._id);
+  expect(saved?.aiPausedUntil?.getTime()).toBe(now + 28 * 60_000);
+  expect(saved?.lastHumanReplyAt?.getTime()).toBe(now - 2 * 60_000);
+  expect(saved?.followUpStatus).toBe("responded");
+  expect((await FBConversationModel.findById(other._id))?.aiPausedUntil).toBeNull();
+  expect(mocks.cancel).toHaveBeenCalledTimes(2);
+  expect(mocks.cancel).toHaveBeenCalledWith(String(conversation._id), "human_reply");
+  await fbMessengerService.resumeAIAutoReply("page", String(conversation._id));
+  await echo("latest", now - 2 * 60_000);
+  expect((await FBConversationModel.findById(conversation._id))?.aiPausedUntil).toBeFalsy();
+  expect(mocks.cancel).toHaveBeenCalledTimes(2);
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});
+
+it.each([true, false])("does not pause Facebook for bot echoes (metadata present: %s)", async metadataPresent => {
+  const conversation = await FBConversationModel.create({ pageId: "page", recipientId: "customer", followUpStatus: "pending" });
+  if (!metadataPresent) await FBMessageModel.create({
+    conversationId: conversation._id, senderId: "page", recipientId: "customer", direction: "outbound",
+    senderType: "ai", messageId: "bot-echo", timestamp: new Date(), text: "Bot reply",
+  });
+  await fbMessengerService.processMessageEcho({
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp: Date.now(),
+    message: { is_echo: true, mid: "bot-echo", text: "Bot reply", ...(metadataPresent ? { metadata: "igen-erp:ai" } : {}) },
+  }, "page");
+  const saved = await FBConversationModel.findById(conversation._id);
+  expect(saved?.aiPausedUntil).toBeNull();
+  expect(saved?.followUpStatus).toBe("pending");
+  expect(mocks.cancel).not.toHaveBeenCalled();
+});
+
+it("does not restart a Facebook pause for an old send delivered after its 30-minute window", async () => {
+  const conversation = await FBConversationModel.create({ pageId: "page", recipientId: "customer", followUpStatus: "pending", lastAssistantMessageAt: new Date() });
+  await fbMessengerService.processMessageEcho({
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp: Date.now() - 60 * 60_000,
+    message: { is_echo: true, mid: "old-send", text: "Old manual reply" },
+  }, "page");
+  const saved = await FBConversationModel.findById(conversation._id);
+  expect(saved?.aiPausedUntil!.getTime()).toBeLessThan(Date.now());
+  expect(saved?.followUpStatus).toBe("pending");
+  expect(mocks.cancel).not.toHaveBeenCalled();
 });
 
 it("ignores API echoes so the chatbot does not pause itself", async () => {

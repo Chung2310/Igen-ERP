@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
 import { AudioLines, Brain, ChartNoAxesCombined, ChevronDown, ChevronRight, FileAudio, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, Network, NotebookPen, Paperclip, Plus, Presentation, RefreshCw, Search, SendHorizontal, Settings2, Square, Star, Trash2, UserRound, Video, Volume2, VolumeX, WandSparkles, Youtube, X, type LucideIcon } from "lucide-react";
 import { assistantService, AssistantServiceError, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
+import { playAssistantSpeech, unlockAssistantSpeechPlayback, type AssistantSpeechPlayback } from "../../shared/assistant-speech-playback";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
 import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
@@ -546,8 +547,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [wakeRestartVersion, setWakeRestartVersion] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechError, setSpeechError] = useState("");
-  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
-  const speechAudioUrlRef = useRef<string | null>(null);
+  const speechAudioRef = useRef<AssistantSpeechPlayback | null>(null);
   const speechRequestRef = useRef<AbortController | null>(null);
   const speechRunIdRef = useRef(0);
   const speechFinishedAtRef = useRef(0);
@@ -578,14 +578,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     speechRunIdRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
-    if (speechAudioRef.current) {
-      speechAudioRef.current.onended = null;
-      speechAudioRef.current.onerror = null;
-      speechAudioRef.current.pause();
-      speechAudioRef.current = null;
-    }
-    if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-    speechAudioUrlRef.current = null;
+    speechAudioRef.current?.stop();
+    speechAudioRef.current = null;
     setIsSpeaking(false);
   }, []);
   const speakReply = useCallback(async (text: string) => {
@@ -602,32 +596,28 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       speechRequestRef.current = null;
       speechAudioRef.current = null;
       speechFinishedAtRef.current = Date.now();
-      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-      speechAudioUrlRef.current = null;
       setIsSpeaking(false);
       if (twoWayVoiceRef.current) setTwoWayRestartVersion(value => value + 1);
     };
     try {
       const audioBlob = await assistantService.speech(text, controller.signal, settings.speechVoice);
       if (controller.signal.aborted || runId !== speechRunIdRef.current) return;
-      const url = URL.createObjectURL(audioBlob);
-      speechAudioUrlRef.current = url;
-      const audio = new Audio(url);
-      speechAudioRef.current = audio;
       const words = text.trim().split(/\s+/);
-      const updateSpokenWords = () => {
-        if (!twoWayVoiceRef.current || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
-        setSpokenWordCount(Math.min(words.length, Math.floor((audio.currentTime / audio.duration) * words.length)));
-      };
-      audio.ontimeupdate = updateSpokenWords;
-      audio.onloadedmetadata = updateSpokenWords;
-      audio.onended = () => { if (twoWayVoiceRef.current) setSpokenWordCount(words.length); finish(); };
-      audio.onerror = () => {
-        if (runId !== speechRunIdRef.current) return;
-        finish();
-        setSpeechError("Không thể phát tệp âm thanh trên thiết bị này.");
-      };
-      await audio.play();
+      let finished = false;
+      const playback = await playAssistantSpeech(audioBlob, {
+        signal: controller.signal,
+        onTimeUpdate: (currentTime, duration) => {
+          if (!twoWayVoiceRef.current || !Number.isFinite(duration) || duration <= 0) return;
+          setSpokenWordCount(Math.min(words.length, Math.floor((currentTime / duration) * words.length)));
+        },
+        onEnded: () => {
+          if (twoWayVoiceRef.current) setSpokenWordCount(words.length);
+          finished = true;
+          finish();
+        },
+      });
+      if (controller.signal.aborted || runId !== speechRunIdRef.current || finished) playback.stop();
+      else speechAudioRef.current = playback;
     } catch (cause) {
       if (!controller.signal.aborted && runId === speechRunIdRef.current) {
         finish();
@@ -700,14 +690,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     speechRunIdRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
-    if (speechAudioRef.current) {
-      speechAudioRef.current.onended = null;
-      speechAudioRef.current.onerror = null;
-      speechAudioRef.current.pause();
-      speechAudioRef.current = null;
-    }
-    if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-    speechAudioUrlRef.current = null;
+    speechAudioRef.current?.stop();
+    speechAudioRef.current = null;
   }, []);
   useEffect(() => {
     const onlyWelcome = messages.length === 1 && messages[0].role === "assistant" && messages[0].content === welcomeMessage.content;
@@ -797,6 +781,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
 
   const submitTurn = async (request: AssistantTurnInput) => {
     if (requestRef.current) return;
+    if (settings.speakReplies || twoWayVoiceRef.current) unlockAssistantSpeechPlayback();
     const turnMode = request.mode ?? assistantMode;
     const owningProject = turnMode === "qa" ? projectsRef.current.find(project => project.conversations.some(item => item.sourceConversationId === request.conversationId)) : undefined;
     const turnStorageKey = turnMode === "work" ? storageBaseKey : `${storageBaseKey}:qa`;
@@ -1221,6 +1206,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     if (contextError) { setVoiceError(contextError); return; }
     const Recognition = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
     if (!Recognition) { setVoiceError("Trình duyệt này chưa hỗ trợ nhận giọng nói. Bạn có thể nhập yêu cầu bằng bàn phím."); return; }
+    unlockAssistantSpeechPlayback();
     closeSpeech(); stopReplySpeech();
     voiceBlockedRef.current = false;
     twoWayVoiceRef.current = true;
@@ -1629,6 +1615,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const sendProjectPrompt = (projectId: string) => {
     if (isViewingHistory || isLoading || !synced || isListening || isReadingAttachment || retryRef.current) return;
     if (!input.trim() && !attachment && !fileAttachment) return;
+    if (settings.speakReplies) unlockAssistantSpeechPlayback();
     startProjectConversation(projectId, input.trim());
   };
   useEffect(() => {
