@@ -1,0 +1,114 @@
+{
+  "version": "P5-live-proposal-v0.1-2026-11-21",
+  "status": "pending-user-approval",
+  "liveAllowed": false,
+  "currentlyApprovedBudgetUsd": 0,
+  "model": "google/gemini-2.5-flash",
+  "providerSlug": "google-ai-studio",
+  "rates": {
+    "inputUsdPerMillion": 0.3,
+    "outputUsdPerMillion": 2.5
+  },
+  "priceCheckedDate": "2026-11-21",
+  "sources": {
+    "pricing": "https://openrouter.ai/google/gemini-2.5-flash",
+    "endpoints": "https://openrouter.ai/api/v1/models/google/gemini-2.5-flash/endpoints",
+    "usage": "https://openrouter.ai/docs/cookbook/administration/usage-accounting.md"
+  },
+  "dryRun": {
+    "narrowCases": 24,
+    "wideCases": 24,
+    "narrowRequests": 24,
+    "wideRequests": 54,
+    "wideDiscoveryRequests": 24,
+    "wideFilteredRequests": 24,
+    "wideExpandedRequests": 6,
+    "bodyBytesTotal": 20922240,
+    "largestBodyBytes": 1456319
+  },
+  "assumptions": {
+    "tokensLow": {
+      "narrow": 4000,
+      "discovery": 70000,
+      "filtered": 25000,
+      "expanded": 300000
+    },
+    "tokensPlan": {
+      "narrow": 8000,
+      "discovery": 140000,
+      "filtered": 50000,
+      "expanded": 600000
+    },
+    "note": "Unverified sensitivity assumptions;not measured tokens;not a byte-to-token conversion;no cache discounts."
+  },
+  "estimates": {
+    "lowerSensitivity": {
+      "inputTokensAssumed": 4176000,
+      "outputTokensAtRequestCap": 319488,
+      "inputUsd": 1.2528,
+      "outputUsd": 0.79872,
+      "totalUsd": 2.05152
+    },
+    "planningSensitivity": {
+      "inputTokensAssumed": 8352000,
+      "outputTokensAtRequestCap": 319488,
+      "inputUsd": 2.5056,
+      "outputUsd": 0.79872,
+      "totalUsd": 3.30432
+    },
+    "allWideCasesExpand": {
+      "inputTokensAssumed": 19152000,
+      "outputTokensAtRequestCap": 393216,
+      "inputUsd": 5.7456,
+      "outputUsd": 0.98304,
+      "totalUsd": 6.72864
+    },
+    "modelContextEveryAttemptAtRequestedOutputCap": {
+      "inputTokensAssumed": 100663296,
+      "outputTokensAtRequestCap": 393216,
+      "inputUsd": 30.1989888,
+      "outputUsd": 0.98304,
+      "totalUsd": 31.1820288
+    },
+    "pilotLow": {
+      "inputTokensAssumed": 494000,
+      "outputTokensAtRequestCap": 24576,
+      "inputUsd": 0.1482,
+      "outputUsd": 0.06144,
+      "totalUsd": 0.20964
+    },
+    "pilotPlan": {
+      "inputTokensAssumed": 988000,
+      "outputTokensAtRequestCap": 24576,
+      "inputUsd": 0.2964,
+      "outputUsd": 0.06144,
+      "totalUsd": 0.35784
+    }
+  },
+  "recommended": {
+    "totalUsd": 5,
+    "pilotUsdIncluded": 1,
+    "maxCaseRuns": 48,
+    "maxPaidAttempts": 96,
+    "maxConcurrentRequests": 1,
+    "maxOutputTokensPerRequest": 4096,
+    "maxAggregateInputTokens": 12000000,
+    "maxAggregateOutputTokens": 500000,
+    "wholeRunMinutes": 60,
+    "maxDiscoverySeconds": 20,
+    "maxInterpretationSeconds": 40,
+    "retries": 0,
+    "modelFallback": false,
+    "providerFallback": false,
+    "repeatRounds": 1
+  },
+  "reservation": {
+    "inputTokensPerAttempt": 1048576,
+    "outputTokensPerAttempt": 65535,
+    "usdPerAttempt": 0.5,
+    "modelMaximumUsd": 0.4784103,
+    "note": "Reserve model-level maximum, not guessed prompt tokens. Reconcile real usage before next send;unknown usage latches stop."
+  },
+  "tokenCapsCostBoundUsd": 4.85,
+  "noInferenceCalled": true
+}

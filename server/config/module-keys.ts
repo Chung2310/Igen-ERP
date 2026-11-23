@@ -1,7 +1,7 @@
 /** Các nghiệp vụ có thể bật/tắt theo doanh nghiệp. Đồng bộ với src/config/modules.ts. */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "student-partner", "labor-partner", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "legal-reference", "quotation", "healthcare", "architect-assistant"] as const;
+export const MODULE_KEYS = ["gym", "hr", "inventory", "resource", "chat", "student", "worker", "student-partner", "labor-partner", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "legal-reference", "quotation", "healthcare", "architect-assistant"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "partner" && key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "legal-reference" && key !== "quotation" && key !== "healthcare" && key !== "architect-assistant");
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "gym" && key !== "partner" && key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "legal-reference" && key !== "quotation" && key !== "healthcare" && key !== "architect-assistant");
 
 export function isModuleKey(v: string): v is ModuleKey {
   return (MODULE_KEYS as readonly string[]).includes(v);

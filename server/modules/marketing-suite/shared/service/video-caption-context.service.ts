@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 import {
   ContextualCaptionProvider,
   VideoCaptionSourceReference,
@@ -13,8 +14,7 @@ import { VideoCaptionError } from "./video-caption-error";
 import { getAiUsageContext, withAiUsage } from "./ai-subscription.service";
 
 const CONTEXT_MODEL =
-  process.env.VIDEO_CAPTION_CONTEXT_MODEL?.trim() ||
-  "google/gemini-2.5-flash";
+  ERP_LLM_MODEL;
 
 type ContextSource = {
   index: number;

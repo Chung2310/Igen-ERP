@@ -57,4 +57,18 @@ describe("StyledSelect in ERP dialogs", () => {
     expect(form.checkValidity()).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("filters customer options inside the dropdown", () => {
+    const change = vi.fn();
+    const search = vi.fn();
+    render(<dialog open aria-label="Ghi buổi tập"><StyledSelect ariaLabel="Học viên / Khách hàng" value="" options={[{ value: "a", label: "Lê Hoàng Anh — 0903112233" }, { value: "b", label: "Nguyễn Văn Bình — 0903223344" }]} onChange={change} searchable searchPlaceholder="Tìm tên hoặc SĐT..." onSearchChange={search} /></dialog>);
+    fireEvent.click(screen.getByRole("button", { name: "Học viên / Khách hàng" }));
+    const input = screen.getByRole("searchbox", { name: "Tìm tên hoặc SĐT..." });
+    fireEvent.change(input, { target: { value: "090322" } });
+    expect(search).toHaveBeenCalledWith("090322");
+    expect(screen.queryByRole("option", { name: /Lê Hoàng Anh/ })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: /Nguyễn Văn Bình/ }));
+    expect(change).toHaveBeenCalledWith("b");
+    expect(screen.queryByRole("searchbox")).toBeNull();
+  });
 });

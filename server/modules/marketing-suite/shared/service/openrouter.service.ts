@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../../../src/shared/ai-provider-error";
+import { ERP_LLM_MODEL, llmSamplingParameters } from "../../../../../shared/llm-model";
 /**
  * OpenRouter Service
  * ─────────────────────────────────────────────────────────────────
@@ -42,12 +43,13 @@ export function requireChatMessageOpenRouterKey(): string {
  * "deepseek-v4-flash-0731" -> "deepseek/deepseek-v4-flash-0731"
  */
 export function mapModelName(modelName: string): string {
-  if (!modelName) return "google/gemini-2.5-flash";
+  if (!modelName) return ERP_LLM_MODEL;
   if (modelName.includes("/")) return modelName; // already namespaced
 
   if (modelName.startsWith("gemini-")) return `google/${modelName}`;
   if (modelName.startsWith("claude-")) return `anthropic/${modelName}`;
   if (modelName.startsWith("deepseek-") || modelName.startsWith("deepseek")) return `deepseek/${modelName}`;
+  if (modelName.startsWith("gpt-")) return `openai/${modelName}`;
 
   return modelName;
 }
@@ -96,6 +98,7 @@ export interface OpenRouterChatDiagnostics {
  * Chat completions — text và/hoặc vision (base64 images).
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string }> {
+  params = { ...params, model: ERP_LLM_MODEL };
   const apiKey = params.keyScope === "chat-message" ? requireChatMessageOpenRouterKey() : getApiKey();
   return billAiCall("text", mapModelName(params.model), () => openrouterChatUnmetered(params, apiKey));
 }
@@ -137,7 +140,7 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams, apiKey: str
   const body: Record<string, any> = {
     model: mappedModel,
     messages,
-    temperature,
+    ...llmSamplingParameters(mappedModel, temperature),
   };
   if (maxTokens) body.max_tokens = maxTokens;
   if (reasoning) {

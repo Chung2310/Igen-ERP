@@ -161,6 +161,18 @@ test("finalizing turns never-scanned items into missing findings and reports var
   }));
 });
 
+test("count and finalize races cannot report success after the session closes", async () => {
+  const scope = { companyCode: "ACME" };
+  const knownCount = createAssetInventoryService(stubRepository({ recordCount: async () => null }).repository);
+  await rejectsWithCode(knownCount.count(scope, "s1", { barcode: "BC1", result: "present" }, { id: "u1" }), "INVENTORY_SESSION_CLOSED");
+
+  const surplusCount = createAssetInventoryService(stubRepository({ appendItem: async () => null }).repository);
+  await rejectsWithCode(surplusCount.count(scope, "s1", { barcode: "BC9", result: "present" }, { id: "u1" }), "INVENTORY_SESSION_CLOSED");
+
+  const finalize = createAssetInventoryService(stubRepository({ finalizeSession: async () => null }).repository);
+  await rejectsWithCode(finalize.finalize(scope, "s1", { id: "u1" }), "INVENTORY_SESSION_CLOSED");
+});
+
 test("a finalized session accepts no further counts or finalization", async () => {
   const closed = createAssetInventoryService(stubRepository({ findSession: async () => ({ ...OPEN_SESSION, status: "finalized" }) }).repository);
   const scope = { companyCode: "ACME" };

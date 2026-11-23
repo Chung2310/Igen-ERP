@@ -2,11 +2,10 @@ import React, { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { Check, Copy, Loader2, QrCode, X } from "lucide-react";
 import { toast } from "../../../../pages/Toast";
+import { apiFetch } from "../../lib/api";
 
 interface RegisterQRModalProps {
   isOpen: boolean;
-  /** uid của người đang đăng nhập — học viên đăng ký qua link sẽ được gán về người này. */
-  teacherId: string;
   companyCode?: string;
   branchId?: string;
   entityPreset?: string;
@@ -15,7 +14,6 @@ interface RegisterQRModalProps {
 
 export function RegisterQRModal({
   isOpen,
-  teacherId,
   companyCode,
   branchId,
   entityPreset,
@@ -23,26 +21,43 @@ export function RegisterQRModal({
 }: RegisterQRModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [copied, setCopied] = useState(false);
-
-  const params = new URLSearchParams({ teacherId });
-  if (entityPreset && entityPreset !== "student") params.set("entityPreset", entityPreset);
-  if (companyCode && companyCode !== "all") params.set("registrationCompanyCode", companyCode);
-  if (branchId) params.set("registrationBranchId", branchId);
-
-  const registerUrl = `${window.location.origin}/public/dang-ky?${params.toString()}`;
+  const [registrationToken, setRegistrationToken] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [isCreatingLink, setIsCreatingLink] = useState(false);
+  const registerUrl = registrationToken
+    ? `${window.location.origin}/public/dang-ky?${new URLSearchParams({ registrationToken }).toString()}`
+    : "";
 
   useEffect(() => {
-    if (!isOpen || !teacherId) return;
+    if (!isOpen) return;
+    let cancelled = false;
+    setRegistrationToken("");
+    setQrDataUrl("");
+    setLinkError("");
+    setIsCreatingLink(true);
+    apiFetch<{ data: { registrationToken: string } }>("/students/public-register-link", {
+      method: "POST",
+      body: JSON.stringify({ companyCode, branchId, entityPreset }),
+    })
+      .then((response) => { if (!cancelled) setRegistrationToken(response.data.registrationToken); })
+      .catch((error: unknown) => { if (!cancelled) setLinkError(error instanceof Error ? error.message : "Không tạo được liên kết đăng ký."); })
+      .finally(() => { if (!cancelled) setIsCreatingLink(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, companyCode, branchId, entityPreset]);
+
+  useEffect(() => {
+    if (!registerUrl) return;
     let cancelled = false;
     QRCode.toDataURL(registerUrl, { width: 320, margin: 1 })
       .then((url) => { if (!cancelled) setQrDataUrl(url); })
-      .catch(() => toast.error("Không tạo được mã QR."));
+      .catch(() => { if (!cancelled) setLinkError("Không tạo được mã QR."); });
     return () => { cancelled = true; };
-  }, [isOpen, teacherId, registerUrl]);
+  }, [registerUrl]);
 
   if (!isOpen) return null;
 
   const handleCopy = async () => {
+    if (!registerUrl) return;
     try {
       await navigator.clipboard.writeText(registerUrl);
       setCopied(true);
@@ -87,19 +102,24 @@ export function RegisterQRModal({
             <img src={qrDataUrl} alt="QR đăng ký học viên" className="h-56 w-56" />
           ) : (
             <div className="flex h-56 w-56 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
+              {isCreatingLink && <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />}
             </div>
           )}
         </div>
 
+        {linkError && <p role="alert" className="mt-2 text-xs text-error">{linkError}</p>}
+
         <div className="mt-3 rounded-xl border border-sky-100 bg-slate-50 px-3 py-2">
-          <p className="break-all text-[10px] font-medium leading-relaxed text-slate-500">{registerUrl}</p>
+          <p aria-live="polite" className="break-all text-[10px] font-medium leading-relaxed text-slate-500">
+            {registerUrl || (isCreatingLink ? "Đang tạo liên kết đăng ký…" : "")}
+          </p>
         </div>
 
         <div className="mt-3 flex items-center gap-2">
           <button
             onClick={handleCopy}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-primary px-3 py-2 text-xs font-medium text-white hover:bg-brand-primary/90"
+            disabled={!registerUrl}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-primary px-3 py-2 text-xs font-medium text-white hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Đã sao chép" : "Sao chép link"}

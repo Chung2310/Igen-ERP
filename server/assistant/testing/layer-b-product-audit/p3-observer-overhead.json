@@ -1,0 +1,209 @@
+{
+  "method": "100 warmup turns;40 interleaved pairs;25 fake-response turns per batch;noop sink;no HTTP/DB/model",
+  "samples": [
+    {
+      "offMsPerTurn": 0.11022400000000289,
+      "onMsPerTurn": 0.01774399999999787,
+      "deltaMsPerTurn": -0.09248000000000502
+    },
+    {
+      "onMsPerTurn": 0.017648000000003775,
+      "offMsPerTurn": 0.011963999999998122,
+      "deltaMsPerTurn": 0.005684000000005653
+    },
+    {
+      "offMsPerTurn": 0.012743999999997868,
+      "onMsPerTurn": 0.0165520000000015,
+      "deltaMsPerTurn": 0.0038080000000036314
+    },
+    {
+      "onMsPerTurn": 0.015347999999999046,
+      "offMsPerTurn": 0.010487999999995737,
+      "deltaMsPerTurn": 0.00486000000000331
+    },
+    {
+      "offMsPerTurn": 0.011219999999998436,
+      "onMsPerTurn": 0.015199999999999818,
+      "deltaMsPerTurn": 0.003980000000001382
+    },
+    {
+      "onMsPerTurn": 0.019652000000000953,
+      "offMsPerTurn": 0.010627999999996973,
+      "deltaMsPerTurn": 0.00902400000000398
+    },
+    {
+      "offMsPerTurn": 0.009272000000000844,
+      "onMsPerTurn": 0.015255999999999404,
+      "deltaMsPerTurn": 0.00598399999999856
+    },
+    {
+      "onMsPerTurn": 0.017952000000000225,
+      "offMsPerTurn": 0.02176800000000185,
+      "deltaMsPerTurn": -0.0038160000000016236
+    },
+    {
+      "offMsPerTurn": 0.012183999999997468,
+      "onMsPerTurn": 0.020555999999996858,
+      "deltaMsPerTurn": 0.00837199999999939
+    },
+    {
+      "onMsPerTurn": 0.020244000000002416,
+      "offMsPerTurn": 0.014744000000000597,
+      "deltaMsPerTurn": 0.005500000000001819
+    },
+    {
+      "offMsPerTurn": 0.011251999999999499,
+      "onMsPerTurn": 0.017220000000002074,
+      "deltaMsPerTurn": 0.005968000000002575
+    },
+    {
+      "onMsPerTurn": 0.01737999999999829,
+      "offMsPerTurn": 0.01634399999999914,
+      "deltaMsPerTurn": 0.0010359999999991487
+    },
+    {
+      "offMsPerTurn": 0.012332000000001245,
+      "onMsPerTurn": 0.015275999999998931,
+      "deltaMsPerTurn": 0.0029439999999976863
+    },
+    {
+      "onMsPerTurn": 0.014428000000002612,
+      "offMsPerTurn": 0.018915999999999256,
+      "deltaMsPerTurn": -0.004487999999996644
+    },
+    {
+      "offMsPerTurn": 0.011968000000001667,
+      "onMsPerTurn": 0.01640400000000227,
+      "deltaMsPerTurn": 0.004436000000000604
+    },
+    {
+      "onMsPerTurn": 0.015648000000001046,
+      "offMsPerTurn": 0.00882799999999861,
+      "deltaMsPerTurn": 0.006820000000002437
+    },
+    {
+      "offMsPerTurn": 0.009799999999995635,
+      "onMsPerTurn": 0.015199999999999818,
+      "deltaMsPerTurn": 0.005400000000004183
+    },
+    {
+      "onMsPerTurn": 0.015452000000000226,
+      "offMsPerTurn": 0.01105199999999968,
+      "deltaMsPerTurn": 0.004400000000000546
+    },
+    {
+      "offMsPerTurn": 0.00883600000000115,
+      "onMsPerTurn": 0.01515599999999722,
+      "deltaMsPerTurn": 0.00631999999999607
+    },
+    {
+      "onMsPerTurn": 0.013859999999999673,
+      "offMsPerTurn": 0.009140000000002146,
+      "deltaMsPerTurn": 0.0047199999999975265
+    },
+    {
+      "offMsPerTurn": 0.009267999999997301,
+      "onMsPerTurn": 0.01429200000000037,
+      "deltaMsPerTurn": 0.005024000000003069
+    },
+    {
+      "onMsPerTurn": 0.013656000000000858,
+      "offMsPerTurn": 0.009899999999997817,
+      "deltaMsPerTurn": 0.0037560000000030416
+    },
+    {
+      "offMsPerTurn": 0.009267999999997301,
+      "onMsPerTurn": 0.01429200000000037,
+      "deltaMsPerTurn": 0.005024000000003069
+    },
+    {
+      "onMsPerTurn": 0.015772000000001753,
+      "offMsPerTurn": 0.009515999999998713,
+      "deltaMsPerTurn": 0.00625600000000304
+    },
+    {
+      "offMsPerTurn": 0.010943999999999504,
+      "onMsPerTurn": 0.01456000000000131,
+      "deltaMsPerTurn": 0.0036160000000018053
+    },
+    {
+      "onMsPerTurn": 0.016536000000000967,
+      "offMsPerTurn": 0.1594479999999976,
+      "deltaMsPerTurn": -0.14291199999999663
+    },
+    {
+      "offMsPerTurn": 0.009324000000001434,
+      "onMsPerTurn": 0.014263999999998304,
+      "deltaMsPerTurn": 0.0049399999999968705
+    },
+    {
+      "onMsPerTurn": 0.01394800000000032,
+      "offMsPerTurn": 0.009216000000001258,
+      "deltaMsPerTurn": 0.004731999999999062
+    },
+    {
+      "offMsPerTurn": 0.00930399999999736,
+      "onMsPerTurn": 0.012575999999999112,
+      "deltaMsPerTurn": 0.0032720000000017527
+    },
+    {
+      "onMsPerTurn": 0.012528000000002067,
+      "offMsPerTurn": 0.008856000000000676,
+      "deltaMsPerTurn": 0.003672000000001391
+    },
+    {
+      "offMsPerTurn": 0.008867999999997664,
+      "onMsPerTurn": 0.012780000000002473,
+      "deltaMsPerTurn": 0.003912000000004809
+    },
+    {
+      "onMsPerTurn": 0.012219999999997526,
+      "offMsPerTurn": 0.008540000000002691,
+      "deltaMsPerTurn": 0.003679999999994835
+    },
+    {
+      "offMsPerTurn": 0.008512000000000625,
+      "onMsPerTurn": 0.012256000000002132,
+      "deltaMsPerTurn": 0.0037440000000015065
+    },
+    {
+      "onMsPerTurn": 0.012356000000004315,
+      "offMsPerTurn": 0.00850800000000163,
+      "deltaMsPerTurn": 0.0038480000000026843
+    },
+    {
+      "offMsPerTurn": 0.00906800000000203,
+      "onMsPerTurn": 0.012287999999998647,
+      "deltaMsPerTurn": 0.003219999999996618
+    },
+    {
+      "onMsPerTurn": 0.012636000000002241,
+      "offMsPerTurn": 0.008804000000000088,
+      "deltaMsPerTurn": 0.003832000000002153
+    },
+    {
+      "offMsPerTurn": 0.008863999999998668,
+      "onMsPerTurn": 0.012820000000001528,
+      "deltaMsPerTurn": 0.00395600000000286
+    },
+    {
+      "onMsPerTurn": 0.012780000000002473,
+      "offMsPerTurn": 0.009459999999999127,
+      "deltaMsPerTurn": 0.0033200000000033463
+    },
+    {
+      "offMsPerTurn": 0.00897599999999784,
+      "onMsPerTurn": 0.012816000000002532,
+      "deltaMsPerTurn": 0.003840000000004692
+    },
+    {
+      "onMsPerTurn": 0.012683999999999286,
+      "offMsPerTurn": 0.008959999999997309,
+      "deltaMsPerTurn": 0.0037240000000019775
+    }
+  ],
+  "medianOffMs": 0.009459999999999127,
+  "medianOnMs": 0.01456000000000131,
+  "medianPairedDeltaMs": 0.003912000000004809,
+  "p95PairedDeltaMs": 0.006820000000002437
+}

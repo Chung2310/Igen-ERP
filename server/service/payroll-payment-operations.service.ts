@@ -12,6 +12,7 @@ import {
   paymentActionRule,
   validatePaymentRequest,
   validatePaymentTransition,
+  payrollPaymentRequestMatches,
   type PayrollPaymentAction,
 } from "./payroll-payment.service";
 
@@ -110,49 +111,71 @@ export async function createPayrollPayment(
     correlationId?: string;
   },
 ) {
-  const existing: any = await PayrollPaymentModel.findOne({ ...scope, idempotencyKey: input.idempotencyKey }).lean();
-  if (existing) {
-    if (String(existing.runId) !== runId || Number(existing.amount) !== input.amount) {
+  const request = { ...input, runId };
+  try {
+    return await runPayrollAtomicTransaction(async (session) => {
+      const existing: any = await withSession(
+        PayrollPaymentModel.findOne({ ...scope, idempotencyKey: input.idempotencyKey }),
+        session,
+      ).lean();
+      if (existing) {
+        if (!payrollPaymentRequestMatches(existing, request)) {
+          raise({ code: "PAYROLL_IDEMPOTENCY_CONFLICT", message: "Idempotency key was used for another payment", status: 409 });
+        }
+        return { payment: existing, replayed: true };
+      }
+
+      const run = await requireRun(scope, runId, session);
+      const settlement = await settlementFor(scope, run, runId, session);
+      const invalid = validatePaymentRequest(run, settlement, { amount: input.amount, lines: input.lines });
+      if (invalid) raise(invalid);
+
+      const document = {
+        ...scope,
+        runId,
+        amount: input.amount,
+        idempotencyKey: input.idempotencyKey,
+        lines: input.lines,
+        status: "draft" as const,
+        createdBy: actorId,
+        ...(input.note ? { note: input.note } : {}),
+        ...(input.evidenceUrl ? { evidenceUrl: input.evidenceUrl } : {}),
+        ...(input.paymentDate ? { paymentDate: new Date(input.paymentDate) } : {}),
+      };
+      const payment: any = session
+        ? (await PayrollPaymentModel.create([document], { session }))[0]!
+        : await PayrollPaymentModel.create(document);
+
+      await createAudit({
+        ...scope,
+        periodKey: run.periodKey,
+        action: "payment",
+        actorId,
+        metadata: {
+          operation: "create_payment",
+          runId,
+          paymentId: String(payment._id),
+          amount: input.amount,
+          employeeCount: input.lines.length,
+          ...(input.evidenceUrl ? { evidenceUrl: input.evidenceUrl } : {}),
+          ...(input.correlationId ? { correlationId: input.correlationId } : {}),
+        },
+      }, session);
+
+      return { payment, replayed: false };
+    });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+    const winner: any = await PayrollPaymentModel.findOne({
+      ...scope,
+      idempotencyKey: input.idempotencyKey,
+    }).lean();
+    if (!winner) throw error;
+    if (!payrollPaymentRequestMatches(winner, request)) {
       raise({ code: "PAYROLL_IDEMPOTENCY_CONFLICT", message: "Idempotency key was used for another payment", status: 409 });
     }
-    return { payment: existing, replayed: true };
+    return { payment: winner, replayed: true };
   }
-
-  const run = await requireRun(scope, runId);
-  const settlement = await settlementFor(scope, run, runId);
-  const invalid = validatePaymentRequest(run, settlement, { amount: input.amount, lines: input.lines });
-  if (invalid) raise(invalid);
-
-  const payment: any = await PayrollPaymentModel.create({
-    ...scope,
-    runId,
-    amount: input.amount,
-    idempotencyKey: input.idempotencyKey,
-    lines: input.lines,
-    status: "draft",
-    createdBy: actorId,
-    ...(input.note ? { note: input.note } : {}),
-    ...(input.evidenceUrl ? { evidenceUrl: input.evidenceUrl } : {}),
-    ...(input.paymentDate ? { paymentDate: new Date(input.paymentDate) } : {}),
-  });
-
-  await PayrollAuditModel.create({
-    ...scope,
-    periodKey: run.periodKey,
-    action: "payment",
-    actorId,
-    metadata: {
-      operation: "create_payment",
-      runId,
-      paymentId: String(payment._id),
-      amount: input.amount,
-      employeeCount: input.lines.length,
-      ...(input.evidenceUrl ? { evidenceUrl: input.evidenceUrl } : {}),
-      ...(input.correlationId ? { correlationId: input.correlationId } : {}),
-    },
-  });
-
-  return { payment, replayed: false };
 }
 
 export async function transitionPayrollPayment(

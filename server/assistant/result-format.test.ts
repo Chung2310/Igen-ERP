@@ -27,6 +27,48 @@ it("formats attendance counts as people and hides internal versions", () => {
   expect(reply).not.toContain("Phiên bản");
 });
 
+it("hides finance optimistic-lock versions from user-facing results", () => {
+  for (const operationId of [
+    "finance.treasury.accounts.list",
+    "finance.treasury.vouchers.list",
+    "finance.treasury.periods.list",
+    "finance.debt.list",
+  ]) {
+    expect(operationById(operationId)!.resultFields, operationId).not.toContain("version");
+  }
+  expect(operationById("finance.treasury.bank-lines.list")!.resultFields).not.toContain("voucherId");
+});
+
+it("does not expose internal scanner identities in asset inventory variances", () => {
+  const reply = formatFriendlyAssistantResult(operationById("finance.asset.inventory.variance")!, {
+    total: 1,
+    counts: { missing: 1 },
+    variances: [{ assetId: "507f1f77bcf86cd799439099", assetCode: "FA-001", barcode: "BC-001", name: "Printer", result: "missing", scannedBy: "internal-scanner-uid" }],
+  });
+  expect(reply).not.toContain("507f1f77bcf86cd799439099");
+  expect(reply).not.toContain("internal-scanner-uid");
+  expect(reply).toContain("FA-001");
+  expect(reply).toContain("Thiếu");
+  expect(reply).not.toContain("Thông tin");
+});
+
+it("summarizes a finalized asset inventory without exposing actor identifiers", () => {
+  const reply = formatFriendlyAssistantResult(operationById("finance.asset.inventory.finalize")!, {
+    session: { sessionCode: "KK-2026-11", name: "November inventory", inventoryDate: "2026-11-20T00:00:00.000Z", finalizedBy: "internal-finalizer-id" },
+    variance: {
+      total: 2,
+      counts: { present: 1, missing: 1 },
+      variances: [{ assetId: "507f1f77bcf86cd799439098", assetCode: "FA-002", barcode: "BC-002", name: "Projector", result: "missing", scannedBy: "internal-scanner-uid" }],
+    },
+  });
+  expect(reply).toContain("KK-2026-11");
+  expect(reply).toContain("20/11/2026");
+  expect(reply).toContain("Thiếu: 1");
+  expect(reply).toContain("FA-002");
+  expect(reply).not.toContain("internal-finalizer-id");
+  expect(reply).not.toContain("internal-scanner-uid");
+});
+
 it.each(["hr.workflow.create", "hr.workflow.update"])("renders one workflow record instead of its nested steps: %s", actionId => {
   const reply = formatFriendlyAssistantResult(operationById(actionId)!, { data: {
     _id: "507f1f77bcf86cd799439090", name: "Tuyển dụng nhân sự", category: "Nhân sự", description: "Quy trình tuyển dụng",

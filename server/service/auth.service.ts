@@ -647,6 +647,7 @@ export const authService = {
 
     const validBranch = branchId ? await BranchModel.findOne({ _id: branchId, companyCode: finalCompanyCode, isActive: true }).lean() : null;
     if (branchId && !validBranch) throw new Error("Chi nhánh không hợp lệ hoặc không thuộc công ty.");
+    if (role === "pt" && (finalCompanyCode === "SYSTEM" || !validBranch)) throw new Error("PT cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
     if (role === "pos_cashier" && (finalCompanyCode === "SYSTEM" || !validBranch)) {
       throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
     }
@@ -775,6 +776,9 @@ export const authService = {
     const effectiveRole = updateData.role || user.role;
     const effectiveCompanyCode = String(updateData.companyCode || user.companyCode || "").toUpperCase();
     const effectiveBranchId = updateData.branchId !== undefined ? updateData.branchId : user.branchId;
+    if (effectiveRole === "pt") {
+      if (effectiveCompanyCode === "SYSTEM" || !effectiveBranchId || !await BranchModel.exists({ _id: effectiveBranchId, companyCode: effectiveCompanyCode, isActive: true })) throw new Error("PT cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+    }
     if (effectiveRole === "pos_cashier") {
       if (effectiveCompanyCode === "SYSTEM" || !effectiveBranchId) {
         throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
@@ -895,7 +899,10 @@ export const authService = {
       const effectiveRole = data.role || user.role;
       const effectiveCompanyCode = String(data.companyCode || user.companyCode || "").toUpperCase();
       const effectiveBranchId = data.branchId !== undefined ? data.branchId : user.branchId;
-      if (effectiveRole === "pos_cashier") {
+      if (effectiveRole === "pt") {
+      if (effectiveCompanyCode === "SYSTEM" || !effectiveBranchId || !await BranchModel.exists({ _id: effectiveBranchId, companyCode: effectiveCompanyCode, isActive: true })) throw new Error("PT cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+    }
+    if (effectiveRole === "pos_cashier") {
         if (effectiveCompanyCode === "SYSTEM" || !effectiveBranchId) {
           throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
         }

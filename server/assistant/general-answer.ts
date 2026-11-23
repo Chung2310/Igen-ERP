@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { openrouterChat, type OpenRouterCitation, type OpenRouterContentPart } from "../service/openrouter.service";
 import type { AssistantIllustration } from "../../src/shared/assistant-document";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
@@ -10,6 +11,14 @@ import {
   searchAssistantCommonsImage,
 } from "./image-search";
 
+export interface GymKnowledgeHit {
+  documentId: string;
+  title?: string;
+  topic: string;
+  content: string;
+  score: number;
+}
+
 export interface AssistantGeneralAnswerInput {
   question: string;
   messages: { role: "user" | "assistant"; content: string }[];
@@ -18,8 +27,32 @@ export interface AssistantGeneralAnswerInput {
   memories?: string[];
   sessionMemory?: string;
   documentContext?: { title: string; version: number; content: unknown };
+  gymKnowledgeHits?: GymKnowledgeHit[];
   visualAttachments?: Array<{ fileName: string; dataUrl: string }>;
   research?: boolean;
+}
+
+export function appendGymKnowledgeCitations(
+  reply: string,
+  hits?: GymKnowledgeHit[],
+): string {
+  if (!hits?.length) return reply;
+  const uniqueDocs = [
+    ...new Map(
+      hits
+        .filter((h) => h.title)
+        .map((h) => [h.documentId, { title: h.title!, topic: h.topic }]),
+    ).values(),
+  ];
+  if (!uniqueDocs.length) return reply;
+  const alreadyCited = uniqueDocs.every((doc) =>
+    reply.toLocaleLowerCase("vi").includes(doc.title.toLocaleLowerCase("vi")),
+  );
+  if (alreadyCited) return reply;
+  const lines = uniqueDocs.map(
+    (doc) => `- ${doc.title}${doc.topic ? ` (${doc.topic})` : ""}`,
+  );
+  return `${reply.trim()}\n\n**Nguồn tham khảo (Kho tri thức Gym):**\n${lines.join("\n")}`;
 }
 
 function questionContent(question: string, attachments: AssistantGeneralAnswerInput["visualAttachments"]): string | OpenRouterContentPart[] {
@@ -334,15 +367,18 @@ export function sanitizeResearchReplyAndSources(
 
 export async function answerAssistantGeneralQuestion(input: AssistantGeneralAnswerInput): Promise<string> {
   if (isAssistantIdentityQuestion(input.question)) return assistantIdentityReply;
+  const gymRagRule = input.gymKnowledgeHits?.length
+    ? "\n\nKho tri thức Gym nội bộ (gymKnowledgeBase) được cung cấp trong ngữ cảnh JSON bên dưới gồm các đoạn tài liệu đã công bố của chi nhánh. Hãy ưu tiên sử dụng kiến thức và số liệu từ gymKnowledgeBase để trả lời câu hỏi chuyên môn Gym/InBody/Dinh dưỡng/Giáo án, nêu rõ tên tài liệu nguồn khi trích dẫn và không bịa đặt ngoài nội dung có thật."
+    : "";
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const result = await Promise.race([
       openrouterChat({
-        model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0.4,
         maxRetries: 3,
         messages: [
-          { role: "system", content: `${systemPrompt}\n\n${machineFormatRule}` },
+          { role: "system", content: `${systemPrompt}\n\n${machineFormatRule}${gymRagRule}` },
           {
             role: "user",
             content: JSON.stringify({
@@ -351,6 +387,15 @@ export async function answerAssistantGeneralQuestion(input: AssistantGeneralAnsw
               accountMemories: input.memories || [],
               currentSessionContext: input.sessionMemory || "",
               sourceDocument: input.documentContext || null,
+              ...(input.gymKnowledgeHits?.length
+                ? {
+                    gymKnowledgeBase: input.gymKnowledgeHits.map((hit) => ({
+                      title: hit.title || "Tài liệu Kho tri thức Gym",
+                      topic: hit.topic,
+                      excerpt: hit.content,
+                    })),
+                  }
+                : {}),
             }),
           },
           ...assistantConversationContext(input.messages),
@@ -363,7 +408,7 @@ export async function answerAssistantGeneralQuestion(input: AssistantGeneralAnsw
     ]);
     const reply = normalizeConversationReply(result.text.trim(), input.question);
     if (!reply) throw new Error("General assistant response was empty");
-    return reply;
+    return appendGymKnowledgeCitations(reply, input.gymKnowledgeHits);
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -391,7 +436,7 @@ export async function answerAssistantResearchQuestion(input: AssistantGeneralAns
   try {
     const result = await Promise.race([
       openrouterChat({
-        model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0.2,
         maxRetries: 3,
         webSearch: true,

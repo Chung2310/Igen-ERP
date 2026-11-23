@@ -103,6 +103,23 @@ describe("worker profile ownership", () => {
     expect(screen.getByText("Không tìm thấy Lao động nào phù hợp với bộ lọc.")).toBeTruthy();
   });
 
+  it("requests a signed worker registration link for the selected company branch", async () => {
+    workersHook.useWorkers.mockReturnValue(state());
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ success: true, data: { registrationToken: "signed-worker-link" } }),
+    } as Response);
+    render(<WorkersPage selectedCenter="ACME" branchId="6a890135119c1c3189d63849" registrationOwnerId="owner-1" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "QR đăng ký" }));
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/students/public-register-link"),
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ companyCode: "ACME", branchId: "6a890135119c1c3189d63849", entityPreset: "worker" }) }),
+    ));
+    expect(await screen.findByAltText(/QR đăng ký lao động/i)).toBeTruthy();
+  });
+
   it("closes the add modal after a successful create and opens its worker detail", async () => {
     const hookValue = state();
     workersHook.useWorkers.mockReturnValue(hookValue);

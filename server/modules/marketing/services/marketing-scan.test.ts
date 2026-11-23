@@ -118,6 +118,30 @@ describe("marketing-scan service integration", () => {
       expect(deliveries[0].recipient).toBe("lan@example.com");
       expect(deliveries[0].subject).toContain("Nguyễn Thu Lan");
     });
+
+    it("allows a manual rescan to include new recipients while deduplicating prior sends", async () => {
+      await CustomerModel.create({
+        companyCode,
+        customerCode: "CUST-003",
+        name: "Khách quét lại",
+        email: "rescan@example.com",
+        phone: "0900000003",
+        normalizedPhone: "0900000003",
+        status: "active",
+        dateOfBirth: new Date("1990-08-19T00:00:00Z"),
+        createdBy: "test",
+        createdByName: "test",
+      });
+      const scanDate = new Date("2026-08-19T01:00:00Z");
+
+      const first = await runBirthdayScan(companyCode, mockSettings as any, scanDate, "manual", "manager");
+      const second = await runBirthdayScan(companyCode, mockSettings as any, scanDate, "manual", "manager");
+
+      expect(first).toMatchObject({ eligible: 1, queued: 1, duplicates: 0 });
+      expect(second).toMatchObject({ eligible: 1, queued: 0, duplicates: 1 });
+      expect(await MarketingRunModel.countDocuments({ companyCode, automationType: "birthday", trigger: "manual" })).toBe(2);
+      expect(await MarketingDeliveryModel.countDocuments({ companyCode, customerId: String((await CustomerModel.findOne({ customerCode: "CUST-003" }).lean())!._id) })).toBe(1);
+    });
   });
 
   describe("runHolidayScan", () => {

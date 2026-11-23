@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import { Schema, model } from "mongoose";
 import Joi from "joi";
 import { openrouterChat } from "../service/openrouter.service";
@@ -300,8 +301,8 @@ function buildDataContext(sheets: ChartSourceSheet[]) {
 
 function aiModels() {
   return {
-    model: process.env.IGENAI_CHART_MODEL?.trim() || "google/gemma-4-31b-it:free",
-    fallbackModel: process.env.IGENAI_CHART_FALLBACK_MODEL?.trim() || "qwen/qwen3.7-flash",
+    model: ERP_LLM_MODEL,
+    fallbackModel: ERP_LLM_MODEL,
   };
 }
 

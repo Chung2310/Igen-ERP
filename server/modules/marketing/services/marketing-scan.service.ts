@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { CompanyModel } from "../../../model/company.model";
 import { getModuleStateForCompany, resolveModuleAccess } from "../../../middleware/require-module";
 import { CustomerModel } from "../../customer-management/models/customer.model";
@@ -6,7 +7,7 @@ import { MarketingCampaignModel } from "../models/marketing-campaign.model";
 import { MarketingDeliveryModel } from "../models/marketing-delivery.model";
 import { MarketingRunModel } from "../models/marketing-run.model";
 import type { MarketingAutomationType } from "../permissions";
-import { companyNameOf, queueAndSend, resolveSendableChannel } from "./marketing-delivery.service";
+import { companyNameOf, queueAndSend, recoverStaleMarketingDeliveries, resolveSendableChannel } from "./marketing-delivery.service";
 import { getMarketingSettings, type ResolvedMarketingSettings } from "./marketing-settings.service";
 import { emptyVariables } from "./marketing-template";
 
@@ -58,7 +59,7 @@ async function withRun(companyCode: string, automationType: MarketingAutomationT
   try {
     run = await MarketingRunModel.create({
       companyCode: companyCode.toUpperCase(), automationType, businessDate,
-      cycleKey: `${companyCode.toUpperCase()}:${automationType}:${businessDate}:${trigger}`,
+      cycleKey: `${companyCode.toUpperCase()}:${automationType}:${businessDate}:${trigger}${trigger === "manual" ? `:${randomUUID()}` : ""}`,
       trigger, actorId, status: "running", startedAt: new Date(),
     });
   } catch (error: any) {
@@ -173,6 +174,7 @@ async function marketingEnabled(companyCode: string) {
 
 /** Quét toàn hệ thống: mỗi công ty bật module marketing, đúng giờ gửi đã cấu hình. */
 export async function runMarketingScheduledScans(now = new Date()) {
+  await recoverStaleMarketingDeliveries(now);
   const companies: any[] = await CompanyModel.find({ lifecycleStatus: "active" }).select("code").lean();
   let executed = 0;
   for (const company of companies) {

@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { openrouterChat } from "../service/openrouter.service";
 import { containsSensitiveMemoryContent, MAX_ASSISTANT_MEMORY_LENGTH, saveAssistantMemory } from "./memory";
@@ -31,7 +32,7 @@ export async function autoSaveAssistantMemories(req: AuthenticatedRequest, userT
   try {
     const result = await Promise.race([
       openrouterChat({
-        model: process.env.CHATBOT_MODEL?.trim() || process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash",
+        model: ERP_LLM_MODEL,
         temperature: 0,
         jsonMode: true,
         maxRetries: 0,

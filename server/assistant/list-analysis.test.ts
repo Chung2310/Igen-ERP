@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { analyzeList, collectAnalysisPages, validateListAnalysis, type AnalysisContract } from "./list-analysis";
+import { ASSISTANT_OPERATIONS } from "./catalog";
+import { analyzeList, collectAnalysisPages, reconcileRequestedRanking, validateListAnalysis, type AnalysisContract } from "./list-analysis";
 const contract: AnalysisContract = { fields: { name: { label: "Tên", type: "text" }, score: { label: "Điểm", type: "number" }, status: { label: "Trạng thái", type: "text" } } };
 const rows = [
   { name: "A", score: 10, status: "achieved", password: "private" }, { name: "B", score: 10, status: "achieved" },
@@ -17,6 +18,40 @@ describe("declarative list analysis independent of business modules", () => {
   it("keeps ties and zero values", () => {
     expect(analyzeList(contract, rows, { extreme: { field: "score", direction: "max" }, limit: 1 }, true).records.map(r => r.Tên)).toEqual(["A", "B"]);
     expect(analyzeList(contract, rows, { extreme: { field: "score", direction: "min" } }, true).records[0].Tên).toBe("D");
+  });
+  it("recovers a ranking on the requested metric when the model omitted it", () => {
+    const rankingContract: AnalysisContract = { fields: {
+      partner: { label: "Đối tác", type: "text" },
+      actualReferrals: { label: "Đã giới thiệu", type: "number", aliases: ["lao động", "giới thiệu"] },
+      targetReferrals: { label: "Chỉ tiêu", type: "number" },
+    } };
+    expect(reconcileRequestedRanking("Đối tác nào giới thiệu được nhiều lao động nhất trong tháng", rankingContract, undefined))
+      .toEqual({ kind: "resolved", analysis: { extreme: { field: "actualReferrals", direction: "max" } } });
+  });
+  it.each(["Báo cáo sinh nhật nhân sự tháng tới", "Báo cáo lịch chủ nhật"])("does not mistake calendar words for ranking cues: %s", request => {
+    expect(reconcileRequestedRanking(request, {
+      fields: { count: { label: "Số lượng", type: "number" } },
+    }, undefined)).toEqual({ kind: "none" });
+  });
+  it("maps labor referral wording onto the declared labor KPI field", () => {
+    const operation = ASSISTANT_OPERATIONS.find(item => item.path === "/worker-management/partners/kpi")!;
+    expect(reconcileRequestedRanking("Đối tác nào giới thiệu được nhiều lao động nhất trong tháng", {
+      fields: { actualReferrals: operation.analysis!.fields.actualReferrals },
+    }, undefined).kind).toBe("resolved");
+    expect(reconcileRequestedRanking("Đối tác nào giới thiệu được nhiều lao động nhất trong tháng", operation.analysis!, undefined))
+      .toMatchObject({ kind: "resolved", analysis: { extreme: { field: "actualReferrals", direction: "max" } } });
+  });
+  it("asks which metric to rank when a multi-metric report request is underspecified", () => {
+    const result = reconcileRequestedRanking("Đối tác nào nhiều nhất trong tháng", {
+      fields: { actualReferrals: { label: "Đã giới thiệu", type: "number" }, targetReferrals: { label: "Chỉ tiêu", type: "number" } },
+    }, undefined);
+    expect(result.kind).toBe("clarify");
+  });
+  it("treats top N as a sorted list with the requested size", () => {
+    const result = reconcileRequestedRanking("Top 5 đối tác theo số lao động được giới thiệu", {
+      fields: { actualReferrals: { label: "Đã giới thiệu", type: "number", aliases: ["lao động"] } },
+    }, undefined);
+    expect(result).toEqual({ kind: "resolved", analysis: { sort: { field: "actualReferrals", direction: "desc" }, limit: 5 } });
   });
   it("combines predicates and sorting without exposing other fields", () => {
     const result = analyzeList(contract, rows, { filters: [{ field: "score", operator: "gte", value: 3 }, { field: "status", operator: "ne", value: "achieved" }], sort: { field: "score", direction: "desc" }, limit: 2 }, true);

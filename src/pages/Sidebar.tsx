@@ -21,6 +21,7 @@ import {
   Scale,
   Sparkles,
   Ruler,
+  Dumbbell,
 } from "lucide-react";
 import { BookOpenIcon } from "@phosphor-icons/react/dist/csr/BookOpen";
 import { BriefcaseIcon } from "@phosphor-icons/react/dist/csr/Briefcase";
@@ -75,6 +76,7 @@ export interface MenuItem {
 }
 
 const baseMenuItems: MenuItem[] = [
+  { label: "GYM", title: "Gym", icon: Dumbbell, group: "operations" },
   { label: "TRỢ LÝ KIẾN TRÚC", title: "Trợ lý kiến trúc", icon: Ruler, group: "operations" },
   { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
   { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: StethoscopeIcon, group: "operations" },
