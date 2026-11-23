@@ -79,28 +79,28 @@
 }
 
 .gym-kpi-icon--info {
-  background-color: #e0f2fe;
-  color: #0284c7;
+  background-color: #e3f2fd;
+  color: #2196f3;
 }
 
 .gym-kpi-icon--success {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: #e8f9ec;
+  color: #18c93a;
 }
 
 .gym-kpi-icon--warning {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: #fff9db;
+  color: #e5a900;
 }
 
 .gym-kpi-icon--danger {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #ffebee;
+  color: #f44336;
 }
 
 .gym-kpi-icon--violet {
-  background-color: #ede9fe;
-  color: #6d28d9;
+  background-color: #f3e8ff;
+  color: #8b5cf6;
 }
 
 html.dark .gym-kpi-icon--primary {

@@ -341,10 +341,10 @@ export default function CelebrationEmailTab() {
                   <td className="px-3 py-2.5">{row.eventDate}</td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${
                         row.status === "sent"
-                          ? "bg-[#DCF7E8] text-[#078252]"
-                          : "bg-[#FFF0D8] text-[#A66300]"
+                          ? "bg-[#5CB85C] text-white"
+                          : "bg-[#F0AD4E] text-white"
                       }`}
                     >
                       {row.status === "sent" ? "Đã gửi" : row.status}

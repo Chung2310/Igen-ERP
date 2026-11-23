@@ -43,14 +43,15 @@ type ZaloWebhookPayload = {
 
 export async function enqueueZaloWebhook(body: ZaloWebhookPayload, rawBody?: string) {
   const humanReply = isZaloHumanReply(body);
-  if (!body.event_name || (!ZALO_MESSAGE_EVENTS.has(body.event_name) && !humanReply)) return;
+  if (!body.event_name || (!ZALO_MESSAGE_EVENTS.has(body.event_name) && !humanReply)) return "ignored_event" as const;
   const oaId = String(humanReply ? body.sender?.id || "" : body.oa_id || body.recipient?.id || "");
   const senderId = String(body.sender?.id || "");
-  if (!oaId || !senderId) return;
+  if (!oaId || !senderId) return "missing_account" as const;
   const messageId = String(body.message?.msg_id || `zalo_in_${hash(rawBody ?? JSON.stringify(body))}`);
   await enqueue("zalo-webhook", [oaId, humanReply ? String(body.recipient?.id || "") : senderId, messageId], {
     ...body, oa_id: oaId, sender: { ...body.sender, id: senderId }, message: { ...body.message, msg_id: messageId },
   });
+  return "queued" as const;
 }
 
 export function enqueueLeadIntakeRetry(input: ChatOrderFlowInput) {

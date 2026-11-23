@@ -91,10 +91,10 @@ export function EmployeePayrollReconciliation() {
                 <Calendar size={15} className="text-primary" />
                 <span className="text-sm">Kỳ {record.periodKey}</span>
                 <span className="text-slate-300">·</span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${
                   isDraft
-                    ? "bg-amber-50 text-amber-800 border border-amber-200"
-                    : "bg-slate-100 text-on-surface-variant border border-outline-variant"
+                    ? "bg-[#F0AD4E] text-white"
+                    : "bg-[#5CB85C] text-white"
                 }`}>
                   {isDraft ? "Đang đối soát" : "Đã chuyển chốt lương"}
                 </span>

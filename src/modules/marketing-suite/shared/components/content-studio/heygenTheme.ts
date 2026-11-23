@@ -1,13 +1,13 @@
 export const HEYGEN_THEME = {
-  surface: "bg-white",
-  surfaceMuted: "bg-slate-50",
-  surfaceSoft: "bg-slate-100",
-  border: "border-slate-200",
-  accentBorder: "border-indigo-400",
-  accentBg: "bg-indigo-50",
-  accentSolid: "bg-indigo-600",
-  accentSolidHover: "hover:bg-indigo-700",
-  textMuted: "text-slate-500",
+  surface: "bg-surface-container-lowest",
+  surfaceMuted: "bg-surface-container-low",
+  surfaceSoft: "bg-surface-container",
+  border: "border-outline-variant",
+  accentBorder: "border-primary",
+  accentBg: "bg-primary/10",
+  accentSolid: "bg-primary",
+  accentSolidHover: "hover:bg-primary/90",
+  textMuted: "text-on-surface-variant",
 } as const;
 
 export const HEYGEN_MODEL_OPTIONS = [
@@ -24,8 +24,8 @@ export const HEYGEN_CAPTION_STYLES = [
 ] as const;
 
 export const HEYGEN_CAPTION_FONTS = [
-  "Georgia, serif",
-  "\"Racing Sans One\", sans-serif",
-  "\"Trebuchet MS\", sans-serif",
-  "\"Times New Roman\", serif",
+  '"Be Vietnam Pro", Inter, sans-serif',
+  'Inter, "Segoe UI", sans-serif',
+  'Georgia, "Times New Roman", serif',
+  '"Times New Roman", Georgia, serif',
 ];

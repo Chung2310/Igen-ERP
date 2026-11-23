@@ -20,6 +20,20 @@ function Harness({ value = form, choices = groups, disabled = false, submitting 
     onSearch={(key, value) => setSearches(current => ({ ...current, [key]: value }))} disabled={disabled} submitting={submitting} onSubmit={values => submit(values, selected)} />;
 }
 describe("assistant missing information controls", () => {
+  it('asks for the module through the shared labeled dropdown, without selecting implicitly', async () => {
+    const user = userEvent.setup(); const submit = vi.fn();
+    render(<AssistantWorkflowSelectionForm selection={{ id: 'module-choice', kind: 'module', options: [
+      { value: 'opaque-hr', label: 'Nhân sự' }, { value: 'opaque-worker', label: 'Quản lý lao động' },
+    ] }} disabled={false} onSubmit={submit} />);
+    expect(screen.getByRole('heading', { name: 'Chọn phân hệ' })).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Tiếp tục' }) as HTMLButtonElement).disabled).toBe(true);
+    screen.getByRole('button', { name: 'Phân hệ cần xử lý' }).focus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Tiếp tục' }));
+    expect(submit).toHaveBeenCalledWith('opaque-worker');
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('opaque-worker')).toBeNull();
+  });
   it("collects a labeled value and single/multiple choices without prose or implicit selection", async () => {
     const user = userEvent.setup(); const submit = vi.fn();
     render(<Harness submit={submit} />);

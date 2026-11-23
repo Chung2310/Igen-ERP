@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../../../../shared/email-policy";
 import Joi from "joi";
 
 export const objectId = Joi.string().pattern(/^[0-9a-fA-F]{24}$/).messages({ "string.pattern.base": "Định dạng ID không hợp lệ." });
@@ -8,7 +9,7 @@ const partnerFields = {
   code: Joi.string().trim().max(80).required(),
   name: Joi.string().trim().max(255).required(),
   phone: Joi.string().trim().max(40).required(),
-  email: Joi.string().trim().email().allow("", null).optional(),
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).allow("", null).optional(),
   taxCode: optionalText,
   representative: optionalText,
   address: optionalText,

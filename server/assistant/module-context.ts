@@ -34,8 +34,8 @@ const MODULE_LABEL_ALIASES: Partial<Record<ModuleKey, string[]>> = {
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-const CONTEXT_FILLER = new Set(["trong", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
-const EXPLICIT_CONTEXT_MARKERS = new Set(["trong", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
+const CONTEXT_FILLER = new Set(["trong", "vao", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
+const EXPLICIT_CONTEXT_MARKERS = new Set(["trong", "vao", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
 
 export function assistantModuleContext(module: string) {
   if (!MODULE_KEYS.includes(module as ModuleKey)) return { key: module, label: module, relatedLabels: [], aliases: [] };
@@ -62,6 +62,7 @@ export function inferPartnerModule(text: string): ModuleKey | undefined {
 }
 
 export const ASSISTANT_PARTNER_MODULE_GUIDANCE =
+  "Tên/mã bản ghi chỉ là dữ liệu, không tự xác định phân hệ. Đối chiếu loại hồ sơ và thuộc tính cần xử lý với resources/inputs của danh mục; không chọn phân hệ chỉ vì tên bản ghi có từ trùng nhãn phân hệ. " +
   "Phân biệt hai phân hệ đối tác: student-partner là cộng tác viên giới thiệu học viên/sinh viên và tuyển sinh; labor-partner là đối tác giới thiệu hoặc cung ứng người lao động, công nhân, nhân công. Cụm 'đối tác giới thiệu' đứng riêng chưa đủ để phân biệt. Khi câu nêu đối tác cùng với lao động/công nhân/nhân công, chọn labor-partner; khi nêu học viên/sinh viên/tuyển sinh, chọn student-partner.";
 
 /** A deduplicated routing dictionary, included once rather than repeated per operation. */
@@ -77,6 +78,32 @@ export function mentionsCompatibleModule(evidence: string, module: string) {
     const normalized = normalize(candidate);
     return normalized.length > 1 && phrase.includes(normalized);
   });
+}
+
+/** Validate a module evidence span after routing, without making a bare entity
+ * name sufficient to select a module globally or swallowing extra conditions. */
+export function matchesModuleContextEvidence(evidence: string, module: string, requestText = "") {
+  if (isModuleContextClause(evidence, module)) return true;
+  const phrase = normalize(evidence).replace(/^(?:cac|nhung)\s+/, "").replace(/^nguoi\s+/, "")
+    .replace(/^(?:them|tao|xem|tra cuu|sua|cap nhat|xoa)\s+/, "");
+  const context = assistantModuleContext(module);
+  const names = [context.label, ...context.aliases].map(normalize);
+  const entityNames = names.map(name => name.replace(/^(?:quan l[yi]|ho so)\s+/, ""));
+  if (entityNames.includes(phrase)) return true;
+  // A clipped noun such as "dự án" is acceptable only when the request itself
+  // identifies the compatible module. It never establishes routing authority.
+  return mentionsCompatibleModule(requestText, module) && entityNames.some(name =>
+    name.startsWith(`${phrase} `) && entityNames.some(moduleName => name === `${phrase} ${moduleName}`));
+}
+
+/** A module anchor inside a combined evidence span. This never validates the
+ * span's conditions; callers must validate its other mappings separately. */
+export function containsModuleContextEvidence(evidence: string, module: string) {
+  const phrase = ` ${normalize(evidence)} `;
+  const context = assistantModuleContext(module);
+  return [context.label, ...context.aliases].map(normalize)
+    .map(name => name.replace(/^(?:quan l[yi]|ho so)\s+/, ""))
+    .some(name => name.length > 2 && phrase.includes(` ${name} `));
 }
 
 /** True when a clause only identifies an ERP area, with no extra condition. */

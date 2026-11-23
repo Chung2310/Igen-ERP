@@ -469,11 +469,11 @@ export default function LeaveRequestsTab({
   const getStatusBadge = (status: string, rejectReason?: string) => {
     switch (status) {
       case "approved":
-        return <HrStatusBadge tone="success">Đã duyệt</HrStatusBadge>;
+        return <HrStatusBadge variant="hr" tone="success">Đã duyệt</HrStatusBadge>;
       case "rejected":
-        return <HrStatusBadge tone="danger" title={rejectReason ? `Lý do từ chối: ${rejectReason}` : "Bị từ chối"}>Từ chối</HrStatusBadge>;
+        return <HrStatusBadge variant="hr" tone="danger" title={rejectReason ? `Lý do từ chối: ${rejectReason}` : "Bị từ chối"}>Từ chối</HrStatusBadge>;
       default:
-        return <HrStatusBadge tone="warning">Chờ duyệt</HrStatusBadge>;
+        return <HrStatusBadge variant="hr" tone="warning">Chờ duyệt</HrStatusBadge>;
     }
   };
 

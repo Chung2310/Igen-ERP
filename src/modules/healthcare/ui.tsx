@@ -20,13 +20,15 @@ export const careLabels = { open: "Chờ xử lý", in_progress: "Đang xử lý
 export const catalogLabels = { doctor: "Bác sĩ", room: "Phòng khám", service: "Dịch vụ" };
 
 const statusTones = {
+  scheduled: "warning", open: "warning",
+  registered: "neutral", imported: "neutral",
   in_progress: "info", confirmed: "info", arrived: "info",
-  completed: "success", cancelled: "danger", no_show: "warning",
+  completed: "success", cancelled: "danger", no_show: "danger",
 } as const;
 
 export function StatusBadge({ status, label }: { status: string; label: string }) {
-  const tone = statusTones[status as keyof typeof statusTones];
-  return <HrStatusBadge dot tone={tone} className={cn("whitespace-nowrap", !tone && "bg-surface-container text-on-surface-variant")}>{label}</HrStatusBadge>;
+  const tone = statusTones[status as keyof typeof statusTones] ?? "neutral";
+  return <HrStatusBadge tone={tone} className="whitespace-nowrap">{label}</HrStatusBadge>;
 }
 
 export function messageOf(error: unknown) {

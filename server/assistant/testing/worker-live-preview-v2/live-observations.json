@@ -1,0 +1,4658 @@
+{
+  "mode": "real-luna-synthetic-business-fixtures",
+  "startedAt": "2026-11-23T01:35:07.811Z",
+  "sourceCommit": "1f95e4fcaddadfd99f6aa7f1ea523c0fbe429009",
+  "data": "Artificial entity names only; no screenshot names; no real business API or DB",
+  "settings": {
+    "alwaysConfirm": true,
+    "memoryEnabled": false,
+    "responseRules": "application default"
+  },
+  "cases": [
+    {
+      "id": "L01",
+      "screenshotRow": 2,
+      "control": false,
+      "input": "tạo 1 dự án mới tên QA-LAB-NEW-20 trong mục quản lí lao động\nMình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA; Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7.",
+      "expectedActions": [
+        "worker.project.create"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Bạn bổ sung giúp mình các thông tin sau nhé:\n- Mã dự án",
+          "action": {
+            "id": "e7c85d45-bea3-47cf-9e0f-9d6533040693",
+            "requiresPassword": false,
+            "title": "Tạo dự án lao động",
+            "values": [
+              {
+                "label": "Tên dự án",
+                "value": "QA-LAB-NEW-20",
+                "defaulted": false
+              },
+              {
+                "label": "Danh sách lao động tham gia",
+                "value": "[\n  \"LAO-DONG-MAU-01\",\n  \"LAO-DONG-MAU-02\",\n  \"LAO-DONG-MAU-03\",\n  \"LAO-DONG-MAU-04\",\n  \"LAO-DONG-MAU-05\"\n]",
+                "defaulted": false
+              },
+              {
+                "label": "Các ngày trong tuần",
+                "value": "[\n  \"Thứ 2\",\n  \"Thứ 4\",\n  \"Thứ 6\",\n  \"Thứ 3\",\n  \"Thứ 5\",\n  \"Thứ 7\"\n]",
+                "defaulted": false
+              }
+            ]
+          },
+          "inputForm": {
+            "id": "e7c85d45-bea3-47cf-9e0f-9d6533040693",
+            "fields": [
+              {
+                "key": "code",
+                "label": "Mã dự án",
+                "type": "text",
+                "required": true
+              }
+            ]
+          }
+        },
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "7ab59e73-3f81-4867-91aa-aee773f29683",
+            "requiresPassword": false,
+            "title": "Tạo dự án lao động",
+            "values": [
+              {
+                "label": "Mã dự án",
+                "value": "QA-PREVIEW-20",
+                "defaulted": false
+              },
+              {
+                "label": "Tên dự án",
+                "value": "QA-LAB-NEW-20",
+                "defaulted": false
+              },
+              {
+                "label": "Danh sách lao động tham gia",
+                "value": "[\n  \"LAO-DONG-MAU-01\",\n  \"LAO-DONG-MAU-02\",\n  \"LAO-DONG-MAU-03\",\n  \"LAO-DONG-MAU-04\",\n  \"LAO-DONG-MAU-05\"\n]",
+                "defaulted": false
+              },
+              {
+                "label": "Các ngày trong tuần",
+                "value": "[\n  \"Thứ 2\",\n  \"Thứ 4\",\n  \"Thứ 6\",\n  \"Thứ 3\",\n  \"Thứ 5\",\n  \"Thứ 7\"\n]",
+                "defaulted": false
+              }
+            ]
+          },
+          "supplied": {
+            "values": {
+              "code": "QA-PREVIEW-20"
+            },
+            "selectedKeys": [],
+            "skippedKeys": []
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:31:32.968Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.project.create",
+      "namespace": "worker",
+      "pendingResolved": {
+        "code": "QA-PREVIEW-20",
+        "name": "QA-LAB-NEW-20",
+        "workerIds": "[\"000000000000000000000065\",\"000000000000000000000066\",\"000000000000000000000067\",\"000000000000000000000068\",\"000000000000000000000069\"]",
+        "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+      },
+      "readCalls": [
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-01",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-02",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-03",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-04",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-05",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-01",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-02",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-03",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-04",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-05",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L01",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L01",
+          "stage": "interpretation",
+          "bytes": 7593,
+          "sha256": "3af3eedc31c5b05e493adc35ddb5b7723d64ecbb9ef5593d7a22fcb0e094b4ec",
+          "reservedUSD": 0.0109645,
+          "status": 200,
+          "elapsedMs": 3360,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1646,
+            "completion_tokens": 48,
+            "total_tokens": 1694,
+            "cost": 0.0001886,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001886,
+              "upstream_inference_prompt_cost": 0.0001646,
+              "upstream_inference_completions_cost": 0.000024
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 33,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L01",
+          "stage": "interpretation",
+          "bytes": 6800,
+          "sha256": "a946d598d1f5679c996a91e3267c35568bc55c57c87a342a46938ca8bcd41ee6",
+          "reservedUSD": 0.010568000000000001,
+          "status": 200,
+          "elapsedMs": 1948,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1461,
+            "completion_tokens": 59,
+            "total_tokens": 1520,
+            "cost": 0.0001756,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001756,
+              "upstream_inference_prompt_cost": 0.0001461,
+              "upstream_inference_completions_cost": 0.0000295
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 31,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:project"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L01",
+          "stage": "interpretation",
+          "bytes": 49679,
+          "sha256": "9937b90dff0189f7eebe2c6179a85bbcefa5ec6f50ae72d672faead7dc43f1f7",
+          "reservedUSD": 0.032007499999999994,
+          "status": 200,
+          "elapsedMs": 6106,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 10377,
+            "completion_tokens": 723,
+            "total_tokens": 11100,
+            "cost": 0.0013992,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0013992,
+              "upstream_inference_prompt_cost": 0.0010377,
+              "upstream_inference_completions_cost": 0.0003615
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 313,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.project.create",
+            "actionIntent": "create",
+            "values": {
+              "name": "QA-LAB-NEW-20",
+              "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+              "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "tạo 1 dự án mới",
+                "requirement": "Tạo dự án lao động mới",
+                "mappedTo": [
+                  "action"
+                ]
+              },
+              {
+                "evidence": "tên QA-LAB-NEW-20",
+                "requirement": "Đặt tên dự án là QA-LAB-NEW-20",
+                "mappedTo": [
+                  "values.name"
+                ]
+              },
+              {
+                "evidence": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+                "requirement": "Thêm năm lao động được nêu vào dự án",
+                "mappedTo": [
+                  "values.workerIds"
+                ]
+              },
+              {
+                "evidence": "Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+                "requirement": "Đặt các ngày làm việc theo danh sách đã nêu",
+                "mappedTo": [
+                  "values.daysOfWeek"
+                ]
+              },
+              {
+                "evidence": "trong mục quản lí lao động",
+                "requirement": "Thao tác thuộc phân hệ Quản lý lao động",
+                "mappedTo": [
+                  "context.module"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L01",
+          "stage": "interpretation",
+          "bytes": 1910044,
+          "sha256": "cf55abeb5968d3a3bd79b69525cd51db3c2af4a11eb859143ba65ea3b3c9d847",
+          "reservedUSD": 0.96219,
+          "status": 200,
+          "elapsedMs": 11233,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 389474,
+            "completion_tokens": 814,
+            "total_tokens": 390288,
+            "cost": 0.0785053,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0785053,
+              "upstream_inference_prompt_cost": 0.0778948,
+              "upstream_inference_completions_cost": 0.0006105
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 408,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.project.create",
+            "values": {
+              "name": "QA-LAB-NEW-20",
+              "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+              "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "tạo 1 dự án mới tên QA-LAB-NEW-20",
+                "requirement": "Tạo một dự án mới có tên đã nêu",
+                "mappedTo": [
+                  "action",
+                  "values.name"
+                ]
+              },
+              {
+                "evidence": "trong mục quản lí lao động",
+                "requirement": "Thao tác thuộc phân hệ Quản lý lao động",
+                "mappedTo": [
+                  "context.module"
+                ]
+              },
+              {
+                "evidence": "Mình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+                "requirement": "Thêm năm người lao động đã chọn vào dự án",
+                "mappedTo": [
+                  "values.workerIds"
+                ]
+              },
+              {
+                "evidence": "Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+                "requirement": "Đặt các ngày làm việc trong tuần như đã nêu",
+                "mappedTo": [
+                  "values.daysOfWeek"
+                ]
+              }
+            ],
+            "actionIntent": "create"
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 23115
+    },
+    {
+      "id": "L02",
+      "screenshotRow": 3,
+      "control": false,
+      "input": "Báo cáo tình hình chấm công các lao động hôm nay",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở báo cáo chấm công và thiếu lao động theo dự án. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?\n\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\n- “Xem danh sách [đối tượng]”\n- “Thêm [đối tượng]: [thông tin đã có]”"
+        }
+      ],
+      "startedAt": "2026-11-23T01:35:08.084Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "collecting",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "L02",
+          "stage": "discovery",
+          "bytes": 7278,
+          "sha256": "cede69c28a70cfbdbc0d01f1efedd98c80cc1c93172865259607b6fdd0b493b6",
+          "reservedUSD": 0.0049372,
+          "status": 200,
+          "elapsedMs": 2343,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1496,
+            "completion_tokens": 33,
+            "total_tokens": 1529,
+            "cost": 0.0001661,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001661,
+              "upstream_inference_prompt_cost": 0.0001496,
+              "upstream_inference_completions_cost": 0.0000165
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 18,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "function-selection",
+          "bytes": 6125,
+          "sha256": "07d52b7523823df3a3eb576f25538a1aa6526021a9d3fecddd2797a39e081701",
+          "reservedUSD": 0.0047066,
+          "status": 200,
+          "elapsedMs": 2446,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1161,
+            "completion_tokens": 100,
+            "total_tokens": 1261,
+            "cost": 0.0001661,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001661,
+              "upstream_inference_prompt_cost": 0.0001161,
+              "upstream_inference_completions_cost": 0.00005
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 72,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:reports"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 37166,
+          "sha256": "c12b983c6e01963bcee15e5f5d7357e45f4db1bc1995e462de60c5c38543ac76",
+          "reservedUSD": 0.0109148,
+          "status": 200,
+          "elapsedMs": 4410,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 7728,
+            "completion_tokens": 408,
+            "total_tokens": 8136,
+            "cost": 0.0009768,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0009768,
+              "upstream_inference_prompt_cost": 0.0007728,
+              "upstream_inference_completions_cost": 0.000204
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 264,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "actionIntent": "report",
+            "values": {
+              "mode": "all",
+              "date": "2026-11-23"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Báo cáo tình hình chấm công",
+                "requirement": "Báo cáo tình hình chấm công của người lao động",
+                "mappedTo": [
+                  "action"
+                ]
+              },
+              {
+                "evidence": "các lao động",
+                "requirement": "Phạm vi người lao động trong các dự án thuộc chi nhánh",
+                "mappedTo": [
+                  "action"
+                ]
+              },
+              {
+                "evidence": "hôm nay",
+                "requirement": "Ngày báo cáo là 23/11/2026",
+                "mappedTo": [
+                  "values.date"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 1909730,
+          "sha256": "d0ae3c29e2ea12486a6ca6c9624869ba36a1f099c13ea43d637bade6a582a8b5",
+          "reservedUSD": 0.38542760000000004,
+          "status": 200,
+          "elapsedMs": 8515,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 389323,
+            "completion_tokens": 709,
+            "total_tokens": 390032,
+            "cost": 0.07839635,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.07839635,
+              "upstream_inference_prompt_cost": 0.0778646,
+              "upstream_inference_completions_cost": 0.00053175
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 575,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "values": {
+              "mode": "all",
+              "date": "2026-11-23"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "tình hình chấm công",
+                "requirement": "Báo cáo chấm công lao động",
+                "mappedTo": [
+                  "action"
+                ]
+              },
+              {
+                "evidence": "các lao động",
+                "requirement": "Tra cứu trong phân hệ Quản lý lao động",
+                "mappedTo": [
+                  "context.module"
+                ]
+              },
+              {
+                "evidence": "hôm nay",
+                "requirement": "Lọc theo ngày 23/11/2026",
+                "mappedTo": [
+                  "values.date"
+                ]
+              }
+            ],
+            "actionIntent": "report"
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 1922699,
+          "sha256": "d90979c7b81129e8091f40c92662c043199a66b22c91fbfc4491caeb9d6d1e90",
+          "reservedUSD": 0.38802140000000007,
+          "status": 200,
+          "elapsedMs": 7567,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 391945,
+            "completion_tokens": 296,
+            "total_tokens": 392241,
+            "cost": 0.078611,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.078611,
+              "upstream_inference_prompt_cost": 0.078389,
+              "upstream_inference_completions_cost": 0.000222
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 155,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "values": {
+              "mode": "all",
+              "date": "2026-11-23"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Báo cáo",
+                "requirement": "Tổng hợp tình hình chấm công theo báo cáo",
+                "mappedTo": [
+                  "action"
+                ]
+              },
+              {
+                "evidence": "chấm công các lao động",
+                "requirement": "Báo cáo chấm công thuộc phân hệ Quản lý lao động",
+                "mappedTo": [
+                  "context.module"
+                ]
+              },
+              {
+                "evidence": "hôm nay",
+                "requirement": "Lọc theo ngày 23/11/2026",
+                "mappedTo": [
+                  "values.date"
+                ]
+              }
+            ],
+            "actionIntent": "report"
+          }
+        }
+      ],
+      "issues": [
+        "WRONG_OR_MISSING_ACTION",
+        "READ_NOT_COMPLETED"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 25705,
+      "error": "AssertionError: {\"id\":\"L02\",\"issues\":[\"WRONG_OR_MISSING_ACTION\",\"READ_NOT_COMPLETED\"],\"status\":\"collecting\",\"reply\":\"Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở báo cáo chấm công và thiếu lao động theo dự án. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?\\n\\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\\n- “Xem danh sách [đối tượng]”\\n- “Thêm [đối tượng]: [thông tin đã có]”\"}: expected false to be true // Object.is equality"
+    },
+    {
+      "id": "L03",
+      "screenshotRow": 4,
+      "control": false,
+      "input": "báo cáo tình hình chấm công các lao động trong dự án: QA-KHO-01",
+      "expectedActions": [
+        "worker.report",
+        "worker.attendance.list"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 3 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-01 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Đi muộn · Giờ vào: 09:00, 23/11/2026\n2. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-02 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: on-time · Giờ vào: 07:00, 23/11/2026\n3. Dự án: QA-KHO-01 · Người lao động: LAO-DONG-MAU-03 · Ngày báo cáo: 23/11/2026 · Trạng thái chấm công: Chưa chấm công (chưa xác nhận vắng)"
+        }
+      ],
+      "startedAt": "2026-11-23T01:35:33.806Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-KHO-01",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L03",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "all",
+            "projectId": "0000000000000000000000c9",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L03",
+          "stage": "discovery",
+          "bytes": 7295,
+          "sha256": "796e39fc041898497ac1f523fdd249816750cb024a1bd00a89a43a9cf5a84539",
+          "reservedUSD": 0.0049406,
+          "status": 200,
+          "elapsedMs": 1394,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1503,
+            "completion_tokens": 30,
+            "total_tokens": 1533,
+            "cost": 0.0001653,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001653,
+              "upstream_inference_prompt_cost": 0.0001503,
+              "upstream_inference_completions_cost": 0.000015
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 15,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L03",
+          "stage": "function-selection",
+          "bytes": 6159,
+          "sha256": "26af60093c91ae8cbeac4c6d877e9c91969df9c1d8038d0085212d01d15e0839",
+          "reservedUSD": 0.0047134,
+          "status": 200,
+          "elapsedMs": 2920,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1175,
+            "completion_tokens": 142,
+            "total_tokens": 1317,
+            "cost": 0.0001885,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001885,
+              "upstream_inference_prompt_cost": 0.0001175,
+              "upstream_inference_completions_cost": 0.000071
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 114,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:reports"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L03",
+          "stage": "interpretation",
+          "bytes": 37183,
+          "sha256": "727523874391a8033d5ebe9c4f34574ac1dc80876fbcc0520b9d6b53e9284a4f",
+          "reservedUSD": 0.010918200000000001,
+          "status": 200,
+          "elapsedMs": 3968,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 7735,
+            "completion_tokens": 359,
+            "total_tokens": 8094,
+            "cost": 0.000953,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000953,
+              "upstream_inference_prompt_cost": 0.0007735,
+              "upstream_inference_completions_cost": 0.0001795
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 227,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "actionIntent": "report",
+            "values": {
+              "mode": "all",
+              "projectId": "QA-KHO-01"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "báo cáo tình hình chấm công",
+                "requirement": "Báo cáo tổng quan tình hình chấm công.",
+                "mappedTo": [
+                  "action",
+                  "values.mode"
+                ]
+              },
+              {
+                "evidence": "các lao động trong dự án: QA-KHO-01",
+                "requirement": "Phạm vi báo cáo là lao động thuộc dự án QA-KHO-01.",
+                "mappedTo": [
+                  "context.module",
+                  "values.projectId"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L03",
+          "stage": "interpretation",
+          "bytes": 1909747,
+          "sha256": "664742db2eca8f6cce90d7ba93099bcfbfcd0f826f10769022f3f611ad73e430",
+          "reservedUSD": 0.3854310000000001,
+          "status": 200,
+          "elapsedMs": 7202,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 389330,
+            "completion_tokens": 597,
+            "total_tokens": 389927,
+            "cost": 0.07831375,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.07831375,
+              "upstream_inference_prompt_cost": 0.077866,
+              "upstream_inference_completions_cost": 0.00044775
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 449,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "values": {
+              "mode": "all",
+              "projectId": "QA-KHO-01"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "báo cáo tình hình chấm công",
+                "requirement": "Báo cáo tổng quan tình hình chấm công của lao động",
+                "mappedTo": [
+                  "action"
+                ]
+              },
+              {
+                "evidence": "trong dự án",
+                "requirement": "Giới hạn báo cáo trong phân hệ quản lý lao động và dự án",
+                "mappedTo": [
+                  "context.module"
+                ]
+              },
+              {
+                "evidence": "QA-KHO-01",
+                "requirement": "Chọn dự án QA-KHO-01",
+                "mappedTo": [
+                  "values.projectId"
+                ]
+              }
+            ],
+            "actionIntent": "report"
+          }
+        },
+        {
+          "caseId": "L03",
+          "stage": "interpretation",
+          "bytes": 1922718,
+          "sha256": "70b1fd3fffc714cae36a32d8682ac4e75f4b57b34c9b198436dfddc9ad9c1382",
+          "reservedUSD": 0.38802520000000007,
+          "status": 200,
+          "elapsedMs": 9112,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 391950,
+            "completion_tokens": 500,
+            "total_tokens": 392450,
+            "cost": 0.078765,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.078765,
+              "upstream_inference_prompt_cost": 0.07839,
+              "upstream_inference_completions_cost": 0.000375
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 370,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "values": {
+              "projectId": "QA-KHO-01",
+              "mode": "all"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "báo cáo tình hình chấm công",
+                "requirement": "Báo cáo tổng quan chấm công của lao động trong dự án",
+                "mappedTo": [
+                  "action",
+                  "values.mode"
+                ]
+              },
+              {
+                "evidence": "các lao động trong dự án: QA-KHO-01",
+                "requirement": "Giới hạn báo cáo ở dự án QA-KHO-01",
+                "mappedTo": [
+                  "values.projectId"
+                ]
+              }
+            ],
+            "actionIntent": "report"
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 25077
+    },
+    {
+      "id": "L04",
+      "screenshotRow": 5,
+      "control": false,
+      "input": "Dự án QA-KHO-01 có ai đi muộn",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Dự án QA-KHO-01 là dự án nội bộ Nhân sự hay dự án lao động?\n\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\n- “Xem danh sách dự án”\n- “Xem danh sách kho”"
+        }
+      ],
+      "startedAt": "2026-11-23T01:35:58.890Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "collecting",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "L04",
+          "stage": "discovery",
+          "bytes": 7254,
+          "sha256": "aa2d90c909f4348b7f4c481d44539316519f19851bc282a208c53423051a6de7",
+          "reservedUSD": 0.0049324,
+          "status": 200,
+          "elapsedMs": 2660,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1495,
+            "completion_tokens": 73,
+            "total_tokens": 1568,
+            "cost": 0.000186,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000186,
+              "upstream_inference_prompt_cost": 0.0001495,
+              "upstream_inference_completions_cost": 0.0000365
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 58,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L04",
+          "stage": "function-selection",
+          "bytes": 6077,
+          "sha256": "47142be28c465a4e3bc1ff99a9d07f6c7141d77fd7088ff159c830f1ed0eb775",
+          "reservedUSD": 0.004697,
+          "status": 200,
+          "elapsedMs": 3625,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1159,
+            "completion_tokens": 104,
+            "total_tokens": 1263,
+            "cost": 0.0001679,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001679,
+              "upstream_inference_prompt_cost": 0.0001159,
+              "upstream_inference_completions_cost": 0.000052
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 76,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:attendance"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L04",
+          "stage": "interpretation",
+          "bytes": 39507,
+          "sha256": "8356e2ad4b40aae837c66e7aeaae5345b67f180cf95710f8d7aa7db4b084c154",
+          "reservedUSD": 0.011383,
+          "status": 200,
+          "elapsedMs": 6308,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 8177,
+            "completion_tokens": 618,
+            "total_tokens": 8795,
+            "cost": 0.0011267,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0011267,
+              "upstream_inference_prompt_cost": 0.0008177,
+              "upstream_inference_completions_cost": 0.000309
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 492,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.attendance.list",
+            "actionIntent": "lookup",
+            "values": {
+              "query_projectId": "QA-KHO-01"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Dự án QA-KHO-01",
+                "requirement": "Tra cứu chấm công của dự án này",
+                "mappedTo": [
+                  "values.query_projectId"
+                ]
+              },
+              {
+                "evidence": "có ai đi muộn",
+                "requirement": "Kiểm tra trạng thái chấm công để xác định có người đi muộn hay không",
+                "mappedTo": [
+                  "query:worker.attendance.list:result.status"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L04",
+          "stage": "interpretation",
+          "bytes": 1909706,
+          "sha256": "8d6984e56df689d574eca13a3736fc3b2e0f4ad7ba361de50409db1d80c8bf5e",
+          "reservedUSD": 0.38542280000000007,
+          "status": 200,
+          "elapsedMs": 4555,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 389322,
+            "completion_tokens": 154,
+            "total_tokens": 389476,
+            "cost": 0.0779799,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0779799,
+              "upstream_inference_prompt_cost": 0.0778644,
+              "upstream_inference_completions_cost": 0.0001155
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 85,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "ambiguous",
+            "actionId": null,
+            "values": {},
+            "requestCoverage": [],
+            "actionIntent": "unknown",
+            "clarification": "Dự án QA-KHO-01 là dự án nội bộ Nhân sự hay dự án lao động?",
+            "newRequest": false,
+            "remainingRequests": []
+          }
+        }
+      ],
+      "issues": [
+        "WRONG_OR_MISSING_ACTION",
+        "READ_NOT_COMPLETED"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 17429,
+      "error": "AssertionError: {\"id\":\"L04\",\"issues\":[\"WRONG_OR_MISSING_ACTION\",\"READ_NOT_COMPLETED\"],\"status\":\"collecting\",\"reply\":\"Dự án QA-KHO-01 là dự án nội bộ Nhân sự hay dự án lao động?\\n\\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\\n- “Xem danh sách dự án”\\n- “Xem danh sách kho”\"}: expected false to be true // Object.is equality"
+    },
+    {
+      "id": "L05",
+      "screenshotRow": 6,
+      "control": false,
+      "input": "Dự án QA-KHO-01 có ai vắng",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở báo cáo chấm công và thiếu lao động theo dự án. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?\n\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\n- “Xem danh sách dự án”\n- “Xem danh sách kho”"
+        }
+      ],
+      "startedAt": "2026-11-23T01:36:16.327Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "collecting",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "L05",
+          "stage": "discovery",
+          "bytes": 7250,
+          "sha256": "8facdd276d162e72da898956ae86f6d50147fc26edb290c1dbde1dbb15273ca4",
+          "reservedUSD": 0.0049316,
+          "status": 200,
+          "elapsedMs": 2729,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1494,
+            "completion_tokens": 53,
+            "total_tokens": 1547,
+            "cost": 0.0001759,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001759,
+              "upstream_inference_prompt_cost": 0.0001494,
+              "upstream_inference_completions_cost": 0.0000265
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 38,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L05",
+          "stage": "function-selection",
+          "bytes": 6069,
+          "sha256": "62e65a4d312c78b37955c9f629bd70764c595c23326c97effb73a7360cba753e",
+          "reservedUSD": 0.004695400000000001,
+          "status": 200,
+          "elapsedMs": 2163,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1157,
+            "completion_tokens": 155,
+            "total_tokens": 1312,
+            "cost": 0.0001932,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001932,
+              "upstream_inference_prompt_cost": 0.0001157,
+              "upstream_inference_completions_cost": 0.0000775
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 127,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:attendance"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L05",
+          "stage": "interpretation",
+          "bytes": 39503,
+          "sha256": "ab1767e49fc650e20d7e5b15ab5c0984888993c57e870b300201d2228f586dc2",
+          "reservedUSD": 0.0113822,
+          "status": 200,
+          "elapsedMs": 9379,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 8176,
+            "completion_tokens": 768,
+            "total_tokens": 8944,
+            "cost": 0.0012016,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0012016,
+              "upstream_inference_prompt_cost": 0.0008176,
+              "upstream_inference_completions_cost": 0.000384
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 651,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.attendance.list",
+            "actionIntent": "lookup",
+            "values": {
+              "query_projectId": "QA-KHO-01"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Dự án QA-KHO-01",
+                "requirement": "Tra cứu chấm công của dự án này",
+                "mappedTo": [
+                  "values.query_projectId"
+                ]
+              },
+              {
+                "evidence": "có ai vắng",
+                "requirement": "Xác định người có trạng thái vắng trong kết quả chấm công",
+                "mappedTo": [
+                  "action",
+                  "result.status"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L05",
+          "stage": "interpretation",
+          "bytes": 1909702,
+          "sha256": "6675194c1923d235e564ceec44f628d8e2ac2099061ef9fa1f42332dc8454b0d",
+          "reservedUSD": 0.38542200000000004,
+          "status": 200,
+          "elapsedMs": 7394,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 389321,
+            "completion_tokens": 573,
+            "total_tokens": 389894,
+            "cost": 0.07829395,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.07829395,
+              "upstream_inference_prompt_cost": 0.0778642,
+              "upstream_inference_completions_cost": 0.00042975
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 457,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "values": {
+              "projectId": "QA-KHO-01",
+              "mode": "absent"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Dự án QA-KHO-01",
+                "requirement": "Tra cứu báo cáo chấm công cho dự án này.",
+                "mappedTo": [
+                  "context.module",
+                  "values.projectId"
+                ]
+              },
+              {
+                "evidence": "có ai vắng",
+                "requirement": "Tìm người lao động có trạng thái vắng.",
+                "mappedTo": [
+                  "values.mode"
+                ]
+              }
+            ],
+            "actionIntent": "report"
+          }
+        }
+      ],
+      "issues": [
+        "WRONG_OR_MISSING_ACTION",
+        "READ_NOT_COMPLETED"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 21794,
+      "error": "AssertionError: {\"id\":\"L05\",\"issues\":[\"WRONG_OR_MISSING_ACTION\",\"READ_NOT_COMPLETED\"],\"status\":\"collecting\",\"reply\":\"Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở báo cáo chấm công và thiếu lao động theo dự án. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?\\n\\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\\n- “Xem danh sách dự án”\\n- “Xem danh sách kho”\"}: expected false to be true // Object.is equality"
+    },
+    {
+      "id": "L06",
+      "screenshotRow": 7,
+      "control": false,
+      "input": "Cập nhật địa điểm cho dự án QA-BANLE-02 thành 140 Đường Kiểm Thử",
+      "expectedActions": [
+        "worker.project.update"
+      ],
+      "turns": [
+        {
+          "status": "collecting",
+          "reply": "Dự án QA-BANLE-02 thuộc dự án nội bộ Nhân sự hay dự án lao động?\n\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\n- “Cập nhật dự án [tên hoặc mã]: [thông tin cần sửa]”\n- “Xem danh sách dự án”"
+        }
+      ],
+      "startedAt": "2026-11-23T01:36:38.129Z",
+      "firstStatus": "collecting",
+      "namespaceQuestion": false,
+      "finalStatus": "collecting",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "L06",
+          "stage": "discovery",
+          "bytes": 7304,
+          "sha256": "4deaa06f84db315c5190bd14bd7602bfd3f501f6a6e48c0d735f19778fd1b222",
+          "reservedUSD": 0.0049424000000000004,
+          "status": 200,
+          "elapsedMs": 4247,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1505,
+            "completion_tokens": 247,
+            "total_tokens": 1752,
+            "cost": 0.000274,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000274,
+              "upstream_inference_prompt_cost": 0.0001505,
+              "upstream_inference_completions_cost": 0.0001235
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 232,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L06",
+          "stage": "function-selection",
+          "bytes": 6177,
+          "sha256": "0c7c3b346b18b6518c5c94078c881d055133bfd5e8d94a478ea585024451d04b",
+          "reservedUSD": 0.004717000000000001,
+          "status": 200,
+          "elapsedMs": 1197,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1179,
+            "completion_tokens": 45,
+            "total_tokens": 1224,
+            "cost": 0.0001404,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001404,
+              "upstream_inference_prompt_cost": 0.0001179,
+              "upstream_inference_completions_cost": 0.0000225
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 17,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:project"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L06",
+          "stage": "interpretation",
+          "bytes": 49391,
+          "sha256": "7421e490f1f47913429a447193f7a8a2353667383cee1bcfc457242d3e9700f1",
+          "reservedUSD": 0.013359800000000002,
+          "status": 200,
+          "elapsedMs": 2376,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 10235,
+            "completion_tokens": 171,
+            "total_tokens": 10406,
+            "cost": 0.001109,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.001109,
+              "upstream_inference_prompt_cost": 0.0010235,
+              "upstream_inference_completions_cost": 0.0000855
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 49,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.project.update",
+            "actionIntent": "update",
+            "values": {
+              "path_id": "QA-BANLE-02",
+              "location": "140 Đường Kiểm Thử"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Cập nhật địa điểm",
+                "requirement": "Cập nhật địa điểm của dự án",
+                "mappedTo": [
+                  "action",
+                  "values.location"
+                ]
+              },
+              {
+                "evidence": "dự án QA-BANLE-02",
+                "requirement": "Chọn dự án theo mã QA-BANLE-02",
+                "mappedTo": [
+                  "values.path_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "caseId": "L06",
+          "stage": "interpretation",
+          "bytes": 1909756,
+          "sha256": "67241830198ba7730a5af5c9ba01c539309d6833c0054a5914cc8d8ef69cab82",
+          "reservedUSD": 0.3854328000000001,
+          "status": 200,
+          "elapsedMs": 3864,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 389332,
+            "completion_tokens": 196,
+            "total_tokens": 389528,
+            "cost": 0.0780134,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0780134,
+              "upstream_inference_prompt_cost": 0.0778664,
+              "upstream_inference_completions_cost": 0.000147
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 135,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "ambiguous",
+            "actionId": null,
+            "values": {},
+            "requestCoverage": [],
+            "actionIntent": "update",
+            "clarification": "Dự án QA-BANLE-02 thuộc dự án nội bộ Nhân sự hay dự án lao động?"
+          }
+        }
+      ],
+      "issues": [
+        "WRONG_OR_MISSING_ACTION",
+        "NOT_AT_CONFIRMATION"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 11844,
+      "error": "AssertionError: {\"id\":\"L06\",\"issues\":[\"WRONG_OR_MISSING_ACTION\",\"NOT_AT_CONFIRMATION\"],\"status\":\"collecting\",\"reply\":\"Dự án QA-BANLE-02 thuộc dự án nội bộ Nhân sự hay dự án lao động?\\n\\nVí dụ cách viết (thay phần trong ngoặc bằng thông tin của bạn):\\n- “Cập nhật dự án [tên hoặc mã]: [thông tin cần sửa]”\\n- “Xem danh sách dự án”\"}: expected false to be true // Object.is equality"
+    },
+    {
+      "id": "L07",
+      "screenshotRow": 8,
+      "control": false,
+      "input": "xóa nhân sự LAO-DONG-MAU-06 khỏi dự án QA-LAB-03",
+      "expectedActions": [
+        "worker.project.worker.remove"
+      ],
+      "turns": [
+        {
+          "status": "confirmation",
+          "reply": "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.",
+          "action": {
+            "id": "6379c97b-ebbc-4fb8-9ecf-a18aaf90103d",
+            "requiresPassword": false,
+            "title": "Gỡ lao động khỏi dự án",
+            "values": [
+              {
+                "label": "Tên hoặc mã hoặc mã dự án",
+                "value": "QA-LAB-03 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              },
+              {
+                "label": "Tên lao động cần gỡ",
+                "value": "LAO-DONG-MAU-06 — Chi nhánh MẪU-QA",
+                "defaulted": false
+              }
+            ]
+          }
+        }
+      ],
+      "startedAt": "2026-11-23T01:36:49.984Z",
+      "firstStatus": "confirmation",
+      "namespaceQuestion": false,
+      "finalStatus": "confirmation",
+      "actionId": "worker.project.worker.remove",
+      "namespace": "worker",
+      "pendingResolved": {
+        "path_id": "0000000000000000000000cb",
+        "path_workerId": "00000000000000000000006a"
+      },
+      "readCalls": [
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/worker-management/projects",
+          "query": {
+            "search": "QA-LAB-03",
+            "page": "1",
+            "limit": "100",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        },
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/worker-management/workers",
+          "query": {
+            "search": "LAO-DONG-MAU-06",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        },
+        {
+          "caseId": "L07",
+          "method": "GET",
+          "path": "/api/v1/auth/branches",
+          "query": {
+            "search": "",
+            "companyCode": "QA",
+            "limit": "100",
+            "page": "1"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L07",
+          "stage": "discovery",
+          "bytes": 7275,
+          "sha256": "d20b7978703103b32128abbda914c376ca805e8c330a69021df797aa1bbcaf84",
+          "reservedUSD": 0.0049366,
+          "status": 200,
+          "elapsedMs": 3615,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1502,
+            "completion_tokens": 199,
+            "total_tokens": 1701,
+            "cost": 0.0002497,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0002497,
+              "upstream_inference_prompt_cost": 0.0001502,
+              "upstream_inference_completions_cost": 0.0000995
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 182,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "hr",
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L07",
+          "stage": "function-selection",
+          "bytes": 14855,
+          "sha256": "f1f392a7676dd5c26e858172f7231def149c3a08da5d4e0af061a8787655cdd2",
+          "reservedUSD": 0.0064526,
+          "status": 200,
+          "elapsedMs": 1939,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 2922,
+            "completion_tokens": 61,
+            "total_tokens": 2983,
+            "cost": 0.0003227,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0003227,
+              "upstream_inference_prompt_cost": 0.0002922,
+              "upstream_inference_completions_cost": 0.0000305
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 33,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:project"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L07",
+          "stage": "interpretation",
+          "bytes": 49362,
+          "sha256": "20fd72fa1bfe9327ad0f8bea1ed585e53d91eebfd46ff48d90fd6cf5f131e4c0",
+          "reservedUSD": 0.013354000000000001,
+          "status": 200,
+          "elapsedMs": 2665,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 10232,
+            "completion_tokens": 227,
+            "total_tokens": 10459,
+            "cost": 0.0011367,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0011367,
+              "upstream_inference_prompt_cost": 0.0010232,
+              "upstream_inference_completions_cost": 0.0001135
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 98,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.project.worker.remove",
+            "actionIntent": "delete",
+            "values": {
+              "path_id": "QA-LAB-03",
+              "path_workerId": "LAO-DONG-MAU-06"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "xóa nhân sự LAO-DONG-MAU-06 khỏi dự án QA-LAB-03",
+                "requirement": "Gỡ lao động LAO-DONG-MAU-06 khỏi dự án QA-LAB-03, không xóa hồ sơ lao động.",
+                "mappedTo": [
+                  "action",
+                  "values.path_id",
+                  "values.path_workerId"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 8306
+    },
+    {
+      "id": "L08",
+      "screenshotRow": 9,
+      "control": false,
+      "input": "những dự án nào đang thiếu lao động",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "completed",
+          "reply": "Mình tìm thấy 2 kết quả phù hợp cho bạn.\n1. Dự án: QA-KHO-01 · Chỉ tiêu lao động: 5 · Đã bố trí: 3 · Còn thiếu: 2\n2. Dự án: QA-LAB-03 · Chỉ tiêu lao động: 6 · Đã bố trí: 4 · Còn thiếu: 2"
+        }
+      ],
+      "startedAt": "2026-11-23T01:36:58.295Z",
+      "firstStatus": "completed",
+      "namespaceQuestion": false,
+      "finalStatus": "completed",
+      "actionId": "worker.report",
+      "namespace": "worker",
+      "readCalls": [
+        {
+          "caseId": "L08",
+          "method": "GET",
+          "path": "/api/v1/worker-management/reports/assistant",
+          "query": {
+            "mode": "shortage",
+            "branchId": "64b000000000000000000001",
+            "companyCode": "QA"
+          }
+        }
+      ],
+      "aiRequests": [
+        {
+          "caseId": "L08",
+          "stage": "discovery",
+          "bytes": 7265,
+          "sha256": "6ed188e62e38cf374073ffbe3ea9b0e2bb5e6a59491c7f6d0eaa777f264e903e",
+          "reservedUSD": 0.0049346,
+          "status": 200,
+          "elapsedMs": 2155,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1491,
+            "completion_tokens": 49,
+            "total_tokens": 1540,
+            "cost": 0.0001736,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001736,
+              "upstream_inference_prompt_cost": 0.0001491,
+              "upstream_inference_completions_cost": 0.0000245
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 34,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L08",
+          "stage": "function-selection",
+          "bytes": 6099,
+          "sha256": "fc03565024691e5102e6629feafdcf0205253ed7d910994136a921601d51b597",
+          "reservedUSD": 0.0047014000000000005,
+          "status": 200,
+          "elapsedMs": 2640,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1151,
+            "completion_tokens": 95,
+            "total_tokens": 1246,
+            "cost": 0.0001626,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001626,
+              "upstream_inference_prompt_cost": 0.0001151,
+              "upstream_inference_completions_cost": 0.0000475
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 67,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:reports"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L08",
+          "stage": "interpretation",
+          "bytes": 37153,
+          "sha256": "2aa30a4b00c9233a36973077d488a29eb8c4d935c8cdc51c9114cec6feae9c44",
+          "reservedUSD": 0.0109122,
+          "status": 200,
+          "elapsedMs": 3089,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 7723,
+            "completion_tokens": 250,
+            "total_tokens": 7973,
+            "cost": 0.0008973,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0008973,
+              "upstream_inference_prompt_cost": 0.0007723,
+              "upstream_inference_completions_cost": 0.000125
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 174,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "actionIntent": "report",
+            "values": {
+              "mode": "shortage"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "những dự án nào đang thiếu lao động",
+                "requirement": "Báo cáo các dự án đang thiếu lao động.",
+                "mappedTo": [
+                  "action",
+                  "values.mode"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [],
+      "functionalPass": true,
+      "writeSafetyPass": true,
+      "tableParsed": true,
+      "elapsedMs": 7948
+    },
+    {
+      "id": "L09",
+      "screenshotRow": 10,
+      "control": false,
+      "input": "Dự án QA-LAB-03 có lao động nào vắng trên 3 buổi",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [],
+      "startedAt": "2026-11-23T01:37:06.250Z"
+    }
+  ],
+  "previousStoppedCases": [
+    {
+      "id": "L02",
+      "screenshotRow": 3,
+      "control": false,
+      "input": "Báo cáo tình hình chấm công các lao động hôm nay",
+      "expectedActions": [
+        "worker.report"
+      ],
+      "turns": [
+        {
+          "status": "failed",
+          "reply": "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.\n\nHướng dẫn dự phòng:\n1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\n3. Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra."
+        }
+      ],
+      "startedAt": "2026-11-23T01:31:56.089Z",
+      "firstStatus": "failed",
+      "namespaceQuestion": false,
+      "finalStatus": "failed",
+      "namespace": null,
+      "readCalls": [],
+      "aiRequests": [
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 7233,
+          "sha256": "00697afd643cb6023bca7622743b1ae3e1610bdf154170f579c484c90199e412",
+          "reservedUSD": 0.010784499999999999,
+          "status": 200,
+          "elapsedMs": 2372,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1496,
+            "completion_tokens": 43,
+            "total_tokens": 1539,
+            "cost": 0.0001711,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001711,
+              "upstream_inference_prompt_cost": 0.0001496,
+              "upstream_inference_completions_cost": 0.0000215
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 28,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "modules": [
+              "worker"
+            ]
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 6080,
+          "sha256": "81b049e500701984a6b5207d5544ce011d7786ab070565ab3fd0dd4f361fe25b",
+          "reservedUSD": 0.010208,
+          "status": 200,
+          "elapsedMs": 2311,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 1161,
+            "completion_tokens": 167,
+            "total_tokens": 1328,
+            "cost": 0.0001996,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0001996,
+              "upstream_inference_prompt_cost": 0.0001161,
+              "upstream_inference_completions_cost": 0.0000835
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 139,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "featureKeys": [
+              "worker:reports"
+            ],
+            "ambiguous": false,
+            "clarification": ""
+          }
+        },
+        {
+          "caseId": "L02",
+          "stage": "interpretation",
+          "bytes": 37121,
+          "sha256": "010edca0084ce444dc09196194d7a381995aa0d5a3b00ef2343e9e8e957ab145",
+          "reservedUSD": 0.025728499999999998,
+          "status": 200,
+          "elapsedMs": 4453,
+          "model": "openai/gpt-6-luna",
+          "provider": "OpenAI",
+          "usage": {
+            "prompt_tokens": 7728,
+            "completion_tokens": 438,
+            "total_tokens": 8166,
+            "cost": 0.0009918,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0009918,
+              "upstream_inference_prompt_cost": 0.0007728,
+              "upstream_inference_completions_cost": 0.000219
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 221,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          },
+          "finishReason": "stop",
+          "output": {
+            "intentType": "workflow",
+            "actionId": "worker.report",
+            "actionIntent": "report",
+            "values": {
+              "mode": "all",
+              "date": "2026-11-23"
+            },
+            "requestCoverage": [
+              {
+                "evidence": "Báo cáo tình hình chấm công",
+                "requirement": "Báo cáo tổng quan tình hình chấm công",
+                "mappedTo": [
+                  "action",
+                  "values.mode"
+                ]
+              },
+              {
+                "evidence": "các lao động",
+                "requirement": "Báo cáo chấm công lao động",
+                "mappedTo": [
+                  "context.module"
+                ]
+              },
+              {
+                "evidence": "hôm nay",
+                "requirement": "Giới hạn báo cáo trong ngày 23/11/2026",
+                "mappedTo": [
+                  "values.date"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "issues": [
+        "WRONG_OR_MISSING_ACTION",
+        "READ_NOT_COMPLETED"
+      ],
+      "functionalPass": false,
+      "writeSafetyPass": true,
+      "tableParsed": false,
+      "elapsedMs": 9388,
+      "error": "AssertionError: {\"id\":\"L02\",\"issues\":[\"WRONG_OR_MISSING_ACTION\",\"READ_NOT_COMPLETED\"],\"status\":\"failed\",\"reply\":\"Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công. Bạn thử lại sau giúp mình nhé.\\n\\nHướng dẫn dự phòng:\\n1. Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.\\n2. Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.\\n3. Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra.\"}: expected false to be true // Object.is equality"
+    }
+  ],
+  "resumed": true,
+  "pricingGuard": {
+    "prompt": 0.2,
+    "completion": 0.75,
+    "cacheMode": "explicit-no-markers"
+  },
+  "ledger": {
+    "capUSD": 1,
+    "maxRequests": 100,
+    "spentUSD": 0.6401376500000001,
+    "reservedUSD": 0.0049374,
+    "calls": [
+      {
+        "caseId": "L01",
+        "stage": "interpretation",
+        "bytes": 7593,
+        "sha256": "3af3eedc31c5b05e493adc35ddb5b7723d64ecbb9ef5593d7a22fcb0e094b4ec",
+        "reservedUSD": 0.0109645,
+        "status": 200,
+        "elapsedMs": 3360,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1646,
+          "completion_tokens": 48,
+          "total_tokens": 1694,
+          "cost": 0.0001886,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001886,
+            "upstream_inference_prompt_cost": 0.0001646,
+            "upstream_inference_completions_cost": 0.000024
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 33,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L01",
+        "stage": "interpretation",
+        "bytes": 6800,
+        "sha256": "a946d598d1f5679c996a91e3267c35568bc55c57c87a342a46938ca8bcd41ee6",
+        "reservedUSD": 0.010568000000000001,
+        "status": 200,
+        "elapsedMs": 1948,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1461,
+          "completion_tokens": 59,
+          "total_tokens": 1520,
+          "cost": 0.0001756,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001756,
+            "upstream_inference_prompt_cost": 0.0001461,
+            "upstream_inference_completions_cost": 0.0000295
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 31,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:project"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L01",
+        "stage": "interpretation",
+        "bytes": 49679,
+        "sha256": "9937b90dff0189f7eebe2c6179a85bbcefa5ec6f50ae72d672faead7dc43f1f7",
+        "reservedUSD": 0.032007499999999994,
+        "status": 200,
+        "elapsedMs": 6106,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 10377,
+          "completion_tokens": 723,
+          "total_tokens": 11100,
+          "cost": 0.0013992,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0013992,
+            "upstream_inference_prompt_cost": 0.0010377,
+            "upstream_inference_completions_cost": 0.0003615
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 313,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.project.create",
+          "actionIntent": "create",
+          "values": {
+            "name": "QA-LAB-NEW-20",
+            "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+            "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "tạo 1 dự án mới",
+              "requirement": "Tạo dự án lao động mới",
+              "mappedTo": [
+                "action"
+              ]
+            },
+            {
+              "evidence": "tên QA-LAB-NEW-20",
+              "requirement": "Đặt tên dự án là QA-LAB-NEW-20",
+              "mappedTo": [
+                "values.name"
+              ]
+            },
+            {
+              "evidence": "LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+              "requirement": "Thêm năm lao động được nêu vào dự án",
+              "mappedTo": [
+                "values.workerIds"
+              ]
+            },
+            {
+              "evidence": "Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+              "requirement": "Đặt các ngày làm việc theo danh sách đã nêu",
+              "mappedTo": [
+                "values.daysOfWeek"
+              ]
+            },
+            {
+              "evidence": "trong mục quản lí lao động",
+              "requirement": "Thao tác thuộc phân hệ Quản lý lao động",
+              "mappedTo": [
+                "context.module"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L01",
+        "stage": "interpretation",
+        "bytes": 1910044,
+        "sha256": "cf55abeb5968d3a3bd79b69525cd51db3c2af4a11eb859143ba65ea3b3c9d847",
+        "reservedUSD": 0.96219,
+        "status": 200,
+        "elapsedMs": 11233,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 389474,
+          "completion_tokens": 814,
+          "total_tokens": 390288,
+          "cost": 0.0785053,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0785053,
+            "upstream_inference_prompt_cost": 0.0778948,
+            "upstream_inference_completions_cost": 0.0006105
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 408,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.project.create",
+          "values": {
+            "name": "QA-LAB-NEW-20",
+            "workerIds": "[\"LAO-DONG-MAU-01\",\"LAO-DONG-MAU-02\",\"LAO-DONG-MAU-03\",\"LAO-DONG-MAU-04\",\"LAO-DONG-MAU-05\"]",
+            "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "tạo 1 dự án mới tên QA-LAB-NEW-20",
+              "requirement": "Tạo một dự án mới có tên đã nêu",
+              "mappedTo": [
+                "action",
+                "values.name"
+              ]
+            },
+            {
+              "evidence": "trong mục quản lí lao động",
+              "requirement": "Thao tác thuộc phân hệ Quản lý lao động",
+              "mappedTo": [
+                "context.module"
+              ]
+            },
+            {
+              "evidence": "Mình chọn Tên lao động: LAO-DONG-MAU-01 — Chi nhánh MẪU-QA, LAO-DONG-MAU-02 — Chi nhánh MẪU-QA, LAO-DONG-MAU-03 — Chi nhánh MẪU-QA, LAO-DONG-MAU-04 — Chi nhánh MẪU-QA, LAO-DONG-MAU-05 — Chi nhánh MẪU-QA",
+              "requirement": "Thêm năm người lao động đã chọn vào dự án",
+              "mappedTo": [
+                "values.workerIds"
+              ]
+            },
+            {
+              "evidence": "Các ngày trong tuần · Các ngày trong tuần: Thứ 2, Thứ 4, Thứ 6, Thứ 3, Thứ 5, Thứ 7",
+              "requirement": "Đặt các ngày làm việc trong tuần như đã nêu",
+              "mappedTo": [
+                "values.daysOfWeek"
+              ]
+            }
+          ],
+          "actionIntent": "create"
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 7233,
+        "sha256": "00697afd643cb6023bca7622743b1ae3e1610bdf154170f579c484c90199e412",
+        "reservedUSD": 0.010784499999999999,
+        "status": 200,
+        "elapsedMs": 2372,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1496,
+          "completion_tokens": 43,
+          "total_tokens": 1539,
+          "cost": 0.0001711,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001711,
+            "upstream_inference_prompt_cost": 0.0001496,
+            "upstream_inference_completions_cost": 0.0000215
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 28,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 6080,
+        "sha256": "81b049e500701984a6b5207d5544ce011d7786ab070565ab3fd0dd4f361fe25b",
+        "reservedUSD": 0.010208,
+        "status": 200,
+        "elapsedMs": 2311,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1161,
+          "completion_tokens": 167,
+          "total_tokens": 1328,
+          "cost": 0.0001996,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001996,
+            "upstream_inference_prompt_cost": 0.0001161,
+            "upstream_inference_completions_cost": 0.0000835
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 139,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:reports"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 37121,
+        "sha256": "010edca0084ce444dc09196194d7a381995aa0d5a3b00ef2343e9e8e957ab145",
+        "reservedUSD": 0.025728499999999998,
+        "status": 200,
+        "elapsedMs": 4453,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 7728,
+          "completion_tokens": 438,
+          "total_tokens": 8166,
+          "cost": 0.0009918,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0009918,
+            "upstream_inference_prompt_cost": 0.0007728,
+            "upstream_inference_completions_cost": 0.000219
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 221,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "actionIntent": "report",
+          "values": {
+            "mode": "all",
+            "date": "2026-11-23"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Báo cáo tình hình chấm công",
+              "requirement": "Báo cáo tổng quan tình hình chấm công",
+              "mappedTo": [
+                "action",
+                "values.mode"
+              ]
+            },
+            {
+              "evidence": "các lao động",
+              "requirement": "Báo cáo chấm công lao động",
+              "mappedTo": [
+                "context.module"
+              ]
+            },
+            {
+              "evidence": "hôm nay",
+              "requirement": "Giới hạn báo cáo trong ngày 23/11/2026",
+              "mappedTo": [
+                "values.date"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "discovery",
+        "bytes": 7278,
+        "sha256": "cede69c28a70cfbdbc0d01f1efedd98c80cc1c93172865259607b6fdd0b493b6",
+        "reservedUSD": 0.0049372,
+        "status": 200,
+        "elapsedMs": 2343,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1496,
+          "completion_tokens": 33,
+          "total_tokens": 1529,
+          "cost": 0.0001661,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001661,
+            "upstream_inference_prompt_cost": 0.0001496,
+            "upstream_inference_completions_cost": 0.0000165
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 18,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "function-selection",
+        "bytes": 6125,
+        "sha256": "07d52b7523823df3a3eb576f25538a1aa6526021a9d3fecddd2797a39e081701",
+        "reservedUSD": 0.0047066,
+        "status": 200,
+        "elapsedMs": 2446,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1161,
+          "completion_tokens": 100,
+          "total_tokens": 1261,
+          "cost": 0.0001661,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001661,
+            "upstream_inference_prompt_cost": 0.0001161,
+            "upstream_inference_completions_cost": 0.00005
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 72,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:reports"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 37166,
+        "sha256": "c12b983c6e01963bcee15e5f5d7357e45f4db1bc1995e462de60c5c38543ac76",
+        "reservedUSD": 0.0109148,
+        "status": 200,
+        "elapsedMs": 4410,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 7728,
+          "completion_tokens": 408,
+          "total_tokens": 8136,
+          "cost": 0.0009768,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0009768,
+            "upstream_inference_prompt_cost": 0.0007728,
+            "upstream_inference_completions_cost": 0.000204
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 264,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "actionIntent": "report",
+          "values": {
+            "mode": "all",
+            "date": "2026-11-23"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Báo cáo tình hình chấm công",
+              "requirement": "Báo cáo tình hình chấm công của người lao động",
+              "mappedTo": [
+                "action"
+              ]
+            },
+            {
+              "evidence": "các lao động",
+              "requirement": "Phạm vi người lao động trong các dự án thuộc chi nhánh",
+              "mappedTo": [
+                "action"
+              ]
+            },
+            {
+              "evidence": "hôm nay",
+              "requirement": "Ngày báo cáo là 23/11/2026",
+              "mappedTo": [
+                "values.date"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 1909730,
+        "sha256": "d0ae3c29e2ea12486a6ca6c9624869ba36a1f099c13ea43d637bade6a582a8b5",
+        "reservedUSD": 0.38542760000000004,
+        "status": 200,
+        "elapsedMs": 8515,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 389323,
+          "completion_tokens": 709,
+          "total_tokens": 390032,
+          "cost": 0.07839635,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.07839635,
+            "upstream_inference_prompt_cost": 0.0778646,
+            "upstream_inference_completions_cost": 0.00053175
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 575,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "values": {
+            "mode": "all",
+            "date": "2026-11-23"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "tình hình chấm công",
+              "requirement": "Báo cáo chấm công lao động",
+              "mappedTo": [
+                "action"
+              ]
+            },
+            {
+              "evidence": "các lao động",
+              "requirement": "Tra cứu trong phân hệ Quản lý lao động",
+              "mappedTo": [
+                "context.module"
+              ]
+            },
+            {
+              "evidence": "hôm nay",
+              "requirement": "Lọc theo ngày 23/11/2026",
+              "mappedTo": [
+                "values.date"
+              ]
+            }
+          ],
+          "actionIntent": "report"
+        }
+      },
+      {
+        "caseId": "L02",
+        "stage": "interpretation",
+        "bytes": 1922699,
+        "sha256": "d90979c7b81129e8091f40c92662c043199a66b22c91fbfc4491caeb9d6d1e90",
+        "reservedUSD": 0.38802140000000007,
+        "status": 200,
+        "elapsedMs": 7567,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 391945,
+          "completion_tokens": 296,
+          "total_tokens": 392241,
+          "cost": 0.078611,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.078611,
+            "upstream_inference_prompt_cost": 0.078389,
+            "upstream_inference_completions_cost": 0.000222
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 155,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "values": {
+            "mode": "all",
+            "date": "2026-11-23"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Báo cáo",
+              "requirement": "Tổng hợp tình hình chấm công theo báo cáo",
+              "mappedTo": [
+                "action"
+              ]
+            },
+            {
+              "evidence": "chấm công các lao động",
+              "requirement": "Báo cáo chấm công thuộc phân hệ Quản lý lao động",
+              "mappedTo": [
+                "context.module"
+              ]
+            },
+            {
+              "evidence": "hôm nay",
+              "requirement": "Lọc theo ngày 23/11/2026",
+              "mappedTo": [
+                "values.date"
+              ]
+            }
+          ],
+          "actionIntent": "report"
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "discovery",
+        "bytes": 7295,
+        "sha256": "796e39fc041898497ac1f523fdd249816750cb024a1bd00a89a43a9cf5a84539",
+        "reservedUSD": 0.0049406,
+        "status": 200,
+        "elapsedMs": 1394,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1503,
+          "completion_tokens": 30,
+          "total_tokens": 1533,
+          "cost": 0.0001653,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001653,
+            "upstream_inference_prompt_cost": 0.0001503,
+            "upstream_inference_completions_cost": 0.000015
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 15,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "function-selection",
+        "bytes": 6159,
+        "sha256": "26af60093c91ae8cbeac4c6d877e9c91969df9c1d8038d0085212d01d15e0839",
+        "reservedUSD": 0.0047134,
+        "status": 200,
+        "elapsedMs": 2920,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1175,
+          "completion_tokens": 142,
+          "total_tokens": 1317,
+          "cost": 0.0001885,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001885,
+            "upstream_inference_prompt_cost": 0.0001175,
+            "upstream_inference_completions_cost": 0.000071
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 114,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:reports"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "interpretation",
+        "bytes": 37183,
+        "sha256": "727523874391a8033d5ebe9c4f34574ac1dc80876fbcc0520b9d6b53e9284a4f",
+        "reservedUSD": 0.010918200000000001,
+        "status": 200,
+        "elapsedMs": 3968,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 7735,
+          "completion_tokens": 359,
+          "total_tokens": 8094,
+          "cost": 0.000953,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.000953,
+            "upstream_inference_prompt_cost": 0.0007735,
+            "upstream_inference_completions_cost": 0.0001795
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 227,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "actionIntent": "report",
+          "values": {
+            "mode": "all",
+            "projectId": "QA-KHO-01"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "báo cáo tình hình chấm công",
+              "requirement": "Báo cáo tổng quan tình hình chấm công.",
+              "mappedTo": [
+                "action",
+                "values.mode"
+              ]
+            },
+            {
+              "evidence": "các lao động trong dự án: QA-KHO-01",
+              "requirement": "Phạm vi báo cáo là lao động thuộc dự án QA-KHO-01.",
+              "mappedTo": [
+                "context.module",
+                "values.projectId"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "interpretation",
+        "bytes": 1909747,
+        "sha256": "664742db2eca8f6cce90d7ba93099bcfbfcd0f826f10769022f3f611ad73e430",
+        "reservedUSD": 0.3854310000000001,
+        "status": 200,
+        "elapsedMs": 7202,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 389330,
+          "completion_tokens": 597,
+          "total_tokens": 389927,
+          "cost": 0.07831375,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.07831375,
+            "upstream_inference_prompt_cost": 0.077866,
+            "upstream_inference_completions_cost": 0.00044775
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 449,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "values": {
+            "mode": "all",
+            "projectId": "QA-KHO-01"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "báo cáo tình hình chấm công",
+              "requirement": "Báo cáo tổng quan tình hình chấm công của lao động",
+              "mappedTo": [
+                "action"
+              ]
+            },
+            {
+              "evidence": "trong dự án",
+              "requirement": "Giới hạn báo cáo trong phân hệ quản lý lao động và dự án",
+              "mappedTo": [
+                "context.module"
+              ]
+            },
+            {
+              "evidence": "QA-KHO-01",
+              "requirement": "Chọn dự án QA-KHO-01",
+              "mappedTo": [
+                "values.projectId"
+              ]
+            }
+          ],
+          "actionIntent": "report"
+        }
+      },
+      {
+        "caseId": "L03",
+        "stage": "interpretation",
+        "bytes": 1922718,
+        "sha256": "70b1fd3fffc714cae36a32d8682ac4e75f4b57b34c9b198436dfddc9ad9c1382",
+        "reservedUSD": 0.38802520000000007,
+        "status": 200,
+        "elapsedMs": 9112,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 391950,
+          "completion_tokens": 500,
+          "total_tokens": 392450,
+          "cost": 0.078765,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.078765,
+            "upstream_inference_prompt_cost": 0.07839,
+            "upstream_inference_completions_cost": 0.000375
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 370,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "values": {
+            "projectId": "QA-KHO-01",
+            "mode": "all"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "báo cáo tình hình chấm công",
+              "requirement": "Báo cáo tổng quan chấm công của lao động trong dự án",
+              "mappedTo": [
+                "action",
+                "values.mode"
+              ]
+            },
+            {
+              "evidence": "các lao động trong dự án: QA-KHO-01",
+              "requirement": "Giới hạn báo cáo ở dự án QA-KHO-01",
+              "mappedTo": [
+                "values.projectId"
+              ]
+            }
+          ],
+          "actionIntent": "report"
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "discovery",
+        "bytes": 7254,
+        "sha256": "aa2d90c909f4348b7f4c481d44539316519f19851bc282a208c53423051a6de7",
+        "reservedUSD": 0.0049324,
+        "status": 200,
+        "elapsedMs": 2660,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1495,
+          "completion_tokens": 73,
+          "total_tokens": 1568,
+          "cost": 0.000186,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.000186,
+            "upstream_inference_prompt_cost": 0.0001495,
+            "upstream_inference_completions_cost": 0.0000365
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 58,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "function-selection",
+        "bytes": 6077,
+        "sha256": "47142be28c465a4e3bc1ff99a9d07f6c7141d77fd7088ff159c830f1ed0eb775",
+        "reservedUSD": 0.004697,
+        "status": 200,
+        "elapsedMs": 3625,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1159,
+          "completion_tokens": 104,
+          "total_tokens": 1263,
+          "cost": 0.0001679,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001679,
+            "upstream_inference_prompt_cost": 0.0001159,
+            "upstream_inference_completions_cost": 0.000052
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 76,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:attendance"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "interpretation",
+        "bytes": 39507,
+        "sha256": "8356e2ad4b40aae837c66e7aeaae5345b67f180cf95710f8d7aa7db4b084c154",
+        "reservedUSD": 0.011383,
+        "status": 200,
+        "elapsedMs": 6308,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 8177,
+          "completion_tokens": 618,
+          "total_tokens": 8795,
+          "cost": 0.0011267,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0011267,
+            "upstream_inference_prompt_cost": 0.0008177,
+            "upstream_inference_completions_cost": 0.000309
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 492,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.attendance.list",
+          "actionIntent": "lookup",
+          "values": {
+            "query_projectId": "QA-KHO-01"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Dự án QA-KHO-01",
+              "requirement": "Tra cứu chấm công của dự án này",
+              "mappedTo": [
+                "values.query_projectId"
+              ]
+            },
+            {
+              "evidence": "có ai đi muộn",
+              "requirement": "Kiểm tra trạng thái chấm công để xác định có người đi muộn hay không",
+              "mappedTo": [
+                "query:worker.attendance.list:result.status"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L04",
+        "stage": "interpretation",
+        "bytes": 1909706,
+        "sha256": "8d6984e56df689d574eca13a3736fc3b2e0f4ad7ba361de50409db1d80c8bf5e",
+        "reservedUSD": 0.38542280000000007,
+        "status": 200,
+        "elapsedMs": 4555,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 389322,
+          "completion_tokens": 154,
+          "total_tokens": 389476,
+          "cost": 0.0779799,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0779799,
+            "upstream_inference_prompt_cost": 0.0778644,
+            "upstream_inference_completions_cost": 0.0001155
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 85,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "ambiguous",
+          "actionId": null,
+          "values": {},
+          "requestCoverage": [],
+          "actionIntent": "unknown",
+          "clarification": "Dự án QA-KHO-01 là dự án nội bộ Nhân sự hay dự án lao động?",
+          "newRequest": false,
+          "remainingRequests": []
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "discovery",
+        "bytes": 7250,
+        "sha256": "8facdd276d162e72da898956ae86f6d50147fc26edb290c1dbde1dbb15273ca4",
+        "reservedUSD": 0.0049316,
+        "status": 200,
+        "elapsedMs": 2729,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1494,
+          "completion_tokens": 53,
+          "total_tokens": 1547,
+          "cost": 0.0001759,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001759,
+            "upstream_inference_prompt_cost": 0.0001494,
+            "upstream_inference_completions_cost": 0.0000265
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 38,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "function-selection",
+        "bytes": 6069,
+        "sha256": "62e65a4d312c78b37955c9f629bd70764c595c23326c97effb73a7360cba753e",
+        "reservedUSD": 0.004695400000000001,
+        "status": 200,
+        "elapsedMs": 2163,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1157,
+          "completion_tokens": 155,
+          "total_tokens": 1312,
+          "cost": 0.0001932,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001932,
+            "upstream_inference_prompt_cost": 0.0001157,
+            "upstream_inference_completions_cost": 0.0000775
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 127,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:attendance"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "interpretation",
+        "bytes": 39503,
+        "sha256": "ab1767e49fc650e20d7e5b15ab5c0984888993c57e870b300201d2228f586dc2",
+        "reservedUSD": 0.0113822,
+        "status": 200,
+        "elapsedMs": 9379,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 8176,
+          "completion_tokens": 768,
+          "total_tokens": 8944,
+          "cost": 0.0012016,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0012016,
+            "upstream_inference_prompt_cost": 0.0008176,
+            "upstream_inference_completions_cost": 0.000384
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 651,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.attendance.list",
+          "actionIntent": "lookup",
+          "values": {
+            "query_projectId": "QA-KHO-01"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Dự án QA-KHO-01",
+              "requirement": "Tra cứu chấm công của dự án này",
+              "mappedTo": [
+                "values.query_projectId"
+              ]
+            },
+            {
+              "evidence": "có ai vắng",
+              "requirement": "Xác định người có trạng thái vắng trong kết quả chấm công",
+              "mappedTo": [
+                "action",
+                "result.status"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L05",
+        "stage": "interpretation",
+        "bytes": 1909702,
+        "sha256": "6675194c1923d235e564ceec44f628d8e2ac2099061ef9fa1f42332dc8454b0d",
+        "reservedUSD": 0.38542200000000004,
+        "status": 200,
+        "elapsedMs": 7394,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 389321,
+          "completion_tokens": 573,
+          "total_tokens": 389894,
+          "cost": 0.07829395,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.07829395,
+            "upstream_inference_prompt_cost": 0.0778642,
+            "upstream_inference_completions_cost": 0.00042975
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 457,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "values": {
+            "projectId": "QA-KHO-01",
+            "mode": "absent"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Dự án QA-KHO-01",
+              "requirement": "Tra cứu báo cáo chấm công cho dự án này.",
+              "mappedTo": [
+                "context.module",
+                "values.projectId"
+              ]
+            },
+            {
+              "evidence": "có ai vắng",
+              "requirement": "Tìm người lao động có trạng thái vắng.",
+              "mappedTo": [
+                "values.mode"
+              ]
+            }
+          ],
+          "actionIntent": "report"
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "discovery",
+        "bytes": 7304,
+        "sha256": "4deaa06f84db315c5190bd14bd7602bfd3f501f6a6e48c0d735f19778fd1b222",
+        "reservedUSD": 0.0049424000000000004,
+        "status": 200,
+        "elapsedMs": 4247,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1505,
+          "completion_tokens": 247,
+          "total_tokens": 1752,
+          "cost": 0.000274,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.000274,
+            "upstream_inference_prompt_cost": 0.0001505,
+            "upstream_inference_completions_cost": 0.0001235
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 232,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "function-selection",
+        "bytes": 6177,
+        "sha256": "0c7c3b346b18b6518c5c94078c881d055133bfd5e8d94a478ea585024451d04b",
+        "reservedUSD": 0.004717000000000001,
+        "status": 200,
+        "elapsedMs": 1197,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1179,
+          "completion_tokens": 45,
+          "total_tokens": 1224,
+          "cost": 0.0001404,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001404,
+            "upstream_inference_prompt_cost": 0.0001179,
+            "upstream_inference_completions_cost": 0.0000225
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 17,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:project"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "interpretation",
+        "bytes": 49391,
+        "sha256": "7421e490f1f47913429a447193f7a8a2353667383cee1bcfc457242d3e9700f1",
+        "reservedUSD": 0.013359800000000002,
+        "status": 200,
+        "elapsedMs": 2376,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 10235,
+          "completion_tokens": 171,
+          "total_tokens": 10406,
+          "cost": 0.001109,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.001109,
+            "upstream_inference_prompt_cost": 0.0010235,
+            "upstream_inference_completions_cost": 0.0000855
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 49,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.project.update",
+          "actionIntent": "update",
+          "values": {
+            "path_id": "QA-BANLE-02",
+            "location": "140 Đường Kiểm Thử"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "Cập nhật địa điểm",
+              "requirement": "Cập nhật địa điểm của dự án",
+              "mappedTo": [
+                "action",
+                "values.location"
+              ]
+            },
+            {
+              "evidence": "dự án QA-BANLE-02",
+              "requirement": "Chọn dự án theo mã QA-BANLE-02",
+              "mappedTo": [
+                "values.path_id"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L06",
+        "stage": "interpretation",
+        "bytes": 1909756,
+        "sha256": "67241830198ba7730a5af5c9ba01c539309d6833c0054a5914cc8d8ef69cab82",
+        "reservedUSD": 0.3854328000000001,
+        "status": 200,
+        "elapsedMs": 3864,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 389332,
+          "completion_tokens": 196,
+          "total_tokens": 389528,
+          "cost": 0.0780134,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0780134,
+            "upstream_inference_prompt_cost": 0.0778664,
+            "upstream_inference_completions_cost": 0.000147
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 135,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "ambiguous",
+          "actionId": null,
+          "values": {},
+          "requestCoverage": [],
+          "actionIntent": "update",
+          "clarification": "Dự án QA-BANLE-02 thuộc dự án nội bộ Nhân sự hay dự án lao động?"
+        }
+      },
+      {
+        "caseId": "L07",
+        "stage": "discovery",
+        "bytes": 7275,
+        "sha256": "d20b7978703103b32128abbda914c376ca805e8c330a69021df797aa1bbcaf84",
+        "reservedUSD": 0.0049366,
+        "status": 200,
+        "elapsedMs": 3615,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1502,
+          "completion_tokens": 199,
+          "total_tokens": 1701,
+          "cost": 0.0002497,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0002497,
+            "upstream_inference_prompt_cost": 0.0001502,
+            "upstream_inference_completions_cost": 0.0000995
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 182,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "hr",
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L07",
+        "stage": "function-selection",
+        "bytes": 14855,
+        "sha256": "f1f392a7676dd5c26e858172f7231def149c3a08da5d4e0af061a8787655cdd2",
+        "reservedUSD": 0.0064526,
+        "status": 200,
+        "elapsedMs": 1939,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 2922,
+          "completion_tokens": 61,
+          "total_tokens": 2983,
+          "cost": 0.0003227,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0003227,
+            "upstream_inference_prompt_cost": 0.0002922,
+            "upstream_inference_completions_cost": 0.0000305
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 33,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:project"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L07",
+        "stage": "interpretation",
+        "bytes": 49362,
+        "sha256": "20fd72fa1bfe9327ad0f8bea1ed585e53d91eebfd46ff48d90fd6cf5f131e4c0",
+        "reservedUSD": 0.013354000000000001,
+        "status": 200,
+        "elapsedMs": 2665,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 10232,
+          "completion_tokens": 227,
+          "total_tokens": 10459,
+          "cost": 0.0011367,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0011367,
+            "upstream_inference_prompt_cost": 0.0010232,
+            "upstream_inference_completions_cost": 0.0001135
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 98,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.project.worker.remove",
+          "actionIntent": "delete",
+          "values": {
+            "path_id": "QA-LAB-03",
+            "path_workerId": "LAO-DONG-MAU-06"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "xóa nhân sự LAO-DONG-MAU-06 khỏi dự án QA-LAB-03",
+              "requirement": "Gỡ lao động LAO-DONG-MAU-06 khỏi dự án QA-LAB-03, không xóa hồ sơ lao động.",
+              "mappedTo": [
+                "action",
+                "values.path_id",
+                "values.path_workerId"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L08",
+        "stage": "discovery",
+        "bytes": 7265,
+        "sha256": "6ed188e62e38cf374073ffbe3ea9b0e2bb5e6a59491c7f6d0eaa777f264e903e",
+        "reservedUSD": 0.0049346,
+        "status": 200,
+        "elapsedMs": 2155,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1491,
+          "completion_tokens": 49,
+          "total_tokens": 1540,
+          "cost": 0.0001736,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001736,
+            "upstream_inference_prompt_cost": 0.0001491,
+            "upstream_inference_completions_cost": 0.0000245
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 34,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "modules": [
+            "worker"
+          ]
+        }
+      },
+      {
+        "caseId": "L08",
+        "stage": "function-selection",
+        "bytes": 6099,
+        "sha256": "fc03565024691e5102e6629feafdcf0205253ed7d910994136a921601d51b597",
+        "reservedUSD": 0.0047014000000000005,
+        "status": 200,
+        "elapsedMs": 2640,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 1151,
+          "completion_tokens": 95,
+          "total_tokens": 1246,
+          "cost": 0.0001626,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0001626,
+            "upstream_inference_prompt_cost": 0.0001151,
+            "upstream_inference_completions_cost": 0.0000475
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 67,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "featureKeys": [
+            "worker:reports"
+          ],
+          "ambiguous": false,
+          "clarification": ""
+        }
+      },
+      {
+        "caseId": "L08",
+        "stage": "interpretation",
+        "bytes": 37153,
+        "sha256": "2aa30a4b00c9233a36973077d488a29eb8c4d935c8cdc51c9114cec6feae9c44",
+        "reservedUSD": 0.0109122,
+        "status": 200,
+        "elapsedMs": 3089,
+        "model": "openai/gpt-6-luna",
+        "provider": "OpenAI",
+        "usage": {
+          "prompt_tokens": 7723,
+          "completion_tokens": 250,
+          "total_tokens": 7973,
+          "cost": 0.0008973,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.0008973,
+            "upstream_inference_prompt_cost": 0.0007723,
+            "upstream_inference_completions_cost": 0.000125
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 174,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "finishReason": "stop",
+        "output": {
+          "intentType": "workflow",
+          "actionId": "worker.report",
+          "actionIntent": "report",
+          "values": {
+            "mode": "shortage"
+          },
+          "requestCoverage": [
+            {
+              "evidence": "những dự án nào đang thiếu lao động",
+              "requirement": "Báo cáo các dự án đang thiếu lao động.",
+              "mappedTo": [
+                "action",
+                "values.mode"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "caseId": "L09",
+        "stage": "discovery",
+        "bytes": 7279,
+        "sha256": "6a1b0424f8d28f9fe2d0422b849cc6d6d5adee554a4a43d25119e469693e30c2",
+        "reservedUSD": 0.0049374
+      }
+    ]
+  },
+  "business": [
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-01",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-02",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-03",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-04",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-05",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-01",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-02",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-03",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-04",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-05",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L01",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-KHO-01",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L03",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "all",
+        "projectId": "0000000000000000000000c9",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/worker-management/projects",
+      "query": {
+        "search": "QA-LAB-03",
+        "page": "1",
+        "limit": "100",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/worker-management/workers",
+      "query": {
+        "search": "LAO-DONG-MAU-06",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    },
+    {
+      "caseId": "L07",
+      "method": "GET",
+      "path": "/api/v1/auth/branches",
+      "query": {
+        "search": "",
+        "companyCode": "QA",
+        "limit": "100",
+        "page": "1"
+      }
+    },
+    {
+      "caseId": "L08",
+      "method": "GET",
+      "path": "/api/v1/worker-management/reports/assistant",
+      "query": {
+        "mode": "shortage",
+        "branchId": "64b000000000000000000001",
+        "companyCode": "QA"
+      }
+    }
+  ],
+  "forbiddenBusinessWrites": [],
+  "violations": []
+}

@@ -1009,10 +1009,10 @@ export default function CalendarTab({
 
                               const badgeColor =
                                 cell.status === "Present" || cell.status === "Half-Day" || cell.status?.startsWith("Approved")
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                  ? "bg-[#5CB85C] text-white"
                                   : cell.status === "Late" || cell.status === "Left-Early"
-                                    ? "bg-amber-50 text-amber-700 border-amber-100"
-                                    : "bg-rose-50 text-rose-700 border-rose-100";
+                                    ? "bg-[#F0AD4E] text-white"
+                                    : "bg-[#E06666] text-white";
 
                               return (
                                 <div
@@ -1026,7 +1026,7 @@ export default function CalendarTab({
                                     <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-700">
                                       <span>Ngày {day} ({dowLabel})</span>
                                       {cell.status && (
-                                        <span className={`text-[8px] px-1.5 py-0.5 rounded-md border uppercase tracking-wider font-bold ${badgeColor}`}>
+                                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${badgeColor}`}>
                                           {getStatusShort(cell.status)}
                                         </span>
                                       )}
@@ -1619,10 +1619,10 @@ export default function CalendarTab({
                             </span>
                           )}
                           {["leave", "wfh", "exception"].includes(item.type) && (
-                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-normal   ${
+                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
                               item.status === "approved"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : "bg-amber-50 text-amber-700 border border-amber-100"
+                                ? "bg-[#5CB85C] text-white"
+                                : "bg-[#F0AD4E] text-white"
                             }`}>
                               {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
                             </span>
@@ -1770,14 +1770,14 @@ export default function CalendarTab({
                 .map((item) => {
                   const badgeColor =
                     item.type === "leave"
-                      ? "bg-rose-50 text-rose-700 border-rose-100"
+                      ? "bg-[#E06666] text-white"
                       : item.type === "wfh"
-                        ? "bg-teal-50 text-teal-700 border-teal-100"
+                        ? "bg-[#5CB85C] text-white"
                         : item.type === "exception"
-                          ? "bg-violet-50 text-violet-700 border-violet-100"
+                          ? "bg-[#8E6CEF] text-white"
                           : item.type === "reminder"
-                            ? "bg-amber-50 text-amber-700 border-amber-100"
-                            : "bg-blue-50 text-blue-700 border-blue-100";
+                            ? "bg-[#F0AD4E] text-white"
+                            : "bg-[#D9EDF7] text-[#286090]";
 
                   const typeLabel =
                     item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện";
@@ -1788,7 +1788,7 @@ export default function CalendarTab({
                       className="flex flex-col gap-2 rounded-xl border border-[#E7EEF6] bg-white p-3.5 transition-colors hover:border-[#B8DFF3] hover:bg-[#FBFDFF]"
                     >
                       <div className="flex justify-between items-start">
-                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-normal ${badgeColor}`}>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${badgeColor}`}>
                           {typeLabel}
                         </span>
                       </div>
@@ -1812,9 +1812,9 @@ export default function CalendarTab({
                           </span>
                         )}
                         {["leave", "wfh", "exception"].includes(item.type) && (
-                          <span className={`rounded-full px-2.5 py-1 text-[10px] ${item.status === "approved"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-amber-50 text-amber-700"
+                          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${item.status === "approved"
+                              ? "bg-[#5CB85C] text-white"
+                              : "bg-[#F0AD4E] text-white"
                             }`}>
                             {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
                           </span>

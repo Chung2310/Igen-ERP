@@ -103,7 +103,7 @@ function HeadcountChart({ current, departments, loading, enterpriseCount, branch
     {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ quy mô nhân sự" />
       : !current || !rows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có dữ liệu phòng ban. Mở Sơ đồ tổ chức để xem nhân sự.</p>
         : <div className="min-w-0" role="img" aria-label={`Cơ cấu nhân sự theo phòng ban, tổng ${numberText(current)} người: ${rows.map(row => `${row.name} ${numberText(row.value)} người, ${percent(row.value)}`).join("; ")}`}>
-          <div className="relative h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="value" nameKey="name" innerRadius={39} outerRadius={62} paddingAngle={1} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name), share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{rows.map((row, index) => <Cell key={`${row.name}-${index}`} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người · ${percent(value)}` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{numberText(current)}</strong><span className="text-xs text-on-surface-variant">nhân sự</span></span></div>
+          <div className="relative h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="value" nameKey="name" innerRadius={42} outerRadius={62} paddingAngle={1} stroke="var(--color-surface-container-lowest)" strokeWidth={2} labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name), share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{rows.map((row, index) => <Cell key={`${row.name}-${index}`} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người · ${percent(value)}` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{numberText(current)}</strong><span className="text-xs text-on-surface-variant">nhân sự</span></span></div>
         </div>}
     <p className="mt-3 border-t border-outline-variant pt-2 text-pretty text-xs text-on-surface-variant">Tổng số nhân sự doanh nghiệp: <strong className="tabular-nums text-on-surface">{numberText(enterpriseCount, loading)}</strong>{hasActiveBranch && <> · {branchName}: <strong className="tabular-nums text-on-surface">{numberText(branchEmployeeCount, loading)}</strong></>}</p>
   </Card>;
@@ -123,7 +123,7 @@ function PayrollDepartmentChart({ rows, loading }: { rows: DepartmentPayrollRow[
       : !rows ? <p role="status" className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Không tải được dữ liệu lương nhân sự.</p>
         : !rows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có nhân sự để thống kê lương.</p>
           : <div role="img" aria-label={`Cơ cấu quỹ lương theo phòng ban: ${rows.map(row => `${row.name} ${money(row.total)}`).join("; ")}`}>
-              {total > 0 ? <div className="h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieRows.filter(row => row.total > 0)} dataKey="total" nameKey="name" innerRadius={39} outerRadius={62} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name), share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{pieRows.filter(row => row.total > 0).map((row, index) => <Cell key={row.name} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? money(value) : value} /></PieChart></ResponsiveContainer></OverviewChartViewport></div>
+              {total > 0 ? <div className="h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieRows.filter(row => row.total > 0)} dataKey="total" nameKey="name" innerRadius={42} outerRadius={62} paddingAngle={1} stroke="var(--color-surface-container-lowest)" strokeWidth={2} labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name), share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{pieRows.filter(row => row.total > 0).map((row, index) => <Cell key={row.name} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? money(value) : value} /></PieChart></ResponsiveContainer></OverviewChartViewport></div>
                 : <p className="rounded-md bg-surface-container-low px-3 py-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có mức lương được cập nhật.</p>}
             </div>}
   </section>;
@@ -150,57 +150,71 @@ function TaskChart({ summary, previous, loading }: { summary: DashboardSummary |
   const tasks = summary?.projects.tasks;
   const total = tasks?.total ?? 0;
   const segments = [
-    { label: "Hoàn thành", count: tasks?.done ?? 0, color: "#18B777", dot: "bg-emerald-500" },
-    { label: "Đang thực hiện", count: tasks?.doing ?? 0, color: "#00ADFC", dot: "bg-sky-500" },
-    { label: "Chưa bắt đầu", count: tasks?.todo ?? 0, color: "#9FB0C4", dot: "bg-slate-400" },
+    { name: "Hoàn thành", value: tasks?.done ?? 0, color: "var(--hr-analytics-teal)" },
+    { name: "Đang thực hiện", value: tasks?.doing ?? 0, color: "var(--hr-analytics-blue)" },
+    { name: "Chưa bắt đầu", value: tasks?.todo ?? 0, color: "var(--hr-analytics-orange)" },
   ];
-  const radius = 67;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
-  const arcs = segments.map((segment) => {
-    const length = total ? (segment.count / total) * circumference : 0;
-    const arc = { ...segment, length, offset };
-    offset += length;
-    return arc;
-  });
-  const completedPercent = total ? Math.round((segments[0].count / total) * 100) : 0;
+  const activeSlices = segments.filter((segment) => segment.value > 0);
+  const completedPercent = total ? Math.round((segments[0].value / total) * 100) : 0;
 
   return (
-    <Card className="flex h-full min-w-0 flex-col p-5 sm:p-6">
+    <Card className="hr-analytics flex h-full min-w-0 flex-col p-5 sm:p-6">
       <PanelHeader title="Tiến độ công việc" badge={`${numberText(total, loading)} việc`} />
       <OverviewChartSummary value={loading ? null : tasks?.total} previous={previous?.projects.tasks.total} metricLabel="Công việc trong kỳ" onDetails={() => openHrTab("kanban")} />
       <div className="flex flex-1 flex-col items-center justify-center gap-5 py-5 sm:flex-row sm:gap-7">
         <div
-          className="relative h-44 w-44 shrink-0"
+          className="relative size-44 shrink-0"
           role="img"
-          aria-label={loading || !summary ? "Đang tải biểu đồ công việc" : `Công việc: ${segments.map((item) => `${item.label} ${item.count}`).join(", ")}`}
+          aria-label={loading || !summary ? "Đang tải biểu đồ công việc" : `Công việc: ${segments.map((item) => `${item.name} ${item.value}`).join(", ")}`}
         >
-          <OverviewChartViewport><motion.div className="h-full w-full"
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.65, ease: "easeOut" }}><svg viewBox="0 0 176 176" className="h-full w-full -rotate-90" aria-hidden="true">
-            <circle cx="88" cy="88" r={radius} fill="none" stroke="var(--color-outline-variant)" strokeWidth="15" />
-            {arcs.map((arc) => arc.length > 0 && (
-              <motion.circle key={arc.label} cx="88" cy="88" r={radius} fill="none" stroke={arc.color} strokeWidth="15" strokeLinecap="round"
-                initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}
-                strokeDasharray={`${Math.max(0, arc.length - 4)} ${circumference}`}
-                strokeDashoffset={-arc.offset} />
-            ))}
-          </svg></motion.div></OverviewChartViewport>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <OverviewChartViewport>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={activeSlices.length ? activeSlices : [{ name: "Chưa có việc", value: 1, color: "var(--color-outline-variant)" }]}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="62%"
+                  outerRadius="84%"
+                  paddingAngle={activeSlices.length > 1 ? 1 : 0}
+                  stroke="var(--color-surface-container-lowest)"
+                  strokeWidth={2}
+                  isAnimationActive={!reduceMotion}
+                  animationDuration={700}
+                >
+                  {(activeSlices.length ? activeSlices : [{ name: "Chưa có việc", value: 1, color: "var(--color-outline-variant)" }]).map((slice) => (
+                    <Cell key={slice.name} fill={slice.color} />
+                  ))}
+                </Pie>
+                {activeSlices.length > 0 && (
+                  <Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} việc` : value} />
+                )}
+              </PieChart>
+            </ResponsiveContainer>
+          </OverviewChartViewport>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-3xl font-semibold tabular-nums text-on-surface">{loading || !summary ? "—" : total ? `${completedPercent}%` : "0"}</span>
             <span className="mt-1 text-xs text-on-surface-variant">{total ? "hoàn thành" : "chưa có việc"}</span>
           </div>
         </div>
         <div className="w-full max-w-72 divide-y divide-outline-variant">
           {segments.map((segment) => (
-            <div key={segment.label} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-              <span className="flex items-center gap-2 text-on-surface-variant"><span className={`size-2.5 rounded-full ${segment.dot}`} />{segment.label}</span>
-              <span className="font-semibold tabular-nums text-on-surface">{numberText(segment.count, loading)}</span>
+            <div key={segment.name} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+              <span className="flex items-center gap-2 text-on-surface-variant">
+                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: segment.color }} />
+                {segment.name}
+              </span>
+              <span className="font-semibold tabular-nums text-on-surface">{numberText(segment.value, loading)}</span>
             </div>
           ))}
           <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
-            <span className="flex items-center gap-2 text-on-surface-variant"><span className="size-2.5 rounded-full bg-error" />Quá hạn</span>
-            <span className="font-semibold tabular-nums text-rose-600">{numberText(summary?.projects.overdueTasks, loading)}</span>
+            <span className="flex items-center gap-2 text-on-surface-variant">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: "var(--hr-analytics-red)" }} />
+              Quá hạn
+            </span>
+            <span className="font-semibold tabular-nums" style={{ color: "var(--hr-analytics-red)" }}>{numberText(summary?.projects.overdueTasks, loading)}</span>
           </div>
         </div>
       </div>
@@ -348,7 +362,7 @@ export function HrOverviewDashboard({
         {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ hợp đồng" />
           : !personnel || !contractTotal ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có dữ liệu hợp đồng. Mở Chi tiết để kiểm tra.</p>
             : <div className="min-w-0" role="img" aria-label={`Tỷ lệ có hợp đồng hiệu lực ${contractCoverage}%. ${contractRows.map(row => `${row.name}: ${numberText(row.value)} người`).join("; ")}`}>
-              <div className="relative h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={contractRows.filter(row => row.value > 0)} dataKey="value" nameKey="name" innerRadius={39} outerRadius={62} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name).startsWith("Có") ? "Có HĐ" : "Chưa HĐ", share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{contractRows.filter(row => row.value > 0).map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{contractCoverage}%</strong><span className="text-xs text-on-surface-variant">có hợp đồng</span></span></div>
+              <div className="relative h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={contractRows.filter(row => row.value > 0)} dataKey="value" nameKey="name" innerRadius={42} outerRadius={62} paddingAngle={1} stroke="var(--color-surface-container-lowest)" strokeWidth={2} labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name).startsWith("Có") ? "Có HĐ" : "Chưa HĐ", share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{contractRows.filter(row => row.value > 0).map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{contractCoverage}%</strong><span className="text-xs text-on-surface-variant">có hợp đồng</span></span></div>
             </div>}
         {!loading && personnel && <p className="border-t border-outline-variant pt-2 text-pretty text-xs tabular-nums text-on-surface-variant">Sắp hết hạn: {numberText(personnel.expiringContractCount)} · Gia hạn trong kỳ: {numberText(personnel.renewedEmployeeCount)}</p>}
       </section>

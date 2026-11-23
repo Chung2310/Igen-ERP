@@ -1,4 +1,5 @@
 import { validateStructuredField } from "./structured-data";
+import { isValidEmailAddress } from "../validation/email-policy";
 import type { AssistantField, AssistantValue, AssistantWorkflow, AssistantWorkflowUpdate } from "../../src/shared/assistant-workflow";
 import { defaultWorkflow, operationById, type AssistantOperation } from "./catalog";
 export class AssistantError extends Error {
@@ -35,7 +36,7 @@ export function validateField(field: AssistantField, value: unknown): AssistantV
   const str = String(normalized);
   if (field.type === "number" && field.exclusiveMin && typeof normalized === "number" && normalized <= (field.min ?? -Infinity)) throw new AssistantError(`${field.label}: must be greater than ${field.min ?? 0}.`);
   if (field.pattern && (typeof normalized !== "string" || !new RegExp(field.pattern).test(str))) throw new AssistantError(`${field.label}: định dạng không hợp lệ.`);
-  if (field.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) throw new AssistantError(`${field.label}: email không hợp lệ.`);
+  if (field.type === "email" && !isValidEmailAddress(str)) throw new AssistantError(`${field.label}: email không hợp lệ.`);
   if (field.type === "phone" && !/^(?:0|\+84|84)[0-9]{9}$/.test(str)) throw new AssistantError(`${field.label}: dùng số điện thoại Việt Nam, ví dụ 0987654321.`);
   if (field.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(str) || !Number.isFinite(Date.parse(str)) || new Date(str).toISOString().slice(0, 10) !== str)) throw new AssistantError(`${field.label}: dùng ngày có thực theo định dạng YYYY-MM-DD.`);
   if (field.type === "datetime") {

@@ -4,7 +4,7 @@ import { formatAssistantResultTable } from "../../src/shared/assistant-result-ta
 export interface AnalysisContract {
   scopeLabel?: string;
   pagination?: { pageField: string; sizeField: string };
-  fields: Record<string, { label: string; type: "number" | "text"; values?: Record<string, string>; aliases?: string[] }>;
+  fields: Record<string, { label: string; type: "number" | "text"; values?: Record<string, string>; aliases?: string[]; valueAliases?: Record<string,string[]> }>;
 }
 export async function collectAnalysisPages(contract: AnalysisContract, values: Record<string, any>, dispatch: (values: Record<string, any>) => Promise<any>) {
   if (!contract.pagination) return dispatch(values);
@@ -38,6 +38,26 @@ export interface ListAnalysis {
   aggregate?: { operation: "count" | "sum" | "avg"; field?: string };
 }
 const normalizeAnalysisText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+
+/** Bind explicit state phrases to reviewed enum values; never infer arbitrary filters. */
+export function reconcileRequestedValueFilters(text: string, contract: AnalysisContract, raw: unknown):
+  | {kind:'none'} | {kind:'resolved';analysis:ListAnalysis} | {kind:'clarify';question:string} {
+  const phrase = ` ${normalizeAnalysisText(text).replace(/[^a-z0-9]+/g,' ').trim()} `;
+  const literal = (value:string) => ` ${value.normalize('NFC').toLocaleLowerCase('vi').replace(/[^\p{L}\p{N}]+/gu,' ').trim()} `;
+  const requested: Array<{field:string;operator:'eq';value:string}> = [];
+  for (const [field, definition] of Object.entries(contract.fields)) {
+    const options = Object.entries(definition.valueAliases || {}).filter(([value])=>definition.values && Object.hasOwn(definition.values,value));
+    const exact = options.filter(([,aliases])=>aliases.some(alias=>literal(text).includes(literal(alias))));
+    const matches = exact.length ? exact : options.filter(([,aliases])=>aliases.some(alias => phrase.includes(` ${normalizeAnalysisText(alias)} `)));
+    if (!matches.length) continue;
+    const negated = matches.some(([,aliases]) => aliases.some(alias => ['khong','khong phai','khong con','khong he'].some(prefix => phrase.includes(` ${prefix} ${normalizeAnalysisText(alias)} `))));
+    if (matches.length!==1 || negated) return {kind:'clarify',question:`Bạn muốn lọc ${definition.label.toLocaleLowerCase('vi')} theo trạng thái nào?`};
+    requested.push({field,operator:'eq',value:matches[0][0]});
+  }
+  if (!requested.length) return {kind:'none'};
+  const plan = validateListAnalysis(raw, contract);
+  return {kind:'resolved',analysis:{...plan,filters:[...(plan.filters || []).filter(filter=>!requested.some(item=>item.field===filter.field)),...requested]}};
+}
 
 /** Recover an explicitly requested ranking when the model omitted or mismapped
  * its analysis plan. Ambiguous ranking metrics are returned as a question so no

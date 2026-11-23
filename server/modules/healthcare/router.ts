@@ -8,8 +8,9 @@ import { NotFoundError, PayloadTooLargeError, ValidationError } from "../../erro
 import { appointmentStatuses, careStatuses, visitStatuses, type HealthcareList, type HealthcareOverview, type HealthcarePatientList, type ImportKind, type ImportRowStatus } from "../../../shared/healthcare";
 import { getImportJob, importHistory, importTemplate, listImportRows, queueImportCommit, queueImportFile, retryImportJob } from "./imports";
 import { calendarDay, dateRangeFilter, dayBounds, healthcareScope, healthcareStaff, listFilter, prepareAppointment, prepareCare, prepareVisit } from "./operations";
+import { buildHealthcareOverviewAnalytics } from "./overview-analytics";
 import { createGeneratedPatient, createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor, type StoredAppointment } from "./store";
-import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, patientCreateInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
+import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, overviewInput, patientCreateInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
 
 export const healthcareRouter = Router();
 healthcareRouter.use(requirePermission("healthcare:read") as RequestHandler);
@@ -40,7 +41,7 @@ async function withPatients<T extends { patientId: string }>(
 healthcareRouter.get("/overview", route(async (req, res, db, actor) => {
   const today = calendarDay();
   const { start, end } = dayBounds(today);
-  const query = input(listInput, req.query);
+  const query = input(overviewInput, req.query);
   const scope = scopeFilter(actor);
   const visits = listFilter(query, "visitedOn", visitStatuses);
   const range = query.from || query.to ? visits : { visitedOn: today };
@@ -50,7 +51,7 @@ healthcareRouter.get("/overview", route(async (req, res, db, actor) => {
   const careFilter = { ...scope, dueOn: { $lte: today }, status: { $in: ["open", "in_progress"] } } as const;
   const grants = await getEffectivePermissions(actor.actorId, req.user!.role, actor.companyCode);
   const can = (area: string) => hasAnyPermission(grants, [`healthcare-${area}:read`]);
-  const [patients, visitCount, appointmentCount, careCount, todayAppointments, dueCare] = await Promise.all([
+  const [patients, visitCount, appointmentCount, careCount, todayAppointments, dueCare, analytics] = await Promise.all([
     records(db, "patients").countDocuments(scope),
     can("visits") ? records(db, "visits").countDocuments({ ...scope, ...range }) : null,
     can("appointments") ? records(db, "appointments").countDocuments(appointmentFilter) : null,
@@ -61,10 +62,21 @@ healthcareRouter.get("/overview", route(async (req, res, db, actor) => {
     can("care") ? records(db, "care").find(careFilter)
       .project<HealthcareOverview["dueCare"][number]>({ _id: 1, patientId: 1, dueOn: 1, title: 1 })
       .sort({ dueOn: 1 }).limit(8).toArray() : [],
+    buildHealthcareOverviewAnalytics(db, actor, {
+      today,
+      from: query.from,
+      to: query.to,
+      previousFrom: query.previousFrom,
+      previousTo: query.previousTo,
+      canVisits: can("visits"),
+      canAppointments: can("appointments"),
+      canCare: can("care"),
+    }),
   ]);
   const result: HealthcareOverview = {
     today, patients, visitCount, appointmentCount, careCount, todayAppointments, dueCare,
     patientReferences: await patientReferences(db, actor, [...todayAppointments, ...dueCare]),
+    analytics,
   };
   res.json(result);
 }));

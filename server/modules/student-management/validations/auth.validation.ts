@@ -1,7 +1,8 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../../../shared/email-policy";
 import Joi from "joi";
 
 export const registerSchema = Joi.object({
-  email: Joi.string().email().required().messages({
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).required().messages({
     "string.email": "Định dạng email không hợp lệ.",
     "any.required": "Email là bắt buộc.",
     "string.empty": "Email không được để trống.",
@@ -19,7 +20,7 @@ export const registerSchema = Joi.object({
 });
 
 export const createManagedUserSchema = Joi.object({
-  email: Joi.string().email().required().messages({
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).required().messages({
     "string.email": "Định dạng email không hợp lệ.",
     "any.required": "Email là bắt buộc.",
     "string.empty": "Email không được để trống.",
@@ -47,7 +48,7 @@ export const createManagedUserSchema = Joi.object({
 });
 
 export const loginSchema = Joi.object({
-  email: Joi.string().email().required().messages({
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).required().messages({
     "string.email": "Định dạng email không hợp lệ.",
     "any.required": "Email là bắt buộc.",
     "string.empty": "Email không được để trống.",

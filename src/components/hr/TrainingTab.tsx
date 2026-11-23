@@ -917,7 +917,7 @@ export default function TrainingTab({
                     <div className="flex min-w-0 flex-1 flex-col p-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface" title={course.title}>{course.title}</h3>
-                      <span className="max-w-24 shrink-0 truncate rounded-full bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary" title={category}>{category}</span>
+                      <span className="max-w-24 shrink-0 truncate rounded-full bg-[#D9EDF7] px-2.5 py-0.5 text-[11px] font-semibold text-[#286090]" title={category}>{category}</span>
                     </div>
                     <div className="mt-2 flex min-w-0 items-center gap-3 text-xs text-on-surface-variant">
                       {createdAtLabel && <span className="inline-flex shrink-0 items-center gap-1 tabular-nums"><CalendarDays className="size-3.5" aria-hidden="true" />{createdAtLabel}</span>}
@@ -925,8 +925,8 @@ export default function TrainingTab({
                     </div>
                     {(course.isRequired || additionalTags.length > 0) && (
                       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
-                        {course.isRequired && <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant">Bắt buộc</span>}
-                        {additionalTags.slice(0, 2).map((tag) => <span key={tag} className="max-w-20 truncate rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant" title={tag}>{tag}</span>)}
+                        {course.isRequired && <span className="rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold text-white">Bắt buộc</span>}
+                        {additionalTags.slice(0, 2).map((tag) => <span key={tag} className="max-w-20 truncate rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium text-[#555555]" title={tag}>{tag}</span>)}
                         {additionalTags.length > 2 && <span className="text-[11px] text-on-surface-variant tabular-nums">+{additionalTags.length - 2}</span>}
                       </div>
                     )}

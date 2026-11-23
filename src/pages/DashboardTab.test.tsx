@@ -215,7 +215,7 @@ describe("DashboardTab consolidated hub", () => {
     fireEvent.click(gymTab);
     expect(
       await screen.findByText(
-        "Bảng điều khiển Huấn luyện viên",
+        "Tình hình Phòng Gym",
         {},
         { timeout: 10000 },
       ),

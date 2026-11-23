@@ -99,6 +99,81 @@ export type HealthcareList<T> = { items: T[]; total: number; page: number; pageS
 export type HealthcareStaff = { _id: string; name: string };
 export type PatientReference = Pick<Patient, "_id" | "code" | "name"> & Partial<Pick<Patient, "phone">>;
 export type HealthcarePatientList<T> = HealthcareList<T> & { patientReferences: PatientReference[] };
+export type HealthcareNamedValue = { name: string; value: number; amount?: number };
+
+export type HealthcareOverviewAnalytics = {
+  newPatientsInPeriod: number;
+  previousPatientsInPeriod: number;
+  uniquePatientsVisited: number;
+  previousUniquePatientsVisited: number | null;
+  patientsByGender: HealthcareNamedValue[];
+  patientsByAgeGroup: HealthcareNamedValue[];
+  patientVisitType: HealthcareNamedValue[];
+  previousVisitCount: number | null;
+  visitsInPeriodByStatus: HealthcareNamedValue[];
+  visitTrend: Array<{
+    label: string;
+    visits: number;
+    appointments: number;
+    newPatients: number;
+    visitPayment: number;
+  }>;
+  visitsByDoctor: HealthcareNamedValue[];
+  visitsByDepartment: HealthcareNamedValue[];
+  visitsByService: HealthcareNamedValue[];
+  visitsByCustomerType: HealthcareNamedValue[];
+  topDiagnoses: HealthcareNamedValue[];
+  appointmentsInPeriod: number;
+  previousAppointmentsInPeriod: number | null;
+  totalPendingAppointments: number;
+  appointmentByStatus: HealthcareNamedValue[];
+  appointmentsByDoctor: HealthcareNamedValue[];
+  careByStatus: HealthcareNamedValue[];
+  careTotal: number;
+  careCompletedCount: number;
+  careCompletionRate: number | null;
+  finance: {
+    visitPaymentTotal: number;
+    previousVisitPaymentTotal: number | null;
+    paidVisitCount: number;
+    unpaidVisitCount: number;
+    averageVisitPayment: number;
+    paymentStatusBreakdown: HealthcareNamedValue[];
+    receiptValue: number;
+    previousReceiptValue: number | null;
+    issueValue: number;
+    previousIssueValue: number | null;
+    receiptCount: number;
+    issueCount: number;
+    stockFlowTrend: Array<{
+      label: string;
+      receiptValue: number;
+      issueValue: number;
+      visitPayment: number;
+    }>;
+  };
+  inventory: {
+    totalItems: number;
+    totalQuantity: number;
+    totalValue: number;
+    inStock: number;
+    lowStock: number;
+    outOfStock: number;
+    expired: number;
+    expiringSoon: number;
+    byCategory: Array<{ name: string; quantity: number; value: number; count: number }>;
+    byWarehouse: Array<{ name: string; quantity: number; value: number }>;
+  };
+  equipment: {
+    total: number;
+    byStatus: HealthcareNamedValue[];
+    byCategory: HealthcareNamedValue[];
+    overdueInspection: number;
+    soonInspection: number;
+    pendingRequests: number;
+  };
+};
+
 export type HealthcareOverview = {
   today: string;
   patients: number;
@@ -108,6 +183,7 @@ export type HealthcareOverview = {
   todayAppointments: Pick<Appointment, "_id" | "patientId" | "scheduledOn" | "startsAt" | "status">[];
   dueCare: Pick<CareTask, "_id" | "patientId" | "dueOn" | "title">[];
   patientReferences: PatientReference[];
+  analytics?: HealthcareOverviewAnalytics;
 };
 
 export type ImportJobStatus = "queued" | "running" | "preview" | "completed" | "failed";

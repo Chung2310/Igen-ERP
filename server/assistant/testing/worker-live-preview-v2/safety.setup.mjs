@@ -1,0 +1,15 @@
+import { vi } from 'vitest';
+import mongoose from 'mongoose';
+import http from 'node:http';
+import https from 'node:https';
+if (process.env.ASSISTANT_WORKER_LIVE_APPROVED !== '1') throw new Error('LIVE_AI_NOT_AUTHORIZED: use the explicit live runner only');
+globalThis.__workerPreviewSafety = { nativeFetch: globalThis.fetch.bind(globalThis), violations: [] };
+const forbidden = kind => () => { globalThis.__workerPreviewSafety.violations.push(kind); throw new Error(`LIVE_PREVIEW_FORBIDDEN:${kind}`); };
+if (process.env.ASSISTANT_WORKER_LIVE_DRY_RUN === '1' || process.env.ASSISTANT_WORKER_LIVE_REPLAY === '1') globalThis.__workerPreviewSafety.nativeFetch = forbidden('offline native fetch');
+vi.stubGlobal('fetch', forbidden('unconfigured fetch'));
+vi.spyOn(mongoose, 'connect').mockImplementation(forbidden('mongoose.connect'));
+vi.spyOn(mongoose, 'createConnection').mockImplementation(forbidden('mongoose.createConnection'));
+vi.spyOn(mongoose.Connection.prototype, 'openUri').mockImplementation(forbidden('mongoose.openUri'));
+for (const method of ['find','findOne','create','updateOne','updateMany','deleteOne','deleteMany','aggregate','countDocuments','bulkWrite']) vi.spyOn(mongoose.Model, method).mockImplementation(forbidden(`mongoose.Model.${method}`));
+for (const [object, label] of [[http, 'http'], [https, 'https']]) for (const method of ['get','request']) vi.spyOn(object, method).mockImplementation(forbidden(`${label}.${method}`));
+vi.mock('../../../infrastructure/rate-limit-redis', async importOriginal => ({ ...await importOriginal(), getRateLimitRedisClient: () => ({ eval: async () => [1, 60000], decr: async () => 0, del: async () => 0 }) }));
