@@ -103,9 +103,9 @@ export default function SupplyDocumentEditor({
     >
       {(error) => (
         <>
-          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
-          <h3 className="mb-4 border-b border-outline-variant pb-3 text-balance text-sm font-semibold text-on-surface">Thông tin chung chứng từ</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5">
+          <h3 className="mb-3 border-b border-outline-variant pb-2 text-sm font-semibold text-on-surface">Thông tin chung chứng từ</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field name="voucherCode" label="Mã phiếu / Lô" value={voucherCode} required error={error} />
             <Field name="voucherDay" label="Ngày chứng từ" type="date" value={voucherDay} required error={error} />
             {!batchType && (
@@ -153,20 +153,26 @@ export default function SupplyDocumentEditor({
             </div>
           </div>
           </section>
-          <section className="space-y-4">
+          <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-balance text-sm font-semibold text-on-surface">Danh sách sản phẩm trong phiếu <span className="text-on-surface-variant">({lines.length} mặt hàng)</span></h3>
-            <button type="button" className={buttonClass} disabled={lines.length >= 100} onClick={() => setLines((v) => [...v, blankLine()])}>Thêm sản phẩm</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="search"
+                name="supply-search"
+                aria-label="Tìm vật tư để thêm vào phiếu"
+                placeholder="Lọc nhanh vật tư..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 w-56 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface outline-none focus:border-primary"
+              />
+              <button type="button" className={buttonClass} disabled={lines.length >= 100} onClick={() => setLines((v) => [...v, blankLine()])}>+ Thêm sản phẩm</button>
+            </div>
           </div>
-          <Field
-            name="supply-search"
-            label="Tìm vật tư để thêm vào phiếu"
-            onChange={(e) => setSearch(e.target.value)}
-          />
           <Feedback loading={supplies.loading} error={supplies.error} onRetry={supplies.refresh} />
           {lines.map((line, index) => (
-            <fieldset key={index} className="grid min-w-0 gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
-              <legend className="px-1 text-sm font-semibold text-on-surface">Vật tư {index + 1}</legend>
+            <fieldset key={index} className="grid min-w-0 gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <legend className="px-1 text-xs font-semibold text-on-surface-variant">Vật tư {index + 1}</legend>
               <div className="min-w-0 sm:col-span-2 lg:col-span-3">
               <Field
                 name={`line-${index}-supply`}
@@ -186,8 +192,8 @@ export default function SupplyDocumentEditor({
                 }}
               />
               </div>
-              <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3 text-sm">
-                <span className="block text-xs text-on-surface-variant">{type === "issue" ? "Tồn khả dụng" : "Tồn kho hiện có"}</span>
+              <div className="flex flex-col justify-center rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-sm">
+                <span className="text-xs text-on-surface-variant">{type === "issue" ? "Tồn khả dụng" : "Tồn kho hiện có"}</span>
                 <strong className="tabular-nums text-on-surface">{(supplyById[line.supplyId]?.quantity || 0).toLocaleString("vi-VN")} {supplyById[line.supplyId]?.unit || ""}</strong>
               </div>
               <LineOptions
@@ -239,23 +245,26 @@ export default function SupplyDocumentEditor({
                 value={String(line.quantity ? Math.round(line.value / line.quantity) : 0)}
                 onChange={(e) => patch(index, { value: Math.round(Number(e.target.value) * line.quantity) })}
               />
-              <div className="flex items-end justify-between gap-3 border-t border-outline-variant pt-3 sm:col-span-2 lg:col-span-4">
-                <span className="text-sm text-on-surface-variant">Thành tiền</span>
-                <strong className="tabular-nums text-on-surface">{Number(line.value || 0).toLocaleString("vi-VN")} đ</strong>
-              </div>
               </>}
-              <button
-                type="button"
-                className={cn(buttonClass, "sm:col-span-2 lg:col-span-4 lg:justify-self-end")}
-                disabled={lines.length === 1}
-                onClick={() => setLines((v) => v.filter((_, i) => i !== index))}
-              >
-                Xóa vật tư dòng {index + 1}
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-2.5 sm:col-span-2 lg:col-span-4">
+                {type !== "issue" ? (
+                  <span className="text-xs text-on-surface-variant">
+                    Thành tiền: <strong className="text-sm tabular-nums text-on-surface">{Number(line.value || 0).toLocaleString("vi-VN")} đ</strong>
+                  </span>
+                ) : <span />}
+                <button
+                  type="button"
+                  className={cn(buttonClass, "!min-h-8 !px-2.5 !py-1 text-xs")}
+                  disabled={lines.length === 1}
+                  onClick={() => setLines((v) => v.filter((_, i) => i !== index))}
+                >
+                  Xóa vật tư dòng {index + 1}
+                </button>
+              </div>
             </fieldset>
           ))}
           </section>
-          <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-xl border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface">
+          <div className="flex flex-wrap gap-x-5 gap-y-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-3.5 py-2.5 text-sm text-on-surface">
             <span>Tổng cộng: <strong className="tabular-nums">{lines.length}</strong> mặt hàng</span>
             <span>Tổng số lượng: <strong className="tabular-nums">{totalQuantity.toLocaleString("vi-VN")}</strong> đơn vị</span>
             {type !== "issue" && <span>Tổng giá trị: <strong className="tabular-nums">{totalValue.toLocaleString("vi-VN")} đ</strong></span>}

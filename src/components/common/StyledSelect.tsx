@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 
 export type StyledSelectOption = {
@@ -23,6 +23,9 @@ type StyledSelectProps = {
   appearance?: "default" | "erp";
   describedBy?: string;
   required?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  onSearchChange?: (query: string) => void;
 };
 
 export function StyledSelect({
@@ -37,21 +40,29 @@ export function StyledSelect({
   menuLabel,
   describedBy,
   required = false,
+  searchable = false,
+  searchPlaceholder = "Tìm kiếm...",
+  onSearchChange,
 }: StyledSelectProps) {
   const [open, setOpen] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  const [search, setSearch] = useState("");
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 280 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const selectedOption = options.find((option) => option.value === value);
+  const visibleOptions = useMemo(() => searchable && search.trim()
+    ? options.filter((option) => option.label.toLocaleLowerCase("vi").includes(search.trim().toLocaleLowerCase("vi")))
+    : options, [options, search, searchable]);
   const showingPlaceholder = !value || !selectedOption;
 
   const updatePosition = useCallback(() => {
     const bounds = triggerRef.current?.getBoundingClientRect();
     if (!bounds) return;
-    const desiredHeight = Math.min(280, options.length * 40 + 12 + (menuLabel ? 28 : 0));
+    const desiredHeight = Math.min(280, visibleOptions.length * 40 + 12 + (menuLabel ? 28 : 0) + (searchable ? 46 : 0));
     const spaceBelow = window.innerHeight - bounds.bottom - 12;
     const spaceAbove = bounds.top - 12;
     const placeAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
@@ -62,7 +73,7 @@ export function StyledSelect({
       width: Math.min(bounds.width, window.innerWidth - 24),
       maxHeight,
     });
-  }, [options.length, menuLabel]);
+  }, [visibleOptions.length, menuLabel, searchable]);
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
@@ -88,9 +99,10 @@ export function StyledSelect({
 
   useEffect(() => {
     if (!open) return;
-    const selectedIndex = options.findIndex((option) => option.value === value && !option.disabled);
-    const firstEnabledIndex = options.findIndex((option) => !option.disabled);
-    optionRefs.current[selectedIndex >= 0 ? selectedIndex : firstEnabledIndex]?.focus();
+    const selectedIndex = visibleOptions.findIndex((option) => option.value === value && !option.disabled);
+    const firstEnabledIndex = visibleOptions.findIndex((option) => !option.disabled);
+    if (searchable) searchRef.current?.focus();
+    else optionRefs.current[selectedIndex >= 0 ? selectedIndex : firstEnabledIndex]?.focus();
     const handleOutside = (event: PointerEvent) => {
       if (!triggerRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -108,15 +120,17 @@ export function StyledSelect({
       document.removeEventListener("pointerdown", handleOutside);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [open, options, value]);
+  }, [open, value, searchable, visibleOptions]);
 
   const closeAndFocus = () => {
     setOpen(false);
+    setSearch("");
+    onSearchChange?.("");
     triggerRef.current?.focus();
   };
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const enabledIndexes = options.flatMap((option, index) => option.disabled ? [] : [index]);
+    const enabledIndexes = visibleOptions.flatMap((option, index) => option.disabled ? [] : [index]);
     if (!enabledIndexes.length) return;
     const current = enabledIndexes.indexOf(optionRefs.current.findIndex((option) => option === document.activeElement));
     let next = current;
@@ -185,7 +199,21 @@ export function StyledSelect({
           style={position}
         >
           {menuLabel && <p role="presentation" className="px-3 py-1.5 text-xs font-medium text-on-surface-variant">{menuLabel}</p>}
-          {options.map((option, index) => {
+          {searchable && <div className="relative border-b border-outline-variant p-1 pb-2">
+            <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-on-surface-variant" aria-hidden="true" />
+            <input
+              ref={searchRef}
+              type="search"
+              aria-label={searchPlaceholder}
+              placeholder={searchPlaceholder}
+              value={search}
+              onChange={(event) => { setSearch(event.target.value); onSearchChange?.(event.target.value); }}
+              onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); optionRefs.current[0]?.focus(); } }}
+              className="w-full rounded-md border border-outline-variant bg-surface-container-lowest py-2 pl-8 pr-2 text-sm text-on-surface outline-none focus:border-primary"
+            />
+          </div>}
+          {visibleOptions.length === 0 && <p className="px-3 py-3 text-sm text-on-surface-variant">Không tìm thấy khách hàng.</p>}
+          {visibleOptions.map((option, index) => {
             const selected = option.value === value;
             return (
               <button

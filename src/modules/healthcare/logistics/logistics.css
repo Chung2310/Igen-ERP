@@ -15,6 +15,29 @@
   text-wrap: pretty;
 }
 
+.healthcare-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline) var(--color-surface-container-low);
+}
+
+.healthcare-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.healthcare-table-scroll::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
+  border-radius: 999px;
+}
+
+.healthcare-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 999px;
+}
+
+.healthcare-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
 /* KPI icon tiles use explicit light/dark scoping on html.dark so OS dark mode
    does not bleed dark-mode backgrounds into light-mode ERP views. */
 .logistics-kpi-icon--primary {

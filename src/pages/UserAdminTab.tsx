@@ -307,6 +307,7 @@ export default function UserAdminTab() {
 
   const getAvailableRoles = () => {
     const defaultRoles = [
+      { role: "pt", displayName: "PT", level: 4 },
       { role: "user", displayName: "USER (Nhân viên)", level: 4 },
       { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4 },
       { role: "pos_cashier", displayName: getRoleDisplayName("pos_cashier"), level: 5 },
@@ -327,7 +328,7 @@ export default function UserAdminTab() {
 
     // Merge with custom roles
     const customRoles = rolePermissionsList
-      .filter(rp => !["user", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
+      .filter(rp => !["user", "pt", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
         displayName: getRoleDisplayName(rp.role, rp.displayName),
@@ -836,11 +837,13 @@ export default function UserAdminTab() {
                     "chat:read",
                     "finance-receivable:read"
                   ],
+                  pt: ["gym:manage"],
                   teacher: ["people:read", "people:manage"],
                   pos_cashier: ["pos:manage"]
                 };
 
                 const defaultRolesList = [
+                  { role: "pt", displayName: "PT", level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.pt },
                   { role: "admin", displayName: getRoleDisplayName("admin"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
                   { role: "manager", displayName: getRoleDisplayName("manager"), level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
                   { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
@@ -849,7 +852,7 @@ export default function UserAdminTab() {
                   { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user", "pos_cashier"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "pt", "user", "pos_cashier"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {

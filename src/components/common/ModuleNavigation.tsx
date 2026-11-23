@@ -131,7 +131,7 @@ export function ModuleNavigation({
       data-collapsed={collapsed}
       style={layout === 'sidebar' ? { '--module-nav-icon-gradient': `url(#${iconGradientId})` } as CSSProperties : undefined}
       className={cn(
-        'flex min-w-0 shrink-0 flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5',
+        'flex min-w-0 shrink-0 flex-col gap-3 border-b border-surface-container-lowest bg-surface-container-lowest px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5',
         className
       )}
     >

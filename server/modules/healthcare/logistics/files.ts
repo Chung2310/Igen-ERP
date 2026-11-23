@@ -22,7 +22,7 @@ import { listSupplies } from "./supply-read";
 export const filesRouter = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 3 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 const columns = {
   equipment: [
@@ -61,15 +61,19 @@ for (const kind of ["equipment", "supplies"] as const) {
     route(async (req, res, db, actor) => {
       const record = await find(db, kind, actor, String(req.params.id));
       const file = req.file;
+      const maxFileSize = kind === "supplies" && req.body?.image === "true"
+        ? 5 * 1024 * 1024
+        : 3 * 1024 * 1024;
       if (
         !file ||
+        file.size > maxFileSize ||
         (req.body?.image !== "true" &&
           req.body?.report !== "true" &&
           record.documents.length >= 30)
       )
         throw new ValidationError(
           "VALIDATION_FAILED",
-          "Chọn tệp tối đa 3 MB, mỗi bản ghi tối đa 30 tài liệu.",
+          `Chọn tệp tối đa ${maxFileSize / (1024 * 1024)} MB, mỗi bản ghi tối đa 30 tài liệu.`,
         );
       const signature = file.buffer.subarray(0, 8).toString("hex");
       const mime = signature.startsWith("25504446")

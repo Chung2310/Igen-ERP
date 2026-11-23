@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { Plus, Settings2, Trash2 } from "lucide-react";
 import type { Supply, LogisticsList } from "../../../../shared/healthcare-logistics";
 import type { HealthcareApi } from "../api";
 import { Field, Table, Cell, Feedback, buttonClass, useHealthcareQuery } from "../ui";
@@ -9,8 +9,7 @@ import { TablePagination } from "../../../components/common/TablePagination";
 import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { LogisticsForm } from "./LogisticsForm";
 
-const surfacePanelClass =
-  "min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4";
+const surfacePanelClass = "flex min-w-0 flex-1 flex-col gap-3";
 
 const rowActionClass =
   "inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
@@ -30,12 +29,6 @@ export default function SupplyProfiles({ api, canManage }: { api: HealthcareApi;
   );
   return (
     <div className={surfacePanelClass}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 data-typography="section-title" className="text-balance text-base font-semibold text-on-surface">
-          Đơn vị quy đổi
-        </h3>
-        <ErpRefreshButton loading={list.refreshing} onClick={list.refresh} />
-      </div>
       <TableFilterToolbar
         appearance="plain"
         search={{
@@ -55,6 +48,7 @@ export default function SupplyProfiles({ api, canManage }: { api: HealthcareApi;
           setQ("");
           setPage(1);
         }}
+        actions={<ErpRefreshButton loading={list.refreshing} onClick={list.refresh} />}
       />
       <Feedback loading={list.loading} error={list.error} onRetry={list.refresh} />
       {list.data && (
@@ -102,16 +96,19 @@ export default function SupplyProfiles({ api, canManage }: { api: HealthcareApi;
               </tr>
             ))}
           </Table>
-          <TablePagination
-            appearance="erp"
-            currentPage={page}
-            totalPages={Math.max(1, Math.ceil(list.data.total / 25))}
-            totalItems={list.data.total}
-            pageSize={25}
-            pageSizeOptions={[25]}
-            onPageChange={setPage}
-            onPageSizeChange={() => {}}
-          />
+          <div className="sticky bottom-0 z-20 -mx-3 -mb-3 mt-auto sm:-mx-4 sm:-mb-4">
+            <TablePagination
+              appearance="erp"
+              className="rounded-b-lg"
+              currentPage={page}
+              totalPages={Math.max(1, Math.ceil(list.data.total / 25))}
+              totalItems={list.data.total}
+              pageSize={25}
+              pageSizeOptions={[25]}
+              onPageChange={setPage}
+              onPageSizeChange={() => {}}
+            />
+          </div>
         </>
       )}
       {record && (
@@ -145,6 +142,7 @@ function ProfileEditor({
   return (
     <LogisticsForm
       title={`Quy đổi · ${record.name}`}
+      maxWidth="max-w-2xl"
       api={api}
       path={`/logistics/profiles/${record._id}`}
       method="PUT"
@@ -160,10 +158,10 @@ function ProfileEditor({
     >
       {(error) => (
         <>
-          <p className="text-sm text-on-surface-variant">
-            Đơn vị cơ sở: <strong className="text-on-surface">{record.unit}</strong>. Cấu hình không được đổi khi vật tư đã có chứng từ.
+          <p className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
+            Đơn vị cơ sở: <strong className="font-semibold text-on-surface">{record.unit}</strong> · Cấu hình không được đổi khi vật tư đã phát sinh chứng từ.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Field
               name="precision"
               label="Số chữ số thập phân"
@@ -192,40 +190,66 @@ function ProfileEditor({
               ]}
             />
           </div>
-          {rows.map((row, index) => (
-            <div key={index} className="grid gap-2 sm:grid-cols-3">
-              <Field
-                name={`unit-${index}`}
-                label={`Đơn vị quy đổi ${index + 1}`}
-                value={row.unit}
-                required
-                onChange={(e) => setRows((v) => v.map((r, i) => (i === index ? { ...r, unit: e.target.value } : r)))}
-              />
-              <Field
-                name={`factor-${index}`}
-                label={`Số ${record.unit} trong 1 đơn vị`}
-                value={row.factor}
-                required
-                inputMode="decimal"
-                onChange={(e) => setRows((v) => v.map((r, i) => (i === index ? { ...r, factor: e.target.value } : r)))}
-              />
+          <section className="space-y-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-2">
+              <h3 className="text-sm font-semibold text-on-surface">
+                Đơn vị quy đổi {rows.length > 0 && <span className="font-normal text-on-surface-variant">({rows.length})</span>}
+              </h3>
               <button
                 type="button"
-                className={buttonClass}
-                onClick={() => setRows((v) => v.filter((_, i) => i !== index))}
+                className={`${buttonClass} !min-h-8 !px-2.5 !py-1 text-xs`}
+                disabled={rows.length >= 20}
+                onClick={() => setRows((v) => [...v, { unit: "", factor: "1" }])}
               >
-                Bỏ đơn vị {index + 1}
+                <Plus className="size-3.5" aria-hidden="true" />
+                Thêm đơn vị quy đổi
               </button>
             </div>
-          ))}
-          <button
-            type="button"
-            className={buttonClass}
-            disabled={rows.length >= 20}
-            onClick={() => setRows((v) => [...v, { unit: "", factor: "1" }])}
-          >
-            Thêm đơn vị quy đổi
-          </button>
+            {rows.length === 0 ? (
+              <p className="py-2 text-xs text-on-surface-variant">
+                Chưa có đơn vị quy đổi (ví dụ: 1 Thùng = 20 {record.unit}). Bấm <strong>Thêm đơn vị quy đổi</strong> để khai báo.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {rows.map((row, index) => (
+                  <div key={index} className="space-y-1">
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2.5">
+                      <Field
+                        name={`unit-${index}`}
+                        label={`Đơn vị quy đổi ${index + 1}`}
+                        placeholder="VD: Hộp, Thùng..."
+                        value={row.unit}
+                        required
+                        onChange={(e) => setRows((v) => v.map((r, i) => (i === index ? { ...r, unit: e.target.value } : r)))}
+                      />
+                      <Field
+                        name={`factor-${index}`}
+                        label={`Số ${record.unit} trong 1 đơn vị`}
+                        value={row.factor}
+                        required
+                        inputMode="decimal"
+                        onChange={(e) => setRows((v) => v.map((r, i) => (i === index ? { ...r, factor: e.target.value } : r)))}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Bỏ đơn vị ${index + 1}`}
+                        title={`Bỏ đơn vị ${index + 1}`}
+                        className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-error/30 bg-surface-container-lowest text-error transition-colors hover:bg-error-container/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        onClick={() => setRows((v) => v.filter((_, i) => i !== index))}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                    {row.unit.trim() && row.factor && (
+                      <p className="text-xs tabular-nums text-on-surface-variant">
+                        1 <strong className="font-medium text-on-surface">{row.unit.trim()}</strong> = <strong className="font-medium text-primary">{row.factor}</strong> {record.unit}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </>
       )}
     </LogisticsForm>

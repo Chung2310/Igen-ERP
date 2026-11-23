@@ -74,13 +74,13 @@ export function LogisticsForm({
     >
       <form
         onSubmit={(event) => void submit(event)}
-        className="healthcare-logistics space-y-4 [&_input]:!bg-surface-container-lowest [&_input]:!text-on-surface"
+        className="healthcare-logistics space-y-3 [&_input]:!bg-surface-container-lowest [&_input]:!text-on-surface"
       >
-        <fieldset disabled={busy} className="space-y-4">
+        <fieldset disabled={busy} className="space-y-3">
           {children(error)}
         </fieldset>
         <Feedback error={error?.message} />
-        <div className="flex justify-end gap-2">
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-outline-variant bg-surface-container-lowest pt-3">
           <button
             type="button"
             className={buttonClass}

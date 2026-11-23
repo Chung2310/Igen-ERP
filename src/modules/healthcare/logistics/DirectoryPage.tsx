@@ -14,8 +14,7 @@ import { LogisticsForm, formValues } from "./LogisticsForm";
 
 const labels = { suppliers: "Nhà cung cấp", warehouses: "Kho lưu trữ", categories: "Phân loại" };
 
-const surfacePanelClass =
-  "min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4";
+const surfacePanelClass = "flex min-w-0 flex-1 flex-col gap-3";
 
 const rowActionClass =
   "inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
@@ -63,28 +62,6 @@ export default function DirectoryPage({
   const hasActiveFilters = Boolean(search.trim() || active !== "all");
   return (
     <div className={surfacePanelClass}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 data-typography="section-title" className="text-balance text-base font-semibold text-on-surface">
-          {labels[kind]}
-        </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          <ErpRefreshButton loading={query.refreshing} onClick={query.refresh} />
-          {canManage && (
-            <button
-              type="button"
-              className={cn(primaryCreateButtonClass, "min-h-9")}
-              onClick={() => {
-                focus.current = document.activeElement as HTMLElement;
-                setEditor({});
-              }}
-            >
-              <Plus className="size-3.5 stroke-[2.5]" aria-hidden="true" />
-              Thêm {labels[kind].toLocaleLowerCase("vi")}
-            </button>
-          )}
-        </div>
-      </div>
-
       <TableFilterToolbar
         appearance="plain"
         search={{
@@ -105,6 +82,24 @@ export default function DirectoryPage({
           setActive("all");
           setPage(1);
         }}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ErpRefreshButton loading={query.refreshing} onClick={query.refresh} />
+            {canManage && (
+              <button
+                type="button"
+                className={cn(primaryCreateButtonClass, "min-h-9")}
+                onClick={() => {
+                  focus.current = document.activeElement as HTMLElement;
+                  setEditor({});
+                }}
+              >
+                <Plus className="size-3.5 stroke-[2.5]" aria-hidden="true" />
+                Thêm {labels[kind].toLocaleLowerCase("vi")}
+              </button>
+            )}
+          </div>
+        }
       >
         <Dropdown
           aria-label="Trạng thái danh mục"
@@ -167,16 +162,19 @@ export default function DirectoryPage({
               </tr>
             ))}
           </Table>
-          <TablePagination
-            appearance="erp"
-            currentPage={page}
-            totalPages={Math.max(1, Math.ceil(query.data.total / 25))}
-            pageSize={25}
-            totalItems={query.data.total}
-            onPageChange={setPage}
-            onPageSizeChange={() => {}}
-            pageSizeOptions={[25]}
-          />
+          <div className="sticky bottom-0 z-20 -mx-3 -mb-3 mt-auto sm:-mx-4 sm:-mb-4">
+            <TablePagination
+              appearance="erp"
+              className="rounded-b-lg"
+              currentPage={page}
+              totalPages={Math.max(1, Math.ceil(query.data.total / 25))}
+              pageSize={25}
+              totalItems={query.data.total}
+              onPageChange={setPage}
+              onPageSizeChange={() => {}}
+              pageSizeOptions={[25]}
+            />
+          </div>
         </>
       )}
       {editor && (

@@ -75,6 +75,14 @@
   --color-on-surface-variant: var(--color-slate-500);
 }
 
+/* Keep the outer content shell cards beside the sidebar bordered in surface-container-lowest
+   (white in light mode) instead of gray outline-variant, while inner controls keep their borders. */
+[data-module-navigation]:not([data-layout="horizontal"]) ~ :is(div, section, main, article)[class*="border-outline-variant"],
+[data-module-navigation]:not([data-layout="horizontal"]) ~ :is(div, section, main) > :is(div, section, article)[class*="border-outline-variant"]:not([role="dialog"]),
+#hr_tab_content > #org_chart_block > :is(div, section)[class*="border-outline-variant"] {
+  border-color: var(--color-surface-container-lowest);
+}
+
 /* Module navigation becomes a left rail without changing each module's tab logic. */
 @media (min-width: 1024px) {
   :is(div, section, main):has(> [data-module-navigation]:not([data-layout="horizontal"])) {
@@ -101,7 +109,7 @@
     row-gap: 0.25rem;
     align-items: stretch;
     overflow: visible;
-    border: 1px solid var(--color-outline-variant);
+    border: 1px solid var(--color-surface-container-lowest);
     border-radius: 0.75rem;
     padding: 0.5rem;
     transition: width 180ms ease-out;
@@ -292,12 +300,12 @@
     fill: var(--module-nav-icon-gradient);
   }
 
-  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar):not(#healthcare_sub_tabs_bar):not(#quotation_sub_tabs_bar) nav > button .module-nav-filled > svg [stroke="currentColor"],
-  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar):not(#healthcare_sub_tabs_bar):not(#quotation_sub_tabs_bar) nav > button > span:first-child > svg {
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar):not(#healthcare_sub_tabs_bar):not(#quotation_sub_tabs_bar):not(#gym_sub_tabs_bar):not(#architect_sub_tabs_bar) nav > button .module-nav-filled > svg [stroke="currentColor"],
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar):not(#healthcare_sub_tabs_bar):not(#quotation_sub_tabs_bar):not(#gym_sub_tabs_bar):not(#architect_sub_tabs_bar) nav > button > span:first-child > svg {
     stroke: var(--module-nav-icon-gradient);
   }
 
-  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar):not(#healthcare_sub_tabs_bar) nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
     background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
     background-clip: text;
     -webkit-background-clip: text;

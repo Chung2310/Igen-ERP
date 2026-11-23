@@ -1,58 +1,65 @@
-import { useId } from "react";
+import { useId, type SVGProps } from "react";
 import type { HealthcareTab } from "../../router/subTabRoutes";
 
-/** Filled 20 px artwork, matching the HR sidebar icons. */
-export default function HealthcareSidebarIcon({ name }: { name: HealthcareTab }) {
+/** Filled 20 px artwork, matching the HR sidebar icons in proportions, gradient, and cutouts. */
+export default function HealthcareSidebarIcon({
+  name,
+  className = "size-5",
+  ...props
+}: SVGProps<SVGSVGElement> & { name: HealthcareTab }) {
   const id = useId().replace(/:/g, "");
-  const color = `url(#${id})`;
+  const main = `url(#${id})`;
   const cutout = "var(--color-surface-container-lowest)";
+
   const shapes = {
     patients: (
       <>
-        <circle cx="8" cy="7.5" r="3.2" fill={color} />
-        <circle cx="17.2" cy="8.7" r="2.6" fill={color} />
-        <path
-          d="M2.3 19.8v-1.4c0-3.1 2.2-5.1 5.7-5.1s5.7 2 5.7 5.1v1.4H2.3Zm13.1-5.5c3.5-.3 6.3 1.5 6.3 4.6v.9h-5.9v-1.4c0-1.5-.3-2.9-1-4.1h.6Z"
-          fill={color}
-        />
+        <circle cx="9" cy="7.8" r="3.6" />
+        <circle cx="17.5" cy="9" r="2.7" />
+        <path d="M2.4 19.6c0-3.6 2.6-5.8 6.6-5.8s6.6 2.2 6.6 5.8v1.2H2.4v-1.2Zm13.8-5.9c3.1.2 5.4 2.1 5.4 5.5v1.6h-4.4v-1.2c0-2.1-.5-4-1.4-5.4l.4-.5Z" />
       </>
     ),
     visits: (
       <>
-        <rect x="3.4" y="2.3" width="17.2" height="19.4" rx="3" fill={color} />
+        <path d="M6.2 4.5h2.2v1.3h7.2V4.5h2.2a2.7 2.7 0 0 1 2.7 2.7v12.1a2.7 2.7 0 0 1-2.7 2.7H6.2a2.7 2.7 0 0 1-2.7-2.7V7.2a2.7 2.7 0 0 1 2.7-2.7Z" />
+        <rect x="8.5" y="2.2" width="7" height="4.3" rx="1.5" />
         <path
-          d="M7.5 7.8h9m-9 3.4h5.4m-5.4 4.2 2.1 2.1 5-5"
+          d="M12 10.2v5.6m-2.8-2.8h5.6"
           fill="none"
           stroke={cutout}
-          strokeWidth="1.9"
+          strokeWidth="2"
           strokeLinecap="round"
-          strokeLinejoin="round"
         />
       </>
     ),
     appointments: (
       <>
-        <rect x="2.5" y="4.4" width="19" height="17" rx="3" fill={color} />
+        <rect x="2.7" y="4.5" width="18.6" height="17" rx="3" />
+        <path d="M2.7 9.5h18.6" fill="none" stroke={cutout} strokeWidth="1.8" />
         <path
-          d="M2.8 10h18.4M7.4 2.5v4m9.2-4v4M12 13v5m-2.5-2.5h5"
+          d="M7.5 2.4v4.2m9-4.2v4.2"
+          fill="none"
+          stroke={main}
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12 12.6v5m-2.5-2.5h5"
           fill="none"
           stroke={cutout}
-          strokeWidth="1.8"
+          strokeWidth="1.9"
           strokeLinecap="round"
         />
       </>
     ),
     care: (
       <>
+        <path d="M12 21.1S2.4 15.7 2.4 9.5a5.3 5.3 0 0 1 9.6-3 5.3 5.3 0 0 1 9.6 3c0 6.2-9.6 11.6-9.6 11.6Z" />
         <path
-          d="M12 21.2S2.5 15.8 2.5 9.6a5.2 5.2 0 0 1 9.5-2.9 5.2 5.2 0 0 1 9.5 2.9c0 6.2-9.5 11.6-9.5 11.6Z"
-          fill={color}
-        />
-        <path
-          d="M6.6 12h3l1.2-2 2.3 4.2 1.4-2.2h2.9"
+          d="M6.3 12.2h3l1.3-2.3 2.2 4.4 1.4-2.1h3.5"
           fill="none"
           stroke={cutout}
-          strokeWidth="1.7"
+          strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -60,37 +67,60 @@ export default function HealthcareSidebarIcon({ name }: { name: HealthcareTab })
     ),
     settings: (
       <>
-        <rect x="3.2" y="2.5" width="17.6" height="19" rx="3" fill={color} />
+        <rect x="3" y="3.2" width="18" height="4.8" rx="1.8" />
+        <rect x="3" y="9.6" width="18" height="4.8" rx="1.8" />
+        <rect x="3" y="16" width="18" height="4.8" rx="1.8" />
+        <circle cx="6.5" cy="5.6" r="1.05" fill={cutout} />
+        <circle cx="6.5" cy="12" r="1.05" fill={cutout} />
+        <circle cx="6.5" cy="18.4" r="1.05" fill={cutout} />
         <path
-          d="M7.4 8h9.2m-9.2 4h9.2m-9.2 4h5.8"
+          d="M9.8 5.6h7.6M9.8 12h7.6M9.8 18.4h5.2"
           fill="none"
           stroke={cutout}
-          strokeWidth="1.8"
+          strokeWidth="1.7"
           strokeLinecap="round"
         />
       </>
     ),
     equipment: (
       <>
-        <rect x="2.2" y="3.4" width="19.6" height="14.7" rx="3" fill={color} />
+        <rect x="2.4" y="3.2" width="19.2" height="13.8" rx="2.8" />
         <path
-          d="M8.3 21h7.4M12 18.2V21M6.7 8.6h10.6m-10.6 3.5h6"
+          d="M10.8 17h2.4v2.6h3.2a1.1 1.1 0 1 1 0 2.2H7.6a1.1 1.1 0 1 1 0-2.2h3.2V17Z"
+        />
+        <path
+          d="M6.2 10.2h2.8l1.4-2.6 2.2 5 1.5-2.4h3.7"
           fill="none"
           stroke={cutout}
           strokeWidth="1.8"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </>
     ),
     supplies: (
       <>
-        <path d="m12 2 9.2 5v10L12 22l-9.2-5V7L12 2Z" fill={color} />
-        <path d="m3 7.2 9 4.8 9-4.8M12 12v9.5" fill="none" stroke={cutout} strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="m12 2.2 9.2 4.9v9.8L12 21.8l-9.2-4.9V7.1L12 2.2Z" />
+        <path
+          d="m3.1 7.3 8.9 4.7 8.9-4.7M12 12v9.4"
+          fill="none"
+          stroke={cutout}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
       </>
     ),
   };
+
   return (
-    <svg className="size-5" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+    <svg
+      {...props}
+      className={className}
+      viewBox="0 0 24 24"
+      fill={main}
+      aria-hidden="true"
+      focusable="false"
+    >
       <defs>
         <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
           <stop offset="0%" stopColor="#00adfc" />
