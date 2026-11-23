@@ -154,6 +154,12 @@ export const crudController = {
         if (!attendanceDetailsAllowed) filters.uid = req.user.id;
       }
 
+      // POS cashiers can see only their own attendance even when they belong to a branch.
+      // A branch assignment is not permission to read colleagues' timekeeping records.
+      if (modelName === "timekeeping-logs" && userRole === "pos_cashier" && req.user?.id) {
+        filters.uid = req.user.id;
+      }
+
       if (modelName === "training-enrollments") {
         let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
         if (!isSupervisor && req.user?.id) {
@@ -247,10 +253,13 @@ export const crudController = {
       if (modelName === "timekeeping-logs") {
         attendanceDetailsAllowed = await canReadAttendanceDetails(req, userRole, companyCode);
         const attendanceScope: Record<string, unknown> = { _id: id, companyCode };
+        if (userRole === "pos_cashier") {
+          attendanceScope.uid = req.user!.id;
+        }
         if (req.user?.branchId) {
           attendanceScope.branchId = { $in: [req.user.branchId, null, undefined] };
-        } else {
-          if (!attendanceDetailsAllowed) attendanceScope.uid = req.user!.id;
+        } else if (!attendanceDetailsAllowed) {
+          attendanceScope.uid = req.user!.id;
         }
         const visibleLog = await TimekeepingLogModel.findOne(attendanceScope).select("_id").lean();
         if (!visibleLog) {

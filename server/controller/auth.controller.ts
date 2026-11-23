@@ -798,6 +798,7 @@ export const authController = {
       }
 
       const role = req.user?.role || "user";
+      const isPosCashier = role === "pos_cashier";
       const permissions = await getEffectivePermissions(userId, role, companyCode);
       const canReadBranchRoster = hasAnyPermission(permissions, [
         "access:read",
@@ -811,7 +812,7 @@ export const authController = {
       const branchId = userBranchId || (canReadBranchRoster ? requestedBranchId : "");
 
       let rosterFilter: Record<string, unknown>;
-      if (!canReadBranchRoster && !userBranchId) {
+      if (isPosCashier || (!canReadBranchRoster && !userBranchId)) {
         rosterFilter = { companyCode, _id: userId };
       } else if (branchId) {
         const branch = await BranchModel.findOne({ _id: branchId, companyCode }).select("_id code").lean();
