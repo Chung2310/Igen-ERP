@@ -550,7 +550,7 @@ it("creates one student, asks about missing optional fields, supplements that re
   }, intentType: "workflow", newRequest: false });
   const preview = await turn({ text: "Thêm hồ sơ học viên Nguyễn An, số điện thoại 0900000000, email an@example.com, ngày đăng ký 14/11/2026" });
   expect(preview.status).toBe("confirmation");
-  expect(preview.reply).toBe("Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.");
+  expect(preview.reply).toContain("xác nhận");
   expect(students).toHaveLength(0);
 
   const created = await confirm(preview);
@@ -1022,7 +1022,7 @@ it("collects a required suspension reason and reopens an older preview missing i
   expect(classPrompt.status).toBe("collecting");
   expect(learnerPrompt.status).toBe("collecting");
   expect(reasonPrompt.status).toBe("collecting");
-  expect(reasonPrompt.reply).toContain("Lý do");
+  expect(reasonPrompt.reply).toMatch(/lý do/iu);
   expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH")).toBe(false);
 
   state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
@@ -1036,7 +1036,7 @@ it("collects a required suspension reason and reopens an older preview missing i
   const reopened = await confirm(preview);
 
   expect(reopened.status).toBe("collecting");
-  expect(reopened.reply).toContain("Lý do");
+  expect(reopened.reply).toMatch(/lý do/iu);
   expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH")).toBe(false);
 
   state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {

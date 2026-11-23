@@ -32,6 +32,9 @@ const COVERAGE_STOP_WORDS = new Set(normalize(`
   bạn chúng tôi mình ta anh chị em quý vui lòng xin nhờ giúp dùm với nhé nha đi
   cho biết là của và hoặc hay thì mà về các những
 `).split(" "));
+// Keep Vietnamese tone distinctions: discourse "hả" must not erase "Hà"
+// from an omitted location such as Hà Nội.
+const DISCOURSE_MARKERS = new Set(['vậy','thế','rồi','hả','à','ạ']);
 
 /** Find meaningful request words that were omitted from the model's quoted evidence. */
 export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, workflow?: AssistantWorkflow, values: Record<string, unknown> = {}) {
@@ -80,7 +83,7 @@ export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, wo
   return content.split(/\s+/)
     .flatMap(original => normalize(original).split(" ").filter(Boolean).map(word => ({ original: original.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""), word })))
     .filter(({ original, word }, index, words) => {
-      if (!original || COVERAGE_STOP_WORDS.has(word) || coveredWords.has(word)) return false;
+      if (!original || DISCOURSE_MARKERS.has(original.normalize('NFC').toLocaleLowerCase('vi')) || COVERAGE_STOP_WORDS.has(word) || coveredWords.has(word)) return false;
       // Labels/grammar are dispensable only when their content is still quoted.
       if (word === "ten" && coveredWords.has(words[index + 1]?.word)) return false;
       if (word === 'phan' && coveredWords.has(words[index+1]?.word) && workflow?.fields.some(field => field.type==='json' && populated(values[field.key]) && Array.isArray(rawCoverage) && rawCoverage.some(item=>plain(item) && Array.isArray(item.mappedTo) && item.mappedTo.includes(`values.${field.key}`)))) return false;
@@ -111,6 +114,9 @@ function missingCoverageReply(text: string, rawCoverage: unknown, workflow: Assi
 
 function requiredMappingKinds(evidence: string, singularCreate = false) {
   const phrase = normalize(evidence);
+  // Preserve Vietnamese distinctions before removing accents: chữa is not
+  // chưa, and a money quỹ is not a calendar quý.
+  const filterPhrase = normalize(evidence.normalize('NFC').replace(/chữa|quỹ/giu, ' '));
   const kinds: Array<"filter" | "ranking"> = [];
   const maximum = /(?:^| )(?:top|nhieu(?: [a-z]+){0,4} nhat|cao nhat|lon nhat|dung dau)(?: |$)/.test(phrase);
   const minimum = /(?:^| )(?:it(?: [a-z]+){1,3} nhat|thap nhat|nho nhat)(?: |$)/.test(phrase);
@@ -124,7 +130,7 @@ function requiredMappingKinds(evidence: string, singularCreate = false) {
   if (hasNumericValue
     || /(?:^|\s)(?:tỉnh|huyện|quận|phường)(?=\s|$)/iu.test(evidence.normalize("NFC"))
     || hasLocationContext
-    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(phrase)) kinds.push("filter");
+    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(filterPhrase)) kinds.push("filter");
   return kinds;
 }
 
@@ -236,6 +242,9 @@ export function validateRequestCoverage(
     return { ok: false, clarification: "Mình chưa đối chiếu được đầy đủ yêu cầu với các trường của thao tác. Bạn nói rõ hơn mục tiêu và điều kiện cần áp dụng nhé." };
   }
   const request = normalize(text);
+  if(operation.id==='student.list' && normalize(String(values.status||''))==='no hoc phi' && !/\b(?:trang thai|nhan ho so)\b/.test(request)) {
+    return {ok:false,clarification:'Nhãn trạng thái hồ sơ không xác định số tiền còn nợ học phí. Cần đối chiếu học phí và phiếu thu đầy đủ; nếu muốn giới hạn kỳ hoặc phạm vi, bạn làm rõ giúp mình. Chưa thể kết luận không có học viên nợ tiền.'};
+  }
   const explicit = scopeAssistantWorkflows(text, [workflow]);
   if (explicit.modules.length && !explicit.workflows.length) {
     return { ok: false, clarification: "Thao tác đang chọn thuộc phân hệ khác với phân hệ bạn nêu. Bạn xác nhận lại phân hệ cần xử lý nhé." };
@@ -292,7 +301,8 @@ export function validateRequestCoverage(
         // complete request so a clipped evidence span does not lose context.
         if (matchesModuleContextEvidence(rawItem.evidence, workflow.module, text)
           || combinedModuleContextIsValid(rawItem.evidence, workflow.module, mappedTargets, singularCreate)
-          || explicit.modules.length > 0 && mappedTargets.includes('action') && requiredMappingKinds(rawItem.evidence, singularCreate).length === 0) continue;
+          || mappedTargets.includes('action') && requiredMappingKinds(rawItem.evidence, singularCreate).length === 0
+            && (explicit.modules.length > 0 || rawItem.evidence.split(/[,;:\n]/).some(clause => isModuleContextClause(clause, workflow.module)))) continue;
         return { ok: false, clarification: `Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở ${workflow.title.toLocaleLowerCase("vi")}. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?` };
       }
       if (/^(?:values\.)?(?:module|moduleName|moduleKey|workspace|area)$/i.test(target)

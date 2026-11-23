@@ -1849,6 +1849,10 @@ operations.push({
 const trainingIncomplete = operations.find(op => op.id === "hr.training.incomplete.list")!;
 operations.push({ ...trainingIncomplete, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
 const studentClassDetail = operations.find(op => op.id === 'student.batch.detail');
+const legalRepositoryStatus=operations.find(op=>op.id==='legal.repository.status');
+if(legalRepositoryStatus) legalRepositoryStatus.rawResponse=true;
+const studentLookup=operations.find(op=>op.id==='student.list');
+if(studentLookup) studentLookup.description+=' Trạng thái hồ sơ không phản ánh số tiền còn nợ học phí. Khi hỏi còn nợ/đã đóng đủ, dùng phép đối chiếu học phí với danh sách phiếu thu; không chỉ lọc status=Nợ học phí.';
 if (studentClassDetail) {
   studentClassDetail.functionAreas = [{key:'schedule',label:'Lịch học'}];
   studentClassDetail.resultFields = [...new Set([...studentClassDetail.resultFields, 'daysOfWeek', 'startTime', 'endTime'])];

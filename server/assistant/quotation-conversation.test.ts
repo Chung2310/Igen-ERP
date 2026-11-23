@@ -475,7 +475,7 @@ it("handles a bare 'tạo báo giá mới' flow when the user selects template +
   interpreted("customer-quote.create", {});
   const startStep = await turn({ text: "tạo báo giá mới" });
   expect(startStep.status).toBe("collecting");
-  expect(startStep.reply).toContain("Tên khách hàng");
+  expect(startStep.reply).toMatch(/tên khách hàng/iu);
   expect(startStep.referenceSelections?.map((group: any) => group.key)).toEqual(["templateId", "customerQuoteMode"]);
 
   const selectedModeStep = await turn({
@@ -485,7 +485,7 @@ it("handles a bare 'tạo báo giá mới' flow when the user selects template +
     },
   });
   expect(selectedModeStep.status).toBe("collecting");
-  expect(selectedModeStep.reply).toContain("Tên khách hàng");
+  expect(selectedModeStep.reply).toMatch(/tên khách hàng/iu);
   expect(selectedModeStep.reply).toContain("nhập mô tả yêu cầu của khách hàng");
 
   interpreted("customer-quote.create", {});

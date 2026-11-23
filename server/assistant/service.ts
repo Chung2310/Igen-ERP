@@ -17,7 +17,7 @@ import { directStudentRecordActionId, directWorkerRecordActionId, isEmployeeDeta
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { missingReportConstraint } from "./report-constraints";
-import { presentAssistantReply } from "./reply-presentation";
+import { presentAssistantReply, assistantMissingInformationPrompt, assistantConfirmationPrompt } from "./reply-presentation";
 import { applyAssistantResponseRules } from "./reply-rules";
 import { assistantCourseChoiceGuidance, assistantRequestGuidance } from "./request-guidance";
 import { businessDiscoveryReply } from "./business-discovery";
@@ -2579,7 +2579,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       const lines = [
         ...(op.id === "payroll.reconciliation.schedule.update" && !collected.values.recurrence
           ? ["Lịch phát hành tự động hiện lặp hằng tháng, chưa hỗ trợ hẹn một lần vào ngày/tháng cụ thể. Bạn chọn Hằng tháng nếu muốn lặp vào ngày và giờ đã nêu nhé."] : []),
-        ...(missingWithoutReferenceLabels.length ? [`Bạn bổ sung giúp mình các thông tin sau nhé:\n${missingWithoutReferenceLabels.map(label => `- ${label}`).join("\n")}`] : []),
+        ...(missingWithoutReferenceLabels.length ? [assistantMissingInformationPrompt(missingWithoutReferenceLabels, inputFields.length > 0)] : []),
         ...(customerQuoteQuestion ? [customerQuoteQuestion] : []),
         ...(receiptQuestion ? [receiptQuestion] : []),
         ...(customWorkHoursQuestion ? [customWorkHoursQuestion] : []),
@@ -2638,7 +2638,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         ? "Thao tác này sẽ thay toàn bộ quyền của vai trò và áp dụng cho mọi tài khoản đang dùng vai trò đó. Bạn kiểm tra lại danh sách quyền trong bản xem trước rồi xác nhận giúp mình nhé."
         : op.id === "healthcare.patient.bulk-delete"
           ? "Thao tác này sẽ xóa các bệnh nhân đã chọn cùng toàn bộ lượt khám, lịch hẹn và công việc chăm sóc liên quan. Bạn kiểm tra từng hồ sơ và số dữ liệu sẽ xóa trong bản xem trước, rồi xác nhận để thực hiện nhé."
-        : "Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.", action: preview,
+        : assistantConfirmationPrompt(op.title), action: preview,
       ...(op.id === "quotation.acceptance.create" && acceptanceForm?.lines.every(line => typeof line.acceptedQuantity === "number")
         ? { quotationAcceptanceForm: acceptanceForm }
         : {}),
@@ -3164,7 +3164,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         else if (plan.ok && plan.queries.some(query => query.relation)) {
           const relational = plan.queries.filter(query => query.relation);
           if (relational.length !== 1) throw new AssistantError('Mỗi lượt chỉ đối chiếu một quan hệ đã khai báo.', 400);
-          reply = { status: 'completed', reply: renderReadRelation(relational[0].relation!, relationSources) };
+          reply = { status: 'completed', reply: renderReadRelation(relational[0].relation!, relationSources,input.text||effectiveInputText) };
         }
         else {
           const summary = await synthesizeCompositeAssistantReport(input.text || effectiveInputText, sources);

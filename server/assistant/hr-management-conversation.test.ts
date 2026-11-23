@@ -826,7 +826,7 @@ it.each([true, false])("hides API defaults but preserves the same values when ex
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true, password: "test-secret-123" } });
   expect(created.status).toBe("completed");
   expect(created.reply).not.toContain("Chưa cập nhật");
-  expect(created.reply).toContain("Số điện thoại");
+  expect(created.reply).toMatch(/số điện thoại/iu);
   const table = parseAssistantResultTable(created.reply)!;
   expect(Object.values(table.rows[0].values).includes("Nhân sự")).toBe(explicit);
 });
@@ -1094,7 +1094,7 @@ it("lets the user choose an applicant and job from the chat when scheduling an i
     format: ["online"],
   } });
   expect(afterSelection.status).toBe("collecting");
-  expect(afterSelection.reply).toContain("Thời gian bắt đầu");
+  expect(afterSelection.reply).toMatch(/thời gian bắt đầu/iu);
   const interviewerValue = afterSelection.action?.values.find(value => value.label === "Người phỏng vấn")?.value;
   expect(interviewerValue).toBe(interviewers!.options[0].label);
   expect(interviewerValue).not.toMatch(/^[\[{]|[\]{}"]$/);
@@ -1409,8 +1409,8 @@ it("routes explicit internal training creation to HR when student courses are al
 
   expect(result.status).toBe("collecting");
   expect(state.session.pending.actionId).toBe("training.create");
-  expect(result.reply).toContain("Tên khóa học");
-  expect(result.reply).not.toContain("Mã khóa học");
+  expect(result.reply).toMatch(/tên khóa học/iu);
+  expect(result.reply).not.toMatch(/mã khóa học/iu);
   expect(result.reply).not.toContain("Hiện chưa có danh mục khóa học trong phạm vi đang chọn");
   expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/courses/categories")).toBe(false);
 
@@ -1438,7 +1438,7 @@ it.each(["tạo khóa học mới", "thêm khóa học mới"])("asks for the co
   expect(choice.reply).not.toContain("chưa hiểu");
   const details = await turn({ text: "nội bộ" });
   expect(details.status).toBe("collecting");
-  expect(details.reply).toMatch(/Tên khóa học/);
+  expect(details.reply).toMatch(/tên khóa học/iu);
   expect(state.session.pending.actionId).toBe("training.create");
   expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
 });
@@ -1448,7 +1448,7 @@ it.each([true, false])("creates one training course and handles optional follow-
   state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
   const details = await turn({ text: "tạo khóa học mới" });
   expect(details.status).toBe("collecting");
-  expect(details.reply).toContain("Tên khóa học");
+  expect(details.reply).toMatch(/tên khóa học/iu);
 
   state.interpret.mockResolvedValueOnce({ actionId: "training.create", values: { title: "Hát dân ca", category: "Văn hóa", duration: "2 giờ", lessons: "[]", quizzes: "[]" }, newRequest: false });
   const preview = await turn({ text: "Tên Hát dân ca, danh mục Văn hóa, thời lượng 2 giờ; bỏ qua bài giảng và câu hỏi" });
