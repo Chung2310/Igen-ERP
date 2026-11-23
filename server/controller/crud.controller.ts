@@ -120,6 +120,14 @@ export const crudController = {
         } else if (modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows" && modelName !== "categories") {
           filters.branchId = req.user.branchId;
         }
+      } else if (modelName === "timekeeping-logs" && req.user?.id) {
+        const permissions = await getEffectivePermissions(req.user.id, userRole, companyCode);
+        const canReadCompanyAttendance = permissions.has("*") || [
+          "timekeeping:read",
+          "timekeeping:manage",
+          "payroll-period:manage",
+        ].some((permission) => permissions.has(permission));
+        if (!canReadCompanyAttendance) filters.uid = req.user.id;
       }
 
       if (modelName === "training-enrollments") {
@@ -204,6 +212,25 @@ export const crudController = {
               message: "Bạn không có quyền xem tiến trình học tập của người khác.",
             });
           }
+        }
+      }
+
+      if (modelName === "timekeeping-logs") {
+        const attendanceScope: Record<string, unknown> = { _id: id, companyCode };
+        if (req.user?.branchId) {
+          attendanceScope.branchId = { $in: [req.user.branchId, null, undefined] };
+        } else {
+          const permissions = await getEffectivePermissions(req.user!.id, userRole, companyCode);
+          const canReadCompanyAttendance = permissions.has("*") || [
+            "timekeeping:read",
+            "timekeeping:manage",
+            "payroll-period:manage",
+          ].some((permission) => permissions.has(permission));
+          if (!canReadCompanyAttendance) attendanceScope.uid = req.user!.id;
+        }
+        const visibleLog = await TimekeepingLogModel.findOne(attendanceScope).select("_id").lean();
+        if (!visibleLog) {
+          return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
         }
       }
 
