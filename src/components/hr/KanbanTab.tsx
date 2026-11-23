@@ -1667,9 +1667,9 @@ export default function KanbanTab({
 
           {/* Tab 2: Standard Kanban Board grid */}
           {kanbanViewTab === "Board" && (
-            <div className="grid flex-1 grid-cols-1 items-stretch gap-2 md:grid-cols-2 xl:grid-cols-4" id="kanban_board_columns">
+            <div className="grid flex-1 grid-cols-1 items-stretch overflow-hidden rounded-md border border-outline-variant bg-surface-container-low/40 divide-y divide-outline-variant md:grid-cols-2 xl:grid-cols-4 xl:divide-x xl:divide-y-0" id="kanban_board_columns">
               {/* Column 1: Not Started */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Not Started" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "Not Started" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["Not Started"])}>
                   <span className="text-sm font-semibold">
                     Chưa bắt đầu
@@ -1697,7 +1697,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 2: In Progress */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "In Progress" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "In Progress" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["In Progress"])}>
                   <span className="text-sm font-semibold">
                     Đang thực hiện
@@ -1725,7 +1725,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 3: Review / Testing */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Review/Testing" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "Review/Testing" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["Review/Testing"])}>
                   <span className="text-sm font-semibold">
                     Đang kiểm thử
@@ -1753,7 +1753,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 4: Done */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Done" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "Done" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones.Done)}>
                   <span className="text-sm font-semibold">
                     Đã hoàn thành
@@ -2307,12 +2307,12 @@ function KanbanCard({
 }) {
   const cardAccent =
     task.status === "In Progress" || task.status === "doing"
-      ? "border-l-sky-400"
+      ? "border-l-[#2196f3]"
       : task.status === "Review/Testing"
-        ? "border-l-amber-400"
+        ? "border-l-[#ff9800]"
         : task.status === "Done" || task.status === "done"
-          ? "border-l-emerald-400"
-          : "border-l-slate-400";
+          ? "border-l-[#18c93a]"
+          : "border-l-[#f5c400]";
   const projectName = task.projectId
     ? projects.find((project) => project.id === task.projectId)?.name || "Không có dự án"
     : null;
@@ -2357,34 +2357,36 @@ function KanbanCard({
           </span>
         )}
       </div>
-      <div className="flex min-w-0 items-center gap-1 border-t border-on-surface/10 pt-1.5 text-[10px] text-on-surface/75">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 select-none">
+        <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4", priorityTone)}>
+          {priorityLabel}
+        </span>
+        {estimatedProgress && (
+          <span
+            className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4 text-white", estimatedProgress.status === "withinEstimate" ? "bg-[#5CB85C]" : "bg-[#F0AD4E]")}
+            title="So giờ thực tế với giờ dự tính"
+          >
+            {estimatedProgress.status === "withinEstimate" ? "✓ Trong dự tính" : `Vượt ${estimatedProgress.diff}h`}
+          </span>
+        )}
+        {kpi && (
+          <span
+            className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4 text-white", kpi.status === "ontime" ? "bg-[#5CB85C]" : "bg-[#E06666]")}
+            title="Kết quả KPI"
+          >
+            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ hạn ${kpi.diff}h`}
+          </span>
+        )}
+      </div>
+      <div className="flex min-w-0 items-center justify-between gap-2 border-t border-on-surface/10 pt-1.5 text-[10px] text-on-surface/75">
         <span className="inline-flex min-w-0 items-center gap-1 tabular-nums" title={task.dueDate ? `Hạn: ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}>
           <Calendar className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{task.dueDate ? `Hạn ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}</span>
         </span>
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-on-surface/80">
-        <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold leading-tight", priorityTone)}>
-          {priorityLabel}
+        <span className="flex min-w-0 shrink-0 items-center gap-1.5 text-on-surface/80">
+          <span className="max-w-28 truncate" title={task.assignee}>{task.assignee}</span>
+          {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
         </span>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-          {estimatedProgress && <span
-            className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold text-white", estimatedProgress.status === "withinEstimate" ? "bg-[#5CB85C]" : "bg-[#F0AD4E]")}
-            title="So giờ thực tế với giờ dự tính"
-          >
-            {estimatedProgress.status === "withinEstimate" ? "✓ Trong dự tính" : `Vượt ${estimatedProgress.diff}h`}
-          </span>}
-          {kpi && <span
-            className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold text-white", kpi.status === "ontime" ? "bg-[#5CB85C]" : "bg-[#E06666]")}
-            title="Kết quả KPI"
-          >
-            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ hạn ${kpi.diff}h`}
-          </span>}
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate" title={task.assignee}>{task.assignee}</span>
-            {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
-          </span>
-        </div>
       </div>
 
     </div>

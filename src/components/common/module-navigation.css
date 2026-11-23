@@ -83,6 +83,13 @@
   border-color: var(--color-surface-container-lowest);
 }
 
+/* Tighten outer content shell card padding beside vertical sidebars across all ERP modules. */
+[data-module-navigation]:not([data-layout="horizontal"]) ~ :is(div, section, main, article):is([class*="bg-surface-container-lowest"], [class*="bg-white"], [class*="ai-subscription-panel"]):is([class*="p-3"], [class*="p-4"], [class*="p-5"], [class*="p-6"], [class*="px-4"], [class*="px-5"], [class*="px-6"]):not([role="dialog"]):not([role="alertdialog"]):not(.fixed),
+[data-module-navigation]:not([data-layout="horizontal"]) ~ :is(div, section, main):not([class*="grid-cols-"]) > :is(div, section, article):is([class*="bg-surface-container-lowest"], [class*="bg-white"], [class*="ai-subscription-panel"]):is([class*="p-3"], [class*="p-4"], [class*="p-5"], [class*="p-6"], [class*="px-4"], [class*="px-5"], [class*="px-6"]):not([role="dialog"]):not([role="alertdialog"]):not(.fixed),
+[data-module-navigation]:not([data-layout="horizontal"]) ~ :is(div, section, main):not([class*="grid-cols-"]) > :is(div, section, article):not([class*="grid-cols-"]) > :is(div, section, article):is([class*="bg-surface-container-lowest"], [class*="bg-white"]):is([class*="p-4"], [class*="p-5"], [class*="p-6"], [class*="px-5"], [class*="px-6"]):not([role="dialog"]):not([role="alertdialog"]):not(.fixed) {
+  padding: 0.625rem 0.75rem;
+}
+
 /* Module navigation becomes a left rail without changing each module's tab logic. */
 @media (min-width: 1024px) {
   :is(div, section, main):has(> [data-module-navigation]:not([data-layout="horizontal"])) {

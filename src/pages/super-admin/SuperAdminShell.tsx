@@ -293,7 +293,7 @@ export default function SuperAdminShell() {
           </aside>
 
           {/* Main workspace */}
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container-lowest p-3 sm:p-6 lg:p-8">
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container-lowest px-3 py-2.5">
             {renderActiveTab()}
           </main>
         </div>
