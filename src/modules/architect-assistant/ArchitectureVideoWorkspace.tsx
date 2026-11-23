@@ -1,16 +1,15 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Download, ImagePlus, LoaderCircle, Play, RefreshCw, SkipBack, SkipForward, Sparkles, WandSparkles } from "lucide-react";
-import { HrPageTitle } from "../../components/hr/HrPageTitle";
 import type { ArchitectureProject, ArchitectureVideoJob } from "../../shared/architecture-assistant";
 import type { ArchitectAssistantApi } from "./api";
 
 const fieldClass =
-  "h-9 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-xs text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
+  "h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface focus:border-primary focus:outline-none disabled:opacity-60";
 
 const textareaClass =
-  "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-2 text-xs leading-relaxed text-on-surface focus:border-primary focus:outline-none disabled:opacity-60 resize-y";
+  "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-xs leading-relaxed text-on-surface focus:border-primary focus:outline-none disabled:opacity-60 resize-y";
 
-const labelClass = "block space-y-1 text-xs font-medium text-on-surface-variant";
+const labelClass = "flex flex-col gap-1.5 text-xs font-medium text-on-surface-variant";
 
 function friendlyError(error: unknown) {
   return error instanceof Error && error.message ? error.message : "Không hoàn tất được yêu cầu.";
@@ -118,11 +117,8 @@ export default function ArchitectureVideoWorkspace({ project, api, assetUrls, ca
   const preview = reference || "https://lh3.googleusercontent.com/aida-public/AB6AXuBraYQ5_wq5YovRc4XkkNrW1JbA2wMT2d8_NkObLgw_3nxzJonFvjhVW1Mj4sooXOfrinSb3_9ic9K7xzFMsAz0s7Vo8yZ-kKViWnB4wcHLrW8bf8K5O9XWvgVfljd9RsdEWSdklFm28kqPd3q4c1iFJPP2T0yhu4-IoPJFrrqbtH2RiNjcYu3zQon35P2qiZFrnVKoyw9N7QNpNXLpmBTBp92yUJq0tcmaNcUwO2Q0j_4Ufjx_5zSaHPbG7ryR2hjIuznDMIXQsSCy";
 
   return (
-    <section className="space-y-2.5" aria-busy={busy}>
-      <header className="flex items-center justify-between gap-2">
-        <HrPageTitle level={2}>Video kiến trúc</HrPageTitle>
-      </header>
-      {!canUseAi && <p className="rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-xs text-on-surface-variant" role="status">Cần quyền `architect-ai:manage` để tạo video bằng AI.</p>}
+    <section className="space-y-3" aria-label="Video kiến trúc" aria-busy={busy}>
+      {!canUseAi && <p className="rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-xs text-on-surface-variant" role="status">Cần quyền `architect-ai:manage` để tạo video bằng AI.</p>}
       {error && <p className="rounded-lg border border-error/40 bg-error-container/20 px-3 py-2 text-xs text-on-surface" role="alert">{error}</p>}
       {!error && latestJob?.status === "failed" && latestJob.error && (
         <p className="rounded-lg border border-error/40 bg-error-container/20 px-3 py-2 text-xs text-on-surface" role="alert">{latestJob.error}</p>
@@ -130,10 +126,10 @@ export default function ArchitectureVideoWorkspace({ project, api, assetUrls, ca
       {notice && <p className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs text-on-surface" role="status">{notice}</p>}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[23.5rem_minmax(0,1fr)]">
-        <aside className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-2xs lg:max-h-[calc(100dvh-10.5rem)]">
+        <aside className="flex min-w-0 flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-2xs lg:max-h-[calc(100dvh-10.5rem)]">
           <form onSubmit={create} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
-              <div className="space-y-1">
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              <div className="space-y-1.5">
                 <label htmlFor="architecture-video-image" className="block text-xs font-medium text-on-surface">Ảnh khung hình đầu</label>
                 <label htmlFor="architecture-video-image" className="group flex h-28 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-dashed border-outline-variant bg-surface-container-low/70 text-center text-xs text-on-surface-variant transition-colors hover:border-primary hover:text-primary">
                   {reference ? (

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
 import { AudioLines, Brain, ChartNoAxesCombined, ChevronDown, ChevronRight, FileAudio, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, Network, NotebookPen, Paperclip, Plus, Presentation, RefreshCw, Search, SendHorizontal, Settings2, Square, Star, Trash2, UserRound, Video, Volume2, VolumeX, WandSparkles, Youtube, X, type LucideIcon } from "lucide-react";
 import { assistantService, AssistantServiceError, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
+import { playAssistantSpeech, unlockAssistantSpeechPlayback, type AssistantSpeechPlayback } from "../../shared/assistant-speech-playback";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
 import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
@@ -20,6 +21,7 @@ import { AssistantGeneratedFiles } from "./AssistantGeneratedFiles";
 import type { AssistantChatMessage, AssistantIllustration, AssistantSource } from "../../shared/assistant-document";
 import { assistantSourceKind, safeAssistantHttpUrl } from "./assistant-link-utils";
 import { AssistantSidebarIcon, type AssistantSidebarIconName } from "./AssistantSidebarIcon";
+import { HrFilledSidebarToggleIcon } from "./HrFilledSidebarIcon";
 import { AssistantTools } from "./AssistantTools";
 import { AssistantAgents } from "./AssistantAgents";
 import { AssistantProjectWorkspace } from "./AssistantProjectWorkspace";
@@ -197,16 +199,11 @@ function RevealingAssistantMessage({ content, allowedLinkUrls, illustrations, re
   </>;
 }
 function AssistantRailIcon({ name, active = false }: { name: AssistantSidebarIconName; active?: boolean }) {
-  return <span className={name === "studio" ? "assistant-side-icon assistant-side-icon-studio" : "assistant-side-icon"} aria-hidden="true"><AssistantSidebarIcon name={name} active={active} /></span>;
+  return <span className="assistant-side-icon" aria-hidden="true"><AssistantSidebarIcon name={name} active={active} /></span>;
 }
 
-function AssistantSidebarToggleIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true" focusable="false">
-    <rect x="3.5" y="4.25" width="17" height="15.5" rx="1.5" />
-    <path d="M10 4.6v14.8" />
-    <circle cx="15" cy="10" r="0.75" fill="currentColor" stroke="none" />
-    <circle cx="15" cy="14" r="0.75" fill="currentColor" stroke="none" />
-  </svg>;
+function AssistantSidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return <HrFilledSidebarToggleIcon collapsed={collapsed} />;
 }
 
 function AssistantHeaderAvatar() {
@@ -550,8 +547,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [wakeRestartVersion, setWakeRestartVersion] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechError, setSpeechError] = useState("");
-  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
-  const speechAudioUrlRef = useRef<string | null>(null);
+  const speechAudioRef = useRef<AssistantSpeechPlayback | null>(null);
   const speechRequestRef = useRef<AbortController | null>(null);
   const speechRunIdRef = useRef(0);
   const speechFinishedAtRef = useRef(0);
@@ -582,14 +578,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     speechRunIdRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
-    if (speechAudioRef.current) {
-      speechAudioRef.current.onended = null;
-      speechAudioRef.current.onerror = null;
-      speechAudioRef.current.pause();
-      speechAudioRef.current = null;
-    }
-    if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-    speechAudioUrlRef.current = null;
+    speechAudioRef.current?.stop();
+    speechAudioRef.current = null;
     setIsSpeaking(false);
   }, []);
   const speakReply = useCallback(async (text: string) => {
@@ -606,32 +596,28 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       speechRequestRef.current = null;
       speechAudioRef.current = null;
       speechFinishedAtRef.current = Date.now();
-      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-      speechAudioUrlRef.current = null;
       setIsSpeaking(false);
       if (twoWayVoiceRef.current) setTwoWayRestartVersion(value => value + 1);
     };
     try {
       const audioBlob = await assistantService.speech(text, controller.signal, settings.speechVoice);
       if (controller.signal.aborted || runId !== speechRunIdRef.current) return;
-      const url = URL.createObjectURL(audioBlob);
-      speechAudioUrlRef.current = url;
-      const audio = new Audio(url);
-      speechAudioRef.current = audio;
       const words = text.trim().split(/\s+/);
-      const updateSpokenWords = () => {
-        if (!twoWayVoiceRef.current || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
-        setSpokenWordCount(Math.min(words.length, Math.floor((audio.currentTime / audio.duration) * words.length)));
-      };
-      audio.ontimeupdate = updateSpokenWords;
-      audio.onloadedmetadata = updateSpokenWords;
-      audio.onended = () => { if (twoWayVoiceRef.current) setSpokenWordCount(words.length); finish(); };
-      audio.onerror = () => {
-        if (runId !== speechRunIdRef.current) return;
-        finish();
-        setSpeechError("Không thể phát tệp âm thanh trên thiết bị này.");
-      };
-      await audio.play();
+      let finished = false;
+      const playback = await playAssistantSpeech(audioBlob, {
+        signal: controller.signal,
+        onTimeUpdate: (currentTime, duration) => {
+          if (!twoWayVoiceRef.current || !Number.isFinite(duration) || duration <= 0) return;
+          setSpokenWordCount(Math.min(words.length, Math.floor((currentTime / duration) * words.length)));
+        },
+        onEnded: () => {
+          if (twoWayVoiceRef.current) setSpokenWordCount(words.length);
+          finished = true;
+          finish();
+        },
+      });
+      if (controller.signal.aborted || runId !== speechRunIdRef.current || finished) playback.stop();
+      else speechAudioRef.current = playback;
     } catch (cause) {
       if (!controller.signal.aborted && runId === speechRunIdRef.current) {
         finish();
@@ -704,14 +690,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     speechRunIdRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
-    if (speechAudioRef.current) {
-      speechAudioRef.current.onended = null;
-      speechAudioRef.current.onerror = null;
-      speechAudioRef.current.pause();
-      speechAudioRef.current = null;
-    }
-    if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-    speechAudioUrlRef.current = null;
+    speechAudioRef.current?.stop();
+    speechAudioRef.current = null;
   }, []);
   useEffect(() => {
     const onlyWelcome = messages.length === 1 && messages[0].role === "assistant" && messages[0].content === welcomeMessage.content;
@@ -801,6 +781,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
 
   const submitTurn = async (request: AssistantTurnInput) => {
     if (requestRef.current) return;
+    if (settings.speakReplies || twoWayVoiceRef.current) unlockAssistantSpeechPlayback();
     const turnMode = request.mode ?? assistantMode;
     const owningProject = turnMode === "qa" ? projectsRef.current.find(project => project.conversations.some(item => item.sourceConversationId === request.conversationId)) : undefined;
     const turnStorageKey = turnMode === "work" ? storageBaseKey : `${storageBaseKey}:qa`;
@@ -1225,6 +1206,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     if (contextError) { setVoiceError(contextError); return; }
     const Recognition = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
     if (!Recognition) { setVoiceError("Trình duyệt này chưa hỗ trợ nhận giọng nói. Bạn có thể nhập yêu cầu bằng bàn phím."); return; }
+    unlockAssistantSpeechPlayback();
     closeSpeech(); stopReplySpeech();
     voiceBlockedRef.current = false;
     twoWayVoiceRef.current = true;
@@ -1633,6 +1615,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const sendProjectPrompt = (projectId: string) => {
     if (isViewingHistory || isLoading || !synced || isListening || isReadingAttachment || retryRef.current) return;
     if (!input.trim() && !attachment && !fileAttachment) return;
+    if (settings.speakReplies) unlockAssistantSpeechPlayback();
     startProjectConversation(projectId, input.trim());
   };
   useEffect(() => {
@@ -1864,12 +1847,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           </div>
         </header>}
         <div className="assistant-workspace-columns flex min-h-0 flex-1">
-          <aside aria-label="Điều hướng trợ lý" className={cn("assistant-sidebar assistant-reference-sidebar shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest px-2 py-3", sidebarCollapsed && "is-collapsed")}>
-            <div className="assistant-sidebar-header relative mb-3 flex items-center justify-between gap-1.5">
-              <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} title={sidebarCollapsed ? undefined : "Thu gọn thanh bên"} data-sidebar-tooltip="Mở rộng thanh bên" aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg hover:bg-surface-container-low", focusClass)}><AssistantSidebarToggleIcon /></button>
+          <aside aria-label="Điều hướng trợ lý" className={cn("assistant-sidebar assistant-reference-sidebar shrink-0 flex-col border-r border-surface-container-lowest bg-surface-container-lowest p-2", sidebarCollapsed && "is-collapsed")}>
+            <div className="assistant-sidebar-header relative mb-1 flex h-11 items-center justify-between gap-1.5">
+              <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} title={sidebarCollapsed ? undefined : "Thu gọn thanh bên"} data-sidebar-tooltip="Mở rộng thanh bên" aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg hover:bg-surface-container-low", focusClass)}><AssistantSidebarToggleIcon collapsed={sidebarCollapsed} /></button>
               <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" aria-hidden={sidebarCollapsed} tabIndex={sidebarCollapsed ? -1 : undefined} disabled={sidebarCollapsed || isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("assistant-sidebar-tool assistant-sidebar-new-chat flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-5" aria-hidden="true" /></button>
             </div>
-            <nav id="assistant-sidebar-navigation" className="assistant-sidebar-navigation flex flex-col gap-1.5" aria-label="Chế độ trợ lý">
+            <nav id="assistant-sidebar-navigation" className="assistant-sidebar-navigation flex flex-col gap-1 py-1" aria-label="Chế độ trợ lý">
               <button type="button" aria-label="Trò chuyện" data-sidebar-tooltip="Trò chuyện" aria-current={isChatNavigationActive ? "page" : undefined} onClick={() => openMode("qa")} className={cn("assistant-side-item", isChatNavigationActive && "is-active", focusClass)}><AssistantRailIcon name="chat" active={isChatNavigationActive} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trò chuyện</span></button>
               <div className="relative">
                 <button type="button" aria-label="AI Studio" data-sidebar-tooltip="AI Studio" aria-current={view === "studio" ? "page" : undefined} onClick={() => changeView("studio")} className={cn("assistant-side-item", favoriteStudioTools.length > 0 && "pr-10", view === "studio" && "is-active", focusClass)}><AssistantRailIcon name="studio" active={view === "studio"} /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>AI Studio</span></button>

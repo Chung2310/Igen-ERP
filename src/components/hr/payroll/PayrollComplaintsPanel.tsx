@@ -302,11 +302,11 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
                           {/* Khoản khiếu nại */}
                           <td className="p-3.5">
                             <div className="flex flex-col gap-1">
-                              <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-on-surface-variant w-fit">
+                              <span className="inline-flex w-fit items-center rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium text-[#555555]">
                                 {fieldLabel(issue.field)}
                               </span>
                               {record.stale && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 w-fit">
+                                <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[10px] font-semibold text-white">
                                   Cần phát hành lại
                                 </span>
                               )}
@@ -330,13 +330,12 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
                           {/* Trạng thái */}
                           <td className="p-3.5 text-center whitespace-nowrap">
                             {isOpen ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 border border-amber-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
                                 Chưa giải quyết
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-                                <CheckCircle2 size={11} className="text-emerald-600" />
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
+                                <CheckCircle2 size={11} className="text-white" />
                                 Đã giải quyết
                               </span>
                             )}

@@ -75,6 +75,7 @@ export interface Supply extends LogisticsRecord {
   requiresExpiry: boolean;
   active: boolean;
   supplierId: string;
+  departmentId?: string;
   notes: string;
   documents: Attachment[];
   precision?: number;

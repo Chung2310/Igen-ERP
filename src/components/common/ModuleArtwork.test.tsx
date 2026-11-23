@@ -4,6 +4,7 @@ import type { TabType } from "../../types";
 import { ModuleArtwork } from "./ModuleArtwork";
 
 const launcherModules: TabType[] = [
+  "GYM",
   "TỔNG QUAN",
   "TRỢ LÝ AI",
   "NHÂN SỰ",

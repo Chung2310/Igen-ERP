@@ -42,15 +42,15 @@ const serialStatusLabels: Record<SerialUnitStatus, string> = {
 };
 
 const statusBadgeStyles: Record<SerialUnitStatus, string> = {
-  internal_use: "bg-violet-50 text-violet-800 border-violet-200",
-  in_stock: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  in_transit: "bg-amber-50 text-amber-800 border-amber-200",
-  sold: "bg-blue-50 text-blue-800 border-blue-200",
-  returned: "bg-purple-50 text-purple-800 border-purple-200",
-  defective: "bg-rose-50 text-rose-800 border-rose-200",
-  repairing: "bg-orange-50 text-orange-800 border-orange-200",
-  scrapped: "bg-slate-100 text-slate-600 border-slate-200",
-  lost: "bg-rose-100 text-rose-900 border-rose-300",
+  internal_use: "bg-[#8E6CEF] text-white border-transparent",
+  in_stock: "bg-[#5CB85C] text-white border-transparent",
+  in_transit: "bg-[#F0AD4E] text-white border-transparent",
+  sold: "bg-[#D9EDF7] text-[#286090] border-transparent",
+  returned: "bg-[#8E6CEF] text-white border-transparent",
+  defective: "bg-[#E06666] text-white border-transparent",
+  repairing: "bg-[#F0AD4E] text-white border-transparent",
+  scrapped: "border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]",
+  lost: "bg-[#E06666] text-white border-transparent",
 };
 
 const serialEventLabels: Record<string, string> = {

@@ -548,14 +548,14 @@ function TaskTable({
                   )}
 
                   {/* Phân loại */}
-                  <td className="px-2 py-1.5 font-sans text-[#007EB8]">
-                    <span className="block max-w-28 truncate" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
+                  <td className="px-2 py-1.5 font-sans">
+                    <span className="inline-flex max-w-32 truncate rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium leading-4 text-[#555555]" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
                   </td>
 
                   {/* Ưu tiên */}
                   <td className="select-none px-2 py-2">
-                    <span className={`inline-flex whitespace-nowrap rounded-sm px-2 py-0.5 text-xs font-semibold uppercase ${task.priority === "High" ? "bg-[#FEE2E2] text-[#DC2626]" :
-                      task.priority === "Low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"
+                    <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${task.priority === "High" ? "bg-[#E06666] text-white" :
+                      task.priority === "Low" ? "bg-[#5CB85C] text-white" : "bg-[#F0AD4E] text-white"
                       }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
@@ -563,9 +563,9 @@ function TaskTable({
 
                   {/* Trạng thái */}
                   <td className="select-none px-2 py-2">
-                    <span className={`inline-flex whitespace-nowrap rounded-sm px-2 py-0.5 text-xs font-semibold uppercase ${task.status === "Done" || task.status === "done" ? "bg-[#DCFCE7] text-[#15803D]" :
-                      task.status === "Review/Testing" ? "bg-violet-100 text-violet-800" :
-                        task.status === "In Progress" || task.status === "doing" ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-700"
+                    <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 uppercase ${task.status === "Done" || task.status === "done" ? "bg-[#5CB85C] text-white" :
+                      task.status === "Review/Testing" ? "bg-[#F0AD4E] text-white" :
+                        task.status === "In Progress" || task.status === "doing" ? "bg-[#D9EDF7] text-[#286090]" : "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]"
                       }`}>
                       {task.status === "Done" || task.status === "done" ? "Đã xong" :
                         task.status === "Review/Testing" ? "Kiểm tra" :
@@ -601,9 +601,9 @@ function TaskTable({
                     {!estimatedProgress ? (
                       <span className="text-xs italic text-gray-400">-</span>
                     ) : estimatedProgress.status === "withinEstimate" ? (
-                      <span className="text-xs text-emerald-700" title={estimatedProgress.text}>✓ Trong dự tính</span>
+                      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white" title={estimatedProgress.text}>✓ Trong dự tính</span>
                     ) : (
-                      <span className="text-xs text-error" title={estimatedProgress.text}>Vượt {estimatedProgress.diff}h</span>
+                      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white" title={estimatedProgress.text}>Vượt {estimatedProgress.diff}h</span>
                     )}
                   </td>
 
@@ -612,12 +612,12 @@ function TaskTable({
                     {!kpi ? (
                       <span className="text-xs italic text-gray-400">-</span>
                     ) : kpi.status === "ontime" ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-sm bg-[#DCFCE7] px-2 py-0.5 text-xs text-[#15803D]" title={kpi.text}>
+                      <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white" title={kpi.text}>
                         ✓ Đúng hạn
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-0.5 rounded-sm bg-rose-100 px-2 py-0.5 text-xs text-rose-800" title={kpi.text}>
-                        ⚠️ Trễ hạn {kpi.diff}h
+                      <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white" title={kpi.text}>
+                        Trễ hạn {kpi.diff}h
                       </span>
                     )}
                   </td>
@@ -1667,9 +1667,9 @@ export default function KanbanTab({
 
           {/* Tab 2: Standard Kanban Board grid */}
           {kanbanViewTab === "Board" && (
-            <div className="grid flex-1 grid-cols-1 items-stretch gap-2 md:grid-cols-2 xl:grid-cols-4" id="kanban_board_columns">
+            <div className="grid flex-1 grid-cols-1 items-stretch overflow-hidden rounded-md border border-outline-variant bg-surface-container-low/40 divide-y divide-outline-variant md:grid-cols-2 xl:grid-cols-4 xl:divide-x xl:divide-y-0" id="kanban_board_columns">
               {/* Column 1: Not Started */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Not Started" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "Not Started" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["Not Started"])}>
                   <span className="text-sm font-semibold">
                     Chưa bắt đầu
@@ -1697,7 +1697,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 2: In Progress */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "In Progress" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "In Progress" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["In Progress"])}>
                   <span className="text-sm font-semibold">
                     Đang thực hiện
@@ -1725,7 +1725,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 3: Review / Testing */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Review/Testing" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "Review/Testing" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["Review/Testing"])}>
                   <span className="text-sm font-semibold">
                     Đang kiểm thử
@@ -1753,7 +1753,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 4: Done */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Done" && "ring-2 ring-primary/30")}>
+              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={cn("flex min-h-40 min-w-0 flex-col p-2 transition-colors", dragOverStatus === "Done" && "bg-primary/5 ring-1 ring-inset ring-primary/30")}>
                 <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones.Done)}>
                   <span className="text-sm font-semibold">
                     Đã hoàn thành
@@ -2037,13 +2037,13 @@ export default function KanbanTab({
                       const progress = getDynamicEstimatedProgress();
                       if (!progress) return <span className="text-gray-450 italic text-[10px]">Chưa đủ dữ liệu so giờ</span>;
                       return progress.status === "withinEstimate" ? (
-                        <span className="inline-flex items-center gap-1 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-normal text-[#15803D]">
-                          <CheckCircle className="w-3.5 h-3.5 text-[#16A34A]" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                          <CheckCircle className="w-3.5 h-3.5 text-white" />
                           {progress.text}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-250 font-normal rounded-lg text-[10px]">
-                          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                          <AlertCircle className="w-3.5 h-3.5 text-white" />
                           {progress.text}
                         </span>
                       );
@@ -2169,7 +2169,7 @@ export default function KanbanTab({
               <input id="new-task-category" type="text" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} maxLength={50} required autoFocus placeholder="Ví dụ: Chăm sóc khách hàng" className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15" />
               <div className="text-xs text-slate-500">Nhãn đã có</div>
               <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
-                {categoryOptions.map(option => <span key={option.value} className="max-w-full truncate rounded-lg bg-[#E8F7FF] px-2 py-1 text-xs text-[#007EB8]" title={option.label}>{option.label}</span>)}
+                {categoryOptions.map(option => <span key={option.value} className="max-w-full truncate rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium text-[#555555]" title={option.label}>{option.label}</span>)}
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-[#E8F0F8] px-5 py-3">
@@ -2307,12 +2307,12 @@ function KanbanCard({
 }) {
   const cardAccent =
     task.status === "In Progress" || task.status === "doing"
-      ? "border-l-sky-400"
+      ? "border-l-[#2196f3]"
       : task.status === "Review/Testing"
-        ? "border-l-amber-400"
+        ? "border-l-[#ff9800]"
         : task.status === "Done" || task.status === "done"
-          ? "border-l-emerald-400"
-          : "border-l-slate-400";
+          ? "border-l-[#18c93a]"
+          : "border-l-[#f5c400]";
   const projectName = task.projectId
     ? projects.find((project) => project.id === task.projectId)?.name || "Không có dự án"
     : null;
@@ -2320,10 +2320,10 @@ function KanbanCard({
   const estimatedProgress = calculateEstimatedTimeProgress(task);
   const priorityLabel = task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình";
   const priorityTone = task.priority === "High"
-    ? "bg-[#FFE5E8] text-[#C62B45] [.dark_&]:bg-red-950 [.dark_&]:text-red-200"
+    ? "bg-[#E06666] text-white"
     : task.priority === "Low"
-      ? "bg-[#E0F7ED] text-[#087D5A] [.dark_&]:bg-emerald-950 [.dark_&]:text-emerald-200"
-      : "bg-[#FFF0CC] text-[#98610B] [.dark_&]:bg-amber-950 [.dark_&]:text-amber-200";
+      ? "bg-[#5CB85C] text-white"
+      : "bg-[#F0AD4E] text-white";
 
   return (
     <div
@@ -2349,42 +2349,44 @@ function KanbanCard({
         ><X className="size-3.5" aria-hidden="true" /></button>}
       </div>
       <div className="flex min-w-0 items-center gap-1 text-[10px] select-none">
-        <span className="min-w-0 max-w-32 truncate rounded-sm border border-outline-variant bg-surface-container-low px-1.5 py-0.5 font-medium text-on-surface/80" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
+        <span className="min-w-0 max-w-32 truncate rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2 py-0.5 font-medium text-[#555555]" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
         {projectName && (
-          <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border border-outline-variant bg-surface-container-low px-1.5 py-0.5 text-on-surface/80" title={projectName}>
+          <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2 py-0.5 font-medium text-[#555555]" title={projectName}>
             <FolderOpen className="size-3 shrink-0" aria-hidden="true" />
             <span className="truncate">{projectName}</span>
           </span>
         )}
       </div>
-      <div className="flex min-w-0 items-center gap-1 border-t border-on-surface/10 pt-1.5 text-[10px] text-on-surface/75">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 select-none">
+        <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4", priorityTone)}>
+          {priorityLabel}
+        </span>
+        {estimatedProgress && (
+          <span
+            className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4 text-white", estimatedProgress.status === "withinEstimate" ? "bg-[#5CB85C]" : "bg-[#F0AD4E]")}
+            title="So giờ thực tế với giờ dự tính"
+          >
+            {estimatedProgress.status === "withinEstimate" ? "✓ Trong dự tính" : `Vượt ${estimatedProgress.diff}h`}
+          </span>
+        )}
+        {kpi && (
+          <span
+            className={cn("inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold leading-4 text-white", kpi.status === "ontime" ? "bg-[#5CB85C]" : "bg-[#E06666]")}
+            title="Kết quả KPI"
+          >
+            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ hạn ${kpi.diff}h`}
+          </span>
+        )}
+      </div>
+      <div className="flex min-w-0 items-center justify-between gap-2 border-t border-on-surface/10 pt-1.5 text-[10px] text-on-surface/75">
         <span className="inline-flex min-w-0 items-center gap-1 tabular-nums" title={task.dueDate ? `Hạn: ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}>
           <Calendar className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{task.dueDate ? `Hạn ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}</span>
         </span>
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-on-surface/80">
-        <span className={cn("shrink-0 px-1.5 py-0.5 text-[10px] font-semibold leading-tight uppercase", priorityTone)}>
-          {priorityLabel}
+        <span className="flex min-w-0 shrink-0 items-center gap-1.5 text-on-surface/80">
+          <span className="max-w-28 truncate" title={task.assignee}>{task.assignee}</span>
+          {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
         </span>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          {estimatedProgress && <span
-            className={cn("shrink-0 whitespace-nowrap rounded-full bg-white/75 px-2 py-0.5 text-[10px] font-medium [.dark_&]:bg-white/10", estimatedProgress.status === "withinEstimate" ? "text-[#087D5A] [.dark_&]:text-emerald-300" : "text-error")}
-            title="So giờ thực tế với giờ dự tính"
-          >
-            {estimatedProgress.status === "withinEstimate" ? "✓ Trong dự tính" : `Vượt ${estimatedProgress.diff}h`}
-          </span>}
-          {kpi && <span
-            className={cn("shrink-0 whitespace-nowrap rounded-full bg-white/75 px-2 py-0.5 text-[10px] font-medium [.dark_&]:bg-white/10", kpi.status === "ontime" ? "text-[#087D5A] [.dark_&]:text-emerald-300" : "text-error")}
-            title="Kết quả KPI"
-          >
-            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ hạn ${kpi.diff}h`}
-          </span>}
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate" title={task.assignee}>{task.assignee}</span>
-            {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
-          </span>
-        </div>
       </div>
 
     </div>

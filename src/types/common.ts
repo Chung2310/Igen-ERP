@@ -1,5 +1,6 @@
 
 export type TabType =
+  | "GYM"
   | "TRỢ LÝ KIẾN TRÚC"
   | "BÁO GIÁ"
   | "QUẢN LÝ Y TẾ"

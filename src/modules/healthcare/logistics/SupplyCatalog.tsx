@@ -49,8 +49,7 @@ type Stats = {
 
 const emptyRefs: LogisticsReferences = { warehouses: [], suppliers: [], rooms: [], departments: [], categories: [] };
 
-const surfacePanelClass =
-  "min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4";
+const surfacePanelClass = "flex min-w-0 flex-1 flex-col gap-3";
 
 const secondaryActionClass =
   "inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
@@ -241,7 +240,7 @@ export default function SupplyCatalog({
   );
 
   return (
-    <div className="space-y-3">
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
       {headerActionsContainer && createPortal(headerActionButtons, headerActionsContainer)}
       {stats.loading && !stats.data && (
         <div
@@ -446,10 +445,10 @@ export default function SupplyCatalog({
                 </div>
               </article>)}
             </div>
-            <div className="hidden md:block">
+            <div className="hidden md:flex md:min-h-0 md:flex-1 md:flex-col">
             <Table
-              minWidth="860px"
-              columnWidths={["28%", "16%", "13%", "13%", "13%", "17%"]}
+              minWidth="1060px"
+              columnWidths={["290px", "160px", "140px", "140px", "140px", "190px"]}
               headers={["Vật tư", "Phân loại", "Tồn / Đơn vị", "Giá trị tồn", "Cảnh báo", "Thao tác"]}
               empty={
                 !list.data.items.length
@@ -586,16 +585,19 @@ export default function SupplyCatalog({
               })}
             </Table>
             </div>
-            <TablePagination
-              appearance="erp"
-              currentPage={page}
-              totalPages={Math.max(1, Math.ceil(list.data.total / 25))}
-              totalItems={list.data.total}
-              pageSize={25}
-              pageSizeOptions={[25]}
-              onPageChange={setPage}
-              onPageSizeChange={() => {}}
-            />
+            <div className="sticky bottom-0 z-20 -mx-3 -mb-3 mt-auto sm:-mx-4 sm:-mb-4">
+              <TablePagination
+                appearance="erp"
+                className="rounded-b-lg"
+                currentPage={page}
+                totalPages={Math.max(1, Math.ceil(list.data.total / 25))}
+                totalItems={list.data.total}
+                pageSize={25}
+                pageSizeOptions={[25]}
+                onPageChange={setPage}
+                onPageSizeChange={() => {}}
+              />
+            </div>
           </>
         )}
       </div>

@@ -54,7 +54,12 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
   const [open, setOpen] = useState(false);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [view, setView] = useState(() => { const date = parseDate(value) ?? new Date(); return { year: date.getFullYear(), month: date.getMonth() }; });
+  const [yearText, setYearText] = useState(() => String((parseDate(value) ?? new Date()).getFullYear()));
   const [position, setPosition] = useState({ top: 0, left: 0, width: 312 });
+
+  useEffect(() => {
+    setYearText(String(view.year));
+  }, [view.year]);
   const today = dateKey(new Date());
   const isOpen = open && !disabled;
   const start = new Date(view.year, view.month, 1);
@@ -159,7 +164,38 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
       <div className="vi-date-header">
         <button type="button" aria-label="Năm trước" onClick={() => shiftMonth(-12)}><Chevron direction="left" double /></button>
         <button type="button" aria-label="Tháng trước" onClick={() => shiftMonth(-1)}><Chevron direction="left" /></button>
-        <strong>Tháng {view.month + 1} năm {view.year}</strong>
+        <strong>
+          <span className="sr-only">Tháng {view.month + 1} năm {view.year}</span>
+          <span aria-hidden="true">Tháng {view.month + 1}</span>
+        </strong>
+        <input
+          type="text"
+          inputMode="numeric"
+          aria-label="Nhập năm"
+          placeholder="Năm"
+          value={yearText}
+          maxLength={4}
+          className="vi-date-year-input"
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => {
+            const next = event.target.value.replace(/\D/g, "").slice(0, 4);
+            setYearText(next);
+            if (next.length === 4 && Number(next) >= 1000) {
+              setView((current) => ({ ...current, year: Number(next) }));
+            }
+          }}
+          onBlur={() => setYearText(String(view.year))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (yearText.length === 4 && Number(yearText) >= 1000) {
+                setView((current) => ({ ...current, year: Number(yearText) }));
+              } else {
+                setYearText(String(view.year));
+              }
+            }
+          }}
+        />
         <button type="button" aria-label="Tháng sau" onClick={() => shiftMonth(1)}><Chevron direction="right" /></button>
         <button type="button" aria-label="Năm sau" onClick={() => shiftMonth(12)}><Chevron direction="right" double /></button>
       </div>

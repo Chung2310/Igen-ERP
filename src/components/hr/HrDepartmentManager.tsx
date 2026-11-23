@@ -14,7 +14,7 @@ const fieldClass = "min-h-9 w-full rounded-xl border border-outline-variant bg-s
 const closeButtonClass = "flex size-8 shrink-0 items-center justify-center rounded-full bg-error text-on-error shadow-xs transition-transform hover:bg-error/90 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error disabled:cursor-not-allowed disabled:opacity-50";
 
 function DepartmentStatusBadge({ active }: { active: boolean }) {
-  return <HrStatusBadge tone={active ? "info" : "neutral"}>{active ? "Đang hoạt động" : "Ngừng hoạt động"}</HrStatusBadge>;
+  return <HrStatusBadge variant="hr" tone={active ? "success" : "neutral"}>{active ? "Đang hoạt động" : "Ngừng hoạt động"}</HrStatusBadge>;
 }
 
 type Props = {

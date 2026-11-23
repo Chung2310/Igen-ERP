@@ -13,7 +13,6 @@ import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { TablePagination } from "../../../components/common/TablePagination";
-import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { healthcareApi } from "../api";
 import {
@@ -43,19 +42,18 @@ import EquipmentEditor from "./EquipmentEditor";
 import EquipmentCompliance from "./EquipmentCompliance";
 import SupplyDocumentEditor from "./SupplyDocumentEditor";
 import { LogisticsFiles } from "./LogisticsFiles";
-import { LogisticsForm, formValues } from "./LogisticsForm";
+import { LogisticsForm } from "./LogisticsForm";
 
 type Row = Equipment | EquipmentRequest | StockDocument | Balance | Ledger;
 type Editor =
   | { kind: "equipment"; row?: Equipment }
   | { kind: "documents"; row?: StockDocument; batchType?: "receipt" | "issue" }
   | { kind: "compliance"; row: Equipment }
-  | { kind: "borrow" | "return"; row: Equipment };
+  | { kind: "borrow" | "return"; row?: Equipment };
 
 const emptyRefs: LogisticsReferences = { warehouses: [], suppliers: [], departments: [], rooms: [] };
 
-const surfacePanelClass =
-  "min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4";
+const surfacePanelClass = "flex min-w-0 flex-1 flex-col gap-3";
 
 const secondaryActionClass =
   "inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
@@ -105,7 +103,6 @@ export default function LogisticsPage({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editor, setEditor] = useState<Editor>();
-  const [requestType, setRequestType] = useState<"borrow" | "return">();
   const [preview, setPreview] = useState<StockDocument>();
   const [action, setAction] = useState<{
     row: EquipmentRequest | StockDocument;
@@ -199,15 +196,6 @@ export default function LogisticsPage({
     setPage(1);
   };
 
-  const titleText =
-    kind === "equipment"
-      ? "Quản lý thiết bị"
-      : embedded
-        ? view === "documents"
-          ? "Nhập / Xuất kho"
-          : "Tồn theo lô"
-        : "Quản lý vật tư";
-
   const searchPlaceholder =
     view === "equipment"
       ? "Tìm mã, tên, model hoặc số seri thiết bị"
@@ -226,65 +214,50 @@ export default function LogisticsPage({
           ? "phiếu"
           : "bản ghi";
 
-  const containerClass = embedded
-    ? "healthcare-logistics space-y-3"
-    : "healthcare-logistics min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-2 lg:pl-0";
+  const showTabs = !embedded || visibleTabs.length > 1;
+  const headerActions = (
+    <div ref={heading} tabIndex={-1} className="flex shrink-0 flex-wrap items-center gap-2 outline-none">
+      {kind === "equipment" && (
+        <button
+          type="button"
+          className="inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-surface-container-lowest px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          onClick={() => open({ kind: "borrow" })}
+        >
+          <ArrowUpRight className="size-3.5" aria-hidden="true" />
+          Tạo phiếu mượn/trả
+        </button>
+      )}
+      <ErpRefreshButton loading={query.refreshing} onClick={query.refresh} />
+      {canManage && view === "documents" && (
+        <>
+          <button type="button" className={secondaryActionClass} disabled={!refs.data} onClick={() => open({ kind: "documents", batchType: "issue" })}>
+            − Xuất kho theo lô
+          </button>
+          <button type="button" className={cn(primaryCreateButtonClass, "min-h-9")} disabled={!refs.data} onClick={() => open({ kind: "documents", batchType: "receipt" })}>
+            + Nhập kho theo lô
+          </button>
+        </>
+      )}
+      {canManage && view === "equipment" && (
+        <button
+          type="button"
+          className={cn(primaryCreateButtonClass, "min-h-9")}
+          disabled={!refs.data}
+          onClick={() => open({ kind: view as "equipment" | "documents" })}
+        >
+          <Plus className="size-3.5 stroke-[2.5]" aria-hidden="true" />
+          Thêm thiết bị
+        </button>
+      )}
+    </div>
+  );
 
-  return (
-    <section className={containerClass}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div ref={heading} tabIndex={-1} className="min-w-0 outline-none">
-          {embedded ? (
-            <h3 data-typography="section-title" className="text-balance text-base font-semibold text-on-surface">
-              {titleText}
-            </h3>
-          ) : (
-            <HrPageTitle>{titleText}</HrPageTitle>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {kind === "equipment" && (
-            <button
-              type="button"
-              className="inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-surface-container-lowest px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              onClick={() => {
-                remember();
-                setRequestType("borrow");
-              }}
-            >
-              <ArrowUpRight className="size-3.5" aria-hidden="true" />
-              Tạo phiếu mượn/trả
-            </button>
-          )}
-          <ErpRefreshButton loading={query.refreshing} onClick={query.refresh} />
-          {canManage && view === "documents" && (
-            <>
-              <button type="button" className={secondaryActionClass} disabled={!refs.data} onClick={() => open({ kind: "documents", batchType: "issue" })}>
-                − Xuất kho theo lô
-              </button>
-              <button type="button" className={cn(primaryCreateButtonClass, "min-h-9")} disabled={!refs.data} onClick={() => open({ kind: "documents", batchType: "receipt" })}>
-                + Nhập kho theo lô
-              </button>
-            </>
-          )}
-          {canManage && view === "equipment" && (
-            <button
-              type="button"
-              className={cn(primaryCreateButtonClass, "min-h-9")}
-              disabled={!refs.data}
-              onClick={() => open({ kind: view as "equipment" | "documents" })}
-            >
-              <Plus className="size-3.5 stroke-[2.5]" aria-hidden="true" />
-              Thêm thiết bị
-            </button>
-          )}
-        </div>
-      </div>
-
-      {(!embedded || visibleTabs.length > 1) && (
+  const content = (
+    <>
+      {showTabs && (
         <nav
           aria-label="Nghiệp vụ hậu cần y tế"
-          className="flex gap-1 overflow-x-auto border-b border-outline-variant"
+          className="flex min-w-0 gap-1 overflow-x-auto border-b border-outline-variant"
         >
           {visibleTabs.map(([key, label]) => {
             const active = key === view;
@@ -343,11 +316,14 @@ export default function LogisticsPage({
           hasActiveFilters={hasActiveFilters}
           onResetFilters={resetFilters}
           actions={
-            view === "documents" ? (
-              <LogisticsFiles api={api} kind="documents" canManage={false} onSaved={query.refresh} />
-            ) : view === kind ? (
-              <LogisticsFiles api={api} kind={kind} canManage={canManage} onSaved={query.refresh} />
-            ) : undefined
+            <div className="flex flex-wrap items-center gap-2">
+              {view === "documents" ? (
+                <LogisticsFiles api={api} kind="documents" canManage={false} onSaved={query.refresh} />
+              ) : view === kind ? (
+                <LogisticsFiles api={api} kind={kind} canManage={canManage} onSaved={query.refresh} />
+              ) : null}
+              {headerActions}
+            </div>
           }
           secondaryFilters={
             view === "equipment" ? (
@@ -614,16 +590,19 @@ export default function LogisticsPage({
             {["balances", "ledger"].includes(view) && (
               <StockRows rows={rows as Balance[]} api={api} warehouseName={warehouseName} ledger={view === "ledger"} />
             )}
-            <TablePagination
-              appearance="erp"
-              currentPage={page}
-              totalPages={Math.max(1, Math.ceil(query.data.total / 25))}
-              totalItems={query.data.total}
-              pageSize={25}
-              pageSizeOptions={[25]}
-              onPageChange={setPage}
-              onPageSizeChange={() => {}}
-            />
+            <div className="sticky bottom-0 z-20 -mx-3 -mb-3 mt-auto sm:-mx-4 sm:-mb-4">
+              <TablePagination
+                appearance="erp"
+                className="rounded-b-lg"
+                currentPage={page}
+                totalPages={Math.max(1, Math.ceil(query.data.total / 25))}
+                totalItems={query.data.total}
+                pageSize={25}
+                pageSizeOptions={[25]}
+                onPageChange={setPage}
+                onPageSizeChange={() => {}}
+              />
+            </div>
           </>
         )}
       </div>
@@ -631,18 +610,13 @@ export default function LogisticsPage({
       {editor?.kind === "equipment" && (
         <EquipmentEditor api={api} record={editor.row} refs={references} onClose={close} onSaved={saved} />
       )}
-      {requestType && (
+      {editor && (editor.kind === "borrow" || editor.kind === "return") && (
         <EquipmentRequestPicker
           api={api}
-          type={requestType}
-          onClose={() => {
-            setRequestType(undefined);
-            restore();
-          }}
-          onSelect={(row, selectedType) => {
-            setEditor({ kind: selectedType, row });
-            setRequestType(undefined);
-          }}
+          type={editor.kind}
+          initialEquipment={editor.row}
+          onClose={close}
+          onSaved={saved}
         />
       )}
       {editor?.kind === "documents" && (
@@ -650,23 +624,6 @@ export default function LogisticsPage({
       )}
       {editor?.kind === "compliance" && (
         <EquipmentCompliance api={api} record={editor.row} canManage={canManage} onClose={close} onSaved={saved} />
-      )}
-      {editor && ["borrow", "return"].includes(editor.kind) && editor.row && (
-        <LogisticsForm
-          title={editor.kind === "borrow" ? "Yêu cầu mượn thiết bị" : "Yêu cầu trả thiết bị"}
-          api={api}
-          path={`/logistics/equipment/${editor.row._id}/requests`}
-          payload={(data) => ({ ...formValues(data), type: editor.kind })}
-          onClose={close}
-          onSaved={saved}
-        >
-          {(formError) => (
-            <>
-              <Field name="reason" label="Lý do" required error={formError} />
-              <Field name="expectedReturnDay" label="Ngày dự kiến trả" type="date" error={formError} />
-            </>
-          )}
-        </LogisticsForm>
       )}
       {preview && (
         <ErpModal native title="Chi tiết phiếu vật tư" onClose={close} maxWidth="max-w-3xl">
@@ -742,6 +699,21 @@ export default function LogisticsPage({
           onConfirm={execute}
         />
       )}
-    </section>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="healthcare-logistics flex min-w-0 flex-1 flex-col gap-3">{content}</div>;
+  }
+
+  return (
+    <div className="healthcare-logistics flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
+      <section
+        aria-label={kind === "equipment" ? "Quản lý thiết bị" : "Quản lý vật tư"}
+        className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4"
+      >
+        {content}
+      </section>
+    </div>
   );
 }

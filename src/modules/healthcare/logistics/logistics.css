@@ -15,6 +15,29 @@
   text-wrap: pretty;
 }
 
+.healthcare-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline) var(--color-surface-container-low);
+}
+
+.healthcare-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.healthcare-table-scroll::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
+  border-radius: 999px;
+}
+
+.healthcare-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 999px;
+}
+
+.healthcare-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
 /* KPI icon tiles use explicit light/dark scoping on html.dark so OS dark mode
    does not bleed dark-mode backgrounds into light-mode ERP views. */
 .logistics-kpi-icon--primary {
@@ -23,23 +46,23 @@
 }
 
 .logistics-kpi-icon--info {
-  background-color: #e0f2fe;
-  color: #0284c7;
+  background-color: #e3f2fd;
+  color: #2196f3;
 }
 
 .logistics-kpi-icon--success {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: #e8f9ec;
+  color: #18c93a;
 }
 
 .logistics-kpi-icon--warning {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: #fff9db;
+  color: #e5a900;
 }
 
 .logistics-kpi-icon--danger {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #ffebee;
+  color: #f44336;
 }
 
 html.dark .logistics-kpi-icon--primary {

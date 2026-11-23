@@ -3,16 +3,18 @@ import type { HrSidebarIconName } from './HrSidebarIcon';
 
 export type HrFilledIconName = HrSidebarIconName;
 
-function HrBrandGradient({ id }: { id: string }) {
-  return <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
-    <stop offset="0%" stopColor="#00adfc" />
-    <stop offset="55%" stopColor="#199bff" />
-    <stop offset="100%" stopColor="#7567ff" />
+type HrIconPalette = 'default' | 'kpi-blue';
+
+function HrBrandGradient({ id }: { id: string; palette?: HrIconPalette }) {
+  return <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="22" y2="22">
+    <stop offset="0%" stopColor="#4db2fa" />
+    <stop offset="48%" stopColor="#2196f3" />
+    <stop offset="100%" stopColor="#1982e6" />
   </linearGradient>;
 }
 
 /** Filled companion to the rounded HR navigation icons. */
-export function HrFilledSidebarIcon({ name, twoTone = false, ...props }: SVGProps<SVGSVGElement> & { name: HrFilledIconName; twoTone?: boolean }) {
+export function HrFilledSidebarIcon({ name, twoTone = false, palette = 'default', ...props }: SVGProps<SVGSVGElement> & { name: HrFilledIconName; twoTone?: boolean; palette?: HrIconPalette }) {
   const gradientId = useId().replace(/:/g, '');
   const main = twoTone ? `url(#${gradientId})` : 'currentColor';
   const detail = main;
@@ -86,7 +88,7 @@ export function HrFilledSidebarIcon({ name, twoTone = false, ...props }: SVGProp
   }[name];
 
   return <svg {...props} viewBox="0 0 24 24" fill={main} aria-hidden="true" focusable="false">
-    {twoTone && <defs><HrBrandGradient id={gradientId} /></defs>}
+    {twoTone && <defs><HrBrandGradient id={gradientId} palette={palette} /></defs>}
     {shape}
   </svg>;
 }

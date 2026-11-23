@@ -2,10 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Download, FileSpreadsheet, Upload } from "lucide-react";
 import { DateInput24 } from "../../../components/common/TimeInput24";
 import type { HealthcareApi } from "../api";
-import type {
-  Attachment,
-  LogisticsKind,
-} from "../../../../shared/healthcare-logistics";
+import type { Attachment, LogisticsKind } from "../../../../shared/healthcare-logistics";
 import { buttonClass, Feedback, Field, messageOf } from "../ui";
 
 const compactToolButtonClass =

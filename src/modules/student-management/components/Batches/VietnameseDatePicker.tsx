@@ -46,7 +46,12 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
   const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value));
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => toLocalDate(value));
+  const [yearText, setYearText] = useState(() => String(toLocalDate(value).getFullYear()));
   const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    setYearText(String(visibleMonth.getFullYear()));
+  }, [visibleMonth]);
 
   useEffect(() => {
     if (document.activeElement !== inputRef.current) setDisplayValue(toDisplayDate(value));
@@ -159,9 +164,40 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
       </button>
       {open && createPortal(
         <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-50 w-72 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface shadow-lg" style={position}>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-1.5">
             <button type="button" onClick={() => changeMonth(-1)} aria-label="Tháng trước" className="rounded-lg p-1.5 hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><ChevronLeft className="h-4 w-4" aria-hidden="true" /></button>
-            <span className="font-medium tabular-nums">Tháng {visibleMonth.getMonth() + 1}/{visibleMonth.getFullYear()}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="sr-only">Tháng {visibleMonth.getMonth() + 1}/{visibleMonth.getFullYear()}</span>
+              <span aria-hidden="true" className="font-medium tabular-nums">Tháng {visibleMonth.getMonth() + 1}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label={/sinh/i.test(ariaLabel) ? 'Nhập năm sinh' : 'Nhập năm'}
+                placeholder="Năm"
+                value={yearText}
+                maxLength={4}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => {
+                  const next = event.target.value.replace(/\D/g, '').slice(0, 4);
+                  setYearText(next);
+                  if (next.length === 4 && Number(next) >= 1000) {
+                    setVisibleMonth((current) => new Date(Number(next), current.getMonth(), 1));
+                  }
+                }}
+                onBlur={() => setYearText(String(visibleMonth.getFullYear()))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (yearText.length === 4 && Number(yearText) >= 1000) {
+                      setVisibleMonth((current) => new Date(Number(yearText), current.getMonth(), 1));
+                    } else {
+                      setYearText(String(visibleMonth.getFullYear()));
+                    }
+                  }
+                }}
+                className="h-7 w-16 rounded-lg border border-outline-variant bg-surface-container-lowest px-1.5 text-center text-sm font-medium tabular-nums text-on-surface focus:border-primary focus:outline-none"
+              />
+            </div>
             <button type="button" onClick={() => changeMonth(1)} aria-label="Tháng sau" className="rounded-lg p-1.5 hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><ChevronRight className="h-4 w-4" aria-hidden="true" /></button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center">

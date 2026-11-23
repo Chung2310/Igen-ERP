@@ -38,11 +38,11 @@ export default function AdaptiveMoney({ value }: { value: number }) {
         aria-label={full}
         aria-expanded={expanded}
         onClick={() => setExpanded(current => !current)}
-        className="block w-full min-w-0 rounded text-left leading-tight [overflow-wrap:anywhere] focus-visible:outline-2 focus-visible:outline-white"
+        className="block w-full min-w-0 rounded text-left leading-tight [overflow-wrap:anywhere] focus-visible:outline-2 focus-visible:outline-primary"
       >
         {compact ? compactReportMoney(value) : full}
       </button>
-      {expanded && <span role="status" className="mt-1 block text-xs font-medium text-white/90 [overflow-wrap:anywhere]">{full}</span>}
+      {expanded && <span role="status" className="mt-1 block text-xs font-medium text-on-surface-variant [overflow-wrap:anywhere]">{full}</span>}
     </div>
   );
 }

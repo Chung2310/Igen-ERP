@@ -28,6 +28,7 @@ import { invoicePaymentRows, invoicePaymentSummary } from "../components/pos/inv
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { socketService } from "../../../services/socketService";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { cn } from "../../student-management/lib/utils";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { Pagination } from "../../../components/common/Pagination";
@@ -564,20 +565,9 @@ export default function RetailInvoicesPageContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            isVoid
-                              ? "bg-rose-50 text-rose-700 border border-rose-200"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          }`}
-                        >
-                          {isVoid ? (
-                            <AlertCircle className="h-3 w-3" />
-                          ) : (
-                            <CheckCircle2 className="h-3 w-3" />
-                          )}
+                        <HrStatusBadge tone={isVoid ? "danger" : "success"}>
                           {isVoid ? "Đã vô hiệu" : "Đã phát hành"}
-                        </span>
+                        </HrStatusBadge>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1">
@@ -794,7 +784,7 @@ function InvoiceDialog({
         <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-outline-variant px-4 py-3 sm:px-6">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <h2 id={titleId} className="text-balance text-lg font-semibold">Hóa đơn</h2>
-            <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", isVoid ? "border-outline-variant bg-surface text-on-surface-variant" : "border-primary/20 bg-primary/5 text-primary")}>{isVoid ? "Đã vô hiệu" : "Đã phát hành"}</span>
+            <HrStatusBadge tone={isVoid ? "danger" : "success"}>{isVoid ? "Đã vô hiệu" : "Đã phát hành"}</HrStatusBadge>
           </div>
           {canReprint && <div className="order-last flex w-full shrink-0 justify-end gap-2 sm:order-none sm:w-auto">
             <button type="button" aria-label="Tải bản in lại PDF" disabled={downloading} className={actionClass} onClick={onDownload}>

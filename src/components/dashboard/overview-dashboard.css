@@ -7,8 +7,8 @@
   padding: 16px;
 }
 .overview-kpi {
-  --metric-start: #7344ee;
-  --metric-end: #6237de;
+  --metric-start: #2196f3;
+  --metric-end: #1982e6;
   min-height: 7rem;
   border: 0;
   border-radius: 6px;
@@ -17,11 +17,11 @@
   padding: 0.75rem 0.875rem;
   box-shadow: none;
 }
-.overview-kpi:nth-child(6n + 2) { --metric-start: #326ef1; --metric-end: #285fe3; }
-.overview-kpi:nth-child(6n + 3) { --metric-start: #03ade0; --metric-end: #0099ce; }
-.overview-kpi:nth-child(6n + 4) { --metric-start: #f87935; --metric-end: #eb6328; }
-.overview-kpi:nth-child(6n + 5) { --metric-start: #f3bd31; --metric-end: #dfa91d; }
-.overview-kpi:nth-child(6n + 6) { --metric-start: #ec3b57; --metric-end: #dc2948; }
+.overview-kpi:nth-child(6n + 2) { --metric-start: #18c93a; --metric-end: #12b332; }
+.overview-kpi:nth-child(6n + 3) { --metric-start: #00b8f4; --metric-end: #009ee0; }
+.overview-kpi:nth-child(6n + 4) { --metric-start: #ff9800; --metric-end: #f08400; }
+.overview-kpi:nth-child(6n + 5) { --metric-start: #f5c400; --metric-end: #e5b200; }
+.overview-kpi:nth-child(6n + 6) { --metric-start: #f44336; --metric-end: #e53935; }
 .overview-kpi :is(p, strong, h4, span, div) { color: inherit; text-shadow: 0 1px 3px rgb(0 0 0 / 0.55); }
 .overview-kpi .finance-kpi-delta { color: var(--color-on-surface-variant); text-shadow: none; }
 .overview-kpi .finance-kpi-delta.text-change-up { color: var(--color-change-up); }

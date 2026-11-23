@@ -91,6 +91,11 @@ export interface IWorkHoursConfig {
 }
 
 export interface IUser extends Document {
+  gymProfile?: {
+    gender?: string; address?: string; specialization?: string; yearsOfExperience?: number;
+    certificates?: string[]; bio?: string; avatarUrl?: string;
+  };
+  gymProfileRevision?: number;
   elevenlabsAccess?: { apiKey?: string } | null;
   heygenAccess?: { apiKey?: string; avatarId?: string; avatarIds?: string[]; voiceId?: string } | null;
   canvaIntegration?: import("../modules/marketing-suite/shared/interface/user.interface").ICanvaIntegration | null;

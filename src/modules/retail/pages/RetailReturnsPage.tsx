@@ -4,6 +4,7 @@ import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { retailAfterSalesApi } from "../api/retailAfterSales.api";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailAfterSale, RetailAfterSaleType } from "../types";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { cn } from "../../student-management/lib/utils";
 import { Dropdown } from "../../../components/common/Dropdown";
 import { RetailEmptyState } from "../components/RetailEmptyState";
@@ -194,7 +195,7 @@ function AfterSaleRow({ item }: { item: RetailAfterSale }) {
     <>
       <tr className="hover:bg-surface-container-low">
         <th scope="row" className="px-4 py-3 font-semibold">{item.code}</th>
-        <td className="px-4 py-3"><span className="rounded-full border border-outline-variant px-3 py-1 text-xs font-semibold">{isReturn ? "Khách trả hàng" : "Thu mua hàng cũ"}</span></td>
+        <td className="px-4 py-3"><HrStatusBadge tone={isReturn ? "warning" : "info"}>{isReturn ? "Khách trả hàng" : "Thu mua hàng cũ"}</HrStatusBadge></td>
         <td className="px-4 py-3"><span className="sr-only">Đơn gốc </span>{item.orderCode}</td>
         <td className="whitespace-nowrap px-4 py-3 tabular-nums">{new Date(item.createdAt).toLocaleString("vi-VN")}</td>
         <td className="px-4 py-3">{item.customerName || "Khách lẻ"}</td>

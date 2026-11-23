@@ -12,6 +12,7 @@ import { HealthcareWorkspace } from "../HealthcarePage";
 import LogisticsPage from "./LogisticsPage";
 import SupplyDocumentEditor from "./SupplyDocumentEditor";
 import SupplyEditor from "./SupplyEditor";
+import SupplyProfiles from "./SupplyProfiles";
 import type { HealthcareApi } from "../api";
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: vi.fn() }));
@@ -69,20 +70,19 @@ it("opens equipment via healthcare navigation without loading patient data", asy
       }
     />,
   );
-  expect(
-    await screen.findByRole("heading", { name: "Quản lý thiết bị" }),
-  ).toBeTruthy();
   expect((await screen.findAllByText(/Chưa có thiết bị phù hợp/)).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("heading", { name: "Quản lý thiết bị" })).toBeNull();
   expect(calls.some((x) => /patients|appointments|visits/.test(x.path))).toBe(
     false,
   );
   const navigation = screen.getByRole("navigation", { name: "Nghiệp vụ y tế" });
   fireEvent.click(within(navigation).getByRole("button", { name: "Vật tư" }));
   expect(
-    await screen.findByRole("heading", {
-      name: "Quản lý Vật tư & Thiết bị tiêu hao",
-    }),
+    await screen.findByRole("navigation", { name: "Điều hướng quản lý vật tư" }),
   ).toBeTruthy();
+  expect(
+    screen.queryByRole("heading", { name: "Quản lý Vật tư & Thiết bị tiêu hao" }),
+  ).toBeNull();
   for (const label of [
     "Vật tư",
     "Nhập / Xuất kho",
@@ -195,20 +195,27 @@ it("uploads equipment image, inspection report, and typed legal file", async () 
   expect(uploads[1].get("report")).toBe("true");
   expect(JSON.parse(String(uploads[2].get("metadata")))).toMatchObject({ name: "invoice.pdf", number: "INV-01" });
 });
-it("opens the LuxCare-style borrow and return flow from one page action", async () => {
+it("submits borrow and return requests in one modal with a searchable equipment dropdown", async () => {
   const calls = stub([row]);
   render(<LogisticsPage kind="equipment" branchId="branch" hasPermission={() => true} />);
   expect((await screen.findAllByText("Máy siêu âm")).length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: "Tạo phiếu mượn/trả" }));
-  const picker = await screen.findByRole("dialog", { name: "Tạo phiếu mượn/trả thiết bị" });
-  fireEvent.click(await within(picker).findByRole("button", { name: "Chọn mượn" }));
-  expect(await screen.findByRole("dialog", { name: "Yêu cầu mượn thiết bị" })).toBeTruthy();
-  fireEvent.click(screen.getAllByRole("button", { name: "Đóng" })[0]);
-  fireEvent.click(screen.getByRole("button", { name: "Tạo phiếu mượn/trả" }));
-  const returnPicker = await screen.findByRole("dialog", { name: "Tạo phiếu mượn/trả thiết bị" });
-  fireEvent.click(within(returnPicker).getByRole("button", { name: "Trả thiết bị" }));
-  expect(within(returnPicker).getByRole("button", { name: "Trả thiết bị" }).getAttribute("aria-pressed")).toBe("true");
-  await waitFor(() => expect(calls.some((call) => call.path === "/logistics/equipment")).toBe(true));
+  const dialog = await screen.findByRole("dialog", { name: "Tạo phiếu mượn/trả thiết bị" });
+  expect(within(dialog).queryByRole("listbox")).toBeNull();
+  const combobox = within(dialog).getByRole("combobox");
+  fireEvent.click(combobox);
+  const listbox = await within(dialog).findByRole("listbox", { name: "Danh sách thiết bị" });
+  fireEvent.click(await within(listbox).findByRole("option", { name: /Máy siêu âm/ }));
+  expect(within(dialog).queryByRole("listbox")).toBeNull();
+  fireEvent.change(within(dialog).getByLabelText(/Lý do/), { target: { value: "Khám buổi sáng" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Gửi yêu cầu mượn" }));
+  await waitFor(() =>
+    expect(calls.some((call) => call.method === "POST" && call.path === "/logistics/equipment/e1/requests")).toBe(true),
+  );
+  expect(calls.find((call) => call.path === "/logistics/equipment/e1/requests")?.body).toMatchObject({
+    type: "borrow",
+    reason: "Khám buổi sáng",
+  });
 });
 it("saves supply lot, expiry, inspection and uploads files from its editor", async () => {
   const calls: { path: string; body: unknown }[] = [];
@@ -365,4 +372,63 @@ it("saves a stock receipt as a draft from the same popup", async () => {
     voucherCode: expect.stringMatching(/^PNK-/),
   });
   expect(json.mock.calls.some(([path]) => path === "/logistics/batch-stock")).toBe(false);
+});
+it("validates equipment selection and hides expected return date when switching to return mode", async () => {
+  stub([row]);
+  render(<LogisticsPage kind="equipment" branchId="branch" hasPermission={() => true} />);
+  await screen.findAllByText("Máy siêu âm");
+  fireEvent.click(screen.getByRole("button", { name: "Tạo phiếu mượn/trả" }));
+  const dialog = await screen.findByRole("dialog", { name: "Tạo phiếu mượn/trả thiết bị" });
+  expect(within(dialog).getByLabelText("Ngày dự kiến trả")).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Trả thiết bị" }));
+  expect(within(dialog).queryByLabelText("Ngày dự kiến trả")).toBeNull();
+  fireEvent.change(within(dialog).getByLabelText(/Lý do/), { target: { value: "Trả sau ca khám" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Gửi yêu cầu trả" }));
+  expect(await within(dialog).findByText("Vui lòng chọn thiết bị.")).toBeTruthy();
+});
+it("adds, previews, removes, and saves supply unit conversions from SupplyProfiles", async () => {
+  const supply = {
+    _id: "s1",
+    code: "VT01",
+    name: "Bông gòn y tế",
+    unit: "Gói",
+    precision: 0,
+    trackingMode: "lot",
+    requiresExpiry: true,
+    conversions: [],
+    revision: 1,
+    active: true,
+    minQuantity: 0,
+    category: "",
+    supplierId: "",
+    warehouseId: "",
+    notes: "",
+    documents: [],
+    createdAt: "",
+    updatedAt: "",
+  };
+  const json = vi.fn(async (path: string, options?: RequestInit) =>
+    options?.method === "PUT"
+      ? { ...supply, revision: 2 }
+      : { items: [supply], total: 1, page: 1, pageSize: 25 },
+  );
+  render(<SupplyProfiles api={{ json } as unknown as HealthcareApi} canManage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Cấu hình" }));
+  const dialog = await screen.findByRole("dialog", { name: "Quy đổi · Bông gòn y tế" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Thêm đơn vị quy đổi" }));
+  fireEvent.change(within(dialog).getByLabelText(/Đơn vị quy đổi 1/), { target: { value: "Thùng" } });
+  fireEvent.change(within(dialog).getByLabelText(/Số Gói trong 1 đơn vị/), { target: { value: "20" } });
+  expect(dialog.textContent).toMatch(/1\s*Thùng\s*=\s*20\s*Gói/);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+  await waitFor(() =>
+    expect(json).toHaveBeenCalledWith(
+      "/logistics/profiles/s1",
+      expect.objectContaining({ method: "PUT" }),
+    ),
+  );
+  const putCall = json.mock.calls.find(([path, opts]) => path === "/logistics/profiles/s1" && opts?.method === "PUT");
+  expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
+    revision: 1,
+    conversions: [{ unit: "Thùng", factor: "20" }],
+  });
 });

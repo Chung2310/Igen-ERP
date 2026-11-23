@@ -24,3 +24,49 @@
   border: 1px solid var(--color-outline-variant);
   backdrop-filter: blur(24px);
 }
+
+#architect_tab_wrapper > :not(#architect_sub_tabs_bar) :is(div, section, article, aside)[class*="rounded-xl"][class*="border"],
+#architect_tab_wrapper > :not(#architect_sub_tabs_bar) :is(div, section, article, aside)[class*="rounded-lg"][class*="border"] {
+  border-radius: 6px;
+}
+
+#architect_tab_wrapper > :not(#architect_sub_tabs_bar) :is(div, section, article, aside)[class*="border"][class*="shadow"] {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+/* Keep form labels cleanly separated from inputs, selects, and textareas. */
+.architect-assistant-source label:has(:is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]), select, textarea)):not(:has(input[type="checkbox"], input[type="radio"])):not([class*="items-center"]) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.architect-assistant-source label:has(+ :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]), select, textarea)) {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+#architect_sub_tabs_bar nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
+  background: linear-gradient(90deg, #4db2fa 0%, #2196f3 50%, #1982e6 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@media (min-width: 1024px) {
+  #architect_sub_tabs_bar {
+    padding-top: 0.5rem;
+    row-gap: 0.25rem;
+    grid-template-rows: 2.75rem minmax(0, 1fr) auto;
+    overflow: visible;
+  }
+
+  #architect_tab_wrapper[data-flush-card="true"]:has(> #architect_sub_tabs_bar:not([data-collapsed="true"])) {
+    padding-left: 16rem;
+  }
+
+  #architect_tab_wrapper[data-flush-card="true"]:has(> #architect_sub_tabs_bar[data-collapsed="true"]) {
+    padding-left: 5rem;
+  }
+}

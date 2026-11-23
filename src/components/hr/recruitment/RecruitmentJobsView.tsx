@@ -48,10 +48,10 @@ const emptyJob = {
 };
 const statusLabel: Record<RecruitmentJobStatus, string> = jobStatusLabels;
 const statusTone: Record<RecruitmentJobStatus, string> = {
-  draft: "!bg-[#EAF0F7] !text-[#536B8F]",
-  open: "!bg-[#DCF7E8] !text-[#078252]",
-  paused: "!bg-[#FFF0D8] !text-[#A66300]",
-  closed: "!bg-[#E8F4FF] !text-[#087BDF]",
+  draft: "border border-[#DCDCDC] !bg-[#F3F4F6] !text-[#555555]",
+  open: "!bg-[#5CB85C] !text-white",
+  paused: "!bg-[#F0AD4E] !text-white",
+  closed: "!bg-[#E06666] !text-white",
 };
 
 function missingOpenRequirements(job: RecruitmentJob): string[] {

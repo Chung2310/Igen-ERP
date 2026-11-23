@@ -21,6 +21,21 @@ import { opusclipService, OpusClipProject } from "../../services/opusclipService
 import { socketService } from "../../../../../services/socketService";
 import { toast } from "../../../../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
+import { StyledSelect } from "../../../../../components/common/StyledSelect";
+
+const LENGTH_OPTIONS = [
+  { value: "auto", label: "Tự động (Auto)" },
+  { value: "<30s", label: "< 30 giây" },
+  { value: "30s-60s", label: "30s – 60s" },
+  { value: "60s-90s", label: "60s – 90s" },
+  { value: "90s-3m", label: "90s – 3 phút" },
+];
+
+const SOURCE_LANG_OPTIONS = [
+  { value: "auto", label: "Tự nhận diện (Auto)" },
+  { value: "vi", label: "Tiếng Việt (vi)" },
+  { value: "en", label: "Tiếng Anh (en)" },
+];
 
 export default function LongToShortTab() {
   const [videoUrl, setVideoUrl] = useState("");
@@ -247,265 +262,276 @@ export default function LongToShortTab() {
     switch (status) {
       case "completed":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">
-            <Check className="h-3 w-3" /> Hoàn thành
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+            <Check className="size-3" aria-hidden="true" /> Hoàn thành
           </span>
         );
       case "failed":
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 border border-rose-100">
-            <AlertCircle className="h-3 w-3" /> Thất bại
+          <span className="inline-flex items-center gap-1 rounded-full border border-error/25 bg-error/10 px-2 py-0.5 text-xs font-medium text-error">
+            <AlertCircle className="size-3" aria-hidden="true" /> Thất bại
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-100 animate-pulse">
-            <Clock className="h-3 w-3 animate-spin" /> Đang cắt...
+          <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <Clock className="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Đang cắt…
           </span>
         );
     }
   };
 
   const getViralScoreColor = (score: number) => {
-    if (score >= 85) return "text-emerald-600 bg-emerald-50 border-emerald-100";
-    if (score >= 70) return "text-amber-600 bg-amber-50 border-amber-100";
-    return "text-rose-600 bg-rose-50 border-rose-100";
+    if (score >= 85) return "border-emerald-500/30 bg-emerald-50 text-emerald-700";
+    if (score >= 70) return "border-amber-500/30 bg-amber-50 text-amber-700";
+    return "border-rose-500/30 bg-rose-50 text-rose-700";
   };
 
-  return (
-    <div className="h-full flex flex-col space-y-6 overflow-y-auto pr-1 font-sans" id="long_to_short_root">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <Scissors className="h-6 w-6 text-purple-600" /> Long video to Short video
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Chuyển đổi các video dài (YouTube/Drive) thành hàng loạt clip ngắn dọc 9:16 có kèm phụ đề sinh động và phân tích xu hướng bằng AI.
-          </p>
-        </div>
-        <button
-          onClick={() => fetchProjects()}
-          disabled={loading}
-          className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 text-xs font-bold text-gray-700 shadow-xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 text-gray-500 ${loading ? "animate-spin" : ""}`} />
-          <span>Cập nhật danh sách</span>
-        </button>
-      </div>
+  const focusRingClass =
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+  const inputClass =
+    "block h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60";
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* COLUMN LEFT: Form + History (4 cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          
+  return (
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 pb-6 font-sans" id="long_to_short_root">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+
+        {/* COLUMN LEFT: Form + History (5 cols) */}
+        <div className="flex flex-col gap-5 lg:col-span-5">
+
           {/* Submit Box */}
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              <h3 className="text-sm font-bold text-gray-800">Cắt video mới</h3>
+          <section
+            aria-label="Tạo dự án cắt video mới"
+            className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+          >
+            <div className="mb-4 flex items-center justify-between gap-2 border-b border-outline-variant pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Scissors className="size-4" aria-hidden="true" />
+                </div>
+                <h2 className="text-balance text-sm font-semibold text-on-surface">Cắt video mới</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchProjects()}
+                disabled={loading}
+                aria-label="Làm mới danh sách dự án"
+                title="Cập nhật danh sách"
+                className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer disabled:opacity-50 ${focusRingClass}`}
+              >
+                <RefreshCw className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Đường dẫn video (YouTube / Google Drive / URL trực tiếp) *
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="lts-video-url" className="text-sm font-medium text-on-surface">
+                  Đường dẫn video <span className="text-error">*</span>
                 </label>
                 <input
+                  id="lts-video-url"
                   type="url"
                   required
-                  placeholder="Dán link youtube.com/watch?v=... hoặc Drive"
+                  placeholder="Dán link YouTube, Google Drive hoặc URL trực tiếp…"
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
-                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  className={inputClass}
                   disabled={uploading}
                 />
-                
+
                 {/* Tải lên video cục bộ */}
-                <div className="mt-2">
-                  <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-purple-200 bg-purple-50/30 px-4 text-xs font-bold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-300">
-                    {uploading ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
-                        <span>Đang tải tệp lên: {uploadProgress}%</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 text-purple-500" />
-                        <span>Tải tệp video từ máy tính (&lt; 1.5GB)</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="video/*"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      disabled={uploading}
-                    />
-                  </label>
-                </div>
+                <label className="mt-1 flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 px-3 py-2 text-sm font-medium text-primary transition-colors duration-150 hover:border-primary hover:bg-primary/5">
+                  {uploading ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                      <span className="tabular-nums">Đang tải tệp lên: {uploadProgress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="size-4" aria-hidden="true" />
+                      <span>Tải tệp video từ máy tính (&lt; 1.5 GB)</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="sr-only"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                  />
+                </label>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Tên dự án (Tùy chọn)
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="lts-project-name" className="text-sm font-medium text-on-surface">
+                  Tên dự án <span className="font-normal text-on-surface-variant">(tùy chọn)</span>
                 </label>
                 <input
+                  id="lts-project-name"
                   type="text"
                   placeholder="Ví dụ: Review công nghệ số 01"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  className={inputClass}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    Độ dài clip ngắn
-                  </label>
-                  <select
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-on-surface">Độ dài clip ngắn</span>
+                  <StyledSelect
+                    appearance="erp"
+                    ariaLabel="Độ dài clip ngắn"
                     value={lengthOption}
-                    onChange={(e) => setLengthOption(e.target.value)}
-                    className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
-                  >
-                    <option value="auto">Tự động (Auto)</option>
-                    <option value="<30s">&lt; 30 giây</option>
-                    <option value="30s-60s">30s - 60s</option>
-                    <option value="60s-90s">60s - 90s</option>
-                    <option value="90s-3m">90s - 3 phút</option>
-                  </select>
+                    onChange={setLengthOption}
+                    options={LENGTH_OPTIONS}
+                    className="h-10 rounded-md"
+                    menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+                  />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    Ngôn ngữ gốc
-                  </label>
-                  <select
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-on-surface">Ngôn ngữ gốc</span>
+                  <StyledSelect
+                    appearance="erp"
+                    ariaLabel="Ngôn ngữ gốc"
                     value={sourceLang}
-                    onChange={(e) => setSourceLang(e.target.value)}
-                    className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
-                  >
-                    <option value="auto">Tự nhận diện (Auto)</option>
-                    <option value="vi">Tiếng Việt (vi)</option>
-                    <option value="en">Tiếng Anh (en)</option>
-                  </select>
+                    onChange={setSourceLang}
+                    options={SOURCE_LANG_OPTIONS}
+                    className="h-10 rounded-md"
+                    menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  Brand Template ID (Tùy chọn)
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="lts-brand-template" className="text-sm font-medium text-on-surface">
+                  Brand Template ID <span className="font-normal text-on-surface-variant">(tùy chọn)</span>
                 </label>
                 <input
+                  id="lts-brand-template"
                   type="text"
                   placeholder="Nhập Template ID nếu có"
                   value={brandTemplateId}
                   onChange={(e) => setBrandTemplateId(e.target.value)}
-                  className="block h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-xs font-bold text-gray-900 outline-none transition-all focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                  className={inputClass}
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-purple-600 py-3.5 text-xs font-bold text-white shadow-lg shadow-purple-600/15 transition-all hover:bg-purple-700 active:scale-97 disabled:opacity-50"
-              >
-                {submitting ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Scissors className="h-4 w-4" />
-                    <span>Bắt đầu xử lý AI (Tiêu tốn credits)</span>
-                  </>
-                )}
-              </button>
+              <div className="border-t border-outline-variant pt-4">
+                <button
+                  type="submit"
+                  disabled={submitting || uploading}
+                  className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary/90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${focusRingClass}`}
+                >
+                  {submitting ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                      <span>Đang khởi tạo dự án…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Scissors className="size-4" aria-hidden="true" />
+                      <span>Bắt đầu cắt video AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
-
-            <div className="mt-4 flex gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5 text-[10px] text-gray-400 leading-normal">
-              <Info className="h-3.5 w-3.5 shrink-0 text-purple-500 mt-0.5" />
-              <span>
-                Hệ thống khấu trừ theo số phút của video gốc (1 phút = 1 credit). Clips ngắn đầu ra được tạo bằng AI kèm phụ đề sẵn có.
-              </span>
-            </div>
-          </div>
+          </section>
 
           {/* History List */}
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs flex flex-col max-h-[480px]">
-            <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Film className="h-4 w-4 text-gray-500" /> Lịch sử video đã cắt
-            </h3>
+          <section
+            aria-label="Lịch sử video đã cắt"
+            className="flex max-h-[440px] flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+          >
+            <div className="mb-3.5 flex items-center justify-between gap-2 border-b border-outline-variant pb-3">
+              <h2 className="flex items-center gap-2 text-balance text-sm font-semibold text-on-surface">
+                <Film className="size-4 text-on-surface-variant" aria-hidden="true" />
+                Lịch sử video đã cắt
+              </h2>
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
+                {projects.length}
+              </span>
+            </div>
 
             {loading && projects.length === 0 ? (
-              <div className="py-10 text-center text-xs text-gray-400">Đang tải lịch sử...</div>
+              <div role="status" className="py-10 text-center text-sm text-on-surface-variant">
+                Đang tải lịch sử…
+              </div>
             ) : projects.length === 0 ? (
-              <div className="py-12 text-center text-xs text-gray-400 font-medium">Chưa có dự án nào được tạo.</div>
+              <div className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 py-10 text-center text-sm text-on-surface-variant">
+                Chưa có dự án nào được tạo.
+              </div>
             ) : (
-              <div className="overflow-y-auto space-y-2.5 flex-1 pr-1">
+              <ul className="flex-1 space-y-2 overflow-y-auto pr-1">
                 {projects.map((proj) => {
                   const isActive = selectedProject?.projectId === proj.projectId;
                   return (
-                    <button
-                      key={proj._id}
-                      onClick={() => handleSelectProject(proj)}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                        isActive
-                          ? "border-purple-200 bg-purple-50/50 shadow-xs"
-                          : "border-gray-100 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-xs font-bold text-gray-800 truncate" title={proj.name}>
-                          {proj.name || `Video #${proj.projectId}`}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[9px] font-medium text-gray-400 font-mono">
-                            {new Date(proj.createdAt).toLocaleDateString("vi-VN")}
-                          </span>
-                          {getStatusBadge(proj.status)}
+                    <li key={proj._id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectProject(proj)}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg border p-3 text-left transition-colors duration-150 cursor-pointer ${focusRingClass} ${
+                          isActive
+                            ? "border-primary bg-primary/10"
+                            : "border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-on-surface" title={proj.name}>
+                            {proj.name || `Video #${proj.projectId}`}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                            <span className="text-xs tabular-nums text-on-surface-variant">
+                              {new Date(proj.createdAt).toLocaleDateString("vi-VN")}
+                            </span>
+                            {getStatusBadge(proj.status)}
+                          </div>
                         </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
-                    </button>
+                        <ChevronRight className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
+                      </button>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
-          </div>
+          </section>
         </div>
 
-        {/* COLUMN RIGHT: Selected Project Details (8 cols) */}
-        <div className="lg:col-span-8">
-          
+        {/* COLUMN RIGHT: Selected Project Details (7 cols) */}
+        <div className="lg:col-span-7">
           {selectedProject ? (
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs min-h-[500px] flex flex-col">
-              
+            <section
+              aria-label="Chi tiết dự án cắt video"
+              className="flex min-h-[540px] flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+            >
               {/* Selected Project Header */}
-              <div className="border-b border-gray-100 pb-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800 tracking-tight">
-                    {selectedProject.name || `Project: ${selectedProject.projectId}`}
+              <div className="mb-5 flex flex-col justify-between gap-3 border-b border-outline-variant pb-4 sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <h2 className="truncate text-balance text-base font-semibold text-on-surface">
+                    {selectedProject.name || `Dự án #${selectedProject.projectId}`}
                   </h2>
                   <a
                     href={selectedProject.videoUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[11px] text-purple-600 font-medium underline flex items-center gap-1 mt-1 hover:text-purple-700"
+                    className={`mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline ${focusRingClass}`}
                   >
-                    <span>Xem video gốc</span> <ExternalLink className="h-3 w-3" />
+                    <span>Xem video gốc</span>
+                    <ExternalLink className="size-3.5" aria-hidden="true" />
                   </a>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-                    Trạng thái: {selectedProject.status}
-                  </span>
+                  {getStatusBadge(selectedProject.status)}
                   {selectedProject.status === "processing" && (
                     <button
+                      type="button"
+                      aria-label="Đồng bộ trạng thái dự án"
                       onClick={() => handleSelectProject(selectedProject)}
-                      className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500 transition active:scale-95"
-                      title="Sync trạng thái"
+                      className={`inline-flex size-9 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
+                      title="Đồng bộ trạng thái"
                     >
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <RefreshCw className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -513,142 +539,142 @@ export default function LongToShortTab() {
 
               {/* Processing View */}
               {selectedProject.status === "processing" && (
-                <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                  <div className="relative mb-6">
-                    <div className="h-16 w-16 rounded-full border-4 border-purple-100 border-t-purple-600 animate-spin" />
-                    <Scissors className="h-6 w-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                <div role="status" className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+                  <div className="relative mb-5 flex size-14 items-center justify-center">
+                    <div className="size-14 animate-spin rounded-full border-2 border-outline-variant border-t-primary motion-reduce:animate-none" />
+                    <Scissors className="absolute size-5 text-primary" aria-hidden="true" />
                   </div>
-                  <h4 className="text-sm font-bold text-gray-800">AI đang tiến hành cắt video dài...</h4>
-                  <p className="text-[11px] text-gray-400 mt-2 max-w-[340px] leading-relaxed">
-                    OpusClip đang download video, chạy trích xuất transcripts tiếng, phân tích các phân cảnh thu hút và render video ngắn dọc 9:16. 
-                    Quá trình này thường mất 3 - 8 phút. Bạn có thể làm việc khác, hệ thống sẽ tự động cập nhật khi xong!
+                  <h3 className="text-balance text-sm font-semibold text-on-surface">AI đang tiến hành cắt video dài…</h3>
+                  <p className="mt-2 max-w-sm text-pretty text-xs leading-relaxed text-on-surface-variant">
+                    Hệ thống đang phân tích nội dung, trích xuất phụ đề và dựng các clip ngắn dọc 9:16. Quá trình này thường mất 3–8 phút và sẽ tự động cập nhật khi hoàn tất.
                   </p>
                 </div>
               )}
 
               {/* Failed View */}
               {selectedProject.status === "failed" && (
-                <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                  <div className="h-12 w-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
-                    <AlertCircle className="h-6 w-6" />
+                <div role="alert" className="flex flex-1 flex-col items-center justify-center py-16 text-center">
+                  <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-error/10 text-error">
+                    <AlertCircle className="size-6" aria-hidden="true" />
                   </div>
-                  <h4 className="text-sm font-bold text-rose-700">Xử lý video AI thất bại</h4>
-                  <p className="text-[11px] text-gray-500 mt-2 max-w-[320px] leading-normal">
-                    {selectedProject.error || "Không rõ nguyên nhân. Vui lòng kiểm tra lại chất lượng hoặc link video nguồn."}
+                  <h3 className="text-balance text-sm font-semibold text-error">Xử lý video AI thất bại</h3>
+                  <p className="mt-1.5 max-w-sm text-pretty text-xs leading-relaxed text-on-surface-variant">
+                    {selectedProject.error || "Không rõ nguyên nhân. Vui lòng kiểm tra lại chất lượng hoặc đường dẫn video nguồn."}
                   </p>
                 </div>
               )}
 
               {/* Completed Clips Grid View */}
               {selectedProject.status === "completed" && (
-                <div className="flex-1 space-y-6">
-                  
+                <div className="flex-1 space-y-5">
                   {(!selectedProject.clips || selectedProject.clips.length === 0) ? (
-                    <div className="py-20 text-center text-xs text-gray-400 font-medium">
-                      AI không tìm thấy phân cảnh ngắn đạt chuẩn viral nào trong video này.
+                    <div className="rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 py-16 text-center text-sm text-on-surface-variant">
+                      AI không tìm thấy phân cảnh ngắn phù hợp trong video này.
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center gap-2 mb-4 bg-purple-50 border border-purple-100 rounded-2xl p-3 text-xs text-purple-800">
-                        <Sparkles className="h-4 w-4 text-purple-600 shrink-0" />
-                        <span className="font-medium">
-                          AI tìm thấy **{selectedProject.clips.length} clip ngắn** đạt tiêu chuẩn viral cao.
+                      <div className="mb-4 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3.5 py-2.5 text-sm text-on-surface">
+                        <Sparkles className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                        <span>
+                          AI đã tạo <strong className="font-semibold text-primary tabular-nums">{selectedProject.clips.length} clip ngắn</strong> nổi bật từ video gốc.
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         {selectedProject.clips.map((clip) => {
                           const copyIdTitle = `${clip.clipId}-title`;
                           const copyIdDesc = `${clip.clipId}-desc`;
 
                           return (
-                            <div
+                            <article
                               key={clip.clipId}
-                              className="rounded-3xl border border-gray-100 bg-white shadow-xs overflow-hidden flex flex-col relative group hover:border-purple-200 transition-all"
+                              className="flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest"
                             >
                               {/* 9:16 Video Player Area */}
-                              <div className="bg-slate-950 aspect-[9/16] w-full max-h-[360px] overflow-hidden relative flex items-center justify-center">
+                              <div className="relative flex aspect-[9/16] max-h-[360px] w-full items-center justify-center overflow-hidden bg-black">
                                 <video
                                   src={clip.videoUrl}
                                   controls
                                   preload="metadata"
-                                  className="w-full h-full object-contain"
+                                  className="size-full object-contain"
                                 />
-                                {/* Virality Score Badge floating top-right */}
-                                <div className={`absolute top-4 right-4 flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black border tracking-wider shadow-sm z-10 ${getViralScoreColor(clip.viralityScore)}`}>
-                                  <Flame className="h-3.5 w-3.5 fill-current" />
+                                <div className={`absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold tabular-nums shadow-xs ${getViralScoreColor(clip.viralityScore)}`}>
+                                  <Flame className="size-3.5 fill-current" aria-hidden="true" />
                                   <span>{clip.viralityScore}/100</span>
                                 </div>
                               </div>
 
                               {/* Details Info */}
-                              <div className="p-5 flex-1 flex flex-col space-y-4">
-                                
-                                {/* Title with copy */}
+                              <div className="flex flex-1 flex-col gap-3.5 p-4">
                                 <div>
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tiêu đề đề xuất</span>
+                                    <span className="text-xs font-medium text-on-surface-variant">Tiêu đề đề xuất</span>
                                     <button
+                                      type="button"
+                                      aria-label="Sao chép tiêu đề"
                                       onClick={() => copyToClipboard(clip.title, copyIdTitle)}
-                                      className="text-gray-400 hover:text-purple-600 p-1"
+                                      className={`inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-primary cursor-pointer ${focusRingClass}`}
                                       title="Sao chép tiêu đề"
                                     >
-                                      {copiedTextId === copyIdTitle ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                      {copiedTextId === copyIdTitle ? (
+                                        <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
+                                      ) : (
+                                        <Copy className="size-3.5" aria-hidden="true" />
+                                      )}
                                     </button>
                                   </div>
-                                  <p className="text-xs font-extrabold text-gray-800 mt-1 line-clamp-2 leading-relaxed">
+                                  <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-on-surface">
                                     {clip.title || "Không có tiêu đề"}
                                   </p>
                                 </div>
 
-                                {/* Description with copy */}
                                 <div>
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nội dung mạng xã hội & Hashtags</span>
+                                    <span className="text-xs font-medium text-on-surface-variant">Nội dung đăng tải & Hashtags</span>
                                     <button
+                                      type="button"
+                                      aria-label="Sao chép mô tả và hashtags"
                                       onClick={() => copyToClipboard(`${clip.description}\n\n${clip.hashtags}`, copyIdDesc)}
-                                      className="text-gray-400 hover:text-purple-600 p-1"
+                                      className={`inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-primary cursor-pointer ${focusRingClass}`}
                                       title="Sao chép mô tả"
                                     >
-                                      {copiedTextId === copyIdDesc ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                      {copiedTextId === copyIdDesc ? (
+                                        <Check className="size-3.5 text-emerald-600" aria-hidden="true" />
+                                      ) : (
+                                        <Copy className="size-3.5" aria-hidden="true" />
+                                      )}
                                     </button>
                                   </div>
-                                  <p className="text-[11px] text-gray-600 mt-1 line-clamp-3 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-2.5">
+                                  <p className="mt-1 line-clamp-3 rounded-lg border border-outline-variant bg-surface-container-low/60 p-2.5 text-xs leading-relaxed text-on-surface">
                                     {clip.description || "Không có mô tả."}
-                                    {clip.hashtags && <span className="block mt-1.5 text-purple-600 font-bold">{clip.hashtags}</span>}
+                                    {clip.hashtags && <span className="mt-1.5 block font-medium text-primary">{clip.hashtags}</span>}
                                   </p>
                                 </div>
 
-                                {/* AI Reasoning */}
                                 <div>
-                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phân tích lý do Viral (AI Analysis)</span>
-                                  <p className="text-[11px] text-amber-700 font-medium mt-1 leading-relaxed bg-amber-50/50 border border-amber-100 rounded-xl p-2.5">
-                                    {clip.viralReason || "Không có phân tích lý do."}
+                                  <span className="block text-xs font-medium text-on-surface-variant">Phân tích điểm nổi bật</span>
+                                  <p className="mt-1 rounded-lg border border-outline-variant bg-surface-container-low/60 p-2.5 text-pretty text-xs leading-relaxed text-on-surface-variant">
+                                    {clip.viralReason || "Không có phân tích."}
                                   </p>
                                 </div>
 
-                                {/* Metrics duration, timing */}
-                                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-gray-400 border-t border-gray-50 pt-3">
-                                  <div>Thời lượng: <span className="font-bold text-gray-700">{clip.duration}s</span></div>
-                                  <div>Timecode: <span className="font-bold text-gray-700">{clip.startTime}s - {clip.endTime}s</span></div>
+                                <div className="grid grid-cols-2 gap-2 border-t border-outline-variant pt-3 text-xs tabular-nums text-on-surface-variant">
+                                  <div>Thời lượng: <span className="font-semibold text-on-surface">{clip.duration}s</span></div>
+                                  <div>Mốc thời gian: <span className="font-semibold text-on-surface">{clip.startTime}s – {clip.endTime}s</span></div>
                                 </div>
 
-                                {/* Actions */}
-                                <div className="pt-2">
-                                  <a
-                                    href={clip.videoUrl}
-                                    download
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 hover:border-purple-200 bg-white py-2 text-center text-xs font-bold text-gray-600 hover:text-purple-700 transition active:scale-95 shadow-xs"
-                                  >
-                                    <Download className="h-3.5 w-3.5" />
-                                    <span>Tải clip xuống</span>
-                                  </a>
-                                </div>
-
+                                <a
+                                  href={clip.videoUrl}
+                                  download
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`mt-auto inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface transition-colors duration-150 hover:border-primary hover:text-primary ${focusRingClass}`}
+                                >
+                                  <Download className="size-4" aria-hidden="true" />
+                                  <span>Tải clip xuống</span>
+                                </a>
                               </div>
-                            </div>
+                            </article>
                           );
                         })}
                       </div>
@@ -656,24 +682,29 @@ export default function LongToShortTab() {
                   )}
                 </div>
               )}
-
-            </div>
+            </section>
           ) : (
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-xs min-h-[500px] flex flex-col items-center justify-center text-center">
-              <div className="h-16 w-16 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-4">
-                <Scissors className="h-7 w-7" />
+            <section
+              aria-label="Khung kết quả cắt video"
+              className="flex min-h-[540px] flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+            >
+              <div className="mb-4 flex items-center justify-between border-b border-outline-variant pb-3">
+                <h2 className="text-balance text-sm font-semibold text-on-surface">Kết quả clip ngắn</h2>
+                <span className="rounded-md bg-surface-container-low px-2 py-0.5 text-xs text-on-surface-variant">9:16 Dọc</span>
               </div>
-              <h3 className="text-base font-bold text-gray-800">Không có dự án nào được chọn</h3>
-              <p className="text-xs text-gray-400 mt-1.5 max-w-[280px] leading-relaxed">
-                Vui lòng chọn một dự án trong danh sách lịch sử ở cột bên trái hoặc tạo dự án cắt video mới để xem các clips AI dọc.
-              </p>
-            </div>
+              <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 px-6 py-12 text-center">
+                <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Scissors className="size-6" aria-hidden="true" />
+                </div>
+                <h3 className="text-balance text-sm font-semibold text-on-surface">Chưa chọn dự án</h3>
+                <p className="mt-1 max-w-sm text-pretty text-sm text-on-surface-variant">
+                  Chọn một dự án trong danh sách lịch sử hoặc tạo dự án cắt video mới ở cột bên trái để xem các clip ngắn AI.
+                </p>
+              </div>
+            </section>
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }

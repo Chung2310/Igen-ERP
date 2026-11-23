@@ -22,6 +22,13 @@ export function assertCalendarAdmin(user?: { id?: string; companyCode?: string; 
   return { actorId: user.id, companyCode: user.companyCode };
 }
 
+function assertCalendarReader(user?: { id?: string; companyCode?: string }) {
+  if (!user?.id || !user.companyCode) {
+    throw new CalendarAuthorizationError("Company account required to view work calendar.");
+  }
+  return { companyCode: user.companyCode };
+}
+
 function respondError(res: Response, error: unknown) {
   if (error instanceof CalendarAuthorizationError) return res.status(403).json({ status: "error", message: error.message });
   if (error instanceof CalendarNotFoundError) return res.status(404).json({ status: "error", message: error.message });
@@ -36,7 +43,7 @@ function respondError(res: Response, error: unknown) {
 export const companyWorkCalendarController = {
   async list(req: AuthenticatedRequest, res: Response) {
     try {
-      const { companyCode } = assertCalendarAdmin(req.user);
+      const { companyCode } = assertCalendarReader(req.user);
       const year = Number(req.query.year || new Intl.DateTimeFormat("en", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric" }).format(new Date()));
       const month = req.query.month === undefined ? undefined : Number(req.query.month);
       const data = await listCalendarDays(companyCode, year, {
