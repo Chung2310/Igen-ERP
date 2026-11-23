@@ -306,13 +306,10 @@ export default function LongToShortTab() {
           >
             <div className="mb-4 flex items-center justify-between gap-2 border-b border-outline-variant pb-3.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Scissors className="size-4" aria-hidden="true" />
                 </div>
-                <div>
-                  <h2 className="text-balance text-sm font-semibold text-on-surface">Cắt video mới</h2>
-                  <p className="text-xs text-on-surface-variant">Tách video dài thành clip ngắn dọc 9:16 có phụ đề</p>
-                </div>
+                <h2 className="text-balance text-sm font-semibold text-on-surface">Cắt video mới</h2>
               </div>
               <button
                 type="button"
@@ -440,13 +437,6 @@ export default function LongToShortTab() {
                 </button>
               </div>
             </form>
-
-            <div className="mt-4 flex gap-2 rounded-lg border border-outline-variant bg-surface-container-low/60 px-3 py-2.5 text-pretty text-xs leading-relaxed text-on-surface-variant">
-              <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-              <span>
-                Khấu trừ theo thời lượng video gốc (1 phút = 1 credit). Clip ngắn đầu ra được AI tự động tạo kèm phụ đề.
-              </span>
-            </div>
           </section>
 
           {/* History List */}

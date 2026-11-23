@@ -295,14 +295,11 @@ export function KlingMotionWorkspace({
         <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-5 lg:col-span-5">
 
           {/* Header */}
-          <div className="flex items-center gap-3 border-b border-outline-variant pb-3.5">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex items-center gap-2.5 border-b border-outline-variant pb-3.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Film className="size-4" aria-hidden="true" />
             </div>
-            <div>
-              <h2 className="text-balance text-sm font-semibold text-on-surface">Kling Motion Control</h2>
-              <p className="text-xs text-on-surface-variant">Nhân vật từ ảnh thực hiện chuyển động theo video mẫu</p>
-            </div>
+            <h2 className="text-balance text-sm font-semibold text-on-surface">Kling Motion Control</h2>
           </div>
 
           {/* Character Image Upload */}
@@ -556,12 +553,6 @@ export function KlingMotionWorkspace({
               )}
               {isGenerating ? "Đang tạo video…" : "Tạo video chuyển động"}
             </button>
-
-            {!characterImage && !motionVideo && (
-              <p className="mt-2 text-center text-xs text-on-surface-variant">
-                Cần cả ảnh nhân vật và video chuyển động mẫu để bắt đầu.
-              </p>
-            )}
           </div>
         </div>
 
@@ -678,10 +669,7 @@ export function KlingMotionWorkspace({
             className="flex flex-col gap-3.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
           >
             <div className="flex items-center justify-between gap-2 border-b border-outline-variant pb-3">
-              <div>
-                <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử Motion Control</h2>
-                <p className="mt-0.5 text-xs text-on-surface-variant">Hiển thị tối đa 20 kết quả gần nhất.</p>
-              </div>
+              <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử Motion Control</h2>
               <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
                 {history.slice(0, 20).length}/20
               </span>

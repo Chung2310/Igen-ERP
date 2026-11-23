@@ -713,10 +713,7 @@ export function HeyGenWorkspace({
         className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
       >
         <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-3.5">
-          <div>
-            <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử tạo video</h2>
-            <p className="mt-0.5 text-xs text-on-surface-variant">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
-          </div>
+          <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử tạo video</h2>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
             {history.slice(0, 20).length}/20
           </span>
