@@ -235,6 +235,12 @@ export async function getEffectivePermissions(
     rolePermissions = [...rolePermissions, "legal-reference:manage"];
   }
 
+  // Preserve the mobile worker-management admin contract when a tenant has
+  // an older company-specific admin permission record without people:manage.
+  if (role === "admin" && !rolePermissions.includes("people:manage")) {
+    rolePermissions = [...rolePermissions, "people:manage"];
+  }
+
   // Company admins also act as PTs; the tenant module guard still controls activation.
   if (role === "admin" && !rolePermissions.includes("gym:manage")) {
     rolePermissions = [...rolePermissions, "gym:manage"];

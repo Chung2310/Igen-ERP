@@ -278,8 +278,15 @@ const getUsersCountSchema = {
   }),
 };
 
+const attendanceRosterSchema = {
+  query: Joi.object({
+    branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(""),
+  }),
+};
+
 // Lấy danh sách thành viên cùng công ty cho tất cả user (để dùng trong tính năng chia sẻ tài nguyên, chat...)
 authRouter.get("/users/colleagues", requireAuth as any, authController.getColleagues as any);
+authRouter.get("/users/attendance-roster", requireAuth as any, validateRequest(attendanceRosterSchema), authController.getAttendanceRoster as any);
 
 // Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền access:read)
 // hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
