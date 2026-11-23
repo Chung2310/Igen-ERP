@@ -15,6 +15,7 @@ export interface IFBConversation extends Document {
   isVip: boolean;
   isSimulation?: boolean;
   aiPausedUntil?: Date;
+  lastHumanReplyAt?: Date;
   lastSender?: "user" | "assistant";
   lastAssistantMessageAt?: Date;
   lastAssistantMessageId?: string;
@@ -74,6 +75,7 @@ const FBConversationSchema: Schema = new Schema(
     isVip: { type: Boolean, default: false },
     isSimulation: { type: Boolean, default: false, index: true },
     aiPausedUntil: { type: Date, default: null },
+    lastHumanReplyAt: { type: Date, default: null },
     lastSender: { type: String, enum: ["user", "assistant"], default: "user" },
     lastAssistantMessageAt: { type: Date, default: null },
     lastAssistantMessageId: { type: String },
