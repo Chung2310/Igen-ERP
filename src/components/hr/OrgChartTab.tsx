@@ -1169,7 +1169,7 @@ export default function OrgChartTab({
             <p className="w-full truncate px-1 text-[10px] leading-4 text-slate-600" title={node.role}>
               {node.role || missingValue}
             </p>
-            <span className={`mt-1.5 max-w-full truncate rounded-lg px-2.5 py-1 text-[9px] font-semibold ${getCategoryBadgeStyles(category.key)}`} title={node.department || node.division}>
+            <span className={`mt-1.5 max-w-full truncate rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${getCategoryBadgeStyles(category.key)}`} title={node.department || node.division}>
               {node.department || node.division || missingValue}
             </span>
           </div>
@@ -1330,10 +1330,10 @@ export default function OrgChartTab({
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold ${
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
                             employee.status === "online"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-250 animate-pulse"
-                              : "bg-slate-50 text-slate-500 border border-slate-200"
+                              ? "bg-[#5CB85C] text-white"
+                              : "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]"
                           }`}>
                             {employee.status === "online" ? "Online" : "Offline"}
                           </span>
@@ -1386,10 +1386,11 @@ export default function OrgChartTab({
                             </td>
                             <td className="px-4 py-3">
                               <span className={cn(
-                                "inline-flex items-center gap-1.5 rounded-full border bg-surface-container-lowest px-2.5 py-1 text-xs font-normal",
-                                employee.status === "online" ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant",
+                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 uppercase",
+                                employee.status === "online"
+                                  ? "bg-[#5CB85C] text-white"
+                                  : "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]",
                               )}>
-                                <span className={cn("size-1.5 rounded-full", employee.status === "online" ? "bg-primary" : "bg-outline")} aria-hidden="true" />
                                 {employee.status === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                               </span>
                             </td>
@@ -1764,7 +1765,7 @@ export default function OrgChartTab({
                 <div className="mb-2 flex justify-center">{renderAvatar(selectedEmp.avatar, "w-16 h-16", "text-3xl")}</div>
                 <h3 className="text-base text-slate-900 leading-snug">{selectedEmp.name}</h3>
                 <p className="mt-1 text-xs text-[#007EB8]">{selectedEmp.role}</p>
-                <span className={`mt-2 inline-block rounded-lg border px-2.5 py-0.5 text-[11px] ${getDivisionBadgeStyles(selectedEmp.division)}`}>
+                <span className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getDivisionBadgeStyles(selectedEmp.division)}`}>
                   {selectedEmp.division}
                 </span>
               </div>

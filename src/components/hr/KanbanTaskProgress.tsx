@@ -341,7 +341,7 @@ export function KanbanTaskProgress({
                     <span className="text-3xl font-bold tabular-nums text-primary">
                       {progress}%
                     </span>
-                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase ${progress === 100 ? "bg-[#5CB85C] text-white" : progress > 0 ? "bg-[#D9EDF7] text-[#286090]" : "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]"}`}>
                       {progress === 100
                         ? "Hoàn thành"
                         : progress > 0

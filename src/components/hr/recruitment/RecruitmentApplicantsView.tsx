@@ -156,7 +156,7 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2"><HrStatusBadge tone={a.outcome === "hired" ? "success" : a.outcome === "rejected" ? "danger" : a.outcome === "withdrawn" ? "neutral" : "info"}>{applicantOutcomeLabels[a.outcome]}</HrStatusBadge></td>
+                  <td className="px-4 py-2"><HrStatusBadge variant="hr" tone={a.outcome === "hired" ? "success" : a.outcome === "rejected" ? "danger" : a.outcome === "withdrawn" ? "neutral" : "info"}>{applicantOutcomeLabels[a.outcome]}</HrStatusBadge></td>
                   {canManage && <td className="px-4 py-2 text-right"><button type="button" className={secondaryButton} title={`Sửa ứng viên ${a.fullName}`} aria-label={`Sửa ứng viên ${a.fullName}`} onClick={() => setEditingApplicant(a)}><Pencil className="h-4 w-4" /></button></td>}
                 </tr>
               ))}

@@ -103,10 +103,10 @@ const STEPS = [
 ] as const;
 
 const payrollStatusColors: Record<(typeof STEPS)[number]["key"], string> = {
-  draft: "bg-[#E5F3FF] text-[#087BDF]",
-  review: "bg-[#FFF0D8] text-[#A66300]",
-  closed: "bg-[#DFF5F1] text-[#087F72]",
-  paid: "bg-[#DCF7E8] text-[#078252]",
+  draft: "bg-[#D9EDF7] text-[#286090]",
+  review: "bg-[#F0AD4E] text-white",
+  closed: "bg-[#5CB85C] text-white",
+  paid: "bg-[#5CB85C] text-white",
 };
 
 const PAYROLL_RUN_STATUSES = new Set(["draft", "review", "closed", "paid"]);
@@ -815,8 +815,8 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                     <td className="p-3 text-center tabular-nums text-slate-600">{formatVnd(Number(row.monthlySalary))}</td>
                       <td className="p-3 text-center font-normal text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-normal  ${
-                          row.status === "locked" ? "bg-slate-100 text-slate-700 border border-slate-200" : "bg-yellow-50 text-yellow-700 border border-yellow-100"
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${
+                          row.status === "locked" ? "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]" : "bg-[#F0AD4E] text-white"
                         }`}>
                           {row.status === "locked" ? "Đã khóa" : "Bản nháp"}
                         </span>

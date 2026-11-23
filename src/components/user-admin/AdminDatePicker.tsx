@@ -32,11 +32,21 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
   const popoverRef = useRef<HTMLDivElement>(null);
   const previousMonthRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [invalid, setInvalid] = useState(false);
   const [month, setMonth] = useState(() => {
     const initial = toLocalDate(value) || new Date();
     return new Date(initial.getFullYear(), initial.getMonth(), 1);
   });
+  const [yearText, setYearText] = useState(() => String((toLocalDate(value) || new Date()).getFullYear()));
   const [position, setPosition] = useState({ top: 0, left: 0, width: 312 });
+
+  useEffect(() => {
+    setYearText(String(month.getFullYear()));
+  }, [month]);
+
+  useEffect(() => {
+    if (value) setInvalid(false);
+  }, [value]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -87,11 +97,13 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
   const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
   const days = Array.from({ length: 42 }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - firstWeekday + 1));
   const choose = (date: Date) => {
+    setInvalid(false);
     onChange(toValue(date));
     setMonth(new Date(date.getFullYear(), date.getMonth(), 1));
     setOpen(false);
     triggerRef.current?.focus();
   };
+  const showInvalid = invalid && required && !value && !disabled;
   const allowed = (date: Date) => {
     const next = toValue(date);
     return (!min || next >= min) && (!max || next <= max);
@@ -107,18 +119,46 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-required={required || undefined}
+        aria-invalid={showInvalid || undefined}
         disabled={disabled}
         onClick={() => {
           const next = selected || new Date();
           setMonth(new Date(next.getFullYear(), next.getMonth(), 1));
+          setYearText(String(next.getFullYear()));
           setOpen((current) => !current);
         }}
-        className={cn("flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal tabular-nums text-on-surface hover:border-primary focus-visible:border-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50", inline && "w-36")}
+        className={cn("flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal tabular-nums text-on-surface hover:border-primary focus-visible:border-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50", showInvalid && "border-error focus-visible:border-error", inline && "w-36")}
       >
         <span className={selected ? "" : "text-on-surface-variant"}>{selected ? dateLabel(selected) : "Chọn ngày"}</span>
         <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
       </button>
-      {required && <input type="date" className="sr-only" tabIndex={-1} required disabled={disabled} min={min} max={max} value={value} onChange={(event) => onChange(event.target.value)} onInvalid={(event) => { event.preventDefault(); triggerRef.current?.focus(); }} />}
+      {required && (
+        <input
+          type="date"
+          className="sr-only"
+          tabIndex={-1}
+          required
+          disabled={disabled}
+          min={min}
+          max={max}
+          value={value}
+          onChange={(event) => {
+            setInvalid(false);
+            onChange(event.target.value);
+          }}
+          onInvalid={(event) => {
+            event.preventDefault();
+            setInvalid(true);
+            triggerRef.current?.scrollIntoView?.({ block: "nearest" });
+            triggerRef.current?.focus();
+          }}
+        />
+      )}
+      {showInvalid && (
+        <span role="alert" className="mt-1 block text-xs text-error">
+          Vui lòng chọn {label.toLocaleLowerCase("vi")}.
+        </span>
+      )}
       {open && !disabled && createPortal(
         <div
           ref={popoverRef}
@@ -127,9 +167,38 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
           className="fixed z-50 max-h-[calc(100vh-24px)] overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-sm"
           style={{ top: position.top, left: position.left, width: position.width }}
         >
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium capitalize">{monthLabel(month)}</span>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <span className="sr-only">{monthLabel(month)}</span>
+            <span aria-hidden="true" className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", { month: "long" }).format(month)}</span>
             <div className="flex items-center gap-1">
+              <input
+                type="text"
+                inputMode="numeric"
+                aria-label={/sinh/i.test(label) ? "Nhập năm sinh" : "Nhập năm"}
+                placeholder="Năm"
+                value={yearText}
+                maxLength={4}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => {
+                  const next = event.target.value.replace(/\D/g, "").slice(0, 4);
+                  setYearText(next);
+                  if (next.length === 4 && Number(next) >= 1000) {
+                    setMonth(new Date(Number(next), month.getMonth(), 1));
+                  }
+                }}
+                onBlur={() => setYearText(String(month.getFullYear()))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (yearText.length === 4 && Number(yearText) >= 1000) {
+                      setMonth(new Date(Number(yearText), month.getMonth(), 1));
+                    } else {
+                      setYearText(String(month.getFullYear()));
+                    }
+                  }
+                }}
+                className="h-8 w-16 rounded-md border border-outline-variant bg-surface-container-lowest px-1.5 text-center text-sm font-medium tabular-nums text-on-surface focus:border-primary focus:outline-none"
+              />
               <button ref={previousMonthRef} type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-md p-2 text-on-surface-variant hover:bg-surface hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft className="size-4" aria-hidden="true" /></button>
               <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-md p-2 text-on-surface-variant hover:bg-surface hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight className="size-4" aria-hidden="true" /></button>
             </div>

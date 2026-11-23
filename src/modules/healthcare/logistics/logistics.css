@@ -46,23 +46,23 @@
 }
 
 .logistics-kpi-icon--info {
-  background-color: #e0f2fe;
-  color: #0284c7;
+  background-color: #e3f2fd;
+  color: #2196f3;
 }
 
 .logistics-kpi-icon--success {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: #e8f9ec;
+  color: #18c93a;
 }
 
 .logistics-kpi-icon--warning {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: #fff9db;
+  color: #e5a900;
 }
 
 .logistics-kpi-icon--danger {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #ffebee;
+  color: #f44336;
 }
 
 html.dark .logistics-kpi-icon--primary {

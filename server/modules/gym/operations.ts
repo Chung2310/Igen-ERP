@@ -670,17 +670,175 @@ export async function publishProgressReport(actor: GymActor, id: string, revisio
   return publicRecord(result);
 }
 
-export async function dashboard(actor: GymActor) {
+const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function toDateKey(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (ISO_DAY_RE.test(raw.slice(0, 10))) return raw.slice(0, 10);
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+function inDateRange(value: unknown, from: string, to: string): boolean {
+  const key = toDateKey(value);
+  return key != null && key >= from && key <= to;
+}
+
+function defaultPeriodRange() {
+  const today = new Date().toISOString().slice(0, 10);
+  return { from: `${today.slice(0, 7)}-01`, to: today };
+}
+
+function buildActivityTrend(
+  from: string,
+  to: string,
+  sessions: GymRecord[],
+  measurements: GymRecord[],
+  customers: GymRecord[],
+) {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return [];
+  }
+  const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
+  const bucketKeyOf = (dateKey: string) => {
+    const bucket = new Date(`${dateKey}T00:00:00Z`);
+    if (days > 180) bucket.setUTCDate(1);
+    else if (days > 45) bucket.setUTCDate(bucket.getUTCDate() - ((bucket.getUTCDay() + 6) % 7));
+    return bucket.toISOString().slice(0, 10);
+  };
+
+  const buckets = new Map<
+    string,
+    { date: string; sessions: number; measurements: number; newCustomers: number }
+  >();
+  for (let offset = 0; offset < days; offset += 1) {
+    const date = new Date(start.getTime() + offset * 86_400_000);
+    const key = bucketKeyOf(date.toISOString().slice(0, 10));
+    if (!buckets.has(key)) {
+      buckets.set(key, { date: key, sessions: 0, measurements: 0, newCustomers: 0 });
+    }
+  }
+
+  for (const s of sessions) {
+    const day = toDateKey(s.performedAt || s.createdAt);
+    if (!day || day < from || day > to) continue;
+    const entry = buckets.get(bucketKeyOf(day));
+    if (entry) entry.sessions += 1;
+  }
+  for (const m of measurements) {
+    const day = toDateKey(m.measurementDate || m.createdAt);
+    if (!day || day < from || day > to) continue;
+    const entry = buckets.get(bucketKeyOf(day));
+    if (entry) entry.measurements += 1;
+  }
+  for (const c of customers) {
+    const day = toDateKey(c.createdAt);
+    if (!day || day < from || day > to) continue;
+    const entry = buckets.get(bucketKeyOf(day));
+    if (entry) entry.newCustomers += 1;
+  }
+
+  return [...buckets.values()]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((row) => ({
+      ...row,
+      label:
+        days > 180
+          ? `${row.date.slice(5, 7)}/${row.date.slice(0, 4)}`
+          : `${row.date.slice(8, 10)}/${row.date.slice(5, 7)}`,
+    }));
+}
+
+export async function dashboard(
+  actor: GymActor,
+  query: Record<string, unknown> = {},
+) {
+  const fallback = defaultPeriodRange();
+  const rawFrom = typeof query.from === "string" && ISO_DAY_RE.test(query.from) ? query.from : fallback.from;
+  const rawTo = typeof query.to === "string" && ISO_DAY_RE.test(query.to) ? query.to : fallback.to;
+  const from = rawFrom <= rawTo ? rawFrom : fallback.from;
+  const to = rawFrom <= rawTo ? rawTo : fallback.to;
+  const previousFrom =
+    typeof query.previousFrom === "string" && ISO_DAY_RE.test(query.previousFrom)
+      ? query.previousFrom
+      : "";
+  const previousTo =
+    typeof query.previousTo === "string" && ISO_DAY_RE.test(query.previousTo)
+      ? query.previousTo
+      : "";
+  const hasPrevious = Boolean(previousFrom && previousTo && previousFrom <= previousTo);
+
   const customers = await records("customers")
     .find(customerFilter(actor))
     .toArray();
   const ids = customers.map((c) => c._id);
   const scope = { ...tenantFilter(actor), customerId: { $in: ids } };
-  const [sessions, measurements, plans] = await Promise.all([
-    records("sessions").countDocuments(scope),
+  const isAdmin = gymAdmin(actor.role);
+
+  const [
+    sessionDocs,
+    measurements,
+    workoutPlans,
+    nutritionPlans,
+    roadmaps,
+    goals,
+    packages,
+    progressReports,
+    transferDocs,
+    trainerUsers,
+  ] = await Promise.all([
+    records("sessions")
+      .find(scope, { projection: { customerId: 1, performedAt: 1, attendance: 1, createdAt: 1 } })
+      .toArray(),
     records("measurements").find(scope).sort({ measurementDate: 1 }).toArray(),
-    records("workout-plans").countDocuments(scope),
+    records("workout-plans")
+      .find(scope, { projection: { customerId: 1, status: 1, publicationStatus: 1, createdAt: 1 } })
+      .toArray(),
+    records("nutrition-plans")
+      .find(scope, { projection: { customerId: 1, status: 1, createdAt: 1 } })
+      .toArray(),
+    records("roadmaps")
+      .find(scope, { projection: { customerId: 1, status: 1, createdAt: 1 } })
+      .toArray(),
+    records("goals")
+      .find(scope, { projection: { customerId: 1, type: 1, status: 1, createdAt: 1 } })
+      .toArray(),
+    records("packages")
+      .find(scope, { projection: { customerId: 1, status: 1, totalSessions: 1, startDate: 1, endDate: 1, createdAt: 1 } })
+      .toArray(),
+    records("progress-reports")
+      .find(scope, { projection: { customerId: 1, status: 1, createdAt: 1 } })
+      .toArray(),
+    isAdmin
+      ? records("transfers")
+          .find(tenantFilter(actor), { projection: { status: 1, createdAt: 1 } })
+          .toArray()
+      : Promise.resolve([]),
+    isAdmin
+      ? UserModel.find({
+          companyCode: actor.companyCode,
+          $or: [
+            { branchId: actor.branchId },
+            { branchId: { $in: [null, ""] } },
+            { branchId: { $exists: false } },
+          ],
+          role: "pt",
+          disabledAt: null,
+        })
+          .select("displayName")
+          .lean()
+      : Promise.resolve([]),
   ]);
+
+  const sessions = sessionDocs.length;
+  const plans = workoutPlans.length;
 
   const customerRows = customers.map((c) => {
     const rows = measurements
@@ -789,10 +947,144 @@ export async function dashboard(actor: GymActor) {
   const poorProgressCount = readyCustomers.filter((c) => (c.score ?? 0) < 50).length;
   const insufficientDataCount = customerRows.filter((c) => c.dataStatus === "INSUFFICIENT_DATA").length;
 
+  const periodSessions = sessionDocs.filter((s) => inDateRange(s.performedAt || s.createdAt, from, to));
+  const previousSessions = hasPrevious
+    ? sessionDocs.filter((s) => inDateRange(s.performedAt || s.createdAt, previousFrom, previousTo)).length
+    : null;
+  const periodMeasurements = measurements.filter((m) => inDateRange(m.measurementDate || m.createdAt, from, to));
+  const previousMeasurements = hasPrevious
+    ? measurements.filter((m) => inDateRange(m.measurementDate || m.createdAt, previousFrom, previousTo)).length
+    : null;
+  const periodNewCustomers = customers.filter((c) => inDateRange(c.createdAt, from, to)).length;
+  const previousNewCustomers = hasPrevious
+    ? customers.filter((c) => inDateRange(c.createdAt, previousFrom, previousTo)).length
+    : null;
+
+  const attendanceCounts = { PRESENT: 0, LATE: 0, ABSENT: 0 };
+  for (const s of periodSessions) {
+    if (s.attendance === "PRESENT" || s.attendance === "LATE" || s.attendance === "ABSENT") {
+      attendanceCounts[s.attendance as keyof typeof attendanceCounts] += 1;
+    }
+  }
+  const attendanceTotal = attendanceCounts.PRESENT + attendanceCounts.LATE + attendanceCounts.ABSENT;
+  const attendanceRate = attendanceTotal
+    ? Math.round(((attendanceCounts.PRESENT + attendanceCounts.LATE) / attendanceTotal) * 1000) / 10
+    : null;
+
+  const averageScore = readyCustomers.length
+    ? Math.round((readyCustomers.reduce((sum, c) => sum + (c.score ?? 0), 0) / readyCustomers.length) * 10) / 10
+    : null;
+  const averageBodyFatDelta = readyCustomers.length
+    ? Math.round((readyCustomers.reduce((sum, c) => sum + (c.changes?.bodyFatChange ?? 0), 0) / readyCustomers.length) * 10) / 10
+    : null;
+  const averageMuscleDelta = readyCustomers.length
+    ? Math.round((readyCustomers.reduce((sum, c) => sum + (c.changes?.muscleChange ?? 0), 0) / readyCustomers.length) * 10) / 10
+    : null;
+
+  const customerStatusCounts = { ACTIVE: 0, LEAD: 0, INACTIVE: 0 };
+  const genderCounts = { MALE: 0, FEMALE: 0, OTHER: 0 };
+  for (const c of customers) {
+    const st = String(c.status || "ACTIVE").toUpperCase();
+    if (st === "ACTIVE" || st === "LEAD" || st === "INACTIVE") customerStatusCounts[st] += 1;
+    const g = String(c.gender || "OTHER").toUpperCase();
+    if (g === "MALE" || g === "FEMALE" || g === "OTHER") genderCounts[g] += 1;
+  }
+
+  const goalTypeCounts: Record<string, number> = {
+    WEIGHT_LOSS: 0,
+    FAT_LOSS: 0,
+    MUSCLE_GAIN: 0,
+    RECOMPOSITION: 0,
+    WEIGHT_GAIN: 0,
+    FITNESS: 0,
+  };
+  for (const g of goals) {
+    const t = String(g.type || "").toUpperCase();
+    if (t in goalTypeCounts) goalTypeCounts[t] += 1;
+  }
+
+  const packageStatusCounts = { ACTIVE: 0, COMPLETED: 0, EXPIRED: 0, CANCELLED: 0 };
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const in14Days = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+  let expiringPackages = 0;
+  for (const pkg of packages) {
+    const st = String(pkg.status || "ACTIVE").toUpperCase();
+    if (st in packageStatusCounts) packageStatusCounts[st as keyof typeof packageStatusCounts] += 1;
+    const endKey = toDateKey(pkg.endDate);
+    if (st === "ACTIVE" && endKey && endKey >= todayKey && endKey <= in14Days) {
+      expiringPackages += 1;
+    }
+  }
+
+  const planCoverage = [
+    {
+      key: "workoutPlans",
+      name: "Giáo án tập",
+      published: workoutPlans.filter((p) => p.publicationStatus === "PUBLISHED").length,
+      draft: workoutPlans.filter((p) => p.publicationStatus !== "PUBLISHED").length,
+    },
+    {
+      key: "nutritionPlans",
+      name: "Thực đơn",
+      published: nutritionPlans.filter((p) => p.status === "PUBLISHED").length,
+      draft: nutritionPlans.filter((p) => p.status !== "PUBLISHED").length,
+    },
+    {
+      key: "roadmaps",
+      name: "Lộ trình",
+      published: roadmaps.filter((p) => p.status === "PUBLISHED").length,
+      draft: roadmaps.filter((p) => p.status !== "PUBLISHED").length,
+    },
+    {
+      key: "progressReports",
+      name: "Báo cáo tiến độ",
+      published: progressReports.filter((p) => p.status === "PUBLISHED").length,
+      draft: progressReports.filter((p) => p.status !== "PUBLISHED").length,
+    },
+  ];
+
+  const trainerNameMap = new Map<string, string>(
+    trainerUsers.map((u) => [String(u._id), String(u.displayName || "PT")]),
+  );
+  const customerPtMap = new Map<string, string>(
+    customers.map((c) => [c._id, String(c.assignedPtId || "")]),
+  );
+  const trainerStats = new Map<string, { id: string; name: string; customers: number; sessions: number }>();
+  if (isAdmin) {
+    for (const u of trainerUsers) {
+      const uid = String(u._id);
+      trainerStats.set(uid, { id: uid, name: String(u.displayName || "PT"), customers: 0, sessions: 0 });
+    }
+    for (const c of customers) {
+      const ptId = String(c.assignedPtId || "");
+      if (!ptId) continue;
+      const entry = trainerStats.get(ptId) ?? {
+        id: ptId,
+        name: trainerNameMap.get(ptId) || "PT khác",
+        customers: 0,
+        sessions: 0,
+      };
+      entry.customers += 1;
+      trainerStats.set(ptId, entry);
+    }
+    for (const s of periodSessions) {
+      const ptId = customerPtMap.get(String(s.customerId || "")) || "";
+      if (!ptId) continue;
+      const entry = trainerStats.get(ptId);
+      if (entry) entry.sessions += 1;
+    }
+  }
+  const trainerWorkload = [...trainerStats.values()]
+    .filter((row) => row.customers > 0 || row.sessions > 0)
+    .sort((a, b) => b.customers - a.customers || b.sessions - a.sessions)
+    .slice(0, 8);
+
+  const pendingTransfers = transferDocs.filter((t) => t.status === "PENDING").length;
+
   return {
     customers: customers.length,
     totalCustomers: customers.length,
-    activeCustomers: customers.filter((c) => c.status === "ACTIVE").length,
+    activeCustomers: customerStatusCounts.ACTIVE,
     sessions,
     plans,
     openAlerts: customerRows.reduce((sum, c) => sum + c.openAlerts, 0),
@@ -808,6 +1100,34 @@ export async function dashboard(actor: GymActor) {
       first: c.firstMeasurement,
       latest: c.latestMeasurement,
     })),
-    canAdmin: gymAdmin(actor.role),
+    canAdmin: isAdmin,
+    analytics: {
+      period: { from, to, previousFrom: hasPrevious ? previousFrom : null, previousTo: hasPrevious ? previousTo : null },
+      periodMetrics: {
+        newCustomers: { current: periodNewCustomers, previous: previousNewCustomers },
+        sessions: { current: periodSessions.length, previous: previousSessions },
+        measurements: { current: periodMeasurements.length, previous: previousMeasurements },
+      },
+      summary: {
+        attendanceRate,
+        averageScore,
+        averageBodyFatDelta,
+        averageMuscleDelta,
+        activePackages: packageStatusCounts.ACTIVE,
+        expiringPackages,
+        totalMeasurements: measurements.length,
+        totalGoals: goals.length,
+        totalPackages: packages.length,
+        pendingTransfers,
+      },
+      activityTrend: buildActivityTrend(from, to, sessionDocs, measurements, customers),
+      customerStatus: customerStatusCounts,
+      gender: genderCounts,
+      attendance: attendanceCounts,
+      goalTypes: goalTypeCounts,
+      packageStatus: packageStatusCounts,
+      planCoverage,
+      trainerWorkload,
+    },
   };
 }

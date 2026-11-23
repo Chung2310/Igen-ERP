@@ -17,22 +17,67 @@ function gymAiModel() {
   );
 }
 
+function repairTruncatedJson(raw: string): string {
+  let text = raw.trim().replace(/,\s*([}\]])/g, "$1");
+  const start = text.indexOf("{");
+  if (start < 0) return text;
+  text = text.slice(start);
+  let inString = false;
+  let escape = false;
+  const stack: string[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if ((ch === "}" || ch === "]") && stack.length > 0 && stack[stack.length - 1] === ch) {
+      stack.pop();
+    }
+  }
+  if (inString) text += '"';
+  text = text.replace(/,\s*$/, "");
+  while (stack.length > 0) {
+    text += stack.pop();
+  }
+  return text.replace(/,\s*([}\]])/g, "$1");
+}
+
 function parseJsonObject(text: string): Record<string, any> {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const raw = fenced ? fenced[1].trim() : trimmed;
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
-  const slice = start >= 0 && end > start ? raw.slice(start, end + 1) : raw;
-  try {
-    const parsed = JSON.parse(slice);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, any>;
+  const candidates = [
+    start >= 0 && end > start ? raw.slice(start, end + 1) : raw,
+    repairTruncatedJson(raw),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, any>;
+      }
+    } catch {
+      // try next candidate
     }
-  } catch {
-    // fall through
   }
-  throw new Error("AI trả về dữ liệu chưa đúng định dạng. Vui lòng thử lại.");
+  throw new ValidationError(
+    "VALIDATION_FAILED",
+    "AI trả về dữ liệu chưa đúng định dạng. Vui lòng thử lại.",
+  );
 }
 
 function toOptionalNumber(value: unknown, max = 100000): number | undefined {
@@ -406,7 +451,7 @@ LƯU Ý: Chỉ số nào không có trên phiếu gán null. Chỉ trả về JS
         model: gymAiModel(),
         temperature: 0,
         jsonMode: true,
-        maxTokens: 1600,
+        maxTokens: 4096,
         messages: [
           {
             role: "user",
@@ -577,30 +622,45 @@ JSON schema:
   "warnings": string[]
 }`;
 
-  const { text } = await withAiUsage(
-    { companyCode: actor.companyCode, userId: actor.userId },
-    () =>
-      openrouterChat({
-        model: gymAiModel(),
-        temperature: 0.35,
-        jsonMode: true,
-        maxTokens: 1800,
-        messages: [{ role: "user", content: prompt }],
-      }),
-  );
-
-  const parsed = parseJsonObject(text);
-  const fallbackBmr = Math.round(
-    10 * weight + 6.25 * height - 5 * age + (gender === "Nam" ? 5 : -161),
-  );
+  let parsed: Record<string, any> = {};
+  try {
+    const { text } = await withAiUsage(
+      { companyCode: actor.companyCode, userId: actor.userId },
+      () =>
+        openrouterChat({
+          model: gymAiModel(),
+          temperature: 0.35,
+          jsonMode: true,
+          maxTokens: 4096,
+          messages: [{ role: "user", content: prompt }],
+        }),
+    );
+    parsed = parseJsonObject(text);
+  } catch (err) {
+    console.warn("[Gym analyzeNutrition] Falling back to formula analysis after AI error:", err instanceof Error ? err.message : err);
+  }
+  const numericBodyFat = Number(String(bodyFat).replace(/[^0-9.]/g, ""));
+  const fallbackBmr =
+    Number.isFinite(numericBodyFat) && numericBodyFat > 3 && numericBodyFat < 60
+      ? Math.round(370 + 21.6 * weight * (1 - numericBodyFat / 100))
+      : Math.round(
+          10 * weight + 6.25 * height - 5 * age + (gender === "Nam" ? 5 : -161),
+        );
   const bmr = Math.round(toOptionalNumber(parsed.bmr, 8000) ?? fallbackBmr);
   const tdee = Math.round(
     toOptionalNumber(parsed.tdee, 10000) ?? Math.round(bmr * activity),
   );
+  const goalLower = `${specificGoal} ${customAiRequest}`.toLowerCase();
+  const isFatLoss = /giảm\s*(mỡ|cân|kg|bụng)|siết|cut|lean/i.test(goalLower);
+  const isMuscleGain = /tăng\s*(cơ|cân|kg)|bulk|xây\s*cơ/i.test(goalLower);
+  const fallbackTargetCalories = Math.max(
+    1200,
+    Math.round(tdee + (isFatLoss && !isMuscleGain ? -400 : isMuscleGain && !isFatLoss ? 300 : -250)),
+  );
   const targetCalories = Math.max(
     1200,
     Math.round(
-      toOptionalNumber(parsed.targetCalories, 10000) ?? tdee,
+      toOptionalNumber(parsed.targetCalories, 10000) ?? fallbackTargetCalories,
     ),
   );
   const rawMacros = (parsed.macros || {}) as Record<string, unknown>;
@@ -624,20 +684,29 @@ JSON schema:
           .slice(0, 6)
       : [];
 
-  const timingStrategy = Array.isArray(parsed.timingStrategy)
+  const timingStrategy = Array.isArray(parsed.timingStrategy) && parsed.timingStrategy.length > 0
     ? parsed.timingStrategy.slice(0, 6).map((t: any) => ({
         time: String(t?.time || "").trim(),
         meal: String(t?.meal || "").trim(),
         focus: String(t?.focus || "").trim(),
         calorieTarget: Math.round(toOptionalNumber(t?.calorieTarget, 3000) ?? 0),
       }))
-    : [];
+    : [
+        { time: "07:00", meal: "Bữa sáng", focus: "Đạm dễ tiêu + tinh bột hấp thu chậm khởi động trao đổi chất", calorieTarget: Math.round(targetCalories * 0.25) },
+        { time: "12:00", meal: "Bữa trưa", focus: "Đạm nạc + tinh bột phức hợp + rau xanh giàu chất xơ", calorieTarget: Math.round(targetCalories * 0.35) },
+        { time: "16:30", meal: "Bữa phụ trước tập", focus: "Năng lượng nhẹ hỗ trợ buổi tập, tránh đầy bụng", calorieTarget: Math.round(targetCalories * 0.15) },
+        { time: "19:45", meal: "Bữa tối sau tập", focus: "Bổ sung đạm phục hồi cơ bắp + rau củ, kiểm soát tinh bột", calorieTarget: Math.max(200, targetCalories - Math.round(targetCalories * 0.25) - Math.round(targetCalories * 0.35) - Math.round(targetCalories * 0.15)) },
+      ];
 
   const rawAdvice = (parsed.dietaryAdvice || {}) as Record<string, unknown>;
   const proteinCal = protein * 4;
   const carbsCal = carbs * 4;
   const fatCal = fat * 9;
   const totalMacroCal = Math.max(1, proteinCal + carbsCal + fatCal);
+  const waterLiters =
+    toOptionalNumber(parsed.waterLiters, 10) ??
+    Math.max(1.5, Math.round(weight * 0.04 * 10) / 10);
+  const fallbackSummary = `Mức năng lượng khuyến nghị ${targetCalories} kcal/ngày (BMR ~${bmr} kcal, TDEE ~${tdee} kcal) với tỷ lệ Đạm ${protein}g · Carb ${carbs}g · Fat ${fat}g phù hợp mục tiêu ${specificGoal || "cải thiện hình thể"}.`;
 
   return {
     bmr,
@@ -655,23 +724,48 @@ JSON schema:
       carbs: Math.round((carbsCal / totalMacroCal) * 100),
       fat: Math.round((fatCal / totalMacroCal) * 100),
     },
-    waterLiters:
-      toOptionalNumber(parsed.waterLiters, 10) ??
-      Math.max(1.5, Math.round(weight * 0.04 * 10) / 10),
-    summary: typeof parsed.summary === "string" ? parsed.summary.trim() : "",
+    waterLiters,
+    summary:
+      typeof parsed.summary === "string" && parsed.summary.trim()
+        ? parsed.summary.trim()
+        : fallbackSummary,
     timingStrategy,
     mealTiming:
       strList(parsed.mealTiming).length > 0
         ? strList(parsed.mealTiming)
         : timingStrategy.map((t) => `${t.time} ${t.meal}: ${t.focus} (~${t.calorieTarget} kcal)`),
     dietaryAdvice: {
-      recommendedFoods: strList(rawAdvice.recommendedFoods),
-      avoidFoods: strList(rawAdvice.avoidFoods),
-      supplements: strList(rawAdvice.supplements),
-      keyNotes: typeof rawAdvice.keyNotes === "string" ? rawAdvice.keyNotes.trim() : "",
+      recommendedFoods:
+        strList(rawAdvice.recommendedFoods).length > 0
+          ? strList(rawAdvice.recommendedFoods)
+          : ["Ức gà, cá phi lê, thịt bò/heo thăn nạc, trứng, đậu hũ", "Gạo lứt, khoai lang, yến mạch, bún/phở vừa phải", "Rau xanh đậm, bông cải, dưa leo, nấm, trái cây ít ngọt"],
+      avoidFoods:
+        strList(rawAdvice.avoidFoods).length > 0
+          ? strList(rawAdvice.avoidFoods)
+          : ["Đồ chiên ngập dầu, thức ăn nhanh, nước ngọt có gas", "Gia vị/sốt nhiều đường và mỡ bão hòa", ...(eatingHabits ? [`Lưu ý kiêng/dị ứng theo hồ sơ: ${eatingHabits}`] : [])],
+      supplements:
+        strList(rawAdvice.supplements).length > 0
+          ? strList(rawAdvice.supplements)
+          : ["Whey Protein Isolate (nếu thiếu đạm từ bữa ăn tự nhiên)", "Omega-3, Vitamin D3 & Multivitamin cơ bản"],
+      keyNotes:
+        typeof rawAdvice.keyNotes === "string" && rawAdvice.keyNotes.trim()
+          ? rawAdvice.keyNotes.trim()
+          : `Ưu tiên chế biến luộc, hấp, áp chảo ít dầu và uống đủ ~${waterLiters}L nước/ngày.${scheduleNote ? ` Bố trí bữa ăn bám sát lịch sinh hoạt: ${scheduleNote}.` : ""}`,
     },
-    recommendations: strList(parsed.recommendations),
-    warnings: strList(parsed.warnings),
+    recommendations:
+      strList(parsed.recommendations).length > 0
+        ? strList(parsed.recommendations)
+        : [
+            `Chia đều ${protein}g Protein qua 3–4 bữa trong ngày để tối ưu tổng hợp cơ bắp.`,
+            `Uống đủ ${waterLiters}L nước/ngày, tăng thêm 400–500ml vào các ngày tập luyện.`,
+            "Theo dõi cân nặng và vòng eo mỗi tuần để điều chỉnh ±150 kcal nếu tiến độ chững lại.",
+          ],
+    warnings:
+      strList(parsed.warnings).length > 0
+        ? strList(parsed.warnings)
+        : medicalNotes
+          ? [`Lưu ý sức khỏe cần theo dõi: ${medicalNotes}`]
+          : [],
   };
 }
 
@@ -955,7 +1049,7 @@ QUY TẮC BẮT BUỘC VỀ TÊN BÀI TẬP:
         model: gymAiModel(),
         temperature: 0.4,
         jsonMode: true,
-        maxTokens: Math.min(4500, 900 + quantity * 450),
+        maxTokens: Math.min(8000, 3000 + quantity * 500),
         messages: [{ role: "user", content: prompt }],
       }),
   );
@@ -1037,7 +1131,10 @@ QUY TẮC BẮT BUỘC VỀ TÊN BÀI TẬP:
   }
 
   if (!drafts.length) {
-    throw new Error("AI không trả về bài tập hợp lệ. Vui lòng thử lại.");
+    throw new ValidationError(
+      "VALIDATION_FAILED",
+      "AI không trả về bài tập hợp lệ. Vui lòng thử lại.",
+    );
   }
 
   return {
@@ -1262,19 +1359,23 @@ Trả về JSON hợp lệ:
   "restrictions": string[]
 }`;
 
-  const { text } = await withAiUsage(
-    { companyCode: actor.companyCode, userId: actor.userId },
-    () =>
-      openrouterChat({
-        model: gymAiModel(),
-        temperature: 0.35,
-        jsonMode: true,
-        maxTokens: 1000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-  );
-
-  const parsed = parseJsonObject(text);
+  let parsed: Record<string, any> = {};
+  try {
+    const { text } = await withAiUsage(
+      { companyCode: actor.companyCode, userId: actor.userId },
+      () =>
+        openrouterChat({
+          model: gymAiModel(),
+          temperature: 0.35,
+          jsonMode: true,
+          maxTokens: 4096,
+          messages: [{ role: "user", content: prompt }],
+        }),
+    );
+    parsed = parseJsonObject(text);
+  } catch (err) {
+    console.warn("[Gym createWorkoutProposal] Falling back to availability defaults after AI error:", err instanceof Error ? err.message : err);
+  }
   return {
     durationWeeks: Math.min(12, Math.max(1, Math.round(Number(parsed.durationWeeks) || 8))),
     sessionsPerWeek: defaults.sessionsPerWeek,
@@ -1411,7 +1512,7 @@ Mỗi buổi 4–6 bài tập phù hợp thời lượng ${minutesPerSession} ph
         model: gymAiModel(),
         temperature: 0.45,
         jsonMode: true,
-        maxTokens: 3200,
+        maxTokens: 6000,
         messages: [{ role: "user", content: prompt }],
       }),
   );
@@ -1638,7 +1739,7 @@ JSON schema:
           model: gymAiModel(),
           temperature: attempt === 0 ? 0.35 : 0.2,
           jsonMode: true,
-          maxTokens: 3200,
+          maxTokens: 6000,
           messages: [{ role: "user", content: nextPrompt }],
         }),
     );

@@ -385,7 +385,19 @@ export default function FixedAssetsPage({
             >
               <b>{asset.assetCode}</b>
               <span>{asset.name}</span>
-              <span>{STATUS_LABELS[asset.status] || asset.status}</span>
+              <span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-4 ${
+                  asset.status === "in_use"
+                    ? "bg-[#5CB85C] text-white"
+                    : asset.status === "repairing"
+                      ? "bg-[#F0AD4E] text-white"
+                      : asset.status === "lost" || asset.status === "damaged"
+                        ? "bg-[#E06666] text-white"
+                        : "border border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]"
+                }`}>
+                  {STATUS_LABELS[asset.status] || asset.status}
+                </span>
+              </span>
               <span>Nguyên giá: {vnd(asset.originalCost)}</span>
               <span>Còn lại: {vnd(asset.netBookValue)}</span>
             </button>

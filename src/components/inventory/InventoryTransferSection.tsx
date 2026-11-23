@@ -524,23 +524,19 @@ export function InventoryTransferSection({
 
             const statusBadgeConfig = {
               in_transit: {
-                bg: "bg-amber-50 text-amber-700 border-amber-200",
-                dot: "bg-amber-500",
+                bg: "bg-[#F0AD4E] text-white border-transparent",
                 icon: <Truck className="h-3.5 w-3.5" />,
               },
               received: {
-                bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                dot: "bg-emerald-500",
+                bg: "bg-[#5CB85C] text-white border-transparent",
                 icon: <CheckCircle2 className="h-3.5 w-3.5" />,
               },
               cancelled: {
-                bg: "bg-rose-50 text-rose-700 border-rose-200",
-                dot: "bg-rose-500",
+                bg: "bg-[#E06666] text-white border-transparent",
                 icon: <XCircle className="h-3.5 w-3.5" />,
               },
             }[doc.status] || {
-              bg: "bg-slate-100 text-slate-700 border-slate-200",
-              dot: "bg-slate-400",
+              bg: "border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]",
               icon: null,
             };
 
@@ -556,9 +552,8 @@ export function InventoryTransferSection({
                     </span>
 
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusBadgeConfig.bg}`}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-4 uppercase ${statusBadgeConfig.bg}`}
                     >
-                      <span className={`h-1.5 w-1.5 rounded-full ${statusBadgeConfig.dot}`} />
                       {statusLabels[doc.status] || doc.status}
                     </span>
 

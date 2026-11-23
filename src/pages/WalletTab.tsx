@@ -191,19 +191,19 @@ export default function WalletTab() {
     switch (status) {
       case "success":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-[#00ADFC] border border-sky-100">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#5CB85C] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
             <CheckCircle2 className="h-3.5 w-3.5" /> Thành công
           </span>
         );
       case "failed":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 border border-rose-100">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
             <XCircle className="h-3.5 w-3.5" /> Thất bại
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 border border-amber-100 animate-pulse">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#F0AD4E] px-2.5 py-0.5 text-[11px] font-semibold leading-4 text-white">
             <Clock className="h-3.5 w-3.5" /> Chờ xử lý
           </span>
         );

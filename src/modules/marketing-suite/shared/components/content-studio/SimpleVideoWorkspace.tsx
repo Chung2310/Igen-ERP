@@ -11,6 +11,8 @@ import {
 import { marketingService } from '../../../campaign/services/marketingService';
 import { VeoSettingsPanel } from './VeoSettingsPanel';
 import { getAccessToken } from '../../services/authService';
+import { StyledSelect } from '../../../../../components/common/StyledSelect';
+import { ConfirmDialog } from '../../../../../components/common/ConfirmDialog';
 
 const VIDEO_TEMPLATES = [
   { id: 'none', label: 'Tùy chỉnh (Tự nhập)', prompt: '', icon: Wand2 },
@@ -69,6 +71,9 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
   // History state
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const historySliderRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadVideo = async (uri?: string) => {
     const targetUri = uri || generatedVideoUrl;
@@ -180,7 +185,7 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
 
     if (matchedRecord.metadata?.status === 'failed' || matchedRecord.metadata?.status === 'timeout') {
       setGeneratedVideoUrl(null);
-      toast.error('Video render khong thanh cong. Vui long thu lai voi prompt khac.');
+      toast.error('Video render không thành công. Vui lòng thử lại với prompt khác.');
     }
   }, [generatedVideoUrl, history]);
 
@@ -322,8 +327,14 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
     }
   }, [autoTrigger, activeCardId]);
 
-  const handleDeleteHistory = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử?")) return;
+  const handleDeleteHistory = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const confirmDeleteHistory = async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    setIsDeletingHistory(true);
     try {
       await geminiApi.deleteMediaHistory(id);
       toast.success('Đã xóa video thành công.');
@@ -331,26 +342,47 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
       if (generatedVideoUrl && history.find(h => h._id === id || h.id === id)?.url === generatedVideoUrl) {
         setGeneratedVideoUrl(null);
       }
+      setPendingDeleteId(null);
     } catch (e: any) {
       toast.error(`Lỗi khi xóa: ${e.message}`);
+    } finally {
+      setIsDeletingHistory(false);
     }
   };
 
   const currentPreset = VIDEO_TEMPLATES.find(t => t.prompt === prompt) || VIDEO_TEMPLATES[0];
+  const focusRingClass =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface';
+  const templateOptions = VIDEO_TEMPLATES.map((t) => {
+    const Icon = t.icon;
+    return {
+      value: t.id,
+      label: t.label,
+      icon: <Icon className="size-4 text-on-surface-variant" aria-hidden="true" />,
+    };
+  });
 
   return (
-    <div className="max-w-[1600px] mx-auto w-full pb-8 px-2 animate-fade-in animate-in fade-in duration-300" id="video_workspace_wrapper">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div className="mx-auto w-full max-w-[1440px] pb-6" id="video_workspace_wrapper">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
 
         {/* LEFT COLUMN: Input & Settings (lg:col-span-5) */}
-        <div className="lg:col-span-5 flex flex-col gap-4 bg-white border border-slate-200/80 p-5 rounded-3xl shadow-xs">
+        <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-5 lg:col-span-5">
 
           {/* Toggle modes */}
-          <div className="flex justify-center bg-slate-100/80 p-1 rounded-xl">
+          <div
+            role="tablist"
+            aria-label="Chế độ tạo video"
+            className="grid grid-cols-2 gap-1 rounded-lg bg-surface-container-low p-1"
+          >
             <button
               type="button"
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                activeMode === 'standard' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 font-medium hover:text-slate-700'
+              role="tab"
+              aria-selected={activeMode === 'standard'}
+              className={`min-h-9 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 cursor-pointer ${focusRingClass} ${
+                activeMode === 'standard'
+                  ? 'bg-surface-container-lowest text-on-surface shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
               }`}
               onClick={() => setActiveMode('standard')}
             >
@@ -358,8 +390,12 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
             </button>
             <button
               type="button"
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                activeMode === 'before-after' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 font-medium hover:text-slate-700'
+              role="tab"
+              aria-selected={activeMode === 'before-after'}
+              className={`min-h-9 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 cursor-pointer ${focusRingClass} ${
+                activeMode === 'before-after'
+                  ? 'bg-surface-container-lowest text-on-surface shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
               }`}
               onClick={() => setActiveMode('before-after')}
             >
@@ -368,188 +404,201 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
           </div>
 
           {/* Input Image Title & Button */}
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-xs font-bold text-slate-800">Ảnh đầu vào</span>
-            <button
-              type="button"
-              onClick={() => toast.info('Thư viện ảnh đang được đồng bộ')}
-              className="px-2.5 py-1.5 bg-[#e0f7fc] text-[#0891b2] rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer hover:bg-[#cbeff5] active:scale-95"
-            >
-              <Images className="h-3.5 w-3.5" />
-              Thư viện ảnh
-            </button>
-          </div>
-
-          {/* Image upload box */}
-          {activeMode === 'standard' ? (
-            <div className="border border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[140px] hover:border-[#22d3ee]/80 hover:bg-[#e0f7fc]/5 transition-all duration-300">
-              {standardImage ? (
-                <div className="relative aspect-video w-full border border-slate-150 rounded-xl overflow-hidden bg-white">
-                  <img src={standardImage} alt="Ref source" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setStandardImage(null)}
-                    className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-all cursor-pointer"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <label className="cursor-pointer flex flex-col items-center justify-center text-center w-full py-2">
-                  <UploadCloud className="h-8 w-8 text-slate-400 mb-2" />
-                  <span className="text-xs font-bold text-slate-800">Kéo thả hoặc nhấp để tải ảnh lên</span>
-                  <span className="text-[10px] text-slate-450 mt-1">PNG, JPG, WEBP</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, 'standard')}
-                  />
-                </label>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {/* Before Box */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-bold text-slate-500">Bắt đầu (Trước)</span>
-                <div className="border border-dashed border-slate-200 rounded-xl overflow-hidden aspect-square relative bg-slate-50/30 flex items-center justify-center hover:border-cyan-500/80 transition-all">
-                  {beforeImage ? (
-                    <>
-                      <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setBeforeImage(null)}
-                        className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full transition-all cursor-pointer"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center p-2 text-center">
-                      <UploadCloud className="h-6 w-6 text-slate-400 mb-1" />
-                      <span className="text-[10px] text-slate-650 font-bold">Ảnh trước</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleFileUpload(e, 'before')}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              {/* After Box */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-bold text-slate-500">Kết quả (Sau)</span>
-                <div className="border border-dashed border-slate-200 rounded-xl overflow-hidden aspect-square relative bg-slate-50/30 flex items-center justify-center hover:border-cyan-500/80 transition-all">
-                  {afterImage ? (
-                    <>
-                      <img src={afterImage} alt="After" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setAfterImage(null)}
-                        className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full transition-all cursor-pointer"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center p-2 text-center">
-                      <UploadCloud className="h-6 w-6 text-slate-400 mb-1" />
-                      <span className="text-[10px] text-slate-650 font-bold">Ảnh sau</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleFileUpload(e, 'after')}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* "Ý tưởng của bạn" Section */}
-          <div className="flex justify-between items-center border-t border-slate-100 pt-3.5 relative">
-            <span className="text-xs font-bold text-slate-800">Ý tưởng của bạn</span>
-            <div className="relative">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-on-surface">
+                Ảnh đầu vào <span className="font-normal text-on-surface-variant">(không bắt buộc)</span>
+              </span>
               <button
                 type="button"
-                onClick={() => setIsPresetDropdownOpen(!isPresetDropdownOpen)}
-                className="px-2.5 py-1.5 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 rounded-xl text-[10px] font-bold text-slate-650 flex items-center gap-1 transition-all cursor-pointer bg-white"
+                onClick={() => toast.info('Thư viện ảnh đang được đồng bộ')}
+                className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors duration-150 hover:bg-primary/15 cursor-pointer ${focusRingClass}`}
               >
-                <span>{currentPreset.label.length > 18 ? currentPreset.label.substring(0, 15) + '...' : currentPreset.label}</span>
-                <Settings className="h-3 w-3 text-slate-400" />
+                <Images className="size-3.5" aria-hidden="true" />
+                Thư viện ảnh
               </button>
-              {isPresetDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-30 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                  {VIDEO_TEMPLATES.map(t => { const Icon = t.icon; return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setPrompt(t.prompt);
-                        setOptimizedData(null);
-                        setIsPresetDropdownOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[11px] transition-colors hover:bg-slate-50 ${prompt === t.prompt ? 'text-[#0891b2] font-bold bg-[#e0f7fc]/20' : 'text-slate-700'}`}
-                    >
-                      <Icon size={14} />{t.label}
-                    </button>
-                  ); })}
-                </div>
-              )}
             </div>
+
+            {/* Image upload box */}
+            {activeMode === 'standard' ? (
+              <div className="relative flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 p-4 transition-colors duration-150 hover:border-primary hover:bg-primary/5">
+                {standardImage ? (
+                  <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+                    <img src={standardImage} alt="Ảnh tham chiếu đầu vào" className="size-full object-cover" />
+                    <button
+                      type="button"
+                      aria-label="Xóa ảnh đầu vào"
+                      onClick={() => setStandardImage(null)}
+                      className={`absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-black/65 text-white transition-colors duration-150 hover:bg-black/85 cursor-pointer ${focusRingClass}`}
+                    >
+                      <X className="size-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex w-full cursor-pointer flex-col items-center justify-center py-2 text-center focus-within:outline-none">
+                    <span className="mb-2.5 inline-flex size-10 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant">
+                      <UploadCloud className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="text-sm font-medium text-on-surface">Kéo thả hoặc nhấp để tải ảnh lên</span>
+                    <span className="mt-1 text-xs text-on-surface-variant">PNG, JPG, WebP</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => handleFileUpload(e, 'standard')}
+                    />
+                  </label>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Before Box */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-on-surface-variant">Bắt đầu (Trước)</span>
+                  <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 transition-colors duration-150 hover:border-primary hover:bg-primary/5">
+                    {beforeImage ? (
+                      <>
+                        <img src={beforeImage} alt="Ảnh bắt đầu" className="size-full object-cover" />
+                        <button
+                          type="button"
+                          aria-label="Xóa ảnh trước"
+                          onClick={() => setBeforeImage(null)}
+                          className={`absolute right-1.5 top-1.5 inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white transition-colors duration-150 hover:bg-black/85 cursor-pointer ${focusRingClass}`}
+                        >
+                          <X className="size-3.5" aria-hidden="true" />
+                        </button>
+                      </>
+                    ) : (
+                      <label className="flex size-full cursor-pointer flex-col items-center justify-center p-3 text-center">
+                        <UploadCloud className="mb-1.5 size-6 text-on-surface-variant" aria-hidden="true" />
+                        <span className="text-xs font-medium text-on-surface">Tải ảnh trước</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => handleFileUpload(e, 'before')}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* After Box */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-on-surface-variant">Kết quả (Sau)</span>
+                  <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 transition-colors duration-150 hover:border-primary hover:bg-primary/5">
+                    {afterImage ? (
+                      <>
+                        <img src={afterImage} alt="Ảnh kết quả" className="size-full object-cover" />
+                        <button
+                          type="button"
+                          aria-label="Xóa ảnh sau"
+                          onClick={() => setAfterImage(null)}
+                          className={`absolute right-1.5 top-1.5 inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white transition-colors duration-150 hover:bg-black/85 cursor-pointer ${focusRingClass}`}
+                        >
+                          <X className="size-3.5" aria-hidden="true" />
+                        </button>
+                      </>
+                    ) : (
+                      <label className="flex size-full cursor-pointer flex-col items-center justify-center p-3 text-center">
+                        <UploadCloud className="mb-1.5 size-6 text-on-surface-variant" aria-hidden="true" />
+                        <span className="text-xs font-medium text-on-surface">Tải ảnh sau</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => handleFileUpload(e, 'after')}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Prompt Textarea */}
-          <textarea
-            placeholder="Mô tả ngắn gọn nội dung video bạn muốn..."
-            className="w-full text-xs p-3.5 border border-slate-200 rounded-2xl h-22 focus:ring-1 focus:ring-[#22d3ee] focus:outline-none leading-relaxed bg-slate-50/20 resize-none font-medium"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={isGenerating}
-          />
+          {/* "Ý tưởng của bạn" Section */}
+          <div className="flex flex-col gap-2 border-t border-outline-variant pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="simple-video-prompt" className="text-sm font-medium text-on-surface">
+                Ý tưởng của bạn
+              </label>
+              <div className="w-48">
+                <StyledSelect
+                  appearance="erp"
+                  ariaLabel="Mẫu gợi ý kịch bản video"
+                  value={currentPreset.id}
+                  onChange={(value) => {
+                    const matched = VIDEO_TEMPLATES.find((t) => t.id === value);
+                    if (matched) {
+                      setPrompt(matched.prompt);
+                      setOptimizedData(null);
+                    }
+                  }}
+                  options={templateOptions}
+                  className="h-9 rounded-md text-xs"
+                  menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+                />
+              </div>
+            </div>
+
+            <textarea
+              id="simple-video-prompt"
+              placeholder="Mô tả ngắn gọn nội dung, bối cảnh và chuyển động bạn muốn…"
+              rows={4}
+              className="w-full min-h-24 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={isGenerating}
+            />
+          </div>
 
           {/* AI Optimize Box */}
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3.5">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-800">Tối ưu prompt và thông số</span>
-              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-mono font-bold">iGen 3 flash</span>
+          <div className="flex flex-col gap-2.5 border-t border-outline-variant pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-on-surface">Tối ưu prompt và thông số</span>
+              <span className="rounded-md border border-outline-variant bg-surface-container-low px-2 py-0.5 text-xs font-medium text-on-surface-variant">
+                iGen 3 flash
+              </span>
             </div>
             <button
               type="button"
               onClick={handleOptimizePrompt}
               disabled={isGeneratingPrompt || isGenerating || !prompt.trim()}
-              className="w-full py-2.5 bg-[#e0f7fc] border border-[#22d3ee]/20 hover:bg-[#cbeff5] text-[#0891b2] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors duration-150 hover:bg-primary/15 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${focusRingClass}`}
             >
-              {isGeneratingPrompt ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {isGeneratingPrompt ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Wand2 className="size-4" aria-hidden="true" />
+              )}
               Phân tích và hoàn thiện prompt
             </button>
 
             {optimizedData && (
-              <div className="mt-2.5 p-3 rounded-2xl border border-cyan-100 bg-cyan-50/30 flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-250">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5 text-cyan-800 text-[11px] font-bold">
-                    <Sparkles className="h-3.5 w-3.5 text-cyan-500 animate-pulse" />
+              <div className="mt-1 flex flex-col gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Sparkles className="size-4 shrink-0" aria-hidden="true" />
                     <span>Kịch bản tối ưu bởi AI</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOptimizedData(null)}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    className={`rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-lowest hover:text-on-surface cursor-pointer ${focusRingClass}`}
                   >
                     Xóa tối ưu
                   </button>
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Prompt Tiếng Anh chi tiết</span>
+                  <label htmlFor="simple-video-opt-prompt" className="text-xs font-medium text-on-surface-variant">
+                    Prompt tiếng Anh chi tiết
+                  </label>
                   <textarea
-                    className="w-full text-[11px] p-2.5 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white resize-none font-medium text-slate-700 leading-relaxed min-h-[70px]"
+                    id="simple-video-opt-prompt"
+                    rows={3}
+                    className="w-full min-h-20 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm leading-relaxed text-on-surface focus:border-primary focus:outline-none"
                     value={optimizedData.optimized_english_prompt}
                     onChange={(e) => setOptimizedData({
                       ...optimizedData,
@@ -559,12 +608,15 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Chuyển động (Motion)</span>
+                    <label htmlFor="simple-video-opt-motion" className="text-xs font-medium text-on-surface-variant">
+                      Chuyển động (Motion)
+                    </label>
                     <input
+                      id="simple-video-opt-motion"
                       type="text"
-                      className="w-full text-[11px] px-2.5 py-1.5 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
+                      className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:border-primary focus:outline-none"
                       value={optimizedData.motion_analysis || ''}
                       onChange={(e) => setOptimizedData({
                         ...optimizedData,
@@ -575,10 +627,13 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Camera (Movement)</span>
+                    <label htmlFor="simple-video-opt-camera" className="text-xs font-medium text-on-surface-variant">
+                      Góc máy (Camera)
+                    </label>
                     <input
+                      id="simple-video-opt-camera"
                       type="text"
-                      className="w-full text-[11px] px-2.5 py-1.5 border border-cyan-200/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-cyan-400 bg-white font-medium text-slate-700"
+                      className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:border-primary focus:outline-none"
                       value={optimizedData.camera_movement || ''}
                       onChange={(e) => setOptimizedData({
                         ...optimizedData,
@@ -604,65 +659,87 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
           />
 
           {/* Submit Button */}
-          <button
-            type="button"
-            onClick={handleGenerateVideo}
-            disabled={isGenerating || isGeneratingPrompt || !prompt.trim()}
-            className={`w-full py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer active:scale-95 shadow-md ${isGenerating || isGeneratingPrompt || !prompt.trim()
-                ? 'bg-slate-100 text-slate-400 border border-slate-200 shadow-none cursor-not-allowed'
-                : 'bg-[#0891b2] hover:bg-[#06738c] text-white shadow-[#0891b2]/10'
-              }`}
-          >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Tạo Video Ngay
-          </button>
+          <div className="border-t border-outline-variant pt-4">
+            <button
+              type="button"
+              onClick={handleGenerateVideo}
+              disabled={isGenerating || isGeneratingPrompt || !prompt.trim()}
+              className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary/90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${focusRingClass}`}
+            >
+              {isGenerating ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Sparkles className="size-4" aria-hidden="true" />
+              )}
+              {isGenerating ? 'Đang tạo video…' : 'Tạo video ngay'}
+            </button>
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Canvas & History (lg:col-span-7) */}
-        <div className="lg:col-span-7 flex flex-col gap-6 relative bg-slate-50/30 border border-slate-200/60 p-6 rounded-3xl min-h-[660px] justify-between">
+        <div className="flex flex-col gap-5 lg:col-span-7">
 
-          {/* Canvas area (flexible viewport) */}
-          <div className="flex-1 flex flex-col justify-center items-center relative min-h-[360px] mb-4">
-            {isGenerating ? (
-              <div className="flex flex-col items-center gap-4 text-slate-400 p-8 text-center animate-pulse">
-                <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
-                <div className="flex flex-col gap-1.5 items-center">
-                  <span className="text-xs font-bold tracking-wider uppercase font-mono text-cyan-400">Đang dựng video AI {generateProgress}%...</span>
-                  <span className="text-[10px] text-slate-550">Mất khoảng 1-2 phút để mô hình hóa và kết xuất các khung hình.</span>
-                </div>
-                <div className="w-48 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
-                  <div
-                    className="bg-[#0891b2] h-full transition-all duration-300 rounded-full"
-                    style={{ width: `${generateProgress}%` }}
-                  />
-                </div>
+          {/* Preview Stage Card */}
+          <section
+            aria-label="Khung xem trước video"
+            aria-busy={isGenerating}
+            className="flex min-h-[420px] flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3">
+              <h2 className="text-balance text-sm font-semibold text-on-surface">Khung xem trước</h2>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums text-on-surface-variant">
+                <span className="rounded-md bg-surface-container-low px-2 py-0.5">{videoAspectRatio}</span>
+                <span className="rounded-md bg-surface-container-low px-2 py-0.5">{videoDuration} giây</span>
+                <span className="rounded-md bg-surface-container-low px-2 py-0.5">{videoQuality}</span>
               </div>
-            ) : generatedVideoUrl ? (
-              <div className="w-full flex flex-col gap-3">
-                <div className="w-full h-full flex items-center justify-center relative rounded-3xl overflow-hidden border border-slate-200 bg-black shadow-lg aspect-video max-h-[380px]">
-                  {generatedVideoUrl.startsWith('pending://') ? (() => {
-                    const matchedRecord = history.find(h => h.url === generatedVideoUrl);
-                    const progressVal = matchedRecord?.metadata?.progress;
-                    return (
-                      <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-cyan-400 uppercase tracking-widest p-4 text-center">
-                        <Loader2 className="h-8 w-8 animate-spin mb-2 text-cyan-500" />
-                        Video đang được dựng...
-                        {progressVal !== undefined && (
-                          <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
-                            <span className="text-[10px] text-cyan-400 font-mono">Tiến độ: {progressVal}%</span>
-                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
-                                style={{ width: `${progressVal}%` }}
-                              />
+            </div>
+
+            <div className="flex flex-1 flex-col items-center justify-center">
+              {isGenerating ? (
+                <div role="status" className="flex flex-col items-center gap-3 p-8 text-center">
+                  <Loader2 className="size-9 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-sm font-semibold tabular-nums text-on-surface">
+                      Đang dựng video AI ({generateProgress}%)…
+                    </span>
+                    <span className="text-pretty text-xs text-on-surface-variant">
+                      Quá trình này có thể mất 1–2 phút để kết xuất các khung hình.
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-56 overflow-hidden rounded-full bg-surface-container-high">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${generateProgress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : generatedVideoUrl ? (
+                <div className="flex w-full flex-col gap-3">
+                  <div className="relative flex aspect-video max-h-[400px] w-full items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-black">
+                    {generatedVideoUrl.startsWith('pending://') ? (() => {
+                      const matchedRecord = history.find(h => h.url === generatedVideoUrl);
+                      const progressVal = matchedRecord?.metadata?.progress;
+                      return (
+                        <div role="status" className="flex size-full flex-col items-center justify-center bg-surface-container-low p-6 text-center">
+                          <Loader2 className="mb-3 size-8 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                          <span className="text-sm font-semibold text-on-surface">Video đang được xử lý…</span>
+                          {progressVal !== undefined && (
+                            <div className="mt-2.5 flex w-52 flex-col items-center gap-1.5">
+                              <span className="text-xs font-medium tabular-nums text-primary">Tiến độ: {progressVal}%</span>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{ width: `${progressVal}%` }}
+                                />
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        <span className="text-[10px] text-slate-400 normal-case font-normal mt-2">Hệ thống đang xử lý ở chế độ nền. Không cần tải lại trang.</span>
-                      </div>
-                    );
-                  })() : (
-                    <>
+                          )}
+                          <span className="mt-2 text-pretty text-xs text-on-surface-variant">
+                            Hệ thống đang xử lý ở chế độ nền, không cần tải lại trang.
+                          </span>
+                        </div>
+                      );
+                    })() : (
                       <video
                         src={generatedVideoUrl}
                         controls
@@ -670,135 +747,144 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                         loop
                         playsInline
                         crossOrigin="anonymous"
-                        className="w-full h-full object-contain"
+                        className="size-full object-contain"
                         id="canvas_video_player"
                       />
-                      <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10 flex gap-2">
+                    )}
+                  </div>
+
+                  {!generatedVideoUrl.startsWith('pending://') && (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadVideo()}
+                        className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface transition-colors duration-150 hover:bg-surface-container-low cursor-pointer ${focusRingClass}`}
+                      >
+                        <Download className="size-4" aria-hidden="true" />
+                        Tải video
+                      </button>
+                      {onEditVideo && (
                         <button
                           type="button"
-                          onClick={() => handleDownloadVideo()}
-                          className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
+                          onClick={() => onEditVideo(generatedVideoUrl)}
+                          className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary/90 cursor-pointer ${focusRingClass}`}
                         >
-                          <Download className="h-4 w-4" />
-                          Tải Video
+                          <Wand2 className="size-4" aria-hidden="true" />
+                          Chỉnh sửa tiếp
                         </button>
-                      </div>
-                    </>
+                      )}
+                    </div>
                   )}
                 </div>
-                {!generatedVideoUrl.startsWith('pending://') && onEditVideo && (
-                  <button
-                    type="button"
-                    onClick={() => onEditVideo(generatedVideoUrl)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 cursor-pointer shadow-sm shadow-cyan-155"
-                  >
-                    <Wand2 className="h-4 w-4" />
-                    Chỉnh sửa tiếp
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 p-10 text-center select-none text-slate-400">
-                <div className="h-12 w-12 rounded-full bg-slate-100 border border-slate-200/50 flex items-center justify-center text-slate-400 mb-2">
-                  <Video className="h-6 w-6 stroke-[1.5]" />
+              ) : (
+                <div className="flex w-full flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 px-6 py-12 text-center">
+                  <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Video className="size-6" aria-hidden="true" />
+                  </div>
+                  <h3 className="text-balance text-sm font-semibold text-on-surface">Sẵn sàng sáng tạo video</h3>
+                  <p className="mt-1 max-w-sm text-pretty text-sm text-on-surface-variant">
+                    Tải ảnh tham chiếu hoặc nhập mô tả ở cột bên trái để bắt đầu.
+                  </p>
                 </div>
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sẵn sàng sáng tạo</span>
-                <span className="text-[11px] text-slate-400 max-w-sm leading-relaxed">
-                  Tải ảnh và nhập ý tưởng để bắt đầu
-                </span>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </section>
 
-          {/* Video Render History Overlay/Card */}
-          <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-lg flex flex-col gap-3.5 relative animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex flex-col">
-                <h4 className="font-bold text-slate-800 text-xs">Lịch sử tạo video</h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
+          {/* Video Render History Card */}
+          <section
+            aria-label="Lịch sử tạo video"
+            className="flex flex-col gap-3.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-outline-variant pb-3">
+              <div>
+                <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử tạo video</h2>
+                <p className="mt-0.5 text-xs text-on-surface-variant">
+                  Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.
+                </p>
               </div>
-              <span className="px-2.5 py-0.5 bg-[#e0f7fc] text-[#0891b2] rounded-full text-[10px] font-bold font-mono">
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
                 {history.slice(0, 20).length}/20
               </span>
             </div>
 
             {isLoadingHistory ? (
-              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-                <Loader2 className="h-6 w-6 text-cyan-500 animate-spin mb-2" />
-                <span className="text-[9px] uppercase tracking-wider font-mono">Đang tải...</span>
+              <div role="status" className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
+                <Loader2 className="size-5 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                <span className="text-xs">Đang tải lịch sử…</span>
               </div>
             ) : history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-slate-400 border border-dashed rounded-xl bg-slate-50/50">
-                <Video className="h-6 w-6 text-slate-350 mb-2" />
-                <span className="text-[10px] font-semibold text-slate-400">Chưa có video render</span>
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 py-8 text-center">
+                <Video className="size-5 text-on-surface-variant" aria-hidden="true" />
+                <span className="text-sm text-on-surface-variant">Chưa có video nào được tạo</span>
               </div>
             ) : (
               <div className="relative flex items-center gap-2">
-                {/* Left Navigation Chevron */}
                 <button
                   type="button"
+                  aria-label="Cuộn lịch sử sang trái"
                   onClick={() => {
-                    const container = document.getElementById('history_slider');
-                    if (container) container.scrollLeft -= 200;
+                    if (historySliderRef.current) historySliderRef.current.scrollLeft -= 220;
                   }}
-                  className="h-7 w-7 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-xs cursor-pointer shrink-0 active:scale-90 transition-transform"
+                  className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="size-4" aria-hidden="true" />
                 </button>
 
-                {/* Scrollable list */}
                 <div
+                  ref={historySliderRef}
                   id="history_slider"
-                  className="flex-1 overflow-x-auto flex gap-3 pb-1 scroll-smooth"
+                  className="flex flex-1 gap-3 overflow-x-auto pb-1 scroll-smooth"
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                   {history.map((record, index) => {
                     const id = record._id || record.id;
                     const isActive = generatedVideoUrl === record.url;
+                    const label = `Render ${history.length - index}`;
                     return (
                       <div
                         key={id}
-                        onClick={() => setGeneratedVideoUrl(record.url)}
-                        className={`w-32 aspect-[16/10] relative rounded-xl overflow-hidden bg-slate-950 shadow-xs cursor-pointer hover:shadow-md shrink-0 border-2 transition-all group/item ${isActive ? 'border-[#0891b2]' : 'border-transparent'
-                          }`}
+                        className={`group/item relative aspect-[16/10] w-36 shrink-0 overflow-hidden rounded-lg border-2 bg-black transition-colors duration-150 ${
+                          isActive ? 'border-primary' : 'border-outline-variant hover:border-outline'
+                        }`}
                       >
-                        {record.url && (record.url.startsWith('http') || record.url.startsWith('blob:') || record.url.startsWith('data:')) ? (
-                          <video src={record.url} className="w-full h-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
-                        ) : (
-                          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-[8px] font-bold text-cyan-400 uppercase tracking-widest p-1 text-center">
-                            <Loader2 className="h-4 w-4 animate-spin mb-1 text-cyan-500" />
-                            Đang dựng {record.metadata?.progress !== undefined ? `${record.metadata.progress}%` : ''}
-                            {record.metadata?.progress !== undefined && (
-                              <div className="w-16 bg-slate-855 h-1 rounded-full overflow-hidden mt-1 mx-auto">
-                                <div
-                                  className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
-                                  style={{ width: `${record.metadata.progress}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-70 group-hover/item:opacity-100 transition-opacity">
-                          <div className="h-6 w-6 rounded-full bg-white/95 hover:bg-white flex items-center justify-center text-slate-900 shadow">
-                            <Play className="h-2.5 w-2.5 fill-slate-900 ml-0.5" />
-                          </div>
-                        </div>
-
-                        {/* Delete button from history */}
                         <button
                           type="button"
+                          aria-label={`Xem ${label}`}
+                          onClick={() => setGeneratedVideoUrl(record.url)}
+                          className={`block size-full cursor-pointer text-left ${focusRingClass}`}
+                        >
+                          {record.url && (record.url.startsWith('http') || record.url.startsWith('blob:') || record.url.startsWith('data:')) ? (
+                            <video src={record.url} className="size-full object-cover" muted preload="metadata" playsInline crossOrigin="anonymous" />
+                          ) : (
+                            <div className="flex size-full flex-col items-center justify-center bg-surface-container-low p-2 text-center text-xs font-medium text-primary">
+                              <Loader2 className="mb-1 size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                              <span className="tabular-nums">
+                                Đang dựng {record.metadata?.progress !== undefined ? `${record.metadata.progress}%` : ''}
+                              </span>
+                            </div>
+                          )}
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-80 transition-opacity duration-150 group-hover/item:opacity-100">
+                            <span className="flex size-7 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-xs">
+                              <Play className="ml-0.5 size-3 fill-current" aria-hidden="true" />
+                            </span>
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label={`Xóa ${label} khỏi lịch sử`}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteHistory(id);
                           }}
-                          className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-650 text-white rounded-md opacity-0 group-hover/item:opacity-100 transition-opacity z-10"
-                          title="Xóa khỏi thư viện"
+                          className={`absolute right-1.5 top-1.5 z-10 inline-flex size-6 items-center justify-center rounded-md bg-black/70 text-white opacity-0 transition-opacity duration-150 hover:bg-error focus-visible:opacity-100 group-hover/item:opacity-100 cursor-pointer ${focusRingClass}`}
+                          title="Xóa khỏi lịch sử"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="size-3.5" aria-hidden="true" />
                         </button>
 
-                        <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-center text-[8px] font-bold text-white bg-black/40 px-1 py-0.5 rounded backdrop-blur-xs">
-                          <span className="truncate max-w-[50px]">{`Render ${history.length - index}`}</span>
+                        <div className="pointer-events-none absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between rounded bg-black/55 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
+                          <span className="truncate">{label}</span>
                           <span>{record.metadata?.aspectRatio || '16:9'}</span>
                         </div>
                       </div>
@@ -806,24 +892,37 @@ export function SimpleVideoWorkspace({ initialPrompt, cardId, onMediaSaved, onEd
                   })}
                 </div>
 
-                {/* Right Navigation Chevron */}
                 <button
                   type="button"
+                  aria-label="Cuộn lịch sử sang phải"
                   onClick={() => {
-                    const container = document.getElementById('history_slider');
-                    if (container) container.scrollLeft += 200;
+                    if (historySliderRef.current) historySliderRef.current.scrollLeft += 220;
                   }}
-                  className="h-7 w-7 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-xs cursor-pointer shrink-0 active:scale-90 transition-transform"
+                  className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="size-4" aria-hidden="true" />
                 </button>
               </div>
             )}
-          </div>
+          </section>
 
         </div>
-
       </div>
+
+      <ConfirmDialog
+        appearance="erp"
+        isOpen={Boolean(pendingDeleteId)}
+        isSubmitting={isDeletingHistory}
+        title="Xóa video khỏi lịch sử"
+        description="Bạn có chắc chắn muốn xóa video này khỏi danh sách lịch sử tạo video?"
+        confirmLabel="Xóa video"
+        cancelLabel="Hủy"
+        tone="danger"
+        onClose={() => {
+          if (!isDeletingHistory) setPendingDeleteId(null);
+        }}
+        onConfirm={confirmDeleteHistory}
+      />
     </div>
   );
 }

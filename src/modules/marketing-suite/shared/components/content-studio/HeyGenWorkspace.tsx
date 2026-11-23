@@ -12,6 +12,7 @@ import { HEYGEN_MODEL_OPTIONS, HEYGEN_THEME } from "./heygenTheme";
 import { marketingService } from "../../../campaign/services/marketingService";
 import { toast } from "../../../../../pages/Toast";
 import { socketService } from "../../../../../services/socketService";
+import { ConfirmDialog } from "../../../../../components/common/ConfirmDialog";
 
 const HeyGenOptionsDrawer = lazy(() =>
   import("./HeyGenOptionsDrawer").then((module) => ({ default: module.HeyGenOptionsDrawer }))
@@ -109,6 +110,8 @@ export function HeyGenWorkspace({
   const autoTriggeredRef = useRef(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [previewItem, setPreviewItem] = useState<any | null>(null);
+  const [pendingDeleteVideoId, setPendingDeleteVideoId] = useState<string | null>(null);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState("");
@@ -116,7 +119,7 @@ export function HeyGenWorkspace({
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [enableCaption, setEnableCaption] = useState(false);
   const [captionPreset, setCaptionPreset] = useState<"brand" | "clean" | "outline" | "highlight">("brand");
-  const [captionFontFamily, setCaptionFontFamily] = useState("Georgia, serif");
+  const [captionFontFamily, setCaptionFontFamily] = useState('"Be Vietnam Pro", Inter, sans-serif');
   const [captionFontSize, setCaptionFontSize] = useState(28);
   const [captionPrimaryColor, setCaptionPrimaryColor] = useState("#9bff4f");
   const [captionSecondaryColor, setCaptionSecondaryColor] = useState("#ffffff");
@@ -604,9 +607,12 @@ export function HeyGenWorkspace({
     }
   };
 
+  const focusRingClass =
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
   return (
-    <div className="mx-auto w-full max-w-[1700px] space-y-5 px-2">
-      <div className={`flex h-[calc(100vh-190px)] min-h-[560px] max-h-[760px] w-full overflow-hidden rounded-[24px] border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface} shadow-sm transition-all duration-300`}>
+    <div className="mx-auto w-full max-w-[1440px] space-y-5 pb-6">
+      <div className={`flex h-[calc(100dvh-190px)] min-h-[560px] max-h-[760px] w-full overflow-hidden rounded-xl border ${HEYGEN_THEME.border} ${HEYGEN_THEME.surface}`}>
         <HeyGenVideoPreview
           selectedAvatar={selectedAvatar}
           script={activeScript}
@@ -680,238 +686,254 @@ export function HeyGenWorkspace({
       </div>
 
       {isLoadingLibrary ? (
-        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-xs font-semibold text-cyan-700">
-          <p className="font-bold">Đang tải thư viện AI...</p>
-          <p className="mt-1 text-cyan-600">Hệ thống đang đồng bộ avatar và tùy chọn motion từ phía máy chủ.</p>
+        <div role="status" className="rounded-xl border border-primary/25 bg-primary/10 p-4 text-sm text-primary">
+          <p className="font-semibold">Đang tải thư viện AI…</p>
+          <p className="mt-0.5 text-xs text-on-surface-variant">Hệ thống đang đồng bộ avatar và tùy chọn chuyển động từ máy chủ.</p>
         </div>
       ) : null}
 
       {(errorMessage || warnings.length > 0 || jobStatus) ? (
-        <div className={`rounded-2xl border p-4 text-xs font-semibold ${errorMessage ? "border-rose-200 bg-rose-50 text-rose-700" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>
-          {errorMessage ? <p className="font-bold">{errorMessage}</p> : null}
-          {!errorMessage && warnings.length > 0 ? <p className="font-bold">{warnings[0]}</p> : null}
-          {!errorMessage && !warnings.length && jobStatus ? <p className="font-bold">Trạng thái render: {translateJobStatus(jobStatus)}</p> : null}
+        <div
+          role={errorMessage ? "alert" : "status"}
+          className={`rounded-xl border p-4 text-sm font-medium ${
+            errorMessage
+              ? "border-error/30 bg-error/10 text-error"
+              : "border-primary/25 bg-primary/10 text-primary"
+          }`}
+        >
+          {errorMessage ? <p>{errorMessage}</p> : null}
+          {!errorMessage && warnings.length > 0 ? <p>{warnings[0]}</p> : null}
+          {!errorMessage && !warnings.length && jobStatus ? <p>Trạng thái render: {translateJobStatus(jobStatus)}</p> : null}
         </div>
       ) : null}
 
-      <div ref={historySectionRef} className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm md:p-8">
-        <div className="flex items-center justify-between gap-3 pb-4">
+      <section
+        ref={historySectionRef}
+        aria-label="Lịch sử tạo video"
+        className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-3.5">
           <div>
-            <h4 className="text-xl font-bold tracking-tight text-slate-900">Lịch sử tạo video</h4>
-            <p className="mt-1 text-sm text-slate-400">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
+            <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử tạo video</h2>
+            <p className="mt-0.5 text-xs text-on-surface-variant">Hiển thị tối đa 20 kết quả gần nhất, từ mới đến cũ.</p>
           </div>
-          <span className="rounded-full bg-cyan-50 border border-cyan-100 px-3.5 py-1 text-sm font-bold text-cyan-600">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
             {history.slice(0, 20).length}/20
           </span>
         </div>
 
-        <hr className="border-slate-100 mb-6" />
+        <div className="mt-4">
+          {!hasLoadedHistory ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 py-8 text-on-surface-variant">
+              <p className="text-sm">Lịch sử sẽ được tải khi bạn cuộn xuống dưới cùng.</p>
+            </div>
+          ) : isLoadingHistory && history.length === 0 ? (
+            <div role="status" className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
+              <LoaderCircle className="size-5 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+              <p className="text-xs">Đang tải lịch sử video…</p>
+            </div>
+          ) : history.length > 0 ? (
+            <div className="relative flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Cuộn lịch sử sang trái"
+                onClick={() => scrollCarousel("left")}
+                className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+              </button>
 
-        {!hasLoadedHistory ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-            <p className="text-sm">Lịch sử sẽ được tải khi bạn cuộn xuống dưới cùng.</p>
-          </div>
-        ) : isLoadingHistory && history.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-            <LoaderCircle className="h-6 w-6 animate-spin text-cyan-600 mb-2" />
-            <p className="text-sm">Đang tải lịch sử video...</p>
-          </div>
-        ) : history.length > 0 ? (
-          <div className="relative group/carousel">
-            {/* Left Button */}
-            <button
-              type="button"
-              onClick={() => scrollCarousel("left")}
-              className="absolute -left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-md transition hover:scale-105 hover:bg-slate-50 hover:text-slate-900"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
+              <div
+                ref={carouselRef}
+                className="flex flex-1 gap-4 overflow-x-auto scroll-smooth py-1 scrollbar-none"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {history.slice(0, 20).map((item, index) => {
+                  const status = String(item.status || "").toLowerCase();
+                  const isCompleted = status === "completed";
+                  const isFailed = ["failed", "error", "canceled"].includes(status);
+                  const isProcessing = !isCompleted && !isFailed;
+                  const renderName = `Render ${history.length - index}`;
+                  const itemRatio = item.metadata?.aspectRatio || "16:9";
+                  const videoUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
+                  const hasVideoUrl = isPlayableVideoUrl(videoUrl);
 
-            {/* Scroll Area */}
-            <div
-              ref={carouselRef}
-              className="flex gap-5 overflow-x-auto scroll-smooth py-2 px-1 scrollbar-none"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              {history.slice(0, 20).map((item, index) => {
-                const status = String(item.status || "").toLowerCase();
-                const isCompleted = status === "completed";
-                const isFailed = ["failed", "error", "canceled"].includes(status);
-                const isProcessing = !isCompleted && !isFailed;
-                const renderName = `Render ${history.length - index}`;
-                const aspectRatio = item.metadata?.aspectRatio || "16:9";
-                const videoUrl = item.url || item.captionedVideoUrl || item.videoPageUrl || "";
-                const hasVideoUrl = isPlayableVideoUrl(videoUrl);
-
-                return (
-                  <div
-                    key={item._id || item.id || index}
-                    onClick={() => {
-                      if (isProcessing) {
-                        toast.info("Video đang trong quá trình xử lý, vui lòng chờ hoàn tất.");
-                        return;
-                      }
-                      setPreviewItem(item);
-                    }}
-                    title={item.prompt || item.title || renderName}
-                    className={`relative w-[240px] aspect-[16/9] flex-shrink-0 overflow-hidden rounded-[20px] border-2 bg-slate-900 cursor-pointer shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02] group/card ${index === 0
-                        ? "border-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                        : "border-slate-100 hover:border-cyan-400"
+                  return (
+                    <div
+                      key={item._id || item.id || index}
+                      className={`group/card relative aspect-[16/9] w-56 shrink-0 overflow-hidden rounded-lg border-2 bg-black transition-colors duration-150 ${
+                        index === 0
+                          ? "border-primary"
+                          : "border-outline-variant hover:border-outline"
                       }`}
-                  >
-                    {isCompleted ? (
-                      <>
-                        {item.thumbnailUrl ? (
-                          <img
-                            src={item.thumbnailUrl}
-                            alt={renderName}
-                            loading="lazy"
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
-                        ) : hasVideoUrl ? (
-                          <video
-                            src={videoUrl}
-                            preload="metadata"
-                            playsInline
-                            className="absolute inset-0 h-full w-full object-cover bg-transparent"
-                          />
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Xem chi tiết ${renderName}`}
+                        onClick={() => {
+                          if (isProcessing) {
+                            toast.info("Video đang trong quá trình xử lý, vui lòng chờ hoàn tất.");
+                            return;
+                          }
+                          setPreviewItem(item);
+                        }}
+                        title={item.prompt || item.title || renderName}
+                        className={`block size-full cursor-pointer text-left ${focusRingClass}`}
+                      >
+                        {isCompleted ? (
+                          <>
+                            {item.thumbnailUrl ? (
+                              <img
+                                src={item.thumbnailUrl}
+                                alt={renderName}
+                                loading="lazy"
+                                className="absolute inset-0 size-full object-cover"
+                              />
+                            ) : hasVideoUrl ? (
+                              <video
+                                src={videoUrl}
+                                preload="metadata"
+                                playsInline
+                                className="absolute inset-0 size-full object-cover bg-transparent"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center bg-surface-container-low">
+                                <Play className="size-7 text-on-surface-variant" aria-hidden="true" />
+                              </div>
+                            )}
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-opacity duration-150 group-hover/card:bg-black/35">
+                              <span className="flex size-10 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-xs">
+                                <Play className="ml-0.5 size-4 fill-current" aria-hidden="true" />
+                              </span>
+                            </span>
+                          </>
+                        ) : isFailed ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-error/20 p-3 text-center text-white">
+                            <span className="text-xs font-semibold">Thất bại</span>
+                          </div>
                         ) : (
-                          <div className="absolute inset-0 bg-slate-800 flex items-center justify-center">
-                            <Play className="h-8 w-8 text-white/50" />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface-container-low p-3 text-center text-primary">
+                            <LoaderCircle className="mb-1.5 size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                            <span className="text-xs font-medium">Đang xử lý</span>
                           </div>
                         )}
-                        {/* Play Overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20 transition hover:bg-slate-950/30">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/60 bg-slate-950/30 text-white backdrop-blur-[2px]">
-                            <Play className="ml-0.5 h-4.5 w-4.5 fill-current" />
-                          </div>
-                        </div>
+                      </button>
 
-                        {/* Direct Download Button on Card */}
+                      {isCompleted ? (
                         <button
                           type="button"
+                          aria-label={`Tải ${renderName}`}
                           onClick={async (e) => {
                             e.stopPropagation();
                             await handleDownloadVideo(item);
                           }}
-                          className="absolute top-2.5 right-2.5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/60 hover:bg-cyan-600 border border-white/20 text-white backdrop-blur-[2px] opacity-0 group-hover/card:opacity-100 transition-all duration-200 shadow-sm"
+                          className={`absolute right-2 top-2 z-20 inline-flex size-8 items-center justify-center rounded-full bg-black/65 text-white opacity-0 transition-opacity duration-150 hover:bg-primary focus-visible:opacity-100 group-hover/card:opacity-100 cursor-pointer ${focusRingClass}`}
                           title="Tải video trực tiếp"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="size-4" aria-hidden="true" />
                         </button>
-                      </>
-                    ) : isFailed ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-rose-950/70 p-3 text-center text-white">
-                        <span className="text-xs font-bold uppercase tracking-wider text-rose-300">Thất bại</span>
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 p-3 text-center text-white">
-                        <LoaderCircle className="h-6 w-6 animate-spin text-cyan-400 mb-1.5" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-                          Đang xử lý
-                        </span>
-                      </div>
-                    )}
+                      ) : null}
 
-                    {/* Bottom Info Bar */}
-                    <div className="absolute bottom-0 inset-x-0 bg-[linear-gradient(to_top,rgba(15,23,42,0.95),rgba(15,23,42,0.3))] p-2.5 flex justify-between items-center text-white text-[11px] font-semibold">
-                      <span className="truncate max-w-[150px]">{renderName}</span>
-                      <span className="bg-slate-950/40 rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide border border-white/10">
-                        {aspectRatio}
-                      </span>
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/60 px-2.5 py-1.5 text-xs font-medium tabular-nums text-white">
+                        <span className="truncate">{renderName}</span>
+                        <span className="rounded bg-white/15 px-1.5 py-0.5 text-[11px]">{itemRatio}</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            {/* Right Button */}
-            <button
-              type="button"
-              onClick={() => scrollCarousel("right")}
-              className="absolute -right-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-md transition hover:scale-105 hover:bg-slate-50 hover:text-slate-900"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-            <p className="text-sm">Chưa có video người thật nào được tạo.</p>
-          </div>
-        )}
-      </div>
+              <button
+                type="button"
+                aria-label="Cuộn lịch sử sang phải"
+                onClick={() => scrollCarousel("right")}
+                className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
+              >
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 py-10 text-on-surface-variant">
+              <p className="text-sm">Chưa có video người dẫn AI nào được tạo.</p>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Detail Preview & Action Modal */}
       {previewItem ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm cursor-pointer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Xem chi tiết video"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
           onClick={() => setPreviewItem(null)}
         >
           <div
-            className="relative w-full max-w-2xl rounded-[32px] bg-white p-6 shadow-2xl flex flex-col md:flex-row gap-6 cursor-default overflow-hidden border border-slate-100"
+            className="relative flex w-full max-w-2xl flex-col gap-5 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xl md:flex-row"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
             <button
               type="button"
+              aria-label="Đóng xem trước"
               onClick={() => setPreviewItem(null)}
-              className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shadow-sm transition hover:scale-105"
+              className={`absolute right-4 top-4 z-20 inline-flex size-9 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
               title="Đóng"
             >
-              <X className="h-5 w-5" />
+              <X className="size-4" aria-hidden="true" />
             </button>
 
-            {/* Left Column: Video Player */}
-            <div className="flex-1 rounded-[24px] bg-slate-950 overflow-hidden flex items-center justify-center md:h-[440px] w-full relative border border-slate-900">
+            <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-black md:h-[420px]">
               {String(previewItem.status || "").toLowerCase() === "completed" && isPlayableVideoUrl(previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl) ? (
                 <video
                   src={previewItem.url || previewItem.captionedVideoUrl || previewItem.videoPageUrl || ""}
                   controls
                   autoPlay
                   playsInline
-                  className="max-h-full max-w-full object-contain bg-transparent"
+                  className="max-h-full max-w-full bg-transparent object-contain"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 h-full w-full bg-slate-950">
-                  <span className="text-rose-400 text-sm font-bold mb-2">Video này render bị lỗi</span>
-                  <p className="text-xs text-slate-500 max-w-xs">
+                <div className="flex size-full flex-col items-center justify-center bg-surface-container-low p-6 text-center">
+                  <span className="mb-1.5 text-sm font-semibold text-error">Video này render bị lỗi</span>
+                  <p className="max-w-xs text-pretty text-xs text-on-surface-variant">
                     {previewItem.error || "Không thể phát video này do lỗi hệ thống HeyGen."}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Right Column: Actions Only (Circular Icons) */}
-            <div className="w-full md:w-[70px] flex flex-row md:flex-col justify-center items-center gap-4 py-2 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-4">
+            <div className="flex w-full flex-row items-center justify-center gap-3 border-t border-outline-variant pt-4 md:w-16 md:flex-col md:border-l md:border-t-0 md:pl-4 md:pt-0">
               {String(previewItem.status || "").toLowerCase() === "completed" && (
                 <>
                   <button
                     type="button"
+                    aria-label="Chỉnh sửa video này"
                     onClick={() => {
                       handleEditRecent(previewItem);
                       setPreviewItem(null);
                     }}
-                    className="flex h-13 w-13 items-center justify-center rounded-full bg-cyan-50 hover:bg-cyan-100 text-cyan-600 transition shadow-sm hover:scale-105"
+                    className={`inline-flex size-11 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary transition-colors duration-150 hover:bg-primary/15 cursor-pointer ${focusRingClass}`}
                     title="Chỉnh sửa video này"
                   >
-                    <Pencil className="h-5.5 w-5.5" />
+                    <Pencil className="size-4" aria-hidden="true" />
                   </button>
 
                   <button
                     type="button"
+                    aria-label="Tải xuống video"
                     onClick={async () => {
                       setIsDownloading(true);
                       await handleDownloadVideo(previewItem);
                       setIsDownloading(false);
                     }}
                     disabled={isDownloading}
-                    className="flex h-13 w-13 items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition disabled:opacity-50 shadow-sm hover:scale-105"
+                    className={`inline-flex size-11 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-low text-on-surface transition-colors duration-150 hover:bg-surface-container cursor-pointer disabled:opacity-50 ${focusRingClass}`}
                     title="Tải xuống video"
                   >
                     {isDownloading ? (
-                      <LoaderCircle className="h-5.5 w-5.5 animate-spin text-slate-500" />
+                      <LoaderCircle className="size-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
                     ) : (
-                      <Download className="h-5.5 w-5.5" />
+                      <Download className="size-4" aria-hidden="true" />
                     )}
                   </button>
                 </>
@@ -919,21 +941,44 @@ export function HeyGenWorkspace({
 
               <button
                 type="button"
+                aria-label="Xóa video khỏi lịch sử"
                 onClick={() => {
-                  if (window.confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử không?")) {
-                    handleDeleteHistory(previewItem.videoId || previewItem.id || previewItem._id);
-                    setPreviewItem(null);
-                  }
+                  setPendingDeleteVideoId(previewItem.videoId || previewItem.id || previewItem._id);
                 }}
-                className="flex h-13 w-13 items-center justify-center rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition shadow-sm hover:scale-105"
+                className={`inline-flex size-11 items-center justify-center rounded-lg border border-error/25 bg-error/10 text-error transition-colors duration-150 hover:bg-error/15 cursor-pointer ${focusRingClass}`}
                 title="Xóa lịch sử video"
               >
-                <Trash2 className="h-5.5 w-5.5" />
+                <Trash2 className="size-4" aria-hidden="true" />
               </button>
             </div>
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        appearance="erp"
+        isOpen={Boolean(pendingDeleteVideoId)}
+        isSubmitting={isDeletingHistory}
+        title="Xóa video khỏi lịch sử"
+        description="Bạn có chắc chắn muốn xóa video này khỏi lịch sử tạo video?"
+        confirmLabel="Xóa video"
+        cancelLabel="Hủy"
+        tone="danger"
+        onClose={() => {
+          if (!isDeletingHistory) setPendingDeleteVideoId(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingDeleteVideoId) return;
+          setIsDeletingHistory(true);
+          try {
+            await handleDeleteHistory(pendingDeleteVideoId);
+            setPendingDeleteVideoId(null);
+            setPreviewItem(null);
+          } finally {
+            setIsDeletingHistory(false);
+          }
+        }}
+      />
 
       {isAvatarPickerOpen ? (
         <Suspense fallback={<ModalFallback label="Đang tải danh sách avatar..." />}>

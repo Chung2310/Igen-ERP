@@ -296,7 +296,7 @@ export function HeyGenVideoPreview({
           <button type="button" onClick={togglePlayback} className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-600 text-white shadow-sm transition-all duration-200 hover:scale-105 hover:bg-cyan-500">
             {isPlaying ? <Pause className="h-4.5 w-4.5 fill-current" /> : <Play className="ml-0.5 h-4.5 w-4.5 fill-current" />}
           </button>
-          <span className="font-mono text-xs font-medium text-slate-500">{formatTime(currentTime)} / {formatTime(MOCK_DURATION)}</span>
+          <span className="font-sans text-xs font-medium tabular-nums text-on-surface-variant">{formatTime(currentTime)} / {formatTime(MOCK_DURATION)}</span>
         </div>
 
         <div className="flex items-center gap-4">
