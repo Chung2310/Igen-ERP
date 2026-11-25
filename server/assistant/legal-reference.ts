@@ -13,7 +13,9 @@ const applicationDate = /\b(?:tai ngay|vao ngay|ngay ap dung|ap dung ngay|tinh d
 /** Route knowledge questions only; record changes remain in the ERP interpreter. */
 export function legalQuestionValues(question: string, messages: Array<{ role: string; content: string }> = [], lastLink?: string): Record<string, AssistantValue> | null {
   const text = normalize(question).trim();
-  if (!text || mutation.test(text)) return null;
+  const task = text.replace(/^trong [^,]{1,100},\s*/, '');
+  const repositoryStatus = /\b(?:xem|kiem tra|tra cuu|thong ke)\b.{0,50}\b(?:tinh trang|trang thai|suc khoe|so luong)\b.{0,40}\bkho van ban\b/.test(task);
+  if (!text || mutation.test(task) || repositoryStatus) return null;
   const followUp = lastLink === "/van-ban-phap-luat"
     && /^(?:con\b|vay\b|the\b|neu\b|truong hop\b|giai thich\b|noi ro\b|chi tiet\b|ap dung\b|tai ngay\b|vao ngay\b)/.test(text);
   if (!isLegalQuestion(text) && !followUp) return null;

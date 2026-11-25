@@ -1,4 +1,4 @@
-import { ERP_LLM_MODEL } from "../../../../../../shared/llm-model";
+import { ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL } from "../../../../../../shared/llm-model";
 /* eslint-disable @typescript-eslint/no-explicit-any, prefer-const */
 import { exec } from "child_process";
 import { AIMediaModel } from "../../model/ai-media.model.ts";
@@ -410,6 +410,8 @@ export async function generateText(
     let diagnostics: OpenRouterChatDiagnostics | undefined;
     const result = await openrouterChat({
       model: selectedModel, messages, temperature: config?.temperature ?? 0.7,
+      fallbackOnly: selectedModel === ERP_LLM_FALLBACK_MODEL,
+      allowFallback: !(hasImages && config?.allowImageFallback === false),
       keyScope: config?.keyScope,
       jsonMode: needsJson, responseSchema: config?.responseSchema,
       maxRetries, timeoutMs, deadlineAt: config?.deadlineAt,
@@ -438,9 +440,12 @@ export async function generateText(
   try {
     return await generate(modelId, config?.maxRetries, config?.timeoutMs);
   } catch (error: any) {
+    // Availability failover already ran in the shared client. Recover only a
+    // successful primary response whose JSON was invalid; never restart chains.
+    if (error?.providerCode !== 'INVALID_JSON_COMPLETION' || error?.model === ERP_LLM_FALLBACK_MODEL) throw error;
     // A text fallback must not silently answer a visual question without vision support.
     if (hasImages && config?.allowImageFallback === false) throw error;
-    const fallbackModel = ERP_LLM_MODEL;
+    const fallbackModel = ERP_LLM_FALLBACK_MODEL;
     console.warn(`[generateText] Primary model ${modelId} failed or returned invalid JSON: ${error?.message || error}. Falling back to ${fallbackModel}...`);
 
     try {

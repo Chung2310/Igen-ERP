@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { applyAssistantCrudDateFilters } from "./assistant-crud-date-filters";
 
 describe("assistant CRUD date range filters", () => {
+  it('filters submission dates using Vietnam day boundaries, independently of leave dates', () => {
+    const result = applyAssistantCrudDateFilters('hr-leave-applications', { createdFrom: '2026-11-23', createdTo: '2026-11-23', requestKind: 'leave' });
+    expect(result).toEqual({ requestKind: 'leave', createdAt: { $gte: new Date('2026-11-22T17:00:00Z'), $lte: new Date('2026-11-23T16:59:59.999Z') } });
+    expect(result).not.toHaveProperty('startDate');
+    expect(result).not.toHaveProperty('createdFrom');
+  });
+  it.each([{ createdFrom: '2026-02-30' }, { createdTo: 'yesterday' }, { createdFrom: '2026-11-24', createdTo: '2026-11-23' }])('fails closed on invalid created-date bounds %j', bounds => {
+    expect(() => applyAssistantCrudDateFilters('hr-leave-applications', bounds)).toThrow('Khoảng ngày gửi không hợp lệ');
+  });
+  it('intersects an existing creation-date restriction instead of replacing it', () => {
+    const result = applyAssistantCrudDateFilters('hr-leave-applications', { createdFrom: '2026-11-23', createdAt: { $lt: new Date('2026-11-23T12:00:00Z') } });
+    expect(result.$and).toEqual([{ createdAt: { $lt: new Date('2026-11-23T12:00:00Z') } }, { createdAt: { $gte: new Date('2026-11-22T17:00:00Z') } }]);
+  });
   it("filters calendar and leave records by interval overlap", () => {
     const result = applyAssistantCrudDateFilters("hr-calendar-events", {
       rangeStart: "2026-11-01", rangeEnd: "2026-11-30", type: "event",

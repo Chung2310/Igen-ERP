@@ -4,6 +4,7 @@ import { reconcileRequestedRanking } from "./list-analysis";
 import { assistantModuleContext, isKnownModuleContextClause, isModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence, containsModuleContextEvidence } from "./module-context";
 import { scopeAssistantWorkflows } from "./module-scope";
 import { publicAssistantResultFields } from "./result-field-policy";
+import { assistantRequestReason, canonicalActionEvidence, isFieldClearEvidence, stripRequestFraming } from './request-framing';
 
 export interface RequestCoverageItem {
   evidence: string;
@@ -19,6 +20,13 @@ const populated = (value: unknown) => value !== undefined && value !== null && v
 export function normalizeAssistantCoverageTarget(target: string, operation: AssistantOperation) {
   if (target === 'actionId') return 'action';
   if (operation.analysis && target.startsWith('values.analysis.')) return target.slice('values.'.length);
+  if (operation.method === 'GET' || operation.readOnly) {
+    const local = target.startsWith(`query:${operation.id}:`) ? target.slice(`query:${operation.id}:`.length)
+      : target.startsWith(`${operation.id}:`) ? target.slice(`${operation.id}:`.length) : target;
+    if (local === 'source') return 'action';
+    if (local.startsWith('result.') && publicAssistantResultFields(operation).includes(local.slice(7))) return 'action';
+    if (local !== target && (local.startsWith('values.') || local.startsWith('analysis.'))) return local;
+  }
   return target;
 }
 function hasDeclaredCurrentMonthDefault(workflow: AssistantWorkflow, fieldKey: string, evidence: string) {
@@ -32,16 +40,28 @@ const COVERAGE_STOP_WORDS = new Set(normalize(`
   bạn chúng tôi mình ta anh chị em quý vui lòng xin nhờ giúp dùm với nhé nha đi
   cho biết là của và hoặc hay thì mà về các những
 `).split(" "));
+// Keep Vietnamese tone distinctions: discourse "hả" must not erase "Hà"
+// from an omitted location such as Hà Nội.
+const DISCOURSE_MARKERS = new Set(['vậy','thế','rồi','hả','à','ạ']);
+
+function stripCoveredValueQuestion(text: string, coverage: unknown, operation?: AssistantOperation) {
+  if (!operation || !(operation.method === 'GET' || operation.readOnly) || !Array.isArray(coverage)) return text;
+  const numericOutputs = publicAssistantResultFields(operation).filter(key => /(?:Price|Amount|Count|Quantity)$/.test(key)
+    || ['count', 'total', 'balance', 'fee', 'salary', 'amount', 'quantity'].includes(key));
+  const asksValue = coverage.some(item => plain(item) && Array.isArray(item.mappedTo)
+    && item.mappedTo.some(target => typeof target === 'string' && numericOutputs.some(key => target === `result.${key}` || target === `query:${operation.id}:result.${key}`)));
+  return asksValue ? text.replace(/\s+(?:hiện\s+)?là\s+bao\s+nhiêu[?!.]*\s*$/iu, '') : text;
+}
 
 /** Find meaningful request words that were omitted from the model's quoted evidence. */
-export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, workflow?: AssistantWorkflow, values: Record<string, unknown> = {}) {
+export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, workflow?: AssistantWorkflow, values: Record<string, unknown> = {}, operation?: AssistantOperation) {
   const evidence = Array.isArray(rawCoverage)
     ? rawCoverage.flatMap(item => plain(item) && typeof item.evidence === "string" ? [item.evidence] : [])
     : [];
   const coveredWords = new Set(evidence.flatMap(item => normalize(item).split(" ").filter(Boolean)));
   const referenceWords = new Set<string>();
   const valueWords = new Set<string>();
-  let content = text;
+  let content = stripRequestFraming(stripCoveredValueQuestion(text, rawCoverage, operation));
   if (workflow) {
     for (const field of workflow.fields) {
       if (!populated(values[field.key]) || !Array.isArray(rawCoverage) || !rawCoverage.some(item => plain(item) && Array.isArray(item.mappedTo)
@@ -80,13 +100,21 @@ export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, wo
   return content.split(/\s+/)
     .flatMap(original => normalize(original).split(" ").filter(Boolean).map(word => ({ original: original.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""), word })))
     .filter(({ original, word }, index, words) => {
-      if (!original || COVERAGE_STOP_WORDS.has(word) || coveredWords.has(word)) return false;
+      if (!original || DISCOURSE_MARKERS.has(original.normalize('NFC').toLocaleLowerCase('vi')) || COVERAGE_STOP_WORDS.has(word) || coveredWords.has(word)) return false;
       // Labels/grammar are dispensable only when their content is still quoted.
       if (word === "ten" && coveredWords.has(words[index + 1]?.word)) return false;
       if (word === 'phan' && coveredWords.has(words[index+1]?.word) && workflow?.fields.some(field => field.type==='json' && populated(values[field.key]) && Array.isArray(rawCoverage) && rawCoverage.some(item=>plain(item) && Array.isArray(item.mappedTo) && item.mappedTo.includes(`values.${field.key}`)))) return false;
       if (word === "chon" && (coveredWords.has(words[index + 1]?.word)
         || words[index + 1]?.word === "ten" && coveredWords.has(words[index + 2]?.word))) return false;
       if (word === "co" && words.slice(index + 1, index + 7).some(item => item.word === "ai" || item.word === "nao")) return false;
+      if (word === 'co' && /(?:nào\s+không|hay\s+không)[?!.]*\s*$/iu.test(text)) return false;
+      // A connector can be omitted only when the following predicate is
+      // evidenced and mapped to an actual supplied filter. Do not globally
+      // discard “có”: it distinguishes existence from missing-record reports.
+      const nextPhrase = words.slice(index + 1, index + 3).map(item => item.word).join(' ');
+      const objectOfLookup = nextPhrase && workflow && ` ${normalize(workflow.title)} `.includes(` ${nextPhrase} `);
+      if ((word === 'theo' || word === 'co' && objectOfLookup) && valueWords.has(words[index + 1]?.word)
+        && !['khong', 'chua'].includes(words[index - 1]?.word)) return false;
       if (word === "trong" && referenceWords.has(words[index + 1]?.word)) return false;
       if (word === "thanh" && words[index - 1]?.word !== 'hoan' && valueWords.has(words[index + 1]?.word)) return false;
       if ((word === "nao" || word === "ai") && coveredWords.has(words[index - 1]?.word)
@@ -103,14 +131,17 @@ export function shouldRepairRequestCoverage(text: string, rawCoverage: unknown, 
   return /chưa (?:được gắn với|được áp dụng vào|ánh xạ được|chuyển được|lấy trường)/iu.test(clarification);
 }
 
-function missingCoverageReply(text: string, rawCoverage: unknown, workflow: AssistantWorkflow, values: Record<string, unknown>) {
-  const missing = findUncoveredRequestTerms(text, rawCoverage, workflow, values);
+function missingCoverageReply(text: string, rawCoverage: unknown, workflow: AssistantWorkflow, values: Record<string, unknown>, operation: AssistantOperation) {
+  const missing = findUncoveredRequestTerms(text, rawCoverage, workflow, values, operation);
   if (!missing.length) return undefined;
   return `Mình chưa đưa đủ chi tiết “${missing.join(" ").slice(0, 160)}” vào kế hoạch tra cứu. Mình chưa gọi API để tránh bỏ sót điều kiện; bạn xác nhận lại giúp mình nhé.`;
 }
 
 function requiredMappingKinds(evidence: string, singularCreate = false) {
   const phrase = normalize(evidence);
+  // Preserve Vietnamese distinctions before removing accents: chữa is not
+  // chưa, and a money quỹ is not a calendar quý.
+  const filterPhrase = normalize(evidence.normalize('NFC').replace(/chữa|quỹ/giu, ' '));
   const kinds: Array<"filter" | "ranking"> = [];
   const maximum = /(?:^| )(?:top|nhieu(?: [a-z]+){0,4} nhat|cao nhat|lon nhat|dung dau)(?: |$)/.test(phrase);
   const minimum = /(?:^| )(?:it(?: [a-z]+){1,3} nhat|thap nhat|nho nhat)(?: |$)/.test(phrase);
@@ -124,7 +155,7 @@ function requiredMappingKinds(evidence: string, singularCreate = false) {
   if (hasNumericValue
     || /(?:^|\s)(?:tỉnh|huyện|quận|phường)(?=\s|$)/iu.test(evidence.normalize("NFC"))
     || hasLocationContext
-    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(phrase)) kinds.push("filter");
+    || /(?:^| )(?:khong|chua|da|dang|thang|quy|nam|ngay|tuan|gio|phut|hom nay|hom qua|khu vuc|dia ban|tren|duoi|vuot|bang|trang thai|hoan thanh|cham tien do|dung han|qua han)(?: |$)/.test(filterPhrase)) kinds.push("filter");
   return kinds;
 }
 
@@ -163,8 +194,65 @@ function actionEncodesEvidence(evidence: string, workflow: AssistantWorkflow, op
       const meaning = operation.method==='GET' || operation.readOnly ? phrase.replace(/ khong$/, '') : phrase;
       return !/(?:^| )(?:khong|chua|not|except|unless)(?: |$)/.test(meaning);
     });
-  const actionDescription = normalize(`${operation.id.replaceAll(".", " ")} ${operation.title} ${workflow.title} ${positiveDescriptions.join(" ")}`);
-  return actionDescription.includes(phrase);
+  const descriptions = [operation.title, workflow.title, ...positiveDescriptions, ...(operation.coverageAliases || [])];
+  const contains = (capability: string, phrase: string) => {
+    const index = ` ${capability} `.indexOf(` ${phrase} `);
+    if (index < 0) return false;
+    // A positive predicate isn't supplied by the matching words inside a
+    // negative capability, e.g. "có hợp đồng" in "chưa có hợp đồng".
+    return !/(?:^| )(?:khong|chua)(?: co|duoc|ghi nhan)? $/.test(` ${capability} `.slice(0, index + 1));
+  };
+  if (descriptions.some(description => contains(normalize(description), phrase))) return true;
+  const meaning = canonicalActionEvidence(evidence, operation);
+  return Boolean(meaning) && descriptions.some(description => {
+    const capability = canonicalActionEvidence(description, operation);
+    return contains(capability, meaning);
+  });
+}
+
+/** Reconcile formatting/omitted action words against the actual selected
+ * capability. Values and unsupported predicates are never supplied here. */
+function reconcileCoverage(text: string, raw: unknown[], workflow: AssistantWorkflow, operation: AssistantOperation, values: Record<string, unknown>) {
+  const reason = assistantRequestReason(text, operation, values);
+  const result = raw.map(item => {
+    if (!plain(item) || typeof item.evidence !== 'string' || !Array.isArray(item.mappedTo)) return item;
+    const targets = item.mappedTo.map(target => typeof target === 'string' ? normalizeAssistantCoverageTarget(target, operation) : target);
+    if (reason && [normalize(reason.evidence), normalize(reason.reason)].includes(normalize(item.evidence))) {
+      return { ...item, mappedTo: ['context.reason'], unresolved: false };
+    }
+    if ((!targets.length || item.unresolved === true) && actionEncodesEvidence(item.evidence, workflow, operation)) {
+      return { ...item, mappedTo: [...new Set([...targets, 'action'])], unresolved: false };
+    }
+    // A business function ("đào tạo nội bộ") isn't a module filter. Correct
+    // this annotation only when the selected capability itself states it.
+    if (targets.includes('context.module') && !isKnownModuleContextClause(item.evidence)
+      && actionEncodesEvidence(item.evidence, workflow, operation)) {
+      return { ...item, mappedTo: [...new Set(targets.map(target => target === 'context.module' ? 'action' : target))] };
+    }
+    return { ...item, mappedTo: targets };
+  });
+  if (reason) result.push({ evidence: reason.evidence, requirement: 'Lý do người dùng nêu, không phải điều kiện thực thi', mappedTo: ['context.reason'] });
+  const source = stripRequestFraming(text).normalize('NFC');
+  const words = [...source.matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map(match => ({ word: normalize(match[0]), start: match.index!, end: match.index! + match[0].length }));
+  const covered = words.map(() => false);
+  for (const item of result) {
+    if (!plain(item) || typeof item.evidence !== 'string') continue;
+    const evidence = normalize(item.evidence).split(' ');
+    for (let i = 0; i <= words.length - evidence.length; i++) {
+      if (evidence.every((word, offset) => word === words[i + offset].word)) evidence.forEach((_, offset) => { covered[i + offset] = true; });
+    }
+  }
+  // Only a whole contiguous gap matching an authoritative capability phrase
+  // can be restored. A missing part of a name or an extra filter cannot match.
+  for (let start = 0; start < words.length; start++) {
+    if (covered[start]) continue;
+    let end = start;
+    while (end + 1 < words.length && !covered[end + 1]) end++;
+    const evidence = source.slice(words[start].start, words[end].end);
+    if (actionEncodesEvidence(evidence, workflow, operation)) result.push({ evidence, requirement: 'Mục tiêu đã được thao tác khai báo hỗ trợ', mappedTo: ['action'] });
+    start = end;
+  }
+  return result;
 }
 
 function actionEncodesRanking(evidence: string, operation: AssistantOperation) {
@@ -235,13 +323,20 @@ export function validateRequestCoverage(
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 40) {
     return { ok: false, clarification: "Mình chưa đối chiếu được đầy đủ yêu cầu với các trường của thao tác. Bạn nói rõ hơn mục tiêu và điều kiện cần áp dụng nhé." };
   }
+  // Preserve declared result mappings before reconciliation turns them into
+  // action evidence; only the final omitted-word check uses this framing.
+  const coverageText = stripCoveredValueQuestion(text, raw, operation);
+  raw = reconcileCoverage(text, raw, workflow, operation, values);
   const request = normalize(text);
+  if(operation.id==='student.list' && normalize(String(values.status||''))==='no hoc phi' && !/\b(?:trang thai|nhan ho so)\b/.test(request)) {
+    return {ok:false,clarification:'Nhãn trạng thái hồ sơ không xác định số tiền còn nợ học phí. Cần đối chiếu học phí và phiếu thu đầy đủ; nếu muốn giới hạn kỳ hoặc phạm vi, bạn làm rõ giúp mình. Chưa thể kết luận không có học viên nợ tiền.'};
+  }
   const explicit = scopeAssistantWorkflows(text, [workflow]);
   if (explicit.modules.length && !explicit.workflows.length) {
     return { ok: false, clarification: "Thao tác đang chọn thuộc phân hệ khác với phân hệ bạn nêu. Bạn xác nhận lại phân hệ cần xử lý nhé." };
   }
   const knownFields = new Set(workflow.fields.flatMap(field => [field.key, field.apiKey, field.source && field.apiKey ? `${field.source}_${field.apiKey}` : undefined].filter((value): value is string => Boolean(value))));
-  for (const rawItem of raw) {
+  for (const rawItem of raw as unknown[]) {
     if (!plain(rawItem) || typeof rawItem.evidence !== "string" || !rawItem.evidence.trim()
       || typeof rawItem.requirement !== "string" || !rawItem.requirement.trim()
       || !Array.isArray(rawItem.mappedTo) || rawItem.mappedTo.some(target => typeof target !== "string")) {
@@ -257,6 +352,9 @@ export function validateRequestCoverage(
       if (mentionsCompatibleModule(rawItem.evidence, workflow.module)) continue;
       return { ok: false, clarification: `Cụm “${rawItem.evidence.trim().slice(0, 120)}” đang chỉ một phân hệ khác với thao tác “${workflow.title}”. Bạn muốn tra cứu ở phân hệ này hay phân hệ được nêu trong câu?` };
     }
+    const reason = assistantRequestReason(text, operation, values);
+    if (reason && [normalize(reason.evidence), normalize(reason.reason)].includes(evidence)
+      && rawItem.mappedTo.includes('context.reason')) continue;
     if (rawItem.unresolved === true || rawItem.mappedTo.length === 0) {
       return { ok: false, clarification: typeof rawItem.clarification === "string" && rawItem.clarification.trim()
         ? rawItem.clarification.trim().slice(0, 500)
@@ -277,6 +375,13 @@ export function validateRequestCoverage(
       ...(rawItem.mappedTo as string[]).map(normalizeTarget),
       ...reconciledRankingMappingTargets(rawItem.evidence, operation, values),
     ])];
+    const meaning = canonicalActionEvidence(rawItem.evidence, operation);
+    if (mappedTargets.includes('action') && /(?:^| )co /.test(meaning) && !/(?:^| )(?:khong|chua)(?: |$)/.test(meaning)
+      && [operation.title, ...(operation.coverageAliases || [])].some(description => {
+        const capability = ` ${canonicalActionEvidence(description, operation)} `;
+        const index = capability.indexOf(` ${meaning} `);
+        return index >= 0 && /(?:^| )(?:khong|chua)(?: co|duoc|ghi nhan)? $/.test(capability.slice(0, index + 1));
+      })) return { ok: false, clarification: 'Điều kiện có/không trong yêu cầu chưa khớp với báo cáo đang chọn. Chưa thực hiện tra cứu.' };
     const actionCapturesEvidence = mappedTargets.includes("action") && actionEncodesEvidence(rawItem.evidence, workflow, operation);
     const actionCapturesRanking = mappedTargets.includes("action") && actionEncodesRanking(rawItem.evidence, operation);
     const singularCreate = operation.assistantMetadata?.intent === "create" && mappedTargets.includes("action");
@@ -292,7 +397,8 @@ export function validateRequestCoverage(
         // complete request so a clipped evidence span does not lose context.
         if (matchesModuleContextEvidence(rawItem.evidence, workflow.module, text)
           || combinedModuleContextIsValid(rawItem.evidence, workflow.module, mappedTargets, singularCreate)
-          || explicit.modules.length > 0 && mappedTargets.includes('action') && requiredMappingKinds(rawItem.evidence, singularCreate).length === 0) continue;
+          || mappedTargets.includes('action') && requiredMappingKinds(rawItem.evidence, singularCreate).length === 0
+            && (explicit.modules.length > 0 || rawItem.evidence.split(/[,;:\n]/).some(clause => isModuleContextClause(clause, workflow.module)))) continue;
         return { ok: false, clarification: `Mình chưa xác định được bạn muốn làm việc trong phân hệ nào. Thao tác phù hợp hiện nằm ở ${workflow.title.toLocaleLowerCase("vi")}. Bạn muốn tra cứu ở phân hệ này hay phân hệ khác?` };
       }
       if (/^(?:values\.)?(?:module|moduleName|moduleKey|workspace|area)$/i.test(target)
@@ -307,13 +413,14 @@ export function validateRequestCoverage(
       const fieldKey = target.startsWith("values.") ? target.slice("values.".length) : target;
       const field = workflow.fields.find(candidate => candidate.key === fieldKey || candidate.apiKey === fieldKey
         || Boolean(candidate.source && candidate.apiKey && `${candidate.source}_${candidate.apiKey}` === fieldKey));
-      const suppliedOrDefaulted = field && (populated(values[field.key]) || hasDeclaredCurrentMonthDefault(workflow, field.key, rawItem.evidence));
+      const suppliedOrDefaulted = field && (populated(values[field.key]) || isFieldClearEvidence(rawItem.evidence, operation, field.key, values[field.key]) || hasDeclaredCurrentMonthDefault(workflow, field.key, rawItem.evidence)
+        || operation.currentDateDefaults?.includes(field.key) && /^(?:ngay )?hom nay$/.test(evidence));
       if ((!knownFields.has(target) && !knownFields.has(fieldKey)) || !field || !suppliedOrDefaulted) {
         return { ok: false, clarification: `Mình chưa ánh xạ được yêu cầu “${rawItem.requirement.trim().slice(0, 160)}” vào thông tin cần dùng. Bạn làm rõ ý này giúp mình nhé.` };
       }
     }
   }
-  const missingCoverage = missingCoverageReply(text, raw, workflow, values);
+  const missingCoverage = missingCoverageReply(coverageText, raw, workflow, values, operation);
   if (missingCoverage) return { ok: false, clarification: missingCoverage };
   return { ok: true };
 }

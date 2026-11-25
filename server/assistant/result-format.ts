@@ -4,8 +4,9 @@ import { PERMISSION_CATALOG } from "../config/permission-catalog";
 import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { formatBusinessOverview } from "./overview-result";
+import { assistantCompletedOperationSummary } from "./reply-presentation";
 
-type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "resultChildFields">>;
+type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "readOnly" | "resultChildFields">>;
 type ResultRecord = Record<string, unknown>;
 const normalizeReportStatus = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().trim();
 
@@ -2100,7 +2101,18 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     ].join("\n");
   }
   const dataRecord = recordOf(recordOf(safeResult)?.data);
-  const normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
+  let normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
+  // Detail endpoints may return a parent record with its SKU collection.
+  // Render each SKU with public parent context instead of dropping children.
+  if (operation.id === 'inventory.product.detail') {
+    const parent = recordOf(normalizedResult);
+    if (Array.isArray(parent?.variants) && parent.variants.length) {
+      normalizedResult = parent.variants.flatMap(value => {
+        const variant = recordOf(value);
+        return variant ? [{ ...parent, ...variant, name: parent.name, productCode: parent.productCode }] : [];
+      });
+    }
+  }
   const isWorkWorkflowRecord = ["hr.workflow.create", "hr.workflow.update"].includes(operation.id)
     && typeof recordOf(normalizedResult)?.name === "string";
   // A saved record can contain empty child collections (student payments, steps...).
@@ -2118,7 +2130,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     && /^(?:student\.|course\.|batch\.)/.test(operation.id);
   if (isStudentManagementLookup) {
     const records = rows || (recordOf(normalizedResult) ? [normalizedResult] : []);
-    if (!records.length) return `Mình chưa tìm thấy kết quả phù hợp cho ${operation.title.toLocaleLowerCase("vi")}.`;
+    if (!records.length) return "Chưa có kết quả phù hợp trong phạm vi đang xem.";
     const tableRows = records.slice(0, 8).flatMap(value => {
       const record = recordOf(value);
       if (!record) return [];
@@ -2133,7 +2145,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       }
       return Object.keys(row).length ? [row] : [];
     });
-    if (!tableRows.length) return `Mình chưa tìm thấy kết quả phù hợp cho ${operation.title.toLocaleLowerCase("vi")}.`;
+    if (!tableRows.length) return "Chưa có thông tin phù hợp để hiển thị trong bảng.";
     const count = rows?.length ?? tableRows.length;
     return formatAssistantResultTable(
       `Mình tìm thấy ${count} kết quả phù hợp cho bạn.`,
@@ -2160,9 +2172,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const summary = formatRecord(operation, normalizedResult);
   const tableFields = formatRecordTableRow(operation, normalizedResult);
   if (Object.keys(tableFields).length) {
-    const success = operation.method === "GET"
+    const success = operation.method === "GET" || operation.readOnly
       ? "Mình tìm thấy 1 kết quả phù hợp cho bạn."
-      : "Đã hoàn tất yêu cầu.";
+      : assistantCompletedOperationSummary(operation.title);
     return formatAssistantResultTable(success, [tableFields]);
   }
   return summary
@@ -2190,9 +2202,9 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
   if (["/worker-management/partners/policies", "/worker-management/partners/policies/:policyId"].includes(operation.path || "")) {
     const policyDetails = formatLaborPartnerPolicy(operation, input);
     if (policyDetails) {
-      if (operation.method === "GET") return `Mình kiểm tra giúp bạn rồi nhé:\n${policyDetails}`;
+      if (operation.method === "GET") return policyDetails;
       const action = operation.title.charAt(0).toLocaleLowerCase("vi") + operation.title.slice(1);
-      return `Xong rồi bạn nhé, mình đã ${action}.\n${policyDetails}`;
+      return `Mình đã ${action}.\n${policyDetails}`;
     }
   }
 
@@ -2275,7 +2287,7 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
 
   if (operation.method === "GET") {
     if (formatted.includes("Không có kết quả phù hợp.")) {
-      return "Mình kiểm tra rồi, hiện chưa thấy bản ghi nào phù hợp trong phạm vi dữ liệu đang xem. Bạn muốn tìm theo tên/mã cụ thể hoặc đổi chi nhánh không?";
+      return "Chưa có kết quả phù hợp trong phạm vi đang xem. Bạn có thể thử tên hoặc mã khác, hay chọn lại phạm vi cần tìm.";
     }
     if (listMatch) {
       const total = Number(listMatch[1]);
@@ -2288,11 +2300,9 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
         : "";
       return [opening + note, lines.slice(1).join("\n").trim()].filter(Boolean).join("\n");
     }
-    return details ? `Mình kiểm tra giúp bạn rồi nhé:\n${details}` : "Mình đã kiểm tra xong cho bạn rồi nhé.";
+    return details || "Mình chưa có thông tin chi tiết để hiển thị.";
   }
 
-  const action = operation.title.charAt(0).toLocaleLowerCase("vi") + operation.title.slice(1);
-  return details
-    ? `Xong rồi bạn nhé, mình đã ${action}.\n${details}`
-    : `Xong rồi bạn nhé, mình đã ${action}.`;
+  const summary = assistantCompletedOperationSummary(operation.title);
+  return details ? `${summary}\n${details}` : summary;
 }

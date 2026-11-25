@@ -38,7 +38,7 @@ function parseImageValues(raw: string, operation: AssistantOperation): Record<st
     throw new AssistantError("Mình chưa đọc rõ dữ liệu trong ảnh đính kèm. Bạn kiểm tra lại ảnh hoặc nhập thêm thông tin cần thiết nhé.", 422);
   }
   const fieldMap = new Map(operation.fields
-    .filter(field => !operation.systemBodyFields?.includes(field.key) && !/(?:password|secret|token|credential|permission)/i.test(field.key))
+    .filter(field => !operation.systemBodyFields?.includes(field.key) && !/(?:password|secret|token|credential|permission|^role$|^level$|^parentId$)/i.test(field.key))
     .map(field => [field.key, field] as const));
   const values: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(parsed)) {
@@ -57,7 +57,7 @@ export async function extractAssistantAttachmentValues(input: {
   documentContext?: { title: string; content: unknown };
 }): Promise<Record<string, string | number | boolean>> {
   const fields = input.operation.fields
-    .filter(field => !input.operation.systemBodyFields?.includes(field.key) && !/(?:password|secret|token|credential|permission)/i.test(field.key))
+    .filter(field => !input.operation.systemBodyFields?.includes(field.key) && !/(?:password|secret|token|credential|permission|^role$|^level$|^parentId$)/i.test(field.key))
     .map(field => ({
       key: field.key,
       label: field.label,

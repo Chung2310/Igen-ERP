@@ -1,5 +1,6 @@
 // All entities are artificial replacements. No names from the user's screenshot.
 import { EXTRA_CASES } from './extra-scenarios';
+import { MODULE_CASES } from './module-scenarios';
 const write = (id, row, text, actions, extra = {}) => ({ id, row, text, actions, kind: 'write', ...extra });
 const read = (id, row, text, actions, extra = {}) => ({ id, row, text, actions, kind: 'read', ...extra });
 const scenarios = [
@@ -23,7 +24,8 @@ const scenarios = [
   write('E01', null, 'Tạo học viên HOC-VIEN-MAU-01, số điện thoại 0900000001, email qa@example.test, ngày đăng ký 23/11/2026', ['student.create'], { control: true, email: 'qa@example.test', expected: { fullName: 'HOC-VIEN-MAU-01', email: 'qa@example.test' } }),
   write('E02', null, 'Tạo học viên HOC-VIEN-MAU-02, số điện thoại 0900000002, email qa@company.vn, ngày đăng ký 23/11/2026', ['student.create'], { control: true, email: 'qa@company.vn', expected: { fullName: 'HOC-VIEN-MAU-02', email: 'qa@company.vn' } }),
   ...EXTRA_CASES,
+  ...MODULE_CASES,
 ];
 const selectedIds = (process.env.ASSISTANT_WORKER_LIVE_CASE_IDS || '').split(',').filter(Boolean);
 if (selectedIds.some(id => !scenarios.some(item => item.id === id))) throw new Error('Unknown selected live case');
-export const CASES = selectedIds.length ? scenarios.filter(item => selectedIds.includes(item.id)) : scenarios.filter(item => !item.id.startsWith('X'));
+export const CASES = selectedIds.length ? selectedIds.map(id=>scenarios.find(item=>item.id===id)) : scenarios.filter(item => !/^[XN]/.test(item.id));

@@ -4,6 +4,15 @@ import { normalizeBusinessResult } from "./business-result";
 import { formatFriendlyAssistantResult } from "./result-format";
 import { normalizeAssistantReply } from "./general-answer";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
+it('keeps aggregate document counts while unwrapping actual legal document arrays', () => {
+  const op=operationById('legal.repository.status')!;
+  const data=normalizeBusinessResult(op.module,op.id,{documents:12,chunks:36,pendingReviews:0,sync:{secret:'private'}});
+  expect(data.data).toMatchObject({documents:12,chunks:36});
+  const reply=formatFriendlyAssistantResult(op,data);
+  expect(parseAssistantResultTable(reply)).not.toBeNull();
+  expect(reply).toContain('Số văn bản: 12');expect(reply).toContain('Số đoạn nội dung: 36');expect(reply).not.toContain('private');
+  expect(normalizeBusinessResult('legal-reference','legal.document.list',{documents:[{title:'QA'}]})).toEqual({data:[{title:'QA'}]});
+});
 
 it("keeps date-looking project names and formats actual timestamps in Vietnam time", () => {
   const op = operationById("architect.project.list")!;

@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ERP_LLM_MODEL } from '../../../../shared/llm-model.ts';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
@@ -344,7 +345,7 @@ it('V2 list quote uses common dispatch, table and unchanged primary budget', asy
   expect(reply.status).toBe('completed'); expect(reply.schemaVersion).toBe(2); expect(parseAssistantResultTable(reply.reply)).not.toBeNull();
   expect(state.calls).toHaveLength(1); expect(state.calls[0].query.q).toBe('SP-MAY-A1'); expect(state.budgets[0].instance.reads).toBe(1);
   expect(state.turns[0].steps.map(step => step.status)).toEqual(['completed']); expect(state.turns[0].readV2.inputRequestDigest).toBe(state.turns[0].digest);
-  expect(state.modelInputs[0].model).toBe('openai/gpt-6-luna');
+  expect(state.modelInputs[0].model).toBe(ERP_LLM_MODEL);
 });
 it('V2 exact target bypasses first-page recheck independently of C flag', async () => {
   vi.stubEnv('ASSISTANT_PRODUCT_DETAIL_EXACT_VERIFY', 'false'); state.modelAnswer = by('inventory.product.detail', 'SP-MAY-A1');

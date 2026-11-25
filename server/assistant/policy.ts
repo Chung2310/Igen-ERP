@@ -2,6 +2,7 @@ import { validateStructuredField } from "./structured-data";
 import { isValidEmailAddress } from "../validation/email-policy";
 import type { AssistantField, AssistantValue, AssistantWorkflow, AssistantWorkflowUpdate } from "../../src/shared/assistant-workflow";
 import { defaultWorkflow, operationById, type AssistantOperation } from "./catalog";
+import { isExplicitEmptyFieldValue } from './request-framing';
 export class AssistantError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
@@ -93,8 +94,13 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
   const missing: string[] = [];
   const errors: string[] = aliasErrors;
   const defaulted: string[] = [];
+  const operation = operationById(workflow.actionId);
+  const todayInVietnam = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
+  const fieldDefault = (field: AssistantField) => field.defaultValue !== undefined ? field.defaultValue
+    : operation?.currentDateDefaults?.includes(field.key) && (field.type === 'date' || field.type === 'text' && field.apiKey === 'date') && !field.reference
+      ? todayInVietnam : undefined;
   const relationshipFields = new Set(workflow.fields.filter(field => field.reference || containsRelationship(field.structure)).map(field => field.key));
-  const conditionValues = Object.fromEntries(workflow.fields.map(field => [field.key, isBlank(provided[field.key]) ? (relationshipFields.has(field.key) ? undefined : field.defaultValue) : provided[field.key]]));
+  const conditionValues = Object.fromEntries(workflow.fields.map(field => [field.key, isBlank(provided[field.key]) ? (relationshipFields.has(field.key) ? undefined : fieldDefault(field)) : provided[field.key]]));
   const conditionApplies = (field: AssistantField) => {
     const condition = field.requiredWhen;
     if (!condition) return false;
@@ -110,9 +116,9 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
       continue;
     }
     let value = provided[field.key];
-    const explicitlyClearingEmployeeTitle = workflow.actionId === "employee.update" && field.key === "jobTitle" && value === "";
-    if (isBlank(value) && !explicitlyClearingEmployeeTitle && field.defaultValue !== undefined && !relationshipFields.has(field.key)) { value = field.defaultValue; defaulted.push(field.key); }
-    if (isBlank(value) && !explicitlyClearingEmployeeTitle) {
+    const explicitlyClearingField = Boolean(operation && !field.required && !field.systemRequired && isExplicitEmptyFieldValue(operation, field.key, value));
+    if (isBlank(value) && !explicitlyClearingField && fieldDefault(field) !== undefined && !relationshipFields.has(field.key)) { value = fieldDefault(field); defaulted.push(field.key); }
+    if (isBlank(value) && !explicitlyClearingField) {
       const alternativeSatisfied = Boolean(field.alternativeField && !isBlank(conditionValues[field.alternativeField]));
       if (!alternativeSatisfied && (field.systemRequired || field.required || conditionApplies(field))) {
         const requiredStructuredFields = field.type === "json" && field.structure?.type === "object"
@@ -134,7 +140,6 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
       } else values[field.key] = validateField(field, value);
     } catch (error) { errors.push((error as Error).message); }
   }
-  const operation = operationById(workflow.actionId);
   if (operation && ["POST", "PATCH"].includes(operation.method) && /^\/worker-management\/partners\/policies(?:\/[^/]+)?$/.test(operation.path)) {
     const readObject = (key: string): Record<string, unknown> | undefined => {
       const raw = values[key];

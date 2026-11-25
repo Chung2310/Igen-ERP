@@ -1,9 +1,9 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
-import { ASSISTANT_OPERATIONS } from "./catalog";
+import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
 import { buildAssistantOperationMetadata } from "./operation-metadata";
 import { assistantModuleContext } from "./module-context";
 
-function inputFieldContext(workflow: AssistantWorkflow) {
+function inputFieldContext(workflow: AssistantWorkflow, operation?: AssistantOperation) {
   return workflow.fields.map(field => ({
     key: field.key,
     label: field.label,
@@ -17,6 +17,8 @@ function inputFieldContext(workflow: AssistantWorkflow) {
     ...(field.referenceContext ? { referenceContext: field.referenceContext } : {}),
     ...(field.alternativeField ? { alternativeField: field.alternativeField } : {}),
     ...(field.structure ? { structure: field.structure } : {}),
+    ...(operation?.clearableFields?.includes(field.key) ? { clearable: true } : {}),
+    ...(operation?.currentDateDefaults?.includes(field.key) ? { runtimeDefault: 'today-vietnam' } : {}),
   }));
 }
 
@@ -48,9 +50,10 @@ export function buildAssistantCapabilityContext(
         capabilities: metadata.capabilities,
       } } : {}),
       confirmationRequired: Boolean(workflow.requireConfirmation || operation?.confirmation),
-      inputs: inputFieldContext(workflow),
+      inputs: inputFieldContext(workflow, operation),
       ...(operation ? {
         outputs: operation.resultFields,
+        ...(operation.coverageAliases?.length ? { builtInSemantics: operation.coverageAliases } : {}),
         ...(operation.resultChildFields ? { nestedOutputs: operation.resultChildFields } : {}),
         ...(operation.analysis ? {
           analysis: {

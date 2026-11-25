@@ -66,13 +66,14 @@ export async function providerFetch(input: string, init: RequestInit, caseId: st
   const trace: any = { caseId, stage, bytes: Buffer.byteLength(wire), sha256: createHash("sha256").update(wire).digest("hex"), reservedUSD: reserved };
   ledger.calls.push(trace); ledger.reservedUSD += reserved; persist();
   if (dryRun) {
-    const operation = typeof scripted.actionId === "string" ? operationById(scripted.actionId) : undefined;
+    const scriptedIds = typeof scripted.actionId==='string' ? [scripted.actionId] : Array.isArray(scripted.queryPlan) ? scripted.queryPlan.map((query:any)=>query.actionId) : [];
+    const operation = scriptedIds.length ? operationById(scriptedIds[0]) : undefined;
     const feature = operation && assistantFunctionKey(defaultWorkflow(operation));
     const keys = schema?.properties?.featureKeys?.items?.enum || [];
     const result = stage === "discovery" ? { modules: operation ? [operation.module] : ["worker", "hr"] }
       : stage === "function-selection" ? caseId === 'C01' ? { featureKeys: [], ambiguous: true, clarification: 'Dự án thuộc Nhân sự hay quản lý lao động?' }
         : { featureKeys: caseId === 'L11' ? keys.filter((key: string) => ['worker:workers', 'worker:labor'].includes(key)) : keys.includes(feature) ? [feature] : keys.slice(0, 1), ambiguous: false, clarification: "" }
-      : stage === "capability-check" ? { actionIds: [] } : stage === "rewrite" ? { reply: "" }
+      : stage === "capability-check" ? { actionIds: scriptedIds.filter((id:string)=>schema?.properties?.actionIds?.items?.enum?.includes(id)) } : stage === "rewrite" ? { reply: "" }
       : { ...scripted, actionIntent: scripted.actionIntent || operation?.assistantMetadata?.intent || "unknown", requestCoverage: scripted.requestCoverage || [{ evidence: requestText, requirement: "Fixture plumbing only", mappedTo: ["action", ...Object.keys(scripted.values || {}).map(key => `values.${key}`)] }] };
     trace.output = result; ledger.reservedUSD -= reserved;
     return Response.json({ model: body.model, choices: [{ message: { content: JSON.stringify(result) }, finish_reason: "stop" }], usage: { cost: 0 } });

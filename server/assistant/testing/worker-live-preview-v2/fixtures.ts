@@ -1,5 +1,6 @@
 import { buildWorkerReport } from "../../../modules/worker-management/services/worker-report.service";
 import { extraFixture } from './extra-scenarios';
+import { moduleFixture } from './module-scenarios';
 export const branchId = "64b000000000000000000001";
 const id = (number: number) => number.toString(16).padStart(24, "0");
 export const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
@@ -21,6 +22,9 @@ const filtered = (rows: any[], url: URL) => {
   return rows.filter(row => (!workerId || row.workerId === workerId) && (!search || normalize(Object.values(row).filter(v => typeof v === "string").join(" ")).includes(search)));
 };
 export function businessFixture(url: URL) {
+  if (process.env.ASSISTANT_WORKER_LIVE_CASE_IDS?.includes('N')) {
+    const result=moduleFixture(url); if(result!==undefined) return result;
+  }
   if (process.env.ASSISTANT_WORKER_LIVE_CASE_IDS?.includes('X')) {
     const extra = extraFixture(url, today);
     if (extra !== undefined) return extra;
