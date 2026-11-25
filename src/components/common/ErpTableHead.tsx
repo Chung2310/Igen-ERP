@@ -4,6 +4,10 @@ const centeredColumns = new Set([
   "Mã danh mục", "Loại danh mục",
 ]);
 
+const rightAlignedColumns = new Set([
+  "Thao tác", "Tồn / Đơn vị", "Giá trị tồn", "Số lượng", "Tồn", "Giá trị",
+]);
+
 export function ErpTableHead({ columns, selectAll, appearance = "default" }: {
   columns: string[];
   appearance?: "default" | "healthcare";
@@ -21,7 +25,7 @@ export function ErpTableHead({ columns, selectAll, appearance = "default" }: {
         </th>}
         {columns.map((column) => (
           <th key={column} scope="col" className={appearance === "healthcare"
-            ? `px-3 py-3 font-medium text-on-surface ${column === "Thao tác" ? "text-right" : centeredColumns.has(column) ? "text-center" : "text-left"}`
+            ? `px-3 py-3 font-medium text-on-surface ${rightAlignedColumns.has(column) ? "text-right" : centeredColumns.has(column) ? "text-center" : "text-left"}`
             : "px-4 py-2.5 text-left font-medium text-on-surface-variant"}>{column}</th>
         ))}
       </tr>
