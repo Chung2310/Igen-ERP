@@ -10,6 +10,7 @@ import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getBatchPageCopy } from '../../config/workerRecruitmentCopy';
 import { WorkerTimekeepingPanel } from './WorkerTimekeepingPanel';
 import { useBatchEnrollments } from '../../hooks/useBatchEnrollments';
+import { VietnameseDatePicker } from './VietnameseDatePicker';
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -204,10 +205,12 @@ export function AttendanceModal({
               <h5 className="text-sm font-semibold text-on-surface">Thêm ngày học bổ sung (ngoài lịch cố định)</h5>
               <div className="grid gap-4 text-left sm:grid-cols-2">
                 <ErpField label="Ngày học bổ sung">
-                  <ErpInput
-                    type="date"
+                  <VietnameseDatePicker
+                    ariaLabel="Ngày học bổ sung"
                     value={newSessionDate}
-                    onChange={(e) => setNewSessionDate(e.target.value)}
+                    onChange={setNewSessionDate}
+                    selectionOnly
+                    variant="filter"
                   />
                 </ErpField>
               </div>

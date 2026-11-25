@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { DateInput24, DateTimeInput24 } from "../../components/common/TimeInput24";
-import { Dropdown } from "../../components/common/Dropdown";
+import { Dropdown, type DropdownProps } from "../../components/common/Dropdown";
 import { ErpTableHead } from "../../components/common/ErpTableHead";
 import { HrEmptyIllustration, type HrEmptyIllustrationKind } from "../../components/hr/HrEmptyIllustration";
 import { HrStatusBadge } from "../../components/hr/HrStatusBadge";
@@ -137,8 +137,8 @@ export function formError(error: unknown) {
 }
 export type FormError = ReturnType<typeof formError>;
 
-export function Field({ label, name, value, error, options, onSelectChange, ...props }: InputHTMLAttributes<HTMLInputElement> & {
-  label: string; name: string; value?: string; error?: FormError; options?: { value: string; label: string }[]; onSelectChange?: (value: string) => void;
+export function Field({ label, name, value, error, options, onSelectChange, actionButton, ...props }: InputHTMLAttributes<HTMLInputElement> & {
+  label: string; name: string; value?: string; error?: FormError; options?: { value: string; label: string }[]; onSelectChange?: (value: string) => void; actionButton?: DropdownProps<string>["actionButton"];
 }) {
   const id = useId();
   const [dateValue, setDateValue] = useState(value || "");
@@ -165,7 +165,7 @@ export function Field({ label, name, value, error, options, onSelectChange, ...p
     {options ? <Dropdown id={id} aria-label={label} aria-describedby={invalid ? `${id}-error` : undefined} aria-required={props.required}
       name={name} value={optionValue} onChange={next => { setOptionValue(next); onSelectChange?.(next); }} options={options}
       variant="form" size="md" className="w-full" triggerClassName={cn("!h-11 !min-h-11", invalid && "!border-error")}
-      disabled={props.disabled} />
+      disabled={props.disabled} actionButton={actionButton} />
       : <input {...props} {...attrs} className={cn(controlClass, invalid && "border-error")} />}
     {invalid && <p id={`${id}-error`} className="text-xs text-error">{error?.message}</p>}
   </div>;

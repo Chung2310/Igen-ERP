@@ -42,69 +42,69 @@ export default function SupplyWorkspace({
     <div className="healthcare-logistics flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
       <section
         aria-label="Quản lý vật tư"
-        className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4"
+        className="flex min-h-full min-w-0 shrink-0 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4"
       >
-      <nav
-        aria-label="Điều hướng quản lý vật tư"
-        className="flex min-w-0 gap-1 overflow-x-auto border-b border-outline-variant"
-      >
-        {tabs.map(([key, label]) => {
-          const isActive = key === active;
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={isActive}
-              className={cn(
-                "shrink-0 cursor-pointer border-b-2 px-3.5 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary",
-                isActive
-                  ? "border-primary font-semibold text-primary"
-                  : "border-transparent font-medium text-on-surface-variant hover:border-outline-variant hover:text-on-surface",
-              )}
-              onClick={() => navigate(key)}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </nav>
-      {active === "supplies" && (
-        <SupplyCatalog
-          key={version}
-          api={api}
-          canManage={canManage}
-        />
-      )}
-      {active === "transactions" && (
-        <LogisticsPage
-          key="transactions"
-          kind="supplies"
-          branchId={branchId}
-          hasPermission={hasPermission}
-          initialView="documents"
-          embedded
-        />
-      )}
-      {active === "balances" && (
-        <LogisticsPage
-          key="balances"
-          kind="supplies"
-          branchId={branchId}
-          hasPermission={hasPermission}
-          initialView="balances"
-          embedded
-        />
-      )}
-      {active === "catalog" && <SupplyProfiles api={api} canManage={canManage} />}
-      {["suppliers", "warehouses", "categories"].includes(active) && (
-        <DirectoryPage
-          key={active}
-          api={api}
-          kind={active as DirectoryKind}
-          canManage={canManage}
-          onChanged={() => setVersion((v) => v + 1)}
-        />
-      )}
+        <nav
+          aria-label="Điều hướng quản lý vật tư"
+          className="flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-outline-variant"
+        >
+          {tabs.map(([key, label]) => {
+            const isActive = key === active;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={isActive}
+                className={cn(
+                  "shrink-0 cursor-pointer border-b-2 px-3.5 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary",
+                  isActive
+                    ? "border-primary font-semibold text-primary"
+                    : "border-transparent font-medium text-on-surface-variant hover:border-outline-variant hover:text-on-surface",
+                )}
+                onClick={() => navigate(key)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+        {active === "supplies" && (
+          <SupplyCatalog
+            key={version}
+            api={api}
+            canManage={canManage}
+          />
+        )}
+        {active === "transactions" && (
+          <LogisticsPage
+            key="transactions"
+            kind="supplies"
+            branchId={branchId}
+            hasPermission={hasPermission}
+            initialView="documents"
+            embedded
+          />
+        )}
+        {active === "balances" && (
+          <LogisticsPage
+            key="balances"
+            kind="supplies"
+            branchId={branchId}
+            hasPermission={hasPermission}
+            initialView="balances"
+            embedded
+          />
+        )}
+        {active === "catalog" && <SupplyProfiles api={api} canManage={canManage} />}
+        {["suppliers", "warehouses", "categories"].includes(active) && (
+          <DirectoryPage
+            key={active}
+            api={api}
+            kind={active as DirectoryKind}
+            canManage={canManage}
+            onChanged={() => setVersion((v) => v + 1)}
+          />
+        )}
       </section>
     </div>
   );

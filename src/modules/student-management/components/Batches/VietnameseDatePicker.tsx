@@ -163,7 +163,7 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
         <CalendarDays className="h-4 w-4" aria-hidden="true" />
       </button>
       {open && createPortal(
-        <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-50 w-72 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface shadow-lg" style={position}>
+        <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-[9999] w-72 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface shadow-lg" style={position}>
           <div className="mb-3 flex items-center justify-between gap-1.5">
             <button type="button" onClick={() => changeMonth(-1)} aria-label="Tháng trước" className="rounded-lg p-1.5 hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><ChevronLeft className="h-4 w-4" aria-hidden="true" /></button>
             <div className="flex items-center gap-1.5">
