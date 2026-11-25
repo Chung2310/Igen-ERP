@@ -66,7 +66,7 @@ export default function RecruitmentInterviewsWorkspace({ canManage }: { canManag
                       <div className="block w-full truncate text-xs text-on-surface-variant" title={jobTitle}>{jobTitle}</div>
                   </td>
                     <td className="overflow-hidden px-4 py-2"><span className="block w-full truncate" title={place}>{place}</span></td>
-                  <td className="px-4 py-2"><HrStatusBadge tone={item.status === "completed" ? "success" : item.status === "cancelled" ? "danger" : "info"}>{statusLabels[item.status]}</HrStatusBadge></td>
+                  <td className="px-4 py-2"><HrStatusBadge variant="hr" tone={item.status === "completed" ? "success" : item.status === "cancelled" ? "danger" : "info"}>{statusLabels[item.status]}</HrStatusBadge></td>
                   {canManage && (
                     <td className="px-4 py-2">
                       <div className="flex justify-end gap-1">

@@ -1,0 +1,273 @@
+{
+  "date": "2026-11-21T08:31:48.957Z",
+  "mode": "live-ai-only-synthetic-fixture",
+  "capUSD": 0.5,
+  "maxRequests": 6,
+  "realBusinessRequests": 0,
+  "dbAttempts": 0,
+  "traces": [
+    {
+      "profile": "ONE-EXACT-ACTION",
+      "stage": "interpretation",
+      "reservedUSD": 0.017932,
+      "bodyBytes": 21528,
+      "bodySHA256": "49408a6927a6828b780e16d19c10974cdea759683472d2a1c92401dad94defa2",
+      "startedAt": "2026-11-21T08:31:49.112Z",
+      "status": 200,
+      "durationMs": 4624,
+      "model": "openai/gpt-6-luna",
+      "provider": "OpenAI",
+      "usage": {
+        "prompt_tokens": 4571,
+        "completion_tokens": 313,
+        "total_tokens": 4884,
+        "cost": 0.0006136,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0006136,
+          "upstream_inference_prompt_cost": 0.0004571,
+          "upstream_inference_completions_cost": 0.0001565
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 149,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finishReason": "stop",
+      "rawContent": "{\"intentType\":\"workflow\",\"actionId\":\"worker.project.create\",\"values\":{\"name\":\"QA-DEMO-20\",\"workerIds\":\"[\\\"Lao động mẫu P01 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P02 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P03 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P04 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P05 — Chi nhánh Mẫu\\\"]\",\"daysOfWeek\":\"[\\\"Thứ 2\\\",\\\"Thứ 4\\\",\\\"Thứ 6\\\",\\\"Thứ 3\\\",\\\"Thứ 5\\\",\\\"Thứ 7\\\"]\"},\"unsupportedModule\":null,\"cancel\":false,\"newRequest\":false,\"remainingRequests\":[],\"clarification\":null}"
+    },
+    {
+      "profile": "WORKER-MODULE",
+      "stage": "interpretation",
+      "reservedUSD": 0.037081,
+      "bodyBytes": 59826,
+      "bodySHA256": "7b459c09c2b51f8c689c5668ad0758bc3b0d5f62889d535ba376aa87fb7d7018",
+      "startedAt": "2026-11-21T08:31:53.742Z",
+      "status": 200,
+      "durationMs": 5011,
+      "model": "openai/gpt-6-luna",
+      "provider": "OpenAI",
+      "usage": {
+        "prompt_tokens": 12507,
+        "completion_tokens": 386,
+        "total_tokens": 12893,
+        "cost": 0.0014437,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0014437,
+          "upstream_inference_prompt_cost": 0.0012507,
+          "upstream_inference_completions_cost": 0.000193
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 222,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finishReason": "stop",
+      "rawContent": "{\"intentType\":\"workflow\",\"actionId\":\"worker.project.create\",\"values\":{\"name\":\"QA-DEMO-20\",\"workerIds\":\"[\\\"Lao động mẫu P01 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P02 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P03 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P04 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P05 — Chi nhánh Mẫu\\\"]\",\"daysOfWeek\":\"[\\\"Thứ 2\\\",\\\"Thứ 4\\\",\\\"Thứ 6\\\",\\\"Thứ 3\\\",\\\"Thứ 5\\\",\\\"Thứ 7\\\"]\"},\"unsupportedModule\":null,\"cancel\":false,\"newRequest\":true,\"remainingRequests\":[],\"clarification\":null}"
+    },
+    {
+      "profile": "FULL-ENABLED-CATALOG",
+      "stage": "module-discovery",
+      "reservedUSD": 0.1917595,
+      "bodyBytes": 369183,
+      "bodySHA256": "54615b2de0bb2041be5a2e091beef14e77706043ef1ec6f380961bc1004e5098",
+      "startedAt": "2026-11-21T08:31:58.791Z",
+      "status": 200,
+      "durationMs": 3135,
+      "model": "openai/gpt-6-luna",
+      "provider": "OpenAI",
+      "usage": {
+        "prompt_tokens": 76214,
+        "completion_tokens": 59,
+        "total_tokens": 76273,
+        "cost": 0.0076509,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0076509,
+          "upstream_inference_prompt_cost": 0.0076214,
+          "upstream_inference_completions_cost": 2.95e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 44,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finishReason": "stop",
+      "rawContent": "{\"modules\":[\"worker\"]}"
+    },
+    {
+      "profile": "FULL-ENABLED-CATALOG",
+      "stage": "interpretation",
+      "reservedUSD": 0.037233,
+      "bodyBytes": 60130,
+      "bodySHA256": "9449b80419fbdafb8332be055128037ebcfade7bad12b3dc1e0a34eb5aa488b4",
+      "startedAt": "2026-11-21T08:32:01.935Z",
+      "status": 200,
+      "durationMs": 4713,
+      "model": "openai/gpt-6-luna",
+      "provider": "OpenAI",
+      "usage": {
+        "prompt_tokens": 12566,
+        "completion_tokens": 396,
+        "total_tokens": 12962,
+        "cost": 0.0014546,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0014546,
+          "upstream_inference_prompt_cost": 0.0012566,
+          "upstream_inference_completions_cost": 0.000198
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 222,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finishReason": "stop",
+      "rawContent": "{\"intentType\":\"workflow\",\"actionId\":\"worker.project.create\",\"values\":{\"name\":\"QA-DEMO-20\",\"workerIds\":\"[\\\"Lao động mẫu P01 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P02 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P03 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P04 — Chi nhánh Mẫu\\\",\\\"Lao động mẫu P05 — Chi nhánh Mẫu\\\"]\",\"daysOfWeek\":\"[\\\"Thứ 2\\\",\\\"Thứ 4\\\",\\\"Thứ 6\\\",\\\"Thứ 3\\\",\\\"Thứ 5\\\",\\\"Thứ 7\\\"]\"},\"unsupportedModule\":null,\"cancel\":false,\"newRequest\":false,\"remainingRequests\":[],\"clarification\":\"Bạn cho biết mã dự án muốn dùng là gì?\"}"
+    },
+    {
+      "profile": "FULL-CATALOG-EXPLICIT-WORKER-SCOPE",
+      "stage": "interpretation",
+      "reservedUSD": 0.0616555,
+      "bodyBytes": 108975,
+      "bodySHA256": "c728fb6cb2dd877b68e284a83e5ff03507a203b6d5930413ffb9b4f1af2f3518",
+      "startedAt": "2026-11-21T08:59:38.379Z",
+      "status": 200,
+      "durationMs": 3713,
+      "model": "openai/gpt-6-luna",
+      "provider": "OpenAI",
+      "usage": {
+        "prompt_tokens": 22808,
+        "completion_tokens": 152,
+        "total_tokens": 22960,
+        "cost": 0.0023568,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0023568,
+          "upstream_inference_prompt_cost": 0.0022808,
+          "upstream_inference_completions_cost": 7.6e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 96,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finishReason": "stop",
+      "rawContent": "{\"intentType\":\"workflow\",\"actionId\":\"worker.project.create\",\"values\":{\"name\":\"QA-MODULE-CHECK\"},\"unsupportedModule\":null,\"cancel\":false,\"newRequest\":false,\"remainingRequests\":[],\"clarification\":null}"
+    }
+  ],
+  "runs": [
+    {
+      "profile": "ONE-EXACT-ACTION",
+      "workflows": 1,
+      "startedAt": "2026-11-21T08:31:49.108Z",
+      "result": {
+        "intentType": "workflow",
+        "actionId": "worker.project.create",
+        "values": {
+          "name": "QA-DEMO-20",
+          "workerIds": "[\"Lao động mẫu P01 — Chi nhánh Mẫu\",\"Lao động mẫu P02 — Chi nhánh Mẫu\",\"Lao động mẫu P03 — Chi nhánh Mẫu\",\"Lao động mẫu P04 — Chi nhánh Mẫu\",\"Lao động mẫu P05 — Chi nhánh Mẫu\"]",
+          "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+        },
+        "cancel": false,
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "durationMs": 4630
+    },
+    {
+      "profile": "WORKER-MODULE",
+      "workflows": 31,
+      "startedAt": "2026-11-21T08:31:53.739Z",
+      "result": {
+        "intentType": "workflow",
+        "actionId": "worker.project.create",
+        "values": {
+          "name": "QA-DEMO-20",
+          "workerIds": "[\"Lao động mẫu P01 — Chi nhánh Mẫu\",\"Lao động mẫu P02 — Chi nhánh Mẫu\",\"Lao động mẫu P03 — Chi nhánh Mẫu\",\"Lao động mẫu P04 — Chi nhánh Mẫu\",\"Lao động mẫu P05 — Chi nhánh Mẫu\"]",
+          "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+        },
+        "cancel": false,
+        "newRequest": true,
+        "remainingRequests": []
+      },
+      "durationMs": 5018
+    },
+    {
+      "profile": "FULL-ENABLED-CATALOG",
+      "workflows": 1003,
+      "startedAt": "2026-11-21T08:31:58.759Z",
+      "result": {
+        "intentType": "workflow",
+        "actionId": "worker.project.create",
+        "values": {
+          "name": "QA-DEMO-20",
+          "workerIds": "[\"Lao động mẫu P01 — Chi nhánh Mẫu\",\"Lao động mẫu P02 — Chi nhánh Mẫu\",\"Lao động mẫu P03 — Chi nhánh Mẫu\",\"Lao động mẫu P04 — Chi nhánh Mẫu\",\"Lao động mẫu P05 — Chi nhánh Mẫu\"]",
+          "daysOfWeek": "[\"Thứ 2\",\"Thứ 4\",\"Thứ 6\",\"Thứ 3\",\"Thứ 5\",\"Thứ 7\"]"
+        },
+        "cancel": false,
+        "newRequest": false,
+        "remainingRequests": [],
+        "clarification": "Bạn cho biết mã dự án muốn dùng là gì?"
+      },
+      "durationMs": 7892
+    },
+    {
+      "profile": "FULL-CATALOG-EXPLICIT-WORKER-SCOPE",
+      "workflows": 1003,
+      "startedAt": "2026-11-21T08:59:38.352Z",
+      "result": {
+        "intentType": "workflow",
+        "actionId": "worker.project.create",
+        "values": {
+          "name": "QA-MODULE-CHECK"
+        },
+        "cancel": false,
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "durationMs": 3783
+    }
+  ],
+  "spentUSD": 0.0135196,
+  "finishedAt": "2026-11-21T08:59:42.139Z",
+  "durationMs": 4027,
+  "separateLocalUIUsage": "not instrumented; not included in spentUSD",
+  "personalDataPolicy": "Artificial project and worker labels only; original names were not sent."
+}

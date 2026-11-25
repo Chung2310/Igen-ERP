@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../shared/email-policy";
 import Joi from "joi";
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
@@ -5,7 +6,7 @@ const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 export const createSuperAdminSchema = {
   body: Joi.object({
     displayName: Joi.string().trim().min(2).max(100).required(),
-    email: Joi.string().trim().lowercase().email().max(254).required(),
+    email: Joi.string().trim().lowercase().email(EMAIL_ADDRESS_OPTIONS).max(254).required(),
     password: Joi.string().min(12).max(128).required(),
   }).unknown(false),
 };

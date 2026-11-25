@@ -1,4 +1,5 @@
 const SYSTEM_ROLE_TITLES: Record<string, string> = {
+  pt: "PT",
   superadmin: "Quản trị viên cấp cao",
   admin: "Quản trị viên doanh nghiệp",
   branch_owner: "Chủ chi nhánh",

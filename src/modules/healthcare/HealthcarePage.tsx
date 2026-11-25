@@ -1,4 +1,7 @@
+import SupplyWorkspace from "./logistics/SupplyWorkspace";
+import HealthcareSidebarIcon from "./HealthcareSidebarIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
+import LogisticsPage from "./logistics/LogisticsPage";
 import { CalendarPlus, CircleX, Eye, FileText, HeartHandshake, Pencil, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Dropdown } from "../../components/common/Dropdown";
@@ -28,6 +31,8 @@ const sections = [
   { key: "appointments", label: "Lịch hẹn" },
   { key: "care", label: "Chăm sóc" },
   { key: "settings", label: "Danh mục" },
+  { key: "equipment", label: "Thiết bị" },
+  { key: "supplies", label: "Vật tư" },
 ] as const;
 type ListRow = Patient | Visit | Appointment | CareTask;
 type Withdrawal =
@@ -41,7 +46,7 @@ type PatientDeleteImpactItem = Pick<Patient, "_id" | "code" | "name" | "phone" |
 type PatientDeleteResult = { deletedCount: number; deletedVisits: number; deletedAppointments: number; deletedCare: number };
 const withdrawalLabels = { visits: "Hủy lượt khám", appointments: "Hủy lịch hẹn", care: "Hủy việc chăm sóc", catalog: "Ngừng sử dụng" };
 const canFeature = (has: (permission: string) => boolean, tab: Tab, mode: "read" | "manage") => {
-  const feature = tab === "patients" ? "healthcare" : `healthcare-${tab}`;
+  const feature = tab === "patients" || tab === "equipment" || tab === "supplies" ? "healthcare" : `healthcare-${tab}`;
   return has(`${feature}:${mode}`) || (mode === "read" && has(`${feature}:manage`));
 };
 const labels = { visits: visitLabels, appointments: appointmentLabels, care: careLabels };
@@ -308,6 +313,12 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   }
 
   const tabs = sections.filter(section => canFeature(hasPermission, section.key, "read"));
+  if (tab === "equipment" || tab === "supplies") return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab} className="mb-2 lg:mb-0" id="healthcare_sub_tabs_bar">
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} className="size-5" />} filledIcon={<HealthcareSidebarIcon name={key} className="size-5" />} preferProvidedIcon title={label} onClick={() => navigate(key)}>{label}</ModuleNavigationButton>)}
+    </ModuleNavigation>
+    {tab === "supplies" ? <SupplyWorkspace key={branchId} branchId={branchId} hasPermission={hasPermission} /> : <LogisticsPage key={`${branchId}:${tab}`} kind={tab} branchId={branchId} hasPermission={hasPermission} />}
+  </div>;
   const pageTitle = tab === "settings" ? "Danh mục y tế" : sections.find(section => section.key === tab)?.label;
   const createLabel = { patients: "Thêm bệnh nhân", visits: "Ghi lượt khám", appointments: "Đặt lịch hẹn", care: "Tạo việc chăm sóc", settings: "Thêm danh mục" };
   const listHeaders = sectionHeaders[tab];
@@ -332,12 +343,12 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
   );
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
-    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab}>
-      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} onClick={() => navigate(key)}>
+    <ModuleNavigation label="Nghiệp vụ y tế" activeValue={tab} className="mb-2 lg:mb-0" id="healthcare_sub_tabs_bar">
+      {tabs.map(({ key, label }) => <ModuleNavigationButton key={key} active={tab === key} icon={<HealthcareSidebarIcon name={key} className="size-5" />} filledIcon={<HealthcareSidebarIcon name={key} className="size-5" />} preferProvidedIcon title={label} onClick={() => navigate(key)}>
         {label}
       </ModuleNavigationButton>)}
     </ModuleNavigation>
-    <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
+    <div ref={content} className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
       {notice && <p role="status" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm">{notice}</p>}
       {editor && <RecordEditor key={`${editor.kind}:${editor.record?._id || "new"}`} editor={editor} api={api}
         catalog={catalog.data || []} staff={staff.data || []} directory={editorDirectory}
@@ -392,7 +403,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className="min-w-0 space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
+      <section className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" aria-label={pageTitle}>
         {!hasTable && <div className="flex justify-end">{pageActions}</div>}
         {hasTable && <TableFilterToolbar
           appearance="plain"
@@ -570,9 +581,9 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
               </div></Cell>
             </tr>)}
           </Table>}
-          {activeData && <TablePagination appearance="erp" currentPage={currentPage} pageSize={pageSize} totalItems={totalItems}
+          {activeData && <div className="sticky bottom-0 z-20 -mx-3 -mb-3 mt-auto sm:-mx-4 sm:-mb-4"><TablePagination appearance="erp" className="rounded-b-lg" currentPage={currentPage} pageSize={pageSize} totalItems={totalItems}
             totalPages={totalPages} onPageChange={setPage} onPageSizeChange={value => { setPageSize(value); setPage(1); }}
-            pageSizeOptions={[10, 25, 50, 100]} />}
+            pageSizeOptions={[10, 25, 50, 100]} /></div>}
         </>}
         {directory !== editorDirectory && <Feedback error={directory?.error} onRetry={directory?.refresh} />}
       </section>

@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { observeAssistantOperation } from "./call-observer";
+import { businessCallFetch, withBusinessOperation } from "./business-call-gate";
 import { normalizeBusinessResult } from "./business-result";
 import { AssistantApiRejection } from "./api-rejection";
 import type { AuthenticatedRequest } from "../middleware/auth";
@@ -283,6 +285,9 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  return observeAssistantOperation(() => withBusinessOperation(() => callOperationUnobserved(req, op, input, password, requestId)));
+}
+async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
   if (op.unavailableReason) throw new AssistantError(op.unavailableReason, 409);
   if (op.id === "student.batch.attendance.summary") {
     const detail = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "student.batch.detail")!;
@@ -1180,8 +1185,9 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   let response: globalThis.Response;
   try {
-    response = await fetch(url, { method: op.method, headers, redirect: "error", signal: AbortSignal.timeout(45_000), ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
-  } catch {
+    response = await businessCallFetch(req, op, input, url, { method: op.method, headers, redirect: "error", ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
+  } catch (error) {
+    if (error instanceof AssistantError) throw error;
     if (op.method !== "GET" && !op.readOnly) throw new UncertainExecutionError("Chưa xác định được thao tác đã hoàn tất hay chưa. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; hệ thống sẽ không tự chạy lại.");
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
@@ -3955,7 +3961,7 @@ function referenceLabel(record: Record<string, any>) {
 const referenceOptionDisambiguators = [
   { label: "ô giữ đơn", keys: ["__assistantHeldSlot"] },
   { label: "người tạo", keys: ["__assistantDraftCreatorName"] },
-  { label: "mã", keys: ["code", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
+  { label: "mã", keys: ["code", "productCode", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
   { label: "SĐT", keys: ["__assistantReferencePhone", "phone", "studentPhone"] },
   { label: "email", keys: ["email"] },
   { label: "phòng ban", keys: ["departmentName", "department"] },

@@ -5,8 +5,12 @@ import { TRAINING_CATEGORY_VALUES } from "../../src/shared/training-categories";
 import { HEALTHCARE_OPERATIONS, healthcareWorkflowInstructions } from "./healthcare-catalog";
 import { QUOTATION_OPERATIONS, quotationWorkflowInstructions } from "./quotation-catalog";
 import type { AnalysisContract } from "./list-analysis";
+import { buildAssistantOperationMetadata, type AssistantOperationMetadata } from "./operation-metadata";
 
 export interface AssistantOperation {
+  /** Additional business function views for a cross-cutting read capability. */
+  functionAreas?: Array<{ key: string; label: string }>;
+  assistantMetadata?: AssistantOperationMetadata;
   unavailableReason?: string;
   analysis?: AnalysisContract;
   partialUpdate?: boolean;
@@ -1823,6 +1827,7 @@ const interviewList = operations.find(op => op.id === "recruitment.interview.lis
 if (interviewList) interviewList.resultFields = ["applicantName", "jobTitle", "interviewers", ...interviewList.resultFields];
 operations.push({
   id: "student.batch.attendance.summary", title: "Báo cáo điểm danh lớp học theo ngày", description: "Kiểm tra lớp/khóa học học viên hôm nay có đi đủ không; đếm có mặt, đi muộn, vắng, có phép và chưa ghi nhận. Cần chọn lớp theo tên hoặc mã; không thay bằng lịch học hoặc đào tạo nội bộ.",
+  functionAreas: [{ key: 'attendance', label: 'Điểm danh học viên' }],
   module: "student", permissions: ["people:read"], method: "GET", path: "/batches/:id", adapter: "contract", rawResponse: true, readOnly: true, link: "/quan-ly-hoc-vien",
   fields: [{ ...ref("path_id", "Tên hoặc mã lớp", "batch.list"), source: "path", apiKey: "id" }, queryField(date("date", "Ngày điểm danh"))],
   resultFields: ["className", "courseTitle", "date", "total", "present", "late", "absent", "excused", "unrecorded", "note"],
@@ -1843,6 +1848,12 @@ operations.push({
 });
 const trainingIncomplete = operations.find(op => op.id === "hr.training.incomplete.list")!;
 operations.push({ ...trainingIncomplete, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
+const studentClassDetail = operations.find(op => op.id === 'student.batch.detail');
+if (studentClassDetail) {
+  studentClassDetail.functionAreas = [{key:'schedule',label:'Lịch học'}];
+  studentClassDetail.resultFields = [...new Set([...studentClassDetail.resultFields, 'daysOfWeek', 'startTime', 'endTime'])];
+  studentClassDetail.description += ' Xem lịch học định kỳ của một lớp/khóa học: ngày trong tuần, giờ bắt đầu/kết thúc và khoảng ngày của lớp. Không phải báo cáo điểm danh hoặc lịch đào tạo nội bộ. Chọn đúng lớp theo tên hoặc mã; nếu nhiều lớp cùng khóa thì hỏi chọn lớp.';
+}
 
 operations.push(...HEALTHCARE_OPERATIONS);
 operations.push(...QUOTATION_OPERATIONS);
@@ -1853,10 +1864,11 @@ if (laborKpi) {
     partnerName: { label: "Đối tác", type: "text" },
     partnerCode: { label: "Mã đối tác", type: "text" },
     targetReferrals: { label: "Chỉ tiêu", type: "number" },
-    actualReferrals: { label: "Đã giới thiệu", type: "number" },
+    actualReferrals: { label: "Đã giới thiệu", type: "number", aliases: ["lao động được giới thiệu", "số lao động giới thiệu", "số lao động được giới thiệu", "lao động giới thiệu", "lao động", "người được giới thiệu", "số người giới thiệu", "số lượt giới thiệu", "lượt giới thiệu", "giới thiệu"] },
     remainingReferrals: { label: "Còn thiếu", type: "number" },
     completionRate: { label: "Tỷ lệ đạt (%)", type: "number" },
-    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" } },
+    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" },
+      valueAliases: { incomplete:['thiếu KPI','chưa đạt KPI','chưa đủ KPI'], not_set:['chưa thiết lập KPI','chưa đặt KPI','chưa có chỉ tiêu KPI'], achieved:['đã đạt KPI','đạt đủ KPI'] } },
   } };
   laborKpi.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
   laborKpi.assistantOnlyFields = ["analysis"];
@@ -1965,7 +1977,10 @@ for (const operation of operations) {
     if (version) version.referenceValueKey = "version";
   }
 }
-export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
+export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations.map(operation => ({
+  ...operation,
+  assistantMetadata: buildAssistantOperationMetadata(operation),
+}));
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
   const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : op.id === "hr.contract.create"

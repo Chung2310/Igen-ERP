@@ -1,6 +1,7 @@
 type Channel = "facebook" | "zalo" | "tiktok" | undefined;
 
-/** Read DB as a fallback until the selected account's realtime subscription is confirmed. */
+/** Realtime delivers webhook updates. Poll only the local inbox while disconnected;
+ * provider history reconciliation is explicit, never a permanent polling loop. */
 export function startInboxMessagePolling(options: {
   channel: Channel;
   isVisible: () => boolean;
@@ -15,8 +16,7 @@ export function startInboxMessagePolling(options: {
     if (connected) return;
     pending = true;
     try {
-      // Facebook Graph synchronization is explicit/on reconnect, never a permanent polling loop.
-      await options.refresh(options.channel !== "facebook");
+      await options.refresh(options.channel !== "facebook" && options.channel !== "zalo");
     } catch (error) {
       options.onError(error);
     } finally {

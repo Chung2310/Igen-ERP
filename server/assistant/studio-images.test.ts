@@ -86,8 +86,8 @@ describe("enhanceStudioImagePrompt", () => {
     await expect(enhanceStudioImagePrompt("Tạo poster quảng cáo cho sản phẩm đó", conversation, 3)).resolves.toEqual({ prompt: "Poster quảng cáo cà phê rang xay Mộc, bối cảnh quán buổi sáng, ánh sáng tự nhiên dịu nhẹ." });
     const options = vi.mocked(openrouterChat).mock.calls[0][0];
     expect(options).toMatchObject({
-      model: "google/gemma-4-31b-it:free",
-      fallbackModel: "qwen/qwen3.5-flash-02-23",
+      model: "openai/gpt-6-luna",
+      fallbackModel: "openai/gpt-6-luna",
       jsonMode: true,
       responseSchema: expect.objectContaining({ required: ["prompt"] }),
     });

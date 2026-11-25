@@ -786,6 +786,60 @@ export const authController = {
     }
   },
   /**
+   * GET /api/v1/auth/users/attendance-roster
+   * Returns only names and IDs needed to label a branch attendance table.
+   */
+  async getAttendanceRoster(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode;
+      const userId = req.user?.id;
+      if (!companyCode || !userId) {
+        return res.status(400).json({ status: "error", message: "Company account required." });
+      }
+
+      const role = req.user?.role || "user";
+      const permissions = await getEffectivePermissions(userId, role, companyCode);
+      const canReadBranchRoster = hasAnyPermission(permissions, [
+        "access:read",
+        "hr:read",
+        "timekeeping:read",
+        "timekeeping:manage",
+        "payroll-period:manage",
+      ]);
+      const userBranchId = String(req.user?.branchId || "").trim();
+      const requestedBranchId = typeof req.query.branchId === "string" ? req.query.branchId.trim() : "";
+      const branchId = userBranchId || (canReadBranchRoster ? requestedBranchId : "");
+
+      let rosterFilter: Record<string, unknown>;
+      if (!canReadBranchRoster && !userBranchId) {
+        rosterFilter = { companyCode, _id: userId };
+      } else if (branchId) {
+        const branch = await BranchModel.findOne({ _id: branchId, companyCode }).select("_id code").lean();
+        if (!branch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty." });
+        const includeUnassigned = String(branch.code || "").toUpperCase() === "MAIN";
+        rosterFilter = buildUserRosterFilter(companyCode, branchId, includeUnassigned);
+      } else {
+        rosterFilter = buildUserRosterFilter(companyCode);
+      }
+
+      const employees = await UserModel.find({ ...rosterFilter, isDeleted: { $ne: true } })
+        .select("_id displayName")
+        .sort({ displayName: 1 })
+        .lean();
+
+      return res.status(200).json({
+        status: "success",
+        data: employees.map((employee: any) => ({
+          uid: String(employee._id),
+          displayName: String(employee.displayName || "Nhân viên"),
+        })),
+      });
+    } catch (error: any) {
+      console.error("[authController.getAttendanceRoster] Error:", error);
+      return res.status(500).json({ status: "error", message: "Không thể lấy danh sách chấm công." });
+    }
+  },
+  /**
    * GET /api/v1/auth/users/colleagues
    * Trả về danh sách đồng nghiệp cùng công ty (chỉ các trường an toàn).
    * Dành cho tất cả user đã đăng nhập (để dùng trong share picker, chat, v.v.)

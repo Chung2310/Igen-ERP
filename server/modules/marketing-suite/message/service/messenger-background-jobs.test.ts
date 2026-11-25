@@ -19,10 +19,11 @@ import { assertZaloDeliveryCurrent, beginZaloFollowUpDelivery, expireZaloFollowU
   readZaloFollowUpMessages, ZaloReplyCancelledError } from "./zalo-reply-context";
 import { CRMTicketModel } from "../model/crm-ticket.model";
 import { TelecomInvoiceSettingsModel } from "../model/telecom-invoice.model";
+import { syncZaloNativeHandoff, ZaloHistoryUnavailableError } from "./zalo-native-handoff";
 
-const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
+const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), cancel: vi.fn(), intake: vi.fn(), contractOcr: vi.fn() }));
 vi.mock("./ai-auto-reply.service.ts", () => ({
-  aiAutoReplyService: { triggerAutoReply: mocks.dispatch },
+  aiAutoReplyService: { triggerAutoReply: mocks.dispatch, cancelPendingReply: mocks.cancel },
   recoverZaloAutoReplyJobs: vi.fn(),
 }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: vi.fn() }));
@@ -51,6 +52,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   mocks.dispatch.mockReset();
+  mocks.cancel.mockReset();
   mocks.intake.mockReset();
   mocks.contractOcr.mockReset();
   vi.spyOn(UserModel, "findOne").mockResolvedValue({ zaloIntegration: { isMock: true } } as never);
@@ -80,6 +82,149 @@ function webhook(timestamp = Date.now()) {
   const submit = () => zaloMessengerController.receiveWebhookEvent(req, res as unknown as Response);
   return { req, res, submit };
 }
+
+it("diagnoses signed OA admin events and API echoes without logging content or credentials", async () => {
+  const log = vi.spyOn(console, "info").mockImplementation(() => {});
+  for (const admin of [true, false]) {
+    const body = { app_id: "test-app", event_name: "oa_send_text", timestamp: Date.now(),
+      sender: { id: "oa", ...(admin ? { admin_id: "staff" } : {}) }, recipient: { id: "customer" },
+      message: { msg_id: admin ? "native" : "api", text: "private customer content" } };
+    const rawBody = JSON.stringify(body);
+    const signature = createHash("sha256").update(`${body.app_id}${rawBody}${body.timestamp}test-secret`).digest("hex");
+    const req = { body, rawBody, get: () => `mac=${signature}` } as unknown as Request;
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    await zaloMessengerController.receiveWebhookEvent(req, res as unknown as Response);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(log).toHaveBeenLastCalledWith("[Zalo Webhook] OA send received", {
+      eventName: "oa_send_text", oaId: "oa", messageId: admin ? "native" : "api",
+      hasAdminId: admin, outcome: admin ? "queued" : "ignored_event",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain(body.message.text);
+    expect(JSON.stringify(log.mock.calls)).not.toContain(signature);
+    expect(JSON.stringify(log.mock.calls)).not.toContain("test-secret");
+  }
+  expect(await MessengerBackgroundJobModel.countDocuments({ kind: "zalo-webhook" })).toBe(1);
+});
+
+it("diagnoses rejected OA webhook signatures without accepting or logging the payload", async () => {
+  const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const { req, res, submit } = webhook();
+  req.body.sender = { id: "oa", admin_id: "staff" };
+  req.body.event_name = "oa_send_text";
+  (req as Request & { rawBody: string }).rawBody = JSON.stringify(req.body);
+  await submit();
+  expect(res.status).toHaveBeenCalledWith(401);
+  expect(log).toHaveBeenCalledWith("[Zalo Webhook] Signature rejected", {
+    eventName: "oa_send_text", appIdMatches: true, hasRawBody: true, hasSignature: true, hasSecret: true,
+  });
+  expect(await MessengerBackgroundJobModel.countDocuments({})).toBe(0);
+  expect(JSON.stringify(log.mock.calls)).not.toContain(req.body.message.text);
+});
+
+it.each(["oa_send_text", "oa_send_image", "oa_send_gif", "oa_send_list", "oa_send_file", "oa_send_sticker"])("pauses only the targeted OA conversation, cancels queued AI and deduplicates %s from OA Admin", async eventName => {
+  const timestamp = Date.now();
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer", lastMessageAt: new Date(timestamp - 1000) });
+  const other = await ZaloConversationModel.create({ oaId: "oa", recipientId: "other" });
+  const conversationId = String(conversation._id);
+  await ZaloMessageModel.create({ conversationId, senderId: "customer", recipientId: "oa", direction: "inbound", messageId: "incoming", timestamp: new Date(timestamp - 1000) });
+  await enqueueMessengerReply({ conversationId, pageId: "oa", messageId: "incoming", companyCode: "TEST", text: "Hello", messageTimestamp: new Date(timestamp - 1000), messageCreatedAt: new Date(timestamp - 1000), nextAttemptAt: new Date() }, "zalo");
+  const body = { event_name: eventName, sender: { id: "oa", admin_id: "staff" }, recipient: { id: "customer" }, timestamp, message: { msg_id: "staff-message", text: "Tôi sẽ hỗ trợ" } };
+  await enqueueZaloWebhook(body);
+  await enqueueZaloWebhook(body);
+  expect(await MessengerBackgroundJobModel.countDocuments({ kind: "zalo-webhook" })).toBe(1);
+  await expect(assertZaloDeliveryCurrent(conversationId, "oa", "incoming")).rejects.toBeInstanceOf(ZaloReplyCancelledError);
+  await zaloMessengerService.handleWebhookEvent(body);
+  await zaloMessengerService.handleWebhookEvent(body);
+  expect(await ZaloMessageModel.countDocuments({ messageId: "staff-message", direction: "outbound" })).toBe(1);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(timestamp + 30 * 60 * 1000);
+  expect((await ZaloConversationModel.findById(other._id))?.aiPausedUntil).toBeNull();
+  expect(await FacebookAutoReplyJobModel.exists({ channel: "zalo", conversationId, status: "cancelled" })).toBeTruthy();
+  await zaloMessengerService.resumeAIAutoReply("oa", conversationId);
+  await zaloMessengerService.handleWebhookEvent(body);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil).toBeFalsy();
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});
+
+it("counts Zalo's pause from the latest OA Admin send, including delayed and reordered webhooks", async () => {
+  const now = Date.now();
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer", followUpStatus: "pending",
+    lastMessageAt: new Date(now - 11 * 60_000), lastAssistantMessageAt: new Date(now - 11 * 60_000) });
+  const send = (id: string, timestamp: number) => zaloMessengerService.handleWebhookEvent({
+    event_name: "oa_send_text", sender: { id: "oa", admin_id: "staff" }, recipient: { id: "customer" },
+    timestamp, message: { msg_id: id, text: "Tôi đang hỗ trợ" },
+  });
+  await send("first", now - 10 * 60_000);
+  await send("latest", now - 2 * 60_000);
+  await send("older-delayed", now - 5 * 60_000);
+  await send("latest", now - 2 * 60_000);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(now + 28 * 60_000);
+  expect((await ZaloConversationModel.findById(conversation._id))?.followUpStatus).toBe("responded");
+});
+
+it.each(["text", "image"])("pauses Facebook from the latest native %s send and ignores replay after manual resume", async kind => {
+  const now = Date.now();
+  const conversation = await FBConversationModel.create({ pageId: "page", recipientId: "customer", followUpStatus: "pending" });
+  const other = await FBConversationModel.create({ pageId: "page", recipientId: "other" });
+  const echo = (id: string, timestamp: number) => fbMessengerService.processMessageEcho({
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp,
+    message: { is_echo: true, mid: id, ...(kind === "text" ? { text: "Tôi đang hỗ trợ" }
+      : { attachments: [{ type: "image", payload: { url: "https://example.com/photo.jpg" } }] }) },
+  }, "page");
+  await echo("first", now - 10 * 60_000);
+  await echo("latest", now - 2 * 60_000);
+  await echo("older-delayed", now - 5 * 60_000);
+  await echo("latest", now - 2 * 60_000);
+  const saved = await FBConversationModel.findById(conversation._id);
+  expect(saved?.aiPausedUntil?.getTime()).toBe(now + 28 * 60_000);
+  expect(saved?.lastHumanReplyAt?.getTime()).toBe(now - 2 * 60_000);
+  expect(saved?.followUpStatus).toBe("responded");
+  expect((await FBConversationModel.findById(other._id))?.aiPausedUntil).toBeNull();
+  expect(mocks.cancel).toHaveBeenCalledTimes(2);
+  expect(mocks.cancel).toHaveBeenCalledWith(String(conversation._id), "human_reply");
+  await fbMessengerService.resumeAIAutoReply("page", String(conversation._id));
+  await echo("latest", now - 2 * 60_000);
+  expect((await FBConversationModel.findById(conversation._id))?.aiPausedUntil).toBeFalsy();
+  expect(mocks.cancel).toHaveBeenCalledTimes(2);
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});
+
+it.each([true, false])("does not pause Facebook for bot echoes (metadata present: %s)", async metadataPresent => {
+  const conversation = await FBConversationModel.create({ pageId: "page", recipientId: "customer", followUpStatus: "pending" });
+  if (!metadataPresent) await FBMessageModel.create({
+    conversationId: conversation._id, senderId: "page", recipientId: "customer", direction: "outbound",
+    senderType: "ai", messageId: "bot-echo", timestamp: new Date(), text: "Bot reply",
+  });
+  await fbMessengerService.processMessageEcho({
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp: Date.now(),
+    message: { is_echo: true, mid: "bot-echo", text: "Bot reply", ...(metadataPresent ? { metadata: "igen-erp:ai" } : {}) },
+  }, "page");
+  const saved = await FBConversationModel.findById(conversation._id);
+  expect(saved?.aiPausedUntil).toBeNull();
+  expect(saved?.followUpStatus).toBe("pending");
+  expect(mocks.cancel).not.toHaveBeenCalled();
+});
+
+it("does not restart a Facebook pause for an old send delivered after its 30-minute window", async () => {
+  const conversation = await FBConversationModel.create({ pageId: "page", recipientId: "customer", followUpStatus: "pending", lastAssistantMessageAt: new Date() });
+  await fbMessengerService.processMessageEcho({
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp: Date.now() - 60 * 60_000,
+    message: { is_echo: true, mid: "old-send", text: "Old manual reply" },
+  }, "page");
+  const saved = await FBConversationModel.findById(conversation._id);
+  expect(saved?.aiPausedUntil!.getTime()).toBeLessThan(Date.now());
+  expect(saved?.followUpStatus).toBe("pending");
+  expect(mocks.cancel).not.toHaveBeenCalled();
+});
+
+it("ignores API echoes so the chatbot does not pause itself", async () => {
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const body = { event_name: "oa_send_text", sender: { id: "oa" }, recipient: { id: "customer" }, timestamp: Date.now(), message: { msg_id: "bot-message", text: "Hello" } };
+  await enqueueZaloWebhook(body);
+  await zaloMessengerService.handleWebhookEvent(body);
+  expect(await MessengerBackgroundJobModel.countDocuments({})).toBe(0);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil).toBeNull();
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});
 
 it("verifies the Facebook callback with a company Verify Token stored encrypted", async () => {
   vi.stubEnv("SUPERADMIN_ENCRYPTION_KEY", "a".repeat(64));
@@ -361,12 +506,108 @@ it("loads the newest Zalo follow-up history and aborts delivery if the customer 
     });
     return "mock-token";
   });
-  const send = vi.fn();
+  const send = vi.fn().mockResolvedValue(Response.json({ error: 0, data: [] }));
   vi.stubGlobal("fetch", send);
   await expect(zaloMessengerService.sendReply("oa", conversationId, "Bạn còn cần hỗ trợ?", "ai",
     () => assertZaloDeliveryCurrent(conversationId, "oa", "m14", conversation))).rejects.toBeInstanceOf(ZaloReplyCancelledError);
-  expect(send).not.toHaveBeenCalled();
+  expect(send).toHaveBeenCalledOnce();
+  expect(send.mock.calls[0][0]).toContain("/oa/conversation?");
   expect(await ZaloMessageModel.countDocuments({ conversationId, direction: "outbound" })).toBe(1);
+});
+
+it("blocks a real AI send when native OA chat did not deliver an admin webhook", async () => {
+  const now = Date.now();
+  vi.mocked(UserModel.findOne).mockResolvedValue(null);
+  vi.spyOn(zaloMessengerService, "getAccessTokenByOAId").mockResolvedValue("test-token");
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer", followUpStatus: "pending" });
+  const other = await ZaloConversationModel.create({ oaId: "oa", recipientId: "other" });
+  const conversationId = String(conversation._id);
+  const inboundAt = new Date(now - 3 * 60_000);
+  await enqueueMessengerReply({ conversationId, pageId: "oa", companyCode: "TEST", messageId: "in", text: "Hỏi giá",
+    messageTimestamp: inboundAt, messageCreatedAt: inboundAt, nextAttemptAt: new Date() }, "zalo");
+  const send = vi.fn().mockResolvedValue(Response.json({ error: 0, data: [{
+    src: 0, from_id: "oa", to_id: "customer", message_id: "native", time: now - 2 * 60_000,
+    type: "text", message: "Tôi đang tư vấn trực tiếp",
+  }] }));
+  vi.stubGlobal("fetch", send);
+  const beforeSend = vi.fn();
+  await expect(zaloMessengerService.sendReply("oa", conversationId, "AI reply", "ai", beforeSend))
+    .rejects.toBeInstanceOf(ZaloReplyCancelledError);
+  expect(send).toHaveBeenCalledOnce();
+  expect(send.mock.calls[0][0]).toContain("/v2.0/oa/conversation?");
+  expect(beforeSend).not.toHaveBeenCalled();
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(now + 28 * 60_000);
+  expect((await ZaloConversationModel.findById(conversation._id))?.followUpStatus).toBe("responded");
+  expect((await ZaloConversationModel.findById(other._id))?.aiPausedUntil).toBeNull();
+  expect(await FacebookAutoReplyJobModel.exists({ channel: "zalo", conversationId, status: "cancelled" })).toBeTruthy();
+  expect(await ZaloMessageModel.countDocuments({ conversationId, direction: "outbound" })).toBe(1);
+});
+
+it("syncs OA app replies into the open inbox and extends the pause even while already paused", async () => {
+  const now = Date.now();
+  vi.mocked(UserModel.findOne).mockResolvedValue(null);
+  vi.spyOn(zaloMessengerService, "getAccessTokenByOAId").mockResolvedValue("test-token");
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  const send = vi.fn()
+    .mockResolvedValueOnce(Response.json({ error: 0, data: [
+      { src: 0, message_id: "staff-first", time: now - 10 * 60_000, type: "text", message: "Tôi đang tư vấn" },
+    ] }))
+    .mockResolvedValueOnce(Response.json({ error: 0, data: [
+      { src: 0, message_id: "staff-next", time: now - 60_000, type: "text", message: "Mình bổ sung thông tin" },
+    ] }));
+  vi.stubGlobal("fetch", send);
+  const first = await zaloMessengerService.getMessages("oa", conversationId, { sync: true });
+  expect(first.messages.map(item => item.messageId)).toContain("staff-first");
+  const next = await zaloMessengerService.getMessages("oa", conversationId, { sync: true });
+  expect(next.messages.map(item => item.messageId)).toEqual(["staff-first", "staff-next"]);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(now + 29 * 60_000);
+  expect(send).toHaveBeenCalledTimes(2);
+});
+
+it("extends native handoff from the last manual send and does not repause a resumed conversation", async () => {
+  const now = Date.now();
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  const latest = { src: 0, message_id: "native-latest", time: now - 60_000, type: "photo", url: "https://example.com/photo.png" };
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => Response.json({ error: 0, data: [
+    { src: 0, message_id: "native-old", time: now - 10 * 60_000 }, latest,
+  ] })));
+  expect(await syncZaloNativeHandoff("oa", conversationId, "test-token")).toBe(true);
+  expect((await ZaloConversationModel.findById(conversation._id))?.aiPausedUntil?.getTime()).toBe(now + 29 * 60_000);
+  await zaloMessengerService.resumeAIAutoReply("oa", conversationId);
+  // The older, previously unseen send must not restart a pause after resume.
+  expect(await syncZaloNativeHandoff("oa", conversationId, "test-token")).toBe(false);
+});
+
+it("ignores ERP bot sends, inbound messages and expired native sends when checking Zalo history", async () => {
+  const now = Date.now();
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const conversationId = String(conversation._id);
+  await ZaloMessageModel.create({ conversationId, senderId: "oa", recipientId: "customer", direction: "outbound",
+    messageId: "erp-bot", timestamp: new Date(now - 60_000) });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: 0, data: [
+    { src: 0, message_id: "erp-bot", time: now - 60_000 },
+    { src: 1, message_id: "customer", time: now },
+    { src: 0, message_id: "expired", time: now - 31 * 60_000 },
+  ] })));
+  expect(await syncZaloNativeHandoff("oa", conversationId, "test-token")).toBe(false);
+  expect(mocks.cancel).not.toHaveBeenCalled();
+  expect(await ZaloMessageModel.countDocuments({ conversationId })).toBe(1);
+});
+
+it("does not claim or send an AI reply if Zalo history cannot be verified", async () => {
+  vi.mocked(UserModel.findOne).mockResolvedValue(null);
+  vi.spyOn(zaloMessengerService, "getAccessTokenByOAId").mockResolvedValue("test-token");
+  const conversation = await ZaloConversationModel.create({ oaId: "oa", recipientId: "customer" });
+  const send = vi.fn().mockResolvedValue(Response.json({ error: -403, message: "Missing permission" }));
+  vi.stubGlobal("fetch", send);
+  const beforeSend = vi.fn();
+  await expect(zaloMessengerService.sendReply("oa", String(conversation._id), "AI reply", "ai", beforeSend))
+    .rejects.toBeInstanceOf(ZaloHistoryUnavailableError);
+  expect(beforeSend).not.toHaveBeenCalled();
+  expect(send).toHaveBeenCalledOnce();
+  expect(await ZaloMessageModel.countDocuments({ conversationId: conversation._id })).toBe(0);
 });
 
 it("allows multiple manual Leads in one account while keeping linked conversations unique", async () => {

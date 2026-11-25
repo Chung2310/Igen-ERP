@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../../../src/shared/ai-provider-error";
 import { Request, Response } from "express";
@@ -76,8 +77,8 @@ function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   });
 }
 
-const DRIVE_PDF_PRIMARY_MODEL = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-3.5-flash";
-const DRIVE_PDF_FALLBACK_MODEL = "gemini-2.5-flash";
+const DRIVE_PDF_PRIMARY_MODEL = ERP_LLM_MODEL;
+const DRIVE_PDF_FALLBACK_MODEL = ERP_LLM_MODEL;
 
 const IMAGE_CROP_ASPECT_RATIOS = [
   { key: "1:1", value: 1 },
@@ -403,7 +404,7 @@ async function parseUploadedDocument(base64Data: string, mimeType: string, fileN
     /\.(png|jpe?g|webp)$/i.test(fileName);
 
   if (isPdf || isImage || isPptx) {
-    const model = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const model = ERP_LLM_MODEL;
 
     console.log(`[AI AutoReply] Đang gọi OpenRouter trích xuất văn bản từ file upload (${fileName})...`);
 

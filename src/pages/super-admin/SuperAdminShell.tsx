@@ -214,7 +214,7 @@ export default function SuperAdminShell() {
                   : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low focus-visible:bg-surface-container-low"
               )}
             >
-              <span aria-hidden="true" className="relative size-5 shrink-0 text-on-surface-variant group-hover:text-primary group-focus-visible:text-primary group-aria-[current=page]:text-primary [&_svg]:size-5">
+              <span aria-hidden="true" className="relative size-5 shrink-0 text-[#2196f3] [&_svg]:size-5">
                 <span className={`${activeTab === id ? "hidden" : "group-hover:hidden group-focus-visible:hidden"} absolute inset-0`}>{getSidebarArtworkIcon(artwork as SidebarArtworkName)}</span>
                 <span className={`${activeTab === id ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`}>{getSidebarArtworkIcon(artwork as SidebarArtworkName, true)}</span>
               </span>
@@ -227,7 +227,7 @@ export default function SuperAdminShell() {
         onClick={handleLogout}
         className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-on-surface-variant hover:text-error hover:bg-surface-container-low transition-all border border-transparent mt-4"
       >
-        <LogOut className="h-4 w-4 shrink-0" />
+        <LogOut className="size-5 shrink-0" />
         Đăng xuất
       </button>
     </div>
@@ -293,7 +293,7 @@ export default function SuperAdminShell() {
           </aside>
 
           {/* Main workspace */}
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container-lowest p-3 sm:p-6 lg:p-8">
+          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface-container-lowest px-3 py-2.5">
             {renderActiveTab()}
           </main>
         </div>

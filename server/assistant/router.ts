@@ -1,4 +1,7 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
+import { withAssistantResponseCancellation } from "./execution-control";
+import { assistantReadV2Body } from "./read-v2-contract";
+import { processProductReadV2Turn } from "./read-v2-service";
 import Joi from "joi";
 import multer from "multer";
 import type { AuthenticatedRequest } from "../middleware/auth";
@@ -32,9 +35,9 @@ import { isAssistantConversationImageName, maxAssistantConversationImageBatchByt
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
 const id = Joi.string().guid({ version: ["uuidv4"] }).required();
-const wrap = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async (req: any, res: any) => {
-  try { return res.json({ success: true, data: await handler(req) }); }
-  catch (error) { if (!(error instanceof AssistantError)) console.error("[assistant]", error); return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể xử lý trợ lý AI lúc này." }); }
+const wrap = (handler: (req: AuthenticatedRequest, res: Response) => Promise<unknown>) => async (req: any, res: any) => {
+  try { const data = await handler(req, res); if (!res.destroyed && !res.writableEnded) return res.json({ success: true, data }); }
+  catch (error) { if (!(error instanceof AssistantError)) console.error("[assistant]", error); if (!res.destroyed && !res.writableEnded) return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể xử lý trợ lý AI lúc này." }); }
 };
 assistantRouter.get("/conversations/:id/files/:fileId", validateRequest({ params: Joi.object({ id, fileId: id }) }), async (req: any, res: any) => {
   try {
@@ -295,12 +298,23 @@ const acceptanceLinesInput = Joi.object({
     acceptedDetails: Joi.string().max(1000).allow(""),
   }).unknown(false)).required(),
 }).unknown(false);
-const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), conversationUploads: Joi.array().max(maxAssistantConversationImageCount).items(Joi.object({ buffer: Joi.any().required(), fileName: Joi.string().trim().min(1).max(255).required() })), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text").with("conversationUploads", "text").nand("conversationUpload", "conversationUploads");
-assistantRouter.post("/turns/images", parseConversationImagesUpload, validateRequest({ body: assistantTurnBody }), wrap(async req => {
+const assistantFormSubmission = Joi.object({
+  id,
+  values: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_-]+$/).max(160), Joi.alternatives().try(Joi.string().max(12000).allow(""), Joi.number(), Joi.boolean())).max(100).required(),
+  referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100),
+  skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100),
+}).unknown(false);
+const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), conversationUploads: Joi.array().min(1).max(maxAssistantConversationImageCount).items(Joi.object({ buffer: Joi.any().required(), fileName: Joi.string().trim().min(1).max(255).required() })), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), formValues: assistantFormSubmission, workflowSelection: Joi.object({ id, value: id }).unknown(false), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "formValues", "workflowSelection", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text").with("conversationUploads", "text").nand("conversationUpload", "conversationUploads").nand("attachment", "conversationUploads");
+const validateAssistantTurn = (req: any, res: any, next: any) => validateRequest({ body: Object.prototype.hasOwnProperty.call(req.body || {}, "schemaVersion") ? assistantReadV2Body : assistantTurnBody })(req, res, next);
+assistantRouter.post("/turns/images", parseConversationImagesUpload, validateAssistantTurn, wrap(async (req, res) => {
   if (process.env.ASSISTANT_BACKGROUND_ENABLED === "true") await assertNoActiveAssistantJob(req, req.body.conversationId);
-  return processTurn(req, req.body);
+  return withAssistantResponseCancellation(res, signal => processTurn(req, req.body, { signal }));
 }));
-assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(async req => {
+assistantRouter.post("/turns", parseConversationFileUpload, validateAssistantTurn, wrap(async (req, res) => {
+  if (Object.prototype.hasOwnProperty.call(req.body, "schemaVersion")) {
+    await assertNoActiveAssistantJob(req, req.body.conversationId);
+    return withAssistantResponseCancellation(res, signal => processProductReadV2Turn(req, req.body, { signal }));
+  }
   if (process.env.ASSISTANT_BACKGROUND_ENABLED === "true") {
     const cancellation = String(req.body.text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi,"d").toLowerCase().trim();
     if (req.body.mode !== "qa" && /^(?:dung|huy)(?:\s+(?:lai|tac vu|yeu cau))?[.!?]*$/.test(cancellation)) {
@@ -310,9 +324,11 @@ assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ bo
     if (req.body.text && req.body.mode !== "qa" && !req.body.attachment && !req.body.conversationUpload && !req.body.conversationUploads?.length) return submitAssistantJob(req, req.body);
     await assertNoActiveAssistantJob(req, req.body.conversationId);
   }
-  return processTurn(req, req.body);
+  return withAssistantResponseCancellation(res, signal => processTurn(req, req.body, { signal }));
 }));
-assistantRouter.post("/jobs", validateRequest({ body: assistantTurnBody }), wrap(req => submitAssistantJob(req, req.body)));
+assistantRouter.post("/jobs", (req: any, res: any, next: any) => Object.prototype.hasOwnProperty.call(req.body || {}, "schemaVersion")
+  ? res.status(400).json({ success: false, message: "V2 hiện chỉ hỗ trợ đường trực tiếp, chưa hỗ trợ tác vụ nền." }) : next(),
+  validateRequest({ body: assistantTurnBody }), wrap(req => submitAssistantJob(req, req.body)));
 assistantRouter.get("/jobs/:requestId", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => assistantJobStatus(req, req.params.requestId)));
 assistantRouter.post("/jobs/:requestId/cancel", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => cancelAssistantJob(req, req.params.requestId)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {

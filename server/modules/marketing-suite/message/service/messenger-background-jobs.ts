@@ -8,6 +8,7 @@ import { withAiUsage } from "../../shared/service/ai-subscription.service";
 import type { ChatOrderFlowInput } from "./chat-ordering/core/types";
 import type { LeadContractMessageJob } from "./lead-contract-ocr";
 import { LEAD_INTAKE_BUSINESS_CONTEXT_LIMIT } from "./chat-business-context";
+import { isZaloHumanReply } from "./zalo-human-reply";
 
 const ZALO_MESSAGE_EVENTS = new Set(["user_send_text", "user_send_image", "user_send_link", "user_send_sticker"]);
 const LEASE_MS = 120_000;
@@ -36,19 +37,21 @@ type ZaloWebhookPayload = {
   event_name?: string;
   oa_id?: string;
   recipient?: { id?: string };
-  sender?: { id?: string };
+  sender?: { id?: string; admin_id?: string };
   message?: { msg_id?: string };
 };
 
 export async function enqueueZaloWebhook(body: ZaloWebhookPayload, rawBody?: string) {
-  if (!body.event_name || !ZALO_MESSAGE_EVENTS.has(body.event_name)) return;
-  const oaId = String(body.oa_id || body.recipient?.id || "");
+  const humanReply = isZaloHumanReply(body);
+  if (!body.event_name || (!ZALO_MESSAGE_EVENTS.has(body.event_name) && !humanReply)) return "ignored_event" as const;
+  const oaId = String(humanReply ? body.sender?.id || "" : body.oa_id || body.recipient?.id || "");
   const senderId = String(body.sender?.id || "");
-  if (!oaId || !senderId) return;
+  if (!oaId || !senderId) return "missing_account" as const;
   const messageId = String(body.message?.msg_id || `zalo_in_${hash(rawBody ?? JSON.stringify(body))}`);
-  await enqueue("zalo-webhook", [oaId, senderId, messageId], {
+  await enqueue("zalo-webhook", [oaId, humanReply ? String(body.recipient?.id || "") : senderId, messageId], {
     ...body, oa_id: oaId, sender: { ...body.sender, id: senderId }, message: { ...body.message, msg_id: messageId },
   });
+  return "queued" as const;
 }
 
 export function enqueueLeadIntakeRetry(input: ChatOrderFlowInput) {
@@ -124,6 +127,7 @@ async function processJob(kind: MessengerBackgroundJobKind, payload: unknown) {
 }
 
 async function clearFailedZaloInbound(payload: ZaloWebhookPayload) {
+  if (isZaloHumanReply(payload)) return;
   const { oa_id: oaId, sender, message } = payload;
   if (!oaId || !sender?.id || !message?.msg_id) return;
   const pendingId = message.msg_id;

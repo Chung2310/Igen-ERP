@@ -1,5 +1,5 @@
 /** Distinct categorical colors shared by overview charts. */
 export const DASHBOARD_CHART_PALETTE = [
-  '#29C4A2', '#4384F5', '#F2BD4B', '#F5757F', '#8263ED',
+  '#18C93A', '#2196F3', '#F5D610', '#F44336', '#8B5CF6',
 ] as const;
 export const DASHBOARD_CHART_TRACK = '#E8EDF4';

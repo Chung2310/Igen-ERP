@@ -1,5 +1,6 @@
 import React from "react";
 import type { RetailOrder } from "../../types";
+import { HrStatusBadge } from "../../../../components/hr/HrStatusBadge";
 
 const labels: Record<string, string> = {
   returned: "Đã trả toàn bộ", partially_returned: "Đã trả một phần",
@@ -9,7 +10,7 @@ const labels: Record<string, string> = {
 
 export function AfterSaleBadge({ order }: { order: RetailOrder }) {
   const label = labels[order.afterSaleSummary?.status || order.afterSaleStatus || "none"];
-  return label ? <span className="mt-1 block rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">{label}</span> : null;
+  return label ? <div className="mt-1"><HrStatusBadge tone="warning">{label}</HrStatusBadge></div> : null;
 }
 
 export function AfterSaleHistory({ order }: { order: RetailOrder }) {

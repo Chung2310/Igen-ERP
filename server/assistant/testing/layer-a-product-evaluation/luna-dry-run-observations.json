@@ -1,0 +1,1961 @@
+{
+  "generatedAt": "2026-11-21T09:05:45.805Z",
+  "mode": "offline-scripted-provider",
+  "model": "openai/gpt-6-luna",
+  "corpusVersion": "S-v1-approved-2026-11-21",
+  "liveProviderRequests": 0,
+  "realBusinessRequests": 0,
+  "realDatabaseConnections": 0,
+  "budgetUSD": 0,
+  "modelAccuracy": null,
+  "actualProviderTokens": null,
+  "actualProviderCost": null,
+  "usageNote": "Mock Responses omit usage;request bytes are not token counts or a cost estimate.",
+  "fixtureProviderResponses": 84,
+  "blockedAttempts": [
+    {
+      "caseId": "CONTROL-ZERO-BUDGET",
+      "reason": "DRY_RUN_TRANSPORT_DISABLED"
+    }
+  ],
+  "profiles": [
+    {
+      "profile": "CAT-NARROW",
+      "cases": 24,
+      "workflowCount": 2,
+      "mockRequests": 27,
+      "discoveryRequests": 0,
+      "capabilityCheckRequests": 3,
+      "requestBodyBytes": {
+        "min": 2150,
+        "max": 19156,
+        "total": 461721
+      },
+      "excludedFromFutureFullCatalogExactScoring": []
+    },
+    {
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "cases": 24,
+      "workflowCount": 1003,
+      "mockRequests": 54,
+      "discoveryRequests": 24,
+      "capabilityCheckRequests": 3,
+      "requestBodyBytes": {
+        "min": 119962,
+        "max": 1456297,
+        "total": 17331755
+      },
+      "excludedFromFutureFullCatalogExactScoring": [
+        "S18",
+        "S19",
+        "S20"
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "caseId": "S01",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S01",
+          "stage": "interpretation",
+          "bodyBytes": 18948,
+          "bodySha256": "a692cffe072d5d206f59a6b955aebbc1b54e354ae037fa6257f1a417a2b57c6d",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 19.66949999999997,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S02",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S02",
+          "stage": "interpretation",
+          "bodyBytes": 18948,
+          "bodySha256": "9512613e81e1ec9973df0e64e9e55d1b3dbe0e5cabc3bfc9e895a64f55b0f188",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.8687999999999647,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S03",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "Tai nghe Sóng"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S03",
+          "stage": "interpretation",
+          "bodyBytes": 18949,
+          "bodySha256": "d80ba1c78e1fc23b958279de2bc27477c6bbce778eb3f484b4d0f17f657f21e7",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.292699999999968,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S04",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S04",
+          "stage": "interpretation",
+          "bodyBytes": 18939,
+          "bodySha256": "e81434b93e1c2dda3f602da6a545be59dc098dae73fdd6136b780ab35bb288b1",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.1437000000000808,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S05",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S05",
+          "stage": "interpretation",
+          "bodyBytes": 18934,
+          "bodySha256": "aeb585317f2a8915db792c9aa5451cde800027ed4c430a55ab44a73a455ecf50",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.181500000000142,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S06",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S06",
+          "stage": "interpretation",
+          "bodyBytes": 18940,
+          "bodySha256": "e3c881d7026721354c0b26e2ff17990f6ad65a7781a32472eae1f9e953adafa5",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.1136999999998807,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S07",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SKU-MAY-A1-128"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S07",
+          "stage": "interpretation",
+          "bodyBytes": 18948,
+          "bodySha256": "afaec9d25c5eb5b71c84a2042d8b6e9641372c424b989c27aa785391a0816410",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.151399999999967,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S08",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-TRANG"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S08",
+          "stage": "interpretation",
+          "bodyBytes": 18952,
+          "bodySha256": "ef6175f0243f28402f163f54115d6f1d792665053e80147a4b6797ae7eafbee5",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.2821000000001277,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S09",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S09",
+          "stage": "interpretation",
+          "bodyBytes": 18929,
+          "bodySha256": "5354b4a11987ef92553f1990b68d7364c09b3a4c4ea4c72b82c87fecfd801bee",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.0810999999998785,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S10",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S10",
+          "stage": "interpretation",
+          "bodyBytes": 18943,
+          "bodySha256": "51398442515bb79a5839be6f1f3219644ba842d01771edd0d0cb8757dbcc69f4",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.2491999999999734,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S11",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S11",
+          "stage": "interpretation",
+          "bodyBytes": 18964,
+          "bodySha256": "5ed053e060769b3b2e2f2b063375883c12335e1dd880d920c02f1cdb4dd53b6b",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.6743000000001302,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S12",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-OP-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S12",
+          "stage": "interpretation",
+          "bodyBytes": 18955,
+          "bodySha256": "4ac279ef54118cc966780c7a9dda9474fccc802fd32fa0909801a94a55c853fa",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.3863000000001193,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S13",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S13",
+          "stage": "interpretation",
+          "bodyBytes": 18934,
+          "bodySha256": "77b226c5121f7b35c77dcd4337774c90c4ca6b4629b715359f8ce11d62551bd5",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.103399999999965,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S14",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Không Có 999"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S14",
+          "stage": "interpretation",
+          "bodyBytes": 18939,
+          "bodySha256": "2f03b70cca32482a6129da7ec183a75681da2efa1e7998366d688a146be43480",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.866700000000037,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S15",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-KHONG-CO"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S15",
+          "stage": "interpretation",
+          "bodyBytes": 18946,
+          "bodySha256": "2af013c476e56a939dc7291a987f261cb5cb244776afbf592bfef9217a6b0a5f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.0778999999999996,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S16",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được trạng thái. Bạn có muốn xem danh sách chưa lọc trạng thái không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S16",
+          "stage": "interpretation",
+          "bodyBytes": 18951,
+          "bodySha256": "bcba3a9ebe37599f6aabc896e1c2e5d273cd63e8734df95cbbb9cc9b343e4037",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 1.8970999999999094,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S17",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được ngày tạo. Bạn có muốn tìm Mây không lọc ngày không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S17",
+          "stage": "interpretation",
+          "bodyBytes": 18966,
+          "bodySha256": "bc890eb7d35a982e5f61c3b14f0134cf688c74874ea54c04b8f078fa62a249cc",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 1.9974999999999454,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S18",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S18",
+          "stage": "interpretation",
+          "bodyBytes": 18952,
+          "bodySha256": "49622c538efc6c48418fb0c662f09f6f4852059bfaa4133a25b0ced99b67c582",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        },
+        {
+          "caseId": "S18",
+          "stage": "capability-check",
+          "bodyBytes": 2168,
+          "bodySha256": "cbc790fb75663dd11a9a50c6e29508ed944b1a7c2e078d5122232d839c9f9033",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 2.4545000000000528,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S19",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S19",
+          "stage": "interpretation",
+          "bodyBytes": 18957,
+          "bodySha256": "28afbfbd87bcb240d8cf80bd2fed8eee1af8cf6923e11ddf7210ecac6e5f40e6",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        },
+        {
+          "caseId": "S19",
+          "stage": "capability-check",
+          "bodyBytes": 2173,
+          "bodySha256": "cf919a2fc1ef5131f57146ddac87e31d6b9577fa66d9f00da335a4eab3faec09",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 1.9927000000000135,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S20",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S20",
+          "stage": "interpretation",
+          "bodyBytes": 18934,
+          "bodySha256": "b7daf337a6370a5e7f69388340e2413a81faf29090cdcfcdb9762fc917033b6d",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        },
+        {
+          "caseId": "S20",
+          "stage": "capability-check",
+          "bodyBytes": 2150,
+          "bodySha256": "f0a5167f0baa36f4988318d0686b5bde0341e2c377dd082445193e1b26ef386c",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 2.023200000000088,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S21",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S21",
+          "stage": "interpretation",
+          "bodyBytes": 19139,
+          "bodySha256": "9ca66e7e1ab763ca9bef1fa7e4ac390073858175ab049a318f787b3d329660fb",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.0765000000001237,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S22",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Bạn muốn xem Tai nghe Sóng mã SP-SONG-DEN hay SP-SONG-TRANG?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S22",
+          "stage": "interpretation",
+          "bodyBytes": 19156,
+          "bodySha256": "fb5df7b7062e6d5532527693862c14be86005a7c2d1875768df4a789b021802f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 1.7558999999998832,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S23",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-2026-11-21"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S23",
+          "stage": "interpretation",
+          "bodyBytes": 18944,
+          "bodySha256": "9ab26accffe11366c7251a2b592754e6e45c48d4c882751c92153b4cc6423ab7",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 1.9856999999999516,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S24",
+      "profile": "CAT-NARROW",
+      "workflowCount": 2,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "cancel": true,
+        "newRequest": false,
+        "intentType": "workflow",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S24",
+          "stage": "interpretation",
+          "bodyBytes": 19063,
+          "bodySha256": "9a202eec1dffbc05d022a3316533a042a63cf26a851765a9bc63a7f7129cd48f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 2.207099999999855,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S01",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S01",
+          "stage": "discovery",
+          "bodyBytes": 368668,
+          "bodySha256": "cd1e207edc6a994013122a893165ba9cc7e908bdc83ec2c34bc9baa2315fd8d7",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S01",
+          "stage": "interpretation",
+          "bodyBytes": 119981,
+          "bodySha256": "f640f00fb404eb943a8b8879041035b7db76d3ec9e625c9d159ad4e269aaecef",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 11.572499999999991,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S02",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S02",
+          "stage": "discovery",
+          "bodyBytes": 368668,
+          "bodySha256": "5ddf33cedfb2a69af26a3896a478d913afbf82424958c7005da10994ac1c5b16",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S02",
+          "stage": "interpretation",
+          "bodyBytes": 119981,
+          "bodySha256": "e53d22a56f46a50d806e9831aef5122439d415829805aaba02bbe13395d6d591",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 11.13110000000006,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S03",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "Tai nghe Sóng"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S03",
+          "stage": "discovery",
+          "bodyBytes": 368669,
+          "bodySha256": "8a3c800b43b0e6d935e0cef56ae53c65f58b9682c8df129215f6c1834d563322",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S03",
+          "stage": "interpretation",
+          "bodyBytes": 119982,
+          "bodySha256": "f08e041a631201d7c5d8827ef5f122047e13e79adb0e4f9ec750c75a1276129f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.040500000000065,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S04",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S04",
+          "stage": "discovery",
+          "bodyBytes": 368659,
+          "bodySha256": "8d6486265b7aedfcc95bc31033b06313f6ad8216c85dac2d9ffb89a5bdfae32d",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S04",
+          "stage": "interpretation",
+          "bodyBytes": 119972,
+          "bodySha256": "82c6e6613dbfb605e3d601935d82bfa3918e6d32bf71a2eba4d69b5563da79c1",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.99519999999984,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S05",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S05",
+          "stage": "discovery",
+          "bodyBytes": 368654,
+          "bodySha256": "d13465446a751e147b8d04268f8b61f0ab424aecd1df07826fd2f9026521b003",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S05",
+          "stage": "interpretation",
+          "bodyBytes": 119967,
+          "bodySha256": "0a3c92281d7af49cf74c5778462f951148b0a6fbe3547abc50c1602cdeb8b31d",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.195300000000088,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S06",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S06",
+          "stage": "discovery",
+          "bodyBytes": 368660,
+          "bodySha256": "ea4896473c99f44f83ac2612cc23cefeee01ca06b88699c449c38cfe002bc565",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S06",
+          "stage": "interpretation",
+          "bodyBytes": 119973,
+          "bodySha256": "e3dad02cf5936b9bc242ae08c653f8dd6893c572737ae54e9fead038ddfe21ed",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.65689999999995,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S07",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SKU-MAY-A1-128"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S07",
+          "stage": "discovery",
+          "bodyBytes": 368668,
+          "bodySha256": "677a1f5b34d46471b2447f97c3259f97d232f0866c2ce483acd6603fa434bb6f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S07",
+          "stage": "interpretation",
+          "bodyBytes": 119981,
+          "bodySha256": "b16de185584f55a3eb3c3b38619e7fec8a148181d961430cf282d43f7380ca85",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.023300000000063,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S08",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-TRANG"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S08",
+          "stage": "discovery",
+          "bodyBytes": 368672,
+          "bodySha256": "eecb76e11c5c603b8ff30cce92d9cf5b4112a64694bd74a01eb0f69be75cebc5",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S08",
+          "stage": "interpretation",
+          "bodyBytes": 119985,
+          "bodySha256": "2ae2025560565e6a2e53e792722ac6dd91b2916693af4174c2dde796da37cc83",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.6404,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S09",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S09",
+          "stage": "discovery",
+          "bodyBytes": 368649,
+          "bodySha256": "53aba5443b4cfa8ab1728f15c9aeb8f685002de11a38223f423d227848586be9",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S09",
+          "stage": "interpretation",
+          "bodyBytes": 119962,
+          "bodySha256": "98bc49c09a41e3866a941e81df755d07b710703a734d30eda17382c4d26f61cc",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.934200000000146,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S10",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-SONG-DEN"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S10",
+          "stage": "discovery",
+          "bodyBytes": 368663,
+          "bodySha256": "7575e4900ab9d646bf94370332dab1926f68058c9649b9e11e67f14537197b2b",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S10",
+          "stage": "interpretation",
+          "bodyBytes": 119976,
+          "bodySha256": "46e84c8eae05c4bd8afb51c1663b2c488a4981af536792818ac77458da64e4c5",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.042900000000145,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S11",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S11",
+          "stage": "discovery",
+          "bodyBytes": 368684,
+          "bodySha256": "7e5d8605d7c57e60a8cecca4aa031951d3c0563314dd79d240bbc87c07e1fd0a",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S11",
+          "stage": "interpretation",
+          "bodyBytes": 119997,
+          "bodySha256": "6608eb25c883821b78541246e1231e3c72c00fe542539e046e7ab5c2dd2fd358",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.258000000000038,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S12",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-OP-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S12",
+          "stage": "discovery",
+          "bodyBytes": 368675,
+          "bodySha256": "79e3034b7621ef0429cf6707dd02754d2212427acc9618bc4e6892975d320e27",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S12",
+          "stage": "interpretation",
+          "bodyBytes": 119988,
+          "bodySha256": "8896a1342af7a56fd117e452a4ae8143d63efa1e931c0a92806f7c35dd9e6d62",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.939300000000003,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S13",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {},
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S13",
+          "stage": "discovery",
+          "bodyBytes": 368654,
+          "bodySha256": "e0f008ae43600db7c7cc6ac1c6cc6abd245e177fb1e20f41c576ae8da8118af4",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S13",
+          "stage": "interpretation",
+          "bodyBytes": 119967,
+          "bodySha256": "b069f092cfe51f2eee201388b367db40cbb6eb612acd7e09c2ded58462d529b8",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.391600000000153,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S14",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Không Có 999"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S14",
+          "stage": "discovery",
+          "bodyBytes": 368659,
+          "bodySha256": "7e68644f9d48100f1951dc2ff5462faa58a3267277a4ac0ab9b3f04d54d5206f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S14",
+          "stage": "interpretation",
+          "bodyBytes": 119972,
+          "bodySha256": "fdfb2a8da1a91a69d949e6c5dc04890ce32471cb5c2605c255f9a25b6bab184e",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.830600000000004,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S15",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-KHONG-CO"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S15",
+          "stage": "discovery",
+          "bodyBytes": 368666,
+          "bodySha256": "a7a19e25284dc6a429a11ed667723b37a8f70e4de8c0ec1313188fc17c6618d5",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S15",
+          "stage": "interpretation",
+          "bodyBytes": 119979,
+          "bodySha256": "66077c9a06c176ad70d218385d16013c1ef927265e7e06070ab4e31e3f483c28",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 11.007300000000214,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S16",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được trạng thái. Bạn có muốn xem danh sách chưa lọc trạng thái không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S16",
+          "stage": "discovery",
+          "bodyBytes": 368671,
+          "bodySha256": "4efd8bc244fd3f477ea70dfe03f35724795237dcd9ac5c939b2d1dfb028140fa",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S16",
+          "stage": "interpretation",
+          "bodyBytes": 119984,
+          "bodySha256": "fdd56bddf7fa9622d493fa04ac07a106c2797f0b7aacdee3081c43d2bbc314fc",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S16",
+          "stage": "interpretation",
+          "bodyBytes": 1456092,
+          "bodySha256": "7cf8df2aaa54ddebbf6ed392f6fa28d36189359926e129044a4d99a9d9240a58",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 41.07999999999993,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S17",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Danh mục này chưa lọc được ngày tạo. Bạn có muốn tìm Mây không lọc ngày không?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S17",
+          "stage": "discovery",
+          "bodyBytes": 368686,
+          "bodySha256": "685f18463f9e3c8708145ee33cef38835120097f6cb3651fc411e7b4e38ac1f7",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S17",
+          "stage": "interpretation",
+          "bodyBytes": 119999,
+          "bodySha256": "f3ede40471c2b176fa487a379f2cfb2974d84452e68faefe82f193112aba2744",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S17",
+          "stage": "interpretation",
+          "bodyBytes": 1456107,
+          "bodySha256": "d6eb1efa1b7ebb6bc322a7e5aa5ef666f79460d43747c5a8ea8c36a8f55f648d",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 43.540700000000015,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S18",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S18",
+          "stage": "discovery",
+          "bodyBytes": 368672,
+          "bodySha256": "8618949ca2c3151577415ec2170b8e323e4ea19b35d9fc67e723f2939a39803e",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S18",
+          "stage": "interpretation",
+          "bodyBytes": 119985,
+          "bodySha256": "ea935394036a63d33535efd9b82d69b072c250519a31b736fd1ff229ebc80426",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S18",
+          "stage": "capability-check",
+          "bodyBytes": 411580,
+          "bodySha256": "27747e9a27b1caed7bec65b5ae3b4f797131e899ac43d1e9004970adee59586b",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 14.942099999999982,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S19",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S19",
+          "stage": "discovery",
+          "bodyBytes": 368677,
+          "bodySha256": "ec779ef58dfb1ad84085e7e0575fe52996db32794573ead486973b863f2b84f1",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S19",
+          "stage": "interpretation",
+          "bodyBytes": 119990,
+          "bodySha256": "fb99a837682a822965984a8e2ed806419222ffb992bfc50cb0ac08b5c305a469",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S19",
+          "stage": "capability-check",
+          "bodyBytes": 411585,
+          "bodySha256": "b878266b962901513e5f5640b6a3b5258e4aa02c5592f729c75141ba8ac58967",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 14.961199999999963,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S20",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "unsupported",
+        "unsupportedModule": "inventory",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S20",
+          "stage": "discovery",
+          "bodyBytes": 368654,
+          "bodySha256": "7e3ca1e36b8c4cbe3e4393b0c4994f7acd2519fa75e8487aa467090f2265b659",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S20",
+          "stage": "interpretation",
+          "bodyBytes": 119967,
+          "bodySha256": "4a4e8a2e8f15e702ed5884dbfdb6a63251c58e1ffa4f3b5e9d4f09d77a6d70c4",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S20",
+          "stage": "capability-check",
+          "bodyBytes": 411562,
+          "bodySha256": "d1e67e8b44c9ad45383bae972300320daeaffba5ad03e1536ea673a866788afa",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": 1024,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        }
+      ],
+      "fullCatalogExactLabel": "deferred-D3",
+      "elapsedMs": 15.430000000000064,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S21",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "inventory.product.detail",
+        "values": {
+          "path_id": "SP-MAY-A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S21",
+          "stage": "discovery",
+          "bodyBytes": 368859,
+          "bodySha256": "644553d16bdc4bc28e230b05d3bdbea78b19a6073b9f140574e19e54f6f24439",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S21",
+          "stage": "interpretation",
+          "bodyBytes": 120172,
+          "bodySha256": "b4b87dd7d56ccc33ea15eedb112440d1d574d11c9bc7d29d5d21307559d1a7fc",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 13.649899999999889,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S22",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "intentType": "ambiguous",
+        "clarification": "Bạn muốn xem Tai nghe Sóng mã SP-SONG-DEN hay SP-SONG-TRANG?",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S22",
+          "stage": "discovery",
+          "bodyBytes": 368876,
+          "bodySha256": "db46bde4cc62ec23a4ac7afc7c1ad2a04369b979fb6e1c7711450491aa13023a",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S22",
+          "stage": "interpretation",
+          "bodyBytes": 120189,
+          "bodySha256": "1c0543a2ec2692fec2fbaea01fdfb73660d8738db056946630e1860ceedfc39a",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        },
+        {
+          "caseId": "S22",
+          "stage": "interpretation",
+          "bodyBytes": 1456297,
+          "bodySha256": "7a48227d3f53fc9305005159ed42d8420060f982ef5953c27b8a94d55d5401b6",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 46.99189999999999,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S23",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "SP-2026-11-21"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S23",
+          "stage": "discovery",
+          "bodyBytes": 368664,
+          "bodySha256": "2eab05d40b2d2d69cd5d74e292ebbed6358b3bde6c9231991751c2fdf7a88f43",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S23",
+          "stage": "interpretation",
+          "bodyBytes": 119977,
+          "bodySha256": "0903bac8104d761921df5e11481785624641f3151623362868974bf2cb00687c",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 10.495599999999968,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "S24",
+      "profile": "CAT-PRODUCTION-SHAPED",
+      "workflowCount": 1003,
+      "result": {
+        "actionId": null,
+        "values": {},
+        "cancel": true,
+        "newRequest": false,
+        "intentType": "workflow",
+        "remainingRequests": []
+      },
+      "calls": [
+        {
+          "caseId": "S24",
+          "stage": "discovery",
+          "bodyBytes": 368783,
+          "bodySha256": "31ff967c3f5bb43ba7e0332a53f7434ba696fc1375c9225c04404331dc0b6cae",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S24",
+          "stage": "interpretation",
+          "bodyBytes": 120096,
+          "bodySha256": "6eb57b1bc742a7573bb5657def5d7fcc4fb6019d8c89f2e067b58a42d783d62f",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 68
+        }
+      ],
+      "fullCatalogExactLabel": "approved-slice-only",
+      "elapsedMs": 9.60590000000002,
+      "outcome": "offline-contract-check-only"
+    },
+    {
+      "caseId": "CONTROL-DISCOVERY-FALLBACK",
+      "profile": "control",
+      "calls": [
+        {
+          "caseId": "S01",
+          "stage": "discovery",
+          "bodyBytes": 368668,
+          "bodySha256": "cd1e207edc6a994013122a893165ba9cc7e908bdc83ec2c34bc9baa2315fd8d7",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": null
+        },
+        {
+          "caseId": "S01",
+          "stage": "interpretation",
+          "bodyBytes": 1452092,
+          "bodySha256": "8d38d73232ace3b7edb3d3163d330c0abe16c0f83de1feb293c2fd0aa7659756",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 1003
+        }
+      ],
+      "result": {
+        "actionId": "product.list",
+        "values": {
+          "search": "Điện thoại Mây A1"
+        },
+        "intentType": "workflow",
+        "newRequest": false,
+        "remainingRequests": []
+      }
+    },
+    {
+      "caseId": "CONTROL-OUTSIDE-ACTION",
+      "profile": "control",
+      "calls": [
+        {
+          "caseId": "CONTROL-OUTSIDE-ACTION",
+          "stage": "interpretation",
+          "bodyBytes": 18924,
+          "bodySha256": "44e3d68c4dc64f026db6cae4b068bc929e05d1d9b025c53f84ef5a563c455ca4",
+          "model": "openai/gpt-6-luna",
+          "maxTokens": null,
+          "responseFormat": {
+            "type": "json_object"
+          },
+          "candidateCount": 2
+        }
+      ],
+      "outcome": "rejected-outside-catalog"
+    }
+  ]
+}

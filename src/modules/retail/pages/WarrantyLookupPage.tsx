@@ -1,4 +1,5 @@
 import React, { type FormEvent, useState, useEffect, useRef, useCallback } from "react";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import {
   Search,
   ShieldCheck,
@@ -539,15 +540,9 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                             </p>
                           </div>
                         </div>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold shrink-0 ${
-                            covered
-                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
+                        <HrStatusBadge tone={covered ? "success" : "neutral"} className="shrink-0">
                           {covered ? `Còn ${days} ngày` : "Hết bảo hành"}
-                        </span>
+                        </HrStatusBadge>
                       </div>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
@@ -757,17 +752,11 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                     </h3>
                   </div>
 
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                      isWarrantyCovered
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-rose-100 text-rose-800"
-                    }`}
-                  >
+                  <HrStatusBadge tone={isWarrantyCovered ? "success" : "danger"}>
                     {isWarrantyCovered
                       ? `Còn ${remainingWarrantyDays} ngày`
                       : "Đã hết hạn"}
-                  </span>
+                  </HrStatusBadge>
                 </div>
 
                 <div className="space-y-3 text-xs">

@@ -131,16 +131,16 @@ export function ModuleNavigation({
       data-collapsed={collapsed}
       style={layout === 'sidebar' ? { '--module-nav-icon-gradient': `url(#${iconGradientId})` } as CSSProperties : undefined}
       className={cn(
-        'flex min-w-0 shrink-0 flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5',
+        'flex min-w-0 shrink-0 flex-col gap-3 border-b border-surface-container-lowest bg-surface-container-lowest px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5',
         className
       )}
     >
       {layout === 'sidebar' && <svg className="absolute size-0" aria-hidden="true" focusable="false">
         <defs>
-          <linearGradient id={iconGradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
-            <stop offset="0%" stopColor="#00adfc" />
-            <stop offset="55%" stopColor="#199bff" />
-            <stop offset="100%" stopColor="#7567ff" />
+          <linearGradient id={iconGradientId} gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="22" y2="22">
+            <stop offset="0%" stopColor="#4db2fa" />
+            <stop offset="48%" stopColor="#2196f3" />
+            <stop offset="100%" stopColor="#1982e6" />
           </linearGradient>
         </defs>
       </svg>}
@@ -191,6 +191,7 @@ export function ModuleNavigation({
 interface ModuleNavigationButtonProps extends ComponentProps<'button'> {
   active: boolean;
   icon?: ReactNode;
+  filledIcon?: ReactNode;
   preferProvidedIcon?: boolean;
   filledOnHover?: boolean;
 }
@@ -201,10 +202,10 @@ function getMenuLabel(children: ReactNode): string {
   return '';
 }
 
-export function ModuleNavigationButton({ active, icon, preferProvidedIcon = false, filledOnHover = true, children, className, ...props }: ModuleNavigationButtonProps) {
+export function ModuleNavigationButton({ active, icon, filledIcon: customFilledIcon, preferProvidedIcon = false, filledOnHover = true, children, className, ...props }: ModuleNavigationButtonProps) {
   const menuLabel = getMenuLabel(children).trim();
   const displayIcon = preferProvidedIcon ? icon : (menuLabel ? getSidebarMenuIcon(menuLabel) : null) ?? icon;
-  const filledIcon = filledOnHover && !preferProvidedIcon && menuLabel ? getSidebarMenuFilledIcon(menuLabel) : null;
+  const filledIcon = filledOnHover ? customFilledIcon ?? (!preferProvidedIcon && menuLabel ? getSidebarMenuFilledIcon(menuLabel) : null) : null;
   return (
     <button
       {...props}

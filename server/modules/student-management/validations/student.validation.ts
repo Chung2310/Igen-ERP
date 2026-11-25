@@ -1,3 +1,4 @@
+import { EMAIL_ADDRESS_OPTIONS } from "../../../../shared/email-policy";
 import Joi from "joi";
 import { STUDENT_STATUSES } from "../../../../shared/student-status";
 
@@ -53,7 +54,7 @@ export const createStudentSchema = Joi.object({
     "any.required": "Số điện thoại là bắt buộc.",
     "string.empty": "Số điện thoại không được để trống.",
   }),
-  email: Joi.string().email().required().messages({
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).required().messages({
     "any.required": "Email là bắt buộc.",
     "string.empty": "Email không được để trống.",
     "string.email": "Định dạng email không hợp lệ.",
@@ -88,7 +89,7 @@ export const updateStudentSchema = Joi.object({
   fullName: Joi.string().optional(),
   phone: Joi.string().optional(),
   // Email may be omitted in a partial update, but can never be cleared.
-  email: Joi.string().email().optional(),
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).optional(),
   referral: Joi.string().allow("").optional(),
   birthday: Joi.string().allow("").optional(),
   idCard: Joi.string().allow("").optional(),
@@ -157,7 +158,7 @@ export const publicRegisterStudentSchema = Joi.object({
   // Từ đây trở xuống chỉ kiểm tra ĐỊNH DẠNG. Trường nào bắt buộc là do cấu hình
   // trường của từng công ty quyết định, được kiểm ở controller (publicRegister)
   // để form công khai khớp đúng với popup thêm học viên.
-  email: Joi.string().email().allow("").optional().messages({
+  email: Joi.string().trim().email(EMAIL_ADDRESS_OPTIONS).allow("").optional().messages({
     "string.email": "Định dạng email không hợp lệ.",
   }),
   birthday: Joi.string().allow("").optional().pattern(/^\d{1,2}\/\d{1,2}\/\d{4}$/).messages({

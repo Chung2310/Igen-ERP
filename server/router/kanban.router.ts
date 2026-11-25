@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { taskActivityUpdate, taskHelpRecipients, taskProgress } from "../service/kanban-task-progress";
 import mongoose from "mongoose";
-import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
+import { getEffectivePermissions, requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
 import { KanbanTaskModel } from "../model/kanban-task.model";
 import { ProjectModel } from "../model/project.model";
 import { UserModel } from "../model/user.model";
@@ -228,7 +228,7 @@ kanbanRouter.get("/kpi/monthly", requirePermission("work:read") as any, async (r
   }
 });
 
-kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.get("/tasks", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter: any = companyFilter(req);
     if (req.user?.branchId) {
@@ -237,6 +237,10 @@ kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: Au
       filter.branchId = req.query.branchId;
     }
     Object.assign(filter, buildKanbanTaskListFilter(req.query as Record<string, unknown>, { id: req.user?.id, role: req.user?.role }));
+    const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, req.user!.companyCode);
+    if (!permissions.has("*") && !permissions.has("work:read")) {
+      filter.assigneeUid = req.user!.id;
+    }
     const tasks = await KanbanTaskModel.find(filter).sort("-createdAt").lean();
     const now = Date.now();
     const nextDay = now + 24 * 60 * 60 * 1000;

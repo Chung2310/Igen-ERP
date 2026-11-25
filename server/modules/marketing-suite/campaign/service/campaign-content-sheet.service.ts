@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../../../../shared/llm-model";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from "crypto";
 import { withCampaignSlotEdit } from "./campaign-slot-edit";
@@ -941,9 +942,7 @@ export const campaignContentSheetService = {
     let generatedFields: Record<string, { value: unknown; confidence?: number }> = {};
 
     if (allowedColumns.length > 0) {
-      const model = campaign.qualityMode === "budget"
-        ? (process.env.CAMPAIGN_BUDGET_MODEL || "qwen/qwen-3.6-flash")
-        : (process.env.CAMPAIGN_PREMIUM_MODEL || "google/gemini-3.5-flash");
+      const model = ERP_LLM_MODEL;
       const result = await withAiUsage({ companyCode, userId, campaignId, slotId: input.slotId, usageIds }, () => openrouterChat({
         model,
         temperature: 0.65,

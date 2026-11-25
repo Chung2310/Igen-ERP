@@ -240,7 +240,7 @@ interface DateInput24Props extends Omit<DateTimeInput24Props, "className"> {
 }
 
 /** Branded date-only field with the same calendar popover used by DateTimeInput24. */
-export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày", showYearSelect = false }: DateInput24Props) {
+export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày", showYearSelect = true }: DateInput24Props) {
   return (
     <div className={`flex min-h-10 w-full items-center rounded-xl border border-[#DCE7F4] bg-white px-2.5 transition-colors hover:border-[#B8DFF3] focus-within:border-[#70D5FF] focus-within:ring-2 focus-within:ring-[#00ADFC]/15 ${className}`}>
       <BrandedDateInput value={value} onChange={onChange} required={required} disabled={disabled} ariaLabel={ariaLabel} showYearSelect={showYearSelect} />
@@ -282,7 +282,7 @@ const parseDateValue = (value: string) => {
   return year && month && day ? new Date(year, month - 1, day) : null;
 };
 
-function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, showYearSelect = false, className = "" }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string; showYearSelect?: boolean; className?: string }) {
+function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, showYearSelect = true, className = "" }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string; showYearSelect?: boolean; className?: string }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -374,14 +374,18 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
       </button>
       {open && createPortal(
         <div ref={popoverRef} role="dialog" aria-label="Lịch chọn ngày" className="fixed z-[200] max-h-[calc(100vh-24px)] overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-sm" style={position}>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", showYearSelect ? { month: "long" } : { month: "long", year: "numeric" }).format(month)}</span>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            {showYearSelect && (
+              <span className="sr-only">{new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(month)}</span>
+            )}
+            <span aria-hidden={showYearSelect || undefined} className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", showYearSelect ? { month: "long" } : { month: "long", year: "numeric" }).format(month)}</span>
             <div className="flex items-center gap-0.5">
               {showYearSelect && (
                 <input
                   type="text"
                   inputMode="numeric"
                   aria-label="Nhập năm sinh"
+                  placeholder="Năm"
                   value={yearText}
                   maxLength={4}
                   onFocus={(event) => event.currentTarget.select()}
@@ -391,6 +395,16 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
                     if (next.length === 4 && Number(next) >= 1000) setMonth(new Date(Number(next), month.getMonth(), 1));
                   }}
                   onBlur={() => setYearText(String(month.getFullYear()))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      if (yearText.length === 4 && Number(yearText) >= 1000) {
+                        setMonth(new Date(Number(yearText), month.getMonth(), 1));
+                      } else {
+                        setYearText(String(month.getFullYear()));
+                      }
+                    }
+                  }}
                   className="w-16 rounded-lg border border-outline-variant bg-surface-container-lowest px-1 py-1 text-center text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
                 />
               )}

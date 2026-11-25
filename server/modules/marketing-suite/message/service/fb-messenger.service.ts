@@ -345,10 +345,11 @@ export const fbMessengerService = {
       .map((item: any) => ({ type: item.type || "attachment", url: item.payload?.url || "" }));
     if (!text && !attachments.length) return;
     const rawTimestamp = Number(event.timestamp);
-    const timestamp = Number.isFinite(rawTimestamp) && rawTimestamp > 0 ? new Date(rawTimestamp) : new Date();
+    const timestamp = Number.isFinite(rawTimestamp) && rawTimestamp > 0
+      ? new Date(Math.min(rawTimestamp, Date.now())) : new Date();
     const metadata = event.message.metadata;
     const senderType = metadata === "igen-erp:ai" ? "ai" : metadata === "igen-erp:human" ? "human" : undefined;
-    const conversation = await FBConversationModel.findOneAndUpdate({ pageId, recipientId }, {
+    let conversation = await FBConversationModel.findOneAndUpdate({ pageId, recipientId }, {
       $setOnInsert: { pageId, recipientId, lastMessageText: text || "[Đính kèm]", lastMessageAt: timestamp },
     }, { upsert: true, new: true, setDefaultsOnInsert: true });
     if (!conversation) throw new Error(`Không thể tạo hội thoại từ echo messageId=${messageId}`);
@@ -358,6 +359,34 @@ export const fbMessengerService = {
       messageId, timestamp, status: "delivered", ...(senderType ? { senderType } : {}),
     } }, { upsert: true, new: true, setDefaultsOnInsert: true });
     if (!message) throw new Error(`Không thể lưu Facebook echo messageId=${messageId}`);
+    // Native Facebook/Page replies have no ERP metadata. Trust persisted AI
+    // attribution too: a delayed echo of our own reply must not pause the bot.
+    if (senderType !== "ai" && message.senderType !== "ai") {
+      const sentAt = message.timestamp;
+      const pauseUntil = new Date(sentAt.getTime() + 30 * 60_000);
+      const paused = await FBConversationModel.findOneAndUpdate({
+        _id: conversation._id, pageId,
+        $or: [{ lastHumanReplyAt: null }, { lastHumanReplyAt: { $lt: sentAt } }],
+      }, {
+        $set: { lastHumanReplyAt: sentAt },
+        $max: { aiPausedUntil: pauseUntil },
+      }, { returnDocument: "after" });
+      if (paused) {
+        if (pauseUntil > new Date()) {
+          aiAutoReplyService.cancelPendingReply(String(conversation._id), "human_reply");
+        }
+        await FBConversationModel.updateOne({
+          _id: conversation._id, pageId,
+          $or: [{ lastAssistantMessageAt: null }, { lastAssistantMessageAt: { $lte: sentAt } }],
+        }, { $set: { followUpStatus: "responded" } });
+        // Publish the pause even if a newer inbound owns the conversation preview.
+        const current = await FBConversationModel.findOne({ _id: conversation._id, pageId });
+        if (current) {
+          conversation = current;
+          await emitToMessengerAccount("facebook", pageId, "conversation_updated", current);
+        }
+      }
+    }
     await emitToMessengerAccount("facebook", pageId, "new_message", { message, conversation });
     // Delayed echoes must not replace the preview of a newer customer message.
     const updated = await FBConversationModel.findOneAndUpdate({ _id: conversation._id, pageId, lastMessageAt: { $lte: timestamp } }, {

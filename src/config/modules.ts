@@ -1,9 +1,9 @@
 import type { TabType, UserProfile } from "../types";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "student-partner", "labor-partner", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "legal-reference", "quotation", "healthcare", "architect-assistant"] as const;
+export const MODULE_KEYS = ["gym", "hr", "inventory", "resource", "chat", "student", "worker", "student-partner", "labor-partner", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "legal-reference", "quotation", "healthcare", "architect-assistant"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "partner" && key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "legal-reference" && key !== "quotation" && key !== "healthcare" && key !== "architect-assistant");
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "gym" && key !== "partner" && key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "legal-reference" && key !== "quotation" && key !== "healthcare" && key !== "architect-assistant");
 
 /** Expand the legacy shared partner flag into independently configurable modules. */
 export function normalizeModuleKeys(input: readonly string[]): ModuleKey[] {
@@ -16,6 +16,7 @@ export function normalizeModuleKeys(input: readonly string[]): ModuleKey[] {
 }
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
+  gym: "Gym",
   quotation: "Báo giá",
   healthcare: "Quản lý y tế",
   "architect-assistant": "Trợ lý kiến trúc",
@@ -41,6 +42,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
 };
 
 export const MODULE_TAB_MAP: Partial<Record<ModuleKey, TabType>> = {
+  gym: "GYM",
   quotation: "BÁO GIÁ",
   healthcare: "QUẢN LÝ Y TẾ",
   "architect-assistant": "TRỢ LÝ KIẾN TRÚC",
@@ -65,6 +67,7 @@ export const MODULE_TAB_MAP: Partial<Record<ModuleKey, TabType>> = {
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
+  "GYM": "gym",
   "BÁO GIÁ": "quotation",
   "QUẢN LÝ Y TẾ": "healthcare",
   "TRỢ LÝ KIẾN TRÚC": "architect-assistant",
@@ -90,6 +93,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
 };
 
 export const MODULE_OPTIONS = [
+  { key: "gym", label: MODULE_LABELS.gym, moduleKeys: ["gym"] },
   { key: "quotation", label: MODULE_LABELS.quotation, moduleKeys: ["quotation"] },
   { key: "healthcare", label: MODULE_LABELS.healthcare, moduleKeys: ["healthcare"] },
   { key: "architect-assistant", label: MODULE_LABELS["architect-assistant"], moduleKeys: ["architect-assistant"] },
@@ -119,6 +123,7 @@ export const MODULE_OPTIONS = [
  * công ty nhưng user cá nhân không được cấp quyền nào liên quan.
  */
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
+  "GYM": ["gym:read", "gym:manage"],
   "BÁO GIÁ": ["quotation:read", "quotation:manage"],
   "QUẢN LÝ Y TẾ": ["healthcare:read", "healthcare:manage"],
   "TRỢ LÝ KIẾN TRÚC": ["architect-assistant:read", "architect-assistant:manage"],
@@ -187,7 +192,7 @@ export const HIDE_AI_AUTO_REPLY = true;
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
   if (key === "retail-partner") return Boolean(enabledModules?.includes("retail") && enabledModules.includes(key));
   if ((key === "student-partner" || key === "labor-partner") && enabledModules?.includes("partner")) return true;
-  if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge" || key === "legal-reference" || key === "quotation" || key === "healthcare" || key === "architect-assistant") return Boolean(enabledModules?.includes(key));
+  if (key === "gym" || key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge" || key === "legal-reference" || key === "quotation" || key === "healthcare" || key === "architect-assistant") return Boolean(enabledModules?.includes(key));
   if (!enabledModules) return true;
   if (enabledModules.length === 0) return false;
   return enabledModules.includes(key);

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Loader2, UploadCloud, Video, Download, Play, Sparkles,
   X, Trash2, ChevronLeft, ChevronRight, Film, Volume2, VolumeX,
@@ -9,6 +9,8 @@ import { geminiApi } from "../../api/gemini";
 import { klingApi } from "../../api/kling";
 import { toast } from "../../../../../pages/Toast";
 import { getAccessToken } from "../../services/authService";
+import { StyledSelect } from "../../../../../components/common/StyledSelect";
+import { ConfirmDialog } from "../../../../../components/common/ConfirmDialog";
 
 const KLING_MODELS = [
   { value: "kling-v2-6", label: "Kling v2.6", desc: "Ổn định, nhanh" },
@@ -52,6 +54,9 @@ export function KlingMotionWorkspace({
 
   const [history, setHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeletingHistory, setIsDeletingHistory] = useState(false);
+  const historySliderRef = useRef<HTMLDivElement>(null);
 
   const generateProgress = useProgress(isGenerating, 120);
 
@@ -252,66 +257,81 @@ export function KlingMotionWorkspace({
     }
   };
 
-  const handleDeleteHistory = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa video này khỏi lịch sử?")) return;
+  const handleDeleteHistory = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const confirmDeleteHistory = async () => {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    setIsDeletingHistory(true);
     try {
       await geminiApi.deleteMediaHistory(id);
       toast.success("Đã xóa video thành công.");
       setHistory((prev) => prev.filter((r) => r._id !== id && r.id !== id));
       const deleted = history.find((r) => r._id === id || r.id === id);
       if (deleted?.url === generatedVideoUrl) setGeneratedVideoUrl(null);
+      setPendingDeleteId(null);
     } catch (e: any) {
       toast.error(`Lỗi khi xóa: ${e.message}`);
+    } finally {
+      setIsDeletingHistory(false);
     }
   };
 
   const canGenerate = !!characterImage && !!motionVideo && !isGenerating && !isUploadingVideo;
+  const focusRingClass =
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+  const modelOptions = KLING_MODELS.map((m) => ({
+    value: m.value,
+    label: `${m.label} — ${m.desc}`,
+  }));
 
   return (
-    <div className="max-w-[1600px] mx-auto w-full pb-8 px-2 animate-in fade-in duration-300">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div className="mx-auto w-full max-w-[1440px] pb-6">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
 
         {/* LEFT PANEL */}
-        <div className="lg:col-span-5 flex flex-col gap-4 bg-white border border-slate-200/80 p-5 rounded-3xl shadow-xs">
+        <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-5 lg:col-span-5">
 
           {/* Header */}
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Film className="h-3.5 w-3.5 text-violet-600" />
+          <div className="flex items-center gap-2.5 border-b border-outline-variant pb-3.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Film className="size-4" aria-hidden="true" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-800">Kling Motion Control</p>
-              <p className="text-[10px] text-slate-400">Nhân vật từ ảnh thực hiện chuyển động theo video mẫu</p>
-            </div>
+            <h2 className="text-balance text-sm font-semibold text-on-surface">Kling Motion Control</h2>
           </div>
 
           {/* Character Image Upload */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Ảnh nhân vật tham chiếu <span className="text-red-400">*</span>
+            <span className="text-sm font-medium text-on-surface">
+              Ảnh nhân vật tham chiếu <span className="text-error">*</span>
             </span>
-            <div className="border border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[130px] hover:border-violet-400/60 hover:bg-violet-50/10 transition-all duration-300">
+            <div className="relative flex min-h-32 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 p-4 transition-colors duration-150 hover:border-primary hover:bg-primary/5">
               {characterImage ? (
-                <div className="relative w-full">
+                <div className="relative w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
                   <img
                     src={characterImage}
-                    alt="Character reference"
-                    className="w-full max-h-[160px] object-contain rounded-xl border border-slate-200"
+                    alt="Ảnh nhân vật tham chiếu"
+                    className="max-h-44 w-full object-contain"
                   />
                   <button
                     type="button"
+                    aria-label="Xóa ảnh nhân vật"
                     onClick={() => setCharacterImage(null)}
-                    className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black text-white rounded-full transition-all cursor-pointer"
+                    className={`absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-black/65 text-white transition-colors duration-150 hover:bg-black/85 cursor-pointer ${focusRingClass}`}
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="size-4" aria-hidden="true" />
                   </button>
                 </div>
               ) : (
-                <label className="cursor-pointer flex flex-col items-center text-center w-full py-2">
-                  <UploadCloud className="h-7 w-7 text-slate-400 mb-2" />
-                  <span className="text-xs font-bold text-slate-700">Tải ảnh nhân vật lên</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, WEBP</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <label className="flex w-full cursor-pointer flex-col items-center py-2 text-center">
+                  <span className="mb-2 inline-flex size-10 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant">
+                    <UploadCloud className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-medium text-on-surface">Tải ảnh nhân vật lên</span>
+                  <span className="mt-0.5 text-xs text-on-surface-variant">PNG, JPG, WebP · tối đa {MAX_IMAGE_SIZE_MB} MB</span>
+                  <input type="file" accept="image/*" className="sr-only" onChange={handleImageUpload} />
                 </label>
               )}
             </div>
@@ -319,52 +339,63 @@ export function KlingMotionWorkspace({
 
           {/* Motion Video Upload */}
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Video chuyển động mẫu <span className="text-red-400">*</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-on-surface">
+                Video chuyển động mẫu <span className="text-error">*</span>
               </span>
-              <span className="text-[9px] text-slate-400">Tối đa {MAX_VIDEO_SIZE_MB}MB · MP4 / MOV</span>
+              <span className="text-xs text-on-surface-variant">Tối đa {MAX_VIDEO_SIZE_MB} MB · MP4 / MOV</span>
             </div>
-            <div className="border border-dashed border-slate-200 rounded-2xl p-4 bg-slate-50/30 flex flex-col items-center justify-center relative min-h-[100px] hover:border-violet-400/60 hover:bg-violet-50/10 transition-all duration-300">
+            <div className="relative flex min-h-28 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 p-4 transition-colors duration-150 hover:border-primary hover:bg-primary/5">
               {isUploadingVideo ? (
-                <div className="flex flex-col items-center gap-2 text-slate-400">
-                  <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-                  <span className="text-xs font-medium">Đang đọc file video...</span>
+                <div role="status" className="flex flex-col items-center gap-2 text-on-surface-variant">
+                  <Loader2 className="size-6 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                  <span className="text-sm font-medium">Đang đọc tệp video…</span>
                 </div>
               ) : motionVideo ? (
-                <div className="w-full flex items-center gap-3 p-2 bg-violet-50 rounded-xl border border-violet-100">
-                  <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                    <Film className="h-4 w-4 text-violet-600" />
+                <div className="flex w-full items-center gap-3 rounded-lg border border-primary/25 bg-primary/10 p-2.5">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-container-lowest text-primary">
+                    <Film className="size-4" aria-hidden="true" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-800 truncate">{motionVideoName || "video_motion.mp4"}</p>
-                    <p className="text-[10px] text-violet-500 font-medium">Sẵn sàng</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-on-surface">{motionVideoName || "video_motion.mp4"}</p>
+                    <p className="text-xs font-medium text-primary">
+                      Sẵn sàng{videoDuration > 0 ? ` · ${videoDuration.toFixed(1)} giây` : ""}
+                    </p>
                   </div>
                   <button
                     type="button"
+                    aria-label="Xóa video chuyển động mẫu"
                     onClick={() => { setMotionVideo(null); setMotionVideoName(""); setVideoDuration(0); }}
-                    className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-full transition-all cursor-pointer shrink-0"
+                    className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:text-on-surface cursor-pointer ${focusRingClass}`}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="size-4" aria-hidden="true" />
                   </button>
                 </div>
               ) : (
-                <label className="cursor-pointer flex flex-col items-center text-center w-full py-2">
-                  <UploadCloud className="h-7 w-7 text-slate-400 mb-2" />
-                  <span className="text-xs font-bold text-slate-700">Tải video chuyển động lên</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">Nhân vật trong video cần luôn hiển thị, 1 cảnh liên tục</span>
-                  <input type="file" accept="video/mp4,video/mov,video/quicktime" className="hidden" onChange={handleVideoUpload} />
+                <label className="flex w-full cursor-pointer flex-col items-center py-2 text-center">
+                  <span className="mb-2 inline-flex size-10 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant">
+                    <UploadCloud className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-medium text-on-surface">Tải video chuyển động lên</span>
+                  <span className="mt-0.5 text-pretty text-xs text-on-surface-variant">
+                    Nhân vật trong video cần luôn hiển thị, 1 cảnh liên tục
+                  </span>
+                  <input type="file" accept="video/mp4,video/mov,video/quicktime" className="sr-only" onChange={handleVideoUpload} />
                 </label>
               )}
             </div>
           </div>
 
           {/* Prompt (optional) */}
-          <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-3.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô tả thêm (tuỳ chọn)</span>
+          <div className="flex flex-col gap-1.5 border-t border-outline-variant pt-4">
+            <label htmlFor="kling-motion-prompt" className="text-sm font-medium text-on-surface">
+              Mô tả thêm <span className="font-normal text-on-surface-variant">(tùy chọn)</span>
+            </label>
             <textarea
-              placeholder="Ví dụ: nhân vật đang nhảy điệu samba trên sân khấu ngoài trời..."
-              className="w-full text-xs p-3 border border-slate-200 rounded-xl h-18 focus:ring-1 focus:ring-violet-400 focus:outline-none leading-relaxed bg-slate-50/20 resize-none font-medium"
+              id="kling-motion-prompt"
+              rows={3}
+              placeholder="Ví dụ: nhân vật đang nhảy điệu samba trên sân khấu ngoài trời…"
+              className="w-full min-h-20 resize-none rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               disabled={isGenerating}
@@ -373,50 +404,48 @@ export function KlingMotionWorkspace({
           </div>
 
           {/* Settings */}
-          <div className="flex flex-col gap-3 border-t border-slate-100 pt-3.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cài đặt</span>
-
+          <div className="flex flex-col gap-3.5 border-t border-outline-variant pt-4">
             {/* Model */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] text-slate-500 font-semibold">Phiên bản mô hình</span>
-              <select
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-on-surface">Phiên bản mô hình</span>
+              <StyledSelect
+                appearance="erp"
+                ariaLabel="Phiên bản mô hình"
                 value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-                className="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none cursor-pointer font-medium text-slate-800"
+                onChange={setModelName}
                 disabled={isGenerating}
-              >
-                {KLING_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label} — {m.desc}
-                  </option>
-                ))}
-              </select>
+                options={modelOptions}
+                className="h-10 rounded-md"
+                menuClassName="rounded-md [&_[role=option]]:rounded-sm"
+              />
             </div>
 
             {/* Mode */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] text-slate-500 font-semibold">Chất lượng xuất</span>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-on-surface">Chất lượng xuất</span>
+              <div role="group" aria-label="Chất lượng xuất" className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
+                  aria-pressed={mode === "std"}
                   onClick={() => setMode("std")}
                   disabled={isGenerating}
-                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium tabular-nums transition-colors duration-150 cursor-pointer ${focusRingClass} ${
                     mode === "std"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
                   }`}
                 >
                   Standard · 720p
                 </button>
                 <button
                   type="button"
+                  aria-pressed={mode === "pro"}
                   onClick={() => setMode("pro")}
                   disabled={isGenerating}
-                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium tabular-nums transition-colors duration-150 cursor-pointer ${focusRingClass} ${
                     mode === "pro"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
                   }`}
                 >
                   Pro · 1080p
@@ -425,67 +454,72 @@ export function KlingMotionWorkspace({
             </div>
 
             {/* Character Orientation */}
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-slate-500 font-semibold">Hướng nhân vật</span>
-                <span className="text-[9px] text-slate-400">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-on-surface">Hướng nhân vật</span>
+                <span className="text-xs tabular-nums text-on-surface-variant">
                   {characterOrientation === "video" ? "Tối đa 30 giây" : "Tối đa 10 giây"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div role="group" aria-label="Hướng nhân vật" className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
+                  aria-pressed={characterOrientation === "video"}
                   onClick={() => setCharacterOrientation("video")}
                   disabled={isGenerating}
-                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-150 cursor-pointer ${focusRingClass} ${
                     characterOrientation === "video"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
                   }`}
                 >
                   Theo video
                 </button>
                 <button
                   type="button"
+                  aria-pressed={characterOrientation === "image"}
                   onClick={() => setCharacterOrientation("image")}
                   disabled={isGenerating}
-                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-150 cursor-pointer ${focusRingClass} ${
                     characterOrientation === "image"
-                      ? "border-violet-500 bg-violet-50 text-violet-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
                   }`}
                 >
                   Theo ảnh
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 leading-relaxed">
+              <p className="text-pretty text-xs leading-relaxed text-on-surface-variant">
                 {characterOrientation === "video"
-                  ? "Nhân vật theo hướng trong video mẫu — hỗ trợ chuyển động phức tạp."
-                  : "Nhân vật giữ hướng từ ảnh gốc — phù hợp với chuyển động camera."}
+                  ? "Nhân vật theo hướng trong video mẫu — phù hợp chuyển động phức tạp."
+                  : "Nhân vật giữ hướng từ ảnh gốc — phù hợp chuyển động camera."}
               </p>
             </div>
 
             {/* Keep Original Sound */}
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface-container-low/60 px-3.5 py-2.5">
               <div className="flex items-center gap-2">
                 {keepOriginalSound ? (
-                  <Volume2 className="h-3.5 w-3.5 text-violet-500" />
+                  <Volume2 className="size-4 text-primary" aria-hidden="true" />
                 ) : (
-                  <VolumeX className="h-3.5 w-3.5 text-slate-400" />
+                  <VolumeX className="size-4 text-on-surface-variant" aria-hidden="true" />
                 )}
-                <span className="text-xs font-semibold text-slate-700">Giữ âm thanh gốc từ video</span>
+                <span className="text-sm font-medium text-on-surface">Giữ âm thanh gốc từ video</span>
               </div>
               <button
                 type="button"
+                role="switch"
+                aria-checked={keepOriginalSound}
+                aria-label="Giữ âm thanh gốc từ video"
                 onClick={() => setKeepOriginalSound(!keepOriginalSound)}
                 disabled={isGenerating}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
-                  keepOriginalSound ? "bg-violet-500" : "bg-slate-200"
+                className={`relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-150 cursor-pointer ${focusRingClass} ${
+                  keepOriginalSound ? "bg-primary" : "bg-outline-variant"
                 }`}
               >
                 <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
-                    keepOriginalSound ? "translate-x-4.5" : "translate-x-0.5"
+                  className={`inline-block size-4 transform rounded-full bg-white shadow-xs transition-transform duration-150 ${
+                    keepOriginalSound ? "translate-x-5" : "translate-x-1"
                   }`}
                 />
               </button>
@@ -494,90 +528,102 @@ export function KlingMotionWorkspace({
 
           {/* Estimated Cost */}
           {videoDuration > 0 && (
-            <div className="flex items-center justify-between px-3 py-2 bg-violet-50 border border-violet-100 rounded-xl text-[10px]">
-              <span className="text-slate-500 font-medium">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3.5 py-2.5 text-xs tabular-nums">
+              <span className="text-on-surface-variant">
                 Ước tính phí · {videoDuration.toFixed(1)}s × {KLING_COST_PER_SECOND[modelName]?.[mode] ?? 32} credits/s
               </span>
-              <span className="font-bold text-violet-700">
+              <span className="font-semibold text-primary">
                 {calcEstimatedCost(modelName, mode, videoDuration).toLocaleString()} credits
               </span>
             </div>
           )}
 
           {/* Generate Button */}
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className={`w-full py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer active:scale-95 shadow-md ${
-              canGenerate
-                ? "bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200"
-                : "bg-slate-100 text-slate-400 border border-slate-200 shadow-none cursor-not-allowed"
-            }`}
-          >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Tạo Video Motion Control
-          </button>
-
-          {!characterImage && !motionVideo && (
-            <p className="text-[10px] text-center text-slate-400">
-              Cần cả ảnh nhân vật và video chuyển động để bắt đầu.
-            </p>
-          )}
+          <div className="border-t border-outline-variant pt-4">
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-on-primary transition-colors duration-150 hover:bg-primary/90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${focusRingClass}`}
+            >
+              {isGenerating ? (
+                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              ) : (
+                <Sparkles className="size-4" aria-hidden="true" />
+              )}
+              {isGenerating ? "Đang tạo video…" : "Tạo video chuyển động"}
+            </button>
+          </div>
         </div>
 
         {/* RIGHT PANEL */}
-        <div className="lg:col-span-7 flex flex-col gap-6 relative bg-slate-50/30 border border-slate-200/60 p-6 rounded-3xl min-h-[660px] justify-between">
+        <div className="flex flex-col gap-5 lg:col-span-7">
 
-          {/* Preview */}
-          <div className="flex-1 flex flex-col justify-center items-center relative min-h-[360px] mb-4">
-            {isGenerating && !generatedVideoUrl ? (
-              <div className="flex flex-col items-center gap-4 text-slate-400 p-8 text-center animate-pulse">
-                <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
-                <div className="flex flex-col gap-1.5 items-center">
-                  <span className="text-xs font-bold tracking-wider uppercase font-mono text-violet-400">
-                    Đang dựng Motion Control {generateProgress}%...
-                  </span>
-                  <span className="text-[10px] text-slate-500">
-                    Kling AI đang tổng hợp chuyển động, có thể mất vài phút.
-                  </span>
-                </div>
-                <div className="w-48 bg-slate-200 h-1.5 rounded-full overflow-hidden mt-1">
-                  <div
-                    className="bg-violet-500 h-full transition-all duration-300 rounded-full"
-                    style={{ width: `${generateProgress}%` }}
-                  />
-                </div>
+          {/* Preview Card */}
+          <section
+            aria-label="Khung xem trước video chuyển động"
+            aria-busy={isGenerating}
+            className="flex min-h-[420px] flex-col rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3">
+              <h2 className="text-balance text-sm font-semibold text-on-surface">Khung xem trước</h2>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums text-on-surface-variant">
+                <span className="rounded-md bg-surface-container-low px-2 py-0.5">
+                  {KLING_MODELS.find((m) => m.value === modelName)?.label || modelName}
+                </span>
+                <span className="rounded-md bg-surface-container-low px-2 py-0.5">
+                  {mode === "pro" ? "1080p" : "720p"}
+                </span>
               </div>
-            ) : generatedVideoUrl ? (
-              <div className="w-full flex flex-col gap-3">
-                <div className="w-full flex items-center justify-center relative rounded-3xl overflow-hidden border border-slate-200 bg-black shadow-lg aspect-video max-h-[380px]">
-                  {generatedVideoUrl.startsWith("pending://kling/") ? (() => {
-                    const taskId = generatedVideoUrl.replace("pending://kling/", "");
-                    const matched = history.find((r) => r.metadata?.piapiTaskId === taskId);
-                    const progressVal = matched?.metadata?.progress;
-                    return (
-                      <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-xs font-bold text-violet-400 uppercase tracking-widest p-4 text-center">
-                        <Loader2 className="h-8 w-8 animate-spin mb-2 text-violet-500" />
-                        Video đang được dựng...
-                        {progressVal !== undefined && (
-                          <div className="flex flex-col items-center gap-1.5 mt-2 w-48 mx-auto">
-                            <span className="text-[10px] text-violet-300 font-mono">Tiến độ: {progressVal}%</span>
-                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className="bg-violet-500 h-full transition-all duration-300 rounded-full"
-                                style={{ width: `${progressVal}%` }}
-                              />
+            </div>
+
+            <div className="flex flex-1 flex-col items-center justify-center">
+              {isGenerating && !generatedVideoUrl ? (
+                <div role="status" className="flex flex-col items-center gap-3 p-8 text-center">
+                  <Loader2 className="size-9 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-sm font-semibold tabular-nums text-on-surface">
+                      Đang dựng Motion Control ({generateProgress}%)…
+                    </span>
+                    <span className="text-pretty text-xs text-on-surface-variant">
+                      Kling AI đang tổng hợp chuyển động, quá trình này có thể mất vài phút.
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 w-56 overflow-hidden rounded-full bg-surface-container-high">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${generateProgress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : generatedVideoUrl ? (
+                <div className="flex w-full flex-col gap-3">
+                  <div className="relative flex aspect-video max-h-[400px] w-full items-center justify-center overflow-hidden rounded-lg border border-outline-variant bg-black">
+                    {generatedVideoUrl.startsWith("pending://kling/") ? (() => {
+                      const taskId = generatedVideoUrl.replace("pending://kling/", "");
+                      const matched = history.find((r) => r.metadata?.piapiTaskId === taskId);
+                      const progressVal = matched?.metadata?.progress;
+                      return (
+                        <div role="status" className="flex size-full flex-col items-center justify-center bg-surface-container-low p-6 text-center">
+                          <Loader2 className="mb-3 size-8 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                          <span className="text-sm font-semibold text-on-surface">Video đang được dựng…</span>
+                          {progressVal !== undefined && (
+                            <div className="mt-2.5 flex w-52 flex-col items-center gap-1.5">
+                              <span className="text-xs font-medium tabular-nums text-primary">Tiến độ: {progressVal}%</span>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{ width: `${progressVal}%` }}
+                                />
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        <span className="text-[10px] text-slate-400 normal-case font-normal mt-2">
-                          Hệ thống đang xử lý ở chế độ nền. Không cần tải lại trang.
-                        </span>
-                      </div>
-                    );
-                  })() : (
-                    <>
+                          )}
+                          <span className="mt-2 text-pretty text-xs text-on-surface-variant">
+                            Hệ thống đang xử lý ở chế độ nền, không cần tải lại trang.
+                          </span>
+                        </div>
+                      );
+                    })() : (
                       <video
                         src={generatedVideoUrl}
                         controls
@@ -585,73 +631,77 @@ export function KlingMotionWorkspace({
                         loop
                         playsInline
                         crossOrigin="anonymous"
-                        className="w-full h-full object-contain"
+                        className="size-full object-contain"
                       />
-                      <div className="absolute top-4 right-4 opacity-0 hover:opacity-100 transition-opacity z-10">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadVideo()}
-                          className="p-2 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl shadow border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
-                        >
-                          <Download className="h-4 w-4" />
-                          Tải Video
-                        </button>
-                      </div>
-                    </>
+                    )}
+                  </div>
+
+                  {!generatedVideoUrl.startsWith("pending://kling/") && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadVideo()}
+                        className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface transition-colors duration-150 hover:bg-surface-container-low cursor-pointer ${focusRingClass}`}
+                      >
+                        <Download className="size-4" aria-hidden="true" />
+                        Tải video
+                      </button>
+                    </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 p-10 text-center select-none">
-                <div className="h-12 w-12 rounded-full bg-violet-50 border border-violet-100 flex items-center justify-center mb-2">
-                  <Film className="h-6 w-6 text-violet-300 stroke-[1.5]" />
+              ) : (
+                <div className="flex w-full flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 px-6 py-12 text-center">
+                  <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Film className="size-6" aria-hidden="true" />
+                  </div>
+                  <h3 className="text-balance text-sm font-semibold text-on-surface">Motion Control sẵn sàng</h3>
+                  <p className="mt-1 max-w-sm text-pretty text-sm text-on-surface-variant">
+                    Tải ảnh nhân vật và video chuyển động mẫu ở cột bên trái để bắt đầu.
+                  </p>
                 </div>
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Motion Control sẵn sàng</span>
-                <span className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
-                  Tải lên ảnh nhân vật và video chuyển động mẫu, rồi nhấn nút tạo video để bắt đầu.
-                </span>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </section>
 
-          {/* History */}
-          <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-lg flex flex-col gap-3.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h4 className="font-bold text-slate-800 text-xs">Lịch sử Motion Control</h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">Hiển thị tối đa 20 kết quả gần nhất.</p>
-              </div>
-              <span className="px-2.5 py-0.5 bg-violet-50 text-violet-600 rounded-full text-[10px] font-bold font-mono">
+          {/* History Card */}
+          <section
+            aria-label="Lịch sử Motion Control"
+            className="flex flex-col gap-3.5 rounded-xl border border-outline-variant bg-surface-container-lowest p-5"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-outline-variant pb-3">
+              <h2 className="text-balance text-sm font-semibold text-on-surface">Lịch sử Motion Control</h2>
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">
                 {history.slice(0, 20).length}/20
               </span>
             </div>
 
             {isLoadingHistory ? (
-              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-                <Loader2 className="h-6 w-6 text-violet-500 animate-spin mb-2" />
-                <span className="text-[9px] uppercase tracking-wider font-mono">Đang tải...</span>
+              <div role="status" className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
+                <Loader2 className="size-5 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                <span className="text-xs">Đang tải lịch sử…</span>
               </div>
             ) : history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-slate-400 border border-dashed rounded-xl bg-slate-50/50">
-                <Video className="h-6 w-6 text-slate-300 mb-2" />
-                <span className="text-[10px] font-semibold text-slate-400">Chưa có video motion control</span>
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 py-8 text-center">
+                <Video className="size-5 text-on-surface-variant" aria-hidden="true" />
+                <span className="text-sm text-on-surface-variant">Chưa có video chuyển động nào</span>
               </div>
             ) : (
               <div className="relative flex items-center gap-2">
                 <button
                   type="button"
+                  aria-label="Cuộn lịch sử sang trái"
                   onClick={() => {
-                    const el = document.getElementById("kling_history_slider");
-                    if (el) el.scrollLeft -= 200;
+                    if (historySliderRef.current) historySliderRef.current.scrollLeft -= 220;
                   }}
-                  className="h-7 w-7 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-xs cursor-pointer shrink-0 active:scale-90 transition-transform"
+                  className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="size-4" aria-hidden="true" />
                 </button>
 
                 <div
+                  ref={historySliderRef}
                   id="kling_history_slider"
-                  className="flex-1 overflow-x-auto flex gap-3 pb-1 scroll-smooth"
+                  className="flex flex-1 gap-3 overflow-x-auto pb-1 scroll-smooth"
                   style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                 >
                   {history.slice(0, 20).map((record, index) => {
@@ -661,55 +711,65 @@ export function KlingMotionWorkspace({
                       !record.url ||
                       record.url.startsWith("pending://") ||
                       record.metadata?.status === "processing";
+                    const label = `MC ${history.length - index}`;
 
                     return (
                       <div
                         key={id}
-                        onClick={() => !isPending && setGeneratedVideoUrl(record.url)}
-                        className={`w-32 aspect-[16/10] relative rounded-xl overflow-hidden bg-slate-950 shadow-xs shrink-0 border-2 transition-all group/item ${
-                          isActive ? "border-violet-500" : "border-transparent"
-                        } ${!isPending ? "cursor-pointer hover:shadow-md" : "cursor-default"}`}
+                        className={`group/item relative aspect-[16/10] w-36 shrink-0 overflow-hidden rounded-lg border-2 bg-black transition-colors duration-150 ${
+                          isActive ? "border-primary" : "border-outline-variant hover:border-outline"
+                        }`}
                       >
-                        {!isPending && record.url ? (
-                          <video
-                            src={record.url}
-                            className="w-full h-full object-cover"
-                            muted
-                            preload="metadata"
-                            playsInline
-                            crossOrigin="anonymous"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center text-[8px] font-bold text-violet-400 uppercase tracking-widest p-1 text-center">
-                            <Loader2 className="h-4 w-4 animate-spin mb-1 text-violet-500" />
-                            Đang dựng
-                            {record.metadata?.progress !== undefined && ` ${record.metadata.progress}%`}
-                          </div>
-                        )}
-
-                        {!isPending && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-70 group-hover/item:opacity-100 transition-opacity">
-                            <div className="h-6 w-6 rounded-full bg-white/95 flex items-center justify-center text-slate-900 shadow">
-                              <Play className="h-2.5 w-2.5 fill-slate-900 ml-0.5" />
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          aria-label={`Xem ${label}`}
+                          onClick={() => !isPending && setGeneratedVideoUrl(record.url)}
+                          className={`block size-full text-left ${!isPending ? "cursor-pointer" : "cursor-default"} ${focusRingClass}`}
+                        >
+                          {!isPending && record.url ? (
+                            <video
+                              src={record.url}
+                              className="size-full object-cover"
+                              muted
+                              preload="metadata"
+                              playsInline
+                              crossOrigin="anonymous"
+                            />
+                          ) : (
+                            <div className="flex size-full flex-col items-center justify-center bg-surface-container-low p-2 text-center text-xs font-medium text-primary">
+                              <Loader2 className="mb-1 size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                              <span className="tabular-nums">
+                                Đang dựng{record.metadata?.progress !== undefined ? ` ${record.metadata.progress}%` : ""}
+                              </span>
                             </div>
-                          </div>
-                        )}
+                          )}
+
+                          {!isPending && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-80 transition-opacity duration-150 group-hover/item:opacity-100">
+                              <span className="flex size-7 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-xs">
+                                <Play className="ml-0.5 size-3 fill-current" aria-hidden="true" />
+                              </span>
+                            </span>
+                          )}
+                        </button>
 
                         <button
                           type="button"
+                          aria-label={`Xóa ${label} khỏi lịch sử`}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteHistory(id);
                           }}
-                          className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-600 text-white rounded-md opacity-0 group-hover/item:opacity-100 transition-opacity z-10"
+                          className={`absolute right-1.5 top-1.5 z-10 inline-flex size-6 items-center justify-center rounded-md bg-black/70 text-white opacity-0 transition-opacity duration-150 hover:bg-error focus-visible:opacity-100 group-hover/item:opacity-100 cursor-pointer ${focusRingClass}`}
                           title="Xóa khỏi lịch sử"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="size-3.5" aria-hidden="true" />
                         </button>
 
-                        <div className="absolute bottom-1 left-1.5 right-1.5 flex justify-between items-center text-[8px] font-bold text-white bg-black/40 px-1 py-0.5 rounded backdrop-blur-xs">
-                          <span className="truncate max-w-[55px]">{`MC ${history.length - index}`}</span>
-                          <span className="text-violet-300">Kling</span>
+                        <div className="pointer-events-none absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between rounded bg-black/55 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
+                          <span className="truncate">{label}</span>
+                          <span>Kling</span>
                         </div>
                       </div>
                     );
@@ -718,19 +778,34 @@ export function KlingMotionWorkspace({
 
                 <button
                   type="button"
+                  aria-label="Cuộn lịch sử sang phải"
                   onClick={() => {
-                    const el = document.getElementById("kling_history_slider");
-                    if (el) el.scrollLeft += 200;
+                    if (historySliderRef.current) historySliderRef.current.scrollLeft += 220;
                   }}
-                  className="h-7 w-7 rounded-full bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-xs cursor-pointer shrink-0 active:scale-90 transition-transform"
+                  className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-low hover:text-on-surface cursor-pointer ${focusRingClass}`}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="size-4" aria-hidden="true" />
                 </button>
               </div>
             )}
-          </div>
+          </section>
         </div>
       </div>
+
+      <ConfirmDialog
+        appearance="erp"
+        isOpen={Boolean(pendingDeleteId)}
+        isSubmitting={isDeletingHistory}
+        title="Xóa video khỏi lịch sử"
+        description="Bạn có chắc chắn muốn xóa video này khỏi lịch sử Motion Control?"
+        confirmLabel="Xóa video"
+        cancelLabel="Hủy"
+        tone="danger"
+        onClose={() => {
+          if (!isDeletingHistory) setPendingDeleteId(null);
+        }}
+        onConfirm={confirmDeleteHistory}
+      />
     </div>
   );
 }

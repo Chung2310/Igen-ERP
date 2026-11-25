@@ -1,0 +1,212 @@
+{
+  "version": "P5-Luna-proposal-v0.2-2026-11-21",
+  "status": "pending-user-approval",
+  "liveAllowed": false,
+  "currentlyApprovedBudgetUsd": 0,
+  "model": "openai/gpt-6-luna",
+  "providerSlug": "openai",
+  "rates": {
+    "inputUsdPerMillion": 0.1,
+    "outputUsdPerMillion": 0.5,
+    "longPromptAtLeastTokens": 272000,
+    "longInputUsdPerMillion": 0.2,
+    "longOutputUsdPerMillion": 0.75
+  },
+  "priceCheckedDate": "2026-11-21",
+  "sources": {
+    "pricing": "https://openrouter.ai/openai/gpt-6-luna",
+    "endpoints": "https://openrouter.ai/api/v1/models/openai/gpt-6-luna/endpoints",
+    "usage": "https://openrouter.ai/docs/cookbook/administration/usage-accounting.md"
+  },
+  "dryRun": {
+    "source": "server/assistant/testing/layer-a-product-evaluation/luna-dry-run-observations.json",
+    "narrowCases": 24,
+    "wideCases": 24,
+    "narrowRequests": 24,
+    "wideRequests": 54,
+    "wideDiscoveryRequests": 24,
+    "wideFilteredRequests": 24,
+    "wideExpandedRequests": 6,
+    "bodyBytesTotal": 20920524,
+    "largestBodyBytes": 1456297
+  },
+  "assumptions": {
+    "tokensLow": {
+      "narrow": 4000,
+      "discovery": 70000,
+      "filtered": 25000,
+      "expanded": 300000
+    },
+    "tokensPlan": {
+      "narrow": 8000,
+      "discovery": 140000,
+      "filtered": 50000,
+      "expanded": 600000
+    },
+    "note": "Unverified GPT token sensitivity assumptions;not measured tokens,not converted Gemini tokens;benchmark proposal disables automatic caching."
+  },
+  "estimates": {
+    "lowerSensitivity": {
+      "parts": [
+        {
+          "stage": "narrow",
+          "count": 24,
+          "inputTokensEach": 4000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.0096,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "discovery",
+          "count": 24,
+          "inputTokensEach": 70000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.168,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "filtered",
+          "count": 24,
+          "inputTokensEach": 25000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.06,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "expanded",
+          "count": 6,
+          "inputTokensEach": 300000,
+          "inputRate": 0.2,
+          "outputRate": 0.75,
+          "inputUsd": 0.36,
+          "outputUsd": 0.018432
+        }
+      ],
+      "inputTokensAssumed": 4176000,
+      "requests": 78,
+      "totalUsd": 0.763488
+    },
+    "planningSensitivity": {
+      "parts": [
+        {
+          "stage": "narrow",
+          "count": 24,
+          "inputTokensEach": 8000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.0192,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "discovery",
+          "count": 24,
+          "inputTokensEach": 140000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.336,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "filtered",
+          "count": 24,
+          "inputTokensEach": 50000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.12,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "expanded",
+          "count": 6,
+          "inputTokensEach": 600000,
+          "inputRate": 0.2,
+          "outputRate": 0.75,
+          "inputUsd": 0.72,
+          "outputUsd": 0.018432
+        }
+      ],
+      "inputTokensAssumed": 8352000,
+      "requests": 78,
+      "totalUsd": 1.361088
+    },
+    "allWideCasesExpand": {
+      "parts": [
+        {
+          "stage": "narrow",
+          "count": 24,
+          "inputTokensEach": 8000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.0192,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "discovery",
+          "count": 24,
+          "inputTokensEach": 140000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.336,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "filtered",
+          "count": 24,
+          "inputTokensEach": 50000,
+          "inputRate": 0.1,
+          "outputRate": 0.5,
+          "inputUsd": 0.12,
+          "outputUsd": 0.049152
+        },
+        {
+          "stage": "expanded",
+          "count": 24,
+          "inputTokensEach": 600000,
+          "inputRate": 0.2,
+          "outputRate": 0.75,
+          "inputUsd": 2.88,
+          "outputUsd": 0.073728
+        }
+      ],
+      "inputTokensAssumed": 19152000,
+      "requests": 96,
+      "totalUsd": 3.576384
+    }
+  },
+  "recommended": {
+    "totalUsd": 5,
+    "pilotUsdIncluded": 1,
+    "maxCaseRuns": 48,
+    "maxPaidAttempts": 96,
+    "maxConcurrentRequests": 1,
+    "maxOutputTokensPerRequest": 4096,
+    "maxAggregateInputTokens": 20000000,
+    "maxAggregateOutputTokens": 500000,
+    "wholeRunMinutes": 60,
+    "maxDiscoverySeconds": 20,
+    "maxInterpretationSeconds": 40,
+    "retries": 0,
+    "modelFallback": false,
+    "providerFallback": false,
+    "repeatRounds": 1
+  },
+  "reservation": {
+    "inputTokensPerAttempt": 922000,
+    "outputTokensPerAttempt": 128000,
+    "usdPerAttempt": 0.3,
+    "modelMaximumUsd": 0.2804,
+    "note": "Maximum prompt/completion tokens from current endpoint;use long-context rates and disable caching in the proposed benchmark."
+  },
+  "tokenCapsCostBoundUsd": 4.375,
+  "noInferenceCalled": true,
+  "cachePolicyForProposedEvaluation": {
+    "prompt_cache_options": {
+      "mode": "explicit"
+    },
+    "noPromptCacheBreakpoints": true,
+    "doesNotChangeProductionCachePolicy": true
+  }
+}

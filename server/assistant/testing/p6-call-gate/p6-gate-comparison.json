@@ -1,0 +1,2450 @@
+[
+  {
+    "scenario": "EXISTING REJECTION product.list mirrors generic api-rejection-probe",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 6,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION inventory.product.detail mirrors generic api-rejection-probe",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 12,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL product.list mirrors existing generic success-probe shape",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 7,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG02 unique detail traces parent product and every physical read",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P2 by its public product code without variant retargeting",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 26,
+      "callJournalWrites": 21,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P3 by its public product code without variant retargeting",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 26,
+      "callJournalWrites": 21,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 retains free-text product code recovery from same-name choices",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 23,
+      "callJournalWrites": 18,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are missing",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are same",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps an ambiguous pre-fix pending selection safe and allows choosing again after restating the name",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 15,
+      "chargedReads": 1,
+      "journalWrites": 7
+    },
+    "after": {
+      "calls": 15,
+      "chargedReads": 1,
+      "journalWrites": 52,
+      "callJournalWrites": 45,
+      "callJournalReads": 4
+    }
+  },
+  {
+    "scenario": "P1 rejects a fabricated option that was not offered by the server",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 respects revoked permission between showing and selecting an option",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 still requires configured confirmation after selecting a product",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 27,
+      "callJournalWrites": 21,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "O14 CG05 F25 succeeds because executor requests limit100 instead of API default20",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O14 CG05 F101 compares revalidation beyond first100",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 1
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 10,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O15 CG03 fallback reads are counted physically but not all in the current journal",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 16,
+      "callJournalWrites": 12,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG06 empty variants preserves existing transport parent but projects zero rows",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "CG06 nonempty detail projects SKU ids while keeping a separate productId",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION two sequential read steps keep independent physical calls",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 4,
+      "chargedReads": 2,
+      "journalWrites": 8
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 2,
+      "journalWrites": 20,
+      "callJournalWrites": 12,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL raw-ID reference after first100 is distinct from product absence",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION nine distinct detail steps compare physical reads with9 charged",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 27,
+      "chargedReads": 9,
+      "journalWrites": 36
+    },
+    "after": {
+      "calls": 27,
+      "chargedReads": 9,
+      "journalWrites": 117,
+      "callJournalWrites": 81,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "SAFETY external fetch and direct DB/provider calls fail before real I/O",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 detail with no SKU preserves the existing parent product",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 flag is off when unset, regardless of the comparison group",
+    "exactVerify": false,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION product.list mirrors generic api-rejection-probe",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 6,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION inventory.product.detail mirrors generic api-rejection-probe",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 12,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL product.list mirrors existing generic success-probe shape",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 7,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG02 unique detail traces parent product and every physical read",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P2 by its public product code without variant retargeting",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 26,
+      "callJournalWrites": 21,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P3 by its public product code without variant retargeting",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 26,
+      "callJournalWrites": 21,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 retains free-text product code recovery from same-name choices",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 23,
+      "callJournalWrites": 18,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are missing",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are same",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps an ambiguous pre-fix pending selection safe and allows choosing again after restating the name",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 15,
+      "chargedReads": 1,
+      "journalWrites": 7
+    },
+    "after": {
+      "calls": 15,
+      "chargedReads": 1,
+      "journalWrites": 52,
+      "callJournalWrites": 45,
+      "callJournalReads": 4
+    }
+  },
+  {
+    "scenario": "P1 rejects a fabricated option that was not offered by the server",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 respects revoked permission between showing and selecting an option",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 still requires configured confirmation after selecting a product",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 7,
+      "chargedReads": 1,
+      "journalWrites": 27,
+      "callJournalWrites": 21,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "O14 CG05 F25 succeeds because executor requests limit100 instead of API default20",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O14 CG05 F101 compares revalidation beyond first100",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 1
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 10,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O15 CG03 fallback reads are counted physically but not all in the current journal",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 16,
+      "callJournalWrites": 12,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG06 empty variants preserves existing transport parent but projects zero rows",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "CG06 nonempty detail projects SKU ids while keeping a separate productId",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION two sequential read steps keep independent physical calls",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 4,
+      "chargedReads": 2,
+      "journalWrites": 8
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 2,
+      "journalWrites": 20,
+      "callJournalWrites": 12,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL raw-ID reference after first100 is distinct from product absence",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION nine distinct detail steps compare physical reads with9 charged",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 27,
+      "chargedReads": 9,
+      "journalWrites": 36
+    },
+    "after": {
+      "calls": 27,
+      "chargedReads": 9,
+      "journalWrites": 117,
+      "callJournalWrites": 81,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "SAFETY external fetch and direct DB/provider calls fail before real I/O",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 detail with no SKU preserves the existing parent product",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 flag is off when unset, regardless of the comparison group",
+    "exactVerify": false,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION product.list mirrors generic api-rejection-probe",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 6,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION inventory.product.detail mirrors generic api-rejection-probe",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL product.list mirrors existing generic success-probe shape",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 7,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG02 unique detail traces parent product and every physical read",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P2 by its public product code without variant retargeting",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 23,
+      "callJournalWrites": 18,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P3 by its public product code without variant retargeting",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 23,
+      "callJournalWrites": 18,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 retains free-text product code recovery from same-name choices",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 5,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 5,
+      "chargedReads": 1,
+      "journalWrites": 20,
+      "callJournalWrites": 15,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are missing",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are same",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps an ambiguous pre-fix pending selection safe and allows choosing again after restating the name",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 14,
+      "chargedReads": 1,
+      "journalWrites": 7
+    },
+    "after": {
+      "calls": 14,
+      "chargedReads": 1,
+      "journalWrites": 49,
+      "callJournalWrites": 42,
+      "callJournalReads": 4
+    }
+  },
+  {
+    "scenario": "P1 rejects a fabricated option that was not offered by the server",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 respects revoked permission between showing and selecting an option",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 still requires configured confirmation after selecting a product",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 24,
+      "callJournalWrites": 18,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "O14 CG05 F25 succeeds because executor requests limit100 instead of API default20",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O14 CG05 F101 compares revalidation beyond first100",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O15 CG03 fallback reads are counted physically but not all in the current journal",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG06 empty variants preserves existing transport parent but projects zero rows",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "CG06 nonempty detail projects SKU ids while keeping a separate productId",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION two sequential read steps keep independent physical calls",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 2,
+      "journalWrites": 8
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 2,
+      "journalWrites": 17,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL raw-ID reference after first100 is distinct from product absence",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION nine distinct detail steps compare physical reads with9 charged",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 18,
+      "chargedReads": 9,
+      "journalWrites": 36
+    },
+    "after": {
+      "calls": 18,
+      "chargedReads": 9,
+      "journalWrites": 90,
+      "callJournalWrites": 54,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "SAFETY external fetch and direct DB/provider calls fail before real I/O",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 detail with no SKU preserves the existing parent product",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 flag is off when unset, regardless of the comparison group",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a mismatched parent in the exact response before completing the step",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a mismatched company in the exact response before completing the step",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a mismatched variant in the exact response before completing the step",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: version",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: owner",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: pendingId",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: expired",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: workflowDigest",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: targetId",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects command target changes after a persisted preview",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a proof from a different branch session without treating products as branch-owned",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rebuilds the preview when workflow version changes, then verifies the same product",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 15,
+      "callJournalWrites": 9,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "P2 detects workflow changes even if its version was not incremented",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 does not retarget a deleted product to another record with the same name",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P2 resumes a legacy pending without proof using legacy verification",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 14,
+      "callJournalWrites": 9,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P2 flag-off restores legacy verification without clearing pending or duplicating detail",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 14,
+      "callJournalWrites": 9,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P2 flag-off retains pending beyond page100; explicit flag-on resume can still complete",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 18,
+      "callJournalWrites": 12,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "P2 request replay after flag-off returns the cached result without another GET",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for production",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for staging",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for unset",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for background",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 does not accept a model or client proof to bypass resolving an invented ID",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 4,
+      "chargedReads": 0,
+      "journalWrites": 1
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 0,
+      "journalWrites": 13,
+      "callJournalWrites": 12,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 cancellation prevents the primary exact GET",
+    "exactVerify": true,
+    "observer": false,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 1,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION product.list mirrors generic api-rejection-probe",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 6,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "EXISTING REJECTION inventory.product.detail mirrors generic api-rejection-probe",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL product.list mirrors existing generic success-probe shape",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 1,
+      "journalWrites": 7,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG02 unique detail traces parent product and every physical read",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P2 by its public product code without variant retargeting",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 23,
+      "callJournalWrites": 18,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 O02 selects P3 by its public product code without variant retargeting",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 23,
+      "callJournalWrites": 18,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 retains free-text product code recovery from same-name choices",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 5,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 5,
+      "chargedReads": 1,
+      "journalWrites": 20,
+      "callJournalWrites": 15,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are missing",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps asking when duplicate product codes are same",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 8,
+      "chargedReads": 0,
+      "journalWrites": 26,
+      "callJournalWrites": 24,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P1 keeps an ambiguous pre-fix pending selection safe and allows choosing again after restating the name",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 14,
+      "chargedReads": 1,
+      "journalWrites": 7
+    },
+    "after": {
+      "calls": 14,
+      "chargedReads": 1,
+      "journalWrites": 49,
+      "callJournalWrites": 42,
+      "callJournalReads": 4
+    }
+  },
+  {
+    "scenario": "P1 rejects a fabricated option that was not offered by the server",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 respects revoked permission between showing and selecting an option",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 0,
+      "journalWrites": 11,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P1 still requires configured confirmation after selecting a product",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 6,
+      "chargedReads": 1,
+      "journalWrites": 24,
+      "callJournalWrites": 18,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "O14 CG05 F25 succeeds because executor requests limit100 instead of API default20",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O14 CG05 F101 compares revalidation beyond first100",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "O15 CG03 fallback reads are counted physically but not all in the current journal",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CG06 empty variants preserves existing transport parent but projects zero rows",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "CG06 nonempty detail projects SKU ids while keeping a separate productId",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION two sequential read steps keep independent physical calls",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 2,
+      "journalWrites": 8
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 2,
+      "journalWrites": 17,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "CONTROL raw-ID reference after first100 is distinct from product absence",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "DISTRIBUTION nine distinct detail steps compare physical reads with9 charged",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 18,
+      "chargedReads": 9,
+      "journalWrites": 36
+    },
+    "after": {
+      "calls": 18,
+      "chargedReads": 9,
+      "journalWrites": 90,
+      "callJournalWrites": 54,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "SAFETY external fetch and direct DB/provider calls fail before real I/O",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0
+    },
+    "after": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 0,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 detail with no SKU preserves the existing parent product",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 flag is off when unset, regardless of the comparison group",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 13,
+      "callJournalWrites": 9,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a mismatched parent in the exact response before completing the step",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a mismatched company in the exact response before completing the step",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a mismatched variant in the exact response before completing the step",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 3
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 9,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: version",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: owner",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: pendingId",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: expired",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: workflowDigest",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects invalid stored proof: targetId",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects command target changes after a persisted preview",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rejects a proof from a different branch session without treating products as branch-owned",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 rebuilds the preview when workflow version changes, then verifies the same product",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 15,
+      "callJournalWrites": 9,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "P2 detects workflow changes even if its version was not incremented",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 5,
+      "callJournalWrites": 3,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 does not retarget a deleted product to another record with the same name",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P2 resumes a legacy pending without proof using legacy verification",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 14,
+      "callJournalWrites": 9,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P2 flag-off restores legacy verification without clearing pending or duplicating detail",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 5
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 14,
+      "callJournalWrites": 9,
+      "callJournalReads": 2
+    }
+  },
+  {
+    "scenario": "P2 flag-off retains pending beyond page100; explicit flag-on resume can still complete",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 6
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 1,
+      "journalWrites": 18,
+      "callJournalWrites": 12,
+      "callJournalReads": 3
+    }
+  },
+  {
+    "scenario": "P2 request replay after flag-off returns the cached result without another GET",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 2,
+      "chargedReads": 1,
+      "journalWrites": 10,
+      "callJournalWrites": 6,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for production",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for staging",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for unset",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 keeps the prototype disabled for background",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4
+    },
+    "after": {
+      "calls": 3,
+      "chargedReads": 1,
+      "journalWrites": 4,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  },
+  {
+    "scenario": "P2 does not accept a model or client proof to bypass resolving an invented ID",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 4,
+      "chargedReads": 0,
+      "journalWrites": 1
+    },
+    "after": {
+      "calls": 4,
+      "chargedReads": 0,
+      "journalWrites": 13,
+      "callJournalWrites": 12,
+      "callJournalReads": 1
+    }
+  },
+  {
+    "scenario": "P2 cancellation prevents the primary exact GET",
+    "exactVerify": true,
+    "observer": true,
+    "before": {
+      "calls": 1,
+      "chargedReads": 0,
+      "journalWrites": 2
+    },
+    "after": {
+      "calls": 0,
+      "chargedReads": 0,
+      "journalWrites": 1,
+      "callJournalWrites": 0,
+      "callJournalReads": 0
+    }
+  }
+]

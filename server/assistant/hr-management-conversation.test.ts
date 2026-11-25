@@ -64,6 +64,9 @@ vi.mock("./conversation-file", () => ({
 import { conversationState, processTurn } from "./service";
 import { completeAssistantOperation } from "./completion";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
+import { ASSISTANT_OPERATIONS } from "./catalog";
+import { answerAssistantConversation } from "./documents";
+import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
 
 const employeeId = "507f1f77bcf86cd799439022";
 const secondEmployeeId = "507f1f77bcf86cd799439023";
@@ -84,6 +87,33 @@ const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", com
 const audit = conversationAudit("hr");
 const turn = (input: any) => audit.turn(input, () => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input }));
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+function simulatedWorkflowResult(text: string, actionId: string, values: Record<string, unknown>) {
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === actionId);
+  return {
+    intentType: "workflow",
+    actionId,
+    actionIntent: operation?.assistantMetadata?.intent || "unknown",
+    values,
+    requestCoverage: [{
+      evidence: text,
+      requirement: operation?.title || actionId,
+      mappedTo: ["action", ...Object.keys(values)
+        .filter(key => operation?.fields.some(field => field.key === key) && values[key] !== undefined)
+        .map(key => `values.${key}`)],
+    }],
+  };
+}
+function mockSemanticWorkflow(actionId: string, values: Record<string, unknown>) {
+  state.provider.mockImplementation(async (request: any) => {
+    const latestUser = [...(request.messages || [])].reverse().find((message: any) => message.role === "user");
+    let text = typeof latestUser?.content === "string" ? latestUser.content : "";
+    try {
+      const payload = JSON.parse(text);
+      if (typeof payload.text === "string") text = payload.text;
+    } catch { /* Final interpretation prompts already contain the raw request. */ }
+    return { text: JSON.stringify(simulatedWorkflowResult(text, actionId, values)) };
+  });
+}
 
 it.each([
   ["Cho tôi tổng số nhân sự được thêm từ 01/11 đến 30/11/2026", "employee.count", { createdFrom: "2026-11-01", createdTo: "2026-11-30" }, "/auth/users/count", "12"],
@@ -92,7 +122,7 @@ it.each([
 ] as const)("simulated AI report: %s", async (text, actionId, values, path, expected) => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId, values }) });
+  mockSemanticWorkflow(actionId, values);
   const reply = await turn({ text });
   expect(reply.status, JSON.stringify(reply)).toBe("completed");
   expect(reply.reply).toContain(expected);
@@ -128,7 +158,7 @@ it("must not answer an unfiltered headcount when simulated AI omits the user's s
 it("simulated AI reads the overall business report with an explicit date range", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "dashboard.business-overview", values: { query_filter: "custom", query_startDate: "2026-11-01", query_endDate: "2026-11-30" } }) });
+  mockSemanticWorkflow("dashboard.business-overview", { query_filter: "custom", query_startDate: "2026-11-01", query_endDate: "2026-11-30" });
   fetcher.mockImplementation(async (url: URL) => {
     expect(new URL(String(url)).pathname).toBe("/api/v1/dashboard/business-overview");
     return json({ status: "success", data: { businessType: "education", range: { from: "2026-11-01", to: "2026-11-30" }, generatedAt: "2026-11-19T03:00:00.000Z", access: { education: true, hr: true }, errors: [],
@@ -386,6 +416,7 @@ beforeEach(() => {
   state.memoryEnabled = false; state.saveMemory.mockReset();
   vi.mocked(completeAssistantOperation).mockClear();
   state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();
+  vi.mocked(answerAssistantConversation).mockReset();
   state.includeStudentCourses = false;
   state.includeRecruitmentReport = true;
   trainingCourses = [{ _id: trainingCourseId, title: "hát", category: "Văn hóa", duration: "2 giờ", instructor: "Mai Anh" }];
@@ -870,6 +901,35 @@ it("lets a beginner choose the employee by name and confirms before deleting", a
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE")).toHaveLength(1);
 });
 
+it("routes a missing employee target through shared collection and confirms before deletion", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ modules: ["hr"] }) });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({
+    featureKeys: ["hr:employee"], ambiguous: true, clarification: "Bạn muốn xóa nhân sự nào?",
+  }) });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({
+    intentType: "workflow", actionId: "employee.delete", actionIntent: "delete", values: {},
+    requestCoverage: [{ evidence: "Xóa tài khoản nhân sự", requirement: "xóa tài khoản nhân sự", mappedTo: ["action"] }],
+  }) });
+
+  const collecting = await turn({ text: "Xóa tài khoản nhân sự" });
+
+  expect(collecting.status, JSON.stringify(collecting)).toBe("collecting");
+  const selection = collecting.referenceSelections?.find(group => group.key === "id");
+  expect(selection?.options.map(option => option.label)).toContain("La Văn Sến");
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.startsWith("/api/v1/auth/users/") && init?.method === "DELETE")).toBe(false);
+
+  const preview = await turn({ referenceSelections: { id: [selection!.options.find(option => option.label === "La Văn Sến")!.value] } });
+  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
+  expect(preview.action?.title).toBe("Xóa tài khoản nhân sự");
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE")).toBe(false);
+
+  const completed = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(completed.status).toBe("completed");
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${employeeId}` && init?.method === "DELETE")).toHaveLength(1);
+});
+
 it("finds an employee by the accented name and returns a safe, readable result", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
   state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
@@ -1079,6 +1139,62 @@ it("routes tomorrow's interview schedule question to the recruitment report", as
   }
 });
 
+it("answers active applicant counts by department through the recruitment report", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  fetcher.mockImplementation(async (url: URL, init?: RequestInit) => {
+    const requestUrl = new URL(String(url));
+    if (requestUrl.pathname === "/api/v1/recruitment/reports/assistant") {
+      expect(init?.method || "GET").toBe("GET");
+      expect(requestUrl.searchParams.get("reportType")).toBe("applicants-by-department");
+      return json({ data: {
+        reportType: "applicants-by-department",
+        summary: "2 phÃ²ng ban cÃ³ á»©ng viÃªn Ä‘ang á»©ng tuyá»ƒn.",
+        total: 2,
+        items: [{ name: "PhÃ²ng kinh doanh", count: 3 }, { name: "PhÃ²ng Marketing", count: 2 }],
+      } });
+    }
+    throw new Error(`Unexpected API path ${requestUrl.pathname}`);
+  });
+
+  const result = await turn({ mode: "qa", text: "Thống kê số ứng viên đang ứng tuyển vào từng phòng ban" });
+
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("PhÃ²ng kinh doanh");
+  expect(result.reply).toContain("PhÃ²ng Marketing");
+  expect(result.reply).toContain("3");
+  expect(result.reply).toContain("2");
+  expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(2);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(state.provider).not.toHaveBeenCalled();
+});
+
+it("continues in conversation mode when the read-query precheck is unavailable", async () => {
+  state.interpret.mockRejectedValueOnce(Object.assign(new Error("Provider rejected read-query routing"), { status: 402 }));
+  vi.mocked(answerAssistantConversation).mockResolvedValueOnce({
+    status: "completed",
+    reply: "Mình có thể giúp bạn soạn bản nháp hợp đồng lao động.",
+  } as any);
+
+  const result = await turn({ mode: "qa", text: "tạo hợp đồng lao động cho vị trí marketing" });
+
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("soạn bản nháp hợp đồng lao động");
+  expect(answerAssistantConversation).toHaveBeenCalledTimes(1);
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("shows a provider limit hint when the conversation response is rejected", async () => {
+  state.interpret.mockRejectedValueOnce(Object.assign(new Error(AI_PROVIDER_TEMPORARY_ERROR), { status: 402 }));
+  vi.mocked(answerAssistantConversation).mockRejectedValueOnce(Object.assign(new Error(AI_PROVIDER_TEMPORARY_ERROR), { status: 402 }));
+
+  const result = await turn({ mode: "qa", text: "tạo hợp đồng lao động cho vị trí marketing" });
+
+  expect(result.status).toBe("failed");
+  expect(result.reply).toContain("kiểm tra tín dụng hoặc hạn mức API AI");
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
 it("does not substitute calendar events when the recruitment report workflow is unavailable", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
   state.includeRecruitmentReport = false;
@@ -1282,6 +1398,33 @@ it("keeps the named training scope from the reported request through the result 
   expect(rows[0].values).toMatchObject({ "Nhân sự": "Phạm Gia Hân", "Khóa đào tạo": "Hát dân ca", "Tiến độ": "70%" });
   expect(result.reply).not.toContain("Quy chế bảo mật");
   expect(result.reply).not.toContain("An toàn lao động");
+});
+
+it("routes explicit internal training creation to HR when student courses are also enabled", async () => {
+  state.includeStudentCourses = true;
+  const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
+  state.interpret.mockImplementation((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
+
+  const result = await turn({ text: "tạo khóa đào tạo" });
+
+  expect(result.status).toBe("collecting");
+  expect(state.session.pending.actionId).toBe("training.create");
+  expect(result.reply).toContain("Tên khóa học");
+  expect(result.reply).not.toContain("Mã khóa học");
+  expect(result.reply).not.toContain("Hiện chưa có danh mục khóa học trong phạm vi đang chọn");
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/courses/categories")).toBe(false);
+
+  const supplemented = await turn({ text: "Mình bổ sung Mã khóa học: khoahocabc; Tên khóa học: khóa học abc; Số buổi hoặc thời lượng học: 20." });
+  expect(supplemented.status).toBe("collecting");
+  expect(state.session.pending.actionId).toBe("training.create");
+  expect(state.session.pending.provided).toMatchObject({ title: "khóa học abc", duration: "20 buổi" });
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/courses/categories")).toBe(false);
+
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn bổ sung danh mục đào tạo nào?" });
+  const confirmation = await turn({ text: "xác nhận" });
+  expect(confirmation.status).toBe("collecting");
+  expect(confirmation.reply).toContain("Yêu cầu trước vẫn được giữ.");
+  expect(state.session.pending.actionId).toBe("training.create");
 });
 
 it.each(["tạo khóa học mới", "thêm khóa học mới"])("asks for the course type and then required details: %s", async text => {

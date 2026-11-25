@@ -17,18 +17,18 @@
 }
 
 .student-stat-card {
-  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%),
-    linear-gradient(105deg, var(--student-stat-start), var(--student-stat-end));
+  background: linear-gradient(90deg, rgb(255 255 255 / 20%) 0%, rgb(255 255 255 / 4%) 42%, transparent 72%),
+    linear-gradient(115deg, var(--student-stat-start), var(--student-stat-end));
   box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
   color: #fff;
 }
 
-.student-stat-card--purple { --student-stat-start: #7950e9; --student-stat-end: #6247e1; }
-.student-stat-card--blue { --student-stat-start: #4269f0; --student-stat-end: #2a60eb; }
-.student-stat-card--cyan { --student-stat-start: #0b92be; --student-stat-end: #06b2e6; }
-.student-stat-card--orange { --student-stat-start: #d85c27; --student-stat-end: #f47835; }
-.student-stat-card--rose { --student-stat-start: #dd3d69; --student-stat-end: #f46a83; }
-.student-stat-card--green { --student-stat-start: #169b63; --student-stat-end: #2bbb81; }
+.student-stat-card--purple { --student-stat-start: #8b5cf6; --student-stat-end: #7c3aed; }
+.student-stat-card--blue { --student-stat-start: #2196f3; --student-stat-end: #1982e6; }
+.student-stat-card--cyan { --student-stat-start: #00b8f4; --student-stat-end: #009ee0; }
+.student-stat-card--orange { --student-stat-start: #ff9800; --student-stat-end: #f08400; }
+.student-stat-card--rose { --student-stat-start: #f44336; --student-stat-end: #e53935; }
+.student-stat-card--green { --student-stat-start: #18c93a; --student-stat-end: #12b332; }
 
 .student-stat-card--soft {
   background: var(--color-surface-container-low);

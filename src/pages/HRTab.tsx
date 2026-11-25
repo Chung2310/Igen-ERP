@@ -223,7 +223,7 @@ export default function HRTab() {
                 <ModuleNavigationButton
                   key={tab.id}
                   active={isActive}
-                  icon={<HrFilledSidebarIcon name={tab.icon as HrFilledIconName} twoTone className="hr-nav-icon size-5" />}
+                  icon={<HrFilledSidebarIcon name={tab.icon as HrFilledIconName} twoTone palette="kpi-blue" className="hr-nav-icon size-5" />}
                   preferProvidedIcon
                   title={tab.label}
                   onClick={() => setSubTab(tab.id as HRSubTabType)}

@@ -72,10 +72,15 @@ export function versioned<T>(schema: Joi.ObjectSchema<T>) {
 }
 
 export type ListQuery = { page: number; pageSize: number; id?: string; patientId?: string; status?: string; from?: string; to?: string; q?: string };
+export type OverviewQuery = ListQuery & { previousFrom?: string; previousTo?: string };
 export const listInput = Joi.object<ListQuery>({
   page: Joi.number().integer().min(1).max(5000).default(1),
   pageSize: Joi.number().integer().min(1).max(100).default(25),
   id: recordId.optional(), patientId: recordId.optional(), status: Joi.string().max(24), from: localDate, to: localDate,
+});
+export const overviewInput = (listInput as Joi.ObjectSchema<OverviewQuery>).keys({
+  previousFrom: localDate,
+  previousTo: localDate,
 });
 export const listSearchInput = listInput.keys({ q: text(100) });
 export const patientSearchInput = Joi.object<{ q: string; page: number; pageSize: number; from?: string; to?: string; mode?: "selection" }>({

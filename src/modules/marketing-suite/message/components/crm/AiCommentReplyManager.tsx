@@ -11,7 +11,6 @@ import { getAccessToken } from "../../../shared/services/authService";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { AIChatConfig } from "../../../shared/types/index";
 import { KnowledgeCenterSummaryCard } from "../../../knowledge/components/knowledge/KnowledgeCenterSummaryCard";
-import { HrPageTitle } from "../../../../../components/hr/HrPageTitle";
 import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
 import {
   AUTO_REPLY_SCENARIOS,
@@ -794,14 +793,7 @@ export function AiCommentReplyManager({
     <div className="space-y-3 text-left" id="ai_comment_reply_manager_container">
       {/* Header Info Panel */}
       <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-3 md:p-4">
-        <div className="mb-3 flex flex-col items-start justify-between gap-3 border-b border-outline-variant pb-3 lg:flex-row lg:items-center">
-          <div className="text-left">
-            <HrPageTitle level={3}>Tự động phản hồi bình luận {activePlatform === "facebook" ? "Facebook" : "TikTok"}</HrPageTitle>
-            <p className="mt-1 text-xs text-on-surface-variant">
-              Phân tách quản lý các phản hồi tự động theo từng bài viết cụ thể trên {activePlatform === "facebook" ? "Fanpage Facebook" : "TikTok"} của bạn.
-            </p>
-          </div>
-
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
             {/* Platform Selection Tab */}
             <div className="flex rounded-md border border-outline-variant bg-surface-container p-0.5 text-xs font-medium">

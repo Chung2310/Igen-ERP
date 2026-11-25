@@ -306,18 +306,18 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
   const getStatusBadgeClass = (status: string) => {
     const map: Record<string, string> = {
-      'Đang thi': 'border-violet-200 bg-violet-50 text-violet-800',
-      'Đã đậu': 'border-emerald-200 bg-emerald-50 text-emerald-800',
-      'Đang học': 'border-sky-200 bg-sky-50 text-sky-800',
-      'Chờ nhập học': 'border-amber-200 bg-amber-50 text-amber-800',
-      'Chờ KSK': 'border-amber-200 bg-amber-50 text-amber-800',
-      'Thi lại': 'border-rose-200 bg-rose-50 text-rose-800',
-      'Đã KSK': 'border-emerald-200 bg-emerald-50 text-emerald-800',
-      'Đã nộp HS': 'border-indigo-200 bg-indigo-50 text-indigo-800',
-      'Nợ học phí': 'border-orange-200 bg-orange-50 text-orange-800',
-      'Nghỉ học': 'border-slate-300 bg-slate-100 text-slate-700',
+      'Đang thi': 'border-transparent bg-[#8E6CEF] text-white',
+      'Đã đậu': 'border-transparent bg-[#5CB85C] text-white',
+      'Đang học': 'border-transparent bg-[#D9EDF7] text-[#286090]',
+      'Chờ nhập học': 'border-transparent bg-[#F0AD4E] text-white',
+      'Chờ KSK': 'border-transparent bg-[#F0AD4E] text-white',
+      'Thi lại': 'border-transparent bg-[#E06666] text-white',
+      'Đã KSK': 'border-transparent bg-[#5CB85C] text-white',
+      'Đã nộp HS': 'border-transparent bg-[#D9EDF7] text-[#286090]',
+      'Nợ học phí': 'border-transparent bg-[#E06666] text-white',
+      'Nghỉ học': 'border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]',
     };
-    return map[status] || 'border-slate-300 bg-slate-100 text-slate-700';
+    return map[status] || 'border-[#DCDCDC] bg-[#F3F4F6] text-[#555555]';
   };
 
   const handleBulkDelete = async () => {
@@ -854,7 +854,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                         <span
                           key={st}
                           className={cn(
-                            "whitespace-nowrap rounded border px-2 py-0.5 text-xs font-semibold shadow-none",
+                            "whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-semibold leading-4 shadow-none",
                             getStatusBadgeClass(st)
                           )}
                         >

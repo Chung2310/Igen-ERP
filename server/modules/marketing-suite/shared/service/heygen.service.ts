@@ -128,7 +128,7 @@ function getHeyGenWebhookUrl() {
 function requireApiKey(overrideApiKey?: string) {
   const apiKey = getApiKey(overrideApiKey);
   if (!apiKey) {
-    throw new Error("ChÆ°a cáº¥u hÃ¬nh khÃ³a API HeyGen");
+    throw new Error("Chưa cấu hình khóa API HeyGen");
   }
   return apiKey;
 }
@@ -746,7 +746,7 @@ async function resolveAudioSource(userId: string, input: CreateAvatarVideoInput)
   }).lean();
 
   if (!record?.url) {
-    throw new HeyGenApiError("KhÃ´ng tÃ¬m tháº¥y audio ElevenLabs Ä‘Ã£ chá»n.", 404);
+    throw new HeyGenApiError("Không tìm thấy audio ElevenLabs đã chọn.", 404);
   }
 
   return {

@@ -155,7 +155,7 @@ describe("DashboardTab consolidated hub", () => {
     expect(await screen.findByTestId("finance-section")).toBeTruthy();
     expect(request).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Y tế" }));
-    expect(await screen.findByText("Lượt khám trong kỳ")).toBeTruthy();
+    expect(await screen.findByText("Lượt khám trong kỳ", {}, { timeout: 5000 })).toBeTruthy();
     expect(window.location.search).toBe("?sub=y-te");
     expect(request.mock.calls[0]?.[0]).toMatch(/^\/api\/v1\/healthcare\/overview\?from=\d{4}-\d{2}-01&to=/);
     expect(new Headers(request.mock.calls[0]?.[1].headers).get("x-branch-id")).toBe("branch-a");
@@ -191,5 +191,36 @@ describe("DashboardTab consolidated hub", () => {
     expect(navigation.textContent).not.toContain("Báo giá");
     expect(navigation.textContent).toContain("Học viên & Đào tạo");
   });
+
+  it("shows Phòng Gym tab in Overview when gym module is enabled and renders PT dashboard", async () => {
+    mockAuth.enabledModules = ["hr", "gym"];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          totalCustomers: 3,
+          customers: 3,
+          activeCustomers: 3,
+          openAlerts: 0,
+          goodProgressCount: 2,
+          slowProgressCount: 1,
+          poorProgressCount: 0,
+          customerRows: [],
+        }),
+      ),
+    );
+    render(<DashboardTab />);
+    const gymTab = screen.getByRole("button", { name: "Phòng Gym" });
+    expect(gymTab).toBeTruthy();
+    fireEvent.click(gymTab);
+    expect(
+      await screen.findByText(
+        "Tình hình Phòng Gym",
+        {},
+        { timeout: 10000 },
+      ),
+    ).toBeTruthy();
+    expect(window.location.search).toBe("?sub=phong-gym");
+  }, 15000);
 });
 

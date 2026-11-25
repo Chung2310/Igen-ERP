@@ -13,6 +13,7 @@ export default function ModuleLauncher() {
   const { userProfile, hasPermission } = useAuth();
   const groupOrder = ["main", "operations", "marketing", "subscription", "tools", "system"];
   const items = getAvailableMenuItems(userProfile, hasPermission)
+    .filter((item) => item.label !== "GÓI AI & LƯỢT SỬ DỤNG")
     .sort((first, second) => groupOrder.indexOf(first.group) - groupOrder.indexOf(second.group));
   const navigateFromHeader = (tab: TabType, subTab?: string) => {
     const destination = new URL(tabToPath(tab), window.location.origin);

@@ -1,3 +1,4 @@
+import { ERP_LLM_MODEL } from "../../shared/llm-model";
 ﻿import { Schema, model } from "mongoose";
 import Joi from "joi";
 import { openrouterChat } from "../service/openrouter.service";
@@ -141,7 +142,7 @@ export async function createStudioSlideDeck(input: {
     sourceFileName = source.fileName;
   }
 
-  const modelName = process.env.IGENAI_SLIDE_MODEL?.trim() || "z-ai/glm-5.3-flash";
+  const modelName = ERP_LLM_MODEL;
   try {
     // AI is called once to structure the slide content. Preview and PowerPoint rendering stay local.
     const response = await withAiUsage({ companyCode: input.companyCode, userId: input.userId }, () =>
