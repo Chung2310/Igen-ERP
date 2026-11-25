@@ -87,7 +87,7 @@ export function mentionsCompatibleModule(evidence: string, module: string) {
  * name sufficient to select a module globally or swallowing extra conditions. */
 export function matchesModuleContextEvidence(evidence: string, module: string, requestText = "") {
   if (isModuleContextClause(evidence, module)) return true;
-  const phrase = normalize(evidence).replace(/^(?:cac|nhung)\s+/, "").replace(/^nguoi\s+/, "")
+  const phrase = normalize(evidence).replace(/^(?:cac|nhung|tat ca|toan bo)\s+/, "").replace(/^nguoi\s+/, "")
     .replace(/^(?:them|tao|xem|tra cuu|sua|cap nhat|xoa)\s+/, "");
   const context = assistantModuleContext(module);
   const names = [context.label, ...context.aliases].map(normalize);

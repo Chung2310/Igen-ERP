@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { conversationAudit } from "./testing/conversation-audit";
+import { semanticProviderFixture } from './testing/semantic-provider-fixture';
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), saveMemory: vi.fn(), memoryEnabled: false, includeStudentCourses: false, includeRecruitmentReport: true }));
@@ -89,32 +90,8 @@ const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", com
 const audit = conversationAudit("hr");
 const turn = (input: any) => audit.turn(input, () => processTurn(req, { conversationId: "hr-conversation", requestId: randomUUID(), ...input }));
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
-function simulatedWorkflowResult(text: string, actionId: string, values: Record<string, unknown>) {
-  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === actionId);
-  return {
-    intentType: "workflow",
-    actionId,
-    actionIntent: operation?.assistantMetadata?.intent || "unknown",
-    values,
-    requestCoverage: [{
-      evidence: text,
-      requirement: operation?.title || actionId,
-      mappedTo: ["action", ...Object.keys(values)
-        .filter(key => operation?.fields.some(field => field.key === key) && values[key] !== undefined)
-        .map(key => `values.${key}`)],
-    }],
-  };
-}
 function mockSemanticWorkflow(actionId: string, values: Record<string, unknown>) {
-  state.provider.mockImplementation(async (request: any) => {
-    const latestUser = [...(request.messages || [])].reverse().find((message: any) => message.role === "user");
-    let text = typeof latestUser?.content === "string" ? latestUser.content : "";
-    try {
-      const payload = JSON.parse(text);
-      if (typeof payload.text === "string") text = payload.text;
-    } catch { /* Final interpretation prompts already contain the raw request. */ }
-    return { text: JSON.stringify(simulatedWorkflowResult(text, actionId, values)) };
-  });
+  state.provider.mockImplementation(semanticProviderFixture({ intentType: 'workflow', actionId, values }));
 }
 
 it.each([
@@ -638,7 +615,7 @@ it.each([true, false])("creates an architecture project and handles optional dat
   expect(preview.status).toBe("confirmation");
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(parseAssistantResultTable(created.reply)).not.toBeNull();
   expect(created.reply).not.toContain(projectId);
   if (supplement) {
@@ -760,6 +737,116 @@ it("retains unfinished steps when interpretation fails", async () => {
   expect(state.session.remainingRequests).toEqual(["Đếm lại"]);
   expect(state.turns[0].steps).toHaveLength(1);
   expect(failed.reply).not.toContain('Hướng dẫn dự phòng');
+});
+
+it('resumes the queued goal after an AI outage, keeps observed facts and does not reinterpret the word continue as a new task', async () => {
+  const originalFetch = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url, init) => new URL(String(url)).pathname === '/api/v1/auth/users/count'
+    ? json({ status: 'success', data: { count: 47, scope: 'company' } }) : originalFetch(url, init));
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', currentRequest: 'Đếm nhân viên', values: {}, intentType: 'workflow', remainingRequests: ['Đếm nhân viên trong tháng 11/2026'] });
+  state.interpret.mockRejectedValueOnce(new AssistantInterpretationError(503));
+  await turn({ text: 'Đếm nhân viên rồi đếm nhân viên trong tháng 11/2026' });
+  expect(state.session.goalContext.observations).toHaveLength(1);
+  expect(state.session.goalContext.observations[0]).toMatchObject({ actionId: 'employee.count', effect: 'read', partial: true });
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', values: { createdFrom: '2026-11-01', createdTo: '2026-11-30' }, intentType: 'workflow', newRequest: true, remainingRequests: [] });
+  const resumed = await turn({ text: 'Tiếp tục giúp mình nhé' });
+  expect(resumed.status, resumed.reply).toBe('completed');
+  const call = state.interpret.mock.calls.at(-1)!;
+  expect(call[0]).toBe('Đếm nhân viên trong tháng 11/2026');
+  expect(call[6]).toContain('"observations"');
+  expect(call[6]).toContain('"facts"');
+  expect(call[6]).toContain('47');
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(state.session.goalContext.request).toBe('Đếm nhân viên rồi đếm nhân viên trong tháng 11/2026');
+  expect(state.session.goalContext.observations).toHaveLength(2);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
+it('offers action options for a later step and consumes that step only after an actual selection prepares its preview', async () => {
+  const nextRequest = 'Xử lý hồ sơ La Văn Sến';
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', values: {}, intentType: 'workflow', remainingRequests: [nextRequest] });
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: 'ambiguous', suggestedActionIds: ['employee.detail', 'employee.update'], clarification: 'Bạn muốn xem hay sửa hồ sơ?' });
+  const options = await turn({ text: 'Đếm nhân viên rồi xử lý hồ sơ La Văn Sến' });
+  expect(options.status).toBe('collecting');
+  expect(options.workflowSelection?.options).toHaveLength(2);
+  expect(state.session.remainingRequests).toEqual([nextRequest]);
+  const updateOption = options.workflowSelection!.options.find(option => option.label.includes('Cập nhật'))!;
+  expect(updateOption).toBeDefined();
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.update', values: { id: 'La Văn Sến', phone: '0900090010' }, intentType: 'workflow' });
+  const preview = await turn({ workflowSelection: { id: options.workflowSelection!.id, value: updateOption.value } });
+  expect(preview.status, preview.reply).toBe('confirmation');
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(state.session.pending.goalConfirmation).toBe(true);
+  expect(state.session.goalContext.observations).toHaveLength(1);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+});
+
+it('clears prior observed facts when the user starts an independent goal', async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', values: {}, intentType: 'workflow' });
+  await turn({ text: 'Đếm nhân viên' });
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', values: {}, intentType: 'workflow', newRequest: true });
+  await turn({ text: 'Bỏ mục tiêu trước, đếm lại nhân viên' });
+  expect(state.session.goalContext.request).toBe('Bỏ mục tiêu trước, đếm lại nhân viên');
+  expect(state.session.goalContext.observations).toHaveLength(1);
+});
+
+it('uses semantic continuation for arbitrary wording but executes only the server queued request', async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', values: {}, intentType: 'workflow', remainingRequests: ['Đếm nhân viên lần hai'] });
+  state.interpret.mockRejectedValueOnce(new AssistantInterpretationError(503));
+  await turn({ text: 'Đếm nhân viên rồi đếm nhân viên lần hai' });
+  state.interpret.mockResolvedValueOnce({ actionId: null, values: {}, intentType: 'ambiguous', resumeGoal: true });
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', values: {}, intentType: 'workflow', remainingRequests: [] });
+  const result = await turn({ text: 'Nãy đang dở đoạn nào thì làm nốt hộ mình đi' });
+  expect(result.status, result.reply).toBe('completed');
+  expect(state.interpret.mock.calls.at(-1)![0]).toBe('Đếm nhân viên lần hai');
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
+it('refines a queued compound step without dropping its later write or applying its fields to the current read', async () => {
+  const write = 'Sửa số điện thoại La Văn Sến thành 0900090010';
+  const compound = `Đếm nhân viên tháng 11/2026 rồi ${write}`;
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', currentRequest: 'Đếm nhân viên', values: {}, intentType: 'workflow', remainingRequests: [compound] });
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', currentRequest: 'Đếm nhân viên tháng 11/2026',
+    values: { createdFrom: '2026-11-01', createdTo: '2026-11-30' }, intentType: 'workflow', remainingRequests: [write] });
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.update', values: { id: 'La Văn Sến', phone: '0900090010' }, intentType: 'workflow' });
+  const result = await turn({ text: `Đếm nhân viên rồi ${compound}` });
+  expect(result.status, result.reply).toBe('confirmation');
+  expect(state.session.pending.intent).toBe(write);
+  expect(state.session.remainingRequests).toEqual([]);
+  expect(state.turns[0].steps).toHaveLength(2);
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+});
+
+it('retains a fresh confirmation requirement for a replay-protected goal write across a missing reference selection', async () => {
+  await usePayrollConversationFixtures();
+  const { getSettings } = await import('./settings');
+  const { currentWorkflow } = await import('./workflows');
+  const { defaultWorkflow, operationById } = await import('./catalog');
+  const settings = await getSettings(req);
+  const previousWorkflow = vi.mocked(currentWorkflow).getMockImplementation()!;
+  vi.mocked(getSettings).mockResolvedValue({ ...settings, alwaysConfirm: false });
+  vi.mocked(currentWorkflow).mockImplementation(async (_req, id) => ({ ...defaultWorkflow(operationById(id)!), requireConfirmation: false }));
+  state.interpret.mockResolvedValueOnce({ actionId: 'employee.count', currentRequest: 'Đếm nhân viên', values: {}, intentType: 'workflow', remainingRequests: ['Tính lương kỳ tháng 02/2028'] });
+  state.interpret.mockResolvedValueOnce({ actionId: 'payroll.run.calculate', values: { targetBranch: branchId }, intentType: 'workflow' });
+  try {
+    const collecting = await turn({ text: 'Đếm nhân viên rồi tính lương kỳ tháng 02/2028' });
+    expect(collecting.status, collecting.reply).toBe('collecting');
+    expect(state.session.pending.goalConfirmation).toBe(true);
+    const run = collecting.referenceSelections!.find(group => group.key === 'path_id')!;
+    expect(run.options.length).toBeGreaterThan(0);
+    // Disabling rollout must not remove consent required by an existing draft.
+    vi.stubEnv('ASSISTANT_GOAL_ORCHESTRATION', 'false');
+    const preview = await turn({ referenceSelections: { path_id: [run.options[0].value] } });
+    expect(preview.status, preview.reply).toBe('confirmation');
+    expect(state.session.pending.goalConfirmation).toBe(true);
+    expect(state.session.goalContext).toBeNull();
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  } finally {
+    vi.unstubAllEnvs();
+    vi.mocked(getSettings).mockResolvedValue(settings);
+    vi.mocked(currentWorkflow).mockImplementation(previousWorkflow);
+  }
 });
 
 it.each([400, 422, 500])("a rejected new goal cannot resurrect the previous goal's queued steps (%s)", async status => {
@@ -1493,7 +1580,7 @@ it.each([true, false])("creates one training course and handles optional follow-
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status).toBe("completed");
   expect(parseAssistantResultTable(created.reply)?.rows).toHaveLength(1);
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(created.reply).not.toContain(trainingCourseId);
 
   const followUp = await turn({ text: supplement ? "có" : "bỏ qua" });
@@ -1890,7 +1977,7 @@ it("uses arbitrary task names in progress updates and confirms the selected task
   expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/kanban/tasks" && new URL(String(url)).searchParams.get("search") === "Dự hội thảo BNI EXPO")).toBe(true);
 });
 
-it("keeps the parsed task title when retrying a progress update after no task match", async () => {
+it("keeps the parsed task title on retry and offers scoped choices after no task match without updating a different task", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./interpreter")>("./interpreter");
   state.interpret.mockImplementationOnce((...args: Parameters<typeof interpretRequest>) => interpretRequest(...args));
   const text = "Cập nhập tiến độ công việc làm cho con bò ngày 20/11 hoàn thành được 50%";
@@ -1909,8 +1996,15 @@ it("keeps the parsed task title when retrying a progress update after no task ma
     .map(([url]) => new URL(String(url)).searchParams.get("search"));
 
   expect(retry.status, retry.reply).toBe("collecting");
-  expect(taskSearches.length).toBeGreaterThanOrEqual(2);
-  expect(taskSearches.at(-1)).toBe("làm cho con bò");
+  expect(taskSearches.filter(search => search === 'làm cho con bò').length).toBeGreaterThanOrEqual(2);
+  // A failed name lookup deliberately clears only the search term to offer
+  // scoped options. The last read is not necessarily the named lookup.
+  expect(taskSearches.every(search => search === 'làm cho con bò' || search === '')).toBe(true);
+  expect(retry.action?.values).toContainEqual(expect.objectContaining({ value: 'làm cho con bò', defaulted: false }));
+  expect(retry.action?.values).toContainEqual(expect.objectContaining({ label: 'Tiến độ (%)', value: 50 }));
+  expect(retry.referenceSelections?.find(group => group.key === 'path_id')?.options.length).toBeGreaterThan(0);
+  expect(fetcher.mock.calls.every(([url, init]) => (!init?.method || init.method === 'GET')
+    && new URL(String(url)).searchParams.get('companyCode') === 'TEST')).toBe(true);
 });
 
 it("passes arbitrary task search, status, overdue, priority, and assignee filters to the API", async () => {
@@ -2024,7 +2118,7 @@ it("lists calendar events and keeps optional event edits attached to the created
     expect(preview.status).toBe("confirmation");
     const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
     expect(created.status).toBe("completed");
-    expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+    expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
     state.interpret.mockResolvedValueOnce({ actionId: "hr.calendar.event.update", values: { location: "Phòng họp tầng 2" }, intentType: "workflow", newRequest: false });
     const editPreview = await turn({ text: "Bổ sung địa điểm là Phòng họp tầng 2" });
     expect(editPreview.status).toBe("confirmation");
@@ -2261,7 +2355,7 @@ it.each([true, false])('routes an attached image through production interpretati
   const completed = await turn({ decision: { id: preview.action!.id, confirmed: true, password: 'QA-fixture-only-secret' } });
   expect(completed.status, completed.reply).toBe('completed');
   expect(parseAssistantResultTable(completed.reply)).toBeTruthy();
-  expect(completed.reply).toContain('Bạn có muốn bổ sung không?');
+  expect(completed.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(completed.reply).not.toContain(createdId);
   if (supplement) {
     const agree = await turn({ text: 'Có' });

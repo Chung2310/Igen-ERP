@@ -9,7 +9,7 @@ it("renders a natural single-result introduction, real table and optional questi
     [{ "Mã": "KH-QA-01", "Tên": "KHACH-HANG-QA", "Điện thoại": "0900000001" }],
     ["Bạn có muốn bổ sung không? Mình có thể thêm email hoặc địa chỉ. Bạn gửi thông tin cần thêm, hoặc nói “bỏ qua” nhé."]) });
   const markup = renderToStaticMarkup(<AssistantMessageContent content={reply.reply} />);
-  expect(markup).toContain("Mình đã tạo khách hàng");
+  expect(markup).toContain("Đã tạo khách hàng");
   expect(markup).toContain("<table");
   expect(markup).toContain("KH-QA-01");
   expect(markup).toContain("Bạn có muốn bổ sung không?");

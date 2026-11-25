@@ -1901,13 +1901,34 @@ for (const op of operations.filter(op => op.path === "/worker-management/partner
 }
 const studentPartners = operations.find(op => op.id === "partner.list")!;
 operations.push({ ...studentPartners, id: "partner.analysis", title: "Phân tích đối tác học viên", rawResponse: true,
-  description: "Phân tích LŨY KẾ số học viên giới thiệu, tổng học phí, hoa hồng và công nợ của đối tác học viên. Không có ngày giới thiệu trong số tổng này, KHÔNG dùng để trả lời theo tháng hoặc khoảng ngày. Khi được hỏi theo kỳ, giải thích giới hạn và hỏi có muốn xem lũy kế không. Không có chỉ tiêu KPI: nếu hỏi đạt/chưa đạt KPI mà chưa nêu chỉ tiêu, hỏi chỉ tiêu và ngưỡng. Không dùng cấp bậc hoa hồng làm KPI. Số hoa hồng lấy nguyên từ API nghiệp vụ, không tự tính lại.",
-  fields: [...studentPartners.fields, queryField({ ...number("page", "Trang"), defaultValue: 1 }), queryField({ ...number("limit", "Số dòng mỗi trang"), defaultValue: 500 })],
-  analysis: { scopeLabel: "lũy kế, không giới hạn theo tháng", pagination: { pageField: "page", sizeField: "limit" }, fields: {
-    name: { label: "Đối tác", type: "text" }, levelName: { label: "Cấp bậc hoa hồng", type: "text" },
-    referredStudentsCount: { label: "Học viên giới thiệu", type: "number" }, totalReferredTuition: { label: "Tổng học phí (VND)", type: "number" },
-    totalCommission: { label: "Hoa hồng (VND)", type: "number" }, totalPaid: { label: "Đã thanh toán (VND)", type: "number" }, unpaidBalance: { label: "Còn phải trả (VND)", type: "number" },
-  } }, resultFields: ["name", "levelName", "referredStudentsCount", "totalReferredTuition", "totalCommission", "totalPaid", "unpaidBalance"] });
+  functionAreas:[{key:'partner-records',label:'Hồ sơ đối tác học viên'},{key:'partner-payouts',label:'Chi trả hoa hồng đối tác học viên'}],
+  coverageAliases:['hiện tại có','hiện tại'],
+  description: "Phân tích và tra cứu đối tác tuyển sinh: trạng thái hoạt động/tạm dừng, liên hệ, tài khoản ngân hàng, ghi chú, ngày tạo, số học viên giới thiệu, học phí và hoa hồng. createdFrom/createdTo lọc NGÀY TẠO ĐỐI TÁC mới. referralFrom/referralTo chỉ giới hạn số học viên và học phí theo NGÀY ĐĂNG KÝ của học viên được giới thiệu (không phải ngày tạo đối tác). Không có kỳ thì số học viên/học phí là lũy kế. Hoa hồng, đã trả, còn phải trả và cấp bậc luôn là LŨY KẾ, không hỗ trợ phân bổ các khoản này theo kỳ; hỏi lại nếu yêu cầu hoa hồng theo kỳ. Không tự tính hoa hồng; lấy nguyên API. Có thể đếm theo trạng thái bằng groupBy=isActive, aggregate=count; tính nhiều chỉ tiêu bằng aggregates trong một lần. bankConfigured=0 là chưa có số tài khoản, =1 là đã có. notes hỗ trợ contains. Dùng select chọn các cột người dùng cần, giữ name khi liệt kê hồ sơ. Không có KPI nếu chưa có ngưỡng. targetBranch chọn chi nhánh theo quyền, không dùng search để lọc chi nhánh. Tháng/tuần dùng lịch Việt Nam; tuần bắt đầu thứ Hai; truyền đầy đủ hai đầu khoảng ngày.",
+  fields: [...studentPartners.fields, queryField(ref('targetBranch', 'Chi nhánh đối tác', 'branch.list', false), 'branchId'),
+    ...['createdFrom','createdTo','referralFrom','referralTo'].map((key,index) => queryField(date(key, ['Ngày tạo đối tác từ','Ngày tạo đối tác đến','Ngày đăng ký học viên giới thiệu từ','Ngày đăng ký học viên giới thiệu đến'][index]))),
+    queryField({ ...number("page", "Trang"), defaultValue: 1 }), queryField({ ...number("limit", "Số dòng mỗi trang"), defaultValue: 500 })],
+  analysis: { scopeLabel: "lũy kế", replaces:["partner.list"], displayFields:['name','isActive','referredStudentsCount','totalReferredTuition','totalCommission','totalPaid','unpaidBalance'], pagination: { pageField: "page", sizeField: "limit" }, fields: {
+    name: { label: "Đối tác", type: "text" }, code:{label:"Mã đối tác",type:"text"}, levelName: { label: "Cấp bậc hoa hồng", type: "text" },
+    isActive: {label:'Trạng thái',type:'text',values:{active:'Đang hoạt động',inactive:'Tạm dừng'},valueAliases:{active:['đang hoạt động'],inactive:['đang tạm dừng','tạm dừng','ngưng hoạt động']}},
+    phone:{label:'Điện thoại',type:'text'},email:{label:'Email',type:'text'},
+    bankName:{label:'Ngân hàng',type:'text'},bankAccountNo:{label:'Số tài khoản',type:'text',format:'bank-account'},bankAccountName:{label:'Chủ tài khoản',type:'text'},
+    bankConfigured:{label:'Đã có tài khoản ngân hàng',type:'number',values:{'0':'Chưa cập nhật','1':'Đã cập nhật'},predicates:[{aliases:['chưa cập nhật tài khoản ngân hàng','chưa cập nhật tài khoản ngân hàng nhận hoa hồng','chưa có số tài khoản ngân hàng','chưa có tài khoản ngân hàng'],operator:'eq',value:0}]},
+    notes:{label:'Ghi chú',type:'text',contains:true},createdAt:{label:'Ngày tạo đối tác',type:'text',format:'date'},
+    referredStudentsCount: { label: "Học viên giới thiệu", type: "number", aliases:['học viên giới thiệu','số học viên','học viên','đã giới thiệu được bao nhiêu học viên'], predicates:[{aliases:['đã giới thiệu học viên'],operator:'gt',value:0}] },
+    totalReferredTuition: { label: "Tổng học phí (VND)", type: "number",aliases:['doanh số học phí','tổng học phí','học phí'],predicates:[{aliases:['chưa phát sinh học phí'],operator:'eq',value:0}] },
+    totalCommission: { label: "Hoa hồng lũy kế (VND)", type: "number",aliases:['hoa hồng phát sinh','tổng hoa hồng','tổng hoa hồng phát sinh'] },
+    totalPaid: { label: "Đã thanh toán lũy kế (VND)", type: "number",aliases:['đã thanh toán','đã trả','đã trả được bao nhiêu'] },
+    unpaidBalance: { label: "Còn phải trả lũy kế (VND)", type: "number",aliases:['hoa hồng còn nợ','hoa hồng còn phải trả','số dư còn phải trả','còn nợ','còn phải trả'] },
+  } }, resultFields: ["name", "code", "levelName", "isActive","phone","email","bankName","bankAccountNo","bankAccountName","bankConfigured","notes","createdAt","referredStudentsCount", "totalReferredTuition", "totalCommission", "totalPaid", "unpaidBalance"] });
+const partnerDetail = operations.find(op => op.path === '/partners/:id' && op.method === 'GET')!;
+// Keep identity, state and bank presence visible within the shared table's
+// compact column budget, even on fully populated partner profiles.
+partnerDetail.resultFields=[...new Set(['name','isActive','bankAccountStatus','phone','email','bankName','bankAccountName','bankAccountNo',...partnerDetail.resultFields])];
+partnerDetail.coverageAliases=[...(partnerDetail.coverageAliases || []),'đang dùng tài khoản ngân hàng nào để nhận hoa hồng','tài khoản ngân hàng nhận hoa hồng'];
+operations.push({...partnerDetail,id:'partner.referrals',title:'Xem học viên do đối tác tuyển sinh giới thiệu',rawResponse:true,readOnly:true,
+  coverageAliases:['đã giới thiệu','đã giới thiệu học viên','những học viên nào','tổng học phí bao nhiêu'],
+  description:'Xem danh sách và lịch sử học viên do một đối tác tuyển sinh giới thiệu, kèm ngày đăng ký và tổng học phí của đối tác. Nếu chưa có tên đối tác thì để trống trường tham chiếu để người dùng chọn. Ngày đăng ký là ngày trên hồ sơ học viên, không suy ra ngày gắn đối tác. Số học viên và học phí lấy từ API nghiệp vụ.',
+  resultFields:['partnerName','fullName','registrationDate','fee','totalReferredTuition']});
 const retailPerformance = operations.find(op => op.path === "/retail/finance/commission/kpi" && op.method === "GET")!;
 retailPerformance.title = "Phân tích hoa hồng đối tác bán lẻ";
 retailPerformance.fields.push(queryField(date("from", "Từ ngày", true)), queryField(date("to", "Đến ngày", true)));
@@ -1919,7 +1940,7 @@ retailPerformance.description = "Phân tích hoa hồng ròng và số BÚT TOÁ
 for (const op of [operations.find(op => op.id === "partner.analysis")!, retailPerformance]) {
   op.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
   op.assistantOnlyFields = [...(op.assistantOnlyFields || []), "analysis"];
-  op.description += ` Dùng analysis với filters:[{field,operator:eq|ne|gt|gte|lt|lte,value}], extreme:{field,direction:min|max}, sort:{field,direction:asc|desc}, limit, groupBy, aggregate:{operation:count|sum|avg,field}. Giữ mọi đồng hạng cho cực trị. Không kết hợp aggregate với sort/extreme/limit. Trường cho phép: ${JSON.stringify(op.analysis!.fields)}.`;
+  op.description += ` Dùng analysis với filters:[{field,operator:eq|ne|gt|gte|lt|lte|contains,value}] (contains chỉ cho trường khai báo hỗ trợ), extreme:{field,direction:min|max}, sort:{field,direction:asc|desc}, limit, select:[tên trường], groupBy, aggregate:{operation:count|sum|avg,field} hoặc aggregates:[{operation,field}] để tính nhiều chỉ tiêu cùng lúc. Không dùng cả aggregate và aggregates. Giữ mọi đồng hạng cho cực trị. Không kết hợp tổng hợp với sort/extreme/limit. Trường cho phép: ${JSON.stringify(op.analysis!.fields)}.`;
 }
 for (const op of operations.filter(op => op.method === "PATCH" && ["/partners/commission-levels/:id", "/retail/partners/commission-policies/:id"].includes(op.path))) {
   op.partialUpdate = true;

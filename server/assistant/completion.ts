@@ -1,7 +1,7 @@
 import type { AssistantReply, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import type { AssistantOperation } from "./catalog";
 import { localizedAssistantFieldLabel } from "./result-format";
-import { assistantOptionalInformationPrompt } from "./reply-presentation";
+import { assistantOptionalInformationPrompt, hasAssistantOptionalInformationPrompt } from "./reply-presentation";
 
 export interface AssistantCompletion {
   operation: AssistantOperation;
@@ -60,7 +60,7 @@ export async function completeAssistantOperation(
   operations: readonly AssistantOperation[],
   canUpdate: (operation: AssistantOperation) => Promise<boolean>,
 ): Promise<AssistantReply> {
-  if (!completion || reply.status !== "completed" || reply.reply.includes("Bạn có muốn bổ sung không?")) return reply;
+  if (!completion || reply.status !== "completed" || hasAssistantOptionalInformationPrompt(reply.reply)) return reply;
   const { operation: op, workflow, values, result } = completion;
   if (op.method !== "POST" || op.readOnly || !result || typeof result !== "object" || Array.isArray(result)) return reply;
   const response = result as Record<string, unknown>;

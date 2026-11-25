@@ -528,11 +528,14 @@ describe("semantic interpretation", () => {
     expect(() => validateRemainingRequests([{}])).toThrow();
   });
   it("preserves a multi-step goal and supplies context for continuation", async () => {
-    provider.mockResolvedValue({ text: JSON.stringify({ actionId: employee.actionId, values: {}, remainingRequests: ["Tạo việc bàn giao"], newRequest: false }) });
+    provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: employee.actionId, values: {}, remainingRequests: ["tạo việc bàn giao"], newRequest: false,
+      requestCoverage: [{ evidence: 'Chuyển Lan', requirement: 'Bước hiện tại', mappedTo: ['action'] },
+        { evidence: 'tạo việc bàn giao', requirement: 'Bước tiếp theo', mappedTo: ['remainingRequests.0'] }] }) });
     const result = await interpretRequest("Chuyển Lan và tạo việc bàn giao", [employee], null, []);
-    expect(result.remainingRequests).toEqual(["Tạo việc bàn giao"]);
+    expect(result.remainingRequests).toEqual(["tạo việc bàn giao"]);
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: employee.actionId, values: {}, remainingRequests: [], newRequest: false }) });
     await interpretRequest("tiếp tục", [employee], null, [{role:"assistant", content:"Đã cập nhật Lan"}], "", [], JSON.stringify(result.remainingRequests));
-    expect(JSON.stringify(provider.mock.calls[1][0])).toContain("Tạo việc bàn giao");
+    expect(JSON.stringify(provider.mock.calls[1][0])).toContain("tạo việc bàn giao");
   });
   it("does not let a keyword override cancellation or clarification", async () => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, cancel: true, intentType: "ambiguous", clarification: "Bạn muốn chuyển Lan nào?" }) });

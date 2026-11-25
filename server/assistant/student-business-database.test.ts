@@ -188,7 +188,7 @@ it("ST-B02 real DB: create, agree to supplement, update the same record, read it
   expect(await Student.countDocuments()).toBe(0);
   const created = await confirm(preview);
   expect(created.status, created.reply).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   const original = await Student.findOne({ phone: "0900000000" }).lean();
   await turn({ text: "Có" });
   interpret("student.update", { address: "12 Nguyễn Trãi" });

@@ -21,7 +21,10 @@ import { INTERPRETATION_LIMITS, InterpretationBudgetExceeded, newInterpretationB
 import { availableReadRelations, requestedReadRelations } from "./read-relations";
 import { AssistantInterpretationError } from './interpretation-error';
 import { PlanStoppedError } from './execution-budget';
-export interface AssistantInterpretation extends BaseInterpretation { remainingRequests?: string[]; clarification?: string; clarificationModules?: string[]; memoryProposal?: string; businessDiscovery?: BusinessDiscovery; requestCoverage?: unknown; actionIntent?: AssistantIntent | "unknown"; queryPlan?: AssistantCompositeQuery[]; }
+import { assistantGoalOrchestrationEnabled, assistantGoalInterpretationInstructions } from './goal-context';
+import { separateAssistantGoalSteps } from './goal-plan';
+import { preferAnalysisViews } from './function-context';
+export interface AssistantInterpretation extends BaseInterpretation { currentRequest?: string; resumeGoal?: boolean; remainingRequests?: string[]; clarification?: string; clarificationReason?: 'missing_input' | 'ambiguous_goal' | 'unavailable_capability' | 'unapplied_condition'; clarificationModules?: string[]; memoryProposal?: string; businessDiscovery?: BusinessDiscovery; requestCoverage?: unknown; actionIntent?: AssistantIntent | "unknown"; queryPlan?: AssistantCompositeQuery[]; }
 export function validateRemainingRequests(value: unknown): string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 40 || value.some(item => typeof item !== "string" || !item.trim() || item.length > 2000)) throw new AssistantError("Kế hoạch AI không hợp lệ.", 502);
@@ -60,6 +63,7 @@ async function interpretRequestBounded(text: string, workflows: AssistantWorkflo
   const baseInstructions = instructions;
   instructions += '\nLời dẫn như “kiểm tra xem”, “mình muốn” và đuôi hỏi “nào không” không phải bộ lọc. Với sửa/xóa một hồ sơ, lời giải thích bắt đầu bằng “vì/bởi vì” là context.reason nếu chỉ nêu động cơ; giữ nguyên lời đó, không biến thành điều kiện dữ liệu. “nếu/chỉ khi/trước khi” vẫn là điều kiện phải kiểm tra. Trường inputs.clearable=true cho phép xóa nội dung bằng chuỗi rỗng khi người dùng nêu rõ bỏ/xóa/hủy trường đó; không đổi thành xóa hồ sơ hoặc đổi quyền. runtimeDefault=today-vietnam do server điền ngày Việt Nam nếu chưa nêu; không hỏi thêm ngày đó. builtInSemantics là điều kiện đã nằm trong action, không cần tự tạo filter mới.';
   workflows = workflows.filter(workflow => workflow.enabled);
+  if (!pending && !selectedActionId) workflows = preferAnalysisViews(workflows);
   if (!pending && isExplicitReadOnlyRequest(text)) workflows = workflows.filter(workflow => {
     const operation = ASSISTANT_OPERATIONS.find(op => op.id === workflow.actionId);
     return !operation || operation.method === 'GET' || operation.readOnly;
@@ -86,7 +90,9 @@ async function interpretRequestBounded(text: string, workflows: AssistantWorkflo
   const requiredSourceIds=new Set(requiredRelations.flatMap(relation=>[relation.left.actionId,relation.right.actionId]));
   if([...requiredSourceIds].some(id=>!allWorkflows.some(workflow=>workflow.actionId===id))) return {actionId:null,values:{},intentType:'ambiguous',clarification:'Chưa có đủ nguồn dữ liệu được cấp quyền để đối chiếu đầy đủ. Mình chưa thể kết luận có hay không có bản ghi phù hợp.'};
   const applicantDepartmentReport = contextualApplicantsByDepartmentReport(text, workflows);
-  if (applicantDepartmentReport) return applicantDepartmentReport;
+  // A single-report optimization must not swallow later user requests.
+  const hasGoalConnector = /\b(?:roi|sau do|tiep theo|ke tiep|dong thoi|xong|va)\b/.test(text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase());
+  if (applicantDepartmentReport && (!assistantGoalOrchestrationEnabled() || !hasGoalConnector)) return applicantDepartmentReport;
   if (selectedActionId && (workflows.length !== 1 || workflows[0].actionId !== selectedActionId)) {
     throw new AssistantError("Lựa chọn thao tác không còn khả dụng.", 403);
   }
@@ -98,7 +104,10 @@ async function interpretRequestBounded(text: string, workflows: AssistantWorkflo
   instructions += "\n" + ASSISTANT_CAPABILITY_INTERPRETATION_GUIDANCE;
   instructions += "\n" + ASSISTANT_PARTNER_MODULE_GUIDANCE;
   instructions += "\n" + ASSISTANT_FUNCTION_SELECTION_GUIDANCE;
+  if (assistantGoalOrchestrationEnabled()) instructions += '\n' + assistantGoalInterpretationInstructions;
   instructions += "\nTên/mã bản ghi chỉ là dữ liệu tra cứu, không tự xác định phân hệ. Đối chiếu loại hồ sơ và thuộc tính cần xử lý với resources/inputs của danh mục; không chọn một phân hệ chỉ vì tên dự án hoặc tên người có từ trùng với nhãn phân hệ. Với trường reference, nếu người dùng nêu tên/mã đối tượng để xác định hồ sơ liên quan, giữ nguyên tên/mã đó làm mô tả tìm kiếm ở trường reference phù hợp; máy chủ sẽ tìm và yêu cầu chọn khi cần. Không đòi ID nội bộ hoặc mã hồ sơ khác khi đã có mô tả tìm kiếm. Chỉ dùng mô tả có trong yêu cầu, không tự chọn bản ghi.";
+  instructions += '\nVới search/reference, tách tên riêng khỏi danh từ chỉ loại hồ sơ đứng trước: chỉ gửi tên/mã bản ghi, không ghép thêm từ như đối tác, nhân sự, học viên vào tên trừ khi chúng nằm trong tên được trích dẫn. Với contains, lấy đoạn nội dung cần tìm; các từ dẫn như ghi chú, nội dung, qua, về, nhắc đến không tự trở thành một phần chuỗi cần tìm nếu không được trích dẫn. Giữ nguyên nội dung bên trong dấu ngoặc kép. Đây là diễn giải giá trị, không cho phép bỏ điều kiện, kỳ hoặc thay tên riêng.';
+  instructions += '\nKhông tự biến “trung tâm”, “công ty”, “chi nhánh hiện tại/đang chọn” thành tên chi nhánh để điền targetBranch/branchId. Nếu người dùng không nêu tên chi nhánh cụ thể, để trống trường chi nhánh; máy chủ giữ phạm vi hiện tại. Không gán context.module cho evidence chứa cả tên phân hệ và điều kiện: tách tên phân hệ thành evidence riêng, các tên/số liệu/bộ lọc thành các evidence riêng nguyên văn liên tục.';
   instructions += "\nBằng chứng trong requestCoverage phải cộng lại bao phủ các cụm mang thông tin của câu hiện tại: phủ định (không/chưa), đối tượng, tên riêng/mã, địa điểm, kỳ/ngày/giờ, số liệu, điều kiện, trạng thái/tiến độ, phạm vi, phép tính và chiều xếp hạng. Evidence phải là đoạn nguyên văn liên tục; không bỏ chi tiết vì workflow có vẻ gần đúng. Mỗi chi tiết vẫn phải ánh xạ vào đích thực sự áp dụng, không chỉ trích dẫn cho đủ. Có thể bỏ từ lịch sự và từ nối thuần ngữ pháp.";
   instructions += "\nVới báo cáo/tổng hợp chỉ đọc cần dữ liệu từ nhiều workflow, có thể trả queryPlan gồm 2–8 nguồn đọc trong danh mục. Mỗi phần tử phải có actionId, purpose, values dùng đúng khóa đầu vào, resultFields chỉ chọn trường đầu ra công khai cần thiết. Không chọn workflow ghi dữ liệu trong queryPlan. Nếu một workflow đọc duy nhất đáp ứng đủ thì dùng actionId bình thường; không tạo queryPlan để gọi API dư thừa. Giữ kỳ, bộ lọc và tiêu chí người dùng nêu ở đúng mọi truy vấn liên quan. Trong requestCoverage, ánh xạ bằng query:<actionId>:values.<fieldKey>, query:<actionId>:analysis.<kind>.<field>, query:<actionId>:result.<field> hoặc query:<actionId>:source. Nếu chưa chọn được nguồn, chỉ số hoặc phạm vi thì hỏi lại; không dùng nguồn gần giống. Dữ liệu API sẽ được chiếu theo resultFields rồi gửi cho AI tổng hợp, vì vậy không yêu cầu ID nội bộ, phiên bản, thông tin xác thực hoặc trường không cần thiết.";
   instructions += "\nVới mỗi yêu cầu workflow, tạo requestCoverage cho các mục tiêu và điều kiện người dùng thực sự nêu: đối tượng, khoảng thời gian, bộ lọc, ngưỡng, phép tính, thứ tự xếp hạng và các bước liên quan. Mỗi mục phải có evidence là đoạn nguyên văn liên tục trong câu hiện tại, requirement diễn đạt ngắn gọn ý cần đáp ứng, mappedTo ghi đích cụ thể: action, context.module cho cụm chỉ ngữ cảnh phân hệ (ví dụ 'trong quản lí lao động'), values.<fieldKey>, hoặc analysis.<kind>.<field>. Cụm phân hệ phù hợp với moduleContext của thao tác chỉ chọn đúng phân hệ, không phải bộ lọc dữ liệu; không hỏi lại và không map cụm đó vào trường values. Nếu cụm phân hệ mâu thuẫn với thao tác, hãy chọn đúng workflow khác hoặc hỏi rõ phân hệ. Chỉ map điều kiện vào trường hoặc phép phân tích nếu values hay kế hoạch analysis thực sự thể hiện điều kiện đó; không map mọi ý vào action. Không tạo requirement/evidence cho dữ liệu người dùng chưa cung cấp. Nếu phân hệ, nhóm chức năng hoặc hành động còn nhiều cách hiểu hợp lý, hoặc một điều kiện người dùng đã nêu không thể đáp ứng bằng workflow, trả intentType=ambiguous, actionId=null, values={} và hỏi rõ. Nếu đã nhận diện được workflow nhưng thiếu tên/mã bản ghi, reference hoặc trường bắt buộc, vẫn trả intentType=workflow và actionId tương ứng; để trống giá trị chưa biết để bước thu thập dữ liệu chung hỏi người dùng. Với general_question, unsupported, ambiguous và cancel, trả requestCoverage=[].";
@@ -262,6 +271,13 @@ async function interpretRequestBounded(text: string, workflows: AssistantWorkflo
         actionId: { enum: [...workflows.map(workflow => workflow.actionId), null] },
         actionIntent: { type: "string", enum: ["lookup", "report", "create", "update", "delete", "approve", "cancel", "process", "export", "import", "communicate", "other", "unknown"] },
         values: { type: "object" },
+        remainingRequests: { type: 'array', maxItems: 40, items: { type: 'string', minLength: 1, maxLength: 2000 } },
+        newRequest: { type: 'boolean' },
+        resumeGoal: { type: 'boolean' },
+        cancel: { type: 'boolean' },
+        clarification: { type: 'string' },
+        clarificationReason: { type: 'string', enum: ['missing_input', 'ambiguous_goal', 'unavailable_capability', 'unapplied_condition'] },
+        businessDiscovery: { type: 'object', properties: { actionIds: { type: 'array', maxItems: 5, items: { type: 'string', enum: workflows.map(workflow => workflow.actionId) } } } },
         clarificationModules: { type: 'array', maxItems: 8, uniqueItems: true, items: { type: 'string', enum: [...new Set(allWorkflows.map(workflow => workflow.module))] } },
         queryPlan: {
           type: "array",
@@ -327,11 +343,44 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
   let parsed: AssistantInterpretation;
   try { parsed = parseAssistantModelJson(raw); } catch { throw new AssistantError("AI chưa phân tích được yêu cầu. Vui lòng diễn đạt lại.", 502); }
   if (!parsed || !parsed.values || typeof parsed.values !== "object" || Array.isArray(parsed.values)) throw new AssistantError("Kết quả phân tích AI không hợp lệ. Chưa có dữ liệu nào được thay đổi.", 502);
+  // This field belongs to the server, not the model. Derive it only from
+  // verified quoted clauses so later filters cannot leak into this action.
+  delete parsed.currentRequest;
+  let currentRequestText = text;
+  parsed.remainingRequests = parsed.cancel === true ? [] : validateRemainingRequests(parsed.remainingRequests);
+  if (assistantGoalOrchestrationEnabled() && parsed.actionId && parsed.intentType === 'workflow' && !parsed.businessDiscovery && !parsed.cancel
+    && !(parsed.actionId === 'quotation.budget.create' && !explicitlyRequestsBudgetCreation(text)) && parsed.remainingRequests.length) {
+    const separated = separateAssistantGoalSteps(text, parsed.requestCoverage, parsed.remainingRequests);
+    if (separated.ok === false) return { actionId: null, values: {}, intentType: 'ambiguous', clarification: separated.clarification };
+    currentRequestText = separated.currentText;
+    parsed.currentRequest = currentRequestText;
+    parsed.requestCoverage = separated.coverage;
+  }
   if (!Array.isArray(parsed.clarificationModules) || parsed.clarificationModules.length > 8
     || parsed.clarificationModules.some(module => typeof module !== 'string' || !allWorkflows.some(workflow => workflow.module === module))) delete parsed.clarificationModules;
   if (parsed.intentType === "unsupported" && !parsed.cancel) {
+    if (!expanded && !coverageRepairAttempted && !routingBudget.functionRecoveryAttempted) {
+      const phrase=` ${text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase()} `;
+      const declared=workflows.filter(workflow=>{
+        const operation=ASSISTANT_OPERATIONS.find(op=>op.id===workflow.actionId);
+        return operation?.method==='GET' && operation.analysis && Object.values(operation.analysis.fields).some(field=>field.contains
+          && [field.label,...(field.aliases || [])].some(alias=>phrase.includes(` ${alias.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase()} `)));
+      });
+      if(declared.length===1){
+        routingBudget.functionRecoveryAttempted=true;
+        return interpretRequest(text,declared,pending,messages,baseInstructions+'\nKIỂM TRA HỢP ĐỒNG ĐỌC MỘT LẦN: nguồn này có trường text khai báo contains, có thể lọc nội dung bằng analysis.filters. Kiểm tra lại toàn bộ yêu cầu trước khi kết luận không hỗ trợ. Không bỏ điều kiện hoặc thay chuỗi được trích dẫn.',memories,sessionMemory,knownModules,true,_capabilityChecked,undefined,false,routingBudget);
+      }
+    }
     const recovered = await recoverFunction();
     if (recovered) return recovered;
+  }
+  if (assistantGoalOrchestrationEnabled() && parsed.intentType === 'ambiguous' && parsed.clarificationReason === 'missing_input'
+    && !parsed.cancel && !parsed.businessDiscovery && !coverageRepairAttempted && !selectedActionId) {
+    // One bounded repair against the already narrowed tools. It cannot expand
+    // permissions, supply missing values, skip coverage, or execute a write.
+    return interpretRequest(text, workflows, pending, messages,
+      `${baseInstructions}\nThiếu đầu vào không phải thiếu ý định: chọn workflow đúng nếu đã hiểu thao tác, giữ giá trị được người dùng cung cấp và để trống trường chưa có. Server sẽ hỏi bằng form/option. Nếu vẫn chưa rõ mục tiêu hoặc điều kiện chưa đáp ứng thì trả ambiguous với lý do thực tế.`,
+      memories, sessionMemory, knownModules, true, _capabilityChecked, selectedActionId, true, routingBudget);
   }
   if (selectedActionId && !parsed.cancel) { parsed.actionId = selectedActionId; parsed.intentType = "workflow"; delete parsed.businessDiscovery; }
   const parsedValues = parsed.values as Record<string, unknown>;
@@ -342,6 +391,9 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
     return { intentType: "ambiguous", actionId: null, values: {}, remainingRequests: [],
       businessDiscovery: discovery || { actionIds: [] },
       clarification: typeof parsed.clarification === "string" ? parsed.clarification.trim().slice(0, 500) : undefined };
+  }
+  if (assistantGoalOrchestrationEnabled() && parsed.resumeGoal === true && !parsed.cancel) {
+    return { actionId: null, values: {}, intentType: 'ambiguous', resumeGoal: true };
   }
   // An omitted value must remain absent so scoped defaults and collection can run.
   for (const key of Object.keys(parsedValues)) if (parsedValues[key] == null) delete parsedValues[key];
@@ -356,8 +408,8 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
   if (parsed.actionId !== null && typeof parsed.actionId !== "string") throw new AssistantError("Kết quả phân tích AI không hợp lệ. Chưa có dữ liệu nào được thay đổi.", 502);
   if (parsed.actionId && !parsed.cancel && parsed.intentType === "workflow") {
     const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === parsed.actionId);
-    if (operation) assertAssistantModuleScope(operation, text);
-    const choices = projectNamespaceChoices(text, allWorkflows, parsed.actionId, pending);
+    if (operation) assertAssistantModuleScope(operation, currentRequestText);
+    const choices = projectNamespaceChoices(currentRequestText, allWorkflows, parsed.actionId, pending);
     if (choices.length > 1) return { actionId: null, values: {}, intentType: "ambiguous", suggestedActionIds: choices,
       clarification: "Bạn muốn làm việc với dự án Nhân sự hay dự án quản lý lao động?" };
   }
@@ -547,19 +599,19 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
   if (selectedWorkflow) {
     const allowed = new Set(selectedWorkflow.fields.map(field => field.key));
     const selectedOperation = ASSISTANT_OPERATIONS.find(operation => operation.id === selectedWorkflow.actionId);
-    const missingConstraint = selectedOperation && missingReportConstraint(text, { ...selectedOperation, fields: selectedWorkflow.fields }, parsed.values);
+    const missingConstraint = selectedOperation && missingReportConstraint(currentRequestText, { ...selectedOperation, fields: selectedWorkflow.fields }, parsed.values);
     if (missingConstraint) return { actionId: null, values: {}, intentType: "ambiguous", clarification: missingConstraint };
     const analysisContract = ASSISTANT_OPERATIONS.find(operation => operation.id === selectedWorkflow.actionId)?.analysis;
     if (analysisContract) {
-      const ranking = reconcileRequestedRanking(text, analysisContract, parsed.values.analysis);
+      const ranking = reconcileRequestedRanking(currentRequestText, analysisContract, parsed.values.analysis);
       if (ranking.kind === "clarify") return { actionId: null, values: {}, intentType: "ambiguous", clarification: ranking.question };
       if (ranking.kind === "resolved") parsed.values.analysis = ranking.analysis;
-      const filters = reconcileRequestedValueFilters(text, analysisContract, parsed.values.analysis);
+      const filters = reconcileRequestedValueFilters(currentRequestText, analysisContract, parsed.values.analysis);
       if (filters.kind === 'clarify') return { actionId:null,values:{},intentType:'ambiguous',clarification:filters.question };
       if (filters.kind === 'resolved') parsed.values.analysis = filters.analysis;
     }
     if (selectedOperation) {
-      const coverage = validateRequestCoverage(text, parsed.requestCoverage, selectedWorkflow, selectedOperation, parsed.values);
+      const coverage = validateRequestCoverage(currentRequestText, parsed.requestCoverage, selectedWorkflow, selectedOperation, parsed.values);
       if (coverage.ok === false) {
         if (/phân hệ/iu.test(coverage.clarification) && routingBudget.clarificationModules?.length) return {
           actionId:null,values:{},intentType:'ambiguous',clarification:coverage.clarification,clarificationModules:routingBudget.clarificationModules,
