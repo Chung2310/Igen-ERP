@@ -5,6 +5,11 @@ import type { AssistantReply } from "../../src/shared/assistant-workflow";
 const operation=operationById("student.payment.create")!;
 const workflows=[defaultWorkflow(operation)];
 
+it('preserves a provider failure without unrelated manual business instructions', () => {
+  const reply: AssistantReply = { status: 'failed', reply: 'Chưa kết nối được dịch vụ AI.' };
+  expect(appendAssistantFallback(reply, { operation, workflows, reason: 'provider' })).toBe(reply);
+});
+
 it("keeps the API reason and adds verified fee navigation without user credentials",()=>{
   const result=appendAssistantFallback({status:"failed",reply:"Số tiền vượt học phí còn nợ."},{operation,workflows,reason:"validation"});
   expect(result.reply).toContain("Số tiền vượt học phí còn nợ.");

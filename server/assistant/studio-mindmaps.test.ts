@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStudioMindmap } from "./studio-mindmaps";
 import { openrouterChat } from "../service/openrouter.service";
+import { ERP_LLM_MODEL } from '../../shared/llm-model';
 
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: vi.fn() }));
 vi.mock("../modules/marketing-suite/shared/service/ai-subscription.service", () => ({
@@ -24,7 +25,7 @@ const completion = {
 };
 
 describe("createStudioMindmap", () => {
-  it("uses GPT-6 Luna for language generation and returns a validated tree", async () => {
+  it("uses the shared language model and returns a validated tree", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "test-key");
     vi.stubEnv("IGENAI_MINDMAP_MODEL", "");
     vi.stubEnv("IGENAI_MINDMAP_FALLBACK_MODEL", "");
@@ -37,8 +38,8 @@ describe("createStudioMindmap", () => {
     expect(result.title).toBe("Kế hoạch kinh doanh");
     expect(result.root.children).toHaveLength(2);
     expect(openrouterChat).toHaveBeenCalledWith(expect.objectContaining({
-      model: "openai/gpt-6-luna",
-      fallbackModel: "openai/gpt-6-luna",
+      model: ERP_LLM_MODEL,
+      fallbackModel: ERP_LLM_MODEL,
       jsonMode: true,
       responseSchema: expect.any(Object),
     }));

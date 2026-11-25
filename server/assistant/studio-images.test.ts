@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { enhanceStudioImagePrompt, generateStudioImages, type StudioImageInput } from "./studio-images";
 import { openrouterChat, openrouterGenerateImage } from "../service/openrouter.service";
+import { ERP_LLM_MODEL } from '../../shared/llm-model';
 
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: vi.fn(), openrouterGenerateImage: vi.fn() }));
 
@@ -86,8 +87,8 @@ describe("enhanceStudioImagePrompt", () => {
     await expect(enhanceStudioImagePrompt("Tạo poster quảng cáo cho sản phẩm đó", conversation, 3)).resolves.toEqual({ prompt: "Poster quảng cáo cà phê rang xay Mộc, bối cảnh quán buổi sáng, ánh sáng tự nhiên dịu nhẹ." });
     const options = vi.mocked(openrouterChat).mock.calls[0][0];
     expect(options).toMatchObject({
-      model: "openai/gpt-6-luna",
-      fallbackModel: "openai/gpt-6-luna",
+      model: ERP_LLM_MODEL,
+      fallbackModel: ERP_LLM_MODEL,
       jsonMode: true,
       responseSchema: expect.objectContaining({ required: ["prompt"] }),
     });

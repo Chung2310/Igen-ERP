@@ -2101,7 +2101,18 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     ].join("\n");
   }
   const dataRecord = recordOf(recordOf(safeResult)?.data);
-  const normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
+  let normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
+  // Detail endpoints may return a parent record with its SKU collection.
+  // Render each SKU with public parent context instead of dropping children.
+  if (operation.id === 'inventory.product.detail') {
+    const parent = recordOf(normalizedResult);
+    if (Array.isArray(parent?.variants) && parent.variants.length) {
+      normalizedResult = parent.variants.flatMap(value => {
+        const variant = recordOf(value);
+        return variant ? [{ ...parent, ...variant, name: parent.name, productCode: parent.productCode }] : [];
+      });
+    }
+  }
   const isWorkWorkflowRecord = ["hr.workflow.create", "hr.workflow.update"].includes(operation.id)
     && typeof recordOf(normalizedResult)?.name === "string";
   // A saved record can contain empty child collections (student payments, steps...).

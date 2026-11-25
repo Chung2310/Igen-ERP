@@ -544,6 +544,20 @@ it("shows the API validation reason without claiming a technical assistant failu
   expect(students).toHaveLength(0);
 });
 
+it('formats legacy text calendar fields in new and restored previews while retaining ISO pending values', async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: 'student.create', values: {
+    fullName: 'QA Test Trực Tiếp', phone: '0900090001', email: 'qa.live@example.test', registrationDate: '2026-11-25',
+  }, intentType: 'workflow', newRequest: true });
+  const preview = await turn({ text: 'Thêm học viên QA Test Trực Tiếp, điện thoại 0900090001, email qa.live@example.test, ngày đăng ký 25/11/2026' });
+  expect(preview.status).toBe('confirmation');
+  expect(preview.action?.values.find((value: any) => value.label.startsWith('Ngày đăng ký'))?.value).toBe('25/11/2026');
+  expect(Object.values(state.session.pending.resolved)).toContain('2026-11-25');
+  const restored = await conversationState(req, 'student-conversation');
+  expect(JSON.stringify(restored)).toContain('25/11/2026');
+  expect(students).toHaveLength(0);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
 it("creates one student, asks about missing optional fields, supplements that record, and renders shared result tables", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: {
     fullName: "Nguyễn An", phone: "0900000000", email: "an@example.com", registrationDate: "14/11/2026",

@@ -3290,7 +3290,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       for (const key of ["type", "requestKind", "reason", "status", "location", "description"]) {
         if (typeof record?.[key] === "string") safe[key] = record[key].slice(0, key === "description" ? 500 : 200);
       }
-      for (const key of ["startDate", "endDate"]) {
+      for (const key of ["startDate", "endDate", ...(op.id === 'hr.leave.applications.list' ? ['createdAt'] : [])]) {
         const value = record?.[key];
         if (value instanceof Date && Number.isFinite(value.valueOf())) safe[key] = value.toISOString();
         else if (typeof value === "string" && value.length <= 40) safe[key] = value;

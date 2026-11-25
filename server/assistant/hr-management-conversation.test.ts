@@ -67,6 +67,8 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { ASSISTANT_OPERATIONS } from "./catalog";
 import { answerAssistantConversation } from "./documents";
 import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
+import { AssistantInterpretationError } from './interpretation-error';
+import capturedHRCoverage from './testing/hr-local-regression/coverage-fixtures.json';
 
 const employeeId = "507f1f77bcf86cd799439022";
 const secondEmployeeId = "507f1f77bcf86cd799439023";
@@ -752,11 +754,12 @@ it("runs consecutive read steps through the shared completion path", async () =>
 
 it("retains unfinished steps when interpretation fails", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "employee.count", values: {}, intentType: "workflow", remainingRequests: ["Đếm lại"] });
-  state.interpret.mockRejectedValueOnce(new Error("provider unavailable"));
+  state.interpret.mockRejectedValueOnce(new AssistantInterpretationError(503));
   const failed = await turn({ text: "Đếm nhân viên rồi đếm lại" });
   expect(failed.status).toBe("failed");
   expect(state.session.remainingRequests).toEqual(["Đếm lại"]);
   expect(state.turns[0].steps).toHaveLength(1);
+  expect(failed.reply).not.toContain('Hướng dẫn dự phòng');
 });
 
 it.each([400, 422, 500])("a rejected new goal cannot resurrect the previous goal's queued steps (%s)", async status => {
@@ -1184,6 +1187,17 @@ it("continues in conversation mode when the read-query precheck is unavailable",
   expect(fetcher).not.toHaveBeenCalled();
 });
 
+it.each([400, 401, 402, 403, 429, 503])('keeps provider HTTP %s separate from business ambiguity and permission guidance', async status => {
+  state.interpret.mockRejectedValueOnce(new AssistantInterpretationError(status));
+  const reply = await turn({ text: 'Trong phân hệ Nhân sự, hôm nay có ai nghỉ phép không?' });
+  expect(reply.status).toBe('failed');
+  expect(reply.reply).toContain('AI');
+  expect(reply.reply).not.toMatch(/phạm vi.*rộng|cho biết phân hệ|Hướng dẫn dự phòng|chưa có quyền/i);
+  expect(reply.action).toBeUndefined();
+  expect(fetch).not.toHaveBeenCalled();
+  expect(state.turns.at(-1)?.result).toMatchObject({ status: 'failed' });
+});
+
 it("shows a provider limit hint when the conversation response is rejected", async () => {
   state.interpret.mockRejectedValueOnce(Object.assign(new Error(AI_PROVIDER_TEMPORARY_ERROR), { status: 402 }));
   vi.mocked(answerAssistantConversation).mockRejectedValueOnce(Object.assign(new Error(AI_PROVIDER_TEMPORARY_ERROR), { status: 402 }));
@@ -1267,6 +1281,7 @@ it("assigns, changes, and removes an employee job title through confirmed profil
     const conversationId = `job-title-${index}`;
     const preview = await turn({ conversationId, text: example[0] });
     expect(preview.status, `${example[0]} — ${preview.reply} — ${JSON.stringify(preview.referenceSelections)}`).toBe("confirmation");
+    if (example[1] === '') expect(preview.action?.values.some(value => value.value === 'Xóa nội dung')).toBe(true);
     const result = await turn({ conversationId, decision: { id: preview.action!.id, confirmed: true } });
     const updates = fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/auth/users/${secondEmployeeId}` && init?.method === "PATCH");
     expect(result.status).toBe("completed");
@@ -1301,6 +1316,27 @@ it("extends the matching HR contract and displays the new expiry date", async ()
   expect(result.status).toBe("completed");
   expect(result.reply).toContain("30/04/2027");
   expect(JSON.parse(String(extension?.[1]?.body))).toMatchObject({ newEndDate: "2027-04-30", extensionDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+});
+
+it('retains an explanatory deletion reason in the confirmation without treating it as an API filter', async () => {
+  state.interpret.mockResolvedValueOnce({ intentType: 'workflow', actionId: 'employee.delete', values: { id: 'La Văn Sến' } });
+  const preview = await turn({ text: 'Xóa nhân sự La Văn Sến vì đã nghỉ việc' });
+  expect(preview.status, preview.reply).toBe('confirmation');
+  expect(preview.action?.values).toContainEqual(expect.objectContaining({ label: 'Lý do yêu cầu', value: 'đã nghỉ việc' }));
+  expect(state.session.pending.resolved).not.toHaveProperty('reason');
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+  expect((await turn({ decision: { id: preview.action!.id, confirmed: false } })).status).toBe('cancelled');
+  expect(fetcher.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+});
+
+it('defaults and hides the extension recording day while preserving the requested expiry', async () => {
+  state.interpret.mockResolvedValueOnce({ intentType: 'workflow', actionId: 'hr.contract.extend', values: { path_id: 'Nguyễn Anh', newEndDate: '2027-04-30' } });
+  const preview = await turn({ text: 'Gia hạn hợp đồng Nguyễn Anh đến 30/04/2027' });
+  expect(preview.status, preview.reply).toBe('confirmation');
+  expect(state.session.pending.resolved.extensionDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(state.session.pending.resolved.newEndDate).toBe('2027-04-30');
+  expect(preview.action?.values.some(value => value.label === 'Ngày gia hạn')).toBe(false);
+  expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith('/extensions') && init?.method === 'POST')).toBe(false);
 });
 
 it("reports expiring contracts for any requested employee contract type and alert window", async () => {
@@ -2151,4 +2187,92 @@ it("uses attached employee information in work mode and still asks for missing f
   expect(JSON.stringify(preview)).toContain("04/03/1992");
   expect(JSON.stringify(preview)).toContain("an@example.com");
   expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname === "/api/v1/auth/register-user" && init?.method === "POST")).toBe(false);
+});
+
+it.each(['HR08-retest-3', 'HR08-retest-4', 'HR10-retest-3', 'HR10-retest-4'])('replays captured $id through interpretation, dispatch and completion: %s', async id => {
+  const fixture = capturedHRCoverage.find(item => item.id === id)!;
+  const semantic = await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+  const { assistantFunctionKey } = await vi.importActual<typeof import('./function-context')>('./function-context');
+  const { defaultWorkflow, operationById } = await vi.importActual<typeof import('./catalog')>('./catalog');
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-23T08:00:00Z'));
+  try {
+    state.interpret.mockImplementation(semantic.interpretRequest);
+    state.provider.mockImplementation(async request => {
+      const schema = request.responseSchema?.properties || {};
+      if (schema.modules) return { text: JSON.stringify({ modules: ['hr'] }) };
+      if (schema.featureKeys) return { text: JSON.stringify({ featureKeys: [assistantFunctionKey(defaultWorkflow(operationById(fixture.actionId)!))], ambiguous: false, clarification: '' }) };
+      if (schema.actionIds) return { text: JSON.stringify({ actionIds: [fixture.actionId] }) };
+      return { text: JSON.stringify({ intentType: 'workflow', actionIntent: 'report', actionId: fixture.actionId, values: fixture.values, requestCoverage: fixture.coverage }) };
+    });
+    const result = await turn({ text: fixture.text });
+    expect(result.status, result.reply).toBe('completed');
+    expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(1);
+    const request = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === '/api/v1/timekeeping/records');
+    expect(new URL(String(request?.[0])).searchParams.get('date')).toBe('2026-11-23');
+    expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+    expect(completeAssistantOperation).toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
+});
+
+it.each([true, false])('routes an attached image through production interpretation and completes exactly one profile (supplement=%s)', async supplement => {
+  const semantic = await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+  const { assistantFunctionKey } = await vi.importActual<typeof import('./function-context')>('./function-context');
+  const { defaultWorkflow, operationById } = await vi.importActual<typeof import('./catalog')>('./catalog');
+  const createdId = '507f1f77bcf86cd799439995';
+  const name = 'QA Hồ Sơ Ảnh';
+  let created: any;
+  const originalFetch = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation(async (url: any, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/api/v1/auth/register-user' && init?.method === 'POST') {
+      created = { _id: createdId, id: createdId, ...JSON.parse(String(init.body)) };
+      return json({ status: 'success', data: created });
+    }
+    if (path === '/api/v1/auth/users' && (!init?.method || init.method === 'GET') && created) {
+      const response = await originalFetch(url, init);
+      return json([...(await response.json()), created]);
+    }
+    if (path === `/api/v1/auth/users/${createdId}` && init?.method === 'PATCH') {
+      created = { ...created, ...JSON.parse(String(init.body)) };
+      return json({ status: 'success', data: created });
+    }
+    return originalFetch(url, init);
+  });
+  state.interpret.mockImplementation((...args: Parameters<typeof semantic.interpretRequest>) => semantic.interpretRequest(...args));
+  state.provider.mockImplementation(async request => {
+    const schema = request.responseSchema?.properties || {};
+    if (schema.modules) return { text: JSON.stringify({ modules: ['hr'] }) };
+    if (schema.featureKeys) return { text: JSON.stringify({ featureKeys: [assistantFunctionKey(defaultWorkflow(operationById('employee.create')!))], ambiguous: false, clarification: '' }) };
+    if (schema.actionIds) return { text: JSON.stringify({ actionIds: ['employee.create', 'employee.update'] }) };
+    const content = request.messages.at(-1).content;
+    if (Array.isArray(content)) return { text: JSON.stringify({ displayName: name, birthDate: '1998-03-12', email: 'image-qa@example.test', role: 'admin', level: 1 }) };
+    const updating = content.includes('0900000001');
+    return { text: JSON.stringify({ intentType: 'workflow', actionIntent: updating ? 'update' : 'create', actionId: updating ? 'employee.update' : 'employee.create', values: updating ? { id: name, phone: '0900000001' } : {}, requestCoverage: [{ evidence: content, requirement: updating ? 'Bổ sung hồ sơ vừa tạo' : 'Tạo nhân sự từ ảnh đã gửi', mappedTo: updating ? ['action', 'values.phone'] : ['action'] }] }) };
+  });
+  const first = await turn({ text: 'Tạo nhân sự từ ảnh đính kèm', conversationUpload: { buffer: Buffer.from('QA mock image'), fileName: 'qa-image.png' } });
+  const initialRouting = state.interpret.mock.calls[0][4];
+  expect(initialRouting).toContain('Server đã nhận một tệp đính kèm');
+  expect(state.session.pending.provided).toMatchObject({ displayName: name, birthDate: '1998-03-12', email: 'image-qa@example.test' });
+  expect(state.session.pending.provided.role).not.toBe('admin');
+  const preview = first.status === 'confirmation' ? first : await turn({ referenceSelections: {}, skipReferenceKeys: ['department'] });
+  expect(preview.status, preview.reply).toBe('confirmation');
+  expect(created).toBeUndefined();
+  const completed = await turn({ decision: { id: preview.action!.id, confirmed: true, password: 'QA-fixture-only-secret' } });
+  expect(completed.status, completed.reply).toBe('completed');
+  expect(parseAssistantResultTable(completed.reply)).toBeTruthy();
+  expect(completed.reply).toContain('Bạn có muốn bổ sung không?');
+  expect(completed.reply).not.toContain(createdId);
+  if (supplement) {
+    const agree = await turn({ text: 'Có' });
+    expect(agree.status).toBe('collecting');
+    const updatePreview = await turn({ text: 'Bổ sung số điện thoại 0900000001' });
+    expect(updatePreview.status, updatePreview.reply).toBe('confirmation');
+    expect(state.session.pending.resolved.id).toBe(createdId);
+    const updated = await turn({ decision: { id: updatePreview.action!.id, confirmed: true } });
+    expect(updated.status, updated.reply).toBe('completed');
+    expect(parseAssistantResultTable(updated.reply)).toBeTruthy();
+    expect(created.phone).toBe('0900000001');
+  } else expect((await turn({ text: 'Bỏ qua' })).status).toBe('completed');
+  expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === '/api/v1/auth/register-user' && init?.method === 'POST')).toHaveLength(1);
 });

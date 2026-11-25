@@ -563,7 +563,7 @@ describe("semantic interpretation", () => {
     const workflows = Array.from({length:121}, (_, i) => ({...employee, actionId:`custom.${i}`, module:i ? "worker" : "hr"}));
     provider.mockRejectedValueOnce(new Error("Discovery unavailable"));
     provider.mockResolvedValueOnce({text:JSON.stringify({actionId:"employee.create",values:{},intentType:"workflow"})});
-    expect(await interpretRequest("thêm hồ sơ", workflows, null, [])).toMatchObject({ actionId:null, values:{}, intentType:"ambiguous" });
+    await expect(interpretRequest("thêm hồ sơ", workflows, null, [])).rejects.toThrow('dịch vụ AI');
     expect(provider).toHaveBeenCalledTimes(1);
   });
 });

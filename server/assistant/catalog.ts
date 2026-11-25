@@ -8,6 +8,10 @@ import type { AnalysisContract } from "./list-analysis";
 import { buildAssistantOperationMetadata, type AssistantOperationMetadata } from "./operation-metadata";
 
 export interface AssistantOperation {
+  /** Truthful, server-owned phrasings of behavior already enforced by the operation. */
+  coverageAliases?: string[];
+  clearableFields?: string[];
+  currentDateDefaults?: string[];
   /** Additional business function views for a cross-cutting read capability. */
   functionAreas?: Array<{ key: string; label: string }>;
   assistantMetadata?: AssistantOperationMetadata;
@@ -1547,7 +1551,7 @@ if (monthlyKpiLookup) operations.push({
 operations.push({
   id: "hr.leave.applications.list",
   title: "Tra cứu đơn nghỉ phép và làm việc từ xa",
-  description: "Tra cứu đơn nghỉ phép/làm online giao với khoảng ngày. Có đơn nghỉ phép hôm nay không: reportKind=requests, requestKind=leave. Tổng hợp tất cả người nghỉ phép: leave-summary; chỉ khi hỏi ai nghỉ nhiều nhất mới dùng leave-most. Ai làm online/từ xa nhiều nhất: wfh-most và requestKind=wfh. Nhân viên chỉ xem đơn của mình; API kiểm soát quyền xem toàn bộ.",
+  description: "Tra cứu đơn nghỉ phép/làm online giao với khoảng ngày nghỉ (rangeStart/rangeEnd). Đơn mới gửi/nộp trong ngày: dùng createdFrom/createdTo theo ngày Việt Nam, không thay bằng ngày nghỉ. Có đơn nghỉ phép hôm nay không: reportKind=requests, requestKind=leave. Tổng hợp tất cả người nghỉ phép: leave-summary; chỉ khi hỏi ai nghỉ nhiều nhất mới dùng leave-most. Ai làm online/từ xa nhiều nhất: wfh-most và requestKind=wfh. Nhân viên chỉ xem đơn của mình; API kiểm soát quyền xem toàn bộ.",
   module: "hr",
   permissions: ["hr:read", "timekeeping:read"],
   permissionGroups: [["hr:read"], ["timekeeping:read"]],
@@ -1558,6 +1562,8 @@ operations.push({
   fields: [
     queryField(date("rangeStart", "Từ ngày"), "rangeStart"),
     queryField(date("rangeEnd", "Đến ngày"), "rangeEnd"),
+    queryField(date("createdFrom", "Gửi đơn từ ngày")),
+    queryField(date("createdTo", "Gửi đơn đến ngày")),
     queryField(choice("requestKind", "Loại yêu cầu", ["leave", "wfh", "event", "exception"])),
     queryField(choice("status", "Trạng thái đơn", ["pending", "approved", "rejected"])),
     queryField(choice("reportKind", "Kiểu báo cáo", ["requests", "leave-summary", "leave-most", "wfh-most"])),
@@ -1568,7 +1574,7 @@ operations.push({
   assistantOnlyFields: ["reportKind"],
   resultFields: ["reportKind", "requests", "maximumDays", "leaders"],
   resultChildFields: {
-    requests: ["employeeName", "type", "requestKind", "startDate", "endDate", "reason", "status", "chargeableDays"],
+    requests: ["employeeName", "type", "requestKind", "startDate", "endDate", "createdAt", "reason", "status", "chargeableDays"],
     leaders: ["employeeName", "days", "requests"],
   },
   readOnly: true,
@@ -1736,6 +1742,7 @@ const hrContractExtend = operations.find(op => op.id === "api.post.8dad6fff5226b
 if (hrContractExtend) operations.push({
   ...hrContractExtend,
   id: "hr.contract.extend",
+  currentDateDefaults: ["extensionDate"],
   title: "Gia hạn hợp đồng nhân sự",
   description: "Gia hạn hợp đồng của đúng nhân sự đã chọn tới ngày kết thúc mới. Ngày ghi nhận gia hạn mặc định là hôm nay; luôn xem trước và xác nhận trước khi lưu.",
   fields: hrContractExtend.fields.map(field => field.key === "path_id"
@@ -1747,6 +1754,7 @@ if (hrContractExtend) operations.push({
 
 operations.push({
   id: "hr.training.incomplete.list",
+  coverageAliases: ["Chưa hoàn thành bài học trong đào tạo nội bộ", "Chưa hoàn thành đào tạo nội bộ"],
   title: "Báo cáo tiến độ đào tạo nội bộ chưa hoàn thành",
   description: "Liệt kê nhân sự và khóa đào tạo có tiến độ chưa hoàn thành. Chỉ quản trị viên, quản lý và nhân sự được hệ thống xác định là cấp giám sát mới được xem tiến độ của người khác.",
   module: "hr",
@@ -1847,7 +1855,14 @@ operations.push({
   resultFields: ["projectName", "workerName", "date", "attendanceStatus", "checkIn", "checkOut", "quota", "allocated", "gap", "from", "to", "absentDays", "note"],
 });
 const trainingIncomplete = operations.find(op => op.id === "hr.training.incomplete.list")!;
-operations.push({ ...trainingIncomplete, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
+for (const operation of operations) {
+  if (operation.path === '/timekeeping/records' && operation.fields.some(field => field.key === 'query_date')) operation.currentDateDefaults = ['query_date'];
+  if (operation.method === 'PATCH' && operation.path === '/auth/users/:id') operation.clearableFields = ['jobTitle'];
+  if (operation.method === 'POST' && operation.path === '/hr-contracts/:id/extensions') operation.currentDateDefaults = ['extensionDate'];
+  if (operation.id === 'department.lookup') operation.coverageAliases = ['Có bao nhiêu nhân sự', 'Số nhân sự của phòng ban'];
+  if (operation.id === 'employee.birthday.next-month') operation.coverageAliases = ['Nhân sự có sinh nhật trong tháng tới'];
+}
+operations.push({ ...trainingIncomplete, coverageAliases: undefined, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
 const studentClassDetail = operations.find(op => op.id === 'student.batch.detail');
 const legalRepositoryStatus=operations.find(op=>op.id==='legal.repository.status');
 if(legalRepositoryStatus) legalRepositoryStatus.rawResponse=true;
@@ -1979,6 +1994,29 @@ for (const operation of operations) {
   if (operation.id === "marketing.lead-intake-profile.activate") {
     const version = operation.fields.find(field => field.apiKey === "version");
     if (version) version.referenceValueKey = "version";
+  }
+}
+// Reviewed read contracts must expose the same filters as their scoped APIs.
+for (const operation of operations) {
+  const addQuery = (field: AssistantField) => {
+    if (!operation.fields.some(existing => existing.apiKey === field.key && existing.source === 'query')) operation.fields.push({ ...field, key: `query_${field.key}`, apiKey: field.key, source: 'query' });
+  };
+  if (operation.id === 'inventory.prices.list') {
+    addQuery(text('sku', 'Mã SKU cần tra giá'));
+    operation.description = 'Tra giá bán và giá vốn theo mã SKU chính xác trong chi nhánh đang chọn. query_sku lọc mã SKU; kết quả có sku, sellingPrice, costPrice theo quyền hiện tại. Không cần ghép nhiều nguồn cho hai loại giá.';
+  }
+  if (operation.id === 'worker.partner.referrals.list') {
+    addQuery(date('from', 'Từ ngày giới thiệu'));
+    addQuery(date('to', 'Đến ngày giới thiệu'));
+    operation.description += ' Lọc theo ngày giới thiệu referredAt bằng query_from và query_to (YYYY-MM-DD, bao gồm hai đầu). Khi hỏi một tháng, lấy ngày đầu đến ngày cuối tháng đó; không dùng ngày hiệu lực hợp đồng thay ngày giới thiệu.';
+  }
+  if (operation.id === 'finance.receivable.list') {
+    addQuery({ ...number('minOverdueDays', 'Số ngày quá hạn tối thiểu'), min: 1, integer: true });
+    operation.description += ' query_minOverdueDays là ngưỡng số ngày quá hạn bao gồm ngưỡng. Ví dụ quá hạn trên 30 ngày: query_minOverdueDays=31, chỉ một truy vấn; không tách thành ba nguồn agingBucket. Giữ nguyên các bộ lọc khác nếu được yêu cầu.';
+  }
+  if (['inventory.serial.list', 'inventory.serial.detail'].includes(operation.id)) {
+    operation.resultFields = [...new Set([...operation.resultFields, 'warehouseName', 'warehouseCode'])];
+    operation.description += ' Tra vị trí kho hiện tại của serial/IMEI bằng warehouseName và warehouseCode cùng trạng thái. Chỉ trả tên kho được API cấp trong phạm vi, không suy vị trí từ chi nhánh bán.';
   }
 }
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations.map(operation => ({

@@ -11,6 +11,7 @@ import { ProductVariantModel } from "../../../model/product-variant.model";
 import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
 import { InventoryTransferModel } from "../transfers/transfer.model";
+import { WarehouseModel } from '../../../model/warehouse.model';
 
 export interface SerialScope { companyCode: string; branchId: string; warehouseId?: string }
 export interface SerialActor { id: string; name: string }
@@ -144,7 +145,13 @@ export async function listSerialUnits(scope: SerialScope, filters: { serial?: st
     SerialUnitModel.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     SerialUnitModel.countDocuments(query),
   ]);
-  return { items, total, page, limit };
+  const warehouseIds = [...new Set(items.map(item => String(item.warehouseId || '')).filter(id => /^[a-f\d]{24}$/i.test(id)))];
+  const warehouses = warehouseIds.length ? await WarehouseModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, _id: { $in: warehouseIds } }).select('_id name code').lean() : [];
+  const byId = new Map(warehouses.map(item => [String(item._id), item]));
+  return { items: items.map(item => {
+    const warehouse = byId.get(String(item.warehouseId || ''));
+    return { ...item, ...(warehouse ? { warehouseName: warehouse.name, warehouseCode: warehouse.code } : {}) };
+  }), total, page, limit };
 }
 
 export async function transitionSerialUnit(scope: SerialScope, id: string, input: TransitionSerialInput, actor: SerialActor, session?: ClientSession) {

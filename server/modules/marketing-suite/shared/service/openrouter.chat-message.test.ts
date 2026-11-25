@@ -4,6 +4,7 @@ import { readTelecomInvoice } from "../../message/service/telecom-invoice-ocr";
 import { generateText } from "./gemini/core";
 import { geminiChatService } from "./gemini/chat.service";
 import { geminiController } from "../controller/gemini.controller";
+import { ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL } from '../../../../../shared/llm-model';
 
 vi.mock("./ai-subscription.service", () => ({
   billAiCall: (_kind: string, _model: string, action: () => Promise<unknown>) => action(),
@@ -60,6 +61,14 @@ it("uses the dedicated key for both the OCR primary model and its fallback", asy
 
   expect(reading.values).toEqual({ subscriber_code: "TEST-001" });
   expect(usedKeys()).toEqual(["Bearer chat-message-test-key", "Bearer chat-message-test-key"]);
+  expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).model)).toEqual([ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL]);
+});
+
+it('does not restart a failed Luna/Haiku chain in generateText', async () => {
+  fetchMock.mockResolvedValue(new Response('unavailable', { status: 503 }));
+  await expect(generateText('legacy/model', 'Fixture', { keyScope: 'chat-message', maxRetries: 4 })).rejects.toThrow();
+  expect(fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).model)).toEqual([ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL]);
+  expect(usedKeys()).toEqual(['Bearer chat-message-test-key', 'Bearer chat-message-test-key']);
 });
 
 it("sends no provider request when Chat Message has only the ERP key available", async () => {

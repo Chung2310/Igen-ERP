@@ -3,6 +3,14 @@ const vietnamDateTime = new Intl.DateTimeFormat("vi-VN", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23",
 });
 
+/** Legacy catalog fields can declare calendar semantics through their API key. */
+export function isAssistantTemporalField(field: { type?: string; key: string; apiKey?: string; pattern?: string }): boolean {
+  if (field.type === 'date' || field.type === 'datetime') return true;
+  const key = field.apiKey || field.key.replace(/^(?:body|query|path)_/, '');
+  return /^(?:date|datetime|registrationDate|birthDate|birthday)$/.test(key)
+    || /(?:Date|At)$/.test(key);
+}
+
 /** Display ERP calendar values in Vietnamese; never use the server/browser's local timezone. */
 export function formatAssistantTemporalValue(value: string): string | undefined {
   const match = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})?)?$/.exec(value);
