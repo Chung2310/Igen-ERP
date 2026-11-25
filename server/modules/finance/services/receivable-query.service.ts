@@ -36,6 +36,11 @@ export function buildReceivableListQuery(scope: FinanceBranchScope, input: Query
     if (!ranges[bucket]) throw new Error("INVALID_AGING_BUCKET");
     filter.daysOverdue = ranges[bucket];
   }
+  if (input.minOverdueDays !== undefined && input.minOverdueDays !== '') {
+    const minimum = Number(input.minOverdueDays);
+    if (!Number.isSafeInteger(minimum) || minimum < 1) throw new Error('INVALID_OVERDUE_DAYS');
+    filter.daysOverdue = { ...(filter.daysOverdue || {}), $gte: Math.max(minimum, filter.daysOverdue?.$gte || 0) };
+  }
   if (input.from || input.to) {
     filter.occurredAt = {};
     if (input.from) filter.occurredAt.$gte = dateBoundary(input.from, false);

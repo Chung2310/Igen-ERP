@@ -30,6 +30,7 @@ import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studio
 import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
 import { getAssistantProjectFile, listAssistantProjects, saveAssistantProjectCollection, saveAssistantProjectFile } from "./projects";
 import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode } from "./conversation-file";
+import { isAssistantConversationImageName, maxAssistantConversationImageBatchBytes, maxAssistantConversationImageCount, maxAssistantConversationImageFileBytes } from "../../src/shared/assistant-conversation-upload";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -209,7 +210,7 @@ const conversationFileUpload = multer({
 });
 const parseConversationFileUpload = (req: any, res: any, next: any) => {
   if (!req.is("multipart/form-data")) {
-    if (req.body?.conversationFile || req.body?.conversationUpload) return res.status(400).json({ success: false, message: "Tệp trò chuyện không hợp lệ." });
+    if (req.body?.conversationFile || req.body?.conversationUpload || req.body?.conversationUploads) return res.status(400).json({ success: false, message: "Tệp trò chuyện không hợp lệ." });
     return next();
   }
   return expensiveApiRateLimiter(req, res, () => conversationFileUpload.single("file")(req, res, async (error: any) => {
@@ -229,6 +230,46 @@ const parseConversationFileUpload = (req: any, res: any, next: any) => {
     } catch (cause) {
       const status = cause instanceof AssistantError ? cause.status : 400;
       const message = cause instanceof Error ? cause.message : "Không đọc được tệp đính kèm.";
+      return res.status(status).json({ success: false, message });
+    }
+  }));
+};
+const conversationImagesUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: maxAssistantConversationImageFileBytes, files: maxAssistantConversationImageCount, fields: 1, fieldSize: 4 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => isAssistantConversationImageName(file.originalname)
+    ? callback(null, true)
+    : callback(new Error("Only JPG, PNG, or WebP images are supported")),
+});
+const parseConversationImagesUpload = (req: any, res: any, next: any) => {
+  if (!req.is("multipart/form-data")) {
+    if (req.body?.conversationImages || req.body?.conversationUploads) return res.status(400).json({ success: false, message: "Ảnh trò chuyện không hợp lệ." });
+    return next();
+  }
+  return expensiveApiRateLimiter(req, res, () => conversationImagesUpload.array("images", maxAssistantConversationImageCount)(req, res, (error: any) => {
+    if (error) {
+      const tooLarge = error.code === "LIMIT_FILE_SIZE" || error.code === "LIMIT_FIELD_VALUE";
+      return res.status(tooLarge ? 413 : 415).json({ success: false, message: tooLarge
+        ? "Mỗi ảnh không được vượt quá 10 MB; tổng dung lượng không quá 50 MB."
+        : `Chỉ hỗ trợ tối đa ${maxAssistantConversationImageCount} ảnh JPG, PNG hoặc WebP.` });
+    }
+    try {
+      const payloadText = req.body?.payload;
+      const payload = typeof payloadText === "string" ? JSON.parse(payloadText) : null;
+      const files = Array.isArray(req.files) ? req.files : [];
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new AssistantError("Nội dung lượt chat không hợp lệ.", 400);
+      if (!files.length) throw new AssistantError("Chưa nhận được ảnh đính kèm. Hãy chọn lại ảnh rồi gửi.", 400);
+      if (payload.mode !== "qa" || payload.attachment || payload.conversationUpload || payload.conversationUploads) {
+        throw new AssistantError("Gửi nhiều ảnh chỉ hỗ trợ trong chế độ Trò chuyện.", 400);
+      }
+      const totalBytes = files.reduce((total: number, file: { size: number }) => total + file.size, 0);
+      if (totalBytes > maxAssistantConversationImageBatchBytes) throw new AssistantError("Tổng dung lượng ảnh đính kèm không được vượt quá 50 MB.", 413);
+      payload.conversationUploads = files.map((file: { buffer: Buffer; originalname: string }) => ({ buffer: file.buffer, fileName: file.originalname }));
+      req.body = payload;
+      return next();
+    } catch (cause) {
+      const status = cause instanceof AssistantError ? cause.status : 400;
+      const message = cause instanceof Error ? cause.message : "Không đọc được ảnh đính kèm.";
       return res.status(status).json({ success: false, message });
     }
   }));
@@ -263,8 +304,12 @@ const assistantFormSubmission = Joi.object({
   referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100),
   skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100),
 }).unknown(false);
-const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), formValues: assistantFormSubmission, workflowSelection: Joi.object({ id, value: id }).unknown(false), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "formValues", "workflowSelection", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
+const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), conversationUploads: Joi.array().min(1).max(maxAssistantConversationImageCount).items(Joi.object({ buffer: Joi.any().required(), fileName: Joi.string().trim().min(1).max(255).required() })), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), formValues: assistantFormSubmission, workflowSelection: Joi.object({ id, value: id }).unknown(false), trainingContent, acceptanceLines: acceptanceLinesInput, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "formValues", "workflowSelection", "trainingContent", "acceptanceLines").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text").with("conversationUploads", "text").nand("conversationUpload", "conversationUploads").nand("attachment", "conversationUploads");
 const validateAssistantTurn = (req: any, res: any, next: any) => validateRequest({ body: Object.prototype.hasOwnProperty.call(req.body || {}, "schemaVersion") ? assistantReadV2Body : assistantTurnBody })(req, res, next);
+assistantRouter.post("/turns/images", parseConversationImagesUpload, validateAssistantTurn, wrap(async (req, res) => {
+  if (process.env.ASSISTANT_BACKGROUND_ENABLED === "true") await assertNoActiveAssistantJob(req, req.body.conversationId);
+  return withAssistantResponseCancellation(res, signal => processTurn(req, req.body, { signal }));
+}));
 assistantRouter.post("/turns", parseConversationFileUpload, validateAssistantTurn, wrap(async (req, res) => {
   if (Object.prototype.hasOwnProperty.call(req.body, "schemaVersion")) {
     await assertNoActiveAssistantJob(req, req.body.conversationId);
@@ -276,7 +321,7 @@ assistantRouter.post("/turns", parseConversationFileUpload, validateAssistantTur
       const stopped=await cancelConversationAssistantJob(req,req.body.conversationId);
       if (stopped) return stopped;
     }
-    if (req.body.text && req.body.mode !== "qa" && !req.body.attachment && !req.body.conversationUpload) return submitAssistantJob(req, req.body);
+    if (req.body.text && req.body.mode !== "qa" && !req.body.attachment && !req.body.conversationUpload && !req.body.conversationUploads?.length) return submitAssistantJob(req, req.body);
     await assertNoActiveAssistantJob(req, req.body.conversationId);
   }
   return withAssistantResponseCancellation(res, signal => processTurn(req, req.body, { signal }));

@@ -5,11 +5,16 @@ import type { AssistantReply } from "../../src/shared/assistant-workflow";
 const operation=operationById("student.payment.create")!;
 const workflows=[defaultWorkflow(operation)];
 
+it('preserves a provider failure without unrelated manual business instructions', () => {
+  const reply: AssistantReply = { status: 'failed', reply: 'Chưa kết nối được dịch vụ AI.' };
+  expect(appendAssistantFallback(reply, { operation, workflows, reason: 'provider' })).toBe(reply);
+});
+
 it("keeps the API reason and adds verified fee navigation without user credentials",()=>{
   const result=appendAssistantFallback({status:"failed",reply:"Số tiền vượt học phí còn nợ."},{operation,workflows,reason:"validation"});
   expect(result.reply).toContain("Số tiền vượt học phí còn nợ.");
-  expect(result.reply).toContain("Nhật ký & Sửa học phí");
-  expect(result.reply).toContain("Sửa thông tin hoặc điều kiện");
+  expect(result.reply).toContain("Mở Quản lý học viên → Học phí.");
+  expect(result.reply).toContain("Bạn sửa thông tin hoặc điều kiện");
   expect(result.link).toBe("/quan-ly-hoc-vien?sub=hoc-phi");
   expect(result.status).toBe("failed");
 });
@@ -33,14 +38,15 @@ it.each(["collecting","confirmation","completed","cancelled"] as const)("does no
 it("does not guess a screen or link when the module is unavailable",()=>{
   const result=appendAssistantFallback({status:"failed",reply:"Không xử lý được."},{module:"student",workflows:[],reason:"technical"});
   expect(result.link).toBeUndefined();
-  expect(result.reply).toContain("hãy cho biết tên màn hình");
+  expect(result.reply).toContain("tên màn hình đang thao tác");
   expect(result.reply).not.toContain("QUẢN LÝ HỌC VIÊN");
 });
 it.each([...new Set(ASSISTANT_OPERATIONS.map(op=>op.module))])("supports the common fallback for module %s without calling AI",module=>{
   const op=ASSISTANT_OPERATIONS.find(op=>op.module===module)!;
   const result=appendAssistantFallback({status:"failed",reply:"API tạm thời không kết nối được."},{operation:op,workflows:[defaultWorkflow(op)],reason:"technical"});
   expect(result.status).toBe("failed");
-  expect(result.reply).toContain("Hướng dẫn dự phòng:");
+  expect(result.reply).not.toContain("Hướng dẫn dự phòng:");
+  expect(result.reply.split('\n').filter(Boolean).length).toBeLessThanOrEqual(3);
   expect(result.reply).toContain("API tạm thời không kết nối được.");
   // Unknown screens and hidden modules deliberately do not receive guessed links.
   if (result.link !== undefined) expect(result.link).toMatch(/^\/(?!\/)/);

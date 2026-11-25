@@ -3,20 +3,39 @@
  * ──────────────────
  * OpenAI-compatible client trỏ tới https://openrouter.ai/api/v1.
  * Hỗ trợ: chat completions (text + vision), image generation.
- * LLM chữ/phân tích dùng chính sách GPT-6 Luna dùng chung.
+ * LLM chữ/phân tích dùng model trong chính sách dùng chung.
  * Model tạo/chỉnh ảnh và fallback ảnh được cấu hình riêng.
  */
 
 import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, META_MUSE_IMAGE_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
 import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error";
-import { ERP_LLM_MODEL, llmSamplingParameters } from "../../shared/llm-model";
+import { ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL, llmSamplingParameters, shouldFallbackLlm } from "../../shared/llm-model";
 import { withAssistantRequestControl, assertAssistantExecutionActive } from "../assistant/execution-control";
+import { createHash } from 'node:crypto';
+import { fetchOpenRouter } from './openrouter-transport';
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 function getApiKey(): string {
   return process.env.OPENROUTER_API_KEY || "";
+}
+
+/** Server logs only: identify the credential loaded by this process without exposing it. */
+export function openRouterConfigurationDiagnostics() {
+  const key = getApiKey();
+  return {
+    processId: process.pid,
+    configured: Boolean(key),
+    keyFingerprint: key ? createHash('sha256').update(key).digest('hex').slice(0, 16) : null,
+    model: ERP_LLM_MODEL,
+    fallbackModel: ERP_LLM_FALLBACK_MODEL,
+    endpoint: `${OPENROUTER_BASE_URL}/chat/completions`,
+    transport: process.env.OPENROUTER_PROXY_URL?.trim() ? 'configured-proxy' : 'direct',
+  };
+}
+if (process.env.NODE_ENV === 'development') {
+  console.info('[OpenRouter] Local configuration', JSON.stringify(openRouterConfigurationDiagnostics()));
 }
 
 /**
@@ -98,9 +117,9 @@ export type OpenRouterContentPart =
 export interface OpenRouterChatParams {
   /** Caller metadata retained for compatibility; the text wire model is ERP_LLM_MODEL. */
   model: string;
-  /** Kept for caller compatibility. Language calls are pinned to ERP_LLM_MODEL. */
+  /** Defaults to the shared Luna → Haiku chain; false explicitly disables failover. */
   allowFallback?: boolean;
-  /** Legacy caller metadata; cross-model text fallback is disabled by the shared model policy. */
+  /** Legacy metadata; the backup is pinned to ERP_LLM_FALLBACK_MODEL. */
   fallbackModel?: string;
   messages: OpenRouterMessage[];
   temperature?: number;
@@ -126,8 +145,8 @@ export interface OpenRouterCitation {
 
 /**
  * Chat completions — text và/hoặc vision (base64 images).
- * Model LLM được pin theo chính sách ứng dụng; retry giữ cùng GPT-6 Luna.
- * Không chuyển qua model khác hoặc FreeLLM sau lỗi.
+ * Luna là model chính; Haiku là dự phòng duy nhất cho lỗi khả dụng.
+ * Giữ nguyên payload, quyền, schema và deadline; không chuyển sang FreeLLM.
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const { temperature = 0.7, jsonMode, responseSchema, maxRetries = 4 } = params;
@@ -160,7 +179,17 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   }
   const jsonRequested = Boolean(jsonMode || responseSchema);
 
-  return chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode, maxTokens, params.timeoutMs);
+  const allowFallback = params.allowFallback !== false;
+  const deadlineAt = Date.now() + (params.timeoutMs ?? 40_000);
+  try {
+    return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode, maxTokens, params.timeoutMs, allowFallback);
+  } catch (error) {
+    await assertAssistantExecutionActive();
+    const remainingMs = deadlineAt - Date.now();
+    if (!allowFallback || !shouldFallbackLlm(error) || remainingMs <= 0) throw error;
+    console.warn(`[OpenRouter] Primary unavailable; using fallback model=${ERP_LLM_FALLBACK_MODEL}`);
+    return chatWithRetries(OPENROUTER_BASE_URL, apiKey, ERP_LLM_FALLBACK_MODEL, messages, temperature, jsonRequested, 1, params.webSearch, params.webSearchMode, maxTokens, remainingMs);
+  }
 }
 
 async function chatWithRetries(
@@ -175,6 +204,7 @@ async function chatWithRetries(
   webSearchMode: OpenRouterChatParams["webSearchMode"] = "deep",
   maxTokens?: number,
   timeoutMs = 40_000,
+  failoverOnUnavailable = false,
 ): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const body: Record<string, any> = {
     model,
@@ -211,11 +241,13 @@ async function chatWithRetries(
 
       await assertAssistantExecutionActive();
       const data = await withAssistantRequestControl(timeoutMs, async signal => {
-        const response = await fetch(`${baseUrl}/chat/completions`, {
+        const response = await fetchOpenRouter(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers: buildHeaders(apiKey),
           body: JSON.stringify(body),
-          signal,
+          signal: failoverOnUnavailable || model === ERP_LLM_FALLBACK_MODEL
+            ? AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(Math.max(1, Math.floor(failoverOnUnavailable ? timeoutMs / 2 : timeoutMs)))])
+            : signal,
         });
 
         if (!response.ok) {
@@ -232,6 +264,7 @@ async function chatWithRetries(
       });
       const message = data.choices?.[0]?.message;
       const text: string = typeof message?.content === "string" ? message.content : "";
+      if (!text.trim()) throw Object.assign(new Error('OpenRouter returned an empty completion.'), { status: 502 });
       const parseCitation = (citation: any): OpenRouterCitation | null => {
         const rawUrl = typeof citation === "string" ? citation : citation?.url;
         if (typeof rawUrl !== "string") return null;
@@ -281,6 +314,7 @@ async function chatWithRetries(
     } catch (error: any) {
       await assertAssistantExecutionActive();
       lastError = error;
+      if (failoverOnUnavailable && shouldFallbackLlm(error)) break;
       const status = error?.status ?? 0;
       const msg = error?.message || String(error);
       const inFlightBudgetExceeded = status === 402 && error?.providerLimitSource === "openrouter_in_flight_budget";

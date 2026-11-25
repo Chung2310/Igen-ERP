@@ -210,6 +210,13 @@ export function textMatches(q: string, fields: string[]) {
 
 export function patientSearchFilter(q: string, selectionOnly = false) {
   if (!q) return {};
+  // A natural lookup can supply both a name and a phone. They are conjunctive
+  // constraints, not one literal phrase that could never occur in either field.
+  const namedPhone = /^(.+?\p{L}.*?)\s+(\+?\d{7,15})$/u.exec(q.trim());
+  if (namedPhone) return { $and: [
+    { $or: textMatches(namedPhone[1], ['name']) },
+    { $or: textMatches(namedPhone[2], ['phone', 'hospitalProfile.phoneText']) },
+  ] };
   if (!selectionOnly) return { $or: textMatches(q, patientSearchFields) };
   const phoneFields = ["phone", "hospitalProfile.phoneText"];
   const matches = textMatches(q, ["name", ...phoneFields]);

@@ -8,6 +8,8 @@ import { assistantFunctionKey } from "./function-context";
 import { INTERPRETATION_LIMITS, interpretationPromptBytes, newInterpretationBudget, requestAssistantInterpretation } from "./interpretation-budget";
 import { validateRequestCoverage } from "./request-coverage";
 import { matchesModuleContextEvidence } from "./module-context";
+import { AssistantInterpretationError } from './interpretation-error';
+import { PlanCancelledError } from './execution-budget';
 
 const all = ASSISTANT_OPERATIONS.filter(operation => !operation.unavailableReason).map(defaultWorkflow);
 const reportOperation = operationById("worker.report")!;
@@ -94,9 +96,42 @@ it("stops a failed coverage repair without returning partial values or broadenin
   expect(provider).toHaveBeenCalledTimes(2);
 });
 
-it("asks for module context after failed discovery instead of sending a thousand schemas", async () => {
+it("reports failed discovery as an AI connection failure without sending a thousand schemas", async () => {
   provider.mockRejectedValueOnce(new Error("fixture discovery failure"));
-  expect(await interpretRequest("Xử lý dữ liệu giúp tôi", all, null, [])).toMatchObject({ actionId: null, values: {}, intentType: "ambiguous" });
+  await expect(interpretRequest("Xử lý dữ liệu giúp tôi", all, null, [])).rejects.toBeInstanceOf(AssistantInterpretationError);
+  expect(provider).toHaveBeenCalledTimes(1);
+});
+
+it.each([400, 401, 402, 403, 429, 503])('does not turn provider HTTP %s into module ambiguity or catalog overflow', async status => {
+  provider.mockRejectedValueOnce(Object.assign(new Error('private provider response sk-secret'), { status }));
+  const failure = await interpretRequest('Báo cáo tình hình nhân sự hôm nay.', all, null, []).catch(error => error);
+  expect(failure).toBeInstanceOf(AssistantInterpretationError);
+  expect(failure.providerStatus).toBe(status);
+  expect(failure.message).not.toMatch(/sk-secret|phạm vi.*rộng|cho biết phân hệ/i);
+  expect(provider).toHaveBeenCalledTimes(1);
+});
+
+it('does not widen a selected function when its provider request fails', async () => {
+  provider.mockRejectedValueOnce(new TypeError('fetch failed'));
+  await expect(interpretRequest('Trong phân hệ Nhân sự, hôm nay có ai nghỉ phép không?', all.filter(w => w.module === 'hr'), null, []))
+    .rejects.toBeInstanceOf(AssistantInterpretationError);
+  expect(provider).toHaveBeenCalledTimes(1);
+});
+
+it('preserves user cancellation during discovery without a fallback call', async () => {
+  const cancellation = new PlanCancelledError('Đã hủy');
+  provider.mockRejectedValueOnce(cancellation);
+  await expect(interpretRequest('Xử lý dữ liệu', all, null, [])).rejects.toBe(cancellation);
+  expect(provider).toHaveBeenCalledTimes(1);
+});
+
+it('reports a provider timeout without asking for another module or calling again', async () => {
+  provider.mockRejectedValueOnce(Object.assign(new Error('private timeout detail'), { name: 'TimeoutError' }));
+  const failure = await interpretRequest('Xử lý dữ liệu', all, null, []).catch(error => error);
+  expect(failure).toBeInstanceOf(AssistantInterpretationError);
+  expect(failure.timedOut).toBe(true);
+  expect(failure.status).toBe(504);
+  expect(failure.message).toContain('phản hồi quá lâu');
   expect(provider).toHaveBeenCalledTimes(1);
 });
 

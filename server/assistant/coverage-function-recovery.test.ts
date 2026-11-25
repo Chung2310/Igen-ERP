@@ -4,6 +4,7 @@ const provider = vi.hoisted(() => vi.fn());
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: provider }));
 import { defaultWorkflow, operationById } from "./catalog";
 import { interpretRequest } from "./semantic-interpreter";
+import { AssistantInterpretationError } from './interpretation-error';
 import { findUncoveredRequestTerms, validateRequestCoverage } from "./request-coverage";
 import { assistantFunctionContextCatalog } from "./function-context";
 import { INTERPRETATION_LIMITS, interpretationPromptBytes } from "./interpretation-budget";
@@ -104,6 +105,15 @@ it("recovers unsupported once and refuses foreign group keys", async () => {
   provider.mockReset();
   provider.mockResolvedValueOnce(group('hr:payroll')).mockResolvedValueOnce(unsupported).mockResolvedValueOnce(group('worker:workers'));
   expect(await interpretRequest('Cập nhật hồ sơ', workflows, null, [])).toMatchObject({ actionId: null, intentType: 'unsupported' });
+  expect(provider).toHaveBeenCalledTimes(3);
+});
+
+it('stops function recovery on provider failure without returning an unsupported business result', async () => {
+  const workflows = ['employee.update', 'payroll.policy.update'].map(workflow);
+  provider.mockResolvedValueOnce(group('hr:payroll'))
+    .mockResolvedValueOnce(response({ actionId: null, values: {}, intentType: 'unsupported', requestCoverage: [] }))
+    .mockRejectedValueOnce(Object.assign(new Error('Request path cannot be relayed'), { status: 400 }));
+  await expect(interpretRequest('Cập nhật hồ sơ', workflows, null, [])).rejects.toBeInstanceOf(AssistantInterpretationError);
   expect(provider).toHaveBeenCalledTimes(3);
 });
 

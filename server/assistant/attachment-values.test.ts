@@ -60,4 +60,12 @@ describe("assistant image field extraction", () => {
 
     expect(values).toEqual({});
   });
+  it('does not take roles or hierarchy changes from an uploaded document', async () => {
+    state.openrouterChat.mockResolvedValueOnce({ text: JSON.stringify({ displayName: 'QA Nhân sự', role: 'admin', level: 1, parentId: 'pretend-admin' }) });
+    const values = await extractAssistantAttachmentValues({ requestText: 'Tạo nhân sự theo ảnh', operation: operationById('employee.create')!, attachments: [{ fileName: 'qa.png', dataUrl: 'data:image/png;base64,ZmFrZQ==' }] });
+    expect(values).toEqual({ displayName: 'QA Nhân sự' });
+    const prompt = state.openrouterChat.mock.calls[0][0].messages[1].content[0].text;
+    expect(prompt).not.toContain('"key":"role"');
+    expect(prompt).not.toContain('"key":"level"');
+  });
 });

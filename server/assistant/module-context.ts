@@ -44,7 +44,10 @@ export function assistantModuleContext(module: string) {
   const labels = [...new Set(keys.filter(key => key !== typedModule).map(key => MODULE_LABELS[key]))];
   const label = typedModule === "student-partner" ? "Đối tác tuyển sinh"
     : typedModule === "partner" ? "Đối tác cũ" : MODULE_LABELS[typedModule];
-  const aliases = [...new Set(MODULE_LABEL_ALIASES[typedModule] || [])];
+  // Public compound labels are also spoken by their individual area names,
+  // e.g. Kho, Bán lẻ, POS, Sửa chữa. Reuse that metadata across all modules.
+  const publicNames = label.split(/\s*&\s*/).flatMap(name => [name, name.replace(/^Quản l[ýí]\s+/iu, '')]);
+  const aliases = [...new Set([...(MODULE_LABEL_ALIASES[typedModule] || []), ...publicNames.filter(name => name !== label)])];
   return { key: module, label, relatedLabels: labels, aliases };
 }
 
@@ -76,7 +79,7 @@ export function mentionsCompatibleModule(evidence: string, module: string) {
   const candidates = [module, context.label, ...context.aliases];
   return candidates.some(candidate => {
     const normalized = normalize(candidate);
-    return normalized.length > 1 && phrase.includes(normalized);
+    return normalized.length > 1 && ` ${phrase} `.includes(` ${normalized} `);
   });
 }
 
@@ -84,7 +87,7 @@ export function mentionsCompatibleModule(evidence: string, module: string) {
  * name sufficient to select a module globally or swallowing extra conditions. */
 export function matchesModuleContextEvidence(evidence: string, module: string, requestText = "") {
   if (isModuleContextClause(evidence, module)) return true;
-  const phrase = normalize(evidence).replace(/^(?:cac|nhung)\s+/, "").replace(/^nguoi\s+/, "")
+  const phrase = normalize(evidence).replace(/^(?:cac|nhung|tat ca|toan bo)\s+/, "").replace(/^nguoi\s+/, "")
     .replace(/^(?:them|tao|xem|tra cuu|sua|cap nhat|xoa)\s+/, "");
   const context = assistantModuleContext(module);
   const names = [context.label, ...context.aliases].map(normalize);

@@ -224,6 +224,7 @@ function missingRecruitmentJobReadiness(job: Record<string, any>, now = new Date
   return missing;
 }
 function isBranchScopedAssistantOperation(op: AssistantOperation) {
+  if (op.id === 'partner.analysis') return true;
   return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 function requiresBranchChoice(op: AssistantOperation) {
@@ -1192,12 +1193,25 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
   const result = await response.json().catch(() => null) as any;
+  if (response.ok && result?.success !== false && op.id === 'partner.referrals') {
+    const partner = result?.data;
+    if (!partner || typeof partner.name !== 'string' || !Array.isArray(partner.referredStudents) || typeof partner.totalReferredTuition !== 'number') throw new AssistantError('Chưa lấy đủ danh sách học viên giới thiệu của đối tác.', 502);
+    return {data:partner.referredStudents.map((student:any) => ({partnerName:partner.name,fullName:student.fullName,registrationDate:student.registrationDate,fee:student.fee,totalReferredTuition:partner.totalReferredTuition}))};
+  }
+  if (response.ok && result?.success !== false && op.method==='GET' && op.path==='/partners/:id' && result?.data) {
+    result.data.bankAccountStatus=String(result.data.bankAccountNo || '').trim()?'Đã cập nhật':'Chưa cập nhật';
+  }
   if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis
     && ["partner.analysis", "api.get.78da159ec226e07e"].includes(op.id)) {
     const rows = op.id === "partner.analysis" ? result.partners : result.data;
     if (!Array.isArray(rows)) throw new AssistantError("Không đọc được danh sách đối tác đầy đủ.", 502);
     const data = rows.map((row: any) => Object.fromEntries(Object.entries(op.analysis!.fields).map(([key, definition]) => {
-      const value = row?.[key];
+      let value = row?.[key];
+      if (op.id === 'partner.analysis') {
+        if (key === 'isActive') value = row.isActive === false ? 'inactive' : row.isActive === true ? 'active' : '';
+        if (key === 'bankConfigured') value = String(row.bankAccountNo || '').trim() ? 1 : 0;
+        if (definition.type === 'text' && value == null) value = '';
+      }
       if (definition.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       if (definition.type === "text" && typeof value !== "string") throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       return [key, value];
@@ -3290,7 +3304,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       for (const key of ["type", "requestKind", "reason", "status", "location", "description"]) {
         if (typeof record?.[key] === "string") safe[key] = record[key].slice(0, key === "description" ? 500 : 200);
       }
-      for (const key of ["startDate", "endDate"]) {
+      for (const key of ["startDate", "endDate", ...(op.id === 'hr.leave.applications.list' ? ['createdAt'] : [])]) {
         const value = record?.[key];
         if (value instanceof Date && Number.isFinite(value.valueOf())) safe[key] = value.toISOString();
         else if (typeof value === "string" && value.length <= 40) safe[key] = value;

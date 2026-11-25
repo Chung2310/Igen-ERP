@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AI_PROVIDER_TEMPORARY_ERROR } from "../../../../../src/shared/ai-provider-error";
-import { ERP_LLM_MODEL, llmSamplingParameters } from "../../../../../shared/llm-model";
+import { ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL, llmSamplingParameters, shouldFallbackLlm } from "../../../../../shared/llm-model";
+import { fetchOpenRouter } from '../../../../service/openrouter-transport';
 /**
  * OpenRouter Service
  * ─────────────────────────────────────────────────────────────────
@@ -65,6 +66,9 @@ export type OpenRouterContentPart =
 
 export interface OpenRouterChatParams {
   model: string;
+  allowFallback?: boolean;
+  /** Internal recovery for structured output; never accepts an arbitrary model. */
+  fallbackOnly?: boolean;
   messages: OpenRouterMessage[];
   keyScope?: OpenRouterKeyScope;
   temperature?: number;
@@ -98,12 +102,23 @@ export interface OpenRouterChatDiagnostics {
  * Chat completions — text và/hoặc vision (base64 images).
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string }> {
-  params = { ...params, model: ERP_LLM_MODEL };
   const apiKey = params.keyScope === "chat-message" ? requireChatMessageOpenRouterKey() : getApiKey();
-  return billAiCall("text", mapModelName(params.model), () => openrouterChatUnmetered(params, apiKey));
+  const allowFallback = !params.fallbackOnly && params.allowFallback !== false;
+  const deadlineAt = Math.min(params.deadlineAt ?? Infinity, Date.now() + (params.timeoutMs ?? 45_000));
+  const run = (model: string, primary: boolean) => billAiCall('text', model, () => openrouterChatUnmetered({
+    ...params, model, deadlineAt, ...(primary ? {} : { maxRetries: 1 }),
+    timeoutMs: Math.max(1, Math.floor(Math.min(params.timeoutMs ?? 45_000, primary && allowFallback ? (deadlineAt - Date.now()) / 2 : deadlineAt - Date.now()))),
+  }, apiKey, primary && allowFallback));
+  try {
+    return await run(params.fallbackOnly ? ERP_LLM_FALLBACK_MODEL : ERP_LLM_MODEL, !params.fallbackOnly);
+  } catch (error) {
+    if (!allowFallback || !shouldFallbackLlm(error) || Date.now() >= deadlineAt) throw error;
+    console.warn(`[OpenRouter] Primary unavailable; using fallback model=${ERP_LLM_FALLBACK_MODEL}`);
+    return run(ERP_LLM_FALLBACK_MODEL, false);
+  }
 }
 
-async function openrouterChatUnmetered(params: OpenRouterChatParams, apiKey: string): Promise<{ text: string }> {
+async function openrouterChatUnmetered(params: OpenRouterChatParams, apiKey: string, failoverOnUnavailable = false): Promise<{ text: string }> {
   const {
     model,
     temperature = 0.7,
@@ -182,7 +197,7 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams, apiKey: str
       const startTime = Date.now();
       console.log(`[OpenRouter] POST /chat/completions | model=${mappedModel} | attempt=${attempt}`);
 
-      const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      const response = await fetchOpenRouter(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: "POST",
         signal: timeoutMs || remainingMs !== undefined
           ? AbortSignal.timeout(Math.max(1, Math.min(timeoutMs || Infinity, remainingMs ?? Infinity))) : undefined,
@@ -248,6 +263,7 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams, apiKey: str
     } catch (error: any) {
       finishAttempt(false);
       lastError = error;
+      if (failoverOnUnavailable && shouldFallbackLlm(error)) break;
       const status = error?.status ?? 0;
       const msg = error?.message || String(error);
       const isRetryable =

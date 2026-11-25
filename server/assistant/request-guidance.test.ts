@@ -7,8 +7,8 @@ const studentWorkflows = ASSISTANT_OPERATIONS.filter(operation => operation.modu
 it("guides a recognized delete request to the relevant ERP module without claiming it ran", () => {
   const reply = assistantUnsupportedGuidance("Xóa trường dữ liệu tùy chỉnh của học viên", studentWorkflows, "student");
 
-  expect(reply).toContain("Mình hiểu bạn muốn thực hiện yêu cầu này.");
-  expect(reply).toContain("chưa có dữ liệu nào được thay đổi");
+  expect(reply).toContain("Mình chưa thực hiện được việc này trong chat.");
+  expect(reply).toContain("Chưa có dữ liệu nào được thay đổi");
   expect(reply).toContain("tab QUẢN LÝ HỌC VIÊN");
   expect(reply).toContain("Tìm đúng hồ sơ theo tên hoặc mã");
   expect(reply).toContain("Đọc kỹ cảnh báo và dữ liệu liên quan");

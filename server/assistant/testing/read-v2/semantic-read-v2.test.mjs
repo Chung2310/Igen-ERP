@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { ERP_LLM_MODEL } from '../../../../shared/llm-model.ts';
 import { interpretProductReadV2 } from '../../semantic-read-v2.ts';
 import { withAssistantExecution } from '../../execution-control.ts';
 import { PlanCancelledError, PlanStoppedError } from '../../execution-budget.ts';
@@ -21,7 +22,7 @@ it('uses the actual Luna provider wire contract with JSON mode and bounded outpu
   expect(await controlled(() => interpretProductReadV2(dto))).toEqual(output);
   expect(transport).toHaveBeenCalledTimes(1);
   const [url, init] = transport.mock.calls[0], body = JSON.parse(init.body);
-  expect(url).toBe('https://openrouter.ai/api/v1/chat/completions'); expect(body.model).toBe('openai/gpt-6-luna');
+  expect(url).toBe('https://openrouter.ai/api/v1/chat/completions'); expect(body.model).toBe(ERP_LLM_MODEL);
   expect(body.response_format).toEqual({ type: 'json_object' }); expect(body.max_tokens).toBe(2048); expect(body).not.toHaveProperty('temperature');
   expect(JSON.parse(body.messages[1].content)).toEqual(dto); expect(init.signal).toBeInstanceOf(AbortSignal);
 });
