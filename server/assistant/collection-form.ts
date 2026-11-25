@@ -27,6 +27,10 @@ export function clarificationModuleIds(text: string, workflows: AssistantWorkflo
   });
 }
 export function createModuleChoice(workflows: AssistantWorkflow[], modules: string[], intent: string, pendingId: string | null, newRequest = false) {
+  // Learning partners own their records in student-partner, not in the
+  // related student module. Never offer the parent as an interchangeable route.
+  if (/\bdoi tac\b/.test(intent.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase())
+    && workflows.some(w => w.enabled && w.module === 'student-partner')) modules = modules.map(module => module === 'student' ? 'student-partner' : module);
   const allowed = [...new Set(modules)].filter(module => workflows.some(workflow => workflow.enabled && workflow.module === module)).slice(0, 8);
   if (allowed.length < 2) return;
   const id = randomUUID();

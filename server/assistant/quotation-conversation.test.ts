@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { conversationAudit } from "./testing/conversation-audit";
+import { semanticProviderFixture } from './testing/semantic-provider-fixture';
 import { quoteCreatedRange } from "../modules/quotation/created-range";
 import { appendFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -66,7 +67,7 @@ const confirm = (reply: any) => turn({ decision: { id: reply.action.id, confirme
 it.each(["Cho xem dự toán đã duyệt của An", "Tìm các dự toán khách An đã được duyệt"])("simulated AI quotation report: %s", async text => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.quote.list", values: { kind: "estimate", status: "approved", search: "An", page: 2 } }) });
+  state.provider.mockImplementation(semanticProviderFixture({ intentType: 'workflow', actionId: "quotation.quote.list", values: { kind: "estimate", status: "approved", search: "An", page: 2 } }));
   quotes = [{ _id: quoteId, quoteNumber: "DT-2026-0001", kind: "estimate", status: "approved", customerName: "An", total: 1500000, currency: "VND" }];
   const reply = await turn({ text: text + ", trang 2" });
   expect(reply.status, JSON.stringify(reply)).toBe("completed");
@@ -80,7 +81,7 @@ it.each(["Cho xem dự toán đã duyệt của An", "Tìm các dự toán khác
 it("filters quotation creation dates to the requested month with Vietnamese day boundaries", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.quote.list", values: { from: "2026-11-01", to: "2026-11-30" } }) });
+  state.provider.mockImplementation(semanticProviderFixture({ intentType: 'workflow', actionId: "quotation.quote.list", values: { from: "2026-11-01", to: "2026-11-30" } }));
   quotes = [
     { _id: quoteId, quoteNumber: "DT-NOV", kind: "estimate", customerName: "An", createdAt: "2026-10-31T17:00:00.000Z" },
     { _id: productId, quoteNumber: "DT-OCT", kind: "estimate", customerName: "An", createdAt: "2026-10-31T16:59:59.999Z" },
@@ -108,7 +109,10 @@ it("must not report an unfiltered quotation list when simulated AI omits the req
 it("creates an estimate request after correcting the model's budget choice", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: { templateId, customerName: "An" } }) });
+  const text = "Tạo dự toán cho An theo mẫu dự toán, ngân sách 100 triệu";
+  state.provider.mockImplementation(semanticProviderFixture({ intentType: 'workflow', actionId: "quotation.budget.create", values: { templateId, customerName: "An" },
+    requestCoverage: [{ evidence: text, requirement: 'Lưu nguyên yêu cầu dự toán, gồm tên khách và ngân sách', mappedTo: ['action', 'values.requestText'] }],
+  }, ['quotation.budget.create', 'quotation.request.create']));
   const saved: any[] = [];
   const original = fetcher.getMockImplementation()! as (url: URL, init?: RequestInit) => Promise<Response>;
   fetcher.mockImplementation(async (url, init) => {
@@ -122,7 +126,6 @@ it("creates an estimate request after correcting the model's budget choice", asy
     }
     return original(url, init);
   });
-  const text = "Tạo dự toán cho An theo mẫu dự toán, ngân sách 100 triệu";
   let preview = await turn({ text });
   if (preview.status !== "confirmation") preview = await turn({ skipReferenceKeys: ["priceListId"] });
   expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
@@ -349,7 +352,7 @@ it("creates a price-book item, asks about missing optional data, agrees and upda
   const preview = await turn({ text: "Thêm sản phẩm ML01 Máy lọc vào bảng giá, đơn vị cái, giá 250000" });
   expect(preview.status).toBe("confirmation"); expect(products).toHaveLength(0);
   const created = await confirm(preview);
-  expect(created.status).toBe("completed"); expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.status).toBe("completed"); expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(parseAssistantResultTable(created.reply)?.rows[0].values).toMatchObject({ "Mã hàng": "ML01", "Tên": "Máy lọc" });
   expect(created.reply).not.toContain("Tiền tệ: VND");
   const agreed = await turn({ text: "Có" }); expect(agreed.status).toBe("collecting");
@@ -363,7 +366,7 @@ it("creates a price-book item, asks about missing optional data, agrees and upda
 
 it("lets the user skip optional data without another API write", async () => {
   interpreted("catalog.create", { sku: "ML01", name: "Máy lọc", unit: "cái", price: 250000 });
-  const created = await confirm(await turn({ text: "Thêm sản phẩm vào bảng giá" })); expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  const created = await confirm(await turn({ text: "Thêm sản phẩm vào bảng giá" })); expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   const before = fetcher.mock.calls.length;
   const skipped = await turn({ text: "Bỏ qua" }); expect(skipped.status).toBe("completed");
   expect(fetcher).toHaveBeenCalledTimes(before); expect(products).toHaveLength(1);
@@ -374,7 +377,7 @@ it("keeps a created quotation privately for an email supplement and preserves it
   interpreted("customer-quote.create", { customerName: "An", templateId: "Mẫu chuẩn", items: JSON.stringify([{ catalogItemId: "ML01" }]) });
   const preview = await turn({ text: "Lập báo giá khách hàng An, máy lọc ML01, mẫu Mẫu chuẩn" }); expect(preview.status).toBe("confirmation");
   expect(JSON.stringify(preview)).not.toMatch(/507f|__assistant/);
-  const created = await confirm(preview); expect(created.status).toBe("completed"); expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  const created = await confirm(preview); expect(created.status).toBe("completed"); expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   interpreted("quote.update", { customerEmail: "an@example.com" });
   const update = await turn({ text: "Bổ sung email báo giá an@example.com" }); expect(update.status).toBe("confirmation");
   const saved = await confirm(update); expect(saved.status).toBe("completed");

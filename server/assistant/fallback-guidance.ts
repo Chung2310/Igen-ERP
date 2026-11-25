@@ -33,28 +33,20 @@ export function appendAssistantFallback(reply: AssistantReply, context: Context)
     .map(w => localLink(operationById(w.actionId)?.link)).find(Boolean)?.split("?")[0] : undefined;
   const link = knownModule && context.reason !== "permission" && !hidden
     ? localLink(guide?.link || moduleLink) : undefined;
-  const destination = hidden ? guide?.reason || "Phân hệ này hiện bị ẩn khỏi điều hướng ứng dụng. Chưa có luồng thủ công được xác minh tại đây." : guide?.status === "procedure" ? guide.steps[0] : moduleLabel
+  const destination = hidden ? 'Phân hệ này hiện chưa có trong menu của bạn.' : guide?.status === "procedure" ? guide.steps[0] : moduleLabel
     ? `Mở tab ${moduleLabel} trong menu chính${guide?.screen ? ` → ${guide.screen}` : ""}.`
-    : "Mở phân hệ đang quản lý dữ liệu bạn muốn thao tác. Nếu chưa rõ phân hệ, hãy cho biết tên màn hình để mình hướng dẫn đúng.";
+    : 'Bạn cho mình biết tên màn hình đang thao tác để mình hướng dẫn tiếp nhé.';
   const steps = [destination];
   const uncertain = reply.status === "uncertain" || context.reason === "uncertain";
   if (uncertain) {
-    steps.push("Tìm bản ghi và kiểm tra lịch sử theo tên/mã, thời điểm và nội dung vừa yêu cầu.",
-      "Nếu dữ liệu đã được ghi, không thực hiện lại. Nếu chưa xác minh được, nhờ quản trị viên kiểm tra trước khi tạo hoặc gửi lại yêu cầu.");
+    steps.push('Kiểm tra đúng hồ sơ và lịch sử vừa thao tác. Nếu dữ liệu đã được ghi, không thực hiện lại. Chưa xác minh được thì nhờ người phụ trách kiểm tra trước khi thử lại.');
   } else if (context.reason === "permission") {
-    steps.push("Nhờ quản trị viên kiểm tra quyền cho chức năng này và chi nhánh đang chọn.",
-      "Chỉ tiếp tục sau khi được cấp quyền. Thao tác trên giao diện cũng cần đúng quyền truy cập.");
+    steps.push('Bạn nhờ quản trị viên kiểm tra quyền ở chi nhánh đang chọn. Chỉ tiếp tục sau khi được cấp quyền.');
   } else {
-    steps.push("Chọn đúng chi nhánh. Tìm và đối chiếu tên/mã của bản ghi trước khi thao tác.");
-    if (context.reason === "validation") steps.push("Sửa thông tin hoặc điều kiện được nêu trong nguyên nhân ở trên. Nếu bản ghi đã thay đổi, tải lại dữ liệu mới trước khi sửa.");
-    if (guide?.status === "procedure") {
-      steps.push(...guide.steps.slice(1));
-    } else if (op && guide) {
-      steps.push(guide.reason, "Nhờ người phụ trách phân hệ xác minh cách thực hiện chức năng này. Không dùng thao tác khác để thay thế.");
-    } else {
-      steps.push("Mở danh sách loại dữ liệu cần tra cứu và tìm đúng hồ sơ. Chỉ thực hiện chức năng tương ứng nếu giao diện có hỗ trợ. Không thấy chức năng thì nhờ quản trị viên kiểm tra.");
-    }
+    if (context.reason === 'validation') steps.push('Bạn sửa thông tin hoặc điều kiện được nêu ở trên rồi thử lại. Nếu hồ sơ đã thay đổi, tải lại thông tin mới trước khi sửa.');
+    else if (guide?.status === 'procedure' && guide.steps.length > 1) steps.push(guide.steps[1]);
+    else if (op && guide && !hidden) steps.push('Nếu chưa thấy chức năng cần dùng, bạn nhờ người phụ trách phân hệ kiểm tra nhé.');
   }
   const partial = context.completedSteps ? "Các bước đã hoàn tất vẫn được giữ. Chỉ xử lý phần chưa xong, không làm lại toàn bộ yêu cầu.\n" : "";
-  return { ...reply, ...(link ? { link } : { link: undefined }), reply: `${reply.reply}\n\nHướng dẫn dự phòng:\n${partial}${steps.map((step, i) => `${i + 1}. ${step}`).join("\n")}` };
+  return { ...reply, ...(link ? { link } : { link: undefined }), reply: `${reply.reply}\n\n${partial}${steps.join('\n')}` };
 }

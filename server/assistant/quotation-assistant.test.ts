@@ -154,7 +154,7 @@ describe("quotation assistant execution, completion and output", () => {
     const record = { _id: id, quoteNumber: "BG-01", customerName: "2026-11-11", status: "draft", createdAt: "2026-11-11T01:00:00.000Z", companyId: "SECRET", credentials: "SECRET" };
     const completion: any = { operation: create, workflow: defaultWorkflow(create), values: { targetBranch: branchId, customerName: "2026-11-11", templateId }, result: record };
     const result = await completeAssistantOperation({ status: "completed", reply: formatQuotationResult(create, record) }, completion, ASSISTANT_OPERATIONS, async () => true);
-    expect(result.reply).toContain("Bạn có muốn bổ sung không?");
+    expect(result.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
     expect(completion.followUp).toEqual({ actionId: "quotation.quote.update", values: { path_id: id, targetBranch: branchId } });
     const table = parseAssistantResultTable(result.reply)!;
     expect(table.rows[0].values).toMatchObject({ "Khách hàng": "2026-11-11", "Thời gian tạo": expect.stringContaining("11/11/2026") });

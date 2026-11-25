@@ -6,7 +6,9 @@ export const normalizeRequestWords = (text: string) => text.normalize('NFD').rep
  * the body remain data and must still be accounted for by coverage. */
 export function stripRequestFraming(text: string) {
   let result = text.replace(/^\s*(?:(?:mình|tôi|chúng tôi)\s+(?:chỉ\s+)?muốn\s+)/iu, '');
-  result = result.replace(/^\s*(?:(?:vui lòng|nhờ bạn|giúp mình|giúp tôi|kiểm tra(?:\s+xem)?|xem|liệt kê(?:\s+danh sách)?|lọc(?:\s+danh sách)?)\s+)+/iu, '');
+  result = result.replace(/^\s*(?:mình|tôi)\s+hỏi\s+/iu,'');
+  if (/(?:^|\s)có\s+/iu.test(result)) result = result.replace(/\s+không[?!.]*\s*$/iu,'');
+  result = result.replace(/^\s*(?:(?:vui lòng|nhờ bạn|giúp mình|giúp tôi|kiểm tra(?:\s+xem)?|xem|tìm|liệt kê(?:\s+danh sách)?|lọc(?:\s+danh sách)?)\s+)+/iu, '');
   // "nào không" is a polar-question ending, unlike "không có/chưa...".
   result = result.replace(/\s+(?:nào\s+không|hay\s+không)(?:\s+(?:nhé|ạ))?[?!.]*\s*$/iu, '');
   return result;
@@ -18,7 +20,7 @@ export function canonicalActionEvidence(text: string, operation: AssistantOperat
   let phrase = normalizeRequestWords(stripRequestFraming(text));
   if (operation.method === 'GET' || operation.readOnly) {
     phrase = phrase.replace(/^(?:(?:bao cao|tra cuu|thong ke|tong hop|danh sach|tinh hinh|loc|xem) )+/, '');
-    phrase = phrase.replace(/^co ai (.+) khong$/, '$1');
+    phrase = phrase.replace(/^co ai (.+?)(?: khong)?$/, '$1');
   } else {
     phrase = phrase.replace(/^(?:sua(?: lai)?|dieu chinh|cap nhat) /, 'cap nhat ');
   }

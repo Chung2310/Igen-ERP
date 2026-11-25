@@ -90,8 +90,8 @@ export function assistantUnsupportedGuidance(text: string, workflows: readonly A
     : "Mình chưa xác định chắc chắn phân hệ trong tài khoản của bạn. Nếu bạn cho biết tên phân hệ, mình có thể chỉ đúng màn hình hơn. Nếu không thấy chức năng, hãy nhờ quản trị viên kiểm tra quyền truy cập.";
 
   return [
-    "Mình hiểu bạn muốn thực hiện yêu cầu này. Hiện trợ lý chưa thể làm việc đó trong khung chat, nên chưa có dữ liệu nào được thay đổi.",
-    "Bạn có thể tự thao tác trong ERP:",
+    "Mình chưa thực hiện được việc này trong chat. Chưa có dữ liệu nào được thay đổi.",
+    "Bạn có thể thực hiện trên giao diện ERP:",
     [destination, ...steps.map((step, index) => `${index + 2}. ${step}`)].join("\n"),
     boundary,
   ].join("\n\n");

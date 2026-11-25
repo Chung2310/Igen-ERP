@@ -3,6 +3,8 @@ import base from '../catalog-routing/vitest.config.mjs';
 
 export default defineConfig({ ...base, test: { ...base.test, include: [
   'server/assistant/reply-presentation.test.ts',
+  'server/assistant/natural-conversation.test.ts',
+  'server/assistant/fallback-guidance.test.ts',
   'server/assistant/reply-tone.test.ts',
   'server/assistant/reply-rules.test.ts',
   'server/assistant/reply-tone-render.test.tsx',

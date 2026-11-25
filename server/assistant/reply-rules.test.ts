@@ -17,18 +17,42 @@ it("adds no paid rewrite request to result tables or empty preference settings",
   expect(provider).not.toHaveBeenCalled();
 });
 
-it("uses the shared natural tone while retaining form and selection contracts", async () => {
+it("keeps form and selection prompts deterministic without a paid rewrite", async () => {
   const source: AssistantReply = { status: "collecting", reply: "Bạn muốn chọn lớp nào?", inputForm: { id: "qa-form", fields: [] },
     workflowSelection: { id: "qa-choice", kind: "module", options: [{ value: "opaque-option", label: "Học viên" }] } };
   provider.mockResolvedValueOnce({ text: JSON.stringify({ reply: "Bạn chọn lớp cần xem nhé?" }) });
   const reply = await applyAssistantResponseRules(source, "Nói tự nhiên");
-  const prompt = provider.mock.calls[0][0].messages[0].content;
-  expect(prompt).toContain("đồng nghiệp");
-  expect(prompt).toContain("Không bắt người dùng viết lại câu theo mẫu");
-  expect(prompt).toContain("Không dùng tiêu đề Markdown");
+  expect(provider).not.toHaveBeenCalled();
   expect(reply.inputForm).toBe(source.inputForm);
   expect(reply.workflowSelection).toBe(source.workflowSelection);
   expect(reply.status).toBe("collecting");
+});
+
+it('applies the shared style rule to plain prose without changing the question', async () => {
+  const source: AssistantReply = { status: 'collecting', reply: 'Bạn muốn chọn lớp nào?' };
+  provider.mockResolvedValueOnce({ text: JSON.stringify({ reply: 'Bạn chọn lớp nào giúp mình nhé?' }) });
+  const reply = await applyAssistantResponseRules(source, 'Tự nhiên, ngắn gọn');
+  expect(reply.reply).toBe('Bạn chọn lớp nào giúp mình nhé?');
+  const prompt = provider.mock.calls[0][0].messages[0].content;
+  expect(prompt).toContain('đồng nghiệp');
+  expect(prompt).toContain('Không bắt người dùng viết lại câu theo mẫu');
+  expect(prompt).toContain('Không dùng tiêu đề Markdown');
+});
+
+it.each([
+  'Đã tạo lớp. Bạn cần gì nữa?',
+  'Bạn chọn khóa nào giúp mình nhé?',
+  'Bạn chọn lớp A1 nhé?',
+])('rejects style edits that change intent, fields or invent completion: %s', revised => {
+  const source: AssistantReply = { status: 'collecting', reply: 'Bạn muốn chọn lớp nào?' };
+  provider.mockResolvedValueOnce({ text: JSON.stringify({ reply: revised }) });
+  return expect(applyAssistantResponseRules(source, 'Thân thiện')).resolves.toEqual(source);
+});
+
+it.each(['Đã cập nhật hồ sơ An.', 'Đã cập nhật hồ sơ Minh Ân.'])('keeps the exact person name during a style edit: %s', revised => {
+  const source: AssistantReply = { status: 'completed', reply: 'Đã cập nhật hồ sơ Minh An.' };
+  provider.mockResolvedValueOnce({ text: JSON.stringify({ reply: revised }) });
+  return expect(applyAssistantResponseRules(source, 'Nói ngắn hơn')).resolves.toEqual(source);
 });
 
 it.each([

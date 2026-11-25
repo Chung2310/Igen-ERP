@@ -15,6 +15,7 @@ import {
   type CustomFieldWriteContext,
 } from "./custom-field-write.service";
 import { customFieldResourceService } from "./custom-field-resource.service";
+import { partnerReadPeriod, referredStudentInPeriod } from './partner-read-period';
 
 interface PartnerFilters {
   page?: number | string;
@@ -22,6 +23,10 @@ interface PartnerFilters {
   search?: string;
   isActive?: boolean | string;
   ownerFilter?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  referralFrom?: string;
+  referralTo?: string;
 }
 
 interface PartnerData {
@@ -103,13 +108,13 @@ const DEFAULT_LEVELS = [
   { name: "Cấp 3", minTuition: 100000000, commissionRate: 10 },
 ];
 
-async function enrichPartners(partners: IPartner[], branchId?: string): Promise<EnrichedPartner[]> {
+async function enrichPartners(partners: IPartner[], branchId?: string, referralPeriod?: ReturnType<typeof partnerReadPeriod>): Promise<EnrichedPartner[]> {
   const partnerIds = partners.map(p => p._id.toString());
   const ownerIds = Array.from(new Set(partners.map(p => p.ownerId)));
   
   // Find all students referred by these partners
   const students = await Student.find({ partnerId: { $in: partnerIds } })
-    .select("_id partnerId fee status");
+    .select("_id partnerId fee status registrationDate");
 
   const studentMapByPartner = new Map<string, typeof students>();
   for (const s of students) {
@@ -134,6 +139,7 @@ async function enrichPartners(partners: IPartner[], branchId?: string): Promise<
   return partners.map(p => {
     const pId = p._id.toString();
     const referredStudents = studentMapByPartner.get(pId) || [];
+    const selectedStudents = referralPeriod ? referredStudents.filter(s => referredStudentInPeriod(s.registrationDate, referralPeriod)) : referredStudents;
     
     // Calculate total referred tuition
     const totalReferredTuition = referredStudents.reduce((sum, s) => sum + parseCurrency(s.fee), 0);
@@ -171,8 +177,10 @@ async function enrichPartners(partners: IPartner[], branchId?: string): Promise<
       commissionType: "percentage",
       commissionValue: commissionRate,
       levelName,
-      totalReferredTuition,
-      referredStudentsCount: referredStudents.length,
+      // Referral period applies to these two metrics only. Commission tiers,
+      // earned commission and payouts retain the existing lifetime semantics.
+      totalReferredTuition: selectedStudents.reduce((sum, s) => sum + parseCurrency(s.fee), 0),
+      referredStudentsCount: selectedStudents.length,
       totalCommission,
       totalPaid,
       unpaidBalance,
@@ -314,6 +322,8 @@ export class PartnerService {
   }
 
   static async getPartners(ownerId: string | string[], filters: PartnerFilters, branchId?: string) {
+    const createdPeriod = partnerReadPeriod(filters.createdFrom, filters.createdTo);
+    const referralPeriod = partnerReadPeriod(filters.referralFrom, filters.referralTo);
     const page = filters.page ? parseInt(String(filters.page)) : 1;
     const limit = filters.limit ? parseInt(String(filters.limit)) : 1000;
     const skip = (page - 1) * limit;
@@ -321,6 +331,7 @@ export class PartnerService {
     const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
     const query: Record<string, unknown> = { ...buildOwnerQuery(resolvedOwnerId), ...buildBranchScopeQuery(branchId) };
+    if (createdPeriod) query.createdAt = {$gte:createdPeriod.start,$lte:createdPeriod.end};
     if (filters.isActive !== undefined && filters.isActive !== "") {
       query.isActive = String(filters.isActive) === "true";
     }
@@ -337,7 +348,7 @@ export class PartnerService {
       .skip(skip)
       .limit(limit);
 
-    const enriched = await enrichPartners(partners, branchId);
+    const enriched = await enrichPartners(partners, branchId, referralPeriod);
 
     return { partners: enriched, total, page, limit, totalPages: Math.ceil(total / limit) };
   }

@@ -13,7 +13,7 @@ describe("shared Vietnamese assistant tone", () => {
     const record = { fullName: "HOC-VIEN-QA", name: "HO-SO-QA", phone: "0900000001", code: "QA-01", email: "qa@example.test" };
     const source = formatFriendlyAssistantResult(operation, record);
     const reply = presentAssistantReply({ status: "completed", reply: source });
-    expect(reply.reply).toMatch(/^Mình đã /);
+    expect(reply.reply).toMatch(/^Đã /);
     expect(reply.reply).not.toContain("Đã hoàn tất yêu cầu");
     expect(reply.reply).not.toContain("· 1 kết quả");
     expect(parseAssistantResultTable(reply.reply)?.rows).toEqual(parseAssistantResultTable(source)?.rows);
@@ -22,7 +22,7 @@ describe("shared Vietnamese assistant tone", () => {
 
   it("asks for the missing fields where the form already exists", () => {
     const prompt = assistantMissingInformationPrompt(["Mã", "Tên", "Điện thoại"], true);
-    expect(prompt).toBe("Bạn bổ sung mã, tên và số điện thoại trong biểu mẫu bên dưới nhé.");
+    expect(prompt).toBe("Bạn bổ sung mã, tên và số điện thoại trong form bên dưới nhé.");
     expect(prompt).not.toMatch(/\n-|\[|trường|API/);
     const source: AssistantReply = { status: "collecting", reply: prompt,
       inputForm: { id: "pending-qa", fields: [{ key: "name", label: "Tên", type: "text", required: true }] } };
@@ -90,7 +90,7 @@ describe("shared Vietnamese assistant tone", () => {
     const source: AssistantReply = { status: "completed", reply: formatFriendlyAssistantResult(operation, completion.result) };
     const result = await completeAssistantOperation(source, completion, [operation, operationById("customer.update")!], async () => true);
     const reply = presentAssistantReply(result);
-    expect(reply.reply).toContain("Bạn có muốn bổ sung không?");
+    expect(reply.reply).toMatch(/Bạn có muốn bổ sung .+ không\?/);
     expect(reply.reply).toContain("bỏ qua");
     expect(reply.reply).not.toMatch(/Các mục còn trống|\d+ mục khác|private-customer-qa/);
     expect(completion.followUp?.values.path_id).toBe("private-customer-qa");

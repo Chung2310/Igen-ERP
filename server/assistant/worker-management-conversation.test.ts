@@ -173,6 +173,26 @@ it("does not write a legacy student commission value that cannot change the calc
   await expect(callOperation(req, op, { path_id: workerId, commissionType: "percentage", commissionValue: 7 })).rejects.toThrow("không thay đổi kết quả tính");
   expect(fetcher).not.toHaveBeenCalled();
 });
+it('reads a partner bank account without asking for commission update inputs',async()=>{
+  const op=ASSISTANT_OPERATIONS.find(op=>op.path==='/partners/:id' && op.method==='GET')!;
+  state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:op.id,values:{path_id:'QA Partner'}});
+  fetcher.mockImplementation(async (input:any,init:any)=>{
+    expect(init?.method).toBe('GET');
+    const path=new URL(String(input)).pathname;
+    const record={_id:workerId,name:'QA Partner',phone:'0900000001',isActive:true,bankName:'',bankAccountNo:'',bankAccountName:'',referredStudents:[],totalReferredTuition:0};
+    if(path.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'QA Branch'}]});
+    if(path.endsWith('/partners'))return json({partners:[record],total:1,page:1});
+    if(path.endsWith('/partners/'+workerId))return json({success:true,data:record});
+    throw Error('UNEXPECTED_PARTNER_READ:'+path);
+  });
+  const result=await turn({text:'Đối tác QA Partner đang dùng tài khoản ngân hàng nào để nhận hoa hồng'});
+  expect(result.status,result.reply).toBe('completed');
+  expect(result.reply).toContain('Chưa cập nhật');
+  expect(result.reply).not.toContain('Để cập nhật hoa hồng');
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(state.turns.at(-1)?.actionId).toBe(op.id);
+  expect(result.reply).not.toContain(workerId);
+});
 it("does not silently discard a monthly constraint on cumulative student partner data", async () => {
   await useSemanticModel("partner.analysis", { from: "2026-11-01", to: "2026-11-30", analysis: { extreme: { field: "referredStudentsCount", direction: "max" } } });
   const result = await turn({ text: "Đối tác học viên giới thiệu nhiều nhất tháng 11/2026" });
@@ -454,7 +474,7 @@ it("collects missing commission rules instead of inventing them for a named new 
   expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status, JSON.stringify(created)).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(parseAssistantResultTable(created.reply)).not.toBeNull();
   expect(policy.name).toBe("Chính sách lao động cuối năm");
   const update = ASSISTANT_OPERATIONS.find(candidate => candidate.partialUpdate && candidate.module === "labor-partner")!;
@@ -524,7 +544,7 @@ it.each([false, true])("creates a worker, skips optional references, and updates
 
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(savedWorker?.fullName).toBe("Lê Minh");
   expect(parseAssistantResultTable(created.reply)?.rows[0]?.values).toMatchObject({ "Họ và tên": "Lê Minh" });
 

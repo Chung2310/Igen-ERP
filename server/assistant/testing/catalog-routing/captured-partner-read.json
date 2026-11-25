@@ -1,0 +1,1029 @@
+[
+  {
+    "id": "P17",
+    "text": "Đối tác tuyển sinh nào mang về tổng doanh số học phí cao nhất",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"extreme\":{\"field\":\"totalReferredTuition\",\"direction\":\"max\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Đối tác tuyển sinh nào",
+          "requirement": "Xác định đối tác tuyển sinh có tổng học phí giới thiệu cao nhất",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "tổng doanh số học phí cao nhất",
+          "requirement": "Tìm giá trị cực đại của tổng học phí được giới thiệu",
+          "mappedTo": [
+            "analysis.extreme.totalReferredTuition"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P19",
+    "text": "Xếp hạng top 5 đối tác tuyển sinh có doanh số học phí cao nhất",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"sort\":{\"field\":\"totalReferredTuition\",\"direction\":\"desc\"},\"limit\":5}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Xếp hạng top 5 đối tác tuyển sinh có doanh số học phí cao nhất",
+          "requirement": "Xếp hạng 5 đối tác có tổng học phí giới thiệu cao nhất",
+          "mappedTo": [
+            "analysis.sort.totalReferredTuition",
+            "analysis.limit"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P26",
+    "text": "Đối tác QA Gia Hưng đã giới thiệu được bao nhiêu học viên",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "search": "QA Gia Hưng"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Đối tác QA Gia Hưng",
+          "requirement": "Tra cứu đối tác có tên QA Gia Hưng",
+          "mappedTo": [
+            "values.search"
+          ]
+        },
+        {
+          "evidence": "đã giới thiệu được bao nhiêu học viên",
+          "requirement": "Báo cáo số học viên đối tác đã giới thiệu",
+          "mappedTo": [
+            "action"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P27",
+    "text": "Có đối tác nào đã giới thiệu học viên nhưng chưa phát sinh học phí (học phí bằng 0) không",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"referredStudentsCount\",\"operator\":\"gt\",\"value\":0},{\"field\":\"totalReferredTuition\",\"operator\":\"eq\",\"value\":0}]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Có đối tác nào",
+          "requirement": "Kiểm tra có đối tác nào đáp ứng các điều kiện hay không.",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "đã giới thiệu học viên",
+          "requirement": "Chỉ lấy đối tác đã giới thiệu ít nhất một học viên.",
+          "mappedTo": [
+            "values.analysis.filters"
+          ]
+        },
+        {
+          "evidence": "học phí bằng 0",
+          "requirement": "Lọc đối tác có tổng học phí được giới thiệu bằng 0.",
+          "mappedTo": [
+            "values.analysis.filters"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P31",
+    "text": "Đối tác tuyển sinh nào đang có số tiền hoa hồng còn nợ cao nhất",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"extreme\":{\"field\":\"unpaidBalance\",\"direction\":\"max\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "đối tác tuyển sinh",
+          "requirement": "Phân tích đối tác tuyển sinh",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "số tiền hoa hồng còn nợ cao nhất",
+          "requirement": "Tìm đối tác có số dư hoa hồng còn phải trả lớn nhất",
+          "mappedTo": [
+            "values.analysis.extreme.unpaidBalance"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P33",
+    "text": "Mình hỏi đối tác tuyển sinh QA Bình Minh: tổng hoa hồng, đã trả và còn nợ là bao nhiêu?",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "search": "QA Bình Minh"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "tổng hoa hồng",
+          "requirement": "Xem tổng hoa hồng của đối tác",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "đã trả",
+          "requirement": "Xem số tiền đã thanh toán",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "còn nợ",
+          "requirement": "Xem số tiền còn phải trả",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "đối tác tuyển sinh QA Bình Minh",
+          "requirement": "Tra cứu đúng đối tác tuyển sinh QA Bình Minh",
+          "mappedTo": [
+            "values.search"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P02-fix-replay",
+    "text": "Tổng số đối tác tuyển sinh của chi nhánh Trụ sở chính là bao nhiêu",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "targetBranch": "Trụ sở chính",
+        "analysis": "{\"aggregate\":{\"operation\":\"count\",\"field\":\"name\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tổng số đối tác tuyển sinh",
+          "requirement": "Đếm tổng số đối tác tuyển sinh",
+          "mappedTo": [
+            "action",
+            "values.analysis.aggregate"
+          ]
+        },
+        {
+          "evidence": "chi nhánh Trụ sở chính",
+          "requirement": "Giới hạn ở chi nhánh Trụ sở chính",
+          "mappedTo": [
+            "values.targetBranch"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P03-fix-replay",
+    "text": "Hiện tại có bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"groupBy\":\"isActive\",\"aggregate\":{\"operation\":\"count\",\"field\":\"name\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+          "requirement": "Đếm số đối tác theo hai trạng thái đang hoạt động và tạm dừng",
+          "mappedTo": [
+            "values.analysis.groupBy.isActive",
+            "values.analysis.aggregate.count"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false,
+      "clarification": null
+    }
+  },
+  {
+    "id": "P04-fix-replay",
+    "text": "Danh sách các đối tác tuyển sinh đang tạm dừng (ngưng hoạt động)",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"isActive\",\"operator\":\"eq\",\"value\":\"inactive\"}],\"select\":[\"name\",\"isActive\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Danh sách các đối tác tuyển sinh",
+          "requirement": "Liệt kê đối tác tuyển sinh.",
+          "mappedTo": [
+            "action",
+            "context.module",
+            "values.analysis.select"
+          ]
+        },
+        {
+          "evidence": "đang tạm dừng (ngưng hoạt động)",
+          "requirement": "Chỉ lấy đối tác đang tạm dừng.",
+          "mappedTo": [
+            "values.analysis.filters"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P05-fix-replay",
+    "text": "Trong phân hệ Đối tác tuyển sinh, Đối tác QA An Nhiên hiện đang hoạt động hay đã tạm dừng",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "api.get.74c43c3c00197209",
+      "actionIntent": "lookup",
+      "values": {
+        "path_id": "Đối tác QA An Nhiên"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Trong phân hệ Đối tác tuyển sinh",
+          "requirement": "Tra cứu trong phân hệ Đối tác tuyển sinh",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "Đối tác QA An Nhiên",
+          "requirement": "Tra cứu hồ sơ đối tác này",
+          "mappedTo": [
+            "values.path_id"
+          ]
+        },
+        {
+          "evidence": "hiện đang hoạt động hay đã tạm dừng",
+          "requirement": "Xem trạng thái hoạt động hiện tại của đối tác",
+          "mappedTo": [
+            "action",
+            "result.isActive"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false,
+      "clarification": null
+    }
+  },
+  {
+    "id": "P06-fix-replay",
+    "text": "Tháng này có thêm bao nhiêu đối tác tuyển sinh mới",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "createdFrom": "2026-11-01",
+        "createdTo": "2026-11-30",
+        "analysis": "{\"aggregate\":{\"operation\":\"count\",\"field\":\"name\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tháng này",
+          "requirement": "Giới hạn ngày tạo đối tác trong tháng 11/2026",
+          "mappedTo": [
+            "values.createdFrom",
+            "values.createdTo"
+          ]
+        },
+        {
+          "evidence": "bao nhiêu đối tác tuyển sinh mới",
+          "requirement": "Đếm số đối tác tuyển sinh mới được tạo",
+          "mappedTo": [
+            "values.analysis.aggregate.count"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P07-fix-replay",
+    "text": "Tháng trước có thêm bao nhiêu đối tác tuyển sinh mới",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "createdFrom": "2026-10-01",
+        "createdTo": "2026-10-31",
+        "analysis": "{\"aggregate\":{\"operation\":\"count\",\"field\":\"name\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tháng trước",
+          "requirement": "Giới hạn đối tác được tạo trong tháng 10/2026",
+          "mappedTo": [
+            "values.createdFrom",
+            "values.createdTo"
+          ]
+        },
+        {
+          "evidence": "bao nhiêu đối tác tuyển sinh mới",
+          "requirement": "Đếm số đối tác tuyển sinh mới được tạo",
+          "mappedTo": [
+            "values.analysis"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P12-fix-replay",
+    "text": "Kiểm tra những đối tác tuyển sinh nào chưa cập nhật tài khoản ngân hàng nhận hoa hồng",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"bankConfigured\",\"operator\":\"eq\",\"value\":0}],\"select\":[\"name\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "những đối tác tuyển sinh nào",
+          "requirement": "Liệt kê tên các đối tác tuyển sinh phù hợp.",
+          "mappedTo": [
+            "action",
+            "values.analysis.select"
+          ]
+        },
+        {
+          "evidence": "chưa cập nhật tài khoản ngân hàng",
+          "requirement": "Chỉ lấy đối tác chưa có tài khoản ngân hàng được cập nhật.",
+          "mappedTo": [
+            "values.analysis.filters"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false,
+      "clarification": null
+    }
+  },
+  {
+    "id": "P13-fix-replay",
+    "text": "Những đối tác nào đang còn nợ hoa hồng nhưng chưa có số tài khoản ngân hàng",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"unpaidBalance\",\"operator\":\"gt\",\"value\":0},{\"field\":\"bankConfigured\",\"operator\":\"eq\",\"value\":0}],\"select\":[\"name\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "đang còn nợ hoa hồng",
+          "requirement": "Chỉ lấy đối tác có số dư hoa hồng còn phải trả lớn hơn 0.",
+          "mappedTo": [
+            "values.analysis.filters.unpaidBalance"
+          ]
+        },
+        {
+          "evidence": "chưa có số tài khoản ngân hàng",
+          "requirement": "Chỉ lấy đối tác chưa có số tài khoản ngân hàng.",
+          "mappedTo": [
+            "values.analysis.filters.bankConfigured"
+          ]
+        },
+        {
+          "evidence": "Những đối tác nào",
+          "requirement": "Liệt kê tên các đối tác đáp ứng điều kiện.",
+          "mappedTo": [
+            "values.analysis.select"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P14-fix-replay",
+    "text": "Tìm các đối tác tuyển sinh có ghi chú qua cộng đồng phụ huynh",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"notes\",\"operator\":\"contains\",\"value\":\"qua cộng đồng phụ huynh\"}],\"select\":[\"name\",\"notes\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "các đối tác tuyển sinh",
+          "requirement": "Tìm đối tác tuyển sinh",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "ghi chú qua cộng đồng phụ huynh",
+          "requirement": "Lọc đối tác có ghi chú chứa cụm này",
+          "mappedTo": [
+            "analysis.filters.notes"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P17-fix-replay",
+    "text": "Đối tác tuyển sinh nào mang về tổng doanh số học phí cao nhất",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"extreme\":{\"field\":\"totalReferredTuition\",\"direction\":\"max\"},\"select\":[\"name\",\"totalReferredTuition\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Đối tác tuyển sinh nào",
+          "requirement": "Xác định đối tác tuyển sinh có tổng doanh số học phí cao nhất.",
+          "mappedTo": [
+            "action",
+            "values.analysis.extreme.totalReferredTuition",
+            "values.analysis.select"
+          ]
+        },
+        {
+          "evidence": "mang về tổng doanh số học phí cao nhất",
+          "requirement": "Xếp hạng theo tổng học phí và trả về đối tác có giá trị lớn nhất.",
+          "mappedTo": [
+            "values.analysis.extreme.totalReferredTuition",
+            "values.analysis.select"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P19-fix-replay",
+    "text": "Xếp hạng top 5 đối tác tuyển sinh có doanh số học phí cao nhất",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"sort\":{\"field\":\"totalReferredTuition\",\"direction\":\"desc\"},\"limit\":5,\"select\":[\"name\",\"totalReferredTuition\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "top 5 đối tác tuyển sinh",
+          "requirement": "Xếp hạng và lấy 5 đối tác tuyển sinh đứng đầu.",
+          "mappedTo": [
+            "action",
+            "values.analysis.sort",
+            "values.analysis.limit"
+          ]
+        },
+        {
+          "evidence": "có doanh số học phí cao nhất",
+          "requirement": "Xếp theo tổng học phí từ cao xuống thấp.",
+          "mappedTo": [
+            "values.analysis.sort"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P20-fix-replay",
+    "text": "Tổng số học viên và tổng doanh số học phí do tất cả đối tác tuyển sinh mang về là bao nhiêu",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"aggregates\":[{\"operation\":\"sum\",\"field\":\"referredStudentsCount\"},{\"operation\":\"sum\",\"field\":\"totalReferredTuition\"}]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tổng số học viên",
+          "requirement": "Tính tổng số học viên được đối tác giới thiệu",
+          "mappedTo": [
+            "values.analysis.aggregates.sum.referredStudentsCount"
+          ]
+        },
+        {
+          "evidence": "tổng doanh số học phí do tất cả đối tác tuyển sinh mang về",
+          "requirement": "Tính tổng học phí của tất cả đối tác tuyển sinh",
+          "mappedTo": [
+            "values.analysis.aggregates.sum.totalReferredTuition"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P21-fix-replay",
+    "text": "Tháng này các đối tác tuyển sinh đã giới thiệu được bao nhiêu học viên",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "referralFrom": "2026-11-01",
+        "referralTo": "2026-11-30",
+        "analysis": "{\"aggregate\":{\"operation\":\"sum\",\"field\":\"referredStudentsCount\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tháng này",
+          "requirement": "Giới hạn học viên được giới thiệu trong tháng 11/2026",
+          "mappedTo": [
+            "values.referralFrom",
+            "values.referralTo"
+          ]
+        },
+        {
+          "evidence": "các đối tác tuyển sinh đã giới thiệu được bao nhiêu học viên",
+          "requirement": "Tính tổng số học viên được giới thiệu bởi các đối tác tuyển sinh",
+          "mappedTo": [
+            "values.analysis.aggregate.field",
+            "values.analysis.aggregate.operation"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P22-fix-replay",
+    "text": "Tháng trước các đối tác tuyển sinh đã giới thiệu được bao nhiêu học viên",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "referralFrom": "2026-10-01",
+        "referralTo": "2026-10-31",
+        "analysis": "{\"aggregate\":{\"operation\":\"sum\",\"field\":\"referredStudentsCount\"}}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tháng trước",
+          "requirement": "Giới hạn học viên được giới thiệu trong tháng 10/2026.",
+          "mappedTo": [
+            "values.referralFrom",
+            "values.referralTo"
+          ]
+        },
+        {
+          "evidence": "các đối tác tuyển sinh đã giới thiệu được bao nhiêu học viên",
+          "requirement": "Tổng hợp số học viên được giới thiệu qua các đối tác.",
+          "mappedTo": [
+            "values.analysis.aggregate.sum.referredStudentsCount"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P23-fix-replay",
+    "text": "Tuần này có đối tác tuyển sinh nào giới thiệu học viên mới không",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "referralFrom": "2026-11-23",
+        "referralTo": "2026-11-29",
+        "analysis": "{\"filters\":[{\"field\":\"referredStudentsCount\",\"operator\":\"gt\",\"value\":0}],\"select\":[\"name\",\"referredStudentsCount\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "đối tác tuyển sinh",
+          "requirement": "Tra cứu đối tác tuyển sinh.",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "Tuần này",
+          "requirement": "Giới hạn lượt giới thiệu theo tuần hiện tại, từ 23/11/2026 đến 29/11/2026.",
+          "mappedTo": [
+            "values.referralFrom",
+            "values.referralTo"
+          ]
+        },
+        {
+          "evidence": "giới thiệu học viên mới",
+          "requirement": "Chỉ lấy đối tác có lượt giới thiệu học viên trong khoảng thời gian này và hiển thị số lượt.",
+          "mappedTo": [
+            "values.analysis.filters.referredStudentsCount",
+            "values.analysis.select"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P24-fix-replay",
+    "text": "Đối tác QA Thu Ngân đã giới thiệu những học viên nào và tổng học phí bao nhiêu",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.referrals",
+      "actionIntent": "lookup",
+      "values": {
+        "path_id": "QA Thu Ngân"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Đối tác QA Thu Ngân",
+          "requirement": "Tra cứu học viên do đối tác QA Thu Ngân giới thiệu",
+          "mappedTo": [
+            "action",
+            "values.path_id"
+          ]
+        },
+        {
+          "evidence": "những học viên nào",
+          "requirement": "Xem danh sách học viên được giới thiệu",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "tổng học phí bao nhiêu",
+          "requirement": "Xem tổng học phí của đối tác",
+          "mappedTo": [
+            "action"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false,
+      "clarification": null
+    }
+  },
+  {
+    "id": "P09-fix-2-replay",
+    "text": "Tìm đối tác tuyển sinh có số điện thoại 0900090001",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.list",
+      "actionIntent": "lookup",
+      "values": {
+        "search": "0900090001"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tìm đối tác tuyển sinh có số điện thoại 0900090001",
+          "requirement": "Tra cứu đối tác tuyển sinh theo số điện thoại",
+          "mappedTo": [
+            "action",
+            "context.module",
+            "values.search"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    },
+    "rejected": true
+  },
+  {
+    "id": "P11-fix-2-replay",
+    "text": "Trong phân hệ Đối tác tuyển sinh, Đối tác QA Bình Minh đang dùng tài khoản ngân hàng nào để nhận hoa hồng",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "api.get.74c43c3c00197209",
+      "actionIntent": "lookup",
+      "values": {
+        "path_id": "QA Bình Minh"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Trong phân hệ Đối tác tuyển sinh",
+          "requirement": "Tra cứu trong phân hệ Đối tác tuyển sinh.",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "Đối tác QA Bình Minh",
+          "requirement": "Tra cứu hồ sơ đối tác QA Bình Minh.",
+          "mappedTo": [
+            "values.path_id"
+          ]
+        },
+        {
+          "evidence": "đang dùng tài khoản ngân hàng nào để nhận hoa hồng",
+          "requirement": "Xem thông tin tài khoản ngân hàng của đối tác để nhận hoa hồng.",
+          "mappedTo": [
+            "action"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false,
+      "clarification": null
+    }
+  },
+  {
+    "id": "P27-fix-2-replay",
+    "text": "Có đối tác nào đã giới thiệu học viên nhưng chưa phát sinh học phí (học phí bằng 0) không",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"referredStudentsCount\",\"operator\":\"gt\",\"value\":0},{\"field\":\"totalReferredTuition\",\"operator\":\"eq\",\"value\":0}],\"select\":[\"name\",\"referredStudentsCount\",\"totalReferredTuition\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "đã giới thiệu học viên",
+          "requirement": "Chỉ lấy đối tác đã giới thiệu ít nhất một học viên",
+          "mappedTo": [
+            "values.analysis.filters"
+          ]
+        },
+        {
+          "evidence": "chưa phát sinh học phí (học phí bằng 0)",
+          "requirement": "Chỉ lấy đối tác có tổng học phí bằng 0",
+          "mappedTo": [
+            "values.analysis.filters"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P31-fix-2-replay",
+    "text": "Đối tác tuyển sinh nào đang có số tiền hoa hồng còn nợ cao nhất",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"extreme\":{\"field\":\"unpaidBalance\",\"direction\":\"max\"},\"select\":[\"name\",\"unpaidBalance\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Đối tác tuyển sinh",
+          "requirement": "Tra cứu trong phân hệ đối tác tuyển sinh",
+          "mappedTo": [
+            "context.module"
+          ]
+        },
+        {
+          "evidence": "đang có số tiền hoa hồng còn nợ cao nhất",
+          "requirement": "Tìm đối tác có số dư hoa hồng còn phải trả lũy kế cao nhất",
+          "mappedTo": [
+            "values.analysis.extreme.unpaidBalance"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false,
+      "clarification": null
+    }
+  },
+  {
+    "id": "P20-fix-3-replay",
+    "text": "Tổng số học viên và tổng doanh số học phí do tất cả đối tác tuyển sinh mang về là bao nhiêu",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"aggregates\":[{\"operation\":\"sum\",\"field\":\"referredStudentsCount\"},{\"operation\":\"sum\",\"field\":\"totalReferredTuition\"}]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Tổng số học viên",
+          "requirement": "Tính tổng số học viên được tất cả đối tác giới thiệu.",
+          "mappedTo": [
+            "values.analysis.aggregates.sum.referredStudentsCount"
+          ]
+        },
+        {
+          "evidence": "tổng doanh số học phí",
+          "requirement": "Tính tổng học phí từ học viên được giới thiệu.",
+          "mappedTo": [
+            "values.analysis.aggregates.sum.totalReferredTuition"
+          ]
+        },
+        {
+          "evidence": "tất cả đối tác tuyển sinh",
+          "requirement": "Phạm vi là toàn bộ đối tác tuyển sinh.",
+          "mappedTo": [
+            "context.module"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P24-fix-3-replay",
+    "text": "Đối tác QA Thu Ngân đã giới thiệu những học viên nào và tổng học phí bao nhiêu",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.referrals",
+      "actionIntent": "lookup",
+      "values": {
+        "path_id": "QA Thu Ngân"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Đối tác QA Thu Ngân",
+          "requirement": "Tra cứu đối tác tuyển sinh QA Thu Ngân",
+          "mappedTo": [
+            "action",
+            "values.path_id"
+          ]
+        },
+        {
+          "evidence": "đã giới thiệu những học viên nào",
+          "requirement": "Xem danh sách học viên do đối tác giới thiệu",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "tổng học phí bao nhiêu",
+          "requirement": "Xem tổng học phí của đối tác",
+          "mappedTo": [
+            "action"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  },
+  {
+    "id": "P30-fix-3-replay",
+    "text": "Hiện tại trung tâm còn nợ hoa hồng của những đối tác tuyển sinh nào",
+    "output": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "actionIntent": "report",
+      "values": {
+        "analysis": "{\"filters\":[{\"field\":\"unpaidBalance\",\"operator\":\"gt\",\"value\":0}],\"select\":[\"name\",\"unpaidBalance\"]}"
+      },
+      "requestCoverage": [
+        {
+          "evidence": "Hiện tại",
+          "requirement": "Tra cứu số dư còn phải trả hiện tại, lũy kế.",
+          "mappedTo": [
+            "action"
+          ]
+        },
+        {
+          "evidence": "trung tâm",
+          "requirement": "Không áp dụng bộ lọc chi nhánh vì chưa nêu tên chi nhánh cụ thể.",
+          "mappedTo": []
+        },
+        {
+          "evidence": "còn nợ hoa hồng",
+          "requirement": "Chỉ lấy đối tác có số dư hoa hồng còn phải trả lớn hơn 0.",
+          "mappedTo": [
+            "values.analysis.filters.unpaidBalance"
+          ]
+        },
+        {
+          "evidence": "những đối tác tuyển sinh nào",
+          "requirement": "Liệt kê tên đối tác tuyển sinh và số dư còn phải trả.",
+          "mappedTo": [
+            "values.analysis.select"
+          ]
+        }
+      ],
+      "remainingRequests": [],
+      "newRequest": false,
+      "resumeGoal": false,
+      "cancel": false
+    }
+  }
+]

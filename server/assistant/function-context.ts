@@ -28,6 +28,21 @@ export function isExplicitReadOnlyRequest(text: string) {
     && !/\b(?:tao|them|sua|cap nhat|ghi nhan|xoa|duyet|huy|chuyen|gui)\b/.test(phrase);
 }
 
+/** Prefer an explicitly declared superset read view within the same API scope.
+ * Basic views remain executable for reference resolution and pending actions. */
+export function preferAnalysisViews(workflows: AssistantWorkflow[]) {
+  const replaced=new Set<string>();
+  for(const workflow of workflows.filter(w=>w.enabled)){
+    const operation=ASSISTANT_OPERATIONS.find(op=>op.id===workflow.actionId);
+    if(operation?.method!=='GET')continue;
+    for(const id of operation.analysis?.replaces || []){
+      const basic=ASSISTANT_OPERATIONS.find(op=>op.id===id);
+      if(basic?.method==='GET' && basic.path===operation.path && basic.module===operation.module)replaced.add(id);
+    }
+  }
+  return workflows.filter(workflow=>!replaced.has(workflow.actionId));
+}
+
 /** Groups authorized workflows into business functions before action routing. */
 export function assistantFunctionContextCatalog(
   workflows: AssistantWorkflow[],
@@ -65,7 +80,7 @@ export function assistantFunctionContextCatalog(
       if (!existing.inputs.includes(input) && existing.inputs.length < 20) existing.inputs.push(input);
     }
     for (const field of operation?.resultFields || []) {
-      if (!existing.outputs.includes(field) && existing.outputs.length < 12) existing.outputs.push(field.slice(0, 60));
+      if (!existing.outputs.includes(field) && existing.outputs.length < 24) existing.outputs.push(field.slice(0, 60));
     }
     groups.set(key, existing);
     }

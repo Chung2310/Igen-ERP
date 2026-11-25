@@ -2,17 +2,26 @@ import { ERP_LLM_MODEL } from "../../shared/llm-model";
 import type { AssistantReply } from "../../src/shared/assistant-workflow";
 import { openrouterChat } from "../service/openrouter.service";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
-import { assistantReplyPresentationRule, omitAssistantInternalNarration } from "./reply-presentation";
+import { assistantReplyPresentationRule, omitAssistantInternalNarration, hasAssistantOptionalInformationPrompt } from "./reply-presentation";
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase();
 const numbers = (value: string) => value.match(/\d+(?:[.,]\d+)*/g) || [];
+const styleWords = new Set('bạn mình tôi muốn cần cho biết giúp nhé nha vui lòng hãy mời xin các những một bên dưới nào là và hoặc để'.split(' '));
+const businessWords = (value: string) => {
+  const words: string[] = value.normalize('NFC').match(/[\p{L}\p{N}]+/gu) || [];
+  return words.filter(word => !styleWords.has(word.toLocaleLowerCase('vi'))).sort().join('|');
+};
 
 /** Rephrases user-facing text only. Any model or validation failure keeps the trusted server reply. */
 export async function applyAssistantResponseRules(reply: AssistantReply, rules: string): Promise<AssistantReply> {
   const instructions = rules.trim();
   if (!instructions || reply.status === "processing" || reply.status === "uncertain" || reply.action?.requiresPassword || reply.reply.length > 8000) return reply;
   // The server and renderer use the same structure contract for every module.
-  if (reply.status === "completed" && parseAssistantResultTable(reply.reply)) return reply;
+  if (parseAssistantResultTable(reply.reply) || reply.reply.split(/\r?\n/).some(line => /^[^:\r\n]{1,80}:\s*\S/.test(line))) return reply;
+  // Form questions and confirmation text are generated from trusted server
+  // controls. Keep them deterministic instead of paying to paraphrase them.
+  if (reply.action || reply.inputForm || reply.referenceSelections?.length || reply.workflowSelection
+    || reply.trainingContentForm || reply.quotationAcceptanceForm) return reply;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -39,6 +48,17 @@ Chỉ trả JSON duy nhất dạng {"reply":"câu trả lời đã biên tập"}
     if (normalize(revised).includes("mac dinh") && !normalize(reply.reply).includes("mac dinh")) return reply;
     if (omitAssistantInternalNarration(revised) !== revised) return reply;
     if (!revised || revised.length > 8000 || numbers(reply.reply).join("|") !== numbers(revised).join("|")) return reply;
+    // A style preference may change courtesy words, not names, fields, actions,
+    // negation or completion state. Unverifiable paraphrases keep server text.
+    if (businessWords(reply.reply) !== businessWords(revised)) return reply;
+    const quoted = reply.reply.match(/“[^”]+”|"[^"\n]+"|`[^`\n]+`|https?:\/\/\S+|\b[A-Z][A-Z0-9_-]*\d[A-Z0-9_-]*\b/gu) || [];
+    if (quoted.some(value => !revised.includes(value))) return reply;
+    const negative = (text: string) => normalize(text).match(/\b(?:chua|khong)\b/g) || [];
+    if (negative(reply.reply).join('|') !== negative(revised).join('|')) return reply;
+    if (hasAssistantOptionalInformationPrompt(reply.reply)) {
+      const question = reply.reply.split(/\r?\n/).find(line => hasAssistantOptionalInformationPrompt(line));
+      if (!question || !revised.includes(question)) return reply;
+    }
     if (reply.status === "confirmation") {
       const normalizedReply = normalize(revised);
       const asksForConfirmation = /\b(?:ban|anh|chi|hay|vui long|moi)\b.{0,35}\bxac nhan\b/.test(normalizedReply)

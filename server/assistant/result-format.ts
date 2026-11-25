@@ -5,6 +5,7 @@ import { formatAssistantResultTable, parseAssistantResultTable } from "../../src
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { formatBusinessOverview } from "./overview-result";
 import { assistantCompletedOperationSummary } from "./reply-presentation";
+import { maskAssistantBankAccount } from './result-field-policy';
 
 type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "readOnly" | "resultChildFields">>;
 type ResultRecord = Record<string, unknown>;
@@ -98,7 +99,7 @@ const bulkCreateJobOperationIds = ["marketing.bulk-create.jobs.list", "marketing
 const bulkCreateTemplateOperationIds = ["marketing.bulk-create.templates.list", "marketing.bulk-create.templates.detail"];
 const labels: Record<string, string> = {
   address: "Địa chỉ", adjustment: "Điều chỉnh", adjustments: "Điều chỉnh", amount: "Số tiền", actorType: "Người thực hiện", bankAccountName: "Chủ tài khoản", baseRevision: "Phiên bản nền",
-  bankAccountNo: "Số tài khoản ngân hàng", bankName: "Tên ngân hàng", branchName: "Chi nhánh",
+  bankAccountNo: "Số tài khoản ngân hàng", bankAccountStatus: "Tài khoản ngân hàng", bankName: "Tên ngân hàng", branchName: "Chi nhánh", totalReferredTuition: "Tổng học phí giới thiệu",
   code: "Mã", countCode: "Mã phiếu kiểm kê", customerName: "Khách hàng", date: "Ngày", deliveredAt: "Ngày bàn giao", description: "Mô tả",
   device: "Thiết bị", dueAmount: "Còn phải trả", dueDate: "Hạn hoàn thành", email: "Email", endDate: "Ngày kết thúc", financeVoucherCode: "Mã phiếu chi", fullName: "Họ và tên",
   commissionRate: "Tỷ lệ hoa hồng", commissionType: "Hình thức hoa hồng", commissionValue: "Mức hoa hồng", isActive: "Đang hoạt động", item: "Thông tin giao dịch", kind: "Loại giao dịch", lines: "Hạng mục", maxStock: "Tồn tối đa", minStock: "Tồn tối thiểu", minTuition: "Doanh số tối thiểu", message: "Thông báo",
@@ -601,8 +602,7 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
     }
     if (operation.id === "repair.device.lookup" && key === "costBearer") return ({ supplier: "Nhà cung cấp", shop: "Cửa hàng", customer: "Khách hàng" } as Record<string, string>)[value] || value;
     if (key === "bankAccountNo") {
-      const accountDigits = value.replace(/\D/g, "");
-      return accountDigits.length > 4 ? `•••• ${accountDigits.slice(-4)}` : "••••";
+      return maskAssistantBankAccount(value);
     }
     if (key === "commissionType" && value === "percentage") return "Phần trăm";
     if (key === "commissionType" && value === "fixed") return "Số tiền cố định";
@@ -2287,7 +2287,7 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
 
   if (operation.method === "GET") {
     if (formatted.includes("Không có kết quả phù hợp.")) {
-      return "Chưa có kết quả phù hợp trong phạm vi đang xem. Bạn có thể thử tên hoặc mã khác, hay chọn lại phạm vi cần tìm.";
+      return "Không tìm thấy kết quả phù hợp trong phạm vi đang xem.";
     }
     if (listMatch) {
       const total = Number(listMatch[1]);

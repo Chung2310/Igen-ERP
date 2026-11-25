@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: [
+      'server/assistant/partner-read-regression.test.ts',
+      'server/assistant/goal-orchestration.test.ts',
       'server/assistant/semantic-routing-budget.test.ts',
       'server/assistant/read-relations.test.ts',
       'server/assistant/email-policy.test.ts',

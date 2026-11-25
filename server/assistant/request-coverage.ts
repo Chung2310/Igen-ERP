@@ -1,6 +1,6 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import type { AssistantOperation } from "./catalog";
-import { reconcileRequestedRanking } from "./list-analysis";
+import { reconcileRequestedRanking, validateListAnalysis } from "./list-analysis";
 import { assistantModuleContext, isKnownModuleContextClause, isModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence, containsModuleContextEvidence } from "./module-context";
 import { scopeAssistantWorkflows } from "./module-scope";
 import { publicAssistantResultFields } from "./result-field-policy";
@@ -17,9 +17,12 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
   .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const plain = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 const populated = (value: unknown) => value !== undefined && value !== null && value !== "";
+const currentScopePhrases=new Set(['trung tam','cong ty','doanh nghiep','don vi','chi nhanh hien tai','chi nhanh dang chon']);
 export function normalizeAssistantCoverageTarget(target: string, operation: AssistantOperation) {
   if (target === 'actionId') return 'action';
-  if (operation.analysis && target.startsWith('values.analysis.')) return target.slice('values.'.length);
+  if (operation.analysis && target.startsWith('values.analysis.')) target = target.slice('values.'.length);
+  if (operation.analysis) target = target.replace(/^analysis\.aggregates(?=\.|$)/,'analysis.aggregate');
+  if (operation.analysis) target = target.replace(/^analysis\.aggregate\.(?:field|operation)$/,'analysis.aggregate');
   if (operation.method === 'GET' || operation.readOnly) {
     const local = target.startsWith(`query:${operation.id}:`) ? target.slice(`query:${operation.id}:`.length)
       : target.startsWith(`${operation.id}:`) ? target.slice(`${operation.id}:`.length) : target;
@@ -44,13 +47,16 @@ const COVERAGE_STOP_WORDS = new Set(normalize(`
 // from an omitted location such as Hà Nội.
 const DISCOURSE_MARKERS = new Set(['vậy','thế','rồi','hả','à','ạ']);
 
-function stripCoveredValueQuestion(text: string, coverage: unknown, operation?: AssistantOperation) {
+function stripCoveredValueQuestion(text: string, coverage: unknown, operation?: AssistantOperation, values: Record<string, unknown> = {}) {
   if (!operation || !(operation.method === 'GET' || operation.readOnly) || !Array.isArray(coverage)) return text;
   const numericOutputs = publicAssistantResultFields(operation).filter(key => /(?:Price|Amount|Count|Quantity)$/.test(key)
     || ['count', 'total', 'balance', 'fee', 'salary', 'amount', 'quantity'].includes(key));
   const asksValue = coverage.some(item => plain(item) && Array.isArray(item.mappedTo)
     && item.mappedTo.some(target => typeof target === 'string' && numericOutputs.some(key => target === `result.${key}` || target === `query:${operation.id}:result.${key}`)));
-  return asksValue ? text.replace(/\s+(?:hiện\s+)?là\s+bao\s+nhiêu[?!.]*\s*$/iu, '') : text;
+  const declaredOutput = coverage.some(item => plain(item) && typeof item.evidence === 'string' && readOutputCapturesEvidence(item.evidence,text,operation,values));
+  const plan=operation.analysis && parsedAnalysis(values.analysis);
+  const aggregatedValue=Boolean(plan && (plan.aggregate || plan.aggregates));
+  return asksValue || declaredOutput || aggregatedValue ? text.replace(/\s+(?:hiện\s+)?(?:là\s+)?bao\s+nhiêu[?!.]*\s*$/iu, '') : text;
 }
 
 /** Find meaningful request words that were omitted from the model's quoted evidence. */
@@ -61,7 +67,13 @@ export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, wo
   const coveredWords = new Set(evidence.flatMap(item => normalize(item).split(" ").filter(Boolean)));
   const referenceWords = new Set<string>();
   const valueWords = new Set<string>();
-  let content = stripRequestFraming(stripCoveredValueQuestion(text, rawCoverage, operation));
+  let content = stripRequestFraming(stripCoveredValueQuestion(text, rawCoverage, operation, values));
+  if (operation?.analysis && reconciledRankingMappingTargets(text,operation,values).length) {
+    // Present-tense connectors before an already verified metric are grammar,
+    // unlike a state predicate such as “đang hoạt động”.
+    content = content.replace(/\bmang\s+về\s+(?=(?:tổng\s+)?doanh\s+số|(?:tổng\s+)?học\s+phí)/giu,'')
+      .replace(/đang\s+có\s+(?=(?:số\s+)?tiền\s+hoa\s+hồng)/giu,'');
+  }
   if (workflow) {
     for (const field of workflow.fields) {
       if (!populated(values[field.key]) || !Array.isArray(rawCoverage) || !rawCoverage.some(item => plain(item) && Array.isArray(item.mappedTo)
@@ -74,7 +86,8 @@ export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, wo
     // Quoted names are record data, never automatic context evidence.
     const request = ` ${normalize(text.replace(/["“][^"”]+["”]/gu, ' '))} `;
     const explicit = scopeAssistantWorkflows(text, [workflow]);
-    for (const name of [context.label, ...context.aliases].map(normalize)) {
+    const rowLabels=operation?.analysis ? Object.entries(operation.analysis.fields).filter(([key])=>key==='name'||key.endsWith('Name')).map(([,field])=>field.label) : [];
+    for (const name of [context.label, ...context.aliases,...rowLabels].map(normalize)) {
       if (explicit.modules.length && explicit.workflows.length) {
         const framing = new RegExp(`(?:^| )(?:(?:trong|vao|o|tai|thuoc|phan he|module|muc) ){1,3}${name}(?= |$)`, 'g');
         for (const match of request.matchAll(framing)) for (const word of match[0].trim().split(' ')) coveredWords.add(word);
@@ -113,6 +126,19 @@ export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, wo
       // discard “có”: it distinguishes existence from missing-record reports.
       const nextPhrase = words.slice(index + 1, index + 3).map(item => item.word).join(' ');
       const objectOfLookup = nextPhrase && workflow && ` ${normalize(workflow.title)} `.includes(` ${nextPhrase} `);
+      const analyzedProperty = operation?.analysis && Object.entries(operation.analysis.fields).some(([key,definition]) => {
+        if (!normalize(definition.label).startsWith(words[index+1]?.word || '!')) return false;
+        const plan=parsedAnalysis(values.analysis);
+        return plan?.filters?.some((filter:any)=>filter.field===key) && Array.isArray(rawCoverage) && rawCoverage.some(item=>plain(item)
+          && typeof item.evidence==='string' && normalize(item.evidence).includes(words[index+1]?.word || '!') && Array.isArray(item.mappedTo)
+          && item.mappedTo.some(target=>typeof target==='string' && normalizeAssistantCoverageTarget(target,operation)===`analysis.filters.${key}`));
+      });
+      if (word==='co' && analyzedProperty && !['khong','chua'].includes(words[index-1]?.word)) return false;
+      const aggregatePlan=operation?.analysis && parsedAnalysis(values.analysis);
+      if(aggregatePlan && (aggregatePlan.aggregate || aggregatePlan.aggregates)){
+        if(word==='mang' && words[index+1]?.word==='ve')return false;
+        if(word==='do' && words[index+1]?.word==='tat' && words[index+2]?.word==='ca')return false;
+      }
       if ((word === 'theo' || word === 'co' && objectOfLookup) && valueWords.has(words[index + 1]?.word)
         && !['khong', 'chua'].includes(words[index - 1]?.word)) return false;
       if (word === "trong" && referenceWords.has(words[index + 1]?.word)) return false;
@@ -128,7 +154,7 @@ export function findUncoveredRequestTerms(text: string, rawCoverage: unknown, wo
 
 export function shouldRepairRequestCoverage(text: string, rawCoverage: unknown, clarification: string) {
   if (findUncoveredRequestTerms(text, rawCoverage).length) return true;
-  return /chưa (?:được gắn với|được áp dụng vào|ánh xạ được|chuyển được|lấy trường)/iu.test(clarification);
+  return /chưa (?:được gắn với|được áp dụng vào|ánh xạ được|chuyển được|lấy trường|xác định được bạn muốn làm việc trong phân hệ|đối chiếu được các ý AI trích ra)/iu.test(clarification);
 }
 
 function missingCoverageReply(text: string, rawCoverage: unknown, workflow: AssistantWorkflow, values: Record<string, unknown>, operation: AssistantOperation) {
@@ -148,7 +174,8 @@ function requiredMappingKinds(evidence: string, singularCreate = false) {
   const ordering = /(?:^| )(?:sap xep|xep theo|xep hang)(?: |$)/.test(phrase)
     || /(?:^| )(?:giam dan|tang dan)(?: |$)/.test(phrase);
   if (maximum || minimum || ordering) kinds.push("ranking");
-  const numericEvidence = singularCreate ? evidence.replace(/(^|\s)(?:tạo|tao|thêm|them|lập|lap|mở|mo)\s+1(?=\s)/giu, "$1") : evidence;
+  let numericEvidence = singularCreate ? evidence.replace(/(^|\s)(?:tạo|tao|thêm|them|lập|lap|mở|mo)\s+1(?=\s)/giu, "$1") : evidence;
+  numericEvidence = numericEvidence.replace(/\btop\s+\d+\b/giu,'');
   const hasNumericValue = numericEvidence.split(/\s+/).some(token => /^\d+(?:[.,]\d+)*(?:\/\d{1,4})?$/.test(token))
     || /\b\d{4}-\d{2}-\d{2}\b/.test(evidence);
   const hasLocationContext = /\b(?:o|tai)\s+(?:chi nhanh|phong ban|du an|khu vuc|dia ban|tinh|huyen|quan|phuong|thanh pho|ha noi|ho chi minh|da nang|hai phong|can tho|khu cong nghiep|kcn)\b/.test(phrase);
@@ -217,6 +244,12 @@ function reconcileCoverage(text: string, raw: unknown[], workflow: AssistantWork
   const result = raw.map(item => {
     if (!plain(item) || typeof item.evidence !== 'string' || !Array.isArray(item.mappedTo)) return item;
     const targets = item.mappedTo.map(target => typeof target === 'string' ? normalizeAssistantCoverageTarget(target, operation) : target);
+    if(operation.method==='GET' && currentScopePhrases.has(normalize(item.evidence))) return {...item,mappedTo:['context.scope'],unresolved:false};
+    const readOutputs = item.mappedTo.flatMap(target => {
+      if (typeof target !== 'string') return [];
+      const field=target.replace(new RegExp(`^query:${operation.id.replaceAll('.','\\.')}:`),'').replace(/^result\./,'');
+      return target.includes('result.') && publicAssistantResultFields(operation).includes(field) ? [field] : [];
+    });
     if (reason && [normalize(reason.evidence), normalize(reason.reason)].includes(normalize(item.evidence))) {
       return { ...item, mappedTo: ['context.reason'], unresolved: false };
     }
@@ -229,11 +262,28 @@ function reconcileCoverage(text: string, raw: unknown[], workflow: AssistantWork
       && actionEncodesEvidence(item.evidence, workflow, operation)) {
       return { ...item, mappedTo: [...new Set(targets.map(target => target === 'context.module' ? 'action' : target))] };
     }
-    return { ...item, mappedTo: targets };
+    return { ...item, mappedTo: targets, readOutputs };
   });
   if (reason) result.push({ evidence: reason.evidence, requirement: 'Lý do người dùng nêu, không phải điều kiện thực thi', mappedTo: ['context.reason'] });
   const source = stripRequestFraming(text).normalize('NFC');
   const words = [...source.matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map(match => ({ word: normalize(match[0]), start: match.index!, end: match.index! + match[0].length }));
+  const rankingTargets=reconciledRankingMappingTargets(text,operation,values);
+  if(rankingTargets.length) for(const match of source.matchAll(/xếp\s+hạng/giu)) result.push({evidence:match[0],requirement:'Xếp hạng đã được đối chiếu với chỉ tiêu',mappedTo:rankingTargets});
+  const createdFrom=operation.fields.find(field => (field.apiKey || field.key)==='createdFrom'),createdTo=operation.fields.find(field => (field.apiKey || field.key)==='createdTo');
+  if (operation.method==='GET' && createdFrom && createdTo && populated(values[createdFrom.key]) && populated(values[createdTo.key])) {
+    for(const match of source.matchAll(/có\s+thêm/giu)) result.push({evidence:match[0],requirement:'Hồ sơ tạo mới trong kỳ đã chọn',mappedTo:[`values.${createdFrom.key}`,`values.${createdTo.key}`]});
+  }
+  if (operation.analysis) {
+    let plan;
+    try { plan = validateListAnalysis(values.analysis,operation.analysis); } catch { /* Invalid plans remain rejected. */ }
+    for (const [field,definition] of Object.entries(operation.analysis.fields)) for (const predicate of definition.predicates || []) {
+      if (!plan?.filters?.some(filter => filter.field===field && filter.operator===predicate.operator && filter.value===predicate.value)) continue;
+      for (const alias of predicate.aliases) {
+        const phrase=normalize(alias).split(' ');
+        for(let i=0;i<=words.length-phrase.length;i++) if(phrase.every((word,offset)=>word===words[i+offset].word)) result.push({evidence:source.slice(words[i].start,words[i+phrase.length-1].end),requirement:'Điều kiện đã được máy chủ đối chiếu',mappedTo:[`analysis.filters.${field}`]});
+      }
+    }
+  }
   const covered = words.map(() => false);
   for (const item of result) {
     if (!plain(item) || typeof item.evidence !== 'string') continue;
@@ -276,20 +326,87 @@ function parsedAnalysis(value: unknown): Record<string, any> | undefined {
 
 function analysisTargetIsRepresented(target: string, operation: AssistantOperation, values: Record<string, unknown>) {
   if (!operation.analysis || !target.startsWith("analysis.")) return false;
-  const [, kind, field] = target.split(".");
+  const [, kind, field, metric] = target.split(".");
   const plan = parsedAnalysis(values.analysis);
   if (!plan) return false;
   if (kind === "limit") return Number.isInteger(plan.limit) && plan.limit > 0;
-  if (kind === "aggregate" && field === "count") return plan.aggregate?.operation === "count";
+  const aggregates = plan.aggregates || (plan.aggregate ? [plan.aggregate] : []);
+  if (kind==='aggregate' && ['sum','avg','count'].includes(field) && metric) return Object.hasOwn(operation.analysis.fields,metric) && aggregates.some((a:any)=>a.operation===field && a.field===metric);
+  if (kind === "aggregate" && field === "count") return aggregates.some((a:any) => a.operation === 'count');
+  if (kind === 'select') return field ? operation.resultFields.includes(field) && plan.select?.includes(field) : Array.isArray(plan.select) && plan.select.length > 0 && plan.select.every((key:string)=>Object.hasOwn(operation.analysis!.fields,key));
   if (!field || !Object.hasOwn(operation.analysis.fields, field)) return false;
   switch (kind) {
     case "extreme": return plan.extreme?.field === field;
     case "sort": return plan.sort?.field === field;
     case "filters": return Array.isArray(plan.filters) && plan.filters.some((filter: any) => filter?.field === field);
-    case "aggregate": return plan.aggregate?.field === field;
+    case "aggregate": return aggregates.some((a:any) => a.field === field);
     case "groupBy": return plan.groupBy === field;
     default: return false;
   }
+}
+
+/** Output labels describe the value being requested, not an extra state filter.
+ * Only exact declared aliases in a single-record value question qualify. */
+function readOutputCapturesEvidence(evidence: string, text: string, operation: AssistantOperation, values: Record<string, unknown>) {
+  if (operation.method==='GET' && operation.resultFields.includes('isActive')
+    && operation.fields.some(field=>field.reference && field.source==='path' && populated(values[field.key]))
+    && /^(?:hien(?: tai)? )?(?:dang )?hoat dong hay (?:da )?tam dung$/.test(normalize(evidence))) return true;
+  if (!operation.analysis || operation.method !== 'GET') return false;
+  const plan=parsedAnalysis(values.analysis),aggregates=plan?.aggregates || (plan?.aggregate?[plan.aggregate]:[]);
+  const singleValue=/\bbao nhieu\b/.test(normalize(text)) && operation.fields.some(field => (field.key === 'search' || field.reference && field.apiKey !== 'branchId') && populated(values[field.key]));
+  let phrase = normalize(evidence);
+  const context=assistantModuleContext(operation.module);
+  for(const name of [context.label,...context.aliases].map(normalize)) phrase=phrase.replace(new RegExp(`^(?:(?:cac|nhung) )?${name} `),'');
+  if (/\d|\b(?:khong|chua|tren|duoi|hon|thang|ngay|tuan|truoc|sau|chi khi)\b/.test(phrase)) return false;
+  const asksAggregateValue=/\b(?:tong|trung binh|bao nhieu)\b/.test(normalize(text)) && !/^(?:loc|danh sach|nhung|doi tac nao)\b/.test(normalize(text));
+  return Object.entries(operation.analysis.fields).some(([key,field]) => (singleValue && (!plan?.select || plan.select.includes(key)) || asksAggregateValue && aggregates.some((a:any)=>a.field===key && a.operation!=='count'))
+    && [field.label.replace(/\([^)]*\)/g,'').replace(/lũy kế/giu,''), ...(field.aliases || [])].some(alias => normalize(alias) === phrase || aggregates.some((a:any)=>a.field===key && a.operation==='sum') && normalize(alias)===phrase.replace(/^tong /,'')));
+}
+
+function groupedEnumQuestion(evidence: string, operation: AssistantOperation, values: Record<string,unknown>, targets: string[]) {
+  const plan=parsedAnalysis(values.analysis),definition=operation.analysis?.fields[plan?.groupBy];
+  if (!definition || !targets.some(t=>t.startsWith('analysis.groupBy.')) || !targets.some(t=>t.startsWith('analysis.aggregate.'))) return false;
+  const aggregates=plan?.aggregates || (plan?.aggregate?[plan.aggregate]:[]);
+  if (!aggregates.some((a:any)=>a.operation==='count')) return false;
+  let phrase=` ${normalize(evidence)} `;
+  const states=Object.values(definition.valueAliases || {});
+  if (states.filter(aliases=>aliases.some(alias=>phrase.includes(` ${normalize(alias)} `))).length<2) return false;
+  const context=assistantModuleContext(operation.module);
+  const labels=[context.label,...context.aliases,...Object.entries(operation.analysis!.fields).filter(([key])=>key==='name'||key.endsWith('Name')).map(([,field])=>field.label)];
+  for(const alias of [...states.flat(),...labels].sort((a,b)=>b.length-a.length)) phrase=phrase.split(` ${normalize(alias)} `).join(' ');
+  const grammar=new Set('bao nhieu so luong va hay hien tai co la cac nhung doi tac dang'.split(' '));
+  return phrase.trim().split(/\s+/).every(word=>grammar.has(word));
+}
+
+function expandAnalysisTargets(targets: string[], evidence: string, operation: AssistantOperation, values: Record<string, unknown>) {
+  if (!operation.analysis) return targets;
+  let plan;
+  try { plan = validateListAnalysis(values.analysis, operation.analysis); } catch { return targets; }
+  targets=targets.map(target=>{
+    const indexed=/^analysis\.(filters|aggregates)\[(\d+)\](?:\.(?:field|operator|value|operation))?$/.exec(target);
+    if(!indexed)return target;
+    const item=indexed[1]==='filters'?plan.filters?.[Number(indexed[2])]:plan.aggregates?.[Number(indexed[2])];
+    return item?`analysis.${indexed[1]==='filters'?'filters':'aggregate'}.${'operation' in item && item.operation==='count'?'count':item.field}`:target;
+  });
+  if (targets.includes('analysis.aggregate')) {
+    const aggregates=plan.aggregates || (plan.aggregate?[plan.aggregate]:[]);
+    if (aggregates.length) targets=[...targets.filter(target=>target!=='analysis.aggregate'),...aggregates.map(a=>`analysis.aggregate.${a.operation==='count'?'count':a.field}`)];
+  }
+  for(const kind of ['sort','extreme','groupBy'] as const) if(targets.includes(`analysis.${kind}`)) {
+    const field=kind==='groupBy'?plan.groupBy:plan[kind]?.field;
+    if(field) targets=[...targets.filter(target=>target!==`analysis.${kind}`),`analysis.${kind}.${field}`];
+  }
+  if (!targets.includes('analysis.filters')) return targets;
+  const phrase = ` ${normalize(evidence)} `;
+  const matched = (plan.filters || []).filter(filter => {
+    const definition = operation.analysis!.fields[filter.field];
+    if (filter.operator==='eq' && !/\bkhong\b/.test(phrase) && definition.valueAliases?.[String(filter.value)]?.some(alias=>phrase.includes(` ${normalize(alias)} `))) return true;
+    const predicates = definition.predicates || [];
+    const stated = predicates.filter(predicate => predicate.aliases.some(alias => phrase.includes(` ${normalize(alias)} `)));
+    if (stated.length) return stated.some(predicate => predicate.operator === filter.operator && predicate.value === filter.value);
+    return [definition.label.replace(/\([^)]*\)/g,''),...(definition.aliases || [])].some(alias => phrase.includes(` ${normalize(alias)} `));
+  });
+  return matched.length ? [...targets.filter(target => target !== 'analysis.filters'),...matched.map(filter => `analysis.filters.${filter.field}`)] : targets;
 }
 
 /** Add a server-verified ranking target when the request and the applied
@@ -325,7 +442,7 @@ export function validateRequestCoverage(
   }
   // Preserve declared result mappings before reconciliation turns them into
   // action evidence; only the final omitted-word check uses this framing.
-  const coverageText = stripCoveredValueQuestion(text, raw, operation);
+  const coverageText = stripCoveredValueQuestion(text, raw, operation, values);
   raw = reconcileCoverage(text, raw, workflow, operation, values);
   const request = normalize(text);
   if(operation.id==='student.list' && normalize(String(values.status||''))==='no hoc phi' && !/\b(?:trang thai|nhan ho so)\b/.test(request)) {
@@ -371,10 +488,10 @@ export function validateRequestCoverage(
       if (mapping.startsWith('values.') || mapping.startsWith('analysis.')) return mapping;
       return target;
     };
-    const mappedTargets = [...new Set([
+    const mappedTargets = expandAnalysisTargets([...new Set([
       ...(rawItem.mappedTo as string[]).map(normalizeTarget),
       ...reconciledRankingMappingTargets(rawItem.evidence, operation, values),
-    ])];
+    ])],rawItem.evidence,operation,values);
     const meaning = canonicalActionEvidence(rawItem.evidence, operation);
     if (mappedTargets.includes('action') && /(?:^| )co /.test(meaning) && !/(?:^| )(?:khong|chua)(?: |$)/.test(meaning)
       && [operation.title, ...(operation.coverageAliases || [])].some(description => {
@@ -382,14 +499,23 @@ export function validateRequestCoverage(
         const index = capability.indexOf(` ${meaning} `);
         return index >= 0 && /(?:^| )(?:khong|chua)(?: co|duoc|ghi nhan)? $/.test(capability.slice(0, index + 1));
       })) return { ok: false, clarification: 'Điều kiện có/không trong yêu cầu chưa khớp với báo cáo đang chọn. Chưa thực hiện tra cứu.' };
-    const actionCapturesEvidence = mappedTargets.includes("action") && actionEncodesEvidence(rawItem.evidence, workflow, operation);
+    const declaredOutput = Array.isArray(rawItem.readOutputs) && rawItem.readOutputs.length>0 && operation.method==='GET'
+      && operation.fields.some(field=>field.reference && populated(values[field.key]))
+      && /\b(?:hay|bao nhieu|la gi|nao)\b/.test(evidence)
+      && !/\d|\b(?:thang|ngay|tuan|tai|tren|duoi|hon|neu|chi khi|truoc khi|sau khi|ngoai tru|va|nhung|duoc duyet|hop dong)\b/.test(evidence);
+    const groupedStates=groupedEnumQuestion(rawItem.evidence,operation,values,mappedTargets);
+    const actionCapturesEvidence = mappedTargets.includes("action") && actionEncodesEvidence(rawItem.evidence, workflow, operation)
+      || Boolean(declaredOutput) || Boolean(groupedStates) || readOutputCapturesEvidence(rawItem.evidence, text, operation, values);
     const actionCapturesRanking = mappedTargets.includes("action") && actionEncodesRanking(rawItem.evidence, operation);
     const singularCreate = operation.assistantMetadata?.intent === "create" && mappedTargets.includes("action");
-    const missingKind = requiredMappingMissing(rawItem.evidence, mappedTargets, false, actionCapturesRanking, singularCreate);
+    const kindEvidence=reconciledRankingMappingTargets(rawItem.evidence,operation,values).length
+      ? rawItem.evidence.replace(/(?:^|\s)đang\s+có\s+(?=(?:số\s+)?tiền)/iu,' ') : rawItem.evidence;
+    const missingKind = requiredMappingMissing(kindEvidence, mappedTargets, false, actionCapturesRanking, singularCreate);
     if (missingKind && !actionCapturesEvidence) return { ok: false, clarification: missingKind === "ranking"
       ? `Tiêu chí xếp hạng “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với phép xếp hạng cụ thể. Mình chưa gọi API.`
       : `Điều kiện “${rawItem.evidence.trim().slice(0, 120)}” chưa được gắn với trường lọc. Mình chưa gọi API.` };
     for (const target of mappedTargets) {
+      if(target==='context.scope' && operation.method==='GET' && currentScopePhrases.has(evidence))continue;
       if (target === "context.module") {
         // The model may map a short evidence span (for example "dự án") to
         // the module while the module name appears elsewhere in the same user
