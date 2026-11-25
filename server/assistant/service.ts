@@ -36,12 +36,12 @@ import { collectAnalysisPages, renderListAnalysis, validateListAnalysis } from "
 import { hydratePartialUpdate } from "./partial-update";
 import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
-import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
+import { readAssistantConversationFile, readAssistantConversationImages, type AssistantConversationFileContext } from "./conversation-file";
 import { extractAssistantAttachmentValues } from "./attachment-values";
 import { legalAnswerReply, legalQuestionValues } from "./legal-reference";
 export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
-export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; conversationUploads?: Array<{ buffer: Buffer; fileName: string }>; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 const legacyWorkerAssistantActionIds: Record<string, string> = {
   "api.get.b070dbb8162243a4": "worker.labor.contract.list",
@@ -1835,7 +1835,11 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     fileName: input.conversationUpload.fileName,
     digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
   } : null;
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const conversationImageDigests = input.conversationUploads?.map(file => ({
+    fileName: file.fileName,
+    digest: Buffer.isBuffer(file.buffer) ? createHash("sha256").update(file.buffer).digest("hex") : "invalid",
+  }));
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, ...(conversationImageDigests?.length ? { conversationImages: conversationImageDigests } : {}), referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1901,7 +1905,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   const acceptanceLinesSummary = input.acceptanceLines
     ? `Đã nhập khối lượng nghiệm thu cho ${input.acceptanceLines.lines.length} dòng hợp đồng.`
     : "";
-  const uploadedFileSummary = input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
+  const uploadedFileSummary = input.conversationUploads?.length
+    ? `Đã đính kèm ${input.conversationUploads.length} ảnh: ${input.conversationUploads.map(file => file.fileName).join(", ")}.`
+    : input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
   let conversationFile: AssistantConversationFileContext | undefined;
   const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || acceptanceLinesSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
@@ -2193,7 +2199,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     if (isBusinessExcelRequest(intent) && operationById(actionId)?.method !== "GET") {
       throw new AssistantError("Bạn cho mình biết danh sách và bộ lọc cần xuất Excel nhé. Chưa thực hiện thay đổi dữ liệu nào.", 422);
     }
-    if ((input.attachment || input.conversationUpload) && operationById(actionId)?.method !== "GET") forceConfirmation = true;
+    if ((input.attachment || input.conversationUpload || input.conversationUploads?.length) && operationById(actionId)?.method !== "GET") forceConfirmation = true;
     if (input.attachment) {
       const targetOp = operationById(actionId);
       if (targetOp?.method === "POST" && targetOp.path === "/students") {
@@ -2378,7 +2384,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       if (ignoredAttachmentColumns.length) confirmationDetails.ignoredAttachmentColumns = [{ label: "Cột chưa nhập", value: ignoredAttachmentColumns.join(", ") }];
       else if (previousIgnored) confirmationDetails.ignoredAttachmentColumns = previousIgnored;
     }
-    if ((input.attachment || input.conversationUpload || previousPending?.confirmationDetails?.attachmentReview) && op.method !== "GET" && !op.readOnly) {
+    if ((input.attachment || input.conversationUpload || input.conversationUploads?.length || previousPending?.confirmationDetails?.attachmentReview) && op.method !== "GET" && !op.readOnly) {
       confirmationDetails.attachmentReview = [{ label: "Dữ liệu từ tệp", value: "Bạn kiểm tra nội dung đã đọc từ tệp trước khi xác nhận nhé." }];
     }
     const acceptanceFinancialDetails = op.id === "quotation.acceptance.create"
@@ -2562,7 +2568,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   };
 
   try {
-    if (input.conversationUpload) {
+    if (input.conversationUploads?.length) {
+      if (assistantMode !== "qa" || input.attachment || input.conversationUpload) {
+        throw new AssistantError("Chỉ có thể gửi nhiều ảnh trong chế độ Trò chuyện.", 400);
+      }
+      conversationFile = await readAssistantConversationImages({ files: input.conversationUploads, req });
+    } else if (input.conversationUpload) {
       conversationFile = await readAssistantConversationFile({ buffer: input.conversationUpload.buffer, fileName: input.conversationUpload.fileName, req });
     }
     const settings = await getSettings(req);

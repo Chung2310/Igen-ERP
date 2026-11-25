@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { animate, useReducedMotion } from "motion/react";
 import { AudioLines, Brain, ChartNoAxesCombined, ChevronDown, ChevronRight, FileAudio, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, Network, NotebookPen, Paperclip, Plus, Presentation, RefreshCw, Search, SendHorizontal, Settings2, Square, Star, Trash2, UserRound, Video, Volume2, VolumeX, WandSparkles, Youtube, X, type LucideIcon } from "lucide-react";
 import { assistantService, AssistantServiceError, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
+import { isAssistantConversationImageName, maxAssistantConversationImageBatchBytes, maxAssistantConversationImageCount, maxAssistantConversationImageFileBytes } from "../../shared/assistant-conversation-upload";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
 import { AssistantFileTypeIcon } from "./AssistantFileTypeIcon";
@@ -505,12 +506,22 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [attachment, setAttachment] = useState<AssistantTableAttachment | null>(null);
   const [attachmentSubmitted, setAttachmentSubmitted] = useState(false);
   const [fileAttachment, setFileAttachment] = useState<File | null>(null);
+  const [imageAttachments, setImageAttachments] = useState<File[]>([]);
+  const [imageAttachmentPreviews, setImageAttachmentPreviews] = useState<Array<{ file: File; url: string }>>([]);
   const [attachmentPreview, setAttachmentPreview] = useState<{ file: File; url: string } | null>(null);
   const [attachmentError, setAttachmentError] = useState("");
   const [recoverableAttachmentError, setRecoverableAttachmentError] = useState(false);
   const [isReadingAttachment, setIsReadingAttachment] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const attachmentButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const createObjectUrl = URL.createObjectURL;
+    const revokeObjectUrl = URL.revokeObjectURL;
+    if (typeof createObjectUrl !== "function" || typeof revokeObjectUrl !== "function") return;
+    const previews = imageAttachments.map(file => ({ file, url: createObjectUrl.call(URL, file) }));
+    setImageAttachmentPreviews(previews);
+    return () => previews.forEach(preview => revokeObjectUrl.call(URL, preview.url));
+  }, [imageAttachments]);
   useEffect(() => {
     if (!fileAttachment || !/\.(?:png|jpe?g|webp|mp4|mov|webm|m4v)$/i.test(fileAttachment.name)) {
       setAttachmentPreview(null);
@@ -759,6 +770,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setAttachment(null);
     setAttachmentSubmitted(false);
     setFileAttachment(null);
+    setImageAttachments([]);
     setAttachmentError("");
     const pendingTurnErrorKey = `${assistantMode}:${nextConversationId}`;
     setError(pendingTurnErrorsRef.current.get(pendingTurnErrorKey) || "");
@@ -780,6 +792,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setAttachment(null);
     setAttachmentSubmitted(false);
     setFileAttachment(null);
+    setImageAttachments([]);
     setAttachmentError("");
     setError("");
     setView("chat");
@@ -808,14 +821,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     requestRef.current = controller;
     retryRef.current = turnRequest;
     setRecoverableAttachmentError(false);
-    if (turnRequest.file || (turnRequest.attachment && turnRequest.mode === "qa")) {
+    if (turnRequest.file || turnRequest.files?.length || (turnRequest.attachment && turnRequest.mode === "qa")) {
       setAttachment(null);
       setAttachmentSubmitted(false);
       setFileAttachment(null);
+      setImageAttachments([]);
       if (attachmentInputRef.current) attachmentInputRef.current.value = "";
     }
     try {
-      if (turnRequest.attachment || turnRequest.file) localStorage.removeItem(turnRequestKey);
+      if (turnRequest.attachment || turnRequest.file || turnRequest.files?.length) localStorage.removeItem(turnRequestKey);
       else localStorage.setItem(turnRequestKey, JSON.stringify({ ...turnRequest, decision: turnRequest.decision ? { id: turnRequest.decision.id, confirmed: turnRequest.decision.confirmed } : undefined }));
     } catch { /* Keep in memory. */ }
     setError(""); setIsLoading(true);
@@ -841,7 +855,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         turnRequest = { ...turnRequest, requestId: crypto.randomUUID() };
         retryRef.current = turnRequest;
         try {
-          if (!turnRequest.attachment && !turnRequest.file) localStorage.setItem(turnRequestKey, JSON.stringify({
+          if (!turnRequest.attachment && !turnRequest.file && !turnRequest.files?.length) localStorage.setItem(turnRequestKey, JSON.stringify({
             ...turnRequest,
             decision: turnRequest.decision ? { id: turnRequest.decision.id, confirmed: turnRequest.decision.confirmed } : undefined,
           }));
@@ -869,6 +883,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         setAttachment(null);
         setAttachmentSubmitted(false);
         setFileAttachment(null);
+        setImageAttachments([]);
         if (attachmentInputRef.current) attachmentInputRef.current.value = "";
       } else if (turnMode === "work" && turnRequest.attachment && result.status !== "unsupported" && result.status !== "failed" && turnIsActive()) {
         setAttachmentSubmitted(true);
@@ -897,9 +912,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         const turnIsActive = activeContextRef.current.assistantMode === turnMode && activeContextRef.current.conversationId === turnRequest.conversationId;
         if (turnIsActive) setError(message);
         else pendingTurnErrorsRef.current.set(`${turnMode}:${turnRequest.conversationId}`, message);
-        if (turnIsActive && cause instanceof AssistantServiceError && cause.status >= 400 && cause.status < 500 && (turnRequest.file || turnRequest.attachment)) {
+        if (turnIsActive && cause instanceof AssistantServiceError && cause.status >= 400 && cause.status < 500 && (turnRequest.file || turnRequest.files?.length || turnRequest.attachment)) {
           retryRef.current = null;
           setFileAttachment(turnRequest.file || null);
+          setImageAttachments(turnRequest.files || []);
           setAttachment(turnRequest.attachment || null);
           setAttachmentSubmitted(false);
           setRecoverableAttachmentError(true);
@@ -1074,9 +1090,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const handleSend = async (textToSend = input) => {
     const pendingAttachment = attachment && (assistantMode === "qa" || !attachmentSubmitted) ? attachment : undefined;
     const pendingFile = fileAttachment || undefined;
-    const pendingFileName = pendingAttachment?.fileName || pendingFile?.name;
+    const pendingImages = assistantMode === "qa" && imageAttachments.length ? imageAttachments : undefined;
+    const pendingFileName = pendingAttachment?.fileName || pendingFile?.name || (pendingImages ? `${pendingImages.length} ảnh` : "");
     const rawText = textToSend.trim();
-    const text = rawText || (pendingFileName ? `Đính kèm tệp ${pendingFileName}` : "");
+    const text = rawText || (pendingFileName ? `Đính kèm ${pendingFileName}` : "");
     if (isViewingHistory || !text || isLoading || !synced || isListening || isReadingAttachment || retryRef.current) return;
     stopReplySpeech();
     if (assistantMode === "qa" && projectsRef.current.some(project => project.conversations.some(item => item.sourceConversationId === conversationId))) {
@@ -1085,10 +1102,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         ? { ...project, conversations: project.conversations.map(item => item.sourceConversationId === conversationId ? { ...item, title: item.title === "Cuộc trò chuyện mới" ? text.slice(0, 100) : item.title, preview: text.slice(0, 6000), updatedAt: projectUpdatedAt } : item) }
         : project));
     }
-    const attachmentLabel = pendingFileName ? `📎 ${pendingFileName}${pendingAttachment ? ` · ${pendingAttachment.rows.length} dòng` : ""}` : "";
+    const attachmentLabel = pendingImages
+      ? `📎 ${pendingImages.length} ảnh: ${pendingImages.map(file => file.name).join(", ")}`
+      : pendingFileName ? `📎 ${pendingFileName}${pendingAttachment ? ` · ${pendingAttachment.rows.length} dòng` : ""}` : "";
     saveHistory([...messages, { role: "user", content: rawText ? `${rawText}${attachmentLabel ? `\n${attachmentLabel}` : ""}` : attachmentLabel, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setRevealingReply(null); setSelectedReferences({}); setReferenceSearches({}); setReferenceSelectionError(""); setVoiceError("");
-    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}), ...(pendingFile ? { file: pendingFile } : {}) });
+    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}), ...(pendingFile ? { file: pendingFile } : {}), ...(pendingImages ? { files: pendingImages } : {}) });
   };
   const submitRecognizedVoice = async (recognizedText: string) => {
     const text = recognizedText.trim();
@@ -1096,14 +1115,16 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     stopReplySpeech();
     const pendingAttachment = attachment && (assistantMode === "qa" || !attachmentSubmitted) ? attachment : undefined;
     const pendingFile = fileAttachment || undefined;
-    const pendingFileName = pendingAttachment?.fileName || pendingFile?.name;
+    const pendingImages = assistantMode === "qa" && imageAttachments.length ? imageAttachments : undefined;
+    const pendingFileName = pendingAttachment?.fileName || pendingFile?.name || (pendingImages ? `${pendingImages.length} ảnh` : "");
     if (view === "projects" && selectedProjectId) {
       startProjectConversation(selectedProjectId, text);
       return;
     }
-    saveHistory([...messages, { role: "user", content: `${text}${pendingFileName ? `\n📎 ${pendingFileName}${pendingAttachment ? ` · ${pendingAttachment.rows.length} dòng` : ""}` : ""}`, createdAt: new Date().toISOString() }]);
+    const attachmentLabel = pendingImages ? `📎 ${pendingImages.length} ảnh: ${pendingImages.map(file => file.name).join(", ")}` : pendingFileName ? `📎 ${pendingFileName}${pendingAttachment ? ` · ${pendingAttachment.rows.length} dòng` : ""}` : "";
+    saveHistory([...messages, { role: "user", content: `${text}${attachmentLabel ? `\n${attachmentLabel}` : ""}`, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setSelectedReferences({}); setReferenceSearches({}); setReferenceSelectionError(""); setVoiceError("");
-    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}), ...(pendingFile ? { file: pendingFile } : {}) });
+    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}), ...(pendingFile ? { file: pendingFile } : {}), ...(pendingImages ? { files: pendingImages } : {}) });
   };
   recognizedVoiceHandlerRef.current = text => { void submitRecognizedVoice(text); };
   useEffect(() => {
@@ -1167,14 +1188,45 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setLastReply(null);
     await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, acceptanceLines });
   };
-  const selectAttachment = async (file?: File) => {
-    if (!file) return;
+  const selectAttachment = async (selection?: FileList | File[]) => {
+    const files = selection ? Array.from(selection) : [];
+    if (!files.length) return;
     setAttachmentError(""); setError(""); setIsReadingAttachment(true);
     setRecoverableAttachmentError(false);
     try {
+      const allImages = files.every(file => isAssistantConversationImageName(file.name));
+      if (assistantMode === "qa" && allImages) {
+        const currentImages = [
+          ...imageAttachments,
+          ...(fileAttachment && isAssistantConversationImageName(fileAttachment.name) ? [fileAttachment] : []),
+        ];
+        const nextImages = Array.from(new Set([...currentImages, ...files]));
+        if (nextImages.length > maxAssistantConversationImageCount) {
+          throw new Error(`Bạn có thể gửi tối đa ${maxAssistantConversationImageCount} ảnh trong một tin nhắn.`);
+        }
+        if (nextImages.some(file => file.size > 20 * 1024 * 1024)) {
+          throw new Error("Mỗi ảnh không được vượt quá 20 MB.");
+        }
+        if (nextImages.length > 1 && nextImages.some(file => file.size > maxAssistantConversationImageFileBytes)) {
+          throw new Error("Khi gửi nhiều ảnh, mỗi ảnh không được vượt quá 10 MB.");
+        }
+        if (nextImages.reduce((total, file) => total + file.size, 0) > maxAssistantConversationImageBatchBytes) {
+          throw new Error("Tổng dung lượng ảnh đính kèm không được vượt quá 50 MB.");
+        }
+        setImageAttachments(nextImages);
+        setAttachment(null);
+        setAttachmentSubmitted(false);
+        setFileAttachment(null);
+        return;
+      }
+      if (files.length > 1) {
+        throw new Error("Trong Trò chuyện, bạn có thể chọn nhiều ảnh JPG, PNG hoặc WebP cùng lúc. Các loại tệp khác hãy gửi riêng.");
+      }
+      const file = files[0];
       const extension = file.name.split(".").pop()?.toLocaleLowerCase("en-US") || "";
       if (["csv", "xlsx", "xls"].includes(extension)) {
         setFileAttachment(null);
+        setImageAttachments([]);
         setAttachmentSubmitted(false);
         setAttachment(await readAssistantTableFile(file));
       } else {
@@ -1183,21 +1235,24 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         const maxBytes = ["mp4", "mov", "webm", "m4v"].includes(extension) ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
         if (file.size > maxBytes) throw new Error(`Tệp không được vượt quá ${maxBytes === 50 * 1024 * 1024 ? "50" : "20"} MB.`);
         setAttachment(null);
+        setImageAttachments([]);
         setAttachmentSubmitted(false);
         setFileAttachment(file);
       }
     } catch (cause) {
-      setAttachment(null);
-      setAttachmentSubmitted(false);
-      setFileAttachment(null);
       setAttachmentError((cause as Error).message || "Mình chưa đọc được tệp này.");
     } finally {
       setIsReadingAttachment(false);
       attachmentButtonRef.current?.focus({ preventScroll: true });
     }
   };
+  const removeImageAttachment = (file: File) => {
+    setImageAttachments(current => current.filter(item => item !== file));
+    setAttachmentError(""); setRecoverableAttachmentError(false); setError("");
+    attachmentButtonRef.current?.focus({ preventScroll: true });
+  };
   const removeAttachment = () => {
-    setAttachment(null); setAttachmentSubmitted(false); setFileAttachment(null); setAttachmentError(""); setRecoverableAttachmentError(false); setError("");
+    setAttachment(null); setAttachmentSubmitted(false); setFileAttachment(null); setImageAttachments([]); setAttachmentError(""); setRecoverableAttachmentError(false); setError("");
     if (attachmentInputRef.current) attachmentInputRef.current.value = "";
     attachmentButtonRef.current?.focus({ preventScroll: true });
   };
@@ -1511,7 +1566,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const startNew = () => {
     const id = crypto.randomUUID();
     try { localStorage.setItem(conversationKey, id); localStorage.removeItem(requestKey); } catch { /* Keep in memory. */ }
-    closeSpeech(); stopReplySpeech(); retryRef.current = null; setIsViewingHistory(false); setView("chat"); setConversationId(id); setSynced(false); setLastReply(null); setSelectedReferences({}); setReferenceSearches({}); saveHistory([activeWelcomeMessage], true); setError(""); setInput(""); setAttachment(null); setAttachmentSubmitted(false); setFileAttachment(null); setAttachmentError(""); setVoiceError("");
+    closeSpeech(); stopReplySpeech(); retryRef.current = null; setIsViewingHistory(false); setView("chat"); setConversationId(id); setSynced(false); setLastReply(null); setSelectedReferences({}); setReferenceSearches({}); saveHistory([activeWelcomeMessage], true); setError(""); setInput(""); setAttachment(null); setAttachmentSubmitted(false); setFileAttachment(null); setImageAttachments([]); setAttachmentError(""); setVoiceError("");
     onAssistantModeChange(assistantMode);
   };
 
@@ -1602,7 +1657,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     if (isLoading || retryRef.current) return;
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const summary = text.trim() || (attachment ? `Tệp: ${attachment.fileName}` : fileAttachment ? `Tệp: ${fileAttachment.name}` : "Cuộc trò chuyện mới");
+    const summary = text.trim() || (attachment ? `Tệp: ${attachment.fileName}` : fileAttachment ? `Tệp: ${fileAttachment.name}` : imageAttachments.length ? `${imageAttachments.length} ảnh đính kèm` : "Cuộc trò chuyện mới");
     setProjects(current => current.map(project => project.id === projectId ? {
       ...project,
       conversations: [{ id: crypto.randomUUID(), title: summary.slice(0, 100), preview: summary.slice(0, 6000), createdAt: now, updatedAt: now, sourceConversationId: id, sourceMode: "qa" }, ...project.conversations],
@@ -1615,7 +1670,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   };
   const sendProjectPrompt = (projectId: string) => {
     if (isViewingHistory || isLoading || !synced || isListening || isReadingAttachment || retryRef.current) return;
-    if (!input.trim() && !attachment && !fileAttachment) return;
+    if (!input.trim() && !attachment && !fileAttachment && !imageAttachments.length) return;
     startProjectConversation(projectId, input.trim());
   };
   useEffect(() => {
@@ -1691,7 +1746,25 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         <p id="erp-chatbot-error" role="alert" className="text-pretty text-sm text-error">{error}</p>
         {!recoverableAttachmentError && <button type="button" onClick={() => { if (retryRef.current) void submitTurn(retryRef.current); else { setSynced(false); if (mode === "popup") { setIsOpen(false); document.getElementById("erp-chatbot-panel")?.hidePopover(); } } }} className={cn("rounded px-2 py-1 text-sm font-medium text-primary underline", focusClass)}>{retryRef.current ? "Kiểm tra lại yêu cầu" : mode === "popup" ? "Đóng và mở lại để tải" : "Thử tải lại"}</button>}
       </div>}
-      <form data-has-attachment={Boolean(currentAttachmentName || attachmentError || isReadingAttachment)} onSubmit={(event) => { event.preventDefault(); if (projectId) sendProjectPrompt(projectId); else void handleSend(); }} className={cn("border border-outline-variant bg-surface-container-lowest", placement === "landing" ? isStandaloneChatHome ? "assistant-landing-composer flex flex-col rounded-3xl p-3 shadow-sm sm:p-4" : stackedLandingComposer ? "assistant-landing-composer flex flex-col rounded-2xl px-3 py-2 shadow-sm" : "assistant-landing-composer flex flex-col rounded-3xl p-2.5 shadow-sm sm:p-3" : currentAttachmentName || attachmentError || isReadingAttachment || compactConversationComposer ? "assistant-conversation-composer flex flex-col items-stretch gap-1 rounded-2xl px-3 py-2 shadow-sm" : "assistant-conversation-composer flex items-center gap-1.5 rounded-full px-3 py-1.5 shadow-sm")}>
+      <form data-has-attachment={Boolean(currentAttachmentName || imageAttachments.length || attachmentError || isReadingAttachment)} onSubmit={(event) => { event.preventDefault(); if (projectId) sendProjectPrompt(projectId); else void handleSend(); }} className={cn("border border-outline-variant bg-surface-container-lowest", placement === "landing" ? isStandaloneChatHome ? "assistant-landing-composer flex flex-col rounded-3xl p-3 shadow-sm sm:p-4" : stackedLandingComposer ? "assistant-landing-composer flex flex-col rounded-2xl px-3 py-2 shadow-sm" : "assistant-landing-composer flex flex-col rounded-3xl p-2.5 shadow-sm sm:p-3" : currentAttachmentName || imageAttachments.length || attachmentError || isReadingAttachment || compactConversationComposer ? "assistant-conversation-composer flex flex-col items-stretch gap-1 rounded-2xl px-3 py-2 shadow-sm" : "assistant-conversation-composer flex items-center gap-1.5 rounded-full px-3 py-1.5 shadow-sm")}>
+        {imageAttachments.length > 0 && <div className="min-w-0 rounded-2xl border border-outline-variant bg-surface-container-low p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p role="status" aria-live="polite" className="text-sm font-medium text-on-surface">Ảnh đính kèm ({imageAttachments.length}/{maxAssistantConversationImageCount})</p>
+            <p className="text-xs text-on-surface-variant">{(imageAttachments.reduce((total, file) => total + file.size, 0) / (1024 * 1024)).toFixed(1)} MB</p>
+          </div>
+          <ul aria-label="Ảnh đã chọn" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {imageAttachmentPreviews.map(({ file, url }, index) => <li key={`${file.name}-${file.lastModified}-${index}`} className="min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+              <div className="relative aspect-square bg-surface-container-low">
+                <img src={url} alt={`Xem trước ảnh ${file.name}`} className="size-full object-cover" />
+                <button type="button" onClick={() => removeImageAttachment(file)} aria-label={`Xóa ảnh ${file.name}`} title={`Xóa ảnh ${file.name}`} className={cn("absolute right-1.5 top-1.5 flex size-8 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface shadow-sm hover:bg-surface-container-high", focusClass)}>
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+              <p className="truncate px-2 py-1.5 text-xs text-on-surface-variant" title={file.name}>{file.name}</p>
+            </li>)}
+          </ul>
+          <p className="mt-2 text-xs text-on-surface-variant">{imageAttachments.length === 1 ? "Ảnh sẽ được gửi cùng tin nhắn, tối đa 20 MB." : "Mỗi ảnh tối đa 10 MB; tổng dung lượng ảnh tối đa 50 MB."}</p>
+        </div>}
         {currentAttachmentName && <div className="min-w-0 max-w-full rounded-2xl border border-outline-variant bg-surface-container-low p-3 shadow-xs">
           {attachmentPreviewUrl && fileAttachment && <div className="mb-3 w-fit max-w-full overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
             {isVideoAttachment
@@ -1727,7 +1800,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           {hasPlaceholderHighlights && <div ref={inputHighlightRef} aria-hidden="true" className={cn("assistant-placeholder-highlight pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap break-words px-2.5 py-1.5", inputTypographyClass)}>{renderPromptWithPlaceholderHighlights(input, { backgroundOnly: true })}</div>}
           <textarea ref={inputRef} id="erp-chatbot-input" rows={placement === "landing" ? isStandaloneChatHome ? 2 : 1 : 1} spellCheck={false} autoFocus={mode !== "standalone"} onKeyDown={event => { if ((Boolean(projectId) || placement === "conversation" || settings.enterToSend) && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} onScroll={event => { if (inputHighlightRef.current) inputHighlightRef.current.scrollTop = event.currentTarget.scrollTop; }} value={input} onChange={(event) => setInput(event.target.value)} placeholder={headerPanel && !fullscreen ? "" : placement === "landing" && isStandaloneChatHome ? "Hỏi tôi bất cứ điều gì" : promptPlaceholder} aria-describedby={["erp-chatbot-voice-help", (placement === "conversation" || Boolean(projectId)) && "erp-chatbot-keyboard-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className={cn("relative z-10 block w-full min-w-0 resize-none border-0 bg-transparent px-2.5 py-1.5 text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0", hasPlaceholderHighlights && "assistant-placeholder-textarea", inputTypographyClass)} />
         </div>
-        <input ref={attachmentInputRef} className="sr-only" type="file" accept={attachmentAccept} aria-label="Chọn tệp đính kèm" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
+        <input ref={attachmentInputRef} className="sr-only" type="file" accept={attachmentAccept} multiple={assistantMode === "qa"} aria-label={assistantMode === "qa" ? "Chọn tệp đính kèm, có thể chọn nhiều ảnh" : "Chọn tệp đính kèm"} aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files || undefined); event.currentTarget.value = ""; }} />
         <div className={cn("assistant-composer-toolbar", placement === "landing" && (isStandaloneChatHome || mode === "popup" || stackedLandingComposer) ? cn("flex w-full items-center gap-1", isStandaloneChatHome ? "justify-between pt-2" : "justify-end pt-1") : compactConversationComposer ? "order-3 flex w-full items-center justify-between gap-1" : "order-3 flex items-center gap-1 shrink-0")}>
           {showChatComposerActions && (placement === "landing" || compactConversationComposer) && chatComposerActions}
           <div className={cn("flex shrink-0 items-center gap-1", compactPopupComposer && "w-full [&>button:nth-last-child(2)]:ml-auto")}>
@@ -1738,14 +1811,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             <button type="button" onClick={toggleVoiceInput} aria-label={voiceStatus === "manual" ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "manual" ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool order-3 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-transparent hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
               {voiceStatus === "manual" ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
             </button>
-            {(input.trim() || Boolean(attachment) || Boolean(fileAttachment)) && !twoWayVoiceEnabled ? <button key="send" type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || isReadingAttachment || Boolean(retryRef.current)} className={cn("order-4 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+            {(input.trim() || Boolean(attachment) || Boolean(fileAttachment) || imageAttachments.length > 0) && !twoWayVoiceEnabled ? <button key="send" type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || isReadingAttachment || Boolean(retryRef.current)} className={cn("order-4 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
               <SendHorizontal className="size-4" aria-hidden="true" />
             </button> : <button key="two-way-voice" type="button" onClick={event => { event.preventDefault(); toggleTwoWayVoice(); }} aria-label={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} aria-pressed={twoWayVoiceEnabled} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={!twoWayVoiceEnabled && (isLoading || !synced || Boolean(retryRef.current))} title={twoWayVoiceEnabled ? "Tắt chế độ 2 chiều" : "Bật chế độ 2 chiều"} className={cn("assistant-composer-tool assistant-live-voice-button order-4 flex size-9 shrink-0 items-center justify-center rounded-full border-0 bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{twoWayVoiceEnabled ? <Square className="size-4" aria-hidden="true" /> : <AssistantLiveVoiceIcon />}</button>}
           </div>
         </div>
       </form>
       {(placement === "conversation" || projectId) && <p id="erp-chatbot-keyboard-help" className="sr-only">Nhấn Enter để gửi, Shift + Enter để xuống dòng.</p>}
-      <p id="erp-chatbot-file-help" className="sr-only">Excel và CSV dùng cho nhập bảng, tối đa 100 dòng và 1 MB. Bạn có thể gửi PDF, DOCX, TXT hoặc ảnh kèm yêu cầu thao tác, tối đa 20 MB. Video chỉ dùng trong Trò chuyện, tối đa 50 MB.</p>
+      <p id="erp-chatbot-file-help" className="sr-only">Excel và CSV dùng cho nhập bảng, tối đa 100 dòng và 1 MB. Bạn có thể gửi PDF, DOCX, TXT hoặc ảnh kèm yêu cầu thao tác, tối đa 20 MB. Trong Trò chuyện, một ảnh tối đa 20 MB; nếu chọn nhiều ảnh, tối đa 10 ảnh, mỗi ảnh 10 MB và tổng dung lượng 50 MB. Video chỉ dùng trong Trò chuyện, tối đa 50 MB.</p>
       {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
       {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
       <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" || twoWayVoiceEnabled ? "status" : undefined} className={cn("text-pretty text-xs text-on-surface-variant", voiceStatus === "off" && !twoWayVoiceEnabled && "sr-only")}>{twoWayVoiceEnabled ? isSpeaking ? "Đang đọc câu trả lời…" : isLoading || pendingVoiceCommand ? "Đang xử lý yêu cầu…" : retryRef.current ? "Đang chờ thử lại yêu cầu." : "Đang nghe. Dừng nói để gửi." : voiceStatus === "waiting" ? "Đang chờ “Hey Igen”. Hãy nói từ khóa rồi nêu yêu cầu." : voiceStatus === "command" ? "Đang nghe yêu cầu. Mình sẽ tự gửi khi bạn dừng nói." : voiceStatus === "manual" ? "Đang nghe tiếng Việt. Bấm micro để dừng và kiểm tra nội dung." : "Chế độ 2 chiều tự gửi khi bạn dừng nói và đọc câu trả lời có tính phí."}</p>

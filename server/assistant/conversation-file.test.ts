@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
-import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode, isAssistantConversationFileName, readAssistantConversationFile } from "./conversation-file";
+import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode, isAssistantConversationFileName, readAssistantConversationFile, readAssistantConversationImages } from "./conversation-file";
 
 describe("assistant conversation file readers", () => {
   it("recognizes supported document, image, and video file extensions", () => {
@@ -40,5 +40,22 @@ describe("assistant conversation file readers", () => {
     expect(result.documentContext.content).toEqual({ type: "uploaded-image", fileName: "anh.png" });
     expect(result.visualAttachments).toHaveLength(1);
     expect(result.visualAttachments?.[0].dataUrl).toMatch(/^data:image\/jpeg;base64,/);
+  });
+
+  it("combines multiple uploaded images into one vision context", async () => {
+    const buffer = await sharp({
+      create: { width: 4, height: 3, channels: 3, background: { r: 20, g: 80, b: 180 } },
+    }).png().toBuffer();
+    const result = await readAssistantConversationImages({
+      files: [
+        { buffer, fileName: "anh-mot.png" },
+        { buffer, fileName: "anh-hai.png" },
+      ],
+      req: {} as never,
+    });
+
+    expect(result.documentContext.content).toEqual({ type: "uploaded-images", fileNames: ["anh-mot.png", "anh-hai.png"] });
+    expect(result.visualAttachments).toHaveLength(2);
+    expect(result.visualAttachments?.every(attachment => attachment.dataUrl.startsWith("data:image/jpeg;base64,"))).toBe(true);
   });
 });
