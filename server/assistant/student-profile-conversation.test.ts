@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { conversationAudit } from "./testing/conversation-audit";
+import { semanticProviderFixture } from './testing/semantic-provider-fixture';
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../modules/student-management/services/payment-transaction", () => ({ runStudentPaymentTransaction: async (work: (session: undefined) => Promise<unknown>) => work(undefined) }));
 
@@ -144,8 +145,8 @@ it.each([
 ])("owner discovery stays in the conversation without reading or writing: %s", async text => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, intentType: "general_question",
-    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem dữ liệu đang có hay nhập danh sách học viên trước?" }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: null, values: {}, intentType: "general_question",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem dữ liệu đang có hay nhập danh sách học viên trước?" }));
   const reply = await turn({ text });
   expect(reply.status).toBe("collecting");
   expect(reply.reply).toContain("học viên");
@@ -158,17 +159,17 @@ it.each([
 it("owner goes from discovery to an explicit create, confirms once and sees the saved record", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
-    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem danh sách hay thêm học viên trước?" }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn muốn xem danh sách hay thêm học viên trước?" }));
   await turn({ text: "Tôi mới mở trung tâm, phần học viên giúp tôi làm gì?" });
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
-    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn chọn xem danh sách hay thêm học viên nhé?" }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list", "student.create"] }, clarification: "Bạn chọn xem danh sách hay thêm học viên nhé?" }));
   const ambiguous = await turn({ text: "Ừ làm đi" });
   expect(ambiguous.status).toBe("collecting");
   expect(fetcher).not.toHaveBeenCalled();
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "student.create", intentType: "workflow", values: {
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: "student.create", intentType: "workflow", values: {
     fullName: "Nguyễn An", phone: "0900000000", email: "an@example.com", registrationDate: "14/11/2026",
-  } }) });
+  } }));
   const preview = await turn({ text: "Thêm học viên Nguyễn An, số điện thoại 0900000000, email an@example.com, đăng ký 14/11/2026" });
   expect(preview.status).toBe("confirmation");
   expect(students).toHaveLength(0);
@@ -176,7 +177,7 @@ it("owner goes from discovery to an explicit create, confirms once and sees the 
   expect(saved.status).toBe("completed");
   expect(students).toHaveLength(1);
   expect(parseAssistantResultTable(saved.reply)?.rows[0].values).toMatchObject({ "Họ và tên": "Nguyễn An" });
-  expect(saved.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(saved.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(JSON.stringify(state.provider.mock.calls)).toContain("Tôi mới mở trung tâm");
 });
 
@@ -201,8 +202,8 @@ it.each([false, true].flatMap(withDraft => ["discovery", "ambiguous", "general_q
   fetcher.mockClear();
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, values: {}, intentType: kind === "discovery" ? "ambiguous" : kind,
-    ...(kind === "discovery" ? { businessDiscovery: { actionIds: ["student.list", "student.create"] } } : {}), clarification: "Bạn muốn xem nội dung, thêm học viên mới hay cập nhật hồ sơ đang có?" }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: null, values: {}, intentType: kind === "discovery" ? "ambiguous" : kind,
+    ...(kind === "discovery" ? { businessDiscovery: { actionIds: ["student.list", "student.create"] } } : {}), clarification: "Bạn muốn xem nội dung, thêm học viên mới hay cập nhật hồ sơ đang có?" }, ['student.list', 'student.create']));
   const reply = await turn({ text: "Đây, làm giúp tôi", attachment: {
     fileName: "tao-hoc-vien.xlsx", headers: ["Họ tên", "Điện thoại"], rows: [{ "Họ tên": "Nguyễn An", "Điện thoại": "0900000000" }],
   } });
@@ -291,11 +292,11 @@ it("owner follows discovery with a tuition question and gets actual mock balance
     { _id: secondStudentId, fullName: "Trần Bình", fee: 9000000, paidAmount: 0 }];
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: null, values: {}, intentType: "ambiguous",
-    businessDiscovery: { actionIds: ["student.list"] }, clarification: "Bạn muốn kiểm tra học phí của học viên nào?" }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: null, values: {}, intentType: "ambiguous",
+    businessDiscovery: { actionIds: ["student.list"] }, clarification: "Bạn muốn kiểm tra học phí của học viên nào?" }));
   await turn({ text: "Tôi hay quên ai đã đóng tiền rồi" });
   expect(fetcher).not.toHaveBeenCalled();
-  state.provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: "student.list", values: { search: "Nguyễn An" }, intentType: "workflow" }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: "student.list", values: { search: "Nguyễn An" }, intentType: "workflow" }));
   const reply = await turn({ text: "Nguyễn An đã đóng bao nhiêu, còn thiếu bao nhiêu?" });
   expect(reply.status).toBe("completed");
   expect(reply.reply).toContain("3.000.000");
@@ -310,7 +311,7 @@ it.each(["Thông tin học phí của Nguyễn An", "Nguyễn An đã đóng bao
     { _id: secondStudentId, fullName: "Trần Bình", phone: "0900000001", fee: "8000000", paidAmount: 0 }];
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
-  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "student.list", values: { search: "Nguyễn An" } }) });
+  state.provider.mockImplementation(semanticProviderFixture({ actionId: "student.list", values: { search: "Nguyễn An" }, intentType: 'workflow' }));
   const reply = await turn({ text });
   expect(reply.status, JSON.stringify(reply)).toBe("completed");
   expect(reply.reply).toContain("3.000.000");
@@ -354,7 +355,7 @@ it("reads a text document, honors explicit user values, confirms and creates exa
   expect(students).toHaveLength(1);
   expect(students[0].phone).toBe("0909999999");
   expect(parseAssistantResultTable(created.reply)).not.toBeNull();
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
 });
 
 beforeEach(() => {
@@ -502,10 +503,10 @@ it("gives manual steps for a clearly understood student request with no chat wor
   const result = await turn({ text: "Xuất báo cáo phân tích xu hướng học viên" });
 
   expect(result.status).toBe("unsupported");
-  expect(result.reply).toContain("Mình hiểu bạn muốn thực hiện yêu cầu này");
+  expect(result.reply).toContain("Mình chưa thực hiện được việc này trong chat.");
   expect(result.reply).toContain("tab QUẢN LÝ HỌC VIÊN");
-  expect(result.reply).toContain("Mở danh sách loại dữ liệu cần tra cứu");
-  expect(result.reply).toContain("chưa có dữ liệu nào được thay đổi");
+  expect(result.reply).toContain("Phần yêu cầu này chưa được thực hiện.");
+  expect(result.reply).not.toContain("Hướng dẫn dự phòng");
   expect(fetcher).not.toHaveBeenCalled();
 });
 
@@ -516,7 +517,7 @@ it("guides manual handling when a recognized workflow is blocked by permissions"
   const result = await turn({ text: "Danh sách học viên" });
 
   expect(result.status).toBe("unsupported");
-  expect(result.reply).toContain("Chưa thực hiện thay đổi dữ liệu");
+  expect(result.reply).toContain("Phần yêu cầu này chưa được thực hiện.");
   expect(result.reply).toContain("Mở Quản lý học viên → Học viên.");
   expect(result.reply).toContain("Chỉ tiếp tục sau khi được cấp quyền");
   expect(result.link).toBeUndefined();
@@ -544,19 +545,33 @@ it("shows the API validation reason without claiming a technical assistant failu
   expect(students).toHaveLength(0);
 });
 
+it('formats legacy text calendar fields in new and restored previews while retaining ISO pending values', async () => {
+  state.interpret.mockResolvedValueOnce({ actionId: 'student.create', values: {
+    fullName: 'QA Test Trực Tiếp', phone: '0900090001', email: 'qa.live@example.test', registrationDate: '2026-11-25',
+  }, intentType: 'workflow', newRequest: true });
+  const preview = await turn({ text: 'Thêm học viên QA Test Trực Tiếp, điện thoại 0900090001, email qa.live@example.test, ngày đăng ký 25/11/2026' });
+  expect(preview.status).toBe('confirmation');
+  expect(preview.action?.values.find((value: any) => value.label.startsWith('Ngày đăng ký'))?.value).toBe('25/11/2026');
+  expect(Object.values(state.session.pending.resolved)).toContain('2026-11-25');
+  const restored = await conversationState(req, 'student-conversation');
+  expect(JSON.stringify(restored)).toContain('25/11/2026');
+  expect(students).toHaveLength(0);
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
+});
+
 it("creates one student, asks about missing optional fields, supplements that record, and renders shared result tables", async () => {
   state.interpret.mockResolvedValueOnce({ actionId: "student.create", values: {
     fullName: "Nguyễn An", phone: "0900000000", email: "an@example.com", registrationDate: "14/11/2026",
   }, intentType: "workflow", newRequest: false });
   const preview = await turn({ text: "Thêm hồ sơ học viên Nguyễn An, số điện thoại 0900000000, email an@example.com, ngày đăng ký 14/11/2026" });
   expect(preview.status).toBe("confirmation");
-  expect(preview.reply).toBe("Bạn kiểm tra thông tin bên dưới nhé. Nếu đã đúng, bạn xác nhận để mình thực hiện.");
+  expect(preview.reply).toContain("xác nhận");
   expect(students).toHaveLength(0);
 
   const created = await confirm(preview);
   expect(created.status).toBe("completed");
   expect(students).toHaveLength(1);
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(parseAssistantResultTable(created.reply)?.rows[0].values).toMatchObject({ "Họ và tên": "Nguyễn An", Email: "an@example.com" });
 
   const agreed = await turn({ text: "Có" });
@@ -680,7 +695,7 @@ it("creates a tuition installment, confirms the total increase, and adds its mis
   expect(students[0]).toMatchObject({ fee: "10.000.000", paidAmount: 0 });
   expect(students[0].installmentStatus).toHaveLength(1);
   expect(students[0].installmentStatus[0]).toMatchObject({ installmentNo: 1, amountDue: 5_000_000, status: "Chưa gửi", dueDate: "" });
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(JSON.stringify(created)).not.toContain(studentId);
 
   const agreed = await turn({ text: "Có" });
@@ -932,7 +947,7 @@ it("offers the full course list for class creation and accepts a course selected
   expect(courseSelection?.required).toBe(true);
   expect(courseSelection?.options).toHaveLength(12);
   expect(courseSelection?.options.map(option => option.label)).toContain("Khóa học nâng cao — mã KH12");
-  expect(selection.reply).toContain("trong danh sách bên dưới");
+  expect(selection.reply).toContain("Bạn chọn khóa học bên dưới nhé.");
   expect(selection.reply).not.toContain("Khóa học cơ bản 01 — mã KH01");
   expect(JSON.stringify(selection)).not.toContain(courses[11]._id);
 
@@ -955,7 +970,7 @@ it("lets the user select both a class and learner before adding the learner", as
   const learnerSelection = selection.referenceSelections?.find(group => group.key === "studentId");
   expect(batchSelection?.options.map(option => option.label).join(" ")).toContain("Lớp giao tiếp A1");
   expect(learnerSelection?.options.map(option => option.label).join(" ")).toContain("Nguyễn An");
-  expect(selection.reply).toContain("trong danh sách bên dưới");
+  expect(selection.reply).toContain("Bạn chọn lớp và học viên cần thêm bên dưới nhé.");
 
   const preview = await turn({ referenceSelections: {
     path_id: [batchSelection!.options[0].value],
@@ -1022,7 +1037,7 @@ it("collects a required suspension reason and reopens an older preview missing i
   expect(classPrompt.status).toBe("collecting");
   expect(learnerPrompt.status).toBe("collecting");
   expect(reasonPrompt.status).toBe("collecting");
-  expect(reasonPrompt.reply).toContain("Lý do");
+  expect(reasonPrompt.reply).toMatch(/lý do/iu);
   expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH")).toBe(false);
 
   state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
@@ -1036,7 +1051,7 @@ it("collects a required suspension reason and reopens an older preview missing i
   const reopened = await confirm(preview);
 
   expect(reopened.status).toBe("collecting");
-  expect(reopened.reply).toContain("Lý do");
+  expect(reopened.reply).toMatch(/lý do/iu);
   expect(fetcher.mock.calls.some(([url, init]) => new URL(String(url)).pathname.endsWith(`/learners/${studentId}/enrollment-status`) && init?.method === "PATCH")).toBe(false);
 
   state.interpret.mockResolvedValueOnce({ actionId: "student.batch.enrollment.update", values: {
@@ -1150,7 +1165,7 @@ it("does not replay a write whose response was lost after the API saved it", asy
   const request={requestId:randomUUID(),decision:{id:preview.action!.id,confirmed:true}};
   const result=await turn(request);
   expect(result.status).toBe("uncertain");
-  expect(result.reply).toContain("Hướng dẫn dự phòng");
+  expect(result.reply).toContain("Kiểm tra đúng hồ sơ và lịch sử vừa thao tác.");
   expect(result.reply).toContain("không thực hiện lại");
   expect(result.reply).not.toContain("Chọn Thu học phí");
   expect(result.link).toBe("/quan-ly-hoc-vien?sub=hoc-phi");

@@ -10,6 +10,13 @@ import { supportsCommissionScheme } from "./policy-compatibility";
 
 type ReferralInput = Record<string, unknown>;
 
+export function referralDateFilter(query: Record<string, unknown> = {}) {
+  const from = query.from ? normalizeDate(query.from, 'Từ ngày giới thiệu') : undefined;
+  const to = query.to ? normalizeDate(query.to, 'Đến ngày giới thiệu') : undefined;
+  if (from && to && from > to) throw new LaborPartnerError('INVALID_DATE', 'Khoảng ngày giới thiệu không hợp lệ.');
+  return from || to ? { referredAt: { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) } } : {};
+}
+
 function normalizeReferralInput(input: ReferralInput) {
   const effectiveFrom = normalizeDate(input.effectiveFrom, "Ngày hiệu lực");
   const effectiveTo = input.effectiveTo ? normalizeDate(input.effectiveTo, "Ngày hết hiệu lực") : null;
@@ -49,11 +56,11 @@ function overlapsQuery(scope: LaborPartnerScope, workerId: mongoose.Types.Object
 }
 
 export const WorkerReferralService = {
-  async listForPartner(scope: LaborPartnerScope, partnerId: string) {
+  async listForPartner(scope: LaborPartnerScope, partnerId: string, query: Record<string, unknown> = {}) {
     const partnerObjectId = requiredObjectId(partnerId);
     const partner = await LaborPartnerModel.exists({ _id: partnerObjectId, ...scopeQuery(scope), deletedAt: null });
     if (!partner) throw new LaborPartnerError("LABOR_PARTNER_NOT_FOUND", "Không tìm thấy đối tác lao động.", 404);
-    const referrals = await WorkerReferralModel.find({ partnerId: partnerObjectId, ...scopeQuery(scope) }).sort({ effectiveFrom: -1 }).lean() as any[];
+    const referrals = await WorkerReferralModel.find({ partnerId: partnerObjectId, ...scopeQuery(scope), ...referralDateFilter(query) }).sort({ effectiveFrom: -1 }).lean() as any[];
     const workerIds = [...new Set(referrals.map(referral => String(referral.workerId || "")).filter(Boolean))];
     if (!workerIds.length) return referrals;
     const workers = await WorkerModel.find({ _id: { $in: workerIds }, ...buildWorkerQuery(scope) }).select("_id fullName").lean() as any[];

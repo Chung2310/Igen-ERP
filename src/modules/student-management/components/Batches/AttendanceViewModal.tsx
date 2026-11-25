@@ -110,18 +110,18 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
         {/* ── Tóm tắt gọn ── */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-md border border-primary/15 bg-primary/10 p-3.5 text-center">
-            <p className="text-xl font-semibold text-primary">{takenCount}<span className="text-sm font-medium">/{allDates.length}</span></p>
-            <p className="mt-0.5 text-xs font-medium text-primary">Buổi đã điểm danh</p>
+            <p className="text-xl font-medium tabular-nums text-primary">{takenCount}<span className="text-sm font-normal">/{allDates.length}</span></p>
+            <p className="mt-0.5 text-xs font-normal text-primary">Buổi đã điểm danh</p>
           </div>
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3.5 text-center">
-            <p className="text-xl font-semibold text-amber-600">{missedCount}</p>
-            <p className="mt-0.5 text-xs font-medium text-amber-700">Buổi bỏ sót</p>
+            <p className="text-xl font-medium tabular-nums text-amber-600">{missedCount}</p>
+            <p className="mt-0.5 text-xs font-normal text-amber-700">Buổi bỏ sót</p>
           </div>
           <div className="rounded-md border border-rose-200 bg-rose-50 p-3.5 text-center">
-            <p className="text-xl font-semibold text-rose-600">
+            <p className="text-xl font-medium tabular-nums text-rose-600">
               {Object.keys(absentMap).length}
             </p>
-            <p className="mt-0.5 text-xs font-medium text-rose-700">HV có vắng mặt</p>
+            <p className="mt-0.5 text-xs font-normal text-rose-700">HV có vắng mặt</p>
           </div>
         </div>
 
@@ -130,7 +130,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
 
           {/* Cột trái: Danh sách buổi */}
           <div className="flex flex-col gap-2">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-primary">
               <Calendar className="h-3.5 w-3.5" /> Chọn buổi để xem chi tiết
             </p>
 
@@ -172,34 +172,34 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                         )} />
                         <div>
                           <span className={cn(
-                            'text-xs font-black',
+                            'text-xs font-medium',
                             isSelected ? 'text-primary' : 'text-on-surface'
                           )}>
                             {formatShortDate(date)}
                           </span>
                           {isToday && !isSelected && (
-                            <span className="ml-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-on-primary">
+                            <span className="ml-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-medium text-on-primary">
                               Hôm nay
                             </span>
                           )}
                           {isToday && isSelected && (
-                            <span className="ml-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-on-primary">
+                            <span className="ml-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-medium text-on-primary">
                               Hôm nay
                             </span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] font-bold flex-shrink-0">
+                      <div className="flex items-center gap-2 text-[11px] font-normal tabular-nums flex-shrink-0">
                         {hasTaken ? (
                           <>
-                            <span className={cn(isSelected ? 'text-emerald-300' : 'text-emerald-600')}>{presentCount} ✓</span>
-                            {absentCount > 0 && <span className={cn(isSelected ? 'text-rose-300' : 'text-rose-600')}>{absentCount} ✗</span>}
+                            <span className={cn(isSelected ? 'text-primary' : 'text-emerald-600')}>{presentCount} ✓</span>
+                            {absentCount > 0 && <span className="text-rose-600">{absentCount} ✗</span>}
                             <ChevronRight className={cn('h-3 w-3', isSelected ? 'rotate-90 text-primary' : 'text-on-surface-variant')} />
                           </>
                         ) : isPast || isToday ? (
-                          <span className="text-[9px] text-amber-500 font-bold">Bỏ sót</span>
+                          <span className="text-[10px] font-normal text-amber-600">Bỏ sót</span>
                         ) : (
-                          <span className="text-[9px] text-slate-400">Sắp tới</span>
+                          <span className="text-[10px] font-normal text-slate-400">Sắp tới</span>
                         )}
                       </div>
                     </button>
@@ -214,10 +214,10 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
             {selectedDate && selectedSession ? (
               <>
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <p className="text-xs font-medium text-on-surface-variant">
                     {formatShortDate(selectedDate)}
                   </p>
-                  <div className="flex gap-3 text-[10px] font-bold">
+                  <div className="flex gap-3 text-xs font-normal tabular-nums">
                     <span className="text-emerald-600">
                       {selectedSession.records.filter(r => r.status === 'present' || r.status === 'late').length} có mặt
                     </span>
@@ -258,11 +258,11 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                           <div className="flex items-center gap-2">
                             {cfg.icon}
                             <div>
-                              <p className="text-xs font-bold text-slate-700">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
-                              <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
+                              <p className="text-xs font-medium text-on-surface">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
+                              <p className="text-[11px] font-normal text-on-surface-variant">{student?.phone || ''}</p>
                             </div>
                           </div>
-                          <span className={cn('text-[9px] font-black px-2 py-0.5 rounded-full', cfg.badge)}>{cfg.text}</span>
+                          <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full', cfg.badge)}>{cfg.text}</span>
                         </div>
                       );
                     })
@@ -271,7 +271,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
               </>
             ) : (
               <>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <p className="text-xs font-medium text-on-surface-variant flex items-center gap-1.5">
                   <UserX className="w-3.5 h-3.5" />
                   {topAbsentees.length > 0 ? 'Hay vắng mặt nhất' : 'Chưa có dữ liệu'}
                 </p>
@@ -283,17 +283,17 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                       return (
                         <div key={studentId} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-100 bg-white">
                           <span className={cn(
-                            'w-5 h-5 rounded-lg text-[10px] font-black text-white flex items-center justify-center flex-shrink-0',
+                            'w-5 h-5 rounded-lg text-[10px] font-medium text-white flex items-center justify-center flex-shrink-0',
                             idx === 0 ? 'bg-rose-500' : idx === 1 ? 'bg-orange-400' : idx === 2 ? 'bg-amber-400' : 'bg-slate-300'
                           )}>
                             {idx + 1}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-700 truncate">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
-                            <p className="text-[10px] text-slate-400">{student?.phone || ''}</p>
+                            <p className="text-xs font-medium text-on-surface truncate">{student?.fullName || `${entityLabel.titleCase} đã xóa`}</p>
+                            <p className="text-[11px] font-normal text-on-surface-variant">{student?.phone || ''}</p>
                           </div>
-                          <span className="text-sm font-black text-rose-600 flex-shrink-0">
-                            {count} <span className="text-[9px] font-semibold text-slate-400">buổi</span>
+                          <span className="text-sm font-medium tabular-nums text-rose-600 flex-shrink-0">
+                            {count} <span className="text-[10px] font-normal text-on-surface-variant">buổi</span>
                           </span>
                         </div>
                       );
@@ -316,7 +316,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-          <div className="flex items-center gap-4 text-[10px] font-semibold text-slate-400">
+          <div className="flex items-center gap-4 text-[11px] font-normal text-on-surface-variant">
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Đã điểm danh</span>
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> Bỏ sót</span>
           </div>
@@ -324,11 +324,11 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
             <button
               type="button"
               onClick={() => setShowAttempts(true)}
-              className="flex items-center gap-1.5 text-[10px] font-black text-brand-primary hover:text-brand-primary/80 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-[11px] font-medium text-brand-primary hover:text-brand-primary/80 transition-colors cursor-pointer"
             >
               <ShieldCheck className="w-3.5 h-3.5" /> Lịch sử xác thực khuôn mặt
             </button>
-            <span className="text-[10px] font-bold text-slate-500">
+            <span className="text-[11px] font-normal text-on-surface-variant">
               {formatDays(batch.daysOfWeek)} · {batch.startTime}–{batch.endTime}
             </span>
           </div>

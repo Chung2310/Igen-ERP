@@ -67,8 +67,9 @@ import { branchId, workers, projects, contracts, businessFixture, today } from "
 import { ledger, dryRun, replayRun, resumeRun, previousRun, pricingGuard, providerFetch, providerPreflight, safety, sanitize } from "./provider";
 import { createStudentSchema } from "../../../modules/student-management/validations/student.validation";
 import { extraScript, extraChecks, extraStudent, extraPolicy } from './extra-scenarios';
+import { moduleScript, moduleChecks } from './module-scenarios';
 
-const sourceFiles = ['catalog.ts', 'operation-metadata.ts', 'list-analysis.ts', 'result-format.ts', 'semantic-interpreter.ts', 'interpretation-budget.ts', 'request-coverage.ts', 'module-context.ts', 'composite-query.ts', 'function-context.ts', 'service.ts', 'result-field-policy.ts', 'read-relations.ts', 'collection-form.ts', 'policy.ts'];
+const sourceFiles = ['catalog.ts', 'operation-metadata.ts', 'list-analysis.ts', 'business-result.ts', 'legal-reference.ts', 'result-format.ts', 'semantic-interpreter.ts', 'interpretation-budget.ts', 'request-coverage.ts', 'module-context.ts', 'composite-query.ts', 'function-context.ts', 'service.ts', 'result-field-policy.ts', 'read-relations.ts', 'collection-form.ts', 'policy.ts'];
 const report: any = { mode: replayRun ? "offline-replay-of-captured-real-luna-outputs" : dryRun ? "offline-harness-check" : "real-luna-synthetic-business-fixtures", startedAt: new Date().toISOString(),
   sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   data: "Artificial entity names only; no screenshot names; no real business API or DB", settings: { alwaysConfirm: true, memoryEnabled: false, responseRules: "application default" },
@@ -89,6 +90,7 @@ const turn = (input: any) => {
   return processTurn(req, { conversationId: `preview-${current.id}`, requestId: randomUUID(), mode: "work", ...input });
 };
 function scriptedOutput() {
+  if(current.id.startsWith('N')) return moduleScript(current);
   if (current.id.startsWith('X')) return extraScript(current, followed, today);
   const cases: Record<string, any> = {
     L01: { name: "QA-LAB-NEW-20", workerIds: workers.slice(0, 5).map(w => `${w.fullName} — Chi nhánh MẪU-QA`), daysOfWeek: ["Thứ 2", "Thứ 4", "Thứ 6", "Thứ 3", "Thứ 5", "Thứ 7"] },
@@ -207,6 +209,10 @@ it.for(CASES)("$id: preview/read for screenshot row $row", async (item: any, ctx
       reply = await turn({ decision: { id: reply.action.id, confirmed: true } });
       record(reply, { confirmedPureGetOnly: true });
     }
+    if(item.validationFollowup && reply.status==='completed') {
+      current={...current,validationFollowupActive:true};
+      reply=await turn({text:item.validationFollowup}); record(reply,{validationFollowup:item.validationFollowup});
+    }
     row.finalStatus = reply.status;
     const finalTurn = state.turns.at(-1);
     row.actionId = state.session.pending?.actionId || finalTurn?.actionId || [...(finalTurn?.steps || [])].reverse().find(step => step.actionId)?.actionId;
@@ -214,7 +220,7 @@ it.for(CASES)("$id: preview/read for screenshot row $row", async (item: any, ctx
     row.pendingResolved = state.session.pending?.resolved;
     row.readCalls = report.business.slice(startBusiness);
     row.aiRequests = ledger.calls.slice(startCalls);
-    const issues: string[] = extraChecks(item, row, reply, state.session.pending, today);
+    const issues: string[] = [...extraChecks(item, row, reply, state.session.pending, today), ...moduleChecks(item,row,reply,state.session.pending)];
     if (item.kind !== "clarify" && !item.actions.includes(row.actionId)) issues.push("WRONG_OR_MISSING_ACTION");
     if (item.kind === "clarify" && reply.status !== "collecting") issues.push("DID_NOT_STOP_FOR_CLARIFICATION");
     if (item.kind === "write" && reply.status !== "confirmation") issues.push("NOT_AT_CONFIRMATION");

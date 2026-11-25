@@ -9,6 +9,7 @@ import type { Batch, Course, ResourceItem } from "../../types";
 import { ErpField, ErpInput, ErpModal } from "../Erp/ErpUI";
 import { RoadmapPicker } from "../ui/RoadmapPicker";
 import { VietnameseDatePicker } from "./VietnameseDatePicker";
+import { VietnameseTimePicker } from "./VietnameseTimePicker";
 
 const PROMOTABLE_STATUSES = new Set(["Đang học", "Chờ xếp lớp tiếp theo", "Hoàn thành khóa"]);
 const MAX_PROMOTION_STUDENTS = 500;
@@ -264,10 +265,10 @@ export function DirectLevelPromotionModal({
                 {showAutoEndDateHint ? <p id={autoEndDateHintId} className="mt-1 text-pretty text-xs text-on-surface-variant">Tự tính theo số buổi của khóa ở chặng kế tiếp. Bạn có thể sửa ngày này.</p> : null}
               </ErpField>
               <ErpField label="Giờ bắt đầu *">
-                <ErpInput type="time" value={newClass.startTime} disabled={Boolean(createdTarget)} onChange={(event) => setNewClass((current) => ({ ...current, startTime: event.target.value }))} />
+                <VietnameseTimePicker ariaLabel="Giờ bắt đầu lớp mới" value={newClass.startTime} disabled={saving || Boolean(createdTarget)} onChange={(startTime) => setNewClass((current) => ({ ...current, startTime }))} required variant="filter" />
               </ErpField>
               <ErpField label="Giờ kết thúc *">
-                <ErpInput type="time" value={newClass.endTime} disabled={Boolean(createdTarget)} onChange={(event) => setNewClass((current) => ({ ...current, endTime: event.target.value }))} />
+                <VietnameseTimePicker ariaLabel="Giờ kết thúc lớp mới" value={newClass.endTime} disabled={saving || Boolean(createdTarget)} onChange={(endTime) => setNewClass((current) => ({ ...current, endTime }))} required variant="filter" />
               </ErpField>
             </div>
             <div>

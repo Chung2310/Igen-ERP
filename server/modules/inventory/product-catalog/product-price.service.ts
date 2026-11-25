@@ -10,6 +10,7 @@ export const ProductPriceService = {
     const filter: any = { companyCode, branchId };
     if (query.variantId) filter.variantId = String(query.variantId);
     if (query.productId) filter.productId = String(query.productId);
+    if (query.sku) filter.sku = String(query.sku).trim().toUpperCase();
     const items = await ProductPriceModel.find(filter).sort({ sku: 1 }).lean();
     return { items };
   },

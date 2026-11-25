@@ -230,7 +230,7 @@ it.each([true,false])('keeps the same retail draft when handling optional follow
   const preview=await prepare('retail',2,{items:[{productId:variantId,quantity:2,discount:{type:'amount',value:10000}}],manualOrderDiscount:{type:'amount',value:5000},taxRate:10,shippingFee:3000,dueDate:'2026-12-01'});
   const created=await turn({decision:{id:preview.action.id,confirmed:true}});
   expect(created.status).toBe('completed');
-  expect(created.reply).toContain('Bạn có muốn bổ sung không?');
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   const original=(await RetailOrderModel.findOne({}).lean())!;
   const followUp=await turn({text:supplement?'có':'bỏ qua'});
   if(supplement){

@@ -257,7 +257,7 @@ export default function LogisticsPage({
       {showTabs && (
         <nav
           aria-label="Nghiệp vụ hậu cần y tế"
-          className="flex min-w-0 gap-1 overflow-x-auto border-b border-outline-variant"
+          className="flex min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-outline-variant"
         >
           {visibleTabs.map(([key, label]) => {
             const active = key === view;
@@ -710,7 +710,7 @@ export default function LogisticsPage({
     <div className="healthcare-logistics flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-2 pb-0 pt-0 lg:px-0">
       <section
         aria-label={kind === "equipment" ? "Quản lý thiết bị" : "Quản lý vật tư"}
-        className="flex min-h-full min-w-0 flex-1 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4"
+        className="flex min-h-full min-w-0 shrink-0 flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 sm:p-4"
       >
         {content}
       </section>

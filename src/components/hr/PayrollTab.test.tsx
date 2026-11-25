@@ -161,6 +161,10 @@ describe("PayrollTab editable payroll results", () => {
     expect(statistic.compareDocumentPosition(stages!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(statistic.parentElement?.parentElement?.className).toContain("payroll-stat-card--total");
 
+    const payrollWorkspace = document.querySelector("section");
+    expect(payrollWorkspace?.className).toContain("visible-scrollbar");
+    expect(payrollWorkspace?.className).toContain("overflow-y-auto");
+
     const scrollRegion = screen.getByRole("region", { name: "Bảng lương có thể cuộn ngang và dọc" });
     expect(scrollRegion.className).toContain("visible-scrollbar");
     expect(within(scrollRegion).getByRole("table").className).toContain("min-w-max");

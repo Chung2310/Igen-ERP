@@ -1,6 +1,7 @@
 import type { AssistantReply, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import type { AssistantOperation } from "./catalog";
 import { localizedAssistantFieldLabel } from "./result-format";
+import { assistantOptionalInformationPrompt, hasAssistantOptionalInformationPrompt } from "./reply-presentation";
 
 export interface AssistantCompletion {
   operation: AssistantOperation;
@@ -59,7 +60,7 @@ export async function completeAssistantOperation(
   operations: readonly AssistantOperation[],
   canUpdate: (operation: AssistantOperation) => Promise<boolean>,
 ): Promise<AssistantReply> {
-  if (!completion || reply.status !== "completed" || reply.reply.includes("Bạn có muốn bổ sung không?")) return reply;
+  if (!completion || reply.status !== "completed" || hasAssistantOptionalInformationPrompt(reply.reply)) return reply;
   const { operation: op, workflow, values, result } = completion;
   if (op.method !== "POST" || op.readOnly || !result || typeof result !== "object" || Array.isArray(result)) return reply;
   const response = result as Record<string, unknown>;
@@ -89,8 +90,6 @@ export async function completeAssistantOperation(
       }
       completion.followUp = { actionId: update.id, values: context };
     }
-    const shown = missing.slice(0, 6);
-    const more = missing.length > shown.length ? ` và ${missing.length - shown.length} mục khác` : "";
-    return { ...reply, reply: `${reply.reply}\n\nBạn có muốn bổ sung không? Các mục còn trống gồm ${shown.join(", ")}${more}. Bạn có thể gửi thông tin cần thêm hoặc nói “bỏ qua”.` };
+    return { ...reply, reply: `${reply.reply}\n\n${assistantOptionalInformationPrompt(missing)}` };
   } catch { return reply; }
 }

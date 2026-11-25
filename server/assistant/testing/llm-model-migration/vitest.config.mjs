@@ -8,6 +8,7 @@ export default defineConfig({
     include: [
       'server/assistant/testing/llm-model-migration/*.test.mjs',
       'server/service/openrouter.chat.test.ts',
+      'server/service/openrouter-transport.test.ts',
       'server/service/openrouter.image.test.ts',
       'server/assistant/semantic-interpreter.test.ts',
       'server/assistant/attachment-values.test.ts',

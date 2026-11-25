@@ -194,7 +194,7 @@ it("creates a patient, asks about optional information, and supplements the same
 
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(patients).toHaveLength(1);
   expect(parseAssistantResultTable(created.reply)?.rows[0].values).toMatchObject({ "Họ tên bệnh nhân": "La Văn Sến", "Mã bệnh nhân": "BN-031" });
 

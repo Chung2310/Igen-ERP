@@ -314,6 +314,7 @@ export function Dropdown<T = string>({
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
+                    title={opt.label}
                     onClick={() => handleSelect(opt.value)}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 ${
                       isSelected
@@ -345,7 +346,7 @@ export function Dropdown<T = string>({
           </div>
 
           {actionButton && (
-            <div className="pt-1 mt-1 border-t border-slate-100 px-0.5">
+            <div className="mt-1 border-t border-outline-variant px-0.5 pt-1">
               <button
                 type="button"
                 onClick={(e) => {
@@ -353,9 +354,9 @@ export function Dropdown<T = string>({
                   setIsOpen(false);
                   actionButton.onClick();
                 }}
-                className={`flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 transition cursor-pointer select-none ${actionButton.className || ""}`}
+                className={`flex w-full cursor-pointer select-none items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary ${actionButton.className || ""}`}
               >
-                {actionButton.icon || <Plus className="h-3.5 w-3.5 text-cyan-600" />}
+                {actionButton.icon || <Plus className="size-3.5 text-primary" aria-hidden="true" />}
                 <span>{actionButton.label}</span>
               </button>
             </div>

@@ -275,7 +275,7 @@ export default function TrainingTab({
           title: courseFormTitle.trim(),
           description: courseFormDesc.trim(),
           category: courseFormCategory,
-          tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
+          tags: [courseFormCategory],
           isRequired: courseFormIsRequired,
           duration: courseFormDuration.trim() || "Chưa xác định",
           instructor: creatorName,
@@ -322,7 +322,7 @@ export default function TrainingTab({
         title: courseFormTitle.trim(),
         description: courseFormDesc.trim(),
         category: courseFormCategory,
-        tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
+        tags: [courseFormCategory],
         isRequired: courseFormIsRequired,
         icon: "book",
         duration: courseFormDuration.trim() || "Chưa xác định",
@@ -907,8 +907,14 @@ export default function TrainingTab({
                 const actionLabel = !myEnrollment ? "Bắt đầu" : isCompleted ? "Xem bằng" : "Tiếp tục";
                 const actionAccessibleLabel = !myEnrollment ? "Bắt đầu học" : isCompleted ? "Xem văn bằng" : "Tiếp tục học";
                 const category = course.category || "Văn hóa";
+                const normalizedCategory = category.trim().toLocaleLowerCase("vi");
                 const additionalTags = [...new Set((course.tags || []).map((tag) => tag.trim()).filter(Boolean))]
-                  .filter((tag) => tag.toLocaleLowerCase("vi") !== category.trim().toLocaleLowerCase("vi"));
+                  .filter((tag) => {
+                    const normalizedTag = tag.toLocaleLowerCase("vi");
+                    if (normalizedTag === normalizedCategory) return false;
+                    if (course.isRequired && normalizedTag === "bắt buộc") return false;
+                    return true;
+                  });
                 const createdAtLabel = formatCourseDate(course.createdAt);
 
                 return (
@@ -919,17 +925,19 @@ export default function TrainingTab({
                       <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface" title={course.title}>{course.title}</h3>
                       <span className="max-w-24 shrink-0 truncate rounded-full bg-[#D9EDF7] px-2.5 py-0.5 text-[11px] font-semibold text-[#286090]" title={category}>{category}</span>
                     </div>
-                    <div className="mt-2 flex min-w-0 items-center gap-3 text-xs text-on-surface-variant">
-                      {createdAtLabel && <span className="inline-flex shrink-0 items-center gap-1 tabular-nums"><CalendarDays className="size-3.5" aria-hidden="true" />{createdAtLabel}</span>}
-                      <span className="inline-flex min-w-0 items-center gap-1" title={`Giảng viên: ${course.instructor}`}><TrainingCardInfoIcon name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></span>
-                    </div>
-                    {(course.isRequired || additionalTags.length > 0) && (
-                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
-                        {course.isRequired && <span className="rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold text-white">Bắt buộc</span>}
-                        {additionalTags.slice(0, 2).map((tag) => <span key={tag} className="max-w-20 truncate rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium text-[#555555]" title={tag}>{tag}</span>)}
-                        {additionalTags.length > 2 && <span className="text-[11px] text-on-surface-variant tabular-nums">+{additionalTags.length - 2}</span>}
+                    <div className="mt-2 flex min-h-5 min-w-0 items-center justify-between gap-2 text-xs text-on-surface-variant">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {createdAtLabel && <span className="inline-flex shrink-0 items-center gap-1 tabular-nums"><CalendarDays className="size-3.5" aria-hidden="true" />{createdAtLabel}</span>}
+                        <span className="inline-flex min-w-0 items-center gap-1" title={`Giảng viên: ${course.instructor}`}><TrainingCardInfoIcon name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></span>
                       </div>
-                    )}
+                      {(course.isRequired || additionalTags.length > 0) && (
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {course.isRequired && <span className="rounded-full bg-[#E06666] px-2.5 py-0.5 text-[11px] font-semibold text-white">Bắt buộc</span>}
+                          {additionalTags.slice(0, 2).map((tag) => <span key={tag} className="max-w-20 truncate rounded-full border border-[#DCDCDC] bg-[#F3F4F6] px-2.5 py-0.5 text-[11px] font-medium text-[#555555]" title={tag}>{tag}</span>)}
+                          {additionalTags.length > 2 && <span className="text-[11px] text-on-surface-variant tabular-nums">+{additionalTags.length - 2}</span>}
+                        </div>
+                      )}
+                    </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
                         <div

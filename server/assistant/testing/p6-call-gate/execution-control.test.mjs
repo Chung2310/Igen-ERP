@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { ERP_LLM_MODEL } from '../../../../shared/llm-model.ts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { withAssistantExecution, withAssistantRequestControl, withAssistantResponseCancellation } from '../../execution-control.ts';
 import { PlanCancelledError, PlanStoppedError } from '../../execution-budget.ts';
@@ -27,7 +28,9 @@ const frame = (work, overrides = {}) => withAssistantExecution({ deadlineAt: Dat
 const hang = vi.fn(signal => new Promise((_resolve, reject) => {
   signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
 }));
-const chat = (extra = {}) => openrouterChat({ messages: [{ role: 'user', content: 'fixture' }], maxRetries: 3, ...extra });
+// This suite isolates same-model retry/control; the provider suite covers the
+// default Luna → Haiku failover and cancellation during failover.
+const chat = (extra = {}) => openrouterChat({ messages: [{ role: 'user', content: 'fixture' }], allowFallback: false, maxRetries: 3, ...extra });
 const hangingFetch = () => {
   const signals = [];
   const transport = vi.fn((_url, init) => { signals.push(init.signal); return hang(init.signal); });
@@ -88,7 +91,7 @@ it('cancels a provider call and its parent request-control scope together', asyn
 it('does not start discovery fallback or interpretation after a discovery deadline', async () => {
   const { transport, signals } = hangingFetch();
   const workflows = ASSISTANT_OPERATIONS.filter(op => !op.unavailableReason).map(defaultWorkflow);
-  const result = frame(() => expect(interpretRequest('fixture tìm sản phẩm', workflows, null, [])).rejects.toBeInstanceOf(PlanStoppedError));
+  const result = frame(() => expect(interpretRequest('fixture tìm sản phẩm', workflows, null, [])).rejects.toBeInstanceOf(PlanStoppedError), { deadlineAt: Date.now() + 20_000 });
   await vi.advanceTimersByTimeAsync(20_000);
   await result;
   expect(transport).toHaveBeenCalledTimes(1);
@@ -142,7 +145,7 @@ it('keeps bounded same-model recovery when the deadline is still valid', async (
   await vi.advanceTimersByTimeAsync(1000);
   expect((await result).text).toBe('ok');
   expect(transport).toHaveBeenCalledTimes(2);
-  expect(transport.mock.calls.map(([_url, init]) => JSON.parse(init.body).model)).toEqual(['openai/gpt-6-luna', 'openai/gpt-6-luna']);
+  expect(transport.mock.calls.map(([_url, init]) => JSON.parse(init.body).model)).toEqual([ERP_LLM_MODEL, ERP_LLM_MODEL]);
 });
 
 it.each(['false', 'production', 'outside-assistant-context'])('keeps transport legacy when control is disabled: %s', async mode => {

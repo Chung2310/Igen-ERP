@@ -80,7 +80,7 @@ export function LogisticsForm({
           {children(error)}
         </fieldset>
         <Feedback error={error?.message} />
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-outline-variant bg-surface-container-lowest pt-3">
+        <div className="sticky -bottom-4 z-10 -mx-4 -mb-4 flex justify-end gap-2 border-t border-outline-variant bg-surface-container-lowest px-4 pt-3 pb-4 sm:-bottom-5 sm:-mx-5 sm:-mb-5 sm:px-5 sm:pb-5">
           <button
             type="button"
             className={buttonClass}

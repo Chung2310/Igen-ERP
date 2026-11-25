@@ -3,7 +3,7 @@ import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
 import { isKnownModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence } from "./module-context";
 import { AssistantError } from "./policy";
 import { privateAssistantResultField as privateField, publicAssistantResultFields } from "./result-field-policy";
-import { relationEvidenceSupported, validateReadRelations } from "./read-relations";
+import { relationEvidenceSupported, validateReadRelations, normalizeReadRelationAnnotations, selectedRelationForQuery } from "./read-relations";
 import { combinedModuleContextIsValid, findUncoveredRequestTerms, reconciledRankingMappingTargets, requiredCompositeMappingIsMissing } from "./request-coverage";
 
 export interface AssistantCompositeQuery {
@@ -60,7 +60,7 @@ export function validateCompositeQueryPlan(
   const operationById = new Map(operations.map(operation => [operation.id, operation]));
   const seen = new Set<string>();
   const queries: AssistantCompositeQuery[] = [];
-  for (const item of raw) {
+  for (const item of normalizeReadRelationAnnotations(raw)) {
     if (!plain(item) || typeof item.actionId !== "string" || typeof item.purpose !== "string"
       || !plain(item.values) || !Array.isArray(item.resultFields)
       || !item.purpose.trim() || item.purpose.length > 300 || item.resultFields.length < 1 || item.resultFields.length > 16
@@ -172,8 +172,10 @@ export function validateCompositeRequestCoverage(
         : [];
     });
     const mappedTargets = [...new Set([...(item.mappedTo as string[]), ...reconciledMappings])];
-    const relationalTarget = queries.find(query => query.relation && mappedTargets.includes(`query:${query.actionId}:relation`));
-    const relationCoversEvidence = relationalTarget?.relation && relationEvidenceSupported(evidenceText, relationalTarget.relation);
+    const relationCoversEvidence = queries.some(query=>{
+      const selected=selectedRelationForQuery(queries,query.actionId);
+      return selected && mappedTargets.includes(`query:${query.actionId}:relation`) && relationEvidenceSupported(evidenceText,selected.id);
+    });
     const missingKind = relationCoversEvidence ? undefined : requiredCompositeMappingIsMissing(evidenceText, mappedTargets);
     if (missingKind) return { ok: false, clarification: missingKind === "ranking"
       ? `Tiêu chí xếp hạng “${evidenceText.trim().slice(0, 120)}” chưa được gắn với phép xếp hạng cụ thể. Mình chưa gọi API.`
@@ -198,7 +200,8 @@ export function validateCompositeRequestCoverage(
       if (!query || !workflow || !operation) return { ok: false, clarification: "Kế hoạch tham chiếu một nguồn dữ liệu chưa được chọn." };
       const mapping = target.slice(separator + 1);
       if (mapping === 'relation') {
-        if (!query.relation || !relationEvidenceSupported(evidenceText, query.relation)) return { ok: false, clarification: 'Điều kiện đối chiếu chưa khớp với phép lọc được hỗ trợ. Mình chưa gọi API.' };
+        const selected=selectedRelationForQuery(queries,query.actionId);
+        if (!selected || !relationEvidenceSupported(evidenceText, selected.id)) return { ok: false, clarification: 'Điều kiện đối chiếu chưa khớp với phép lọc được hỗ trợ. Mình chưa gọi API.' };
       } else if (mapping.startsWith("values.")) {
         const fieldKey = mapping.slice("values.".length);
         const field = workflow.fields.find(candidate => candidate.key === fieldKey);

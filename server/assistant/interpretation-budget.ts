@@ -1,5 +1,7 @@
 import { openrouterChat } from "../service/openrouter.service";
 import { AssistantError } from "./policy";
+import { AssistantInterpretationError } from './interpretation-error';
+import { PlanStoppedError } from './execution-budget';
 
 export const INTERPRETATION_LIMITS = {
   calls: 6,
@@ -29,5 +31,16 @@ export async function requestAssistantInterpretation(budget: InterpretationBudge
   budget.calls++;
   budget.promptBytes += bytes;
   // openrouterChat counts maxRetries as total attempts, starting at one.
-  return openrouterChat({ ...input, maxRetries: 1, maxTokens: Math.min(input.maxTokens || 4096, 4096) });
+  try {
+    return await openrouterChat({ ...input, maxRetries: 1, maxTokens: Math.min(input.maxTokens || 4096, 4096) });
+  } catch (error) {
+    // Preserve cancellation/deadline and execution-control errors rather than
+    // translating them into connectivity errors or retrying a broader catalog.
+    if (error instanceof PlanStoppedError || error instanceof AssistantError) throw error;
+    const status = (error as { status?: unknown } | null)?.status;
+    const providerStatus = typeof status === 'number' ? status : undefined;
+    const timedOut = error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name);
+    console.warn('[assistant interpretation] Provider request failed', { status: providerStatus, timedOut });
+    throw new AssistantInterpretationError(providerStatus, timedOut);
+  }
 }

@@ -18,6 +18,7 @@ import { StudentLoadState } from '../../components/StudentLoadState';
 import { useCourseCategories } from '../../hooks/useCourseCategories';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { useAuth } from '../../../../context/AuthContext';
+import { HrStatusBadge } from '../../../../components/hr/HrStatusBadge';
 import { Course } from '../../types';
 import {
   ErpConfirmModal,
@@ -106,32 +107,25 @@ const DEFAULT_NEW_COURSE: NewCourseFormState = {
   customFields: {},
 };
 
-const CATEGORY_COLORS = [
-  'bg-indigo-500/10 text-indigo-400 border border-indigo-500/15',
-  'bg-violet-500/10 text-violet-400 border border-violet-500/15',
-  'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/15',
-  'bg-pink-500/10 text-pink-400 border border-pink-500/15',
-  'bg-amber-500/10 text-amber-400 border border-amber-500/15',
-  'bg-cyan-500/10 text-cyan-400 border border-cyan-500/15',
-] as const;
+const CATEGORY_TONES = ['info', 'violet', 'warning', 'danger', 'success'] as const;
+type CategoryTone = (typeof CATEGORY_TONES)[number] | 'neutral';
 
 function getStoredViewMode(): CourseViewMode {
   const storedMode = localStorage.getItem('erp_view_mode_courses');
   return storedMode === 'list' || storedMode === 'grid' ? storedMode : 'grid';
 }
 
-function getCategoryColor(category: string): string {
-  if (category === 'Lái xe') return 'bg-brand-primary/10 text-brand-primary border border-brand-primary/15';
-  if (category === 'Ngoại ngữ') return 'bg-sky-500/10 text-sky-400 border border-sky-500/15';
-  if (category === 'Kỹ năng') return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15';
-  if (category === 'Khác') return 'bg-slate-500/10 text-slate-400 border border-slate-500/15';
+function getCategoryTone(category: string): CategoryTone {
+  if (category === 'Khác') return 'neutral';
+  if (category === 'Lái xe' || category === 'Ngoại ngữ') return 'info';
+  if (category === 'Kỹ năng') return 'success';
 
   let hash = 0;
   for (let i = 0; i < category.length; i++) {
     hash = category.charCodeAt(i) + ((hash << 5) - hash);
   }
 
-  return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
+  return CATEGORY_TONES[Math.abs(hash) % CATEGORY_TONES.length];
 }
 
 export function CoursesPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
@@ -640,20 +634,15 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                     <td className="py-3 px-4 text-sm font-semibold text-[#1687BE]">{course.code}</td>
                     <td className="py-3 px-4 font-medium text-slate-800">{course.title}</td>
                     <td className="py-2 px-4">
-                      <span className={cn('px-2 py-1 rounded-lg border text-[10px] font-medium', getCategoryColor(course.category))}>
-                        {course.category}
-                      </span>
+                      <HrStatusBadge tone={getCategoryTone(course.category)}>{course.category}</HrStatusBadge>
                     </td>
                     <td className="py-3 px-4 font-normal">{course.duration} buổi</td>
                     <td className="py-3 px-4 font-normal">{usesCourseFeePolicy ? course.fee : 'Không áp dụng'}</td>
                     <td className="py-3 px-4 font-normal">{copy.tableCapacitySummary(course.maxLearners, course.activeBatches)}</td>
                     <td className="py-2 px-4">
-                      <span className={cn(
-                        'px-2 py-1 rounded-lg text-[10px] font-medium border',
-                        course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                      )}>
+                      <HrStatusBadge tone={course.status === ACTIVE_COURSE_STATUS ? 'success' : 'danger'}>
                         {course.status}
-                      </span>
+                      </HrStatusBadge>
                     </td>
                     <td className="py-2 px-4">
                       <div className="flex items-center gap-1.5">

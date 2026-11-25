@@ -52,7 +52,12 @@
 
 #hr_tab_wrapper .payroll-table-scroll {
   scrollbar-gutter: stable;
-  scrollbar-color: var(--color-outline-variant) var(--color-surface-container-low) !important;
+  scrollbar-color: color-mix(in srgb, var(--color-outline) 55%, var(--color-outline-variant)) var(--color-surface-container-low) !important;
+}
+
+#hr_tab_wrapper .payroll-table-scroll::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
 }
 
 #hr_tab_wrapper .payroll-table-scroll > table tr > :is(th, td):not(:first-child) {
@@ -64,7 +69,7 @@
 }
 
 #hr_tab_wrapper .payroll-table-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-outline-variant) !important;
+  background: color-mix(in srgb, var(--color-outline) 55%, var(--color-outline-variant)) !important;
 }
 
 #hr_tab_wrapper .payroll-table-scroll::-webkit-scrollbar-thumb:hover {
@@ -99,10 +104,10 @@
 
 #hr_sub_tabs_bar nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
   background: linear-gradient(
-    90deg,
-    #00adfc 0%,
-    #199bff 55%,
-    #7567ff 100%
+    115deg,
+    #4db2fa 0%,
+    #2196f3 48%,
+    #1982e6 100%
   );
   background-clip: text;
   -webkit-background-clip: text;

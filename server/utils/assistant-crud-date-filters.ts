@@ -10,6 +10,25 @@ function isValidDateOnly(value: unknown): value is string {
 export function applyAssistantCrudDateFilters(modelName: string, filters: Record<string, unknown>) {
   if (!["hr-calendar-events", "hr-leave-applications"].includes(modelName)) return filters;
   const next = { ...filters };
+  const createdFrom = next.createdFrom;
+  const createdTo = next.createdTo;
+  delete next.createdFrom;
+  delete next.createdTo;
+  if (createdFrom !== undefined || createdTo !== undefined) {
+    if (createdFrom !== undefined && !isValidDateOnly(createdFrom)
+      || createdTo !== undefined && !isValidDateOnly(createdTo)
+      || typeof createdFrom === 'string' && typeof createdTo === 'string' && createdFrom > createdTo) {
+      throw Object.assign(new Error('Khoảng ngày gửi không hợp lệ.'), { statusCode: 400 });
+    }
+    const createdAt = {
+      ...(createdFrom ? { $gte: new Date(`${createdFrom}T00:00:00.000+07:00`) } : {}),
+      ...(createdTo ? { $lte: new Date(`${createdTo}T23:59:59.999+07:00`) } : {}),
+    };
+    if (next.createdAt !== undefined) {
+      next.$and = [...(Array.isArray(next.$and) ? next.$and : []), { createdAt: next.createdAt }, { createdAt }];
+      delete next.createdAt;
+    } else next.createdAt = createdAt;
+  }
   const from = next.rangeStart;
   const to = next.rangeEnd;
   delete next.rangeStart;

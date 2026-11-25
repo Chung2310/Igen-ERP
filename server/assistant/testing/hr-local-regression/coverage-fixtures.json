@@ -1,0 +1,574 @@
+[
+  {
+    "id": "HR05-1",
+    "text": "Kiểm tra xem hôm nay có những nhân sự nào đi muộn",
+    "actionId": "timekeeping.records.late",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "hôm nay",
+        "requirement": "Xem báo cáo nhân sự đi muộn hôm nay",
+        "mappedTo": [
+          "action",
+          "query:timekeeping.records.late:source"
+        ]
+      },
+      {
+        "evidence": "những nhân sự nào đi muộn",
+        "requirement": "Xác định các nhân sự đi muộn",
+        "mappedTo": [
+          "action"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR05-2",
+    "text": "Kiểm tra xem hôm nay có những nhân sự nào đi muộn",
+    "actionId": "timekeeping.records.late",
+    "values": {
+      "query_date": "2026-11-23"
+    },
+    "coverage": [
+      {
+        "evidence": "hôm nay",
+        "requirement": "Xem báo cáo đi muộn trong ngày hôm nay.",
+        "mappedTo": [
+          "values.query_date"
+        ]
+      },
+      {
+        "evidence": "những nhân sự nào đi muộn",
+        "requirement": "Tra cứu nhân sự đi muộn hôm nay.",
+        "mappedTo": [
+          "action"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR07-1",
+    "text": "Hôm nay nhân sự nào chưa chấm công",
+    "actionId": "timekeeping.records.unrecorded",
+    "values": {
+      "query_date": "2026-11-23"
+    },
+    "coverage": [
+      {
+        "evidence": "Hôm nay",
+        "requirement": "Báo cáo nhân sự chưa chấm công hôm nay",
+        "mappedTo": [
+          "values.query_date"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR07-2",
+    "text": "Hôm nay nhân sự nào chưa chấm công",
+    "actionId": "timekeeping.records.unrecorded",
+    "values": {
+      "query_date": "2026-11-23"
+    },
+    "coverage": [
+      {
+        "evidence": "Hôm nay",
+        "requirement": "Xem dữ liệu chấm công của hôm nay",
+        "mappedTo": [
+          "values.query_date"
+        ]
+      },
+      {
+        "evidence": "nhân sự nào chưa chấm công",
+        "requirement": "Xác định nhân sự chưa ghi nhận chấm công qua tên và trạng thái chấm công",
+        "mappedTo": [
+          "query:timekeeping.records.unrecorded:result.employeeName",
+          "query:timekeeping.records.unrecorded:result.attendanceStatus"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR11-1",
+    "text": "Sửa lại dữ liệu chấm công cho QA Nhân Sự Một checkin lúc 7 giờ 59 phút và checkout lúc 18 giờ",
+    "actionId": "timekeeping.record.update",
+    "values": {
+      "employeeId": "QA Nhân Sự Một",
+      "checkInTime": "07:59",
+      "checkOutTime": "18:00"
+    },
+    "coverage": [
+      {
+        "evidence": "cho QA Nhân Sự Một",
+        "requirement": "Điều chỉnh chấm công cho nhân sự được nêu",
+        "mappedTo": [
+          "values.employeeId"
+        ]
+      },
+      {
+        "evidence": "checkin lúc 7 giờ 59 phút",
+        "requirement": "Đặt giờ vào là 07:59",
+        "mappedTo": [
+          "values.checkInTime"
+        ]
+      },
+      {
+        "evidence": "checkout lúc 18 giờ",
+        "requirement": "Đặt giờ ra là 18:00",
+        "mappedTo": [
+          "values.checkOutTime"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR11-2",
+    "text": "Sửa lại dữ liệu chấm công cho QA Nhân Sự Một checkin lúc 7 giờ 59 phút và checkout lúc 18 giờ",
+    "actionId": "timekeeping.record.update",
+    "values": {
+      "employeeId": "QA Nhân Sự",
+      "checkInTime": "07:59",
+      "checkOutTime": "18:00"
+    },
+    "coverage": [
+      {
+        "evidence": "Sửa lại dữ liệu chấm công",
+        "requirement": "Điều chỉnh dữ liệu chấm công",
+        "mappedTo": [
+          "action"
+        ]
+      },
+      {
+        "evidence": "cho QA Nhân Sự",
+        "requirement": "Nhân sự cần điều chỉnh chấm công",
+        "mappedTo": [
+          "values.employeeId"
+        ]
+      },
+      {
+        "evidence": "checkin lúc 7 giờ 59 phút",
+        "requirement": "Giờ vào mới là 07:59",
+        "mappedTo": [
+          "values.checkInTime"
+        ]
+      },
+      {
+        "evidence": "checkout lúc 18 giờ",
+        "requirement": "Giờ ra mới là 18:00",
+        "mappedTo": [
+          "values.checkOutTime"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR14-1",
+    "text": "xóa nhân sự QA Nhân Sự Một vì đã nghỉ việc",
+    "actionId": "employee.delete",
+    "values": {
+      "id": "QA Nhân Sự Một"
+    },
+    "coverage": [
+      {
+        "evidence": "xóa nhân sự QA Nhân Sự Một",
+        "requirement": "Xóa hồ sơ nhân sự có tên QA Nhân Sự Một",
+        "mappedTo": [
+          "action",
+          "values.id"
+        ]
+      },
+      {
+        "evidence": "vì đã nghỉ việc",
+        "requirement": "Lý do xóa là nhân sự đã nghỉ việc",
+        "mappedTo": []
+      }
+    ]
+  },
+  {
+    "id": "HR15-1",
+    "text": "Phòng Tài chính QA có bao nhiêu nhân sự",
+    "actionId": "department.lookup",
+    "values": {
+      "query_department": "Phòng Tài chính QA"
+    },
+    "coverage": [
+      {
+        "evidence": "Phòng Tài chính QA có bao nhiêu nhân sự",
+        "requirement": "Tra cứu số nhân sự của phòng ban Phòng Tài chính QA",
+        "mappedTo": [
+          "values.query_department"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR15-2",
+    "text": "Phòng Tài chính QA có bao nhiêu nhân sự",
+    "actionId": "department.lookup",
+    "values": {
+      "query_department": "Phòng Tài chính QA"
+    },
+    "coverage": [
+      {
+        "evidence": "Phòng Tài chính QA",
+        "requirement": "Tra cứu số nhân sự của phòng ban này",
+        "mappedTo": [
+          "values.query_department"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR20-1",
+    "text": "Lọc danh sách các nhân sự chuẩn bị hết hạn hợp đồng thử việc trong 10 ngày tới",
+    "actionId": "hr.contract.expiring.list",
+    "values": {
+      "query_alertDays": 10,
+      "query_contractType": "thử việc"
+    },
+    "coverage": [
+      {
+        "evidence": "danh sách các nhân sự chuẩn bị hết hạn hợp đồng thử việc trong 10 ngày tới",
+        "requirement": "Liệt kê hợp đồng thử việc sắp hết hạn trong 10 ngày tới.",
+        "mappedTo": [
+          "action",
+          "values.query_alertDays",
+          "values.query_contractType"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR20-2",
+    "text": "Lọc danh sách các nhân sự chuẩn bị hết hạn hợp đồng thử việc trong 10 ngày tới",
+    "actionId": "hr.contract.expiring.list",
+    "values": {
+      "query_alertDays": 10,
+      "query_contractType": "hợp đồng thử việc"
+    },
+    "coverage": [
+      {
+        "evidence": "Lọc danh sách",
+        "requirement": "Liệt kê các hợp đồng sắp hết hạn",
+        "mappedTo": [
+          "action"
+        ]
+      },
+      {
+        "evidence": "hợp đồng thử việc",
+        "requirement": "Chỉ lọc hợp đồng thử việc",
+        "mappedTo": [
+          "values.query_contractType"
+        ]
+      },
+      {
+        "evidence": "trong 10 ngày tới",
+        "requirement": "Giới hạn cảnh báo trong 10 ngày tới",
+        "mappedTo": [
+          "values.query_alertDays"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR22-1",
+    "text": "Liệt kê danh sách nhân sự có sinh nhật trong tháng tới",
+    "actionId": "employee.birthday.next-month",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "Liệt kê danh sách nhân sự có sinh nhật trong tháng tới",
+        "requirement": "Liệt kê nhân sự có sinh nhật trong tháng tới",
+        "mappedTo": [
+          "action"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR22-2",
+    "text": "Liệt kê danh sách nhân sự có sinh nhật trong tháng tới",
+    "actionId": "employee.birthday.next-month",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "Liệt kê danh sách nhân sự có sinh nhật trong tháng tới",
+        "requirement": "Báo cáo nhân sự có sinh nhật trong tháng dương lịch kế tiếp",
+        "mappedTo": [
+          "action"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR23-1",
+    "text": "Kiểm tra ai chưa hoàn thành các bài học trong đào tạo nội bộ",
+    "actionId": "hr.training.incomplete.list",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "ai chưa hoàn thành",
+        "requirement": "Liệt kê nhân sự và khóa đào tạo có tiến độ chưa hoàn thành",
+        "mappedTo": [
+          "action",
+          "context.module"
+        ]
+      },
+      {
+        "evidence": "đào tạo nội bộ",
+        "requirement": "Giới hạn trong đào tạo nội bộ",
+        "mappedTo": [
+          "context.module"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR23-2",
+    "text": "Kiểm tra ai chưa hoàn thành các bài học trong đào tạo nội bộ",
+    "actionId": "hr.training.incomplete.list",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "ai chưa hoàn thành các bài học trong đào tạo nội bộ",
+        "requirement": "Báo cáo những người và khóa đào tạo nội bộ có tiến độ chưa hoàn thành.",
+        "mappedTo": [
+          "action",
+          "context.module",
+          "query:hr.training.incomplete.list:result.incompleteEnrollments"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR24-1",
+    "text": "Kiểm tra hôm nay có đơn nghỉ phép nào không",
+    "actionId": "hr.leave.applications.list",
+    "values": {
+      "rangeStart": "2026-11-23",
+      "rangeEnd": "2026-11-23",
+      "requestKind": "leave",
+      "reportKind": "requests"
+    },
+    "coverage": [
+      {
+        "evidence": "hôm nay",
+        "requirement": "Kiểm tra trong ngày hôm nay",
+        "mappedTo": [
+          "values.rangeStart",
+          "values.rangeEnd"
+        ]
+      },
+      {
+        "evidence": "đơn nghỉ phép",
+        "requirement": "Tra cứu các đơn nghỉ phép",
+        "mappedTo": [
+          "values.requestKind",
+          "values.reportKind"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR24-2",
+    "text": "Kiểm tra hôm nay có đơn nghỉ phép nào không",
+    "actionId": "hr.leave.applications.list",
+    "values": {
+      "rangeStart": "2026-11-23",
+      "rangeEnd": "2026-11-23",
+      "requestKind": "leave",
+      "reportKind": "requests"
+    },
+    "coverage": [
+      {
+        "evidence": "hôm nay",
+        "requirement": "Chỉ tra cứu đơn trong ngày hôm nay, 23/11/2026.",
+        "mappedTo": [
+          "values.rangeStart",
+          "values.rangeEnd"
+        ]
+      },
+      {
+        "evidence": "đơn nghỉ phép",
+        "requirement": "Tra cứu các đơn nghỉ phép.",
+        "mappedTo": [
+          "values.requestKind",
+          "values.reportKind"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR25-1",
+    "text": "Mình chỉ muốn cập nhật chức danh của QA Nhân Sự Hai thành Trưởng nhóm.",
+    "actionId": "employee.update",
+    "values": {
+      "id": "QA Nhân Sự Hai",
+      "jobTitle": "Trưởng nhóm"
+    },
+    "coverage": [
+      {
+        "evidence": "cập nhật chức danh của QA Nhân Sự Hai thành Trưởng nhóm",
+        "requirement": "Cập nhật chức danh của nhân sự QA Nhân Sự Hai thành Trưởng nhóm.",
+        "mappedTo": [
+          "values.id",
+          "values.jobTitle"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR25-2",
+    "text": "Mình chỉ muốn cập nhật chức danh của QA Nhân Sự Hai thành Trưởng nhóm.",
+    "actionId": "employee.update",
+    "values": {
+      "id": "QA Nhân Sự Hai",
+      "jobTitle": "Trưởng nhóm"
+    },
+    "coverage": [
+      {
+        "evidence": "cập nhật chức danh của QA Nhân Sự Hai thành Trưởng nhóm",
+        "requirement": "Cập nhật chức danh của nhân sự QA Nhân Sự Hai thành Trưởng nhóm",
+        "mappedTo": [
+          "action",
+          "values.id",
+          "values.jobTitle"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR29-1",
+    "text": "hủy chức vụ trưởng nhóm của QA Nhân Sự Hai",
+    "actionId": "employee.update",
+    "values": {
+      "id": "QA Nhân Sự Hai",
+      "jobTitle": ""
+    },
+    "coverage": [
+      {
+        "evidence": "QA Nhân Sự Hai",
+        "requirement": "Cập nhật hồ sơ nhân sự của QA Nhân Sự Hai",
+        "mappedTo": [
+          "values.id"
+        ]
+      },
+      {
+        "evidence": "hủy chức vụ trưởng nhóm",
+        "requirement": "Xóa chức danh hiện tại của nhân sự",
+        "mappedTo": [
+          "values.jobTitle"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR29-2",
+    "text": "hủy chức vụ trưởng nhóm của QA Nhân Sự Hai",
+    "actionId": "employee.update",
+    "values": {
+      "id": "QA Nhân Sự Hai",
+      "jobTitle": ""
+    },
+    "coverage": [
+      {
+        "evidence": "hủy chức vụ trưởng nhóm",
+        "requirement": "Hủy chức danh hiện tại của nhân sự",
+        "mappedTo": [
+          "values.jobTitle"
+        ]
+      },
+      {
+        "evidence": "QA Nhân Sự Hai",
+        "requirement": "Nhân sự cần cập nhật",
+        "mappedTo": [
+          "values.id"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR08-retest-3",
+    "text": "Hôm nay có ai nghỉ phép không",
+    "actionId": "timekeeping.records.leave",
+    "values": {
+      "query_date": "2026-11-23"
+    },
+    "coverage": [
+      {
+        "evidence": "Hôm nay",
+        "requirement": "Xem tình hình nghỉ phép trong hôm nay",
+        "mappedTo": [
+          "query:timekeeping.records.leave:values.query_date"
+        ]
+      },
+      {
+        "evidence": "có ai nghỉ phép không",
+        "requirement": "Kiểm tra trạng thái chấm công của nhân sự để xác định có ai nghỉ phép không",
+        "mappedTo": [
+          "query:timekeeping.records.leave:result.attendanceStatus"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR08-retest-4",
+    "text": "Hôm nay có ai nghỉ phép không",
+    "actionId": "timekeeping.records.leave",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "Hôm nay",
+        "requirement": "Xem dữ liệu của hôm nay; để trống ngày để hệ thống mặc định hôm nay",
+        "mappedTo": [
+          "query:timekeeping.records.leave:values.query_date"
+        ]
+      },
+      {
+        "evidence": "có ai nghỉ phép không",
+        "requirement": "Báo cáo trạng thái chấm công để xem có nhân sự nghỉ phép hay không",
+        "mappedTo": [
+          "query:timekeeping.records.leave:result.attendanceStatus"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR10-retest-3",
+    "text": "danh sách nhân sự hôm nay quên chấm công",
+    "actionId": "timekeeping.records.unrecorded",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "danh sách nhân sự",
+        "requirement": "Xem danh sách nhân sự chưa ghi nhận chấm công",
+        "mappedTo": [
+          "action"
+        ]
+      },
+      {
+        "evidence": "hôm nay quên chấm công",
+        "requirement": "Báo cáo tình trạng chấm công hôm nay",
+        "mappedTo": [
+          "action"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HR10-retest-4",
+    "text": "danh sách nhân sự hôm nay quên chấm công",
+    "actionId": "timekeeping.records.unrecorded",
+    "values": {},
+    "coverage": [
+      {
+        "evidence": "danh sách nhân sự hôm nay quên chấm công",
+        "requirement": "Báo cáo nhân sự chưa ghi nhận chấm công hôm nay.",
+        "mappedTo": [
+          "action",
+          "query:timekeeping.records.unrecorded:source"
+        ]
+      }
+    ]
+  }
+]

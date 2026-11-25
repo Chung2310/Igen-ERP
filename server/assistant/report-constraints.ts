@@ -50,7 +50,13 @@ export function missingReportConstraint(text: string, operation: Pick<AssistantO
     const explicitMonth = Number(monthField && fieldValue(monthField)) === Number(month[1]) && Number(yearField && fieldValue(yearField)) === Number(month[2]);
     const dates = fields.filter(field => ["date", "datetime"].includes(field.type) || /period|anchor/i.test(field.apiKey || field.key));
     const rangeFields = operation.fields.filter(field => ["date", "datetime"].includes(field.type) && /(?:from|to|startDate|endDate|createdFrom|createdTo)$/i.test(field.apiKey || field.key));
-    const completeRange = !rangeFields.length || rangeFields.every(field => populated(fieldValue(field)));
+    const completeRange = rangeFields.filter(field => populated(fieldValue(field))).every(field => {
+      const key=(field.apiKey || field.key).toLowerCase();
+      const counterpart=key.endsWith('from') ? key.slice(0,-4)+'to' : key.endsWith('to') ? key.slice(0,-2)+'from'
+        : key.endsWith('startdate') ? key.slice(0,-9)+'enddate' : key.endsWith('enddate') ? key.slice(0,-7)+'startdate' : '';
+      const paired=rangeFields.find(other=>(other.apiKey || other.key).toLowerCase()===counterpart);
+      return !paired || populated(fieldValue(paired));
+    });
     const explicitDates = dates.length > 0 && completeRange && dates.every(field => String(fieldValue(field)).startsWith(expected));
     if (!explicitMonth && !explicitDates) return `${operation.analysis?.scopeLabel ? `Nguồn này chỉ hỗ trợ ${operation.analysis.scopeLabel}. ` : ""}Báo cáo chưa được giới hạn đúng tháng ${Number(month[1])}/${month[2]} bạn yêu cầu. Mình chưa chạy để tránh lấy dữ liệu ngoài kỳ. Bạn xác nhận lại khoảng ngày hoặc chọn báo cáo có hỗ trợ lọc theo kỳ nhé.`;
   }

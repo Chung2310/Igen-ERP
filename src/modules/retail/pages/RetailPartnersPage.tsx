@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, Handshake, Package, Pencil, Percent, Search, Store, UsersRound, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { apiFetch } from "../../shared/lib/apiFetch";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { cn } from "../../student-management/lib/utils";
-import { ErpCard, ErpEmptyState, ErpLoadingState, ErpPrimaryButton, ErpStatCard, erpInputClass } from "../../student-management/components/Erp/ErpUI";
+import { ErpCard, ErpEmptyState, ErpLoadingState, ErpPrimaryButton, erpInputClass } from "../../student-management/components/Erp/ErpUI";
 import RetailCommissionPoliciesPanel from "../components/RetailCommissionPoliciesPanel";
 import RetailProductCommissionsPanel from "../components/RetailProductCommissionsPanel";
 import RetailPartnerStatement from "../components/RetailPartnerStatement";
+import "../retail-workspace.css";
 
 type RetailPartnerRole = "collaborator" | "dealer" | "supplier";
 type RetailPartner = {
@@ -162,11 +164,11 @@ export default function RetailPartnersPage() {
     return matchesSearch && (statusFilter === "all" || partner.status === statusFilter);
   });
   const stats = [
-    { name: "Tổng số đối tác", value: partners.length, icon: Handshake },
-    { name: "Đang hoạt động", value: partners.filter((partner) => partner.status === "active").length, icon: CheckCircle2 },
-    { name: "Cộng tác viên bán lẻ", value: partners.filter((partner) => getRetailPartnerRole(partner) === "collaborator").length, icon: UsersRound },
-    { name: "Đại lý / nhà cung cấp", value: partners.filter((partner) => getRetailPartnerRole(partner) !== "collaborator").length, icon: Store },
-  ];
+    { name: "Tổng số đối tác", value: partners.length, icon: Handshake, tone: "blue" },
+    { name: "Đang hoạt động", value: partners.filter((partner) => partner.status === "active").length, icon: CheckCircle2, tone: "green" },
+    { name: "Cộng tác viên bán lẻ", value: partners.filter((partner) => getRetailPartnerRole(partner) === "collaborator").length, icon: UsersRound, tone: "cyan" },
+    { name: "Đại lý / nhà cung cấp", value: partners.filter((partner) => getRetailPartnerRole(partner) !== "collaborator").length, icon: Store, tone: "orange" },
+  ] as const;
   const getLinkedUser = (partner: RetailPartner): PartnerUser | undefined => {
     if (!partner.userId) return undefined;
     return users.find((user) => user._id === partner.userId) || (partner.userId === userProfile?.uid
@@ -235,8 +237,16 @@ export default function RetailPartnersPage() {
           </form>
         </dialog>}
 
-        {canRead && tab === "partners" && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => <ErpStatCard key={stat.name} name={stat.name} value={String(stat.value)} icon={stat.icon} variant="soft" />)}
+        {canRead && tab === "partners" && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {stats.map(({ name, value, icon: Icon, tone }) => (
+            <div key={name} className={cn("retail-stat-card rounded-md px-3.5 py-2.5", `retail-stat-card--${tone}`)}>
+              <div className="flex items-center justify-between text-white/90">
+                <span className="text-xs font-medium">{name}</span>
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
+              </div>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl">{value}</p>
+            </div>
+          ))}
         </div>}
 
         {error && <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs font-medium text-rose-700 sm:flex-row sm:items-center sm:justify-between">{error}<button type="button" onClick={() => void load()} className="shrink-0 font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại</button></div>}
@@ -274,7 +284,7 @@ export default function RetailPartnersPage() {
                   return <li key={partner._id} className="flex flex-col gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-xs">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 flex-col"><span className="truncate text-sm font-semibold text-slate-900">{partner.name}</span><span className="mt-0.5 text-xs font-normal text-slate-500">Mã: {partner.code}</span></div>
-                    <span className={cn("shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold", partner.status === "active" ? "border-sky-100 bg-sky-50 text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-600")}>{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span>
+                    <HrStatusBadge tone={partner.status === "active" ? "success" : "neutral"} className="shrink-0">{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</HrStatusBadge>
                   </div>
                   <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/60 bg-slate-50 p-2.5 text-xs text-slate-700">
                     <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] font-medium text-slate-500">Vai trò</span><span className="truncate text-xs font-semibold text-slate-900">{roleLabels[role]}</span></div>
@@ -313,13 +323,13 @@ export default function RetailPartnersPage() {
                       const role = getRetailPartnerRole(partner);
                       return <tr key={partner._id} className="text-slate-700 transition-colors hover:bg-slate-50/60">
                       <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-900">{partner.name}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.code}</div></td>
-                      <td className="px-3.5 py-3"><span className="inline-block rounded-full border border-slate-200/60 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{roleLabels[role]}</span></td>
+                      <td className="px-3.5 py-3"><HrStatusBadge tone="neutral">{roleLabels[role]}</HrStatusBadge></td>
                       <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-800">{partner.phone || "Chưa có số điện thoại"}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.email || "Chưa có email"}</div></td>
                       <td className="max-w-64 px-3.5 py-3 text-xs text-slate-600">{partner.address || "Chưa cập nhật"}</td>
                       <td className="px-3.5 py-3 text-xs text-slate-600">{role === "supplier" ? partner.supplier ? `${partner.supplier.name} (${partner.supplier.code})` : partner.supplierId ? "Đã liên kết kho" : "Chưa liên kết" : role === "dealer" ? getLinkedCustomer(partner)?.name || (partner.customerId ? "Đã liên kết khách hàng" : "Chưa liên kết khách hàng") : "—"}</td>
                       <td className="px-3.5 py-3">{role === "collaborator" ? <><div className="text-xs font-medium text-slate-800">{linkedUser?.displayName || linkedUser?.email || (partner.userId ? "Đã liên kết tài khoản" : "Chưa liên kết")}</div>{linkedUser?.displayName && linkedUser.email && <div className="mt-0.5 text-[11px] text-slate-500">{linkedUser.email}</div>}</> : <span className="text-slate-500">—</span>}</td>
                       {canManagePolicies && <td className="px-3.5 py-3 text-right font-semibold tabular-nums text-emerald-800">{role === "collaborator" ? commissionBalancesLoading ? "Đang tải..." : commissionBalanceError ? "—" : new Intl.NumberFormat("vi-VN").format(commissionBalances[partner._id] || 0) + " ₫" : "—"}</td>}
-                      <td className="px-3.5 py-3 text-center"><span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", partner.status === "active" ? "border-sky-100 bg-sky-50 text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-600")}>{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span></td>
+                      <td className="px-3.5 py-3 text-center"><HrStatusBadge tone={partner.status === "active" ? "success" : "neutral"}>{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</HrStatusBadge></td>
                       {canManage && <td className="px-3.5 py-3 text-center"><div className="flex items-center justify-center gap-1">
                         {canManage && <button type="button" onClick={() => startEdit(partner)} aria-label={`Chỉnh sửa ${partner.name}`} title={`Chỉnh sửa ${partner.name}`} className="min-h-9 min-w-9 rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-[#00ADFC] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-3.5" /></button>}
                       </div></td>}

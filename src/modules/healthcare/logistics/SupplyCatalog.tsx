@@ -602,7 +602,7 @@ export default function SupplyCatalog({
         )}
       </div>
 
-      {editor && <SupplyEditor api={api} record={editor.row} refs={references} onClose={close} onSaved={saved} />}
+      {editor && <SupplyEditor api={api} record={editor.row} refs={references} onRefsChanged={refs.refresh} onClose={close} onSaved={saved} />}
       {batch && (
         <SupplyDocumentEditor
           api={api}

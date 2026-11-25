@@ -290,7 +290,7 @@ export default function LongToShortTab() {
   const focusRingClass =
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
   const inputClass =
-    "block h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60";
+    "block h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 pb-6 font-sans" id="long_to_short_root">

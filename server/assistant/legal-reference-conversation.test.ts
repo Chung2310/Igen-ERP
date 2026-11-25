@@ -70,7 +70,7 @@ it.each(["qa", "work"] as const)("answers legal questions through dispatch in %s
   expect(reply.reply).not.toContain("versionNumber");
   expect(parseAssistantResultTable(reply.reply)?.rows[0].values["Văn bản"]).toContain("VB-01");
   expect(renderToStaticMarkup(createElement(AssistantMessageContent, { content: reply.reply }))).toContain("VB-01");
-  expect(reply.reply).not.toContain("Bạn có muốn bổ sung không?");
+  expect(reply.reply).not.toMatch(/Bạn có muốn bổ sung(?: [^?\n]+)? không\?/);
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(String(fetcher.mock.calls[0][0])).toContain("/legal-reference/answer");
   expect(state.turns[0].steps).toEqual([expect.objectContaining({ actionId: "legal.document.answer", status: "completed" })]);

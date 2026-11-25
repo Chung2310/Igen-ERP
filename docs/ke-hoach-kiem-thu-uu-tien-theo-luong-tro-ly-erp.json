@@ -1,0 +1,4496 @@
+{
+  "version": 4,
+  "date": "2026-11-23",
+  "scope": "Chức năng và thao tác chính cần kiểm thử; chưa lập kịch bản",
+  "excluded": [
+    "Gym / 3S",
+    "Trợ lý kiến trúc"
+  ],
+  "modules": [
+    {
+      "key": "hr",
+      "module": "Nhân sự",
+      "functions": [
+        {
+          "name": "Hồ sơ nhân sự",
+          "checks": "Tìm, xem, thêm, sửa, xóa hồ sơ; thống kê nhân sự.",
+          "anchor": "hr-1",
+          "tasks": [
+            {
+              "task": "Tìm/xem",
+              "actionIds": [
+                "employee.list",
+                "employee.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm",
+              "actionIds": [
+                "employee.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "employee.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "employee.delete"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thống kê số nhân sự",
+              "actionIds": [
+                "employee.count"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "employee.list",
+            "employee.detail",
+            "employee.create",
+            "employee.update",
+            "employee.delete",
+            "employee.count"
+          ]
+        },
+        {
+          "name": "Phòng ban",
+          "checks": "Tạo/sửa phòng ban; xem nhân sự thuộc phòng.",
+          "anchor": "hr-2",
+          "tasks": [
+            {
+              "task": "Tạo phòng ban",
+              "actionIds": [
+                "department.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa phòng ban",
+              "actionIds": [
+                "department.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem nhân sự thuộc phòng",
+              "actionIds": [
+                "department.employees.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "department.create",
+            "department.update",
+            "department.employees.list"
+          ]
+        },
+        {
+          "name": "Chi nhánh",
+          "checks": "Tra cứu, tạo và cập nhật chi nhánh.",
+          "anchor": "hr-3",
+          "tasks": [
+            {
+              "task": "Tra cứu",
+              "actionIds": [
+                "branch.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "branch.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "branch.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "branch.list",
+            "branch.create",
+            "branch.update"
+          ]
+        },
+        {
+          "name": "Hợp đồng",
+          "checks": "Lập, sửa, gia hạn và theo dõi hợp đồng nhân sự.",
+          "anchor": "hr-4",
+          "tasks": [
+            {
+              "task": "Lập hợp đồng",
+              "actionIds": [
+                "hr.contract.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa hợp đồng",
+              "actionIds": [
+                "api.patch.7d7b8c0cbce4fe1c"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Gia hạn",
+              "actionIds": [
+                "hr.contract.extend"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Theo dõi hợp đồng",
+              "actionIds": [
+                "hr.contract.list",
+                "hr.contract.expiring.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "hr.contract.create",
+            "api.patch.7d7b8c0cbce4fe1c",
+            "hr.contract.extend",
+            "hr.contract.list",
+            "hr.contract.expiring.list"
+          ]
+        },
+        {
+          "name": "Chấm công và lịch làm việc",
+          "checks": "Tra/sửa chấm công; quản lý ca và lịch làm việc.",
+          "anchor": "hr-5",
+          "tasks": [
+            {
+              "task": "Tra chấm công",
+              "actionIds": [
+                "timekeeping.records.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa chấm công",
+              "actionIds": [
+                "timekeeping.record.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra/tạo/sửa/xóa ca",
+              "actionIds": [
+                "api.get.d632a938b9c72492",
+                "api.post.4e68581113f1ef79",
+                "api.patch.08411917f1ed9b75",
+                "api.delete.39330ed93a819149"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra và phân ca",
+              "actionIds": [
+                "api.get.efd26957a4dbe889",
+                "api.post.5511b45cf3a736d1"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra/thêm/sửa lịch làm việc",
+              "actionIds": [
+                "timekeeping.work-calendar.list",
+                "timekeeping.work-calendar.create",
+                "timekeeping.work-calendar.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "timekeeping.records.list",
+            "timekeeping.record.update",
+            "api.get.d632a938b9c72492",
+            "api.post.4e68581113f1ef79",
+            "api.patch.08411917f1ed9b75",
+            "api.delete.39330ed93a819149",
+            "api.get.efd26957a4dbe889",
+            "api.post.5511b45cf3a736d1",
+            "timekeeping.work-calendar.list",
+            "timekeeping.work-calendar.create",
+            "timekeeping.work-calendar.update"
+          ]
+        },
+        {
+          "name": "Nghỉ phép",
+          "checks": "Tạo/tra đơn, xử lý đơn theo quyền; xem phép năm và người nghỉ hôm nay.",
+          "anchor": "hr-6",
+          "tasks": [
+            {
+              "task": "Tra đơn",
+              "actionIds": [
+                "hr.leave.applications.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo và xử lý/duyệt đơn",
+              "actionIds": [],
+              "note": "Chưa có action ghi tương ứng trong catalog đang đối chiếu."
+            },
+            {
+              "task": "Xem phép năm",
+              "actionIds": [
+                "leave.balance.me",
+                "leave.balances.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Người nghỉ hôm nay",
+              "actionIds": [
+                "timekeeping.records.leave",
+                "hr.leave.applications.list"
+              ],
+              "note": "Nguồn chấm công và nguồn đơn nghỉ là hai nguồn khác nhau, cần đối chiếu trạng thái/ngày."
+            }
+          ],
+          "actionIds": [
+            "hr.leave.applications.list",
+            "leave.balance.me",
+            "leave.balances.list",
+            "timekeeping.records.leave"
+          ]
+        },
+        {
+          "name": "Lương",
+          "checks": "Tạo kỳ lương; kiểm tra đầu vào, tính lương, điều chỉnh và xử lý kỳ lương.",
+          "anchor": "hr-7",
+          "tasks": [
+            {
+              "task": "Tạo kỳ/lượt lương nháp",
+              "actionIds": [
+                "payroll.run.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kiểm tra/cập nhật đầu vào",
+              "actionIds": [
+                "api.get.79f4d36088c00b86",
+                "payroll.period.input.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Khóa công và tính lương",
+              "actionIds": [
+                "payroll.run.lock-attendance",
+                "payroll.run.calculate"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra kết quả lương",
+              "actionIds": [
+                "payroll.run.list",
+                "payroll.run.line.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Điều chỉnh và tính lại",
+              "actionIds": [
+                "payroll.adjustment.list",
+                "payroll.adjustment.create",
+                "payroll.adjustment.approve",
+                "payroll.adjustment.reject",
+                "payroll.run.recalculate"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Gửi duyệt/chốt kỳ",
+              "actionIds": [
+                "payroll.run.review",
+                "payroll.run.close"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "payroll.run.create",
+            "api.get.79f4d36088c00b86",
+            "payroll.period.input.update",
+            "payroll.run.lock-attendance",
+            "payroll.run.calculate",
+            "payroll.run.list",
+            "payroll.run.line.detail",
+            "payroll.adjustment.list",
+            "payroll.adjustment.create",
+            "payroll.adjustment.approve",
+            "payroll.adjustment.reject",
+            "payroll.run.recalculate",
+            "payroll.run.review",
+            "payroll.run.close"
+          ]
+        },
+        {
+          "name": "Tuyển dụng",
+          "checks": "Quản lý nhu cầu tuyển, hồ sơ ứng viên và trạng thái tuyển dụng.",
+          "anchor": "hr-8",
+          "tasks": [
+            {
+              "task": "Nhu cầu/vị trí tuyển",
+              "actionIds": [
+                "recruitment.job.list",
+                "recruitment.job.detail",
+                "recruitment.job.create",
+                "recruitment.job.update",
+                "recruitment.job.status"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hồ sơ ứng viên",
+              "actionIds": [
+                "recruitment.applicant.list",
+                "recruitment.applicant.detail",
+                "recruitment.applicant.create",
+                "recruitment.applicant.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Trạng thái/bước tuyển dụng",
+              "actionIds": [
+                "recruitment.pipeline.get",
+                "recruitment.applicant.transition"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "recruitment.job.list",
+            "recruitment.job.detail",
+            "recruitment.job.create",
+            "recruitment.job.update",
+            "recruitment.job.status",
+            "recruitment.applicant.list",
+            "recruitment.applicant.detail",
+            "recruitment.applicant.create",
+            "recruitment.applicant.update",
+            "recruitment.pipeline.get",
+            "recruitment.applicant.transition"
+          ]
+        },
+        {
+          "name": "Dự án nội bộ",
+          "checks": "Tạo, xem, sửa, xóa dự án Nhân sự; phân biệt với dự án Lao động.",
+          "anchor": "hr-9",
+          "tasks": [
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "project.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem",
+              "actionIds": [
+                "project.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "project.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "project.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "project.create",
+            "project.list",
+            "project.update",
+            "project.delete"
+          ]
+        },
+        {
+          "name": "Công việc",
+          "checks": "Tạo việc, giao người phụ trách, sửa hạn/trạng thái và xem tiến độ.",
+          "anchor": "hr-10",
+          "tasks": [
+            {
+              "task": "Tạo việc",
+              "actionIds": [
+                "task.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Giao người, sửa hạn và trạng thái",
+              "actionIds": [
+                "task.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem tiến độ",
+              "actionIds": [
+                "task.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "task.create",
+            "task.update",
+            "task.list"
+          ]
+        },
+        {
+          "name": "Đào tạo nội bộ",
+          "checks": "Quản lý khóa đào tạo và theo dõi tiến độ học của nhân sự.",
+          "anchor": "hr-11",
+          "tasks": [
+            {
+              "task": "Tra/tạo/sửa/xóa khóa đào tạo",
+              "actionIds": [
+                "training.list",
+                "training.create",
+                "training.update",
+                "training.delete"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tiến độ học của nhân sự",
+              "actionIds": [
+                "hr.training.progress"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "training.list",
+            "training.create",
+            "training.update",
+            "training.delete",
+            "hr.training.progress"
+          ]
+        },
+        {
+          "name": "Phân quyền",
+          "checks": "Xem vai trò/quyền; cập nhật quyền theo vai trò.",
+          "anchor": "hr-12",
+          "tasks": [
+            {
+              "task": "Xem vai trò và quyền",
+              "actionIds": [
+                "access.permission-catalog.list",
+                "access.role-permissions.list",
+                "access.role-permissions.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật quyền theo vai trò",
+              "actionIds": [
+                "access.role-permissions.save"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "access.permission-catalog.list",
+            "access.role-permissions.list",
+            "access.role-permissions.detail",
+            "access.role-permissions.save"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "student",
+      "module": "Quản lý học viên",
+      "functions": [
+        {
+          "name": "Hồ sơ học viên",
+          "checks": "Tìm, xem, thêm, sửa và xóa học viên.",
+          "anchor": "student-1",
+          "tasks": [
+            {
+              "task": "Tìm/xem",
+              "actionIds": [
+                "student.list",
+                "student.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm",
+              "actionIds": [
+                "student.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "student.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa một học viên",
+              "actionIds": [
+                "student.bulk.delete.preview",
+                "student.bulk.delete"
+              ],
+              "note": "Action xóa nhận danh sách ID, chọn đúng một học viên và xem ảnh hưởng trước xóa; không mở phạm vi xóa hàng loạt."
+            }
+          ],
+          "actionIds": [
+            "student.list",
+            "student.detail",
+            "student.create",
+            "student.update",
+            "student.bulk.delete.preview",
+            "student.bulk.delete"
+          ]
+        },
+        {
+          "name": "Khóa học",
+          "checks": "Tạo, xem và chỉnh sửa thông tin khóa học.",
+          "anchor": "student-2",
+          "tasks": [
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "course.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem",
+              "actionIds": [
+                "course.list",
+                "course.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chỉnh sửa",
+              "actionIds": [
+                "course.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "course.create",
+            "course.list",
+            "course.detail",
+            "course.update"
+          ]
+        },
+        {
+          "name": "Lớp và ghi danh",
+          "checks": "Tạo/sửa lớp; thêm hoặc loại học viên khỏi lớp.",
+          "anchor": "student-3",
+          "tasks": [
+            {
+              "task": "Tạo lớp",
+              "actionIds": [
+                "student.batch.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa lớp",
+              "actionIds": [
+                "student.batch.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm học viên",
+              "actionIds": [
+                "student.batch.learner.add"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Loại học viên",
+              "actionIds": [
+                "student.batch.learner.remove"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "student.batch.create",
+            "student.batch.update",
+            "student.batch.learner.add",
+            "student.batch.learner.remove"
+          ]
+        },
+        {
+          "name": "Lịch học",
+          "checks": "Tra lịch theo lớp, khóa học và thời gian.",
+          "anchor": "student-4",
+          "tasks": [
+            {
+              "task": "Tra lịch theo lớp/khóa/thời gian",
+              "actionIds": [
+                "student.schedule.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem thông tin giờ/ngày của lớp",
+              "actionIds": [
+                "student.batch.detail"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "student.schedule.list",
+            "student.batch.detail"
+          ]
+        },
+        {
+          "name": "Điểm danh",
+          "checks": "Ghi nhận/sửa điểm danh; tổng hợp có mặt, vắng và đi muộn.",
+          "anchor": "student-5",
+          "tasks": [
+            {
+              "task": "Chọn học viên và ghi nhận/sửa điểm danh",
+              "actionIds": [
+                "batch.attendance.learners",
+                "batch.attendance.record.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tổng hợp có mặt/vắng/đi muộn",
+              "actionIds": [
+                "student.batch.attendance.summary"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "batch.attendance.learners",
+            "batch.attendance.record.update",
+            "student.batch.attendance.summary"
+          ]
+        },
+        {
+          "name": "Học phí và công nợ",
+          "checks": "Ghi nhận thu; xem lịch sử đóng; đối chiếu học viên còn nợ và số tiền nợ.",
+          "anchor": "student-6",
+          "tasks": [
+            {
+              "task": "Ghi nhận thu",
+              "actionIds": [
+                "student.payment.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lịch sử đóng",
+              "actionIds": [
+                "student.payment.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đối chiếu số tiền của học viên",
+              "actionIds": [
+                "student.payment.reconcile"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Danh sách học viên còn nợ và dư nợ",
+              "actionIds": [
+                "student.list",
+                "student.payment.list"
+              ],
+              "note": "Phép đối chiếu server students-with-tuition-debt, không phải action riêng."
+            }
+          ],
+          "actionIds": [
+            "student.payment.create",
+            "student.payment.list",
+            "student.payment.reconcile",
+            "student.list"
+          ]
+        },
+        {
+          "name": "Bài tập và chất lượng",
+          "checks": "Giao bài, xem bài nộp, chấm điểm và tra đánh giá/tiến độ.",
+          "anchor": "student-7",
+          "tasks": [
+            {
+              "task": "Giao bài",
+              "actionIds": [
+                "student.assignment.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem bài nộp",
+              "actionIds": [
+                "student.assignment.submissions.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chấm điểm",
+              "actionIds": [
+                "student.assignment.grade"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra đánh giá/tiến độ",
+              "actionIds": [
+                "student.quality.list",
+                "student.learning-history"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "student.assignment.create",
+            "student.assignment.submissions.list",
+            "student.assignment.grade",
+            "student.quality.list",
+            "student.learning-history"
+          ]
+        },
+        {
+          "name": "Kỳ thi",
+          "checks": "Tạo kỳ thi; chọn học viên; xem/cập nhật kết quả.",
+          "anchor": "student-8",
+          "tasks": [
+            {
+              "task": "Tạo kỳ thi",
+              "actionIds": [
+                "student.exam.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chọn và gán học viên",
+              "actionIds": [
+                "student.exam.eligible-students.list",
+                "student.exam.assign"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem kết quả",
+              "actionIds": [
+                "student.exam.grade-roster.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật kết quả",
+              "actionIds": [
+                "student.exam.grade-results.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "student.exam.create",
+            "student.exam.eligible-students.list",
+            "student.exam.assign",
+            "student.exam.grade-roster.list",
+            "student.exam.grade-results.update"
+          ]
+        },
+        {
+          "name": "Lộ trình học",
+          "checks": "Xem và cập nhật các bước trong lộ trình học viên.",
+          "anchor": "student-9",
+          "tasks": [
+            {
+              "task": "Xem các bước học",
+              "actionIds": [
+                "student.learning-roadmap.list",
+                "student.learning-roadmap.steps.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật lộ trình",
+              "actionIds": [
+                "student.learning-roadmap.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "student.learning-roadmap.list",
+            "student.learning-roadmap.steps.list",
+            "student.learning-roadmap.update"
+          ]
+        },
+        {
+          "name": "Phòng học và thiết bị",
+          "checks": "Tra tài nguyên và lịch sử dụng phục vụ lớp học.",
+          "anchor": "student-10",
+          "tasks": [
+            {
+              "task": "Tra phòng/thiết bị",
+              "actionIds": [
+                "student.resource.list",
+                "student.resource.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra lịch sử dụng",
+              "actionIds": [
+                "student.resource.bookings.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "student.resource.list",
+            "student.resource.detail",
+            "student.resource.bookings.list"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "worker",
+      "module": "Quản lý lao động",
+      "functions": [
+        {
+          "name": "Hồ sơ lao động",
+          "checks": "Tìm, xem, thêm, sửa và xóa hồ sơ.",
+          "anchor": "worker-1",
+          "tasks": [
+            {
+              "task": "Tìm/xem",
+              "actionIds": [
+                "worker.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm",
+              "actionIds": [
+                "worker.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "worker.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "worker.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.list",
+            "worker.create",
+            "worker.update",
+            "worker.delete"
+          ]
+        },
+        {
+          "name": "Dự án lao động",
+          "checks": "Tạo, xem, sửa, xóa dự án; cập nhật địa điểm và ngày làm.",
+          "anchor": "worker-2",
+          "tasks": [
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "worker.project.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem",
+              "actionIds": [
+                "worker.project.list",
+                "worker.project.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa địa điểm/ngày làm và thông tin dự án",
+              "actionIds": [
+                "worker.project.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "worker.project.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.project.create",
+            "worker.project.list",
+            "worker.project.detail",
+            "worker.project.update",
+            "worker.project.delete"
+          ]
+        },
+        {
+          "name": "Phân bổ lao động",
+          "checks": "Thêm hoặc loại lao động khỏi đúng dự án.",
+          "anchor": "worker-3",
+          "tasks": [
+            {
+              "task": "Thêm lao động",
+              "actionIds": [
+                "worker.project.worker.add",
+                "worker.project.workers.add"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Loại lao động",
+              "actionIds": [
+                "worker.project.worker.remove"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.project.worker.add",
+            "worker.project.workers.add",
+            "worker.project.worker.remove"
+          ]
+        },
+        {
+          "name": "Chấm công",
+          "checks": "Tra, ghi nhận và điều chỉnh công theo lao động/dự án.",
+          "anchor": "worker-4",
+          "tasks": [
+            {
+              "task": "Tra công",
+              "actionIds": [
+                "worker.attendance.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghi nhận",
+              "actionIds": [
+                "worker.attendance.mark"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Điều chỉnh",
+              "actionIds": [
+                "worker.attendance.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.attendance.list",
+            "worker.attendance.mark",
+            "worker.attendance.update"
+          ]
+        },
+        {
+          "name": "Hợp đồng",
+          "checks": "Lập/sửa hợp đồng; tra người chưa có hợp đồng và hợp đồng sắp hết hạn.",
+          "anchor": "worker-5",
+          "tasks": [
+            {
+              "task": "Lập hợp đồng",
+              "actionIds": [
+                "worker.labor.contract.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa hợp đồng",
+              "actionIds": [
+                "worker.labor.contract.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lao động chưa có hợp đồng",
+              "actionIds": [
+                "worker.list",
+                "worker.labor.contract.list"
+              ],
+              "note": "Phép đối chiếu server workers-without-contracts, không phải action riêng."
+            },
+            {
+              "task": "Hợp đồng sắp hết hạn",
+              "actionIds": [
+                "api.get.975d2e3032a3229a"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.labor.contract.create",
+            "worker.labor.contract.update",
+            "worker.list",
+            "worker.labor.contract.list",
+            "api.get.975d2e3032a3229a"
+          ]
+        },
+        {
+          "name": "Báo cáo",
+          "checks": "Tổng hợp công, đi muộn, vắng mặt và thiếu người theo dự án/thời gian.",
+          "anchor": "worker-6",
+          "tasks": [
+            {
+              "task": "Tổng hợp công/đi muộn/vắng/thiếu người",
+              "actionIds": [
+                "worker.report"
+              ],
+              "note": "Lọc theo dự án và thời gian yêu cầu."
+            }
+          ],
+          "actionIds": [
+            "worker.report"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "labor-partner",
+      "module": "Đối tác lao động",
+      "functions": [
+        {
+          "name": "Hồ sơ đối tác",
+          "checks": "Tìm, tạo, sửa và xóa đối tác lao động.",
+          "anchor": "labor-partner-1",
+          "tasks": [
+            {
+              "task": "Tìm",
+              "actionIds": [
+                "worker.partner.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "api.post.51cd07ea5eae455b"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "api.patch.4309612e371b6aa2"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "api.delete.047cfef00a296a0d"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.partner.list",
+            "api.post.51cd07ea5eae455b",
+            "api.patch.4309612e371b6aa2",
+            "api.delete.047cfef00a296a0d"
+          ]
+        },
+        {
+          "name": "Lượt giới thiệu",
+          "checks": "Thêm, xác nhận, kết thúc và tra lao động được giới thiệu.",
+          "anchor": "labor-partner-2",
+          "tasks": [
+            {
+              "task": "Thêm lượt giới thiệu",
+              "actionIds": [
+                "api.post.15425a2f24638e8c"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xác nhận",
+              "actionIds": [
+                "worker.partner.referral.confirm"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kết thúc",
+              "actionIds": [
+                "api.post.816c2559aba41930"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra lao động giới thiệu",
+              "actionIds": [
+                "worker.partner.referrals.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.15425a2f24638e8c",
+            "worker.partner.referral.confirm",
+            "api.post.816c2559aba41930",
+            "worker.partner.referrals.list"
+          ]
+        },
+        {
+          "name": "KPI",
+          "checks": "Thiết lập chỉ tiêu; tra đối tác đạt/chưa đạt và xếp hạng giới thiệu.",
+          "anchor": "labor-partner-3",
+          "tasks": [
+            {
+              "task": "Đặt chỉ tiêu",
+              "actionIds": [
+                "worker.partner.kpi.set"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đạt/chưa đạt và xếp hạng",
+              "actionIds": [
+                "api.get.f7d7b097f3b2fca2"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.partner.kpi.set",
+            "api.get.f7d7b097f3b2fca2"
+          ]
+        },
+        {
+          "name": "Chính sách hoa hồng",
+          "checks": "Tạo, sửa mốc/mức hưởng, kích hoạt hoặc ngừng chính sách.",
+          "anchor": "labor-partner-4",
+          "tasks": [
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "api.post.e57ae0da3cdf14f8"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa mốc/mức hưởng",
+              "actionIds": [
+                "api.patch.2971d5a8a97f8be8"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kích hoạt",
+              "actionIds": [
+                "api.post.a58fa4b9dd69941c"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ngừng",
+              "actionIds": [
+                "api.post.6346fd99746602d2"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.e57ae0da3cdf14f8",
+            "api.patch.2971d5a8a97f8be8",
+            "api.post.a58fa4b9dd69941c",
+            "api.post.6346fd99746602d2"
+          ]
+        },
+        {
+          "name": "Đối soát",
+          "checks": "Tính, kiểm tra, điều chỉnh và duyệt kỳ hoa hồng.",
+          "anchor": "labor-partner-5",
+          "tasks": [
+            {
+              "task": "Tính kỳ hoa hồng",
+              "actionIds": [
+                "worker.partner.settlement.calculate"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kiểm tra kỳ",
+              "actionIds": [
+                "worker.partner.settlements.list",
+                "worker.partner.settlement.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Điều chỉnh",
+              "actionIds": [
+                "api.post.0137e041d2b60a80"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Duyệt",
+              "actionIds": [
+                "api.post.db51d33ae72d81b2"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "worker.partner.settlement.calculate",
+            "worker.partner.settlements.list",
+            "worker.partner.settlement.detail",
+            "api.post.0137e041d2b60a80",
+            "api.post.db51d33ae72d81b2"
+          ]
+        },
+        {
+          "name": "Chi trả",
+          "checks": "Ghi nhận/đảo khoản chi và tra lịch sử chi trả.",
+          "anchor": "labor-partner-6",
+          "tasks": [
+            {
+              "task": "Ghi nhận chi",
+              "actionIds": [
+                "api.post.92a650eadaee6bcd"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đảo khoản chi",
+              "actionIds": [
+                "worker.partner.payout.reverse"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra lịch sử chi trả",
+              "actionIds": [
+                "api.get.8e68db2c21d01a51"
+              ],
+              "note": "Đọc mảng payouts của đối tác, không thay bằng số tổng hoa hồng."
+            }
+          ],
+          "actionIds": [
+            "api.post.92a650eadaee6bcd",
+            "worker.partner.payout.reverse",
+            "api.get.8e68db2c21d01a51"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "student-partner",
+      "module": "Đối tác tuyển sinh",
+      "functions": [
+        {
+          "name": "Hồ sơ đối tác",
+          "checks": "Tìm, tạo, sửa và xóa đối tác tuyển sinh.",
+          "anchor": "student-partner-1",
+          "tasks": [
+            {
+              "task": "Tìm",
+              "actionIds": [
+                "partner.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "api.post.682981444c12f0aa"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "api.patch.fee44cbce47ae377"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "api.delete.9043f4e5cc3aefab"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "partner.list",
+            "api.post.682981444c12f0aa",
+            "api.patch.fee44cbce47ae377",
+            "api.delete.9043f4e5cc3aefab"
+          ]
+        },
+        {
+          "name": "Kết quả giới thiệu",
+          "checks": "Tra hiệu quả giới thiệu học viên của đối tác.",
+          "anchor": "student-partner-2",
+          "tasks": [
+            {
+              "task": "Tra hiệu quả giới thiệu",
+              "actionIds": [
+                "partner.analysis"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "partner.analysis"
+          ]
+        },
+        {
+          "name": "Hoa hồng",
+          "checks": "Xem/cập nhật cấp bậc và cấu hình tính hoa hồng.",
+          "anchor": "student-partner-3",
+          "tasks": [
+            {
+              "task": "Xem cấp bậc/cấu hình",
+              "actionIds": [
+                "partner.commission.levels.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật cấu hình cấp bậc",
+              "actionIds": [
+                "api.patch.c3613ac62ed49013"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cấu hình hoa hồng theo đối tác",
+              "actionIds": [
+                "partner.commission.update"
+              ],
+              "note": "Action đang tắt, không tính là đã hỗ trợ."
+            }
+          ],
+          "actionIds": [
+            "partner.commission.levels.list",
+            "api.patch.c3613ac62ed49013",
+            "partner.commission.update"
+          ]
+        },
+        {
+          "name": "Chi trả",
+          "checks": "Cập nhật tài khoản nhận tiền; kiểm tra khả năng ghi nhận chi trả hiện có.",
+          "anchor": "student-partner-4",
+          "tasks": [
+            {
+              "task": "Cập nhật tài khoản nhận tiền",
+              "actionIds": [
+                "partner.bank-details.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghi nhận chi trả",
+              "actionIds": [
+                "api.post.5e1017ef3a76d4f1"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "partner.bank-details.update",
+            "api.post.5e1017ef3a76d4f1"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "customer",
+      "module": "Khách hàng",
+      "functions": [
+        {
+          "name": "Hồ sơ",
+          "checks": "Tìm, tạo, sửa thông tin và thay đổi trạng thái khách hàng.",
+          "anchor": "customer-1",
+          "tasks": [
+            {
+              "task": "Tìm",
+              "actionIds": [
+                "api.get.51885b828100e376"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo",
+              "actionIds": [
+                "customer.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "customer.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đổi trạng thái",
+              "actionIds": [
+                "customer.activate",
+                "customer.deactivate"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.51885b828100e376",
+            "customer.create",
+            "customer.update",
+            "customer.activate",
+            "customer.deactivate"
+          ]
+        },
+        {
+          "name": "Giao dịch",
+          "checks": "Xem lịch sử và chi tiết giao dịch đúng khách.",
+          "anchor": "customer-2",
+          "tasks": [
+            {
+              "task": "Xem lịch sử",
+              "actionIds": [
+                "customer.transactions"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem chi tiết giao dịch",
+              "actionIds": [
+                "customer.transaction.detail"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "customer.transactions",
+            "customer.transaction.detail"
+          ]
+        },
+        {
+          "name": "Phân hạng",
+          "checks": "Xem và cập nhật cấu hình phân hạng.",
+          "anchor": "customer-3",
+          "tasks": [
+            {
+              "task": "Xem cấu hình phân hạng",
+              "actionIds": [
+                "customer.settings.get"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "customer.settings.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "customer.settings.get",
+            "customer.settings.update"
+          ]
+        },
+        {
+          "name": "Thông tin hóa đơn",
+          "checks": "Tra hoặc tạo hồ sơ xuất hóa đơn của khách.",
+          "anchor": "customer-4",
+          "tasks": [
+            {
+              "task": "Tra hồ sơ hóa đơn",
+              "actionIds": [
+                "customer.billing.profile.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo hồ sơ hóa đơn",
+              "actionIds": [
+                "customer.billing.profile.create"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "customer.billing.profile.list",
+            "customer.billing.profile.create"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "inventory",
+      "module": "Kho & Sản phẩm",
+      "functions": [
+        {
+          "name": "Sản phẩm và SKU",
+          "checks": "Tìm, tạo, sửa sản phẩm/biến thể; kiểm tra giá bán và giá vốn.",
+          "anchor": "inventory-1",
+          "tasks": [
+            {
+              "task": "Tìm/xem sản phẩm và SKU",
+              "actionIds": [
+                "product.list",
+                "inventory.product.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo sản phẩm kèm SKU",
+              "actionIds": [
+                "inventory.product.create.sellable"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm SKU",
+              "actionIds": [
+                "inventory.variant.create.sellable"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa sản phẩm",
+              "actionIds": [
+                "api.patch.ec4179bd45d62cbf"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa SKU",
+              "actionIds": [
+                "api.patch.78eb0c3b82d1f735"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kiểm tra giá bán/giá vốn",
+              "actionIds": [
+                "inventory.prices.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "product.list",
+            "inventory.product.detail",
+            "inventory.product.create.sellable",
+            "inventory.variant.create.sellable",
+            "api.patch.ec4179bd45d62cbf",
+            "api.patch.78eb0c3b82d1f735",
+            "inventory.prices.list"
+          ]
+        },
+        {
+          "name": "Danh mục",
+          "checks": "Quản lý loại hàng, thương hiệu, đơn vị và thuộc tính.",
+          "anchor": "inventory-2",
+          "tasks": [
+            {
+              "task": "Tra loại hàng/thương hiệu/đơn vị/thuộc tính",
+              "actionIds": [
+                "inventory.catalog.resource.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo dữ liệu danh mục",
+              "actionIds": [
+                "api.post.c29d50d7a2ebd989"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "api.patch.ad1b26d154f5621c"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "api.delete.9301905784a3a33e"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "inventory.catalog.resource.list",
+            "api.post.c29d50d7a2ebd989",
+            "api.patch.ad1b26d154f5621c",
+            "api.delete.9301905784a3a33e"
+          ]
+        },
+        {
+          "name": "Nhà cung cấp",
+          "checks": "Tra cứu, cập nhật và xóa nhà cung cấp.",
+          "anchor": "inventory-3",
+          "tasks": [
+            {
+              "task": "Tra",
+              "actionIds": [
+                "inventory.supplier.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "api.patch.d638d3bb0a56b64b"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "inventory.supplier.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "inventory.supplier.list",
+            "api.patch.d638d3bb0a56b64b",
+            "inventory.supplier.delete"
+          ]
+        },
+        {
+          "name": "Kho và tồn",
+          "checks": "Tra kho, tồn thực tế theo kho/SKU và vị trí hàng; tồn theo kho còn thiếu action tương đương.",
+          "anchor": "inventory-4",
+          "tasks": [
+            {
+              "task": "Tra kho",
+              "actionIds": [
+                "inventory.warehouse.locations.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tồn thực tế theo kho/SKU",
+              "actionIds": [],
+              "note": "Chưa có action tương đương GET /inventory/warehouses/balances."
+            },
+            {
+              "task": "Vị trí hàng theo IMEI/serial",
+              "actionIds": [
+                "inventory.serial.list",
+                "inventory.serial.detail"
+              ],
+              "note": "Không dùng kết quả này thay tồn số lượng theo kho/SKU."
+            }
+          ],
+          "actionIds": [
+            "inventory.warehouse.locations.list",
+            "inventory.serial.list",
+            "inventory.serial.detail"
+          ]
+        },
+        {
+          "name": "Nhập kho",
+          "checks": "Lập/sửa phiếu; gửi, nhận, xác nhận hoặc hủy nhập.",
+          "anchor": "inventory-5",
+          "tasks": [
+            {
+              "task": "Lập phiếu",
+              "actionIds": [
+                "inventory.receipt.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "inventory.receipt.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Gửi",
+              "actionIds": [
+                "inventory.receipt.submit"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Bắt đầu nhận",
+              "actionIds": [
+                "inventory.receipt.start"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xác nhận nhập",
+              "actionIds": [
+                "inventory.receipt.confirm"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hủy",
+              "actionIds": [
+                "inventory.receipt.cancel"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "inventory.receipt.create",
+            "inventory.receipt.update",
+            "inventory.receipt.submit",
+            "inventory.receipt.start",
+            "inventory.receipt.confirm",
+            "inventory.receipt.cancel"
+          ]
+        },
+        {
+          "name": "Xuất kho",
+          "checks": "Tra lịch sử và đảo phiếu đã có; tạo/sửa/xóa phiếu thủ công còn thiếu action tương đương.",
+          "anchor": "inventory-6",
+          "tasks": [
+            {
+              "task": "Tra lịch sử",
+              "actionIds": [
+                "inventory.stock-log.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đảo phiếu đã có",
+              "actionIds": [
+                "inventory.stock-log.reverse"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo/sửa/xóa phiếu thủ công",
+              "actionIds": [],
+              "note": "Chưa có action tương đương POST/PATCH/DELETE /crud/stock-logs."
+            }
+          ],
+          "actionIds": [
+            "inventory.stock-log.list",
+            "inventory.stock-log.reverse"
+          ]
+        },
+        {
+          "name": "Điều chuyển",
+          "checks": "Tạo, tra, nhận và hủy điều chuyển giữa kho/chi nhánh.",
+          "anchor": "inventory-7",
+          "tasks": [
+            {
+              "task": "Tạo điều chuyển",
+              "actionIds": [
+                "inventory.transfer.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra",
+              "actionIds": [
+                "inventory.transfer.list",
+                "inventory.transfer.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Nhận",
+              "actionIds": [
+                "inventory.transfer.accept"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hủy",
+              "actionIds": [
+                "inventory.transfer.cancel"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "inventory.transfer.create",
+            "inventory.transfer.list",
+            "inventory.transfer.detail",
+            "inventory.transfer.accept",
+            "inventory.transfer.cancel"
+          ]
+        },
+        {
+          "name": "Kiểm kê",
+          "checks": "Mở đợt, ghi nhận, duyệt và đối soát chênh lệch.",
+          "anchor": "inventory-8",
+          "tasks": [
+            {
+              "task": "Mở đợt kiểm kê",
+              "actionIds": [
+                "api.post.feaf71a366c8880e",
+                "api.post.f03e901c8ee14a8f"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghi nhận số kiểm kê",
+              "actionIds": [
+                "api.post.5e0381daf5057103",
+                "inventory.count.item.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Duyệt",
+              "actionIds": [
+                "inventory.count.approve"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đối soát chênh lệch",
+              "actionIds": [
+                "inventory.count.detail",
+                "inventory.reconciliation.run"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.feaf71a366c8880e",
+            "api.post.f03e901c8ee14a8f",
+            "api.post.5e0381daf5057103",
+            "inventory.count.item.update",
+            "inventory.count.approve",
+            "inventory.count.detail",
+            "inventory.reconciliation.run"
+          ]
+        },
+        {
+          "name": "IMEI/serial",
+          "checks": "Đăng ký, tìm, xem lịch sử và cập nhật trạng thái/vị trí thiết bị.",
+          "anchor": "inventory-9",
+          "tasks": [
+            {
+              "task": "Đăng ký",
+              "actionIds": [
+                "inventory.serial.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm/xem",
+              "actionIds": [
+                "inventory.serial.list",
+                "inventory.serial.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lịch sử",
+              "actionIds": [
+                "inventory.serial.history"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật trạng thái",
+              "actionIds": [
+                "inventory.serial.transition"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật vị trí trong kho/chi nhánh",
+              "actionIds": [
+                "inventory.serial.transfer.local",
+                "inventory.serial.transfer.request",
+                "inventory.serial.transfer.accept"
+              ],
+              "note": "Việc cập nhật vị trí đi qua điều chuyển, không phải sửa tên kho trực tiếp."
+            }
+          ],
+          "actionIds": [
+            "inventory.serial.create",
+            "inventory.serial.list",
+            "inventory.serial.detail",
+            "inventory.serial.history",
+            "inventory.serial.transition",
+            "inventory.serial.transfer.local",
+            "inventory.serial.transfer.request",
+            "inventory.serial.transfer.accept"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "retail",
+      "module": "Bán lẻ & POS",
+      "functions": [
+        {
+          "name": "Tra hàng",
+          "checks": "Tìm sản phẩm, SKU/serial và hàng có thể đưa vào đơn.",
+          "anchor": "retail-1",
+          "tasks": [
+            {
+              "task": "Tìm sản phẩm/SKU bán được",
+              "actionIds": [
+                "retail.order.products.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm serial để bán",
+              "actionIds": [
+                "api.get.cc59ef5991d28f6a"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.order.products.list",
+            "api.get.cc59ef5991d28f6a"
+          ]
+        },
+        {
+          "name": "Đơn hàng",
+          "checks": "Tạo nháp, tính tiền, sửa, xác nhận và hủy đơn.",
+          "anchor": "retail-2",
+          "tasks": [
+            {
+              "task": "Tạo nháp",
+              "actionIds": [
+                "retail.order.draft.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tính tiền",
+              "actionIds": [
+                "retail.order.quote"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "retail.order.draft.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xác nhận",
+              "actionIds": [
+                "retail.order.confirm"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hủy",
+              "actionIds": [
+                "retail.order.cancel"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.order.draft.create",
+            "retail.order.quote",
+            "retail.order.draft.update",
+            "retail.order.confirm",
+            "retail.order.cancel"
+          ]
+        },
+        {
+          "name": "Thanh toán",
+          "checks": "Checkout, thu thêm và kiểm tra chuyển khoản.",
+          "anchor": "retail-3",
+          "tasks": [
+            {
+              "task": "Checkout",
+              "actionIds": [
+                "retail.order.checkout"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thu thêm",
+              "actionIds": [
+                "retail.order.collect"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kiểm tra chuyển khoản",
+              "actionIds": [
+                "retail.payment-review.pending",
+                "retail.payment-review.review"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.order.checkout",
+            "retail.order.collect",
+            "retail.payment-review.pending",
+            "retail.payment-review.review"
+          ]
+        },
+        {
+          "name": "Ca thu ngân",
+          "checks": "Mở/đóng ca và xem thông tin ca.",
+          "anchor": "retail-4",
+          "tasks": [
+            {
+              "task": "Mở ca",
+              "actionIds": [
+                "api.post.b0d4095fce422005"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đóng ca",
+              "actionIds": [
+                "api.post.12e203d82e400c19"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem thông tin ca",
+              "actionIds": [
+                "retail.shift.current",
+                "retail.shift.list",
+                "api.get.fc665b5fde526b87"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.b0d4095fce422005",
+            "api.post.12e203d82e400c19",
+            "retail.shift.current",
+            "retail.shift.list",
+            "api.get.fc665b5fde526b87"
+          ]
+        },
+        {
+          "name": "Hóa đơn",
+          "checks": "Tra danh sách, chi tiết và tổng hợp hóa đơn.",
+          "anchor": "retail-5",
+          "tasks": [
+            {
+              "task": "Danh sách",
+              "actionIds": [
+                "retail.invoice.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chi tiết",
+              "actionIds": [
+                "retail.invoice.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tổng hợp",
+              "actionIds": [
+                "retail.invoice.summary"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.invoice.list",
+            "retail.invoice.detail",
+            "retail.invoice.summary"
+          ]
+        },
+        {
+          "name": "Đổi trả và thu mua",
+          "checks": "Lập và tra chứng từ sau bán hàng.",
+          "anchor": "retail-6",
+          "tasks": [
+            {
+              "task": "Lập chứng từ đổi trả/thu mua",
+              "actionIds": [
+                "retail.after-sale.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra chứng từ",
+              "actionIds": [
+                "retail.after-sale.list",
+                "retail.after-sale.detail"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.after-sale.create",
+            "retail.after-sale.list",
+            "retail.after-sale.detail"
+          ]
+        },
+        {
+          "name": "Công nợ",
+          "checks": "Tra nợ khách, đối soát và nhắc nợ.",
+          "anchor": "retail-7",
+          "tasks": [
+            {
+              "task": "Tra nợ khách",
+              "actionIds": [
+                "retail.receivable.customer.history"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đối soát",
+              "actionIds": [
+                "retail.receivable.reconciliation.run",
+                "retail.receivable.reconciliation.latest"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Nhắc nợ",
+              "actionIds": [
+                "retail.debt-reminders.run"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.receivable.customer.history",
+            "retail.receivable.reconciliation.run",
+            "retail.receivable.reconciliation.latest",
+            "retail.debt-reminders.run"
+          ]
+        },
+        {
+          "name": "Ưu đãi và tích điểm",
+          "checks": "Quản lý mã ưu đãi và chính sách điểm thưởng.",
+          "anchor": "retail-8",
+          "tasks": [
+            {
+              "task": "Tra/tạo mã ưu đãi",
+              "actionIds": [
+                "retail.coupon.assistant-options.list",
+                "retail.coupon.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem/sửa chính sách điểm thưởng",
+              "actionIds": [
+                "retail.points.policy.get",
+                "retail.points.policy.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.coupon.assistant-options.list",
+            "retail.coupon.create",
+            "retail.points.policy.get",
+            "retail.points.policy.update"
+          ]
+        },
+        {
+          "name": "Bảo hành",
+          "checks": "Tra theo khách/thiết bị và cập nhật thời hạn.",
+          "anchor": "retail-9",
+          "tasks": [
+            {
+              "task": "Tra theo khách",
+              "actionIds": [
+                "retail.warranty.lookup.phone"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra theo mã thiết bị",
+              "actionIds": [
+                "api.get.33957f831ebdde02"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật thời hạn",
+              "actionIds": [
+                "retail.warranty.serial.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.warranty.lookup.phone",
+            "api.get.33957f831ebdde02",
+            "retail.warranty.serial.update"
+          ]
+        },
+        {
+          "name": "Sổ quỹ",
+          "checks": "Tra sổ, lập thu/chi, đối soát và chốt kỳ.",
+          "anchor": "retail-10",
+          "tasks": [
+            {
+              "task": "Tra sổ",
+              "actionIds": [
+                "retail.finance.cashbook.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lập thu/chi",
+              "actionIds": [
+                "retail.finance.cashbook.voucher.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đối soát",
+              "actionIds": [
+                "retail.finance.cashbook.reconcile"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chốt kỳ",
+              "actionIds": [
+                "retail.finance.cashbook.close"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.finance.cashbook.list",
+            "retail.finance.cashbook.voucher.create",
+            "retail.finance.cashbook.reconcile",
+            "retail.finance.cashbook.close"
+          ]
+        },
+        {
+          "name": "Báo cáo",
+          "checks": "Tra doanh số, lợi nhuận và hoa hồng theo kỳ.",
+          "anchor": "retail-11",
+          "tasks": [
+            {
+              "task": "Doanh số",
+              "actionIds": [
+                "retail.report.summary"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lợi nhuận",
+              "actionIds": [
+                "api.get.070d48d67bb5ed90"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hoa hồng",
+              "actionIds": [
+                "api.get.203a9f8e9a785680",
+                "api.get.78da159ec226e07e"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.report.summary",
+            "api.get.070d48d67bb5ed90",
+            "api.get.203a9f8e9a785680",
+            "api.get.78da159ec226e07e"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "retail-partner",
+      "module": "Đối tác bán lẻ",
+      "functions": [
+        {
+          "name": "Hồ sơ đối tác",
+          "checks": "Tạo và sửa hồ sơ đại lý/cộng tác viên.",
+          "anchor": "retail-partner-1",
+          "tasks": [
+            {
+              "task": "Tạo đại lý/cộng tác viên",
+              "actionIds": [
+                "retail.partner.create.dealer",
+                "retail.partner.create.collaborator"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa hồ sơ",
+              "actionIds": [
+                "retail.partner.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.partner.create.dealer",
+            "retail.partner.create.collaborator",
+            "retail.partner.update"
+          ]
+        },
+        {
+          "name": "Hoa hồng",
+          "checks": "Xem/sửa chính sách chung và mức riêng theo sản phẩm.",
+          "anchor": "retail-partner-2",
+          "tasks": [
+            {
+              "task": "Xem chính sách chung",
+              "actionIds": [
+                "retail.partner.commission.policy.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa chính sách chung",
+              "actionIds": [
+                "api.patch.2776df6160261ce4"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem mức riêng theo sản phẩm",
+              "actionIds": [
+                "api.get.d9daa6226ed98e83"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa mức theo sản phẩm",
+              "actionIds": [
+                "retail.partner.product.commissions.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.partner.commission.policy.list",
+            "api.patch.2776df6160261ce4",
+            "api.get.d9daa6226ed98e83",
+            "retail.partner.product.commissions.update"
+          ]
+        },
+        {
+          "name": "Đối soát và chi trả",
+          "checks": "Quản lý chứng từ hoa hồng và khoản chi.",
+          "anchor": "retail-partner-3",
+          "tasks": [
+            {
+              "task": "Xem bảng kê",
+              "actionIds": [
+                "api.get.7c1d9c9cda4722a9"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đối soát",
+              "actionIds": [
+                "api.post.9102a0fae468bcab"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chi trả",
+              "actionIds": [
+                "api.post.3c5a416752fe6656"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.7c1d9c9cda4722a9",
+            "api.post.9102a0fae468bcab",
+            "api.post.3c5a416752fe6656"
+          ]
+        },
+        {
+          "name": "Tài khoản cộng tác viên",
+          "checks": "Tra tài khoản và hồ sơ liên quan.",
+          "anchor": "retail-partner-4",
+          "tasks": [
+            {
+              "task": "Tra tài khoản",
+              "actionIds": [
+                "retail.partner.user.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra hồ sơ cộng tác viên",
+              "actionIds": [
+                "api.get.09ba89f080717c4a",
+                "api.get.9ca47ce89d0dd0f0"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "retail.partner.user.list",
+            "api.get.09ba89f080717c4a",
+            "api.get.9ca47ce89d0dd0f0"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "repair",
+      "module": "Sửa chữa & bảo hành",
+      "functions": [
+        {
+          "name": "Phiếu sửa",
+          "checks": "Tiếp nhận, tìm, xem và hủy phiếu.",
+          "anchor": "repair-1",
+          "tasks": [
+            {
+              "task": "Tiếp nhận phiếu",
+              "actionIds": [
+                "api.post.79291125e27b1d36"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm",
+              "actionIds": [
+                "repair.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem",
+              "actionIds": [
+                "api.get.a647fdd78184d877"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hủy",
+              "actionIds": [
+                "api.post.5a64bf0894869ec7"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.79291125e27b1d36",
+            "repair.list",
+            "api.get.a647fdd78184d877",
+            "api.post.5a64bf0894869ec7"
+          ]
+        },
+        {
+          "name": "Phân công",
+          "checks": "Giao kỹ thuật viên cho đúng phiếu.",
+          "anchor": "repair-2",
+          "tasks": [
+            {
+              "task": "Giao kỹ thuật viên",
+              "actionIds": [
+                "api.post.8ed57322c93cc536"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.8ed57322c93cc536"
+          ]
+        },
+        {
+          "name": "Báo giá",
+          "checks": "Lập và duyệt báo giá sửa chữa.",
+          "anchor": "repair-3",
+          "tasks": [
+            {
+              "task": "Lập báo giá",
+              "actionIds": [
+                "api.post.dd4d2216f9ecc537"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Duyệt",
+              "actionIds": [
+                "api.post.1ee164077121787a"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.dd4d2216f9ecc537",
+            "api.post.1ee164077121787a"
+          ]
+        },
+        {
+          "name": "Linh kiện",
+          "checks": "Tra, xuất và hoàn linh kiện của phiếu.",
+          "anchor": "repair-4",
+          "tasks": [
+            {
+              "task": "Tra linh kiện của phiếu",
+              "actionIds": [
+                "repair.parts.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xuất",
+              "actionIds": [
+                "api.post.aed04d8555cb4291"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hoàn",
+              "actionIds": [
+                "api.post.2b44c18916b1a882"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "repair.parts.list",
+            "api.post.aed04d8555cb4291",
+            "api.post.2b44c18916b1a882"
+          ]
+        },
+        {
+          "name": "Tiến trình và bàn giao",
+          "checks": "Cập nhật trạng thái; ghi nhận giao thiết bị.",
+          "anchor": "repair-5",
+          "tasks": [
+            {
+              "task": "Cập nhật trạng thái",
+              "actionIds": [
+                "api.post.951d43982cb708bc"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Giao thiết bị",
+              "actionIds": [
+                "api.post.572b64fca460dafc"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.951d43982cb708bc",
+            "api.post.572b64fca460dafc"
+          ]
+        },
+        {
+          "name": "Thanh toán",
+          "checks": "Ghi nhận tiền thu, đối chiếu và hoàn tiền.",
+          "anchor": "repair-6",
+          "tasks": [
+            {
+              "task": "Ghi nhận thu",
+              "actionIds": [
+                "api.post.ad54adfbaa37674b"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đối chiếu tiền thu",
+              "actionIds": [
+                "api.get.8cb8202ecb5a1164"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chọn khoản hoàn hợp lệ",
+              "actionIds": [
+                "repair.refund.summary",
+                "repair.refund.vouchers"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hoàn tiền",
+              "actionIds": [
+                "repair.refund.create"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.ad54adfbaa37674b",
+            "api.get.8cb8202ecb5a1164",
+            "repair.refund.summary",
+            "repair.refund.vouchers",
+            "repair.refund.create"
+          ]
+        },
+        {
+          "name": "Lịch sử và báo cáo",
+          "checks": "Tra theo khách/thiết bị; xem doanh thu và hiệu suất kỹ thuật viên.",
+          "anchor": "repair-7",
+          "tasks": [
+            {
+              "task": "Lịch sử theo khách/thiết bị",
+              "actionIds": [
+                "api.get.7517d0cca9ca76c9"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Doanh thu",
+              "actionIds": [
+                "api.get.3938bd395acae1c5"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hiệu suất kỹ thuật viên",
+              "actionIds": [
+                "api.get.68886fa48772aa78"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.7517d0cca9ca76c9",
+            "api.get.3938bd395acae1c5",
+            "api.get.68886fa48772aa78"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "finance",
+      "module": "Tài chính",
+      "functions": [
+        {
+          "name": "Thu/chi và chuyển quỹ",
+          "checks": "Lập, duyệt hoặc đảo chứng từ theo quyền.",
+          "anchor": "finance-1",
+          "tasks": [
+            {
+              "task": "Lập phiếu thu/chi",
+              "actionIds": [
+                "finance.voucher.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lập chuyển quỹ",
+              "actionIds": [
+                "finance.treasury.vouchers.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Duyệt/từ chối",
+              "actionIds": [
+                "finance.treasury.vouchers.decision"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đảo chứng từ",
+              "actionIds": [
+                "api.post.5213d6b07cbffd29"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "finance.voucher.create",
+            "finance.treasury.vouchers.create",
+            "finance.treasury.vouchers.decision",
+            "api.post.5213d6b07cbffd29"
+          ]
+        },
+        {
+          "name": "Quỹ và ngân hàng",
+          "checks": "Tra/tạo tài khoản quỹ; xem sổ và kỳ tài chính.",
+          "anchor": "finance-2",
+          "tasks": [
+            {
+              "task": "Tra tài khoản quỹ/ngân hàng",
+              "actionIds": [
+                "finance.treasury.accounts.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo tài khoản",
+              "actionIds": [
+                "api.post.e7edb97470c1d234"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem sổ quỹ",
+              "actionIds": [
+                "finance.treasury.vouchers.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem kỳ tài chính",
+              "actionIds": [
+                "finance.treasury.periods.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "finance.treasury.accounts.list",
+            "api.post.e7edb97470c1d234",
+            "finance.treasury.vouchers.list",
+            "finance.treasury.periods.list"
+          ]
+        },
+        {
+          "name": "Phải thu",
+          "checks": "Tra tuổi nợ; thu tiền, điều chỉnh và gia hạn nợ.",
+          "anchor": "finance-3",
+          "tasks": [
+            {
+              "task": "Tra tuổi nợ",
+              "actionIds": [
+                "finance.receivable.aging"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thu tiền",
+              "actionIds": [
+                "api.post.ed7ac98d2498702f"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Điều chỉnh",
+              "actionIds": [
+                "api.post.5d88cf81f1042ab2"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Gia hạn",
+              "actionIds": [
+                "finance.receivable.extend"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "finance.receivable.aging",
+            "api.post.ed7ac98d2498702f",
+            "api.post.5d88cf81f1042ab2",
+            "finance.receivable.extend"
+          ]
+        },
+        {
+          "name": "Phải trả",
+          "checks": "Tra công nợ, ghi nhận khoản phải trả và thanh toán.",
+          "anchor": "finance-4",
+          "tasks": [
+            {
+              "task": "Tra công nợ",
+              "actionIds": [
+                "finance.debt.list",
+                "finance.management.debts.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghi khoản phải trả",
+              "actionIds": [
+                "api.post.c7f205ec27eeab37"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thanh toán",
+              "actionIds": [
+                "api.post.fd3f5b4a8cf47782"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "finance.debt.list",
+            "finance.management.debts.list",
+            "api.post.c7f205ec27eeab37",
+            "api.post.fd3f5b4a8cf47782"
+          ]
+        },
+        {
+          "name": "Đối soát",
+          "checks": "Nhập giao dịch, ghép chứng từ và ghi nhận đối soát.",
+          "anchor": "finance-5",
+          "tasks": [
+            {
+              "task": "Nhập giao dịch",
+              "actionIds": [
+                "finance.treasury.bank-lines.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghép chứng từ",
+              "actionIds": [
+                "finance.treasury.bank-lines.match"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghi nhận đối soát",
+              "actionIds": [
+                "finance.treasury.reconciliation.create"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "finance.treasury.bank-lines.create",
+            "finance.treasury.bank-lines.match",
+            "finance.treasury.reconciliation.create"
+          ]
+        },
+        {
+          "name": "Chi phí",
+          "checks": "Ghi nhận và tra chi phí tài chính.",
+          "anchor": "finance-6",
+          "tasks": [
+            {
+              "task": "Ghi nhận chi phí",
+              "actionIds": [
+                "api.post.ac04b554927d4696"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra chi phí",
+              "actionIds": [
+                "api.get.614b2375b202f4b6"
+              ],
+              "note": "Nguồn báo cáo chi phí, không tự coi là API chi tiết từng chứng từ."
+            }
+          ],
+          "actionIds": [
+            "api.post.ac04b554927d4696",
+            "api.get.614b2375b202f4b6"
+          ]
+        },
+        {
+          "name": "VAT và hóa đơn thuế",
+          "checks": "Ghi nhận VAT từ hóa đơn/thủ công; tra số dư kỳ.",
+          "anchor": "finance-7",
+          "tasks": [
+            {
+              "task": "Ghi VAT từ hóa đơn",
+              "actionIds": [
+                "finance.tax.from-invoice"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghi VAT thủ công",
+              "actionIds": [
+                "finance.tax.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra số dư kỳ",
+              "actionIds": [
+                "finance.vat.list"
+              ],
+              "note": "Nguồn API có totals/settings theo kỳ; cần kiểm tra trình bày số dư, không suy từ danh sách hóa đơn rỗng."
+            }
+          ],
+          "actionIds": [
+            "finance.tax.from-invoice",
+            "finance.tax.create",
+            "finance.vat.list"
+          ]
+        },
+        {
+          "name": "Báo cáo",
+          "checks": "Tra doanh thu, chi phí, lãi lỗ và lợi nhuận.",
+          "anchor": "finance-8",
+          "tasks": [
+            {
+              "task": "Doanh thu",
+              "actionIds": [
+                "api.get.03a093fc9349a692"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chi phí",
+              "actionIds": [
+                "api.get.614b2375b202f4b6"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lãi lỗ",
+              "actionIds": [
+                "api.get.4621ea131565f025"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lợi nhuận",
+              "actionIds": [
+                "api.get.d8e2ed96478d8a3e"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.03a093fc9349a692",
+            "api.get.614b2375b202f4b6",
+            "api.get.4621ea131565f025",
+            "api.get.d8e2ed96478d8a3e"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "quotation",
+      "module": "Báo giá",
+      "functions": [
+        {
+          "name": "Bảng giá",
+          "checks": "Quản lý sản phẩm, giá và tệp bảng giá.",
+          "anchor": "quotation-1",
+          "tasks": [
+            {
+              "task": "Tra/thêm/sửa/xóa sản phẩm và giá",
+              "actionIds": [
+                "quotation.catalog.list",
+                "quotation.catalog.create",
+                "quotation.catalog.update",
+                "quotation.catalog.delete"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra tệp bảng giá",
+              "actionIds": [
+                "quotation.price-list.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.catalog.list",
+            "quotation.catalog.create",
+            "quotation.catalog.update",
+            "quotation.catalog.delete",
+            "quotation.price-list.list"
+          ]
+        },
+        {
+          "name": "Báo giá khách hàng",
+          "checks": "Lập, tra và sửa báo giá.",
+          "anchor": "quotation-2",
+          "tasks": [
+            {
+              "task": "Lập báo giá",
+              "actionIds": [
+                "quotation.customer-quote.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra",
+              "actionIds": [
+                "quotation.quote.list",
+                "quotation.quote.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "quotation.quote.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.customer-quote.create",
+            "quotation.quote.list",
+            "quotation.quote.detail",
+            "quotation.quote.update"
+          ]
+        },
+        {
+          "name": "Dự toán",
+          "checks": "Lập phương án theo yêu cầu/ngân sách.",
+          "anchor": "quotation-3",
+          "tasks": [
+            {
+              "task": "Lập theo yêu cầu",
+              "actionIds": [
+                "quotation.request.create",
+                "quotation.request.analyze",
+                "quotation.estimate.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lập theo ngân sách",
+              "actionIds": [
+                "quotation.budget.create"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.request.create",
+            "quotation.request.analyze",
+            "quotation.estimate.create",
+            "quotation.budget.create"
+          ]
+        },
+        {
+          "name": "Phê duyệt",
+          "checks": "Duyệt đúng phiên bản báo giá/dự toán.",
+          "anchor": "quotation-4",
+          "tasks": [
+            {
+              "task": "Duyệt báo giá/dự toán",
+              "actionIds": [
+                "quotation.quote.approve"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.quote.approve"
+          ]
+        },
+        {
+          "name": "Hợp đồng",
+          "checks": "Lập từ dự toán đã duyệt; theo dõi trạng thái hợp đồng.",
+          "anchor": "quotation-5",
+          "tasks": [
+            {
+              "task": "Lập từ dự toán đã duyệt",
+              "actionIds": [
+                "quotation.contract.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Theo dõi trạng thái",
+              "actionIds": [
+                "quotation.contract.list",
+                "quotation.contract.detail"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.contract.create",
+            "quotation.contract.list",
+            "quotation.contract.detail"
+          ]
+        },
+        {
+          "name": "Nghiệm thu",
+          "checks": "Lập, sửa và hoàn tất biên bản.",
+          "anchor": "quotation-6",
+          "tasks": [
+            {
+              "task": "Lập biên bản",
+              "actionIds": [
+                "quotation.acceptance.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "quotation.acceptance.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Hoàn tất",
+              "actionIds": [
+                "quotation.acceptance.complete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.acceptance.create",
+            "quotation.acceptance.update",
+            "quotation.acceptance.complete"
+          ]
+        },
+        {
+          "name": "Xuất tài liệu",
+          "checks": "Xuất và tải báo giá, hợp đồng, nghiệm thu.",
+          "anchor": "quotation-7",
+          "tasks": [
+            {
+              "task": "Xuất báo giá",
+              "actionIds": [
+                "quotation.quote.export"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xuất hợp đồng",
+              "actionIds": [
+                "quotation.contract.export"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xuất nghiệm thu",
+              "actionIds": [
+                "quotation.acceptance.export"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Theo dõi/tải file",
+              "actionIds": [
+                "quotation.export.latest",
+                "quotation.file.download"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "quotation.quote.export",
+            "quotation.contract.export",
+            "quotation.acceptance.export",
+            "quotation.export.latest",
+            "quotation.file.download"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "resource",
+      "module": "Quản lý tài nguyên",
+      "functions": [
+        {
+          "name": "Tra cứu",
+          "checks": "Tìm tài liệu nội bộ và tài nguyên Drive có quyền.",
+          "anchor": "resource-1",
+          "tasks": [
+            {
+              "task": "Tìm tài liệu nội bộ",
+              "actionIds": [
+                "resource.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm tài nguyên Drive",
+              "actionIds": [
+                "resource.google-drive.list",
+                "api.get.8d100f7d89820c43"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "resource.list",
+            "resource.google-drive.list",
+            "api.get.8d100f7d89820c43"
+          ]
+        },
+        {
+          "name": "Tạo tài nguyên",
+          "checks": "Tạo thư mục hoặc thêm liên kết tệp.",
+          "anchor": "resource-2",
+          "tasks": [
+            {
+              "task": "Tạo thư mục",
+              "actionIds": [
+                "api.post.4fac47294c399fc8"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm liên kết tệp",
+              "actionIds": [
+                "api.post.f16467714880abd7"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.post.4fac47294c399fc8",
+            "api.post.f16467714880abd7"
+          ]
+        },
+        {
+          "name": "Sắp xếp",
+          "checks": "Đổi tên và di chuyển tệp/thư mục.",
+          "anchor": "resource-3",
+          "tasks": [
+            {
+              "task": "Đổi tên",
+              "actionIds": [
+                "resource.google-drive.rename",
+                "api.patch.120dc3a54509fc0c"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Di chuyển",
+              "actionIds": [
+                "resource.google-drive.move",
+                "api.patch.1cfa9b644fbe938f"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "resource.google-drive.rename",
+            "api.patch.120dc3a54509fc0c",
+            "resource.google-drive.move",
+            "api.patch.1cfa9b644fbe938f"
+          ]
+        },
+        {
+          "name": "Xóa/khôi phục",
+          "checks": "Xóa, xem thùng rác và khôi phục.",
+          "anchor": "resource-4",
+          "tasks": [
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "api.delete.771468fb212b7e25",
+                "api.delete.53bdaed9e11523ef"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem thùng rác",
+              "actionIds": [
+                "resource.trash.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Khôi phục",
+              "actionIds": [
+                "resource.restore"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.delete.771468fb212b7e25",
+            "api.delete.53bdaed9e11523ef",
+            "resource.trash.list",
+            "resource.restore"
+          ]
+        },
+        {
+          "name": "Quyền truy cập",
+          "checks": "Xem vị trí và quyền chia sẻ hiện có.",
+          "anchor": "resource-5",
+          "tasks": [
+            {
+              "task": "Xem vị trí",
+              "actionIds": [
+                "api.get.5a8c34f32c006c0b"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem quyền chia sẻ",
+              "actionIds": [
+                "api.get.70715572be0f86f6"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.5a8c34f32c006c0b",
+            "api.get.70715572be0f86f6"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "chat",
+      "module": "Trò chuyện",
+      "functions": [
+        {
+          "name": "Phòng chat",
+          "checks": "Tìm/tạo phòng; ghim hoặc rời nhóm.",
+          "anchor": "chat-1",
+          "tasks": [
+            {
+              "task": "Tìm phòng",
+              "actionIds": [
+                "chat.rooms.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo phòng",
+              "actionIds": [
+                "api.post.0ca30bd0f44e4447"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Ghim/bỏ ghim",
+              "actionIds": [
+                "api.post.383280e18fd7151d"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Rời nhóm",
+              "actionIds": [
+                "api.delete.2cad6a5af287c9ed"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "chat.rooms.list",
+            "api.post.0ca30bd0f44e4447",
+            "api.post.383280e18fd7151d",
+            "api.delete.2cad6a5af287c9ed"
+          ]
+        },
+        {
+          "name": "Tin nhắn",
+          "checks": "Xem lịch sử, gửi và xóa tin nhắn theo quyền.",
+          "anchor": "chat-2",
+          "tasks": [
+            {
+              "task": "Xem lịch sử",
+              "actionIds": [
+                "chat.room.messages.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Gửi",
+              "actionIds": [
+                "api.post.34721e0ad003aba8"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "api.delete.405c62abccc22d73"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "chat.room.messages.list",
+            "api.post.34721e0ad003aba8",
+            "api.delete.405c62abccc22d73"
+          ]
+        },
+        {
+          "name": "Thành viên",
+          "checks": "Tra thành viên, đổi vai trò, chuyển trưởng nhóm và loại thành viên.",
+          "anchor": "chat-3",
+          "tasks": [
+            {
+              "task": "Tra thành viên",
+              "actionIds": [
+                "chat.room.members.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đổi vai trò",
+              "actionIds": [
+                "chat.room.member.role.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Chuyển trưởng nhóm",
+              "actionIds": [
+                "chat.room.transfer-admin"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Loại thành viên",
+              "actionIds": [
+                "chat.room.member.remove"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "chat.room.members.list",
+            "chat.room.member.role.update",
+            "chat.room.transfer-admin",
+            "chat.room.member.remove"
+          ]
+        },
+        {
+          "name": "Thông báo",
+          "checks": "Tra, đánh dấu đã đọc, gửi hoặc xóa thông báo.",
+          "anchor": "chat-4",
+          "tasks": [
+            {
+              "task": "Tra thông báo",
+              "actionIds": [
+                "notification.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đánh dấu đã đọc",
+              "actionIds": [
+                "notification.mark-read",
+                "notification.mark-all-read"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Gửi",
+              "actionIds": [
+                "api.post.7cae6bbc334b2879"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "notification.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "notification.list",
+            "notification.mark-read",
+            "notification.mark-all-read",
+            "api.post.7cae6bbc334b2879",
+            "notification.delete"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "omni-inbox",
+      "module": "Hộp thư đa kênh",
+      "functions": [
+        {
+          "name": "Hội thoại",
+          "checks": "Tìm và đọc tin nhắn Facebook, TikTok, Zalo.",
+          "anchor": "omni-inbox-1",
+          "tasks": [
+            {
+              "task": "Tìm/đọc hội thoại Facebook",
+              "actionIds": [
+                "omni-inbox.facebook-conversations.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm/đọc hội thoại TikTok",
+              "actionIds": [
+                "omni-inbox.tiktok-conversations.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm/đọc hội thoại Zalo",
+              "actionIds": [
+                "omni-inbox.zalo-conversations.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "omni-inbox.facebook-conversations.list",
+            "omni-inbox.tiktok-conversations.list",
+            "omni-inbox.zalo-conversations.list"
+          ]
+        },
+        {
+          "name": "Trả lời khách",
+          "checks": "Gửi phản hồi đúng kênh và cập nhật trạng thái đọc.",
+          "anchor": "omni-inbox-2",
+          "tasks": [
+            {
+              "task": "Trả lời Facebook/TikTok/Zalo",
+              "actionIds": [
+                "omni-inbox.facebook-conversation.reply",
+                "omni-inbox.tiktok-conversation.reply",
+                "omni-inbox.zalo-conversation.reply"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đánh dấu đọc theo kênh",
+              "actionIds": [
+                "omni-inbox.facebook-conversation.mark-read",
+                "omni-inbox.tiktok-conversation.mark-read",
+                "omni-inbox.zalo-conversation.mark-read"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "omni-inbox.facebook-conversation.reply",
+            "omni-inbox.tiktok-conversation.reply",
+            "omni-inbox.zalo-conversation.reply",
+            "omni-inbox.facebook-conversation.mark-read",
+            "omni-inbox.tiktok-conversation.mark-read",
+            "omni-inbox.zalo-conversation.mark-read"
+          ]
+        },
+        {
+          "name": "Khách tiềm năng",
+          "checks": "Tạo, tìm và cập nhật lead.",
+          "anchor": "omni-inbox-3",
+          "tasks": [
+            {
+              "task": "Tạo lead",
+              "actionIds": [
+                "omni-inbox.leads.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm lead",
+              "actionIds": [
+                "omni-inbox.leads.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "omni-inbox.leads.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "omni-inbox.leads.create",
+            "omni-inbox.leads.list",
+            "omni-inbox.leads.update"
+          ]
+        },
+        {
+          "name": "Liên kết hồ sơ",
+          "checks": "Chuyển/liên kết lead đúng loại học viên, lao động hoặc bệnh nhân.",
+          "anchor": "omni-inbox-4",
+          "tasks": [
+            {
+              "task": "Liên kết học viên",
+              "actionIds": [
+                "omni-inbox.leads.link-student"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Liên kết lao động",
+              "actionIds": [
+                "omni-inbox.leads.link-worker"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Liên kết bệnh nhân",
+              "actionIds": [
+                "omni-inbox.leads.link-patient"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "omni-inbox.leads.link-student",
+            "omni-inbox.leads.link-worker",
+            "omni-inbox.leads.link-patient"
+          ]
+        },
+        {
+          "name": "AI trả lời",
+          "checks": "Xem/sửa cấu hình; bật lại AI và tra log.",
+          "anchor": "omni-inbox-5",
+          "tasks": [
+            {
+              "task": "Xem cấu hình AI",
+              "actionIds": [],
+              "note": "Chưa thấy action đọc cấu hình AI riêng trong catalog; không dùng danh sách tài khoản thay bằng chứng đọc cấu hình."
+            },
+            {
+              "task": "Sửa cấu hình",
+              "actionIds": [
+                "omni-inbox.account.ai-config.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Bật lại AI theo kênh",
+              "actionIds": [
+                "omni-inbox.facebook-conversation.resume-ai",
+                "omni-inbox.tiktok-conversation.resume-ai",
+                "omni-inbox.zalo-conversation.resume-ai"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra log",
+              "actionIds": [
+                "omni-inbox.ai-reply-logs.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "omni-inbox.account.ai-config.update",
+            "omni-inbox.facebook-conversation.resume-ai",
+            "omni-inbox.tiktok-conversation.resume-ai",
+            "omni-inbox.zalo-conversation.resume-ai",
+            "omni-inbox.ai-reply-logs.list"
+          ]
+        },
+        {
+          "name": "Kênh nhắn tin",
+          "checks": "Tra tài khoản/kênh liên quan hội thoại.",
+          "anchor": "omni-inbox-6",
+          "tasks": [
+            {
+              "task": "Tra tài khoản/kênh",
+              "actionIds": [
+                "omni-inbox.account.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "omni-inbox.account.list"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "marketing",
+      "module": "Marketing tự động",
+      "functions": [
+        {
+          "name": "Chiến dịch email",
+          "checks": "Tạo nháp, tra, bật/tắt và xóa chiến dịch.",
+          "anchor": "marketing-1",
+          "tasks": [
+            {
+              "task": "Tạo nháp",
+              "actionIds": [
+                "marketing.holiday-campaign.create-draft"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra chiến dịch",
+              "actionIds": [
+                "marketing.holiday-campaign.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Bật/tắt",
+              "actionIds": [
+                "marketing.holiday-campaign.enabled.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa",
+              "actionIds": [
+                "marketing.holiday-campaign.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.holiday-campaign.create-draft",
+            "marketing.holiday-campaign.list",
+            "marketing.holiday-campaign.enabled.update",
+            "marketing.holiday-campaign.delete"
+          ]
+        },
+        {
+          "name": "Cấu hình gửi",
+          "checks": "Xem và cập nhật cài đặt gửi.",
+          "anchor": "marketing-2",
+          "tasks": [
+            {
+              "task": "Xem cấu hình",
+              "actionIds": [
+                "api.get.ddf0c072158be296"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "marketing.settings.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.ddf0c072158be296",
+            "marketing.settings.update"
+          ]
+        },
+        {
+          "name": "Kết quả gửi",
+          "checks": "Tra lượt chạy và trạng thái gửi nội dung.",
+          "anchor": "marketing-3",
+          "tasks": [
+            {
+              "task": "Tra lượt chạy",
+              "actionIds": [
+                "api.get.790586d43d8979d7"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Trạng thái gửi",
+              "actionIds": [
+                "api.get.34a8d9d0814701f9"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "api.get.790586d43d8979d7",
+            "api.get.34a8d9d0814701f9"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "social-marketing",
+      "module": "Chiến dịch nội dung",
+      "functions": [
+        {
+          "name": "Chiến dịch",
+          "checks": "Lập ý tưởng/kế hoạch; tra và đổi trạng thái.",
+          "anchor": "social-marketing-1",
+          "tasks": [
+            {
+              "task": "Lập ý tưởng",
+              "actionIds": [
+                "marketing.ai.campaign-ideas"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Lập kế hoạch",
+              "actionIds": [
+                "marketing.ai.scheduled-campaign"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra chiến dịch",
+              "actionIds": [
+                "marketing.campaign.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đổi trạng thái",
+              "actionIds": [
+                "marketing.campaign.lifecycle"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.ai.campaign-ideas",
+            "marketing.ai.scheduled-campaign",
+            "marketing.campaign.list",
+            "marketing.campaign.lifecycle"
+          ]
+        },
+        {
+          "name": "Nội dung",
+          "checks": "Tạo/sửa bản nháp và quản lý yêu cầu sản xuất.",
+          "anchor": "social-marketing-2",
+          "tasks": [
+            {
+              "task": "Tạo nháp",
+              "actionIds": [
+                "marketing.content.draft.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa nháp",
+              "actionIds": [
+                "marketing.content.draft.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Quản lý yêu cầu sản xuất",
+              "actionIds": [
+                "marketing.campaign.asset-orders.list",
+                "marketing.campaign.asset-order.create",
+                "marketing.campaign.asset-order.update",
+                "marketing.campaign.asset-order.archive"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.content.draft.create",
+            "marketing.content.draft.update",
+            "marketing.campaign.asset-orders.list",
+            "marketing.campaign.asset-order.create",
+            "marketing.campaign.asset-order.update",
+            "marketing.campaign.asset-order.archive"
+          ]
+        },
+        {
+          "name": "Bảng nội dung",
+          "checks": "Quản lý cột/dòng và cập nhật nội dung.",
+          "anchor": "social-marketing-3",
+          "tasks": [
+            {
+              "task": "Tra cột/dòng",
+              "actionIds": [
+                "marketing.campaign.sheet.columns.list",
+                "marketing.campaign.sheet.slots.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm/sửa/lưu trữ cột",
+              "actionIds": [
+                "api.post.9fe634492244a76b",
+                "api.patch.568b7733e09d2fd4",
+                "api.delete.821abe66f21dcede"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Thêm/sửa dòng",
+              "actionIds": [
+                "api.post.44271d4a548fc225",
+                "api.patch.4da13a2c42665d10"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật nội dung ô",
+              "actionIds": [
+                "marketing.campaign.sheet.cells.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.campaign.sheet.columns.list",
+            "marketing.campaign.sheet.slots.list",
+            "api.post.9fe634492244a76b",
+            "api.patch.568b7733e09d2fd4",
+            "api.delete.821abe66f21dcede",
+            "api.post.44271d4a548fc225",
+            "api.patch.4da13a2c42665d10",
+            "marketing.campaign.sheet.cells.update"
+          ]
+        },
+        {
+          "name": "Phê duyệt",
+          "checks": "Duyệt hoặc từ chối nội dung.",
+          "anchor": "social-marketing-4",
+          "tasks": [
+            {
+              "task": "Duyệt nội dung",
+              "actionIds": [
+                "marketing.campaign.slot.approve"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Từ chối",
+              "actionIds": [
+                "marketing.campaign.slot.reject"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.campaign.slot.approve",
+            "marketing.campaign.slot.reject"
+          ]
+        },
+        {
+          "name": "Lên lịch và đăng bài",
+          "checks": "Đăng/đặt lịch đúng tài khoản và kênh.",
+          "anchor": "social-marketing-5",
+          "tasks": [
+            {
+              "task": "Đăng ngay",
+              "actionIds": [
+                "marketing.campaign.slot.publish-now"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đặt lịch",
+              "actionIds": [
+                "marketing.scheduler.schedule-post"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.campaign.slot.publish-now",
+            "marketing.scheduler.schedule-post"
+          ]
+        },
+        {
+          "name": "Kết nối kênh",
+          "checks": "Tra tài khoản và kết nối mạng xã hội.",
+          "anchor": "social-marketing-6",
+          "tasks": [
+            {
+              "task": "Tra tài khoản",
+              "actionIds": [
+                "marketing.account.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Kiểm tra kết nối kênh",
+              "actionIds": [
+                "marketing.author.integration-status"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.account.list",
+            "marketing.author.integration-status"
+          ]
+        },
+        {
+          "name": "Thống kê",
+          "checks": "Xem kết quả hoạt động chiến dịch.",
+          "anchor": "social-marketing-7",
+          "tasks": [
+            {
+              "task": "Kết quả chiến dịch",
+              "actionIds": [
+                "marketing.campaign.analytics.summary"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "marketing.campaign.analytics.summary"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "company-knowledge",
+      "module": "Kho tri thức",
+      "functions": [
+        {
+          "name": "Tài liệu",
+          "checks": "Tra và xóa tài liệu trong kho doanh nghiệp.",
+          "anchor": "company-knowledge-1",
+          "tasks": [
+            {
+              "task": "Tra tài liệu",
+              "actionIds": [
+                "company-knowledge.documents.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xóa tài liệu",
+              "actionIds": [
+                "company-knowledge.documents.delete"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "company-knowledge.documents.list",
+            "company-knowledge.documents.delete"
+          ]
+        },
+        {
+          "name": "Phạm vi sử dụng",
+          "checks": "Cập nhật phạm vi tài liệu theo kênh/tài khoản.",
+          "anchor": "company-knowledge-2",
+          "tasks": [
+            {
+              "task": "Cập nhật phạm vi theo kênh/tài khoản",
+              "actionIds": [
+                "company-knowledge.documents.scopes.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "company-knowledge.documents.scopes.update"
+          ]
+        },
+        {
+          "name": "Truy xuất",
+          "checks": "Tìm nội dung liên quan và mô phỏng câu trả lời dùng tri thức.",
+          "anchor": "company-knowledge-3",
+          "tasks": [
+            {
+              "task": "Tìm nội dung liên quan",
+              "actionIds": [
+                "company-knowledge.test-search"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Mô phỏng câu trả lời",
+              "actionIds": [
+                "company-knowledge.page-chat.simulate"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "company-knowledge.test-search",
+            "company-knowledge.page-chat.simulate"
+          ]
+        },
+        {
+          "name": "FAQ",
+          "checks": "Xem đề xuất, duyệt hoặc từ chối FAQ.",
+          "anchor": "company-knowledge-4",
+          "tasks": [
+            {
+              "task": "Xem đề xuất",
+              "actionIds": [
+                "company-knowledge.faq-candidates.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Duyệt",
+              "actionIds": [
+                "company-knowledge.faq-candidate.approve"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Từ chối",
+              "actionIds": [
+                "company-knowledge.faq-candidate.reject"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "company-knowledge.faq-candidates.list",
+            "company-knowledge.faq-candidate.approve",
+            "company-knowledge.faq-candidate.reject"
+          ]
+        },
+        {
+          "name": "Chất lượng dữ liệu",
+          "checks": "Xem trạng thái và mâu thuẫn của kho tri thức.",
+          "anchor": "company-knowledge-5",
+          "tasks": [
+            {
+              "task": "Xem trạng thái",
+              "actionIds": [
+                "company-knowledge.health"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem mâu thuẫn",
+              "actionIds": [
+                "company-knowledge.conflicts.list"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "company-knowledge.health",
+            "company-knowledge.conflicts.list"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "legal-reference",
+      "module": "Văn bản pháp luật",
+      "functions": [
+        {
+          "name": "Tra cứu",
+          "checks": "Tìm theo danh mục và nội dung văn bản.",
+          "anchor": "legal-reference-1",
+          "tasks": [
+            {
+              "task": "Tìm theo danh mục",
+              "actionIds": [
+                "legal.document.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm theo nội dung",
+              "actionIds": [
+                "legal.document.search"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "legal.document.list",
+            "legal.document.search"
+          ]
+        },
+        {
+          "name": "Hỏi đáp",
+          "checks": "Trả lời dựa trên văn bản và phạm vi đã chọn.",
+          "anchor": "legal-reference-2",
+          "tasks": [
+            {
+              "task": "Hỏi đáp từ văn bản",
+              "actionIds": [
+                "legal.document.answer"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "legal.document.answer"
+          ]
+        },
+        {
+          "name": "Đồng bộ",
+          "checks": "Xem trạng thái kho và khởi động đồng bộ theo quyền.",
+          "anchor": "legal-reference-3",
+          "tasks": [
+            {
+              "task": "Xem trạng thái kho",
+              "actionIds": [
+                "legal.repository.status"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Đồng bộ",
+              "actionIds": [
+                "legal.repository.sync"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "legal.repository.status",
+            "legal.repository.sync"
+          ]
+        },
+        {
+          "name": "Rà soát",
+          "checks": "Tra mục chờ, sửa và duyệt/từ chối văn bản.",
+          "anchor": "legal-reference-4",
+          "tasks": [
+            {
+              "task": "Tra mục chờ",
+              "actionIds": [
+                "legal.review.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa nội dung",
+              "actionIds": [
+                "legal.review.content.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Duyệt/từ chối",
+              "actionIds": [
+                "legal.review.decision"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "legal.review.list",
+            "legal.review.content.update",
+            "legal.review.decision"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "healthcare",
+      "module": "Quản lý y tế",
+      "functions": [
+        {
+          "name": "Bệnh nhân",
+          "checks": "Tạo, tìm, sửa và xóa hồ sơ; xem ảnh hưởng trước xóa.",
+          "anchor": "healthcare-1",
+          "tasks": [
+            {
+              "task": "Tạo bệnh nhân",
+              "actionIds": [
+                "healthcare.patient.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm/xem",
+              "actionIds": [
+                "healthcare.patient.list",
+                "healthcare.patient.detail"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Sửa",
+              "actionIds": [
+                "healthcare.patient.update"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Xem ảnh hưởng và xóa một hồ sơ",
+              "actionIds": [
+                "healthcare.patient.bulk-delete-preview",
+                "healthcare.patient.bulk-delete"
+              ],
+              "note": "Chọn đúng một bệnh nhân; không mở phạm vi thành xóa hàng loạt."
+            }
+          ],
+          "actionIds": [
+            "healthcare.patient.create",
+            "healthcare.patient.list",
+            "healthcare.patient.detail",
+            "healthcare.patient.update",
+            "healthcare.patient.bulk-delete-preview",
+            "healthcare.patient.bulk-delete"
+          ]
+        },
+        {
+          "name": "Lịch hẹn",
+          "checks": "Tạo, tìm và cập nhật lịch khám.",
+          "anchor": "healthcare-2",
+          "tasks": [
+            {
+              "task": "Tạo lịch",
+              "actionIds": [
+                "healthcare.appointment.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tìm",
+              "actionIds": [
+                "healthcare.appointment.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "healthcare.appointment.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "healthcare.appointment.create",
+            "healthcare.appointment.list",
+            "healthcare.appointment.update"
+          ]
+        },
+        {
+          "name": "Lượt khám",
+          "checks": "Ghi nhận, tra và cập nhật lượt khám.",
+          "anchor": "healthcare-3",
+          "tasks": [
+            {
+              "task": "Ghi nhận lượt khám",
+              "actionIds": [
+                "healthcare.visit.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra",
+              "actionIds": [
+                "healthcare.visit.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "healthcare.visit.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "healthcare.visit.create",
+            "healthcare.visit.list",
+            "healthcare.visit.update"
+          ]
+        },
+        {
+          "name": "Chăm sóc",
+          "checks": "Tạo, tra và cập nhật việc chăm sóc bệnh nhân.",
+          "anchor": "healthcare-4",
+          "tasks": [
+            {
+              "task": "Tạo việc chăm sóc",
+              "actionIds": [
+                "healthcare.care.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tra",
+              "actionIds": [
+                "healthcare.care.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật",
+              "actionIds": [
+                "healthcare.care.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "healthcare.care.create",
+            "healthcare.care.list",
+            "healthcare.care.update"
+          ]
+        },
+        {
+          "name": "Danh mục",
+          "checks": "Quản lý bác sĩ, phòng khám và dịch vụ.",
+          "anchor": "healthcare-5",
+          "tasks": [
+            {
+              "task": "Tra bác sĩ/phòng khám/dịch vụ",
+              "actionIds": [
+                "healthcare.catalog.list"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Tạo danh mục",
+              "actionIds": [
+                "healthcare.catalog.create"
+              ],
+              "note": ""
+            },
+            {
+              "task": "Cập nhật/ngừng sử dụng",
+              "actionIds": [
+                "healthcare.catalog.update"
+              ],
+              "note": ""
+            }
+          ],
+          "actionIds": [
+            "healthcare.catalog.list",
+            "healthcare.catalog.create",
+            "healthcare.catalog.update"
+          ]
+        }
+      ]
+    }
+  ]
+}

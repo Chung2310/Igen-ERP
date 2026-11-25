@@ -1,4 +1,5 @@
 import React from "react";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { socketService } from "../../../services/socketService";
 import { CalendarDays, ChevronDown, ClipboardList, Clock3, CreditCard, LoaderCircle, Package, RefreshCw, RotateCcw, UserRound, Wallet, X } from "lucide-react";
 import { retailShiftsApi } from "../api/retailShifts.api";
@@ -238,9 +239,9 @@ function InfoPill({ icon, children }: { icon: React.ReactNode; children: React.R
 }
 
 function SessionStatus({ status }: { status: RetailShift["status"] }) {
-  const styles: Record<RetailShift["status"], string> = { open: "bg-emerald-50 text-emerald-700 ring-emerald-600/15", closed: "bg-amber-50 text-amber-700 ring-amber-600/15", reconciled: "bg-slate-100 text-slate-600 ring-slate-500/15" };
+  const tones: Record<RetailShift["status"], "success" | "warning" | "neutral"> = { open: "success", closed: "warning", reconciled: "neutral" };
   const labels: Record<RetailShift["status"], string> = { open: "Đang mở", closed: "Chờ đối soát", reconciled: "Đã đối soát" };
-  return <span className={"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset " + styles[status]}><span className="h-1.5 w-1.5 rounded-full bg-current" />{labels[status]}</span>;
+  return <HrStatusBadge tone={tones[status]}>{labels[status]}</HrStatusBadge>;
 }
 
 function AmountCell({ label, value }: { label: string; value: string }) {
@@ -255,11 +256,11 @@ function OrderRow({ order, shiftId }: { order: RetailShiftOrderDetail; shiftId: 
   const refunded = refunds.reduce((sum, refund) => sum + Number(refund.amount || 0), 0);
   const methods = [...new Set([...payments.map((payment) => payment.method), ...refunds.map((refund) => refund.method)])].map((method) => methodLabels[method]).join(", ");
   const status = order.status === "cancelled" ? "Đã hủy" : order.paymentStatus === "paid" ? "Đã thanh toán" : order.paymentStatus === "partial" ? "Thanh toán một phần" : order.paymentStatus === "refunded" ? "Đã hoàn tiền" : "Chưa thanh toán";
-  const statusTone = order.status === "cancelled" ? "bg-rose-50 text-rose-700" : order.paymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : order.paymentStatus === "refunded" ? "bg-violet-50 text-violet-700" : "bg-amber-50 text-amber-700";
+  const statusTone = order.status === "cancelled" ? "danger" : order.paymentStatus === "paid" ? "success" : order.paymentStatus === "refunded" ? "violet" : "warning";
   return <article className="border-b border-slate-200 px-2 last:border-b-0">
     <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="w-full py-2.5 text-left transition hover:bg-slate-50/70">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-slate-900">Đơn hàng</span><span className={"rounded-full px-2 py-0.5 text-[10px] font-semibold " + statusTone}>{status}</span></div><p className="mt-0.5 text-xs text-slate-500">{dateTime(order.createdAt)}{methods ? " · " + methods : ""}</p></div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-slate-900">Đơn hàng</span><HrStatusBadge tone={statusTone}>{status}</HrStatusBadge></div><p className="mt-0.5 text-xs text-slate-500">{dateTime(order.createdAt)}{methods ? " · " + methods : ""}</p></div>
         <ChevronDown className={"mt-1 h-4 w-4 shrink-0 text-slate-400 transition " + (expanded ? "rotate-180" : "")} />
       </div>
       <div className="mt-2 grid grid-cols-2 divide-x divide-slate-200 rounded-lg bg-slate-50 py-2 sm:grid-cols-4">

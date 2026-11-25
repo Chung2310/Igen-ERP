@@ -661,7 +661,7 @@ function HealthcareOverviewContent({
                 <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl">
                   <AnimatedOverviewValue
                     value={analytics?.finance.visitPaymentTotal ?? null}
-                    format={shortMoney}
+                    format={money}
                   />
                 </p>
                 <OverviewKpiDelta
@@ -684,7 +684,7 @@ function HealthcareOverviewContent({
                 <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl">
                   <AnimatedOverviewValue
                     value={analytics?.inventory.totalValue ?? null}
-                    format={shortMoney}
+                    format={money}
                   />
                 </p>
                 <p className="finance-kpi-delta mt-auto w-full bg-surface-container-lowest px-2 py-1 text-xs font-medium leading-4 tabular-nums text-on-surface-variant">

@@ -255,8 +255,8 @@ function CaptureSection({
 
 const SignaturePad = forwardRef<
   SignatureHandle,
-  { onDraw: () => void; initial?: GymRecord["customerSignature"] }
->(({ onDraw, initial }, ref) => {
+  { onDraw: () => void; initial?: GymRecord["customerSignature"]; defaultSignerName?: string }
+>(({ onDraw, initial, defaultSignerName = "" }, ref) => {
   const inlineCanvasRef = useRef<HTMLCanvasElement>(null);
   const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<Stroke[]>([]);
@@ -266,7 +266,7 @@ const SignaturePad = forwardRef<
 
   const [strokeCount, setStrokeCount] = useState(0);
   const [hasInitialImg, setHasInitialImg] = useState(Boolean(initial?.signatureUrl));
-  const [signerName, setSignerName] = useState(initial?.signerName || "");
+  const resolvedSignerName = (defaultSignerName || initial?.signerName || "").trim();
   const [selectedColor, setSelectedColor] = useState<string>(INK_COLORS[0].hex);
   const [selectedWidth, setSelectedWidth] = useState<number>(STROKE_WIDTHS[1].value);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -362,12 +362,12 @@ const SignaturePad = forwardRef<
         drawStrokes(exportCanvas, strokesRef.current, null, initialImgRef.current);
         return {
           signatureUrl: exportCanvas.toDataURL("image/png"),
-          signerName: signerName.trim(),
+          signerName: resolvedSignerName,
           signedAt: new Date().toISOString(),
         };
       },
     }),
-    [hasInk, signerName],
+    [hasInk, resolvedSignerName],
   );
 
   const normalizedPoint = (event: PointerEvent<HTMLCanvasElement>): NormalizedPoint => {
@@ -539,17 +539,12 @@ const SignaturePad = forwardRef<
             </div>
           )}
         </div>
+        {resolvedSignerName && (
+          <p className="mt-2 text-xs text-on-surface-variant">
+            Người ký: <span className="font-medium text-on-surface">{resolvedSignerName}</span>
+          </p>
+        )}
       </div>
-
-      <Field
-        label="Họ tên người ký"
-        value={signerName}
-        onChange={(value) => {
-          setSignerName(value);
-          onDraw();
-        }}
-        placeholder="Họ và tên khách hàng"
-      />
 
       {isFullscreen &&
         typeof document !== "undefined" &&
@@ -611,6 +606,17 @@ const SessionCapture = forwardRef<SessionCaptureHandle, SessionCaptureProps>(fun
   ref,
 ) {
   const draftKey = !record && customerId ? `igen_gym_session_draft_${customerId}` : "";
+  const customerQuery = useGymQuery<GymRecord>(
+    api,
+    customerId ? `/customers/${encodeURIComponent(customerId)}` : "",
+  );
+  const defaultSignerName = String(
+    customerQuery.data?.fullName ||
+      customerQuery.data?.name ||
+      record?.customerSignature?.signerName ||
+      record?.customerName ||
+      "",
+  ).trim();
   const plansQuery = useGymQuery<GymList>(
     api,
     customerId ? `/workout-plans?customerId=${encodeURIComponent(customerId)}&limit=100` : "",
@@ -1318,7 +1324,12 @@ const SessionCapture = forwardRef<SessionCaptureHandle, SessionCaptureProps>(fun
           icon={<PenLine className="size-4 text-primary" aria-hidden="true" />}
           title="Chữ ký xác nhận của khách hàng"
         >
-          <SignaturePad ref={signatureRef} onDraw={onDirty} initial={record?.customerSignature} />
+          <SignaturePad
+            ref={signatureRef}
+            onDraw={onDirty}
+            initial={record?.customerSignature}
+            defaultSignerName={defaultSignerName}
+          />
         </CaptureSection>
       )}
     </div>
