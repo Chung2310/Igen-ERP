@@ -511,7 +511,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
     }
   };
 
-  return <section className="min-h-0 flex-1 space-y-2 overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+  return <section className="visible-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
     <div className="flex flex-col gap-2 border-b border-outline-variant sm:flex-row sm:items-center sm:justify-between">
       <div role="tablist" aria-label="Các mục bảng lương" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
         {([
