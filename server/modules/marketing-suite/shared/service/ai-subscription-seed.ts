@@ -1,3 +1,4 @@
+import { runInTransaction } from "../../../../config/database";
 import { AiSubscriptionPlanModel, type SubscriptionPlanRecord } from "../model/ai-subscription.model";
 
 const DEFAULT_PLANS: Pick<SubscriptionPlanRecord, "code" | "name" | "description" | "durationDays" | "aiLimit" | "priceVnd">[] = [
@@ -15,17 +16,18 @@ export async function seedAiSubscriptionPlans(): Promise<number> {
   const markerId = "ai-subscription-initial-catalog-v1";
   let inserted: number;
   try {
-    inserted = await AiSubscriptionPlanModel.db.transaction(async (session) => {
-      if (await markers.findOne({ _id: markerId }, { session })) return 0;
+    inserted = await runInTransaction(async (session) => {
+      const sessionOpt = session ? { session } : {};
+      if (await markers.findOne({ _id: markerId }, sessionOpt)) return 0;
       let count = 0;
       for (const plan of DEFAULT_PLANS) {
         const now = new Date();
         const result = await AiSubscriptionPlanModel.updateOne({ code: plan.code }, {
           $setOnInsert: { ...plan, active: true, createdBy: "system:ai-subscription-seed", createdAt: now, updatedAt: now },
-        }, { upsert: true, runValidators: true, timestamps: false, session });
+        }, { upsert: true, runValidators: true, timestamps: false, ...sessionOpt });
         count += result.upsertedCount;
       }
-      await markers.insertOne({ _id: markerId, appliedAt: new Date() }, { session });
+      await markers.insertOne({ _id: markerId, appliedAt: new Date() }, sessionOpt);
       return count;
     });
   } catch (error) {
