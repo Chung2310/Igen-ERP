@@ -7,6 +7,7 @@ import { toast } from '../../../../pages/Toast';
 import { useBatches } from '../../hooks/useBatches';
 import { useAdminCenters } from '../../hooks/useAdminCenters';
 import { formatVND, toDisplayDate } from '../../lib/utils';
+import { VietnameseDatePicker } from '../Batches/VietnameseDatePicker';
 import { Student, Partner } from '../../types';
 import { findDuplicateStudentField } from '../../lib/studentUniqueness';
 import { FormInput } from './components/StudentFormFields';
@@ -395,7 +396,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 {isFieldVisible('referral') && (
                   <div className="sm:col-span-2 relative group/std space-y-1">
                     {renderFieldActions('referral')}
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                    <label className="block text-xs font-medium text-on-surface">
                       {getFieldLabel('referral', 'Nguồn giới thiệu')}{' '}
                       {isFieldRequired('referral', false) && <span className="text-rose-500">*</span>}
                     </label>
@@ -472,13 +473,17 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 {isFieldVisible('birthday') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('birthday')}
-                    <FormInput
-                      label={getFieldLabel('birthday', 'Ngày sinh')}
-                      name="birthday"
-                      value={toDisplayDate(formData.birthday)}
-                      onChange={handleInputChange}
+                    <label className="block text-xs font-medium text-on-surface">
+                      {getFieldLabel('birthday', 'Ngày sinh')}{' '}
+                      {isFieldRequired('birthday', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <VietnameseDatePicker
+                      ariaLabel={getFieldLabel('birthday', 'Ngày sinh')}
+                      value={/^\d{2}\/\d{2}\/\d{4}$/.test(formData.birthday) ? formData.birthday.split('/').reverse().join('-') : formData.birthday}
+                      onChange={(iso) => setFormData((prev) => ({ ...prev, birthday: iso }))}
                       required={isFieldRequired('birthday', false)}
-                      placeholder="DD/MM/YYYY"
+                      variant="filter"
+                      className="h-10"
                     />
                   </div>
                 )}
@@ -499,30 +504,33 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 {showBatchDropdown && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('batchId')}
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                    <label className="block text-xs font-medium text-on-surface">
                       {isWorkerPreset ? 'Thêm vào dự án (tùy chọn)' : getFieldLabel('batchId', 'Xếp vào lớp (tùy chọn)')}{' '}
                       {isFieldRequired('batchId', false) && <span className="text-rose-500">*</span>}
                     </label>
-                    <select
-                      name="batchId"
+                    <RoadmapPicker
+                      ariaLabel={isWorkerPreset ? 'Thêm vào dự án' : 'Xếp vào lớp'}
                       value={batchId}
-                      onChange={(e) => {
-                        const value = e.target.value;
+                      placeholder={isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'}
+                      allowClear={false}
+                      portal
+                      options={[
+                        { value: '', label: isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --' },
+                        ...batches
+                          .filter((batch) => String(batch.status) !== 'Đã kết thúc')
+                          .map((batch) => ({
+                            value: batch.id,
+                            label: `${batch.code} — ${batch.courseTitle}`,
+                          })),
+                      ]}
+                      onChange={(value) => {
                         setBatchId(value);
                         const batch = batches.find((item) => item.id === value);
                         if (!isWorkerPreset && batch?.status === 'Sắp khai giảng' && batch.startDate) {
                           setFormData((current) => ({ ...current, enrollmentDate: batch.startDate }));
                         }
                       }}
-                      className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-cyan-600 focus:bg-white transition-all cursor-pointer"
-                    >
-                      <option value="">{isWorkerPreset ? '-- Chưa thêm vào dự án --' : '-- Chưa xếp lớp --'}</option>
-                      {batches.filter((batch) => String(batch.status) !== 'Đã kết thúc').map((batch) => (
-                        <option key={batch.id} value={batch.id}>
-                          {batch.code} — {batch.courseTitle}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 )}
 
@@ -542,20 +550,24 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 {isFieldVisible('enrollmentDate') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('enrollmentDate')}
-                    <FormInput
-                      label={getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}
-                      name="enrollmentDate"
-                      value={toDisplayDate(formData.enrollmentDate)}
-                      onChange={handleInputChange}
+                    <label className="block text-xs font-medium text-on-surface">
+                      {getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}{' '}
+                      {isFieldRequired('enrollmentDate', false) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <VietnameseDatePicker
+                      ariaLabel={getFieldLabel('enrollmentDate', entityLabel.preset === 'worker' ? 'Ngày tiếp nhận' : entityLabel.preset === 'customer' ? 'Ngày bắt đầu sử dụng' : 'Ngày nhập học')}
+                      value={/^\d{2}\/\d{2}\/\d{4}$/.test(formData.enrollmentDate) ? formData.enrollmentDate.split('/').reverse().join('-') : formData.enrollmentDate}
+                      onChange={(iso) => setFormData((prev) => ({ ...prev, enrollmentDate: iso }))}
                       required={isFieldRequired('enrollmentDate', false)}
-                      placeholder="DD/MM/YYYY"
+                      variant="filter"
+                      className="h-10"
                     />
                   </div>
                 )}
                 {entityLabel.preset !== 'worker' && entityLabel.preset !== 'customer' && isFieldVisible('fee') && (
                   <div className="relative group/std space-y-1">
                     {renderFieldActions('fee')}
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider block">
+                    <label className="block text-xs font-medium text-on-surface">
                       {getFieldLabel('fee', 'Học phí đã chốt')}{' '}
                       {isFieldRequired('fee', false) && <span className="text-rose-500">*</span>}
                     </label>

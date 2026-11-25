@@ -43,7 +43,7 @@ import { collectRelationRows, relationSourceFor, renderReadRelation } from "./re
 import { hydratePartialUpdate } from "./partial-update";
 import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
-import { readAssistantConversationFile, type AssistantConversationFileContext } from "./conversation-file";
+import { readAssistantConversationFile, readAssistantConversationImages, type AssistantConversationFileContext } from "./conversation-file";
 import { extractAssistantAttachmentValues } from "./attachment-values";
 import { legalAnswerReply, legalQuestionValues } from "./legal-reference";
 import { pinProductReadProof, productReadPrototypeEnabled, validateProductReadProof, verifiedProductDetailResult, type ProductReadProofV1 } from "./product-read-prototype";
@@ -56,7 +56,7 @@ import { sealReadV2Reply, openReadV2Reply } from "./read-v2-cache";
 import { purgeExpiredReadV2Pins } from "./read-v2-retention";
 export { missingOptionalCreateFields } from "./completion";
 const ASSISTANT_TURN_RECOVERY_WINDOW_MS = 8 * 60_000;
-export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; formValues?: AssistantFormSubmission; workflowSelection?: { id: string; value: string }; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface TurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; conversationUpload?: { buffer: Buffer; fileName: string }; conversationUploads?: Array<{ buffer: Buffer; fileName: string }>; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; formValues?: AssistantFormSubmission; workflowSelection?: { id: string; value: string }; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface PendingAction { inputFields?: AssistantInputField[]; readV2?: PendingReadV2; id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; productReadProof?: ProductReadProofV1; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 const legacyWorkerAssistantActionIds: Record<string, string> = {
   "api.get.b070dbb8162243a4": "worker.labor.contract.list",
@@ -1865,7 +1865,11 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     fileName: input.conversationUpload.fileName,
     digest: createHash("sha256").update(input.conversationUpload.buffer).digest("hex"),
   } : null;
-  const digest = control.readV2 ? readV2Digest(control.readV2) : createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, ...(input.formValues ? { formValues: input.formValues } : {}), ...(input.workflowSelection ? { workflowSelection: input.workflowSelection } : {}), referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const conversationImageDigests = input.conversationUploads?.map(file => ({
+    fileName: file.fileName,
+    digest: Buffer.isBuffer(file.buffer) ? createHash("sha256").update(file.buffer).digest("hex") : "invalid",
+  }));
+  const digest = control.readV2 ? readV2Digest(control.readV2) : createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, projectId: input.projectId || "", mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, conversationFile: fileDigestInput, ...(conversationImageDigests?.length ? { conversationImages: conversationImageDigests } : {}), ...(input.formValues ? { formValues: input.formValues } : {}), ...(input.workflowSelection ? { workflowSelection: input.workflowSelection } : {}), referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, acceptanceLines: input.acceptanceLines || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1940,7 +1944,9 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   const acceptanceLinesSummary = input.acceptanceLines
     ? `Đã nhập khối lượng nghiệm thu cho ${input.acceptanceLines.lines.length} dòng hợp đồng.`
     : "";
-  const uploadedFileSummary = input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
+  const uploadedFileSummary = input.conversationUploads?.length
+    ? `Đã đính kèm ${input.conversationUploads.length} ảnh: ${input.conversationUploads.map(file => file.fileName).join(", ")}.`
+    : input.conversationUpload ? `Đã đính kèm tệp ${input.conversationUpload.fileName}.` : "";
   let conversationFile: AssistantConversationFileContext | undefined;
   const userContent = [input.text || (input.workflowSelection ? "Đã chọn thao tác trong danh sách." : input.formValues ? "Đã bổ sung thông tin trong biểu mẫu." : "") || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || acceptanceLinesSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : "", uploadedFileSummary].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
@@ -2276,7 +2282,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     if (isBusinessExcelRequest(intent) && operationById(actionId)?.method !== "GET") {
       throw new AssistantError("Bạn cho mình biết danh sách và bộ lọc cần xuất Excel nhé. Chưa thực hiện thay đổi dữ liệu nào.", 422);
     }
-    if ((input.attachment || input.conversationUpload) && operationById(actionId)?.method !== "GET") forceConfirmation = true;
+    if ((input.attachment || input.conversationUpload || input.conversationUploads?.length) && operationById(actionId)?.method !== "GET") forceConfirmation = true;
     if (input.attachment) {
       const targetOp = operationById(actionId);
       if (targetOp?.method === "POST" && targetOp.path === "/students") {
@@ -2462,7 +2468,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       if (ignoredAttachmentColumns.length) confirmationDetails.ignoredAttachmentColumns = [{ label: "Cột chưa nhập", value: ignoredAttachmentColumns.join(", ") }];
       else if (previousIgnored) confirmationDetails.ignoredAttachmentColumns = previousIgnored;
     }
-    if ((input.attachment || input.conversationUpload || previousPending?.confirmationDetails?.attachmentReview) && op.method !== "GET" && !op.readOnly) {
+    if ((input.attachment || input.conversationUpload || input.conversationUploads?.length || previousPending?.confirmationDetails?.attachmentReview) && op.method !== "GET" && !op.readOnly) {
       confirmationDetails.attachmentReview = [{ label: "Dữ liệu từ tệp", value: "Bạn kiểm tra nội dung đã đọc từ tệp trước khi xác nhận nhé." }];
     }
     const acceptanceFinancialDetails = op.id === "quotation.acceptance.create"
@@ -2652,7 +2658,12 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   };
 
   try {
-    if (input.conversationUpload) {
+    if (input.conversationUploads?.length) {
+      if (assistantMode !== "qa" || input.attachment || input.conversationUpload) {
+        throw new AssistantError("Chỉ có thể gửi nhiều ảnh trong chế độ Trò chuyện.", 400);
+      }
+      conversationFile = await readAssistantConversationImages({ files: input.conversationUploads, req });
+    } else if (input.conversationUpload) {
       conversationFile = await readAssistantConversationFile({ buffer: input.conversationUpload.buffer, fileName: input.conversationUpload.fileName, req });
     }
     const settings = await getSettings(req);

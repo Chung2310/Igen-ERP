@@ -1,22 +1,57 @@
-import { useState } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
+import { X } from "lucide-react";
 import type {
+  DirectoryKind,
+  DirectoryRecord,
   Supply,
   LogisticsReferences,
 } from "../../../../shared/healthcare-logistics";
 import type { HealthcareApi } from "../api";
-import { Field, controlClass } from "../ui";
+import { Field, buttonClass, controlClass, messageOf, primaryClass } from "../ui";
+import { cn } from "../../student-management/lib/utils";
 import CatalogMediaFields from "./CatalogMediaFields";
 import { LogisticsForm, formValues } from "./LogisticsForm";
+
+const quickAddMeta: Record<
+  DirectoryKind,
+  {
+    title: string;
+    codePlaceholder: string;
+    namePlaceholder: string;
+    extraField?: { key: "phone" | "location"; label: string; placeholder: string };
+  }
+> = {
+  categories: {
+    title: "Thêm phân loại mới",
+    codePlaceholder: "vd: PL-01",
+    namePlaceholder: "vd: Vật tư tiêu hao",
+  },
+  suppliers: {
+    title: "Thêm nhà cung cấp mới",
+    codePlaceholder: "vd: NCC-01",
+    namePlaceholder: "vd: Công ty Thiết bị Y tế ABC",
+    extraField: { key: "phone", label: "Điện thoại", placeholder: "vd: 0901234567" },
+  },
+  warehouses: {
+    title: "Thêm kho lưu trữ mới",
+    codePlaceholder: "vd: KHO-01",
+    namePlaceholder: "vd: Kho Vật tư Phòng khám",
+    extraField: { key: "location", label: "Vị trí kho", placeholder: "vd: Tầng 2 - Khu B" },
+  },
+};
+
 export default function SupplyEditor({
   api,
   record,
   refs,
+  onRefsChanged,
   onClose,
   onSaved,
 }: {
   api: HealthcareApi;
   record?: Supply;
   refs: LogisticsReferences;
+  onRefsChanged?: () => void;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -24,7 +59,43 @@ export default function SupplyEditor({
   const [image, setImage] = useState<File>();
   const [files, setFiles] = useState<File[]>([]);
   const [requiresExpiry, setRequiresExpiry] = useState(record?.requiresExpiry ?? true);
+  const [category, setCategory] = useState(record?.category || "");
+  const [supplierId, setSupplierId] = useState(record?.supplierId || "");
+  const [warehouseId, setWarehouseId] = useState(record?.warehouseId || "");
+  const [quickAdd, setQuickAdd] = useState<DirectoryKind | null>(null);
+  const [added, setAdded] = useState<{
+    categories: { _id: string; name: string }[];
+    suppliers: { _id: string; name: string }[];
+    warehouses: { _id: string; name: string }[];
+  }>({ categories: [], suppliers: [], warehouses: [] });
   const units = ["Hộp", "Cái", "Gói", "Ống", "Chai", "Cuộn"];
+
+  const categories = [
+    ...(refs.categories || []),
+    ...added.categories.filter(
+      (item) => !(refs.categories || []).some((x) => x._id === item._id || x.name === item.name),
+    ),
+  ];
+  const suppliers = [
+    ...refs.suppliers,
+    ...added.suppliers.filter((item) => !refs.suppliers.some((x) => x._id === item._id)),
+  ];
+  const warehouses = [
+    ...refs.warehouses,
+    ...added.warehouses.filter((item) => !refs.warehouses.some((x) => x._id === item._id)),
+  ];
+
+  function handleQuickCreated(kind: DirectoryKind, created: DirectoryRecord) {
+    setAdded((prev) => ({
+      ...prev,
+      [kind]: [...prev[kind], { _id: created._id, name: created.name }],
+    }));
+    if (kind === "categories") setCategory(created.name);
+    if (kind === "suppliers") setSupplierId(created._id);
+    if (kind === "warehouses") setWarehouseId(created._id);
+    setQuickAdd(null);
+    onRefsChanged?.();
+  }
   return (
     <LogisticsForm
       title={record ? "Cập nhật Danh mục Vật tư" : "Khai báo Danh mục Vật tư mới"}
@@ -102,18 +173,22 @@ export default function SupplyEditor({
               <Field
                 name="category"
                 label="Danh mục phân loại"
-                value={record?.category}
+                value={category}
+                onSelectChange={setCategory}
                 required
                 error={error}
+                actionButton={{
+                  label: "Thêm phân loại",
+                  onClick: () => setQuickAdd("categories"),
+                }}
                 options={[
                   { value: "", label: "Chọn hoặc bấm + Thêm phân loại..." },
-                  ...(refs.categories || []).map((x) => ({
+                  ...categories.map((x) => ({
                     value: x.name,
                     label: x.name,
                   })),
-                  ...(record?.category &&
-                  !refs.categories?.some((x) => x.name === record.category)
-                    ? [{ value: record.category, label: record.category }]
+                  ...(category && !categories.some((x) => x.name === category)
+                    ? [{ value: category, label: category }]
                     : []),
                 ]}
               />
@@ -139,6 +214,14 @@ export default function SupplyEditor({
                 placeholder="vd: 85000"
               />
             </div>
+            {quickAdd === "categories" && (
+              <QuickDirectoryPanel
+                api={api}
+                kind="categories"
+                onClose={() => setQuickAdd(null)}
+                onCreated={(created) => handleQuickCreated("categories", created)}
+              />
+            )}
           </section>
 
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5">
@@ -149,23 +232,33 @@ export default function SupplyEditor({
               <Field
                 name="supplierId"
                 label="Nhà cung cấp / Hãng sản xuất"
-                value={record?.supplierId}
+                value={supplierId}
+                onSelectChange={setSupplierId}
                 error={error}
                 required
+                actionButton={{
+                  label: "Thêm nhà cung cấp",
+                  onClick: () => setQuickAdd("suppliers"),
+                }}
                 options={[
                   { value: "", label: "Chọn hoặc bấm + Thêm nhà cung cấp..." },
-                  ...refs.suppliers.map((x) => ({ value: x._id, label: x.name })),
+                  ...suppliers.map((x) => ({ value: x._id, label: x.name })),
                 ]}
               />
               <Field
                 name="warehouseId"
                 label="Vị trí kho lưu trữ"
-                value={record?.warehouseId}
+                value={warehouseId}
+                onSelectChange={setWarehouseId}
                 required
                 error={error}
+                actionButton={{
+                  label: "Thêm kho lưu trữ",
+                  onClick: () => setQuickAdd("warehouses"),
+                }}
                 options={[
                   { value: "", label: "Chọn hoặc bấm + Thêm kho lưu trữ..." },
-                  ...refs.warehouses.map((x) => ({ value: x._id, label: x.name })),
+                  ...warehouses.map((x) => ({ value: x._id, label: x.name })),
                 ]}
               />
               <Field
@@ -178,6 +271,14 @@ export default function SupplyEditor({
                 ]}
               />
             </div>
+            {(quickAdd === "suppliers" || quickAdd === "warehouses") && (
+              <QuickDirectoryPanel
+                api={api}
+                kind={quickAdd}
+                onClose={() => setQuickAdd(null)}
+                onCreated={(created) => handleQuickCreated(quickAdd, created)}
+              />
+            )}
           </section>
 
           <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5">
@@ -305,5 +406,154 @@ export default function SupplyEditor({
         </>
       )}
     </LogisticsForm>
+  );
+}
+
+function QuickDirectoryPanel({
+  api,
+  kind,
+  onClose,
+  onCreated,
+}: {
+  api: HealthcareApi;
+  kind: DirectoryKind;
+  onClose: () => void;
+  onCreated: (created: DirectoryRecord) => void;
+}) {
+  const meta = quickAddMeta[kind];
+  const baseId = useId();
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [extra, setExtra] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    const trimmedCode = code.trim().toUpperCase();
+    const trimmedName = name.trim();
+    if (!trimmedCode || !trimmedName) {
+      setError("Vui lòng nhập đầy đủ mã và tên.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const created = await api.json<DirectoryRecord>(`/logistics/directories/${kind}`, {
+        method: "POST",
+        body: JSON.stringify({
+          code: trimmedCode,
+          name: trimmedName,
+          active: true,
+          ...(meta.extraField && extra.trim() ? { [meta.extraField.key]: extra.trim() } : {}),
+        }),
+      });
+      onCreated(created);
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!busy) void submit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!busy) onClose();
+    }
+  }
+
+  const errorId = `${baseId}-error`;
+  return (
+    <div
+      role="region"
+      aria-label={meta.title}
+      className="mt-3 space-y-3 rounded-lg border border-outline-variant bg-surface p-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-balance text-sm font-semibold text-on-surface">{meta.title}</h4>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          aria-label="Đóng biểu mẫu thêm nhanh"
+          className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+        >
+          <X className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+      <div className={cn("grid gap-3", meta.extraField ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        <div className="min-w-0 space-y-1">
+          <label htmlFor={`${baseId}-code`} className="block text-sm font-medium text-on-surface">
+            Mã<span aria-hidden="true"> *</span>
+          </label>
+          <input
+            id={`${baseId}-code`}
+            type="text"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={meta.codePlaceholder}
+            aria-required="true"
+            aria-invalid={Boolean(error && !code.trim()) || undefined}
+            aria-describedby={error ? errorId : undefined}
+            disabled={busy}
+            className={controlClass}
+          />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <label htmlFor={`${baseId}-name`} className="block text-sm font-medium text-on-surface">
+            Tên<span aria-hidden="true"> *</span>
+          </label>
+          <input
+            id={`${baseId}-name`}
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={meta.namePlaceholder}
+            aria-required="true"
+            aria-invalid={Boolean(error && !name.trim()) || undefined}
+            aria-describedby={error ? errorId : undefined}
+            disabled={busy}
+            className={controlClass}
+          />
+        </div>
+        {meta.extraField && (
+          <div className="min-w-0 space-y-1">
+            <label htmlFor={`${baseId}-extra`} className="block text-sm font-medium text-on-surface">
+              {meta.extraField.label}
+            </label>
+            <input
+              id={`${baseId}-extra`}
+              type="text"
+              value={extra}
+              onChange={(event) => setExtra(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={meta.extraField.placeholder}
+              disabled={busy}
+              className={controlClass}
+            />
+          </div>
+        )}
+      </div>
+      {error && (
+        <p id={errorId} role="alert" className="text-pretty text-xs text-error">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <button type="button" className={buttonClass} disabled={busy} onClick={onClose}>
+          Hủy
+        </button>
+        <button type="button" className={primaryClass} disabled={busy} onClick={() => void submit()}>
+          {busy ? "Đang thêm…" : "Thêm"}
+        </button>
+      </div>
+    </div>
   );
 }

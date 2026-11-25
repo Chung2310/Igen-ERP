@@ -237,6 +237,49 @@ it("saves supply lot, expiry, inspection and uploads files from its editor", asy
   expect((calls[1].body as FormData).get("image")).toBe("true");
   expect(calls[2].path).toBe("/logistics/files/supplies/supply-1/attachment");
 });
+it("quick-adds category, supplier, and warehouse directly from SupplyEditor dropdowns", async () => {
+  const calls: { path: string; method?: string; body?: unknown }[] = [];
+  const onRefsChanged = vi.fn();
+  const api = {
+    json: vi.fn(async (path: string, options?: RequestInit) => {
+      const body = options?.body ? JSON.parse(String(options.body)) : undefined;
+      calls.push({ path, method: options?.method, body });
+      if (path === "/logistics/directories/categories") return { _id: "cat-1", code: "PL-01", name: "Vật tư tiêu hao", revision: 1, active: true, editable: true };
+      if (path === "/logistics/directories/suppliers") return { _id: "sup-1", code: "NCC-01", name: "Công ty Y tế Mới", revision: 1, active: true, editable: true };
+      if (path === "/logistics/directories/warehouses") return { _id: "wh-1", code: "KHO-01", name: "Kho Trung Tâm Mới", revision: 1, active: true, editable: true };
+      return { _id: "supply-1" };
+    }),
+  } as unknown as HealthcareApi;
+
+  render(<SupplyEditor api={api} refs={refs} onRefsChanged={onRefsChanged} onClose={() => {}} onSaved={() => {}} />);
+
+  for (const [fieldLabel, actionText, regionName, code, name] of [
+    ["Danh mục phân loại", "Thêm phân loại", "Thêm phân loại mới", "pl-01", "Vật tư tiêu hao"],
+    ["Nhà cung cấp / Hãng sản xuất", "Thêm nhà cung cấp", "Thêm nhà cung cấp mới", "ncc-01", "Công ty Y tế Mới"],
+    ["Vị trí kho lưu trữ", "Thêm kho lưu trữ", "Thêm kho lưu trữ mới", "kho-01", "Kho Trung Tâm Mới"],
+  ] as const) {
+    fireEvent.click(screen.getByRole("button", { name: fieldLabel }));
+    fireEvent.click(screen.getByRole("button", { name: actionText }));
+    const panel = screen.getByRole("region", { name: regionName });
+    fireEvent.change(within(panel).getByLabelText(/Mã/), { target: { value: code } });
+    fireEvent.change(within(panel).getByLabelText(/Tên/), { target: { value: name } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Thêm" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: regionName })).toBeNull());
+  }
+
+  expect(onRefsChanged).toHaveBeenCalledTimes(3);
+  expect(calls.map((c) => c.path)).toEqual([
+    "/logistics/directories/categories",
+    "/logistics/directories/suppliers",
+    "/logistics/directories/warehouses",
+  ]);
+  expect(calls[0].body).toMatchObject({ code: "PL-01", name: "Vật tư tiêu hao", active: true });
+  expect(calls[1].body).toMatchObject({ code: "NCC-01", name: "Công ty Y tế Mới", active: true });
+  expect(calls[2].body).toMatchObject({ code: "KHO-01", name: "Kho Trung Tâm Mới", active: true });
+  expect(screen.getByRole("button", { name: "Danh mục phân loại" }).textContent).toContain("Vật tư tiêu hao");
+  expect(screen.getByRole("button", { name: "Nhà cung cấp / Hãng sản xuất" }).textContent).toContain("Công ty Y tế Mới");
+  expect(screen.getByRole("button", { name: "Vị trí kho lưu trữ" }).textContent).toContain("Kho Trung Tâm Mới");
+});
 it("shows all source equipment table columns", async () => {
   stub([row]);
   render(
