@@ -9,6 +9,12 @@ import { resolveMediaBinary } from "../modules/marketing-suite/shared/service/me
 import { AssistantError } from "./policy";
 import { extractSpeechDocument } from "./studio-speech-document";
 import { transcribeAudioToText } from "./studio-transcription";
+import {
+  isAssistantConversationImageName,
+  maxAssistantConversationImageBatchBytes,
+  maxAssistantConversationImageCount,
+  maxAssistantConversationImageFileBytes,
+} from "../../src/shared/assistant-conversation-upload";
 
 const MAX_TEXT_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_FILE_BYTES = 20 * 1024 * 1024;
@@ -205,4 +211,39 @@ export async function readAssistantConversationFile(input: { buffer: Buffer; fil
   if (["png", "jpg", "jpeg", "webp"].includes(extension)) return readImage({ buffer: input.buffer, fileName });
   if (["mp4", "mov", "webm", "m4v"].includes(extension)) return readVideo({ buffer: input.buffer, fileName, req: input.req });
   throw new AssistantError("Định dạng tệp này chưa được hỗ trợ trong Trò chuyện.", 415);
+}
+
+export async function readAssistantConversationImages(input: {
+  files: Array<{ buffer: Buffer; fileName: string }>;
+  req: AuthenticatedRequest;
+}): Promise<AssistantConversationFileContext> {
+  if (!input.files.length || input.files.length > maxAssistantConversationImageCount) {
+    throw new AssistantError(`Mỗi lượt có thể gửi tối đa ${maxAssistantConversationImageCount} ảnh.`, 400);
+  }
+  if (input.files.some(file => !Buffer.isBuffer(file.buffer) || !isAssistantConversationImageName(file.fileName))) {
+    throw new AssistantError("Chỉ hỗ trợ gửi nhiều ảnh JPG, PNG hoặc WebP trong Trò chuyện.", 415);
+  }
+  if (input.files.some(file => file.buffer.length > maxAssistantConversationImageFileBytes)) {
+    throw new AssistantError("Khi gửi nhiều ảnh, mỗi ảnh không được vượt quá 10 MB.", 413);
+  }
+  const totalBytes = input.files.reduce((total, file) => total + file.buffer.length, 0);
+  if (totalBytes > maxAssistantConversationImageBatchBytes) {
+    throw new AssistantError("Tổng dung lượng ảnh đính kèm không được vượt quá 50 MB.", 413);
+  }
+
+  const images: AssistantConversationFileContext[] = [];
+  for (const file of input.files) {
+    images.push(await readAssistantConversationFile({ ...file, req: input.req }));
+  }
+  const fileNames = images.map(image => image.fileName);
+  return {
+    fileName: `${images.length} ảnh`,
+    fileSummary: `Đã đính kèm ${images.length} ảnh: ${fileNames.join(", ")}.`,
+    documentContext: {
+      title: `${images.length} ảnh đính kèm`,
+      version: 1,
+      content: { type: "uploaded-images", fileNames },
+    },
+    visualAttachments: images.flatMap(image => image.visualAttachments || []),
+  };
 }

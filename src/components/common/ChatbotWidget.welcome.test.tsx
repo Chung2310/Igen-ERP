@@ -395,6 +395,37 @@ describe("ChatbotWidget welcome", () => {
     await waitFor(() => expect(screen.queryByText("Tệp sẽ được đọc khi gửi")).toBeNull());
   });
 
+  it("shows and sends multiple images in Trò chuyện", async () => {
+    localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "qa");
+    vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "qa" });
+    vi.mocked(assistantService.turn).mockResolvedValue({ status: "completed", reply: "Mình đã xem hai ảnh." });
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn((file: File) => `blob:${file.name}`) });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    const { container } = render(<ChatbotWidget storageScope="welcome-test" mode="standalone" />);
+    await waitFor(() => expect((screen.getByRole("button", { name: "Đính kèm tệp" }) as HTMLButtonElement).disabled).toBe(false));
+
+    const images = [
+      new File(["image one"], "anh-mot.png", { type: "image/png" }),
+      new File(["image two"], "anh-hai.jpg", { type: "image/jpeg" }),
+    ];
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    expect(fileInput.multiple).toBe(true);
+    fireEvent.change(fileInput, { target: { files: images } });
+
+    expect(await screen.findByAltText("Xem trước ảnh anh-mot.png")).toBeTruthy();
+    expect(await screen.findByAltText("Xem trước ảnh anh-hai.jpg")).toBeTruthy();
+    expect(screen.getByText("Ảnh đính kèm (2/10)")).toBeTruthy();
+    fireEvent.change(container.querySelector<HTMLTextAreaElement>("#erp-chatbot-input")!, { target: { value: "So sánh hai ảnh này" } });
+    fireEvent.click(container.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+
+    await waitFor(() => expect(assistantService.turn).toHaveBeenCalled());
+    expect(vi.mocked(assistantService.turn).mock.calls.at(-1)?.[0]).toMatchObject({
+      mode: "qa",
+      text: "So sánh hai ảnh này",
+      files: images,
+    });
+  });
+
   it("sends an image with an ERP request in work mode", async () => {
     localStorage.setItem("igen_erp_chatbot_mode:welcome-test:company", "work");
     vi.mocked(assistantService.state).mockResolvedValue({ messages: [], lastReply: null, busy: false, mode: "work" });

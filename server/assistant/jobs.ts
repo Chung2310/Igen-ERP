@@ -25,7 +25,7 @@ const indexes = () => ready ||= AssistantJobModel.init().then(() => AssistantJob
 
 export async function submitAssistantJob(req: AuthenticatedRequest, input: TurnInput) {
   if (process.env.ASSISTANT_BACKGROUND_ENABLED !== "true") throw new AssistantError("Xử lý nền chưa được bật trên máy chủ.",503);
-  if (!input.text || input.mode === "qa" || input.attachment || input.conversationUpload || input.decision || input.referenceSelections) throw new AssistantError("Tác vụ nền nhận yêu cầu văn bản trong tab Thao tác.");
+  if (!input.text || input.mode === "qa" || input.attachment || input.conversationUpload || input.conversationUploads?.length || input.decision || input.referenceSelections) throw new AssistantError("Tác vụ nền nhận yêu cầu văn bản trong tab Thao tác.");
   await indexes();
   const owner = scope(req);
   const digest = executionFingerprint("job", input);

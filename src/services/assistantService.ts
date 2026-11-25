@@ -8,7 +8,7 @@ import type { AssistantMindmapLocale, AssistantMindmapResult, AssistantMindmapSo
 import type { AssistantPromptTemplate } from "../components/common/assistant-prompt-library-data";
 import type { AssistantProject, AssistantProjectFile } from "../components/common/assistant-project-data";
 import { AI_PROVIDER_TEMPORARY_ERROR, isAiProviderBillingError } from "../shared/ai-provider-error";
-export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; formValues?: AssistantFormSubmission; workflowSelection?: { id: string; value: string }; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface AssistantTurnInput { conversationId: string; requestId: string; projectId?: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; file?: File; files?: File[]; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; formValues?: AssistantFormSubmission; workflowSelection?: { id: string; value: string }; trainingContent?: AssistantTrainingContentForm; acceptanceLines?: AssistantQuotationAcceptanceLinesInput; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }
@@ -157,12 +157,14 @@ export const assistantService = {
   deleteConversation: (id: string, branchId?: string) => request<{ deleted: boolean }>(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }, branchId),
   state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: AssistantChatMessage[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
   turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => {
-    if (!data.file) return request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId);
-    const { file, ...payload } = data;
+    if (!data.file && !data.files?.length) return request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId);
+    const { file, files, ...payload } = data;
     const form = new FormData();
     form.append("payload", JSON.stringify(payload));
-    form.append("file", file);
-    return request<AssistantReply>("/turns", { method: "POST", body: form, signal }, branchId, deviceId);
+    if (file) form.append("file", file);
+    if (files?.length === 1) form.append("file", files[0]);
+    if (files && files.length > 1) for (const image of files) form.append("images", image);
+    return request<AssistantReply>(files && files.length > 1 ? "/turns/images" : "/turns", { method: "POST", body: form, signal }, branchId, deviceId);
   },
   downloadFile: async (file: AssistantGeneratedFile, branchId?: string, signal?: AbortSignal): Promise<Blob> => {
     const token = localStorage.getItem("accessToken");
