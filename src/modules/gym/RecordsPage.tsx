@@ -121,6 +121,11 @@ export default function RecordsPage({
     ...(customerId ? { customerId } : {}),
   });
   const result = useGymQuery<GymList>(api, `/${entity}?${query}`, revision);
+  const detailCustomer = useGymQuery<GymRecord>(
+    api,
+    entity === "goals" && detail?.customerId ? `/customers/${detail.customerId}` : "",
+    0,
+  );
   const columns =
     entity === "goals"
       ? [["title", "Mục tiêu"], ["type", "Loại"], ["deadline", "Thời hạn"], ["status", "Trạng thái"]]
@@ -434,6 +439,20 @@ export default function RecordsPage({
         >
           {entity === "sessions" ? <SessionDetail session={detail} /> : <div className="space-y-4">
             <dl className="grid gap-3 sm:grid-cols-2">
+              {entity === "goals" && (
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium text-on-surface-variant">Học viên / Khách hàng</dt>
+                  <dd className="mt-0.5 whitespace-pre-wrap break-words text-pretty text-sm text-on-surface">
+                    {!detail.customerId
+                      ? "—"
+                      : detailCustomer.loading
+                        ? "Đang tải..."
+                        : detailCustomer.data?.fullName
+                          ? `${detailCustomer.data.fullName}${detailCustomer.data.phone ? ` — ${detailCustomer.data.phone}` : ""}`
+                          : "—"}
+                  </dd>
+                </div>
+              )}
               {(forms[entity] || []).map((f) => (
                 <div key={f.key} className={f.multiline ? "sm:col-span-2" : ""}>
                   <dt className="text-xs font-medium text-on-surface-variant">{f.label}</dt>
