@@ -239,7 +239,16 @@ kanbanRouter.get("/tasks", async (req: AuthenticatedRequest, res: Response) => {
     Object.assign(filter, buildKanbanTaskListFilter(req.query as Record<string, unknown>, { id: req.user?.id, role: req.user?.role }));
     const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, req.user!.companyCode);
     if (!permissions.has("*") && !permissions.has("work:read")) {
-      filter.assigneeUid = req.user!.id;
+      const uid = req.user!.id;
+      filter.$and = [
+        ...(Array.isArray(filter.$and) ? filter.$and : []),
+        { $or: [
+          { assigneeUid: uid },
+          { "helpers.uid": uid },
+          { helpRequested: true, requestedHelperUid: uid },
+          { helpRequested: true, $or: [{ requestedHelperUid: "" }, { requestedHelperUid: { $exists: false } }] },
+        ] },
+      ];
     }
     const tasks = await KanbanTaskModel.find(filter).sort("-createdAt").lean();
     const now = Date.now();
@@ -323,7 +332,7 @@ kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req:
   }
 });
 
-kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+kanbanRouter.patch("/tasks/:id/activity", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const scope: any = { _id: req.params.id, ...companyFilter(req) };
     if (req.user?.branchId) scope.branchId = req.user.branchId;
@@ -331,7 +340,16 @@ kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any,
     if (!task) throw httpError(404, "Không tìm thấy công việc.");
     const uid = String(req.user!.id);
     const manager = isManager(req.user?.role);
+    const permissions = await getEffectivePermissions(req.user!.id, req.user!.role, req.user!.companyCode);
+    if (!manager && !permissions.has("*") && !permissions.has("work:read")) {
+      const participant = task.assigneeUid === uid
+        || task.creatorUid === uid
+        || task.helpers?.some(helper => helper.uid === uid)
+        || (task.helpRequested && (!task.requestedHelperUid || task.requestedHelperUid === uid));
+      if (!participant) throw httpError(403, "Bạn không có quyền truy cập yêu cầu trợ giúp này.");
+    }
     if (!manager && task.assigneeUid !== uid && task.creatorUid !== uid && !task.helpRequested && !task.helpers?.some(helper => helper.uid === uid)) throw httpError(403, "Bạn không có quyền truy cập công việc.");
+    if (req.body.action === "join" && task.requestedHelperUid && task.requestedHelperUid !== uid) throw httpError(403, "Yêu cầu này dành cho người hỗ trợ được chỉ định.");
     if (!Number.isInteger(req.body.revision) || req.body.revision !== (task.revision || 0)) throw httpError(409, "Công việc đã thay đổi. Hãy tải lại trước khi cập nhật.");
     if (req.body.action === "progress" && req.body.progress === 100 && !Number(task.estTime)) {
       throw httpError(400, "Hoàn thành công việc yêu cầu số giờ dự tính.");
@@ -353,6 +371,7 @@ kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any,
       }
     }
     const result = taskActivityUpdate(task, req.body, { uid, name: await actorName(req), manager });
+    if (req.body.action === "help") result.update.requestedHelperUid = requestedHelperUid;
     const revisionFilter = task.revision ? { revision: task.revision } : { $or: [{ revision: 0 }, { revision: { $exists: false } }] };
     const updated = await KanbanTaskModel.findOneAndUpdate({ ...scope, ...revisionFilter }, { $set: result.update, $push: { history: result.history }, $inc: { revision: 1 } }, { returnDocument: "after", runValidators: true });
     if (!updated) throw httpError(409, "Công việc đã được cập nhật. Hãy tải lại.");
@@ -442,7 +461,7 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
       if (!merged.endTime) update.endTime = new Date().toISOString();
       update.completedAt = update.endTime;
     }
-    if (update.status === "Done") { update.progress = 100; update.helpRequested = false; }
+    if (update.status === "Done") { update.progress = 100; update.helpRequested = false; update.requestedHelperUid = ""; }
     else if (update.status && update.status !== "Archived") {
       update.progress = update.status === "Not Started" ? 0 : Math.max(1, Math.min(99, taskProgress(task)));
       update.completedAt = "";
