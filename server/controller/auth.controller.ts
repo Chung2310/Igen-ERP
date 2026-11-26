@@ -802,8 +802,10 @@ export const authController = {
       const canReadBranchRoster = hasAnyPermission(permissions, [
         "access:read",
         "hr:read",
+        "hr:manage",
         "timekeeping:read",
         "timekeeping:manage",
+        "timekeeping:edit",
         "payroll-period:manage",
       ]);
       const userBranchId = String(req.user?.branchId || "").trim();

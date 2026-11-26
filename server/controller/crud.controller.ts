@@ -23,7 +23,7 @@ import type { ClientSession } from "mongoose";
 
 const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
 
-const TIMEKEEPING_DETAIL_PERMISSIONS = ["timekeeping:read", "timekeeping:manage", "payroll-period:manage"];
+const TIMEKEEPING_DETAIL_PERMISSIONS = ["timekeeping:read", "timekeeping:manage", "timekeeping:edit", "payroll-period:manage"];
 
 async function canReadAttendanceDetails(req: AuthenticatedRequest, role: string, companyCode: string): Promise<boolean> {
   if (!req.user?.id) return false;
@@ -98,6 +98,19 @@ async function canManageTimekeeping(req: AuthenticatedRequest): Promise<boolean>
   return permissions.has("*") || permissions.has("timekeeping:manage");
 }
 
+async function canViewBranchAttendance(req: AuthenticatedRequest): Promise<boolean> {
+  const userRole = req.user?.role || "user";
+  if (userRole === "superadmin" || userRole === "admin" || userRole === "manager") return true;
+  if (!req.user?.id) return false;
+  const permissions = await getEffectivePermissions(req.user.id, userRole, req.user?.companyCode);
+  return permissions.has("*") || [
+    "timekeeping:manage",
+    "timekeeping:edit",
+    "hr:manage",
+    "payroll-period:manage",
+  ].some((permission) => permissions.has(permission));
+}
+
 /**
  * Used for actions that must always require the effective timekeeping:manage
  * permission: approving leave applications, editing another employee's leave,
@@ -122,7 +135,7 @@ export const crudController = {
         ? await canReadAttendanceDetails(req, userRole, companyCode)
         : true;
       const attendanceBranchAccessAllowed = modelName === "timekeeping-logs"
-        ? await canManageTimekeeping(req)
+        ? await canViewBranchAttendance(req)
         : true;
 
       const page = parseInt(req.query.page as string, 10) || 1;
@@ -246,7 +259,7 @@ export const crudController = {
 
       if (modelName === "timekeeping-logs") {
         attendanceDetailsAllowed = await canReadAttendanceDetails(req, userRole, companyCode);
-        const attendanceBranchAccessAllowed = await canManageTimekeeping(req);
+        const attendanceBranchAccessAllowed = await canViewBranchAttendance(req);
         const attendanceScope: Record<string, unknown> = { _id: id, companyCode };
         if (req.user?.branchId) {
           attendanceScope.branchId = { $in: [req.user.branchId, null, undefined] };

@@ -73,7 +73,7 @@ export const CRUD_MODEL_PERMISSION_POLICY: Record<string, {
   "hr-leave-applications": { read: "self-service", manage: "self-service" },
   "timekeeping-logs": {
     read: "self-service",
-    manage: ["timekeeping:manage", "payroll-period:manage"],
+    manage: ["timekeeping:manage", "timekeeping:edit", "payroll-period:manage"],
   },
 };
 
