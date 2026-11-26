@@ -321,7 +321,7 @@ export default function RecordEditor({
         onSaved();
       }}
     >
-      {customerEntities.has(entity) && !fixedCustomer && !record && (
+      {customerEntities.has(entity) && !fixedCustomer && (!record || entity === "goals") && (
         <CustomerPicker
           api={api}
           value={customerId}

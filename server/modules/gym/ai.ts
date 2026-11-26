@@ -225,7 +225,7 @@ async function loadCustomerAiContext(
       .then((rows) => rows[0] || null),
     records("goals")
       .find({ ...tenantFilter(actor), customerId })
-      .sort({ targetDate: 1, createdAt: -1 })
+      .sort({ createdAt: -1, updatedAt: -1, _id: -1 })
       .limit(3)
       .toArray(),
   ]);
@@ -275,19 +275,38 @@ async function loadCustomerAiContext(
     lines.push("- Chỉ số InBody gần nhất: Chưa có dữ liệu InBody");
   }
 
+  const goalTypeLabels: Record<string, string> = {
+    WEIGHT_LOSS: "Giảm cân",
+    FAT_LOSS: "Giảm mỡ",
+    WEIGHT_GAIN: "Tăng cân",
+    MUSCLE_GAIN: "Tăng cơ",
+    RECOMPOSITION: "Tái cấu trúc cơ thể",
+    FITNESS: "Thể lực",
+  };
   if (activeGoals.length) {
-    const goalText = activeGoals
-      .map((g) => {
-        const parts = [
-          g.title,
-          g.targetWeight != null && `cân nặng mục tiêu ${g.targetWeight}kg`,
-          g.targetBodyFat != null && `% mỡ mục tiêu ${g.targetBodyFat}%`,
-          g.targetDate && `hạn ${String(g.targetDate).slice(0, 10)}`,
-        ].filter(Boolean);
-        return parts.join(" — ");
-      })
-      .join("; ");
-    lines.push(`- Mục tiêu đang theo dõi: ${goalText}`);
+    const formatGoal = (g: Record<string, any>) => {
+      const deadline = g.deadline || g.targetDate;
+      const targetStr =
+        g.targetValue != null
+          ? `mục tiêu ${g.targetValue}${g.targetUnit ? ` ${String(g.targetUnit).trim()}` : ""}`
+          : null;
+      const parts = [
+        g.title,
+        g.type && `loại: ${goalTypeLabels[String(g.type)] || String(g.type)}`,
+        targetStr,
+        g.targetWeight != null && `cân nặng mục tiêu ${g.targetWeight}kg`,
+        g.targetBodyFat != null && `% mỡ mục tiêu ${g.targetBodyFat}%`,
+        deadline && `hạn ${String(deadline).slice(0, 10)}`,
+        g.sessionsPerWeek != null && `${g.sessionsPerWeek} buổi/tuần`,
+        g.cardioNotes && String(g.cardioNotes).trim() && `cardio: ${String(g.cardioNotes).trim()}`,
+        g.evaluationNotes && String(g.evaluationNotes).trim() && `đánh giá: ${String(g.evaluationNotes).trim()}`,
+      ].filter(Boolean);
+      return parts.join(" — ");
+    };
+    lines.push(`- Mục tiêu mới nhất (ưu tiên bám sát): ${formatGoal(activeGoals[0])}`);
+    if (activeGoals.length > 1) {
+      lines.push(`- Mục tiêu trước đó: ${activeGoals.slice(1).map(formatGoal).join("; ")}`);
+    }
   }
 
   return {

@@ -113,8 +113,40 @@ export async function listRecords(
       .toArray(),
     records(entity).countDocuments(filter),
   ]);
+  let items = data.map(publicRecord);
+  if (entity === "goals" && items.length) {
+    const customerIds = Array.from(
+      new Set(
+        items
+          .map((item) => item.customerId)
+          .filter((id): id is string => typeof id === "string" && Boolean(id)),
+      ),
+    );
+    if (customerIds.length) {
+      const customers = await records("customers")
+        .find(
+          { ...tenantFilter(actor), _id: { $in: customerIds } },
+          { projection: { _id: 1, fullName: 1, phone: 1 } },
+        )
+        .toArray();
+      const customerMap = new Map(customers.map((c) => [c._id, c]));
+      items = items.map((item) => {
+        const customer =
+          typeof item.customerId === "string"
+            ? customerMap.get(item.customerId)
+            : undefined;
+        return customer
+          ? {
+              ...item,
+              customerName: customer.fullName || "",
+              customerPhone: customer.phone || "",
+            }
+          : item;
+      });
+    }
+  }
   return {
-    data: data.map(publicRecord),
+    data: items,
     meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
 }

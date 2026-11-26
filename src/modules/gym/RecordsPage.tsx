@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Phone, Plus, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Dropdown } from "./GymDropdown";
 import { ErpModal } from "../../components/common/ErpModal";
@@ -123,12 +123,14 @@ export default function RecordsPage({
   const result = useGymQuery<GymList>(api, `/${entity}?${query}`, revision);
   const detailCustomer = useGymQuery<GymRecord>(
     api,
-    entity === "goals" && detail?.customerId ? `/customers/${detail.customerId}` : "",
+    entity === "goals" && detail?.customerId && !detail?.customerName
+      ? `/customers/${detail.customerId}`
+      : "",
     0,
   );
   const columns =
     entity === "goals"
-      ? [["title", "Mục tiêu"], ["type", "Loại"], ["deadline", "Thời hạn"], ["status", "Trạng thái"]]
+      ? [["title", "Mục tiêu"], ["customerId", "Khách hàng"], ["type", "Loại"], ["deadline", "Thời hạn"], ["status", "Trạng thái"]]
       : entity === "knowledge"
       ? [["title", "Tiêu đề"], ["topic", "Chủ đề"], ["ragChunkCount", "Đoạn RAG"], ["status", "Trạng thái"]]
       : entity === "customers"
@@ -145,6 +147,20 @@ export default function RecordsPage({
 
   const display = (row: GymRecord, key: string) => {
     const value = row[key];
+    if (entity === "goals" && key === "customerId") {
+      if (!row.customerName && !row.customerPhone) return "—";
+      return (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-on-surface">{row.customerName || "—"}</div>
+          {row.customerPhone && (
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-on-surface-variant">
+              <Phone className="size-3 shrink-0 text-primary" aria-hidden="true" />
+              <span>{row.customerPhone}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
     if (entity === "goals" && key === "type") return ({ WEIGHT_LOSS: "Giảm cân", FAT_LOSS: "Giảm mỡ", WEIGHT_GAIN: "Tăng cân", MUSCLE_GAIN: "Tăng cơ", RECOMPOSITION: "Tái cấu trúc", FITNESS: "Thể lực" } as Record<string, string>)[value] || value || "—";
     if (entity === "knowledge" && key === "ragChunkCount") return value == null ? "Chưa lập chỉ mục" : `${value} đoạn`;
     if (key === "status" || key === "attendance") {
@@ -445,11 +461,13 @@ export default function RecordsPage({
                   <dd className="mt-0.5 whitespace-pre-wrap break-words text-pretty text-sm text-on-surface">
                     {!detail.customerId
                       ? "—"
-                      : detailCustomer.loading
-                        ? "Đang tải..."
-                        : detailCustomer.data?.fullName
-                          ? `${detailCustomer.data.fullName}${detailCustomer.data.phone ? ` — ${detailCustomer.data.phone}` : ""}`
-                          : "—"}
+                      : detail.customerName
+                        ? `${detail.customerName}${detail.customerPhone ? ` — ${detail.customerPhone}` : ""}`
+                        : detailCustomer.loading
+                          ? "Đang tải..."
+                          : detailCustomer.data?.fullName
+                            ? `${detailCustomer.data.fullName}${detailCustomer.data.phone ? ` — ${detailCustomer.data.phone}` : ""}`
+                            : "—"}
                   </dd>
                 </div>
               )}
