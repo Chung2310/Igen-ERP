@@ -36,7 +36,13 @@ export function buildKanbanTaskListFilter(
   const filter: Record<string, any> = {};
   const clauses: Record<string, unknown>[] = [];
   if (!MANAGER_ROLES.has(String(user.role || ""))) {
-    clauses.push({ $or: [{ assigneeUid: user.id }, { creatorUid: user.id }] });
+    clauses.push({ $or: [
+      { assigneeUid: user.id },
+      { creatorUid: user.id },
+      { "helpers.uid": user.id },
+      { helpRequested: true, requestedHelperUid: user.id },
+      { helpRequested: true, $or: [{ requestedHelperUid: "" }, { requestedHelperUid: { $exists: false } }] },
+    ] });
   }
 
   const search = escapedTerm(query.search);

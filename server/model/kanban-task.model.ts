@@ -49,6 +49,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   progressNote: { type: String, maxlength: 2000 },
   helpRequested: { type: Boolean, default: false },
   helpReason: { type: String, maxlength: 2000 },
+  requestedHelperUid: { type: String, default: "", index: true },
   helpers: { type: [{ uid: String, name: String }], default: [] },
   deadlineReminderSentAt: { type: Date },
   overdueNotifiedAt: { type: Date },

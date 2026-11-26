@@ -22,4 +22,19 @@ describe("buildKanbanTaskListFilter", () => {
       $and: [{ status: { $nin: ["Done", "Archived"] } }],
     });
   });
+
+  it("includes assigned helpers and open help requests in a staff member's task list", () => {
+    const filter = buildKanbanTaskListFilter({}, { id: "helper-1", role: "user" });
+    expect(filter).toMatchObject({
+      $and: [{
+        $or: expect.arrayContaining([
+          { assigneeUid: "helper-1" },
+          { creatorUid: "helper-1" },
+          { "helpers.uid": "helper-1" },
+          { helpRequested: true, requestedHelperUid: "helper-1" },
+          { helpRequested: true, $or: [{ requestedHelperUid: "" }, { requestedHelperUid: { $exists: false } }] },
+        ]),
+      }],
+    });
+  });
 });
