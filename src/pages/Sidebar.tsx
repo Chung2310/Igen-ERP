@@ -199,6 +199,7 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "BÁO GIÁ": FileTextIcon,
   "QUẢN LÝ Y TẾ": StethoscopeIcon,
   "TÀI CHÍNH": FileTextIcon,
+  "CHIẾN DỊCH NỘI DUNG": MegaphoneIcon,
   "OMNI INBOX": ChatCircleIcon,
   "MARKETING": UsersThreeIcon,
   "KHO TRI THỨC": BookOpenIcon,
@@ -216,7 +217,6 @@ export function getAvailableMenuItems(userProfile: UserProfile | null, hasPermis
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => includeDisabled || enabledTabs.has(item.label))
     .filter((item) => includeDisabled || item.label !== "TÍCH HỢP MARKETING" || userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)))
-    .filter((item) => item.label !== "CHIẾN DỊCH NỘI DUNG")
     .map((item) => {
       const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
       const isPartnerAdmin =

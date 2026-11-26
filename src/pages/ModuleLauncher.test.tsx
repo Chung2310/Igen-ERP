@@ -10,7 +10,7 @@ vi.mock("../context/AuthContext", () => ({
     userProfile: {
       role: "admin",
       companyCode: "TEST",
-      enabledModules: ["student", "worker", "hr", "finance", "resource", "chat", "social-marketing", "omni-inbox", "company-knowledge"],
+      enabledModules: ["student", "worker", "hr", "finance", "resource", "chat", "marketing", "social-marketing", "omni-inbox", "company-knowledge"],
       permissions: ["*"],
     },
     hasPermission: () => true,
@@ -28,7 +28,8 @@ describe("ModuleLauncher", () => {
     expect(screen.getByRole("link", { name: "Lao động" }).getAttribute("href")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Bán lẻ" })).toBeNull();
     expect(screen.getByRole("link", { name: "Tích hợp & cấu hình" })).toBeTruthy();
-    expect(screen.queryByText("Chiến dịch")).toBeNull();
+    expect(screen.getByRole("link", { name: "Chiến dịch nội dung" }).getAttribute("href")).toBe("/chien-dich-noi-dung");
+    expect(screen.getByRole("link", { name: "Marketing tự động" }).getAttribute("href")).toBe("/marketing");
     expect(screen.queryByRole("link", { name: "Gói AI & lượt sử dụng" })).toBeNull();
     expect(screen.getByRole("link", { name: "Nhân sự" }).querySelector('.module-launcher-icon-tile')?.className).not.toContain('bg-');
     for (const name of ["Tài nguyên", "Tài khoản", "Hệ thống", "Trò chuyện"]) {

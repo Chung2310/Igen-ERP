@@ -19,6 +19,7 @@ const launcherModules: TabType[] = [
   "BÁN LẺ",
   "ĐỐI TÁC BÁN LẺ",
   "TÀI CHÍNH",
+  "CHIẾN DỊCH NỘI DUNG",
   "OMNI INBOX",
   "MARKETING",
   "KHO TRI THỨC",
