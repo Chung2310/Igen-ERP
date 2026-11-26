@@ -164,7 +164,7 @@ export function canViewAiSubscription(user: UserProfile | null | undefined): boo
  *
  * Các mục dưới đây chỉ còn phục vụ tương thích URL/quyền cũ; module đã được gỡ khỏi router ứng dụng.
  */
-export const HIDDEN_TABS = new Set<TabType>(["CHIẾN DỊCH NỘI DUNG"]);
+export const HIDDEN_TABS = new Set<TabType>();
 
 export function isTabHidden(tab: TabType): boolean {
   return HIDDEN_TABS.has(tab);

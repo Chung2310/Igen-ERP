@@ -1,9 +1,11 @@
-import { BookOpen, MessageSquare, Settings } from "lucide-react";
+import { BookOpen, HeartHandshake, Megaphone, MessageSquare, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { TabType } from "../../types";
 
 /** Navigation only: existing tab IDs, company modules and permissions remain authoritative. */
 export const MARKETING_SUITE_MENU = [
+  { label: "CHIẾN DỊCH NỘI DUNG", title: "Chiến dịch nội dung", icon: Megaphone },
+  { label: "MARKETING", title: "Marketing tự động", icon: HeartHandshake },
   { label: "OMNI INBOX", title: "CRM", icon: MessageSquare },
   { label: "KHO TRI THỨC", title: "Kho tri thức", icon: BookOpen },
   { label: "TÍCH HỢP MARKETING", title: "Tích hợp & cấu hình", icon: Settings },
