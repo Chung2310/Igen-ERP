@@ -1,10 +1,7 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
-import { isKnownModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence } from "./module-context";
+import { isKnownModuleContextClause, mentionsCompatibleModule } from "./module-context";
 import { AssistantError } from "./policy";
-import { privateAssistantResultField as privateField, publicAssistantResultFields } from "./result-field-policy";
-import { relationEvidenceSupported, validateReadRelations, normalizeReadRelationAnnotations, selectedRelationForQuery } from "./read-relations";
-import { combinedModuleContextIsValid, findUncoveredRequestTerms, reconciledRankingMappingTargets, requiredCompositeMappingIsMissing } from "./request-coverage";
 
 export interface AssistantCompositeQuery {
   actionId: string;
@@ -26,8 +23,26 @@ const plain = (value: unknown): value is Record<string, unknown> => Boolean(valu
 const populated = (value: unknown) => value !== undefined && value !== null && value !== "";
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d")
   .toLocaleLowerCase("vi").replace(/[^a-z0-9]+/g, " ").trim();
+const privateField = (key: string) => key.startsWith("__assistant")
+  || ["id", "uid", "version", "token", "password", "secret", "credential"].includes(key.toLocaleLowerCase("en"))
+  || /(?:Id|ID|Uid|UID|Version|Token|Password|Secret|Credential)$/.test(key)
+  || /(?:_|-)(?:id|uid|version|token|password|secret|credential)$/i.test(key);
+
 export function publicCompositeResultFields(operation: AssistantOperation) {
-  return publicAssistantResultFields(operation);
+  return operation.resultFields.filter(field => !privateField(field));
+}
+
+function publicResultFieldTree(tree: unknown): unknown {
+  if (Array.isArray(tree)) return tree.filter((field): field is string => typeof field === "string" && !privateField(field));
+  if (!plain(tree)) return undefined;
+  return Object.fromEntries(Object.entries(tree)
+    .filter(([field]) => !privateField(field))
+    .map(([field, children]) => [field, publicResultFieldTree(children)]));
+}
+
+/** Returns the same allow-listed nested result schema used by data projection. */
+export function publicCompositeResultTree(operation: AssistantOperation, field: string) {
+  return publicResultFieldTree(operation.resultChildFields?.[field]);
 }
 
 function normalizeQueryValues(workflow: AssistantWorkflow, raw: Record<string, unknown>) {
@@ -60,7 +75,7 @@ export function validateCompositeQueryPlan(
   const operationById = new Map(operations.map(operation => [operation.id, operation]));
   const seen = new Set<string>();
   const queries: AssistantCompositeQuery[] = [];
-  for (const item of normalizeReadRelationAnnotations(raw)) {
+  for (const item of raw) {
     if (!plain(item) || typeof item.actionId !== "string" || typeof item.purpose !== "string"
       || !plain(item.values) || !Array.isArray(item.resultFields)
       || !item.purpose.trim() || item.purpose.length > 300 || item.resultFields.length < 1 || item.resultFields.length > 16
@@ -88,10 +103,8 @@ export function validateCompositeQueryPlan(
     if (resultFields.some(field => !publicFields.has(field))) {
       return { ok: false, clarification: `Kế hoạch yêu cầu trường kết quả chưa được phép gửi cho AI trong “${workflow.title}”. Mình chưa gọi API nào.` };
     }
-    if (item.relation !== undefined && typeof item.relation !== 'string') return { ok: false, clarification: 'Phép đối chiếu chưa hợp lệ.' };
-    queries.push({ actionId: item.actionId, purpose: item.purpose.trim(), values, resultFields, ...(item.relation ? { relation: item.relation as string } : {}) });
+    queries.push({ actionId: item.actionId, purpose: item.purpose.trim(), values, resultFields });
   }
-  if (!validateReadRelations(queries, workflows)) return { ok: false, clarification: 'Phép đối chiếu cần đủ hai nguồn cùng phạm vi và không được lọc thiếu dữ liệu. Bạn kiểm tra lại phạm vi nhé.' };
   return { ok: true, queries };
 }
 
@@ -134,13 +147,14 @@ export function validateCompositeRequestCoverage(
   queries: AssistantCompositeQuery[],
   workflows: AssistantWorkflow[],
   operations = ASSISTANT_OPERATIONS,
+  evidenceSources: string[] = [text],
 ): { ok: true } | { ok: false; clarification: string } {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 40) {
     return { ok: false, clarification: "Mình chưa đối chiếu được đầy đủ yêu cầu với các nguồn dữ liệu. Bạn nói rõ chỉ số và phạm vi cần tổng hợp nhé." };
   }
   const operationById = new Map(operations.map(operation => [operation.id, operation]));
   const workflowById = new Map(workflows.map(workflow => [workflow.actionId, workflow]));
-  const request = normalize(text);
+  const requests = evidenceSources.map(normalize);
   for (const item of raw) {
     if (!plain(item) || typeof item.evidence !== "string" || !item.evidence.trim()
       || typeof item.requirement !== "string" || !item.requirement.trim()
@@ -148,7 +162,7 @@ export function validateCompositeRequestCoverage(
       return { ok: false, clarification: "Mình chưa xác định chắc các ý cần giữ trong yêu cầu tổng hợp. Bạn diễn đạt lại mục tiêu và điều kiện nhé." };
     }
     const evidence = normalize(item.evidence);
-    if (!evidence || !request.includes(evidence)) {
+    if (!evidence || !requests.some(request => request.includes(evidence))) {
       return { ok: false, clarification: "Mình chưa đối chiếu được các ý trích ra với câu bạn vừa gửi. Bạn nói lại mục tiêu và điều kiện cần áp dụng nhé." };
     }
     const evidenceText = item.evidence as string;
@@ -165,28 +179,12 @@ export function validateCompositeRequestCoverage(
         ? item.clarification.trim().slice(0, 500)
         : `Mình chưa rõ cách áp dụng yêu cầu “${requirementText.trim().slice(0, 160)}”. Bạn làm rõ ý này giúp mình nhé.` };
     }
-    const reconciledMappings = queries.flatMap(query => {
-      const operation = operationById.get(query.actionId);
-      return operation
-        ? reconciledRankingMappingTargets(evidenceText, operation, query.values).map(target => `query:${query.actionId}:${target}`)
-        : [];
-    });
-    const mappedTargets = [...new Set([...(item.mappedTo as string[]), ...reconciledMappings])];
-    const relationCoversEvidence = queries.some(query=>{
-      const selected=selectedRelationForQuery(queries,query.actionId);
-      return selected && mappedTargets.includes(`query:${query.actionId}:relation`) && relationEvidenceSupported(evidenceText,selected.id);
-    });
-    const missingKind = relationCoversEvidence ? undefined : requiredCompositeMappingIsMissing(evidenceText, mappedTargets);
-    if (missingKind) return { ok: false, clarification: missingKind === "ranking"
-      ? `Tiêu chí xếp hạng “${evidenceText.trim().slice(0, 120)}” chưa được gắn với phép xếp hạng cụ thể. Mình chưa gọi API.`
-      : `Điều kiện “${evidenceText.trim().slice(0, 120)}” chưa được gắn với bộ lọc của nguồn dữ liệu. Mình chưa gọi API.` };
-    for (const target of mappedTargets) {
+    for (const target of item.mappedTo as string[]) {
       if (target === "action") continue;
       if (target === "context.module") {
         if (queries.some(query => {
           const workflow = workflowById.get(query.actionId);
-          return workflow && (matchesModuleContextEvidence(evidenceText, workflow.module, text)
-            || combinedModuleContextIsValid(evidenceText, workflow.module, mappedTargets));
+          return workflow && mentionsCompatibleModule(evidenceText, workflow.module);
         })) continue;
         return { ok: false, clarification: "Mình chưa xác định được phân hệ phù hợp cho yêu cầu tổng hợp." };
       }
@@ -199,10 +197,7 @@ export function validateCompositeRequestCoverage(
       const operation = operationById.get(actionId);
       if (!query || !workflow || !operation) return { ok: false, clarification: "Kế hoạch tham chiếu một nguồn dữ liệu chưa được chọn." };
       const mapping = target.slice(separator + 1);
-      if (mapping === 'relation') {
-        const selected=selectedRelationForQuery(queries,query.actionId);
-        if (!selected || !relationEvidenceSupported(evidenceText, selected.id)) return { ok: false, clarification: 'Điều kiện đối chiếu chưa khớp với phép lọc được hỗ trợ. Mình chưa gọi API.' };
-      } else if (mapping.startsWith("values.")) {
+      if (mapping.startsWith("values.")) {
         const fieldKey = mapping.slice("values.".length);
         const field = workflow.fields.find(candidate => candidate.key === fieldKey);
         if (!field || !populated(query.values[fieldKey])) return { ok: false, clarification: `Điều kiện “${requirementText.trim().slice(0, 120)}” chưa được áp dụng vào truy vấn “${workflow.title}”.` };
@@ -213,10 +208,6 @@ export function validateCompositeRequestCoverage(
         if (!analysisTargetIsRepresented(mapping, query, operation)) return { ok: false, clarification: `Điều kiện “${requirementText.trim().slice(0, 120)}” chưa được áp dụng vào phép phân tích của “${workflow.title}”.` };
       } else if (mapping !== "source") return { ok: false, clarification: "Kế hoạch tổng hợp có vị trí ánh xạ không hợp lệ." };
     }
-  }
-  const missing = findUncoveredRequestTerms(text, raw);
-  if (missing.length) {
-    return { ok: false, clarification: `Mình chưa đưa đủ chi tiết “${missing.join(" ").slice(0, 160)}” vào kế hoạch tổng hợp. Mình chưa gọi API để tránh bỏ sót điều kiện; bạn xác nhận lại giúp mình nhé.` };
   }
   return { ok: true };
 }

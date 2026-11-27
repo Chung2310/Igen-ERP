@@ -206,7 +206,11 @@ export const timekeepingController = {
         return res.status(400).json({ status: "error", message: "Ngày cần tra cứu phải theo định dạng YYYY-MM-DD." });
       }
 
-      const rosterScope = buildBranchRosterFilter(req.user?.branchId);
+      const companyWide = req.query.scope === "company";
+      if (companyWide && !["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+        return res.status(403).json({ status: "error", message: "Chỉ quản trị viên được xem báo cáo chấm công toàn công ty." });
+      }
+      const rosterScope = companyWide ? {} : buildBranchRosterFilter(req.user?.branchId);
       const employees = await UserModel.find({ companyCode, ...rosterScope })
         .select("_id displayName")
         .sort({ displayName: 1 })

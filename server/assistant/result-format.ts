@@ -4,10 +4,9 @@ import { PERMISSION_CATALOG } from "../config/permission-catalog";
 import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { formatBusinessOverview } from "./overview-result";
-import { assistantCompletedOperationSummary } from "./reply-presentation";
-import { maskAssistantBankAccount } from './result-field-policy';
+import { summarizeDailyAttendance } from "./timekeeping-summary";
 
-type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "readOnly" | "resultChildFields">>;
+type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "resultChildFields">>;
 type ResultRecord = Record<string, unknown>;
 const normalizeReportStatus = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().trim();
 
@@ -99,7 +98,7 @@ const bulkCreateJobOperationIds = ["marketing.bulk-create.jobs.list", "marketing
 const bulkCreateTemplateOperationIds = ["marketing.bulk-create.templates.list", "marketing.bulk-create.templates.detail"];
 const labels: Record<string, string> = {
   address: "Địa chỉ", adjustment: "Điều chỉnh", adjustments: "Điều chỉnh", amount: "Số tiền", actorType: "Người thực hiện", bankAccountName: "Chủ tài khoản", baseRevision: "Phiên bản nền",
-  bankAccountNo: "Số tài khoản ngân hàng", bankAccountStatus: "Tài khoản ngân hàng", bankName: "Tên ngân hàng", branchName: "Chi nhánh", totalReferredTuition: "Tổng học phí giới thiệu",
+  bankAccountNo: "Số tài khoản ngân hàng", bankName: "Tên ngân hàng", branchName: "Chi nhánh",
   code: "Mã", countCode: "Mã phiếu kiểm kê", customerName: "Khách hàng", date: "Ngày", deliveredAt: "Ngày bàn giao", description: "Mô tả",
   device: "Thiết bị", dueAmount: "Còn phải trả", dueDate: "Hạn hoàn thành", email: "Email", endDate: "Ngày kết thúc", financeVoucherCode: "Mã phiếu chi", fullName: "Họ và tên",
   commissionRate: "Tỷ lệ hoa hồng", commissionType: "Hình thức hoa hồng", commissionValue: "Mức hoa hồng", isActive: "Đang hoạt động", item: "Thông tin giao dịch", kind: "Loại giao dịch", lines: "Hạng mục", maxStock: "Tồn tối đa", minStock: "Tồn tối thiểu", minTuition: "Doanh số tối thiểu", message: "Thông báo",
@@ -107,12 +106,13 @@ const labels: Record<string, string> = {
   assetCode: "Mã tài sản", assetName: "Tài sản", barcode: "Mã vạch", group: "Nhóm tài sản", originalCost: "Nguyên giá", salvageValue: "Giá trị thanh lý", accumulatedDepreciation: "Khấu hao lũy kế", netBookValue: "Giá trị còn lại", usefulLifeMonths: "Thời gian sử dụng (tháng)", inServiceDate: "Ngày đưa vào sử dụng", disposalAmount: "Tiền thu hồi khi thanh lý", disposalReason: "Lý do thanh lý", accumulatedAfter: "Khấu hao lũy kế sau kỳ", netBookValueAfter: "Giá trị còn lại sau kỳ", custodianName: "Người quản lý", supplierName: "Nhà cung cấp", department: "Bộ phận", location: "Vị trí", period: "Kỳ", sessionCode: "Mã phiên kiểm kê", scope: "Phạm vi kiểm kê", total: "Tổng tài sản", counts: "Số lượng theo kết quả", variances: "Chênh lệch kiểm kê", grossPay: "Tổng thu nhập",
   laborType: "Loại lao động", name: "Tên", legalName: "Pháp nhân xuất hóa đơn", taxId: "Mã số thuế", invoiceEmail: "Email nhận hóa đơn", contactName: "Người liên hệ", isDefault: "Hồ sơ mặc định", warnings: "Lưu ý", netCollected: "Thực thu", note: "Ghi chú", occurredAt: "Thời điểm", occurredOn: "Ngày",
   outcome: "Kết quả quét", paidAmount: "Đã thanh toán", parentCode: "Mã đơn liên quan", payments: "Thanh toán", phone: "Điện thoại",
-  productName: "Sản phẩm", quantity: "Số lượng", queued: "Đã xếp hàng gửi", skipped: "Bỏ qua", targetModule: "Phân hệ được liên kết", targetRecordName: "Hồ sơ được liên kết", refundedAmount: "Đã hoàn tiền", refunds: "Hoàn tiền", startDate: "Ngày bắt đầu", postsPerDay: "Số bài mỗi ngày",
+  productName: "Sản phẩm", quantity: "Số lượng", stock: "Tồn khả dụng", queued: "Đã xếp hàng gửi", skipped: "Bỏ qua", targetModule: "Phân hệ được liên kết", targetRecordName: "Hồ sơ được liên kết", refundedAmount: "Đã hoàn tiền", refunds: "Hoàn tiền", startDate: "Ngày bắt đầu", postsPerDay: "Số bài mỗi ngày",
   remaining: "Còn có thể hoàn", remainingLabor: "Còn có thể hoàn tiền công", remainingOther: "Còn có thể hoàn khoản khác",
   reservedQuantity: "Đã giữ chỗ", sku: "SKU", startAt: "Thời gian bắt đầu", status: "Trạng thái", summary: "Tóm tắt",
   question: "Câu hỏi", ticketCode: "Mã phiếu sửa chữa", title: "Tiêu đề", totalAmount: "Tổng tiền", unitCode: "Đơn vị", variantName: "Biến thể",
   warehouseName: "Kho", workerName: "Nhân sự",
 };
+Object.assign(labels, { hasBankAccount: "Có tài khoản ngân hàng" });
 
 Object.assign(labels, {
   workingDays: "Ngày làm việc", daysOfWeek: "Ngày trong tuần", createdAt: "Ngày tạo",
@@ -126,7 +126,7 @@ Object.assign(labels, {
 Object.assign(labels, { entityPreset: "Loại hồ sơ", isRequired: "Bắt buộc", isVisible: "Đang hiển thị", isArchived: "Đã lưu trữ", placeholder: "Gợi ý nhập" });
 Object.assign(labels, { registrationDate: "Ngày đăng ký", fee: "Học phí", isGroup: "Phòng nhóm" });
 Object.assign(labels, { recordedPaidAmount: "Đã đóng trên hồ sơ", receiptTotal: "Tổng tiền phiếu thu", historyTotal: "Tổng lịch sử thanh toán", paymentDifference: "Phiếu thu trừ số đã đóng", receiptCount: "Số phiếu thu", reconciliationStatus: "Kết quả đối chiếu", scopeDescription: "Phạm vi đối chiếu" });
-Object.assign(labels, { stepsCount: "Số bước" });
+Object.assign(labels, { stepsCount: "Số bước", absentStudents: "Học viên vắng" });
 Object.assign(labels, { allocated: "Đã bố trí", gap: "Còn thiếu", absentDays: "Số ngày chưa chấm công", courseTitle: "Khóa học", className: "Lớp học", present: "Có mặt", late: "Đi muộn", absent: "Vắng", excused: "Có phép", unrecorded: "Chưa ghi nhận", interviewers: "Người phỏng vấn", applicantName: "Ứng viên" });
 Object.assign(labels, { contentGroup: "Nhóm nội dung", shootingContent: "Nội dung cần quay/chụp", productionRequirements: "Yêu cầu sản xuất", quantitySuggestion: "Số lượng đề xuất", headline: "Tiêu đề hiển thị", subheadline: "Mô tả ngắn", cta: "Lời kêu gọi hành động", visualBrief: "Mô tả hình ảnh", videoScript: "Kịch bản video", format: "Định dạng", revision: "Phiên bản", warnings: "Lưu ý" });
 Object.assign(labels, { operation: "Loại thao tác", totalItems: "Tổng số mục", completedItems: "Đã xong", failedItems: "Lỗi", skippedItems: "Bỏ qua", conflictedItems: "Xung đột", progress: "Tiến độ" });
@@ -174,6 +174,7 @@ Object.assign(labels, { configured: "Đã cài đặt", birthdayEnabled: "Gửi 
 Object.assign(labels, { areaM2: "Diện tích m²", floors: "Số tầng", style: "Phong cách", symbol: "Số ký hiệu", issuingAuthority: "Cơ quan ban hành", jurisdiction: "Phạm vi", province: "Tỉnh thành", expiryDate: "Ngày hết hiệu lực", reviewRequired: "Cần rà soát", chunksCount: "Số đoạn nội dung", taskType: "Loại rà soát", chapter: "Chương", article: "Điều", clause: "Khoản", point: "Điểm", versionNumber: "Phiên bản văn bản", asOf: "Ngày áp dụng", sourceUrl: "Nguồn", contractCode: "Mã hợp đồng", reportType: "Loại báo cáo", requestedStartDate: "Ngày phỏng vấn", requestedStartTime: "Giờ phỏng vấn" });
 
 Object.assign(labels, { partnerName: "Đối tác", partnerCode: "Mã đối tác", periodStart: "Từ ngày", periodEnd: "Đến ngày", balanceAmount: "Còn lại", version: "Phiên bản" });
+Object.assign(labels, { productCategoryCount: "Số nhóm ngành hàng", productCount: "Số sản phẩm", variantCount: "Số biến thể", configuredSkuCount: "Số SKU có mức hoa hồng riêng" });
 Object.assign(labels, { isDeleted: "Đã xóa mềm", headcount: "Số lượng tuyển", requirements: "Yêu cầu ứng viên", benefits: "Quyền lợi", employmentType: "Hình thức làm việc", workplaceType: "Nơi làm việc", applicationDeadline: "Hạn nhận hồ sơ", salaryMin: "Lương tối thiểu", salaryMax: "Lương tối đa", showSalary: "Hiển thị mức lương" });
 Object.assign(labels, { effectiveTo: "Có hiệu lực đến", commissionScheme: "Cơ chế hoa hồng", confirmationSource: "Nguồn xác nhận", referredAt: "Ngày giới thiệu", employmentStartDate: "Ngày bắt đầu làm" });
 Object.assign(labels, { account: "Tài khoản", direction: "Chiều thu chi", profitCategory: "Loại phiếu", cashNet: "Chênh lệch tiền mặt", bankNet: "Chênh lệch ngân hàng", count: "Số giao dịch", entries: "Khoản thu chi", shiftsReconciliation: "Đối soát ca", expectedCash: "Tiền mặt theo sổ", countedCash: "Tiền mặt đã đếm", varianceAmount: "Chênh lệch ca", balanced: "Khớp kỳ quỹ đã chốt", period: "Kỳ quỹ", reason: "Lý do" });
@@ -242,7 +243,18 @@ export function localizedAssistantFieldLabel(key: string, label: string, operati
 }
 
 function labelFor(operation: ResultOperation, key: string): string {
-  if (operation.id === "student.batch.attendance.summary" && key === "total") return "Tổng học viên";
+  if (["retail.order.list", "retail.order.completed-unpaid.report"].includes(operation.id)) {
+    if (key === "orderCode") return "Mã đơn hàng";
+    if (key === "cancelReason") return "Lý do hủy";
+    if (key === "cancelledByName") return "Người hủy";
+  }
+  if (operation.id === "student.batch.attendance.summary") {
+    const attendanceLabels: Record<string, string> = {
+      total: "Tổng học viên", startTime: "Giờ bắt đầu", endTime: "Giờ kết thúc",
+      location: "Phòng học", remainingSlots: "Số chỗ còn lại",
+    };
+    if (attendanceLabels[key]) return attendanceLabels[key];
+  }
   if (operation.id.startsWith("architect.") && key === "requirements") return "Yêu cầu thiết kế";
   if (operation.id.startsWith("legal.")) {
     const legalLabels: Record<string, string> = { documents: "Số văn bản", chunks: "Số đoạn nội dung", pendingReviews: "Số mục chờ rà soát", latestDownloadAt: "Lần tải gần nhất", syncConfigured: "Đã cấu hình nguồn", citation: "Trích dẫn", answer: "Nội dung trả lời", sources: "Nguồn tham khảo", query: "Nội dung tra cứu" };
@@ -289,6 +301,17 @@ function labelFor(operation: ResultOperation, key: string): string {
       fee: "H\u1ECDc ph\u00ED", paidAmount: "\u0110\u00E3 thanh to\u00E1n",
     };
     if (studentLabels[key]) return studentLabels[key];
+  }
+  if (operation.id === "student.learning-roadmap.progression.list") {
+    const labels: Record<string, string> = {
+      studentName: "Học viên", studentPhone: "Số điện thoại", sourceStepName: "Chặng hiện tại",
+      targetStepName: "Chặng tiếp theo", attendanceRate: "Chuyên cần", assignmentRate: "Bài tập",
+      miniTestRate: "Mini test", examRate: "Điểm thi", teacherAssessment: "Đánh giá giáo viên",
+      eligible: "Đủ điều kiện lên lớp", eligibilityReasonSummary: "Lý do xét điều kiện",
+      intent: "Quyết định hiện tại", teacherNote: "Ghi chú giáo viên", overrideEligible: "Duyệt ngoại lệ",
+      overrideReason: "Lý do ngoại lệ",
+    };
+    if (labels[key]) return labels[key];
   }
   if (["marketing.video-caption.project.list", "marketing.video-caption.project.detail"].includes(operation.id)) {
     const projectLabels: Record<string, string> = {
@@ -443,9 +466,11 @@ function formatIsoDate(value: string): string {
 }
 
 function formatValueRaw(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
-  if (operation.id === "student.batch.attendance.summary" && ["total", "present", "late", "absent", "excused", "unrecorded"].includes(key) && typeof value === "number") return new Intl.NumberFormat("vi-VN").format(value);
+  if (operation.id === "student.batch.attendance.summary" && ["total", "present", "late", "absent", "excused", "unrecorded", "remainingSlots"].includes(key) && typeof value === "number") return new Intl.NumberFormat("vi-VN").format(value);
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === "boolean") {
+    if (operation.id === "student.learning-roadmap.progression.list" && key === "eligible") return value ? "Đủ điều kiện" : "Chưa đủ điều kiện";
+    if (operation.id === "student.learning-roadmap.progression.list" && key === "overrideEligible") return value ? "Có" : "Không";
     if (operation.id.startsWith("recruitment.job.") && key === "isDeleted") return value ? "Đã xóa mềm" : "Chưa xóa";
     if (operation.id === "department.list" && key === "isActive") return value ? "\u0110ang ho\u1EA1t \u0111\u1ED9ng" : "\u0110\u00E3 ng\u1EEBng ho\u1EA1t \u0111\u1ED9ng";
     if (operation.id.startsWith("notification.") && key === "read") return value ? "Có" : "Chưa đọc";
@@ -459,6 +484,7 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
   }
   if (typeof value === "number") {
     const formatted = key === "year" ? String(value) : new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value);
+    if (operation.id === "student.learning-roadmap.progression.list" && ["attendanceRate", "assignmentRate", "miniTestRate", "examRate"].includes(key)) return `${formatted}%`;
     if (bulkCreateJobOperationIds.includes(operation.id) && key === "totalItems") return formatted;
     if (bulkCreateTemplateOperationIds.includes(operation.id) && ["version", "useCount"].includes(key)) return formatted;
     if (key === "accessoryBps" || key === "repairBps") return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value / 100)}%`;
@@ -467,6 +493,9 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
     return moneyKey.test(key) && !countOrMeasure && operation.id !== "leave.balance.me" ? `${formatted} ₫` : formatted;
   }
   if (typeof value === "string") {
+    if (operation.id === "student.learning-roadmap.progression.list" && key === "intent") {
+      return ({ continue: "Học tiếp", pending: "Chờ quyết định", stop: "Dừng học", preserve: "Bảo lưu", repeat: "Học lại" } as Record<string, string>)[value] || value;
+    }
     if (["birthDate", "birthday"].includes(key)) {
       const date = formatAssistantTemporalValue(value.trim());
       if (date) return date.split(", ").at(-1)!;
@@ -602,7 +631,8 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
     }
     if (operation.id === "repair.device.lookup" && key === "costBearer") return ({ supplier: "Nhà cung cấp", shop: "Cửa hàng", customer: "Khách hàng" } as Record<string, string>)[value] || value;
     if (key === "bankAccountNo") {
-      return maskAssistantBankAccount(value);
+      const accountDigits = value.replace(/\D/g, "");
+      return accountDigits.length > 4 ? `•••• ${accountDigits.slice(-4)}` : "••••";
     }
     if (key === "commissionType" && value === "percentage") return "Phần trăm";
     if (key === "commissionType" && value === "fixed") return "Số tiền cố định";
@@ -714,7 +744,9 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
       typeof displayRecord.active === "boolean" ? "Trạng thái: " + (displayRecord.active ? "Đã kích hoạt" : "Đang tạm dừng") : "",
     ].filter(Boolean).join("\n");
   }
-  const resultFields = operation.id === "department.list"
+  const resultFields = operation.id === "retail.order.list" && displayRecord.status === "cancelled"
+    ? ["orderCode", "customerName", "status", "cancelReason", "cancelledByName", "paymentStatus", "grandTotal", "paidAmount"]
+    : operation.id === "department.list"
     ? ["name", "code", "managerName", "isActive", "employeeCount"]
     : operation.id === "employee.list"
       ? ["displayName", "department", "division"]
@@ -1077,7 +1109,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       interviewers: [["applicantName", "Ứng viên"], ["jobTitle", "Vị trí"], ["scheduledStart", "Thời gian"], ["interviewers", "Người phỏng vấn"], ["format", "Hình thức"], ["status", "Trạng thái"]],
       "interview-results": [["applicantName", "Ứng viên"], ["jobTitle", "Vị trí"], ["scheduledStart", "Thời gian"], ["interviewers", "Người phỏng vấn"], ["result", "Kết quả"], ["status", "Trạng thái"]],
       hires: [["name", "Ứng viên"], ["jobTitle", "Vị trí"], ["outcome", "Kết quả"], ["occurredAt", "Ngày ghi nhận"]],
-      onboarded: [["name", "Ứng viên"], ["jobTitle", "Vị trí"], ["outcome", "Kết quả"], ["occurredAt", "Ngày ghi nhận"]],
+      onboarded: [["name", "Ứng viên"], ["jobTitle", "Vị trí"], ["department", "Phòng ban"], ["outcome", "Kết quả"], ["occurredAt", "Ngày ghi nhận"]],
       "job-applications": [["title", "Vị trí"], ["department", "Phòng ban"], ["count", "Số hồ sơ"]],
       "staffing-gaps": [["name", "Phòng ban"], ["headcount", "Số lượng cần tuyển"], ["filled", "Đã tuyển"], ["gap", "Còn thiếu"], ["count", "Số vị trí"]],
       "job-deadlines": [["title", "Vị trí"], ["department", "Phòng ban"], ["applicationDeadline", "Hạn nhận hồ sơ"], ["status", "Trạng thái"], ["expired", "Đã hết hạn"]],
@@ -1256,6 +1288,26 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   }
   if (["timekeeping.records.list", "timekeeping.records.overview", "timekeeping.records.late", "timekeeping.records.absent", "timekeeping.records.unrecorded", "timekeeping.records.leave"].includes(operation.id)) {
     const records = collection(safeResult) || [];
+    if (operation.id === "timekeeping.records.overview") {
+      const summary = summarizeDailyAttendance(records.map(value => recordOf(value) || {}));
+      if (!summary.totalEmployees) return "Không có nhân sự trong phạm vi đã chọn để tính tỷ lệ chấm công hôm nay.";
+      const percent = summary.checkInRatePercent === null ? "—" : `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(summary.checkInRatePercent)}%`;
+      const attendanceDetails = records.flatMap((value: unknown) => {
+        const record = recordOf(value);
+        if (!record || typeof record.employeeName !== "string") return [];
+        const status = typeof record.attendanceStatus === "string" && record.attendanceStatus.trim()
+          ? record.attendanceStatus.trim()
+          : record.checkIn ? "Đã vào ca" : "Chưa ghi nhận";
+        return [`${record.employeeName}: ${status}`];
+      });
+      return formatAssistantResultTable("Tỷ lệ nhân sự đã vào ca trên tổng nhân sự trong phạm vi đã chọn", [{
+        ...(summary.date ? { "Ngày": formatIsoDate(summary.date) } : {}),
+        "Tổng nhân sự": String(summary.totalEmployees),
+        "Đã vào ca": String(summary.checkedIn),
+        "Chưa vào ca": String(summary.notCheckedIn),
+        "Tỷ lệ đã vào ca": percent,
+      }], attendanceDetails.length ? [`Tình trạng từng nhân sự: ${attendanceDetails.join("; ")}`] : []);
+    }
     const matches = (record: unknown) => {
       const row = recordOf(record);
       if (!row) return false;
@@ -1267,6 +1319,11 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       return true;
     };
     const filtered = records.filter(matches).slice(0, 100);
+    const attendanceDates = [...new Set(records.flatMap((value: unknown) => {
+      const record = recordOf(value);
+      return record && typeof record.date === "string" ? [record.date] : [];
+    }))];
+    const attendanceDay = attendanceDates.length === 1 ? `ngày ${formatIsoDate(attendanceDates[0])}` : "ngày được hỏi";
     const labels: Record<string, string> = {
       "timekeeping.records.late": "nhân sự đi muộn",
       "timekeeping.records.absent": "nhân sự vắng",
@@ -1276,7 +1333,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     if (!filtered.length) {
       if (!records.length) return "Chưa có dữ liệu nhân sự/chấm công trong phạm vi này để xác định tình trạng đi làm.";
       const category = labels[operation.id];
-      return category ? `Hôm nay không có ${category} trong phạm vi hiện tại.` : `${operation.title}\nKhông có dữ liệu chấm công trong phạm vi hiện tại.`;
+      return category ? `Không ghi nhận ${category} trong ${attendanceDay}.` : `${operation.title}\nKhông có dữ liệu chấm công trong phạm vi hiện tại.`;
     }
     const rows = filtered.flatMap((value: unknown) => {
       const record = recordOf(value);
@@ -1289,7 +1346,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         ...(record.checkOut ? { "Giờ ra": formatValue(operation, "checkOut", record.checkOut) } : {}),
       }];
     });
-    return formatAssistantResultTable(`Có ${countValue(filtered.length)} ${labels[operation.id] || "bản ghi chấm công"} hôm nay.`, rows);
+    return formatAssistantResultTable(`Có ${countValue(filtered.length)} ${labels[operation.id] || "bản ghi chấm công"} trong ${attendanceDay}.`, rows);
   }
   if (operation.id.startsWith("timekeeping.records.monthly.")) {
     const records = Array.isArray(dataResult.records) ? dataResult.records : [];
@@ -1508,6 +1565,32 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const moneyValue = (value: unknown) => Number.isFinite(Number(value))
     ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} ₫`
     : "0 ₫";
+  if (operation.path === "/retail/finance/profit") {
+    const wrapper = recordOf(redacted);
+    const report = recordOf(wrapper?.data) || wrapper || {};
+    const summary = recordOf(report.summary);
+    if (!summary) return `${operation.title}\nKhông có dữ liệu lợi nhuận trong khoảng ngày được hỏi.`;
+    const netProfit = typeof summary.netProfit === "number" && Number.isFinite(summary.netProfit) ? summary.netProfit : null;
+    const missingCostCount = Number.isSafeInteger(Number(summary.missingCostCount)) ? Math.max(0, Number(summary.missingCostCount)) : 0;
+    const rows = [{
+      "Doanh thu": moneyValue(summary.revenue),
+      "Giá vốn đã biết": moneyValue(summary.knownCost),
+      "Lợi nhuận gộp": typeof summary.grossProfit === "number" ? moneyValue(summary.grossProfit) : "Chưa xác định",
+      "Chi phí hoạt động": moneyValue(summary.operatingExpense),
+      "Chi phí hoa hồng": moneyValue(summary.commissionExpense),
+      "Lợi nhuận ròng": netProfit === null ? "Chưa xác định" : moneyValue(netProfit),
+    }];
+    const summaryText = netProfit === null
+      ? "Chưa xác định được lợi nhuận ròng do còn thiếu giá vốn."
+      : `Lợi nhuận ròng trong kỳ: ${moneyValue(netProfit)}.`;
+    const period = typeof report.from === "string" && typeof report.to === "string"
+      ? `Kỳ báo cáo: ${formatIsoDate(report.from)}–${formatIsoDate(report.to)}`
+      : "";
+    return formatAssistantResultTable(summaryText, rows, [
+      ...(period ? [period] : []),
+      ...(missingCostCount ? [`Thiếu giá vốn ở ${countValue(missingCostCount)} dòng; chưa thể chốt lợi nhuận ròng.`] : []),
+    ]);
+  }
   if (operation.id === "retail.invoice.summary") {
     return [
       operation.title,
@@ -1518,11 +1601,241 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       `Đã thanh toán: ${moneyValue(dataResult.paidAmount)} · Còn phải thu: ${moneyValue(dataResult.dueAmount)}`,
     ].join("\n");
   }
+  if (operation.id === "customer.tier.counts") {
+    const tiers = Array.isArray(dataResult.tiers) ? dataResult.tiers : [];
+    const rows = tiers.map(recordOf).filter((row): row is Record<string, any> => Boolean(row))
+      .map(row => `${String(row.name || row.code || "Hạng khách hàng")}: ${countValue(row.count)}`);
+    if (Number.isFinite(Number(dataResult.unranked))) rows.push(`Chưa xếp hạng: ${countValue(dataResult.unranked)}`);
+    const total = Number.isFinite(Number(dataResult.total)) ? Number(dataResult.total) : rows.length;
+    const hasVipTier = tiers.some((value: unknown) => {
+      const tier = recordOf(value) || {};
+      return /vip/i.test(`${String(tier.code || "")} ${String(tier.name || "")}`);
+    });
+    if (!hasVipTier) rows.push("Không có hạng tên VIP trong cấu hình hiện tại.");
+    return [`Khách hàng theo hạng đã cấu hình: ${countValue(total)}`, ...rows].join("\n");
+  }
+  if (operation.id === "customer.upcoming-birthdays") {
+    const items = Array.isArray(dataResult.items) ? dataResult.items : [];
+    const total = Number.isSafeInteger(Number(dataResult.total)) && Number(dataResult.total) >= 0 ? Number(dataResult.total) : items.length;
+    const names = new Map<string, number>();
+    for (const value of items) {
+      const item = recordOf(value);
+      if (item && typeof item.name === "string") names.set(item.name, (names.get(item.name) || 0) + 1);
+    }
+    const rows = items.slice(0, 20).flatMap((value: unknown, index: number) => {
+      const item = recordOf(value);
+      if (!item || typeof item.name !== "string") return [];
+      const birthday = typeof item.birthdayDate === "string" ? formatIsoDate(item.birthdayDate) : "";
+      const code = names.get(item.name)! > 1 && typeof item.customerCode === "string" && item.customerCode.trim() ? ` · Mã ${item.customerCode}` : "";
+      return [`${index + 1}. ${item.name}${code}${birthday ? ` · ${birthday}` : ""}`];
+    });
+    return total ? [`Có ${countValue(total)} khách hàng sắp đến sinh nhật.`, ...rows,
+      ...(dataResult.truncated === true || total > rows.length ? [`Còn ${countValue(total - rows.length)} khách chưa hiển thị.`] : [])].join("\n")
+      : "Không có khách hàng sắp đến sinh nhật trong khoảng ngày được chọn.";
+  }
+  if (operation.id === "retail.report.top-products") {
+    const products = Array.isArray(dataResult.products) ? dataResult.products : [];
+    const rows = products.slice(0, 10).flatMap((value: unknown) => {
+      const product = recordOf(value);
+      if (!product || typeof product.productName !== "string") return [];
+      return [{
+        "Mặt hàng": product.productName,
+        "Số lượng bán": `${countValue(product.netQuantity)} sản phẩm`,
+        "Doanh thu": moneyValue(product.netSales),
+      }];
+    });
+    if (!rows.length) return "Không có mặt hàng phát sinh bán trong kỳ được chọn.";
+    const range = reportDateRange(dataResult.range);
+    const summary = range ? `Mặt hàng bán chạy nhất trong kỳ ${range}` : "Mặt hàng bán chạy nhất trong kỳ";
+    return formatAssistantResultTable(summary, rows,
+      products.length > rows.length ? [`Còn ${countValue(products.length - rows.length)} mặt hàng chưa hiển thị.`] : []);
+  }
+  if (operation.id === "inventory.serial.stock-ranking") {
+    const products = Array.isArray(dataResult.products) ? dataResult.products : [];
+    const rows = products.flatMap((value: unknown) => {
+      const product = recordOf(value);
+      if (!product || typeof product.productName !== "string") return [];
+      return [{ "Dòng máy": product.productName, "IMEI đang tồn": countValue(product.imeiCount) }];
+    });
+    return rows.length
+      ? formatAssistantResultTable("Dòng máy có số IMEI còn trong kho nhiều nhất", rows)
+      : "Hiện không có IMEI/serial nào đang tồn trong kho ở chi nhánh được chọn.";
+  }
+  if (operation.id === "retail.report.margin-watch") {
+    const belowCost = Array.isArray(dataResult.belowCost) ? dataResult.belowCost : [];
+    const lowMargin = Array.isArray(dataResult.lowMargin) ? dataResult.lowMargin : [];
+    const missingCost = Array.isArray(dataResult.missingCost) ? dataResult.missingCost : [];
+    const formatRows = (rows: unknown[]) => rows.slice(0, 10).map((value, index) => {
+      const row = recordOf(value) || {};
+      return `${index + 1}. ${row.productName || row.sku || "Mặt hàng"} · Doanh thu ${moneyValue(row.netSales)} · Lãi gộp ${moneyValue(row.profit)}${row.marginPercent === undefined ? "" : ` · Biên ${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(Number(row.marginPercent))}%`}`;
+    });
+    const lines = [`Ngưỡng biên lãi thấp: ${countValue(dataResult.thresholdPercent)}%`, `Bán dưới giá vốn: ${belowCost.length ? "" : "Không có mặt hàng phù hợp."}`,
+      ...formatRows(belowCost), `Biên dưới ngưỡng: ${lowMargin.length ? "" : "Không có mặt hàng phù hợp."}`, ...formatRows(lowMargin)];
+    if (missingCost.length) lines.push(`Chưa có dữ liệu giá vốn cho ${countValue(missingCost.length)} mặt hàng nên không thể tính biên.`);
+    return lines.join("\n");
+  }
+  if (operation.id === "retail.shift.variance-report") {
+    const shifts = Array.isArray(dataResult.shifts) ? dataResult.shifts : [];
+    return shifts.length ? [`Có ${countValue(shifts.length)} ca đã đóng bị lệch tiền:`, ...shifts.slice(0, 20).map((value: unknown, index: number) => {
+      const row = recordOf(value) || {};
+      return `${index + 1}. ${row.shiftCode || "Ca POS"} · ${row.cashierName || "Chưa ghi nhận thu ngân"} · ${typeof row.businessDate === "string" ? formatIsoDate(row.businessDate) : ""} · Dự kiến ${moneyValue(row.expectedCash)} · Đếm được ${moneyValue(row.countedCash)} · Lệch ${moneyValue(row.varianceAmount)}${row.varianceReason ? ` · ${row.varianceReason}` : ""}`;
+    })].join("\n") : "Không có ca đã đóng bị lệch tiền trong khoảng ngày này.";
+  }
+  if (operation.id === "retail.shift.latest-close-report") {
+    const shift = recordOf(dataResult.shift);
+    if (!shift) return "Chưa có ca POS đã đóng tại chi nhánh này.";
+    const expenses = Array.isArray(dataResult.cashExpenses) ? dataResult.cashExpenses : [];
+    return [`Ca POS đã đóng gần nhất: ${shift.shiftCode || "Chưa có mã ca"} · ${shift.cashierName || "Chưa ghi nhận thu ngân"} · ${typeof shift.businessDate === "string" ? formatIsoDate(shift.businessDate) : ""}`,
+      `Tiền đầu ca: ${moneyValue(shift.openingFloat)} · Doanh số: ${moneyValue(shift.grossSales)} · Tiền dự kiến: ${moneyValue(shift.expectedCash)} · Đã đếm: ${moneyValue(shift.countedCash)} · Lệch: ${moneyValue(shift.varianceAmount)}`,
+      expenses.length ? `Khoản chi tiền mặt cùng ngày: ${expenses.map((value: unknown) => { const row = recordOf(value) || {}; return `${row.description || "Khoản chi"} ${moneyValue(row.amount)}`; }).join("; ")}` : "Không có khoản chi tiền mặt được ghi trong sổ quỹ cùng ngày."].join("\n");
+  }
+  if (operation.id === "retail.after-sale.customer-return-summary") {
+    return `Trong kỳ có ${countValue(dataResult.returnCount)} phiếu trả hàng đã hoàn tất, từ ${countValue(dataResult.customerCount)} khách hàng riêng biệt; tổng tiền hoàn là ${moneyValue(dataResult.refundTotal)}.`;
+  }
+  if (operation.id === "retail.after-sale.return-product-analysis") {
+    const products = Array.isArray(dataResult.products) ? dataResult.products : [];
+    const reasons = Array.isArray(dataResult.reasons) ? dataResult.reasons : [];
+    const lines = products.length ? ["Mặt hàng bị trả nhiều nhất:", ...products.map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${row.productName} · ${countValue(row.returnedQuantity)} sản phẩm · ${countValue(row.returnCount)} phiếu`; })]
+      : ["Không có phiếu trả hàng hoàn tất trong kỳ được hỏi."];
+    lines.push(reasons.length ? `Lý do đã ghi: ${reasons.map((value: unknown) => { const row = recordOf(value) || {}; return `${row.reason} (${countValue(row.count)})`; }).join("; ")}` : "Các phiếu không có lý do trả hàng được ghi nhận.");
+    return lines.join("\n");
+  }
+  if (operation.id === "retail.order.installment-balances") {
+    const orders = Array.isArray(dataResult.orders) ? dataResult.orders : [];
+    return orders.length ? ["Các đơn bán đã hoàn tất còn công nợ (nguồn không đánh dấu riêng đơn trả góp):", ...orders.slice(0, 20).map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${row.orderCode} · ${row.customerName || "Chưa có tên khách"} · ${typeof row.businessDate === "string" ? formatIsoDate(row.businessDate) : ""} · Tổng ${moneyValue(row.grandTotal)} · Đã trả ${moneyValue(row.paidAmount)} · Còn nợ ${moneyValue(row.dueAmount)}`; })].join("\n")
+      : "Không có đơn đã hoàn tất còn công nợ trong kỳ được hỏi. Hệ thống hiện không có cờ riêng để xác định đơn mua trả góp.";
+  }
+  if (operation.id === "retail.order.debt-ranking") {
+    const highest = recordOf(dataResult.highestBalance);
+    const oldest = recordOf(dataResult.oldestOverdue);
+    return [`Khách có tổng công nợ cao nhất: ${highest ? `${highest.customerName} · ${moneyValue(highest.balance)}` : "Không có công nợ còn lại."}`,
+      `Khoản quá hạn lâu nhất: ${oldest ? `${oldest.customerName || "Chưa ghi tên"} · ${oldest.reference || "Không có mã tham chiếu"} · ${moneyValue(oldest.balance)} · ${countValue(oldest.daysOverdue)} ngày quá hạn` : dataResult.overdueAgeAvailable === false ? "Nguồn không có ngày đến hạn để xác định tuổi nợ." : "Không có khoản quá hạn."}`].join("\n");
+  }
+  if (operation.id === "retail.customer.purchase-warranty-summary") {
+    if (dataResult.found === false) return dataResult.ambiguous ? "Có nhiều khách hàng khớp; bạn cho mình thêm thông tin để chọn đúng hồ sơ nhé." : "Không tìm thấy khách hàng khớp với số điện thoại được hỏi.";
+    const orders = Array.isArray(dataResult.orders) ? dataResult.orders : [];
+    const devices = Array.isArray(dataResult.warrantyDevices) ? dataResult.warrantyDevices : [];
+    return [`Lịch sử mua của ${dataResult.customerName || "khách hàng"}:`, `Tổng mua ${moneyValue(dataResult.totalPurchased)} · Công nợ hiện tại ${moneyValue(dataResult.currentDebt)}`,
+      ...(orders.length ? orders.slice(0, 10).map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${row.orderCode} · ${typeof row.businessDate === "string" ? formatIsoDate(row.businessDate) : ""} · ${moneyValue(row.grandTotal)} · ${countValue(row.itemCount)} sản phẩm`; }) : ["Không có đơn mua được ghi nhận."]),
+      ...(devices.length ? ["Thiết bị và hạn bảo hành:", ...devices.slice(0, 10).map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${row.productName || "Thiết bị"} · Đơn ${row.orderCode || "chưa rõ"} · Hết hạn ${typeof row.warrantyEndAt === "string" ? formatIsoDate(row.warrantyEndAt) : "chưa ghi nhận"}`; })] : ["Không có thiết bị kèm thông tin bảo hành được ghi nhận."]),
+      dataResult.warrantyRequestsAvailable === false ? "Nguồn hiện không có lịch sử yêu cầu bảo hành riêng." : ""].filter(Boolean).join("\n");
+  }
+  if (operation.id === "retail.customer.profile-summary") {
+    if (dataResult.found === false) return dataResult.ambiguous ? "Có nhiều khách hàng khớp tên; bạn cho mình thêm số điện thoại để chọn đúng hồ sơ nhé." : "Không tìm thấy khách hàng khớp yêu cầu.";
+    return [`Khách hàng: ${dataResult.customerName || "Chưa rõ"}`, `Hạng: ${dataResult.tier || "Chưa xếp hạng"}`, `Tổng mua ghi nhận: ${moneyValue(dataResult.totalSpent)}`,
+      dataResult.couponUsageStatusAvailable === false ? "Nguồn mã ưu đãi không xác nhận trạng thái đã dùng/chưa dùng; mình chưa thể liệt kê mã chưa dùng." : `Ưu đãi chưa dùng: ${Array.isArray(dataResult.unusedCoupons) ? dataResult.unusedCoupons.join(", ") || "Không có" : "Không có dữ liệu"}`].join("\n");
+  }
+  if (operation.id === "retail.partner.supplier-dealer-directory") {
+    const partners = Array.isArray(dataResult.partners) ? dataResult.partners : [];
+    return partners.length ? ["Nhà cung cấp và đại lý bán lẻ:", ...partners.map((value: unknown, index: number) => { const row = recordOf(value) || {}; const role = row.partnerType === "dealer" ? "Đại lý" : "Nhà cung cấp"; return `${index + 1}. ${row.name || "Chưa có tên"} · ${role} · ${row.phone || "Chưa có số điện thoại"}`; })].join("\n") : "Không tìm thấy nhà cung cấp hoặc đại lý bán lẻ phù hợp.";
+  }
+  if (operation.id === "retail.finance.cashbook.expense-report") {
+    const expenses = Array.isArray(dataResult.expenses) ? dataResult.expenses : [];
+    return expenses.length ? [`Có ${countValue(expenses.length)} khoản chi trong kỳ, tổng ${moneyValue(dataResult.total)}:`, ...expenses.slice(0, 30).map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${typeof row.businessDate === "string" ? formatIsoDate(row.businessDate) : ""} · ${moneyValue(row.amount)} · ${row.description || "Không có nội dung"}`; })].join("\n") : "Không có khoản chi nào được ghi trong sổ quỹ bán lẻ ở kỳ này.";
+  }
+  if (operation.id === "retail.finance.cashbook.latest-close") {
+    return dataResult.status === "not_found" ? "Chi nhánh hiện chưa có kỳ chốt quỹ nào." : `Kỳ chốt gần nhất: ${typeof dataResult.closeDate === "string" ? formatIsoDate(dataResult.closeDate) : "Chưa rõ ngày"} · Kỳ ${dataResult.from || "?"}–${dataResult.to || "?"} · Lệch ca đã đóng ${moneyValue(dataResult.difference)} · ${dataResult.balanced === true ? "Sổ khớp với lúc chốt" : dataResult.balanced === false ? "Dữ liệu đã thay đổi so với lúc chốt" : "Chưa xác định được trạng thái đối soát"}.`;
+  }
+  if (operation.id === "retail.report.business-overview") {
+    const returns = recordOf(dataResult.returns) || {};
+    return [`Tình hình bán lẻ ${reportDateRange(dataResult.range) ? `(${reportDateRange(dataResult.range)})` : "trong kỳ được hỏi"}:`,
+      `Doanh thu gộp: ${moneyValue(dataResult.grossSales)} · Lãi gộp: ${moneyValue(dataResult.grossProfit)}`,
+      `Đơn hủy: ${countValue(dataResult.cancelledOrders)} · Phiếu trả hàng: ${countValue(returns.count)} · Tiền hoàn: ${moneyValue(returns.amount)}`,
+      `Công nợ khách: ${moneyValue(dataResult.customerDebt)} · Hoa hồng CTV: ${moneyValue(dataResult.collaboratorCommission)}`].join("\n");
+  }
+  if (operation.id === "retail.report.employee-cancelled-cash-variance") {
+    const cancellation = recordOf(dataResult.cancellationLeader);
+    const variance = recordOf(dataResult.varianceLeader);
+    return [
+      `Người hủy nhiều đơn nhất${reportDateRange(dataResult.range) ? ` trong kỳ ${reportDateRange(dataResult.range)}` : " trong kỳ được hỏi"}: ${cancellation ? `${cancellation.employeeName} · ${countValue(cancellation.cancelledOrders)} đơn` : "Chưa có người hủy được ghi nhận trên các đơn hủy"}.`,
+      `Thu ngân có tổng độ lệch ca POS cao nhất: ${variance ? `${variance.cashierName} · ${countValue(variance.shiftCount)} ca · tổng độ lệch tuyệt đối ${moneyValue(variance.totalAbsoluteVariance)} · lệch ròng ${moneyValue(variance.netVariance)}` : "Không có ca đã đóng bị lệch tiền trong kỳ."}.`,
+      Number(dataResult.unattributedCancelledOrders) > 0 ? `${countValue(dataResult.unattributedCancelledOrders)} đơn hủy không có tên người thực hiện trong dữ liệu.` : "",
+    ].filter(Boolean).join("\n");
+  }
+  if (operation.id === "retail.order.invoice-debt-exceptions") {
+    const orders = Array.isArray(dataResult.orders) ? dataResult.orders : [];
+    return orders.length ? [`Có ${countValue(dataResult.total ?? orders.length)} đơn hoàn tất thiếu hóa đơn phát hành hoặc còn công nợ:`, ...orders.slice(0, 30).map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${row.orderCode} · ${row.customerName || "Chưa có tên khách"} · ${typeof row.businessDate === "string" ? formatIsoDate(row.businessDate) : ""} · Còn nợ ${moneyValue(row.dueAmount)} · ${row.invoiceIssued ? "Có hóa đơn" : "Chưa có hóa đơn"}`; })].join("\n") : "Không có đơn đã hoàn tất nào thiếu hóa đơn phát hành hoặc còn công nợ.";
+  }
+  if (operation.id === "retail.order.warranty-match") {
+    const matches = Array.isArray(dataResult.matches) ? dataResult.matches : [];
+    if (!matches.length) return `Không tìm thấy đơn bán khớp chính xác ngày ${reportDateRange(dataResult.range) || "được hỏi"} và tổng tiền ${moneyValue(dataResult.exactTotal)}; mình không chọn đơn gần giống.`;
+    return matches.flatMap((value: unknown) => {
+      const row = recordOf(value) || {};
+      const devices = Array.isArray(row.warrantyDevices) ? row.warrantyDevices : [];
+      return [`Đơn ${row.orderCode} · ${row.customerName || "Chưa có tên khách"} · ${moneyValue(row.grandTotal)}`,
+        ...(devices.length ? devices.map((device: unknown) => { const item = recordOf(device) || {}; return `${item.productName || "Thiết bị"} · Hạn bảo hành ${typeof item.warrantyEndAt === "string" ? formatIsoDate(item.warrantyEndAt) : "chưa ghi nhận"}`; }) : ["Không có thiết bị bảo hành khớp đơn."])];
+    }).join("\n");
+  }
+  if (operation.id === "retail.after-sale.warranty-audit") {
+    const returns = Array.isArray(dataResult.returns) ? dataResult.returns : [];
+    const devices = Array.isArray(dataResult.warrantyDevices) ? dataResult.warrantyDevices : [];
+    const lines = [returns.length ? `Phiếu trả hàng khớp đơn trong ngày: ${returns.map((value: unknown) => { const row = recordOf(value) || {}; return `${row.code} (${row.orderCode}) · ${row.customerName || "Khách chưa rõ"} · ${moneyValue(row.totalAmount)} · ${row.reason || "không ghi lý do"}`; }).join("; ")}` : "Không có phiếu trả hàng nào khớp các đơn trong ngày được hỏi.",
+      devices.length ? `Thiết bị và hạn bảo hành: ${devices.map((value: unknown) => { const row = recordOf(value) || {}; return `${row.orderCode} · ${row.productName || "Thiết bị"} · ${typeof row.warrantyEndAt === "string" ? formatIsoDate(row.warrantyEndAt) : "chưa ghi nhận"}`; }).join("; ")}` : "Không tìm thấy thiết bị có thông tin hạn bảo hành gắn với các đơn trong ngày.",
+      dataResult.warrantyRequestsAvailable === false ? "Nguồn hiện không có lịch sử yêu cầu bảo hành riêng để đối chiếu." : ""];
+    return lines.filter(Boolean).join("\n");
+  }
+  if (operation.id === "retail.report.top-products-return-status") {
+    const products = Array.isArray(dataResult.products) ? dataResult.products : [];
+    const returns = Array.isArray(dataResult.returns) ? dataResult.returns : [];
+    return [...(products.length ? ["Ba mặt hàng bán nhiều nhất và lãi gộp:", ...products.map((value: unknown, index: number) => { const row = recordOf(value) || {}; return `${index + 1}. ${row.productName} · ${countValue(row.netQuantity)} sản phẩm · Lãi gộp ${moneyValue(row.profit)}`; })] : ["Không có mặt hàng bán phát sinh trong tuần được hỏi."]),
+      returns.length ? `Có ${countValue(returns.length)} phiếu trả hàng: ${returns.map((value: unknown) => { const row = recordOf(value) || {}; return `${row.orderCode || "đơn chưa rõ"} · ${row.itemsSummary || "không có chi tiết hàng"} · ${row.reason || "không ghi lý do"}`; }).join("; ")}` : "Không có phiếu trả hàng hoàn tất trong kỳ được hỏi."].join("\n");
+  }
+  if (operation.id === "retail.warranty.status-counts") {
+    return `Tính đến ${typeof dataResult.asOf === "string" ? formatIsoDate(dataResult.asOf) : "hôm nay"}: ${countValue(dataResult.inWarrantyQuantity)} thiết bị còn/sắp hết hạn bảo hành, ${countValue(dataResult.expiredQuantity)} đã hết hạn và ${countValue(dataResult.unrecordedQuantity)} chưa ghi nhận hạn.`;
+  }
+  if (operation.id === "retail.report.daily-extremes") {
+    const dayLine = (label: string, value: unknown) => {
+      const day = recordOf(value);
+      if (!day || typeof day.businessDate !== "string") return `${label}: Chưa có dữ liệu`;
+      return `${label}: ${formatIsoDate(day.businessDate)} · ${moneyValue(day.netSales)} · ${countValue(day.orderCount)} đơn`;
+    };
+    return ["Thống kê ngày bán trong khoảng được hỏi:", dayLine("Doanh thu cao nhất", dataResult.highestRevenueDay),
+      dayLine("Doanh thu thấp nhất", dataResult.lowestRevenueDay), dayLine("Ít đơn nhất", dataResult.fewestOrdersDay)].join("\n");
+  }
+  if (operation.id === "retail.report.category-brand-summary") {
+    const leaderLine = (label: string, value: unknown) => {
+      const leader = recordOf(value);
+      return leader && typeof leader.name === "string"
+        ? `${label}: ${leader.name} · ${moneyValue(leader.netSales)} · ${countValue(leader.netQuantity)} sản phẩm`
+        : `${label}: Chưa có dữ liệu`;
+    };
+    return ["Nhóm đóng góp doanh thu cao nhất trong kỳ:", leaderLine("Nhóm hàng", dataResult.categoryLeader), leaderLine("Thương hiệu", dataResult.brandLeader)].join("\n");
+  }
+  if (operation.id === "retail.order.top-value") {
+    return typeof dataResult.orderCode === "string"
+      ? `Đơn bán có giá trị cao nhất: ${dataResult.orderCode} · Khách hàng: ${dataResult.customerName || "Chưa ghi nhận"} · ${moneyValue(dataResult.grandTotal)} · Ngày bán: ${typeof dataResult.businessDate === "string" ? formatIsoDate(dataResult.businessDate) : "Chưa ghi nhận"}.`
+      : "Không có đơn bán phù hợp trong khoảng ngày được chọn.";
+  }
+  if (["retail.order.top-customers", "retail.order.top-customers.completed"].includes(operation.id)) {
+    const customers = Array.isArray(dataResult.customers) ? dataResult.customers : [];
+    const rows = customers.slice(0, 10).flatMap((value: unknown, index: number) => {
+      const customer = recordOf(value);
+      if (!customer || typeof customer.customerName !== "string") return [];
+      return [`${index + 1}. ${customer.customerName} · ${moneyValue(customer.totalSpent)} · ${countValue(customer.orderCount)} đơn`];
+    });
+    const title = operation.id === "retail.order.top-customers.completed" ? "Khách hàng mua nhiều nhất từ các đơn đã hoàn tất trong kỳ:" : "Khách hàng mua nhiều nhất trong kỳ:";
+    return rows.length ? [title, ...rows].join("\n") : "Không có đơn bán gắn với khách hàng trong kỳ được chọn.";
+  }
+  if (operation.id === "retail.order.discount-anomalies") {
+    const orders = Array.isArray(dataResult.orders) ? dataResult.orders : [];
+    const threshold = Number.isFinite(Number(dataResult.thresholdPercent)) ? Number(dataResult.thresholdPercent) : 20;
+    const rows = orders.slice(0, 20).flatMap((value: unknown, index: number) => {
+      const order = recordOf(value);
+      if (!order || typeof order.orderCode !== "string") return [];
+      const percent = Number.isFinite(Number(order.discountPercent)) ? new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(Number(order.discountPercent)) : "0";
+      return [`${index + 1}. ${order.orderCode} · ${order.customerName || "Chưa ghi nhận khách"} · Giảm ${moneyValue(order.discountAmount)} (${percent}%) · ${moneyValue(order.grandTotal)}`];
+    });
+    return rows.length ? [`Có ${countValue(Number(dataResult.total) || orders.length)} đơn giảm từ ${threshold}% trở lên trong kỳ:`, ...rows].join("\n")
+      : `Không có đơn nào giảm từ ${threshold}% trở lên trong kỳ được hỏi.`;
+  }
   if (operation.id === "retail.report.summary") {
     const summary = recordOf(dataResult.summary) || {};
     const paymentMix = Array.isArray(dataResult.paymentMix) ? dataResult.paymentMix : [];
     const products = Array.isArray(dataResult.products) ? dataResult.products : [];
     const timeSeries = Array.isArray(dataResult.timeSeries) ? dataResult.timeSeries : [];
+    const profitRankedProducts = products.map(recordOf)
+      .filter((product): product is Record<string, any> => Boolean(product) && typeof product.profit === "number" && Number.isFinite(product.profit))
+      .sort((left, right) => right.profit - left.profit);
     const lines = [
       operation.title,
       ...(reportDateRange(dataResult.range) ? [`Thời gian: ${reportDateRange(dataResult.range)}`] : []),
@@ -1540,6 +1853,10 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         if (!product) return [];
         const name = typeof product.productName === "string" && product.productName ? product.productName : "Sản phẩm";
         return [`${index + 1}. ${name} · ${countValue(product.netQuantity)} sản phẩm · ${moneyValue(product.netSales)}`];
+      })] : []),
+      ...(profitRankedProducts.length ? ["Sản phẩm có lợi nhuận gộp cao nhất:", ...profitRankedProducts.slice(0, 5).map((product, index) => {
+        const name = typeof product.productName === "string" && product.productName ? product.productName : "Sản phẩm";
+        return `${index + 1}. ${name} · ${moneyValue(product.profit)}`;
       })] : []),
       ...(timeSeries.length > 1 ? [`Số ngày có dữ liệu: ${countValue(timeSeries.filter((value: unknown) => Number(recordOf(value)?.orderCount) > 0).length)} / ${countValue(timeSeries.length)}`] : []),
     ];
@@ -2101,18 +2418,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     ].join("\n");
   }
   const dataRecord = recordOf(recordOf(safeResult)?.data);
-  let normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
-  // Detail endpoints may return a parent record with its SKU collection.
-  // Render each SKU with public parent context instead of dropping children.
-  if (operation.id === 'inventory.product.detail') {
-    const parent = recordOf(normalizedResult);
-    if (Array.isArray(parent?.variants) && parent.variants.length) {
-      normalizedResult = parent.variants.flatMap(value => {
-        const variant = recordOf(value);
-        return variant ? [{ ...parent, ...variant, name: parent.name, productCode: parent.productCode }] : [];
-      });
-    }
-  }
+  const normalizedResult = dataRecord && operation.resultFields.some(key => Object.hasOwn(dataRecord, key)) ? dataRecord : safeResult;
   const isWorkWorkflowRecord = ["hr.workflow.create", "hr.workflow.update"].includes(operation.id)
     && typeof recordOf(normalizedResult)?.name === "string";
   // A saved record can contain empty child collections (student payments, steps...).
@@ -2130,7 +2436,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     && /^(?:student\.|course\.|batch\.)/.test(operation.id);
   if (isStudentManagementLookup) {
     const records = rows || (recordOf(normalizedResult) ? [normalizedResult] : []);
-    if (!records.length) return "Chưa có kết quả phù hợp trong phạm vi đang xem.";
+    if (!records.length) return `Mình chưa tìm thấy kết quả phù hợp cho ${operation.title.toLocaleLowerCase("vi")}.`;
     const tableRows = records.slice(0, 8).flatMap(value => {
       const record = recordOf(value);
       if (!record) return [];
@@ -2145,7 +2451,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
       }
       return Object.keys(row).length ? [row] : [];
     });
-    if (!tableRows.length) return "Chưa có thông tin phù hợp để hiển thị trong bảng.";
+    if (!tableRows.length) return `Mình chưa tìm thấy kết quả phù hợp cho ${operation.title.toLocaleLowerCase("vi")}.`;
     const count = rows?.length ?? tableRows.length;
     return formatAssistantResultTable(
       `Mình tìm thấy ${count} kết quả phù hợp cho bạn.`,
@@ -2172,9 +2478,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const summary = formatRecord(operation, normalizedResult);
   const tableFields = formatRecordTableRow(operation, normalizedResult);
   if (Object.keys(tableFields).length) {
-    const success = operation.method === "GET" || operation.readOnly
+    const success = operation.method === "GET"
       ? "Mình tìm thấy 1 kết quả phù hợp cho bạn."
-      : assistantCompletedOperationSummary(operation.title);
+      : "Đã hoàn tất yêu cầu.";
     return formatAssistantResultTable(success, [tableFields]);
   }
   return summary
@@ -2202,9 +2508,9 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
   if (["/worker-management/partners/policies", "/worker-management/partners/policies/:policyId"].includes(operation.path || "")) {
     const policyDetails = formatLaborPartnerPolicy(operation, input);
     if (policyDetails) {
-      if (operation.method === "GET") return policyDetails;
+      if (operation.method === "GET") return `Mình kiểm tra giúp bạn rồi nhé:\n${policyDetails}`;
       const action = operation.title.charAt(0).toLocaleLowerCase("vi") + operation.title.slice(1);
-      return `Mình đã ${action}.\n${policyDetails}`;
+      return `Xong rồi bạn nhé, mình đã ${action}.\n${policyDetails}`;
     }
   }
 
@@ -2287,7 +2593,7 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
 
   if (operation.method === "GET") {
     if (formatted.includes("Không có kết quả phù hợp.")) {
-      return "Không tìm thấy kết quả phù hợp trong phạm vi đang xem.";
+      return "Mình kiểm tra rồi, hiện chưa thấy bản ghi nào phù hợp trong phạm vi dữ liệu đang xem. Bạn muốn tìm theo tên/mã cụ thể hoặc đổi chi nhánh không?";
     }
     if (listMatch) {
       const total = Number(listMatch[1]);
@@ -2300,9 +2606,11 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
         : "";
       return [opening + note, lines.slice(1).join("\n").trim()].filter(Boolean).join("\n");
     }
-    return details || "Mình chưa có thông tin chi tiết để hiển thị.";
+    return details ? `Mình kiểm tra giúp bạn rồi nhé:\n${details}` : "Mình đã kiểm tra xong cho bạn rồi nhé.";
   }
 
-  const summary = assistantCompletedOperationSummary(operation.title);
-  return details ? `${summary}\n${details}` : summary;
+  const action = operation.title.charAt(0).toLocaleLowerCase("vi") + operation.title.slice(1);
+  return details
+    ? `Xong rồi bạn nhé, mình đã ${action}.\n${details}`
+    : `Xong rồi bạn nhé, mình đã ${action}.`;
 }

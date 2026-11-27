@@ -1,10 +1,10 @@
 {
   "total": 1367,
-  "connectedContracts": 828,
+  "connectedContracts": 830,
   "connectedManualRoutes": 111,
-  "connectedRoutes": 939,
+  "connectedRoutes": 941,
   "reviewPending": 24,
-  "intentionallyUnsupported": 404,
+  "intentionallyUnsupported": 402,
   "unresolved": [],
   "entries": [
     {
@@ -7994,8 +7994,8 @@
     {
       "method": "GET",
       "path": "/inventory/warehouses/balances",
-      "status": "unsupported",
-      "reason": "Route trả toàn bộ SKU và cả dòng tồn bằng 0 trong kho được chọn nhưng không có tìm kiếm hoặc phân trang. Chưa dùng làm bộ chọn để tránh chọn nhầm khi danh sách lớn; xem tồn tại màn hình Kho.",
+      "status": "contract",
+      "id": "inventory.warehouse.balances.list",
       "file": "server/modules/inventory/warehouse/router.ts",
       "line": 7
     },
@@ -9690,8 +9690,8 @@
     {
       "method": "GET",
       "path": "/retail/finance/commission/balances",
-      "status": "unsupported",
-      "reason": "API chỉ trả mã đối tác và số dư, chưa có tên/mã hiển thị để người dùng đối chiếu. Dùng workflow tra cứu đối soát hoa hồng theo tên đối tác.",
+      "status": "contract",
+      "id": "retail.finance.commission.balances",
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
       "line": 39
     },

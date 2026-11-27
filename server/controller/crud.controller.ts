@@ -23,33 +23,6 @@ import type { ClientSession } from "mongoose";
 
 const withSession = (query: any, session?: ClientSession) => session ? query.session(session) : query;
 
-const TIMEKEEPING_DETAIL_PERMISSIONS = ["timekeeping:read", "timekeeping:manage", "payroll-period:manage"];
-
-async function canReadAttendanceDetails(req: AuthenticatedRequest, role: string, companyCode: string): Promise<boolean> {
-  if (!req.user?.id) return false;
-  const permissions = await getEffectivePermissions(req.user.id, role, companyCode);
-  return permissions.has("*") || TIMEKEEPING_DETAIL_PERMISSIONS.some((permission) => permissions.has(permission));
-}
-
-function attendanceTimeOnly(value: any) {
-  const time = value && typeof value === "object" && "time" in value ? value.time : value;
-  if (time == null) return null;
-  return time instanceof Date ? time.toISOString() : String(time);
-}
-
-function toBranchAttendanceSummary(item: any) {
-  const status = item.status || item.attendanceStatus;
-  return {
-    uid: String(item.uid || item.employeeId || ""),
-    date: item.date,
-    status,
-    attendanceStatus: item.attendanceStatus || status,
-    checkIn: attendanceTimeOnly(item.checkIn ?? item.checkInTime),
-    checkOut: attendanceTimeOnly(item.checkOut ?? item.checkOutTime),
-    ...(typeof item.workHours === "number" ? { workHours: item.workHours } : {}),
-  };
-}
-
 /**
  * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
  * xuống 500 mặc định. Ví dụ message gốc:
@@ -118,12 +91,6 @@ export const crudController = {
       const modelName = req.params.modelName as SupportedModelName;
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
-      const attendanceDetailsAllowed = modelName === "timekeeping-logs"
-        ? await canReadAttendanceDetails(req, userRole, companyCode)
-        : true;
-      const attendanceBranchAccessAllowed = modelName === "timekeeping-logs"
-        ? await canManageTimekeeping(req)
-        : true;
 
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = parseInt(req.query.limit as string, 10) || 1000;
@@ -148,8 +115,12 @@ export const crudController = {
       }
 
       if (modelName === "timekeeping-logs") {
-        if (req.user?.id && !attendanceBranchAccessAllowed) filters.uid = req.user.id;
-        if (req.user?.branchId) filters.branchId = { $in: [req.user.branchId, null, undefined] };
+        if (req.user?.id && !(await canManageTimekeeping(req))) {
+          filters.uid = req.user.id;
+        }
+        if (req.user?.branchId) {
+          filters.branchId = { $in: [req.user.branchId, null, undefined] };
+        }
       } else if (req.user?.branchId && modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows" && modelName !== "categories") {
         filters.branchId = req.user.branchId;
       }
@@ -183,19 +154,15 @@ export const crudController = {
       }, userRole);
 
       if (modelName === "timekeeping-logs" && result.items.length) {
-        if (attendanceDetailsAllowed) {
-          const logIds = result.items.map((item: any) => item._id);
-          const audits = await TimekeepingAdjustmentAuditModel.find({ companyCode, logId: { $in: logIds } }).sort({ createdAt: -1 }).lean();
-          const byLog = new Map<string, any[]>();
-          for (const entry of audits) {
-            const key = String(entry.logId);
-            if ((byLog.get(key)?.length || 0) >= 10) continue;
-            byLog.set(key, [...(byLog.get(key) || []), entry]);
-          }
-          result.items = result.items.map((item: any) => ({ ...item, adjustmentHistory: byLog.get(String(item._id)) || [] }));
-        } else {
-          result.items = result.items.map(toBranchAttendanceSummary);
+        const logIds = result.items.map((item: any) => item._id);
+        const audits = await TimekeepingAdjustmentAuditModel.find({ companyCode, logId: { $in: logIds } }).sort({ createdAt: -1 }).lean();
+        const byLog = new Map<string, any[]>();
+        for (const entry of audits) {
+          const key = String(entry.logId);
+          if ((byLog.get(key)?.length || 0) >= 10) continue;
+          byLog.set(key, [...(byLog.get(key) || []), entry]);
         }
+        result.items = result.items.map((item: any) => ({ ...item, adjustmentHistory: byLog.get(String(item._id)) || [] }));
       }
 
       return res.status(200).json({
@@ -223,7 +190,6 @@ export const crudController = {
       const { modelName, id } = req.params;
       const companyCode = req.user?.companyCode || "SYSTEM";
       const userRole = req.user?.role || "user";
-      let attendanceDetailsAllowed = true;
 
       if (modelName === "training-enrollments") {
         let isSupervisor = ["superadmin", "admin", "manager"].includes(userRole);
@@ -244,26 +210,10 @@ export const crudController = {
         }
       }
 
-      if (modelName === "timekeeping-logs") {
-        attendanceDetailsAllowed = await canReadAttendanceDetails(req, userRole, companyCode);
-        const attendanceBranchAccessAllowed = await canManageTimekeeping(req);
-        const attendanceScope: Record<string, unknown> = { _id: id, companyCode };
-        if (req.user?.branchId) {
-          attendanceScope.branchId = { $in: [req.user.branchId, null, undefined] };
-        }
-        if (!attendanceBranchAccessAllowed) attendanceScope.uid = req.user!.id;
-        const visibleLog = await TimekeepingLogModel.findOne(attendanceScope).select("_id").lean();
-        if (!visibleLog) {
-          return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });
-        }
-      }
-
       const item = await crudService.getById(modelName as SupportedModelName, id, companyCode, userRole, req.user?.branchId);
       return res.status(200).json({
         status: "success",
-        data: modelName === "timekeeping-logs" && !attendanceDetailsAllowed
-          ? toBranchAttendanceSummary(item)
-          : item,
+        data: item,
       });
     } catch (error: any) {
       console.error("[crudController.getById] Error:", error);

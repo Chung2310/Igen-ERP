@@ -79,3 +79,17 @@ export async function reconcileCashPeriod(scope: RetailBranchScope, from: string
   const period = await RetailCashPeriodModel.findOne({ ...scope, from, to }).lean();
   return { ...current, period, balanced: period ? period.digest === current.summary.digest : null };
 }
+export async function latestCashPeriod(scope: RetailBranchScope) {
+  const period: any = await RetailCashPeriodModel.findOne(scope).sort({ closedAt: -1, _id: -1 }).lean();
+  if (!period) return { closeDate: null, from: null, to: null, difference: null, balanced: null, status: "not_found" };
+  const current = await reconcileCashPeriod(scope, String(period.from), String(period.to));
+  const closedShifts = current.shiftsReconciliation.filter((shift: any) => ["closed", "reconciled"].includes(String(shift.status || "")) && Number.isFinite(Number(shift.varianceAmount)));
+  return {
+    closeDate: period.closedAt,
+    from: period.from,
+    to: period.to,
+    difference: closedShifts.reduce((sum: number, shift: any) => sum + Number(shift.varianceAmount || 0), 0),
+    balanced: current.balanced,
+    status: current.balanced === true ? "balanced" : current.balanced === false ? "changed_after_close" : "unknown",
+  };
+}

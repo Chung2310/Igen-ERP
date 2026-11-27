@@ -195,8 +195,8 @@ function safeSearchTerms(operation: AssistantOperation, action: AssistantAction)
 }
 
 export function buildAssistantOperationMetadata(operation: AssistantOperation): AssistantOperationMetadata {
+  const action = inferredAction(operation);
   const effect = operation.readOnly || operation.method === "GET" ? "read" : "write";
-  const action = effect === 'read' ? 'read' : inferredAction(operation);
   const feature = featureDescriptor(operation);
   const report = action === "read" && Boolean(operation.analysis || /\b(report|summary|count|kpi|overview|analytics|statistics)\b/i.test(operation.id)
     || /báo cáo|tổng hợp|thống kê|đếm số|chỉ số/i.test(operation.title));

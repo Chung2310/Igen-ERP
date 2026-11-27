@@ -113,7 +113,18 @@ retailPartnerRoutes.get("/customers", manage, route(async (req) =>
 retailPartnerRoutes.get("/commission-policies", policyManage, route(async (req) => listRetailBasePolicies(companyCode(req))));
 retailPartnerRoutes.post("/commission-policies", policyManage, route(async (req) => saveRetailBasePolicy(companyCode(req), String(req.user.id), req.body || {}), true));
 retailPartnerRoutes.patch("/commission-policies/:id", policyManage, route(async (req) => saveRetailBasePolicy(companyCode(req), String(req.user.id), req.body || {}, id(req.params.id))));
-retailPartnerRoutes.get("/product-commissions", policyManage, route(async (req) => listRetailProductCommissions(companyCode(req))));
+retailPartnerRoutes.get("/product-commissions", policyManage, route(async (req) => {
+  const result = await listRetailProductCommissions(companyCode(req));
+  const search = String(req.query.q || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
+  if (!search) return result;
+  const terms = search.split(/\s+/).filter(Boolean);
+  result.assistantItems = result.assistantItems.filter((item: Record<string, unknown>) => {
+    const haystack = [item.productName, item.variantName, item.sku].map(value => String(value || "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi")).join(" ");
+    return terms.every(term => haystack.includes(term));
+  });
+  return result;
+}));
 retailPartnerRoutes.put("/product-commissions", policyManage, route(async (req) => saveRetailProductCommissions(companyCode(req), String(req.user.id), req.body || {})));
 
 retailPartnerRoutes.get("/policy-products", policyManage, route(async (req) => {
@@ -141,6 +152,12 @@ retailPartnerRoutes.get("/", read, route(async (req) => {
   if (req.query.role) {
     if (!RETAIL_PARTNER_ROLES.includes(req.query.role)) throw bad("Vai trò không hợp lệ.");
     filter.roles = req.query.role;
+  }
+  const search = String(req.query.search || "").trim();
+  if (search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const matcher = new RegExp(escaped, "i");
+    filter.$or = [{ code: matcher }, { name: matcher }, { phone: matcher }, { email: matcher }];
   }
   const partners = await RetailPartnerModel.find(filter).sort({ name: 1 }).limit(1000).lean();
   const supplierIds = partners.flatMap((partner) => partner.supplierId ? [partner.supplierId] : []);

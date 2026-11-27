@@ -149,8 +149,9 @@ async function finish(scope: InventoryScope, id: string, actor: TransferActor, a
 export const acceptTransfer = (scope: InventoryScope, id: string, actor: TransferActor) => finish(scope, id, actor, "received");
 export const cancelTransfer = (scope: InventoryScope, id: string, reason: string, actor: TransferActor) => finish(scope, id, actor, "cancelled", reason);
 
-export async function listTransfers(scope: InventoryScope, query: { page?: unknown; status?: unknown; from?: unknown; to?: unknown } = {}) {
-  const page = Math.max(1, Math.trunc(Number(query.page) || 1)), limit = 20;
+export async function listTransfers(scope: InventoryScope, query: { page?: unknown; limit?: unknown; status?: unknown; from?: unknown; to?: unknown } = {}) {
+  const page = Math.max(1, Math.trunc(Number(query.page) || 1));
+  const limit = Math.max(1, Math.min(500, Math.trunc(Number(query.limit) || 20)));
   const filter: Record<string, any> = { ...scoped(scope), ...(["in_transit", "received", "cancelled", "reversed"].includes(text(query.status)) ? { status: text(query.status) as "in_transit" | "received" | "cancelled" | "reversed" } : {}) };
   const from = String(query.from || "");
   const to = String(query.to || "");

@@ -269,7 +269,23 @@ export const RetailAfterSaleService = {
     if (!doc) throw fail("Không tìm thấy chứng từ đổi trả / thu mua.", "AFTER_SALE_NOT_FOUND", 404);
     return doc;
   },
-  async list(scope: RetailBranchScope, query: any) { const page = Math.max(1, Number(query.page) || 1), limit = Math.min(100, Math.max(1, Number(query.limit) || 20)), filter: any = { ...scope, ...(query.type ? { type: String(query.type) } : {}), ...(query.orderId ? { orderId: String(query.orderId) } : {}) }; const [items, total] = await Promise.all([RetailAfterSaleModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), RetailAfterSaleModel.countDocuments(filter)]); return { items, total, page, limit }; },
+  async list(scope: RetailBranchScope, query: any) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const from = typeof query.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.from) ? query.from : undefined;
+    const to = typeof query.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : undefined;
+    const filter: any = {
+      ...scope,
+      ...(query.type ? { type: String(query.type) } : {}),
+      ...(query.orderId ? { orderId: String(query.orderId) } : {}),
+      ...(from || to ? { businessDate: { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) } } : {}),
+    };
+    const [items, total] = await Promise.all([
+      RetailAfterSaleModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      RetailAfterSaleModel.countDocuments(filter),
+    ]);
+    return { items, total, page, limit };
+  },
   async create(scope: RetailBranchScope, input: any, actor: any, shift?: any) {
     let businessDate = shift?.businessDate || businessDateInVietnam(new Date());
     const { reason, paymentMethod, idempotencyKey, requestFingerprint } = afterSaleIdentity(scope, input, actor, shift);

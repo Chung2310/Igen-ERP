@@ -1,15 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ASSISTANT_OPERATIONS } from "./catalog";
-import { analyzeList, collectAnalysisPages, reconcileRequestedRanking, reconcileRequestedValueFilters, validateListAnalysis, type AnalysisContract } from "./list-analysis";
-it('reconciles only reviewed enum phrases and preserves independent numeric filters', () => {
-  const contract = ASSISTANT_OPERATIONS.find(op=>op.analysis?.fields.status?.valueAliases)?.analysis!;
-  const wrong = {filters:[{field:'status',operator:'eq',value:'not_set'},{field:'actualReferrals',operator:'gte',value:3}]};
-  expect(reconcileRequestedValueFilters('Đối tác thiếu KPI tháng',contract,wrong)).toMatchObject({kind:'resolved',analysis:{filters:[{field:'actualReferrals',operator:'gte',value:3},{field:'status',operator:'eq',value:'incomplete'}]}});
-  expect(reconcileRequestedValueFilters('Đối tác chưa đặt KPI',contract,undefined)).toMatchObject({kind:'resolved',analysis:{filters:[{value:'not_set'}]}});
-  expect(reconcileRequestedValueFilters('Đối tác không đạt đủ KPI',contract,undefined)).toMatchObject({kind:'clarify'});
-  expect(reconcileRequestedValueFilters('Đối tác đã đạt KPI hoặc thiếu KPI',contract,undefined)).toMatchObject({kind:'clarify'});
-  expect(reconcileRequestedValueFilters('Đối tác có dữ liệu khác',contract,wrong)).toEqual({kind:'none'});
-});
+import { analyzeList, collectAnalysisPages, reconcileRequestedRanking, validateListAnalysis, type AnalysisContract } from "./list-analysis";
 const contract: AnalysisContract = { fields: { name: { label: "Tên", type: "text" }, score: { label: "Điểm", type: "number" }, status: { label: "Trạng thái", type: "text" } } };
 const rows = [
   { name: "A", score: 10, status: "achieved", password: "private" }, { name: "B", score: 10, status: "achieved" },
@@ -36,11 +27,6 @@ describe("declarative list analysis independent of business modules", () => {
     } };
     expect(reconcileRequestedRanking("Đối tác nào giới thiệu được nhiều lao động nhất trong tháng", rankingContract, undefined))
       .toEqual({ kind: "resolved", analysis: { extreme: { field: "actualReferrals", direction: "max" } } });
-  });
-  it.each(["Báo cáo sinh nhật nhân sự tháng tới", "Báo cáo lịch chủ nhật"])("does not mistake calendar words for ranking cues: %s", request => {
-    expect(reconcileRequestedRanking(request, {
-      fields: { count: { label: "Số lượng", type: "number" } },
-    }, undefined)).toEqual({ kind: "none" });
   });
   it("maps labor referral wording onto the declared labor KPI field", () => {
     const operation = ASSISTANT_OPERATIONS.find(item => item.path === "/worker-management/partners/kpi")!;

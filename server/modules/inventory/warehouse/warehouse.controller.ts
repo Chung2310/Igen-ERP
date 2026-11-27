@@ -75,7 +75,7 @@ export const warehouseController = {
         const product = productMap.get(item.productId);
         const variant = item.variantId ? variantMap.get(item.variantId) : undefined;
         const warehouse = warehouseMap.get(String(item.warehouseId || ""));
-        return { ...item, hasBalanceRecord: true, hasMovementHistory: Boolean(item.variantId && moved.has(`${item.warehouseId}:${item.variantId}`)), productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode, warehouseName: warehouse?.name || "", branchName: branchNames.get(String(item.branchId || warehouse?.branchId || "")) || "" };
+        return { ...item, availableQuantity: Math.max(0, Number(item.quantity || 0) - Number(item.reservedQuantity || 0)), hasBalanceRecord: true, hasMovementHistory: Boolean(item.variantId && moved.has(`${item.warehouseId}:${item.variantId}`)), productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode, warehouseName: warehouse?.name || "", branchName: branchNames.get(String(item.branchId || warehouse?.branchId || "")) || "" };
       });
       const existing = new Set(items.map((item) => `${item.warehouseId}:${item.variantId || `legacy:${item.sku}`}`));
       if (String(req.query.includeCatalogZeroBalances || "") === "true") {
@@ -112,8 +112,15 @@ export const warehouseController = {
           }
         }
       }
-      enrichedItems.sort((a, b) => String(a.sku).localeCompare(String(b.sku), "vi") || String(a.warehouseId).localeCompare(String(b.warehouseId)));
-      return res.json({ status: "success", data: enrichedItems });
+      const search = String(req.query.q || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
+      const matchingItems = enrichedItems.filter(item => {
+        if (!search) return true;
+        const haystack = [item.productName, item.variantName, item.sku].map(value => String(value || "")
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi")).join(" ");
+        return search.split(/\s+/).every(term => haystack.includes(term));
+      });
+      matchingItems.sort((a, b) => String(a.sku).localeCompare(String(b.sku), "vi") || String(a.warehouseId).localeCompare(String(b.warehouseId)));
+      return res.json({ status: "success", data: matchingItems });
     } catch (problem) { return error(res, problem); }
   },
   updateThresholds: async (req: Request, res: Response) => {

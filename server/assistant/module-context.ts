@@ -11,16 +11,16 @@ const MODULE_LABEL_ALIASES: Partial<Record<ModuleKey, string[]>> = {
   quotation: ["Hồ sơ báo giá", "Lập dự toán báo giá"],
   healthcare: ["Hồ sơ bệnh nhân", "Lượt khám", "Lịch khám y tế"],
   "architect-assistant": ["Thiết kế kiến trúc", "Dựng phối cảnh kiến trúc"],
-  hr: ["Nhân sự công ty", "Hồ sơ nhân sự", "Dự án cho nhân sự", "Dự án nhân sự", "Dự án nội bộ nhân sự"],
+  hr: ["Nhân sự công ty", "Hồ sơ nhân sự"],
   inventory: ["Kho hàng", "Quản lý tồn kho", "Quản lí tồn kho"],
   resource: ["Quản lý tài nguyên", "Quản lí tài nguyên"],
   chat: ["Trợ lý trò chuyện"],
-  student: ["Hồ sơ học viên", "Lớp học viên", "Học phí học viên", "Quản lí học viên"],
-  worker: ["Quản lý lao động", "Quản lí lao động", "Dự án lao động", "Quản lý dự án lao động", "Quản lí dự án lao động", "Lao động dự án", "Nhân công dự án"],
+  student: ["Hồ sơ học viên", "Lớp học viên", "Học phí học viên", "Quản lí học viên", "Danh sách chờ lớp", "Học viên chờ xếp lớp", "Chờ lớp"],
+  worker: ["Quản lý lao động", "Quản lí lao động", "Lao động dự án", "Nhân công dự án"],
   "student-partner": ["Đối tác tuyển sinh", "Đối tác giới thiệu học viên", "Đối tác giới thiệu sinh viên"],
   "labor-partner": ["Đối tác cung ứng lao động", "Đối tác giới thiệu lao động", "Nhà cung ứng lao động", "Đối tác cung cấp nhân công", "Quản lý lao động", "Quản lí lao động"],
   customer: ["Hồ sơ khách hàng", "Quản lý hồ sơ khách hàng", "Quản lí hồ sơ khách hàng"],
-  retail: ["Đơn bán lẻ", "Điểm bán hàng"],
+  retail: ["Đơn bán lẻ", "Điểm bán hàng", "Cửa hàng", "Cửa tiệm", "Shop", "POS", "Quầy bán hàng"],
   "retail-partner": ["Đối tác bán lẻ", "Cộng tác viên bán lẻ"],
   repair: ["Phiếu sửa chữa", "Sửa chữa bảo hành", "Bảo hành thiết bị"],
   finance: ["Thu chi tài chính", "Công nợ tài chính", "Kế toán doanh nghiệp"],
@@ -34,8 +34,8 @@ const MODULE_LABEL_ALIASES: Partial<Record<ModuleKey, string[]>> = {
 
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-const CONTEXT_FILLER = new Set(["trong", "vao", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
-const EXPLICIT_CONTEXT_MARKERS = new Set(["trong", "vao", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
+const CONTEXT_FILLER = new Set(["trong", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
+const EXPLICIT_CONTEXT_MARKERS = new Set(["trong", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
 
 export function assistantModuleContext(module: string) {
   if (!MODULE_KEYS.includes(module as ModuleKey)) return { key: module, label: module, relatedLabels: [], aliases: [] };
@@ -44,29 +44,29 @@ export function assistantModuleContext(module: string) {
   const labels = [...new Set(keys.filter(key => key !== typedModule).map(key => MODULE_LABELS[key]))];
   const label = typedModule === "student-partner" ? "Đối tác tuyển sinh"
     : typedModule === "partner" ? "Đối tác cũ" : MODULE_LABELS[typedModule];
-  // Public compound labels are also spoken by their individual area names,
-  // e.g. Kho, Bán lẻ, POS, Sửa chữa. Reuse that metadata across all modules.
-  const publicNames = label.split(/\s*&\s*/).flatMap(name => [name, name.replace(/^Quản l[ýí]\s+/iu, '')]);
-  const aliases = [...new Set([...(MODULE_LABEL_ALIASES[typedModule] || []), ...publicNames.filter(name => name !== label)])];
+  const aliases = [...new Set(MODULE_LABEL_ALIASES[typedModule] || [])];
   return { key: module, label, relatedLabels: labels, aliases };
 }
 
 /** Resolve the two partner catalogs when the request names the partner type. */
 export function inferPartnerModule(text: string): ModuleKey | undefined {
   const phrase = normalize(text);
-  const mentionsPartner = /(?:^| )(?:doi tac|nha cung ung|nha cung cap)(?: |$)/.test(phrase);
+  const mentionsCollaborator = phrase.includes("cong tac vien");
+  const mentionsPartner = /(?:^| )(?:doi tac|nha cung ung|nha cung cap)(?: |$)/.test(phrase) || mentionsCollaborator;
   if (!mentionsPartner) return undefined;
 
   const mentionsLabor = /(?:^| )(?:lao dong|nguoi lao dong|cong nhan|nhan cong)(?: |$)/.test(phrase);
   const mentionsLearners = /(?:^| )(?:hoc vien|sinh vien|tuyen sinh|lop hoc)(?: |$)/.test(phrase);
+  const mentionsRetailSettlement = mentionsCollaborator
+    && /(?:hoa hong|sao ke|nhan tien|chi tra|ban le)/.test(phrase);
   if (mentionsLabor && !mentionsLearners) return "labor-partner";
   if (mentionsLearners && !mentionsLabor) return "student-partner";
+  if (mentionsRetailSettlement && !mentionsLabor && !mentionsLearners) return "retail-partner";
   return undefined;
 }
 
 export const ASSISTANT_PARTNER_MODULE_GUIDANCE =
-  "Tên/mã bản ghi chỉ là dữ liệu, không tự xác định phân hệ. Đối chiếu loại hồ sơ và thuộc tính cần xử lý với resources/inputs của danh mục; không chọn phân hệ chỉ vì tên bản ghi có từ trùng nhãn phân hệ. " +
-  "Phân biệt hai phân hệ đối tác: student-partner là cộng tác viên giới thiệu học viên/sinh viên và tuyển sinh; labor-partner là đối tác giới thiệu hoặc cung ứng người lao động, công nhân, nhân công. Cụm 'đối tác giới thiệu' đứng riêng chưa đủ để phân biệt. Khi câu nêu đối tác cùng với lao động/công nhân/nhân công, chọn labor-partner; khi nêu học viên/sinh viên/tuyển sinh, chọn student-partner.";
+  "Phân biệt các phân hệ đối tác: retail-partner là cộng tác viên bán lẻ và bảng kê/chi trả hoa hồng POS; student-partner là cộng tác viên giới thiệu học viên/sinh viên và tuyển sinh; labor-partner là đối tác giới thiệu hoặc cung ứng người lao động, công nhân, nhân công. Cụm 'đối tác giới thiệu' đứng riêng chưa đủ để phân biệt. Khi câu nêu đối tác cùng với lao động/công nhân/nhân công, chọn labor-partner; khi nêu học viên/sinh viên/tuyển sinh, chọn student-partner; khi nêu cộng tác viên kèm hoa hồng bán lẻ, sao kê hoặc nhận tiền, chọn retail-partner.";
 
 /** A deduplicated routing dictionary, included once rather than repeated per operation. */
 export function assistantModuleContextCatalog(modules: readonly string[]) {
@@ -79,34 +79,20 @@ export function mentionsCompatibleModule(evidence: string, module: string) {
   const candidates = [module, context.label, ...context.aliases];
   return candidates.some(candidate => {
     const normalized = normalize(candidate);
-    return normalized.length > 1 && ` ${phrase} `.includes(` ${normalized} `);
+    return normalized.length > 1 && phrase.includes(normalized);
   });
 }
 
-/** Validate a module evidence span after routing, without making a bare entity
- * name sufficient to select a module globally or swallowing extra conditions. */
+/** Match a specific evidence span to the chosen module without treating a broad noun as authority. */
 export function matchesModuleContextEvidence(evidence: string, module: string, requestText = "") {
   if (isModuleContextClause(evidence, module)) return true;
   const phrase = normalize(evidence).replace(/^(?:cac|nhung|tat ca|toan bo)\s+/, "").replace(/^nguoi\s+/, "")
     .replace(/^(?:them|tao|xem|tra cuu|sua|cap nhat|xoa)\s+/, "");
   const context = assistantModuleContext(module);
-  const names = [context.label, ...context.aliases].map(normalize);
-  const entityNames = names.map(name => name.replace(/^(?:quan l[yi]|ho so)\s+/, ""));
+  const entityNames = [context.label, ...context.aliases].map(normalize)
+    .map(name => name.replace(/^(?:quan l[yi]|ho so)\s+/, ""));
   if (entityNames.includes(phrase)) return true;
-  // A clipped noun such as "dự án" is acceptable only when the request itself
-  // identifies the compatible module. It never establishes routing authority.
-  return mentionsCompatibleModule(requestText, module) && entityNames.some(name =>
-    name.startsWith(`${phrase} `) && entityNames.some(moduleName => name === `${phrase} ${moduleName}`));
-}
-
-/** A module anchor inside a combined evidence span. This never validates the
- * span's conditions; callers must validate its other mappings separately. */
-export function containsModuleContextEvidence(evidence: string, module: string) {
-  const phrase = ` ${normalize(evidence)} `;
-  const context = assistantModuleContext(module);
-  return [context.label, ...context.aliases].map(normalize)
-    .map(name => name.replace(/^(?:quan l[yi]|ho so)\s+/, ""))
-    .some(name => name.length > 2 && phrase.includes(` ${name} `));
+  return mentionsCompatibleModule(requestText, module) && entityNames.some(name => name.startsWith(`${phrase} `));
 }
 
 /** True when a clause only identifies an ERP area, with no extra condition. */

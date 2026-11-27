@@ -12145,7 +12145,7 @@
   {
     "id": "timekeeping.records.list",
     "title": "Tra cứu chấm công nhân sự trong ngày",
-    "description": "Xem giờ vào/ra và trạng thái chấm công theo tên của toàn bộ nhân sự trong phạm vi công ty hoặc chi nhánh của tài khoản. Bỏ trống ngày để xem hôm nay. Nhân sự chưa có bản ghi được hiển thị là “Chưa ghi nhận”. Kết quả không chứa mã nhân viên, vị trí GPS hoặc thông tin lương.",
+    "description": "Xem giờ vào/ra và trạng thái chấm công theo tên trong chi nhánh hiện tại. Quản trị viên có thể chọn phạm vi toàn công ty. Bỏ trống ngày để xem hôm nay. Nhân sự chưa có bản ghi được hiển thị là “Chưa ghi nhận”. Kết quả không chứa mã nhân viên, vị trí GPS hoặc thông tin lương.",
     "module": "hr",
     "permissions": [
       "timekeeping:read"
@@ -12167,6 +12167,19 @@
         "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
         "source": "query",
         "apiKey": "date"
+      },
+      {
+        "key": "query_scope",
+        "label": "scope",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "branch",
+          "company"
+        ],
+        "source": "query",
+        "apiKey": "scope"
       }
     ],
     "link": "/nhan-su",
@@ -21613,7 +21626,7 @@
   {
     "id": "recruitment.applicant.history",
     "title": "Xem lịch sử tuyển dụng ứng viên",
-    "description": "Xem lịch sử tuyển dụng ứng viên. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "description": "Xem các lần chuyển bước tuyển dụng của ứng viên đã chọn. Có thể giới hạn theo ngày bắt đầu và kết thúc (YYYY-MM-DD, giờ Việt Nam); bỏ trống để xem toàn bộ lịch sử.",
     "module": "hr",
     "permissions": [
       "recruitment:read"
@@ -21645,6 +21658,24 @@
         "source": "query",
         "apiKey": "branchId",
         "reference": "branch.list"
+      },
+      {
+        "key": "query_from",
+        "label": "Từ ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "from"
+      },
+      {
+        "key": "query_to",
+        "label": "Đến ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "to"
       }
     ],
     "link": "/nhan-su",
@@ -29191,7 +29222,7 @@
   {
     "id": "batch.list",
     "title": "Tra cứu lớp học",
-    "description": "Tra cứu lớp theo tên hoặc mã, trạng thái và phân trang trong phạm vi công ty/chi nhánh đã xác thực. Kết quả chỉ hiển thị thông tin nhận diện lớp cần thiết.",
+    "description": "Tra cứu lớp theo tên hoặc mã, trạng thái và phân trang trong phạm vi công ty/chi nhánh đã xác thực. Kết quả gồm thông tin lớp, sĩ số tối đa, số học viên đã ghi danh và số chỗ còn lại; remainingSlots=null nghĩa là không giới hạn.",
     "module": "student",
     "permissions": [
       "people:read"
@@ -29253,12 +29284,16 @@
     "resultFields": [
       "code",
       "name",
+      "courseCode",
       "courseTitle",
       "location",
       "instructorName",
       "startDate",
       "endDate",
-      "status"
+      "status",
+      "maxLearners",
+      "enrolledCount",
+      "remainingSlots"
     ],
     "adapter": "contract"
   },
@@ -30500,12 +30535,10 @@
       "code",
       "phone",
       "email",
-      "bankName",
-      "bankAccountNo",
-      "bankAccountName",
       "commissionType",
       "commissionValue",
-      "isActive"
+      "isActive",
+      "hasBankAccount"
     ],
     "adapter": "contract"
   },
@@ -37085,8 +37118,19 @@
       "orderCode",
       "subtotal",
       "notes",
-      "createdAt"
+      "createdAt",
+      "receivedAt",
+      "items"
     ],
+    "resultChildFields": {
+      "items": [
+        "productName",
+        "sku",
+        "quantity",
+        "unitCost",
+        "lineTotal"
+      ]
+    },
     "adapter": "contract"
   },
   {
@@ -37680,6 +37724,83 @@
       "kind",
       "isDefault",
       "isActive"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "inventory.warehouse.balances.list",
+    "title": "Tra cứu tồn kho khả dụng theo kho và sản phẩm",
+    "description": "Tra cứu tồn thực tế, số lượng đã giữ và số lượng có thể bán ngay theo tên kho, tên sản phẩm, biến thể hoặc SKU. API lọc theo từ khóa sau khi giới hạn phạm vi công ty, chi nhánh và kho.",
+    "module": "inventory",
+    "permissions": [
+      "inventory:read"
+    ],
+    "permissionGroups": [
+      [
+        "inventory:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/inventory/warehouses/balances",
+    "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      },
+      {
+        "key": "query_warehouseId",
+        "label": "Tên hoặc mã kho",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "inventory.warehouse.locations.list",
+        "referenceValueKey": "id",
+        "referenceParentKey": "targetBranch",
+        "source": "query",
+        "apiKey": "warehouseId"
+      },
+      {
+        "key": "query_q",
+        "label": "Tên sản phẩm, biến thể hoặc SKU",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "q"
+      },
+      {
+        "key": "query_includeCatalogZeroBalances",
+        "label": "includeCatalogZeroBalances",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "true",
+          "false"
+        ],
+        "defaultValue": "false",
+        "source": "query",
+        "apiKey": "includeCatalogZeroBalances"
+      }
+    ],
+    "link": "/kho-san-pham",
+    "confirmation": false,
+    "resultFields": [
+      "warehouseName",
+      "productName",
+      "variantName",
+      "sku",
+      "quantity",
+      "reservedQuantity",
+      "availableQuantity",
+      "hasBalanceRecord"
     ],
     "adapter": "contract"
   },
@@ -38763,6 +38884,18 @@
         "defaultValue": 1,
         "source": "query",
         "apiKey": "page"
+      },
+      {
+        "key": "query_limit",
+        "label": "Số kết quả",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 20,
+        "integer": true,
+        "defaultValue": 20,
+        "source": "query",
+        "apiKey": "limit"
       }
     ],
     "link": "/kho-san-pham",
@@ -38833,7 +38966,7 @@
   {
     "id": "inventory.transfer.create",
     "title": "Tạo phiếu điều chuyển kho",
-    "description": "Tạo phiếu gửi hàng từ kho của chi nhánh đã chọn sang chi nhánh nhận. Chọn cả hai chi nhánh và kho gửi theo tên; kho nhận dùng kho mặc định của chi nhánh nhận. Cần lý do, ít nhất một SKU và số lượng dương. SKU theo serial/mã vạch từng đơn vị cần đúng từng mã; lô hàng chưa được hỗ trợ trên phiếu này. Hệ thống kiểm tra tồn khả dụng, giá vốn và khóa chống ghi trùng. Cần xác nhận trước khi tạo.",
+    "description": "Tạo phiếu gửi hàng từ kho của chi nhánh đã chọn sang kho nhận cụ thể ở chi nhánh nhận. Chọn cả hai chi nhánh, kho gửi và kho nhận theo tên; xác nhận kho nhận thuộc chi nhánh đích. Cần lý do, ít nhất một SKU và số lượng dương. SKU theo serial/mã vạch từng đơn vị cần đúng từng mã; lô hàng chưa được hỗ trợ trên phiếu này. Hệ thống kiểm tra tồn khả dụng, giá vốn và khóa chống ghi trùng. Cần xác nhận trước khi tạo.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -38879,6 +39012,18 @@
         "referenceParentKey": "targetBranch",
         "source": "body",
         "apiKey": "fromWarehouseId"
+      },
+      {
+        "key": "toWarehouseId",
+        "label": "Kho nhận cụ thể",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "inventory.warehouse.locations.list",
+        "referenceValueKey": "id",
+        "referenceParentKey": "toBranch",
+        "source": "body",
+        "apiKey": "toWarehouseId"
       },
       {
         "key": "reason",
@@ -41750,7 +41895,7 @@
   {
     "id": "retail.coupon.assistant-options.list",
     "title": "Tra cứu mã ưu đãi có thể áp dụng",
-    "description": "Đề xuất mã ưu đãi còn hiệu lực theo chi nhánh và khách hàng đã chọn. Đây là tra cứu chỉ đọc; không phát hành mã tự động hoặc thay đổi dữ liệu.",
+    "description": "Tra cứu thông tin mã ưu đãi còn hiệu lực theo chi nhánh, mã và khách hàng đã chọn. Đây là tra cứu chỉ đọc; không phát hành mã tự động hoặc thay đổi dữ liệu.",
     "module": "retail",
     "permissions": [
       "pos:manage",
@@ -41777,6 +41922,15 @@
         "apiKey": "branchId"
       },
       {
+        "key": "query_code",
+        "label": "Mã ưu đãi",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "code"
+      },
+      {
         "key": "query_customerId",
         "label": "Khách hàng nhận ưu đãi",
         "type": "text",
@@ -41796,7 +41950,9 @@
       "discountType",
       "value",
       "minSubtotal",
-      "maxDiscount"
+      "maxDiscount",
+      "startsAt",
+      "endsAt"
     ],
     "adapter": "contract"
   },
@@ -46044,7 +46200,7 @@
   {
     "id": "api.get.d9daa6226ed98e83",
     "title": "Tra cứu mức hoa hồng theo sản phẩm",
-    "description": "Liệt kê mức hoa hồng đã cấu hình cho từng SKU, gồm loại mức và giá trị áp dụng.",
+    "description": "Tra cứu mức hoa hồng đã cấu hình theo tên sản phẩm, biến thể hoặc SKU, gồm loại mức và giá trị áp dụng.",
     "module": "retail-partner",
     "permissions": [
       "retail-partner-policy:manage"
@@ -46056,12 +46212,24 @@
     ],
     "method": "GET",
     "path": "/retail/partners/product-commissions",
-    "fields": [],
+    "fields": [
+      {
+        "key": "query_q",
+        "label": "Tên sản phẩm, biến thể hoặc SKU",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "q"
+      }
+    ],
     "link": "/doi-tac-ban-le",
     "confirmation": false,
     "resultFields": [
       "sku",
       "productName",
+      "variantName",
+      "partnerName",
       "kind",
       "commissionType",
       "commissionValue",
@@ -46221,6 +46389,15 @@
     "method": "GET",
     "path": "/retail/partners",
     "fields": [
+      {
+        "key": "query_search",
+        "label": "Tên, mã, điện thoại hoặc email đối tác",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "search"
+      },
       {
         "key": "query_partnerType",
         "label": "Vai trò đối tác",
@@ -47328,6 +47505,43 @@
         "businessDate"
       ]
     },
+    "adapter": "contract"
+  },
+  {
+    "id": "retail.finance.commission.balances",
+    "title": "Tra cứu số dư hoa hồng cộng tác viên bán lẻ",
+    "description": "Tra số dư hoa hồng hiện tại của cộng tác viên bán lẻ. Có thể lọc theo tên hoặc mã cộng tác viên. Số dư được lưu ở phạm vi toàn công ty, không tách theo chi nhánh; không hiển thị thông tin tài khoản nhận tiền.",
+    "module": "retail",
+    "permissions": [
+      "retail-partner-policy:manage"
+    ],
+    "permissionGroups": [
+      [
+        "retail-partner-policy:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/retail/finance/commission/balances",
+    "fields": [
+      {
+        "key": "query_partnerId",
+        "label": "Tên hoặc mã cộng tác viên bán lẻ",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "retail.partner.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "partnerId"
+      }
+    ],
+    "link": "/ban-le",
+    "confirmation": false,
+    "resultFields": [
+      "partnerName",
+      "partnerCode",
+      "balance"
+    ],
     "adapter": "contract"
   },
   {

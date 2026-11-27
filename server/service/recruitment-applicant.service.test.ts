@@ -5,7 +5,7 @@ import { RecruitmentJobModel } from "../model/recruitment-job.model";
 import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
 import { RecruitmentStageHistoryModel } from "../model/recruitment-stage-history.model";
 import { cloudinaryService } from "./cloudinary.service";
-import { createApplicant, transitionApplicant, updateApplicant, softDeleteApplicant, restoreApplicant } from "./recruitment-applicant.service";
+import { createApplicant, listApplicantHistory, transitionApplicant, updateApplicant, softDeleteApplicant, restoreApplicant } from "./recruitment-applicant.service";
 
 const scope = { companyCode: "ACME", branchId: "branch-a" };
 
@@ -58,6 +58,17 @@ describe("recruitment applicant service", () => {
       expect.objectContaining({ $set: expect.objectContaining({ stageId: "hired", outcome: "hired" }), $inc: { version: 1 } }),
       { returnDocument: 'after', runValidators: true },
     );
+  });
+
+  it("filters applicant history by inclusive Vietnam calendar days without widening scope", async () => {
+    const history = vi.spyOn(RecruitmentStageHistoryModel, "find").mockReturnValue({ sort: () => ({ lean: async () => [] }) } as any);
+    await listApplicantHistory(scope, "app-1", { from: "2026-11-01", to: "2026-11-30" });
+    expect(history).toHaveBeenCalledWith({
+      ...scope,
+      applicantId: "app-1",
+      isDeleted: false,
+      createdAt: { $gte: new Date("2026-10-31T17:00:00.000Z"), $lt: new Date("2026-11-30T17:00:00.000Z") },
+    });
   });
 
   it("uses a MongoDB transaction for stage update and history when connected", async () => {

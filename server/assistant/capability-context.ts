@@ -1,9 +1,9 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
-import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
+import { ASSISTANT_OPERATIONS } from "./catalog";
 import { buildAssistantOperationMetadata } from "./operation-metadata";
 import { assistantModuleContext } from "./module-context";
 
-function inputFieldContext(workflow: AssistantWorkflow, operation?: AssistantOperation) {
+function inputFieldContext(workflow: AssistantWorkflow) {
   return workflow.fields.map(field => ({
     key: field.key,
     label: field.label,
@@ -17,8 +17,6 @@ function inputFieldContext(workflow: AssistantWorkflow, operation?: AssistantOpe
     ...(field.referenceContext ? { referenceContext: field.referenceContext } : {}),
     ...(field.alternativeField ? { alternativeField: field.alternativeField } : {}),
     ...(field.structure ? { structure: field.structure } : {}),
-    ...(operation?.clearableFields?.includes(field.key) ? { clearable: true } : {}),
-    ...(operation?.currentDateDefaults?.includes(field.key) ? { runtimeDefault: 'today-vietnam' } : {}),
   }));
 }
 
@@ -50,10 +48,9 @@ export function buildAssistantCapabilityContext(
         capabilities: metadata.capabilities,
       } } : {}),
       confirmationRequired: Boolean(workflow.requireConfirmation || operation?.confirmation),
-      inputs: inputFieldContext(workflow, operation),
+      inputs: inputFieldContext(workflow),
       ...(operation ? {
         outputs: operation.resultFields,
-        ...(operation.coverageAliases?.length ? { builtInSemantics: operation.coverageAliases } : {}),
         ...(operation.resultChildFields ? { nestedOutputs: operation.resultChildFields } : {}),
         ...(operation.analysis ? {
           analysis: {
@@ -69,4 +66,4 @@ export function buildAssistantCapabilityContext(
   });
 }
 
-export const ASSISTANT_CAPABILITY_INTERPRETATION_GUIDANCE = `Dùng DANH MỤC NĂNG LỰC để hiểu đúng dữ liệu nghiệp vụ của hệ thống. purpose cho biết thao tác trả lời loại câu hỏi nào; inputs là các trường mà thao tác thực sự nhận; outputs là các trường công khai mà kết quả có thể chứa; analysis.fields là các chỉ số được phép lọc, xếp hạng hoặc tổng hợp. Chỉ chọn phép tính có trong hợp đồng analysis và chỉ hứa dữ liệu có trong outputs. effect=read là tra cứu, effect=write là thay đổi dữ liệu; thao tác ghi phải tuân theo bước xác nhận của máy chủ. workflowGuidance chỉ giải nghĩa cách dùng thao tác, không tạo thêm quyền, dữ liệu hay khả năng ngoài hợp đồng.`;
+export const ASSISTANT_CAPABILITY_INTERPRETATION_GUIDANCE = `Dùng DANH MỤC NĂNG LỰC để hiểu đúng dữ liệu nghiệp vụ của hệ thống. purpose cho biết thao tác trả lời loại câu hỏi nào; inputs là các trường mà thao tác thực sự nhận; outputs là các trường công khai mà kết quả có thể chứa; analysis.fields là các chỉ số được phép lọc, xếp hạng hoặc tổng hợp. Chỉ chọn phép tính có trong hợp đồng analysis và chỉ hứa dữ liệu có trong outputs. effect=read là tra cứu, effect=write là thay đổi dữ liệu; thao tác ghi phải tuân theo bước xác nhận của máy chủ. Tách tên phân hệ khỏi loại hồ sơ/người được hỏi: cụm ‘các lao động’ thường nêu đối tượng, không phải ngữ cảnh phân hệ, trừ khi được nói rõ là ‘trong phân hệ Quản lý lao động’. Với câu hỏi chấm công người lao động/công nhân ở dự án như ‘Báo cáo tình hình chấm công các lao động hôm nay’, chọn worker.report; dùng worker.attendance.list khi cần bảng chi tiết của dự án cụ thể; chỉ chọn báo cáo chấm công nhân sự công ty khi hỏi nhân viên thuộc hồ sơ nhân sự công ty. Không hỏi chọn phân hệ nếu đối tượng và nghiệp vụ đã xác định rõ. workflowGuidance chỉ giải nghĩa cách dùng thao tác, không tạo thêm quyền, dữ liệu hay khả năng ngoài hợp đồng.`;

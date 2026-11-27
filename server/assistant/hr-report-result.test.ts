@@ -11,6 +11,28 @@ function operation(id: string) {
 }
 
 describe("HR assistant report results", () => {
+  it("preserves the nested onboarding rows for count and department analysis", () => {
+    const report = operation("recruitment.report");
+    const records = projectRecords(report, { status: "success", data: {
+      reportType: "onboarded", summary: "3 applicants onboarded", total: 3,
+      items: [
+        { name: "Nguyá»…n An", jobTitle: "Designer", department: "CÃ´ng nghá»‡", outcome: "hired", occurredAt: "2026-11-05T03:00:00.000Z" },
+        { name: "Tráº§n BÃ¬nh", jobTitle: "Engineer", department: "CÃ´ng nghá»‡", outcome: "hired", occurredAt: "2026-11-12T03:00:00.000Z" },
+        { name: "LÃª Chi", jobTitle: "Marketer", department: "Marketing", outcome: "hired", occurredAt: "2026-11-18T03:00:00.000Z" },
+      ],
+    } }, {} as any, {});
+
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      reportType: "onboarded", total: 3,
+      items: [
+        { name: "Nguyá»…n An", department: "CÃ´ng nghá»‡" },
+        { name: "Tráº§n BÃ¬nh", department: "CÃ´ng nghá»‡" },
+        { name: "LÃª Chi", department: "Marketing" },
+      ],
+    });
+  });
+
   it("keeps every employee with leave in the monthly summary, not just the maximum", () => {
     const op=operation("timekeeping.records.monthly.leave-summary");
     const records=projectRecords(op,{data:{year:2026,month:11,records:[{employeeName:"An",leaveDays:3},{employeeName:"Bình",leaveDays:1},{employeeName:"Chi",leaveDays:0}]}},{} as any,{});
@@ -82,6 +104,27 @@ describe("HR assistant report results", () => {
 
     expect(reply).toContain("Nguyễn An");
     expect(reply).not.toContain("Trần Bình");
+  });
+
+  it("projects nested annual leave balances for list and exhausted reports", () => {
+    const response = { status: "success", data: { year: 2026, balances: [
+      { employeeName: "La Văn Sến", department: "Kế toán", entitlement: 12, used: 0, pending: 0, unexcused: 0, remaining: 12 },
+      { employeeName: "Nguyễn Anh", department: "Marketing", entitlement: 12, used: 3, pending: 0, unexcused: 0, remaining: 9 },
+      { employeeName: "Phạm Gia Hân", department: "Nhân sự", entitlement: 12, used: 12, pending: 0, unexcused: 0, remaining: 0 },
+    ] } };
+
+    for (const id of ["leave.balances.list", "leave.balances.exhausted"]) {
+      const leaveOperation = operation(id);
+      const projected = projectRecords(leaveOperation, response, { user: { companyCode: "TEST" } } as any, {});
+      expect(projected[0]).toMatchObject({ year: 2026, balances: expect.arrayContaining([
+        expect.objectContaining({ employeeName: "La Văn Sến", remaining: 12 }),
+        expect.objectContaining({ employeeName: "Phạm Gia Hân", remaining: 0 }),
+      ]) });
+      const reply = formatAssistantResult(leaveOperation, projected[0]);
+      expect(reply).toContain("Phạm Gia Hân");
+      if (id === "leave.balances.list") expect(reply).toContain("La Văn Sến");
+      else expect(reply).not.toContain("La Văn Sến");
+    }
   });
 
   it("filters training progress by the requested course name rather than a fixed course", () => {

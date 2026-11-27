@@ -112,12 +112,15 @@ const cases: Array<{ id: string; input: Record<string, string | number> }> = [
 
 it.each(cases)("preserves model filters through interpretation and HTTP for $id", async ({ id, input }) => {
   const op = operationById(id)!;
-  const text = "Tra cứu theo đúng khoảng ngày và các điều kiện đã nêu";
-  provider.mockResolvedValue({ text: JSON.stringify({ actionId: id, values: input, intentType: "workflow",
-    requestCoverage: [{ evidence: text, requirement: "Giữ các điều kiện fixture", mappedTo: ["action", ...Object.keys(input).map(key => `values.${key}`)] }],
+  const workflow = defaultWorkflow(op);
+  const request = `Tra cứu với ${Object.entries(input).map(([key, value]) => `${key} ${value}`).join(", ")}`;
+  const mappedValues = Object.keys(input).map(key => `values.${workflow.fields.find(field => field.key === key || field.apiKey === key)?.key || key}`);
+  provider.mockResolvedValue({ text: JSON.stringify({
+    intentType: "workflow", actionIntent: op.assistantMetadata?.intent, actionId: id, values: input,
+    requestCoverage: [{ evidence: request, requirement: "Áp dụng các bộ lọc đã nêu", mappedTo: ["action", ...mappedValues] }],
   }) });
-  const result = await interpretRequest(text, [defaultWorkflow(op)], null, []);
-  expect(result.actionId, JSON.stringify(result)).toBe(id);
+  const result = await interpretRequest(request, [workflow], null, []);
+  expect(result.actionId).toBe(id);
   expect(result.values).toMatchObject(input);
   const fetcher = vi.fn(async () => new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }));
   vi.stubGlobal("fetch", fetcher);
@@ -128,6 +131,18 @@ it.each(cases)("preserves model filters through interpretation and HTTP for $id"
     if (key.startsWith("path_")) expect(url.pathname).toContain(String(value));
     else expect(url.searchParams.get(key), key).toBe(String(value));
   }
+});
+it("keeps progression lookup scope in auth/header instead of sending unsupported scope query keys", async () => {
+  const op = operationById("student.learning-roadmap.progression.list")!;
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }));
+  vi.stubGlobal("fetch", fetcher);
+  await callOperation(req, op, { path_batchId: "507f1f77bcf86cd799439011" });
+  const [rawUrl, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+  const url = new URL(rawUrl);
+  expect(url.pathname).toBe("/api/v1/learning-roadmaps/batches/507f1f77bcf86cd799439011/progression");
+  expect(url.searchParams.has("companyCode")).toBe(false);
+  expect(url.searchParams.has("branchId")).toBe(false);
+  expect((init.headers as Record<string, string>)["x-branch-id"]).toBe(req.user.branchId);
 });
 it.each(cases.filter(c => 'from' in c.input))("requires missing report dates for $id", ({id}) => {
   const workflow = defaultWorkflow(operationById(id)!);

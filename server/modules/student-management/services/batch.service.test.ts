@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import mongoose from "mongoose";
-import { BatchService } from "./batch.service";
+import { BatchService, getBatchCapacity } from "./batch.service";
 import { EmailService } from "./email.service";
+
+test("batch capacity reports current enrollment and remaining slots", () => {
+  assert.deepEqual(getBatchCapacity(25, 18), { enrolledCount: 18, remainingSlots: 7 });
+  assert.deepEqual(getBatchCapacity(25, 30), { enrolledCount: 30, remainingSlots: 0 });
+  assert.deepEqual(getBatchCapacity(0, 3), { enrolledCount: 3, remainingSlots: null });
+});
 
 test("BatchService teacher assignment notification email flow", async (t) => {
   // 1. Mocks

@@ -21,17 +21,169 @@ it("renders an uncoded retail draft as a document rather than its line items", (
   expect(reply).not.toContain("private-product");
 });
 
+it("summarizes retail returns and does not claim installment status when only debt data exists", () => {
+  const returns = formatFriendlyAssistantResult(operationById("retail.after-sale.customer-return-summary")!, {
+    customerCount: 3, returnCount: 4, refundTotal: 1_250_000,
+  });
+  expect(returns).toContain("3 khách hàng riêng biệt");
+  expect(returns).toContain("1.250.000");
+  const debt = formatFriendlyAssistantResult(operationById("retail.order.installment-balances")!, { orders: [], installmentTypeTracked: false });
+  expect(debt).toContain("không có cờ riêng");
+});
+
+it("labels retail dealers separately from suppliers", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.partner.supplier-dealer-directory")!, {
+    partners: [
+      { name: "Nhà cung cấp A", phone: "0900000001", partnerType: "supplier" },
+      { name: "Đại lý B", phone: "0900000002", partnerType: "dealer" },
+    ],
+  });
+  expect(reply).toContain("Nhà cung cấp A · Nhà cung cấp");
+  expect(reply).toContain("Đại lý B · Đại lý");
+});
+
+it("renders separate cancellation and POS variance leaders without internal ids", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.report.employee-cancelled-cash-variance")!, {
+    range: { from: "2026-11-01", to: "2026-11-30" },
+    cancellationLeader: { employeeName: "Thu ngân An", cancelledOrders: 2 },
+    varianceLeader: { cashierName: "Thu ngân Bình", shiftCount: 3, totalAbsoluteVariance: 75_000, netVariance: -25_000, _id: "private-shift" },
+    unattributedCancelledOrders: 1,
+  });
+  expect(reply).toContain("Thu ngân An · 2 đơn");
+  expect(reply).toContain("Thu ngân Bình · 3 ca · tổng độ lệch tuyệt đối 75.000");
+  expect(reply).toContain("1 đơn hủy không có tên người thực hiện");
+  expect(reply).not.toContain("private-shift");
+});
+
+it("reports an exact POS order miss without substituting a nearby order", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.order.warranty-match")!, {
+    range: { from: "2026-10-30", to: "2026-10-30" }, exactTotal: 35_000_000, matches: [],
+  });
+  expect(reply).toContain("Không tìm thấy đơn bán khớp chính xác");
+  expect(reply).toContain("35.000.000");
+  expect(reply).toContain("không chọn đơn gần giống");
+});
+
 it("counts all report rows before limiting the visible table", () => {
   const rows = Array.from({length:18}, (_, i) => ({ projectName: "Kho vận", workerName: `Lao động ${i}`, date: "2026-11-18", status: "Present" }));
   const reply = formatFriendlyAssistantResult(operationById("worker.report")!, rows);
   expect(reply).toContain("18 kết quả");
 });
 
+it("labels POS product availability as stock in the shared result table", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.order.products.list")!, [{
+    name: "iPhone 14 - Titan Sa Mạc",
+    variantName: "Titan Sa Mạc",
+    sku: "IP14-TITAN",
+    stock: 1,
+    price: 30_000_000,
+    trackingMode: "serial",
+  }]);
+
+  expect(reply).toContain("Tồn khả dụng: 1");
+  expect(reply).not.toContain("Thông tin: 1");
+});
+
+it("shows available retail ranking rows, zero counts, and customer birthdays without AI rewriting", () => {
+  const topProducts = formatFriendlyAssistantResult(operationById("retail.report.top-products")!, { data: {
+    range: { from: "2026-11-01", to: "2026-11-30" },
+    products: [
+      { productName: "Redmi Note 14", netQuantity: 2, netSales: 14_000_000 },
+      { productName: "iPhone 15 Pro Max", netQuantity: 2, netSales: 62_000_000 },
+    ],
+  } });
+  const topProductsTable = parseAssistantResultTable(topProducts);
+  expect(topProductsTable?.rows).toHaveLength(2);
+  expect(topProductsTable?.headers).toEqual(["Mặt hàng", "Số lượng bán", "Doanh thu"]);
+  expect(topProductsTable?.rows[0].values["Mặt hàng"]).toBe("Redmi Note 14");
+  expect(topProductsTable?.rows[1].values["Mặt hàng"]).toBe("iPhone 15 Pro Max");
+  expect(topProducts).toContain("Redmi Note 14");
+  expect(topProducts).toContain("2 sản phẩm");
+  expect(topProducts).toContain("01/11/2026 đến 30/11/2026");
+  expect(topProducts).not.toContain("Chưa đủ dữ liệu để xác định");
+
+  const serialRanking = formatFriendlyAssistantResult(operationById("inventory.serial.stock-ranking")!, { data: {
+    products: [{ productName: "iPhone 14", imeiCount: 12 }],
+  } });
+  const serialRankingTable = parseAssistantResultTable(serialRanking);
+  expect(serialRankingTable?.headers).toEqual(["Dòng máy", "IMEI đang tồn"]);
+  expect(serialRankingTable?.rows[0].values["IMEI đang tồn"]).toBe("12");
+
+  const tiers = formatFriendlyAssistantResult(operationById("customer.tier.counts")!, { data: {
+    total: 8, tiers: [{ name: "Hạng Bạc", count: 0 }, { name: "Hạng Vàng", count: 2 }], unranked: 6,
+  } });
+  expect(tiers).toContain("Hạng Bạc: 0");
+  expect(tiers).toContain("Hạng Vàng: 2");
+  expect(tiers).toContain("Chưa xếp hạng: 6");
+  expect(tiers).toContain("Không có hạng tên VIP trong cấu hình hiện tại.");
+
+  const birthdays = formatFriendlyAssistantResult(operationById("customer.upcoming-birthdays")!, { data: {
+    total: 1, truncated: false, items: [{ name: "Lê Anh Tú", customerCode: "KH-001", birthdayDate: "2026-11-28" }],
+  } });
+  expect(birthdays).toContain("Lê Anh Tú");
+  expect(birthdays).toContain("28/11/2026");
+  expect(birthdays).not.toContain("KH-001");
+
+  const duplicateBirthdays = formatFriendlyAssistantResult(operationById("customer.upcoming-birthdays")!, { data: {
+    total: 2, truncated: false, items: [
+      { name: "Lê Anh Tú", customerCode: "KH-HN-001", birthdayDate: "2026-11-28" },
+      { name: "Lê Anh Tú", customerCode: "KH-HCM-001", birthdayDate: "2026-11-28" },
+    ],
+  } });
+  expect(duplicateBirthdays).toContain("Mã KH-HN-001");
+  expect(duplicateBirthdays).toContain("Mã KH-HCM-001");
+});
+
 it("formats attendance counts as people and hides internal versions", () => {
-  const reply = formatFriendlyAssistantResult(operationById("student.batch.attendance.summary")!, {className:"A",date:"2026-11-18",total:1,present:1,late:0,absent:0,version:2});
+  const reply = formatFriendlyAssistantResult(operationById("student.batch.attendance.summary")!, {className:"A",date:"2026-11-18",startTime:"19:00",endTime:"21:00",location:"P204",remainingSlots:4,total:1,present:1,late:0,absent:0,version:2});
   expect(reply).toContain("Tổng học viên: 1");
+  expect(reply).toContain("Giờ bắt đầu: 19:00");
+  expect(reply).toContain("Số chỗ còn lại: 4");
   expect(reply).not.toContain("₫");
   expect(reply).not.toContain("Phiên bản");
+});
+
+it("calculates today's check-in rate against every employee in the selected scope", () => {
+  const reply = formatFriendlyAssistantResult(operationById("timekeeping.records.overview")!, [
+    { date: "2026-11-25", employeeName: "An", attendanceStatus: "Đã vào ca", checkIn: "2026-11-25T01:00:00.000Z" },
+    { date: "2026-11-25", employeeName: "Bình", attendanceStatus: "Chưa ghi nhận", checkIn: null },
+    { date: "2026-11-25", employeeName: "Chi", attendanceStatus: "Nghỉ phép", checkIn: null },
+  ]);
+
+  const table = parseAssistantResultTable(reply);
+  expect(Object.values(table?.rows[0]?.values || {})).toEqual(expect.arrayContaining(["3", "1", "2", "33,33%"]));
+  expect(reply).toContain("trên tổng nhân sự trong phạm vi đã chọn");
+});
+
+it("includes department in the shared onboarded recruitment report table", () => {
+  const reply = formatFriendlyAssistantResult(operationById("recruitment.report")!, { data: {
+    reportType: "onboarded", summary: "2 applicants onboarded.", total: 2,
+    items: [{ name: "Nguy\u1ec5n An", jobTitle: "QA Lead", department: "S\u1ea3n ph\u1ea9m", outcome: "hired", occurredAt: "2026-11-10T04:00:00.000Z" }],
+  } });
+
+  const table = parseAssistantResultTable(reply);
+  expect(Object.values(table?.rows[0]?.values || {})).toContain("S\u1ea3n ph\u1ea9m");
+});
+
+it("shows cancellation reason and actor in the retail order result table", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.order.list")!, [{
+    orderCode: "POS-CANCELLED-001", status: "cancelled", cancelReason: "Khách đổi nhu cầu", cancelledByName: "Thu ngân QA",
+    cancelledBy: "private-actor-id",
+  }]);
+  const row = parseAssistantResultTable(reply)?.rows[0]?.values;
+
+  expect(row).toMatchObject({ "Mã đơn hàng": "POS-CANCELLED-001", "Lý do hủy": "Khách đổi nhu cầu", "Người hủy": "Thu ngân QA" });
+  expect(reply).not.toContain("private-actor-id");
+  expect(reply).not.toContain("Thông tin:");
+});
+
+it("renders an empty onboarded report as a confirmed zero", () => {
+  const reply = formatFriendlyAssistantResult(operationById("recruitment.report")!, { data: {
+    reportType: "onboarded", summary: "0 \u1ee9ng vi\u00ean \u0111\u00e3 onboard trong th\u00e1ng 11/2026.", total: 0, items: [],
+  } });
+
+  expect(parseAssistantResultTable(reply)).not.toBeNull();
+  expect(reply).toContain("0 \u1ee9ng vi\u00ean \u0111\u00e3 onboard");
 });
 
 it("hides finance optimistic-lock versions from user-facing results", () => {
@@ -202,8 +354,36 @@ describe("HR reports", () => {
     ]);
 
     expect(reply).toContain("Nam Văn Tú");
+    expect(reply).toContain("ngày 17/11/2026");
+    expect(reply).not.toContain("hôm nay");
     expect(reply).not.toContain("Lê Thu An");
     expect(parseAssistantResultTable(reply)?.rows[0]?.values["Trạng thái"]).toBe("Đã vào ca, đi muộn");
+  });
+
+  it("uses the selected attendance date when no rows match the requested status", () => {
+    const operation = operationById("timekeeping.records.late")!;
+    const reply = formatFriendlyAssistantResult(operation, [
+      { employeeName: "Lê Thu An", date: "2026-11-25", attendanceStatus: "Đã vào và ra ca" },
+    ]);
+
+    expect(reply).toContain("Không ghi nhận nhân sự đi muộn trong ngày 25/11/2026.");
+    expect(reply).not.toContain("hôm nay");
+  });
+
+  it("shows product profit ranking when the retail report includes authorized profit fields", () => {
+    const operation = operationById("retail.report.summary")!;
+    const reply = formatFriendlyAssistantResult(operation, {
+      range: { from: "2026-10-27", to: "2026-11-26" },
+      summary: { orderCount: 2, grossSales: 3_000_000, refunds: 0, netSales: 3_000_000, collectedAmount: 3_000_000, dueAmount: 0, averageOrderValue: 1_500_000, grossProfit: 500_000, grossMarginPercent: 16.7 },
+      products: [
+        { productName: "Bán nhiều nhất", netQuantity: 5, netSales: 2_000_000, profit: 100_000 },
+        { productName: "Lãi cao nhất", netQuantity: 1, netSales: 1_000_000, profit: 400_000 },
+      ],
+    });
+
+    expect(reply).toContain("Sản phẩm có lợi nhuận gộp cao nhất:");
+    expect(reply.indexOf("1. Lãi cao nhất")).toBeLessThan(reply.indexOf("2. Bán nhiều nhất"));
+    expect(reply).toContain("Thời gian: 27/10/2026 đến 26/11/2026");
   });
 
   it("reports expiring employee contracts without exposing internal identifiers", () => {

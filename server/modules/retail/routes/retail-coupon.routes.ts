@@ -43,8 +43,10 @@ retailCouponRoutes.get("/assistant-options", operate, async (req: Request, res: 
   try {
     const scope = requireRetailBranch(retailScopeFromRequest((req as any).user || {}, req.query));
     const coupons = await retailCouponService.selectable(scope, req.query.customerId);
-    res.json({ success: true, data: coupons.map(({ code, name, discountType, value, minSubtotal, maxDiscount }) => ({
-      code, name, discountType, value, minSubtotal, maxDiscount,
+    const code = String(req.query.code || "").trim().toUpperCase();
+    const selected = code ? coupons.filter(coupon => coupon.code.toUpperCase() === code) : coupons;
+    res.json({ success: true, data: selected.map(({ code, name, discountType, value, minSubtotal, maxDiscount, startsAt, endsAt }) => ({
+      code, name, discountType, value, minSubtotal, maxDiscount, startsAt, endsAt,
     })) });
   } catch (error: any) { res.status(error.status || 400).json({ success: false, error: error.message }); }
 });

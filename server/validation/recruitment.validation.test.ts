@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applicantBodySchema, applicantUpdateBodySchema, jobBodySchema, jobUpdateBodySchema } from "./recruitment.validation";
+import { applicantBodySchema, applicantHistoryQuerySchema, applicantUpdateBodySchema, jobBodySchema, jobUpdateBodySchema } from "./recruitment.validation";
 
 describe("recruitment document link validation", () => {
   it("accepts public URL metadata on create and update payloads", () => {
@@ -7,5 +7,18 @@ describe("recruitment document link validation", () => {
     expect(jobUpdateBodySchema.validate({ version: 1, jdFileUrl: "", jdFilePublicId: "" }).error).toBeUndefined();
     expect(applicantBodySchema.validate({ jobId: "job", fullName: "An", cvUrl: "https://cloud.test/cv.pdf", cvPublicId: "folder/cv" }).error).toBeUndefined();
     expect(applicantUpdateBodySchema.validate({ version: 1, cvUrl: "", cvPublicId: "" }).error).toBeUndefined();
+  });
+});
+
+describe("recruitment applicant history query validation", () => {
+  it("accepts inclusive Vietnam calendar-day bounds", () => {
+    expect(applicantHistoryQuerySchema.validate({ from: "2026-11-01", to: "2026-11-30" }).error).toBeUndefined();
+    expect(applicantHistoryQuerySchema.validate({ to: "2026-11-30" }).error).toBeUndefined();
+  });
+
+  it("rejects invalid, reversed, and unknown date filters", () => {
+    expect(applicantHistoryQuerySchema.validate({ from: "2026-02-30" }).error).toBeDefined();
+    expect(applicantHistoryQuerySchema.validate({ from: "2026-11-30", to: "2026-11-01" }).error).toBeDefined();
+    expect(applicantHistoryQuerySchema.validate({ from: "2026-11-01", search: "An" }).error).toBeDefined();
   });
 });

@@ -27,6 +27,10 @@ export type WorkerInput = {
   projectId?: unknown;
 };
 
+export type WorkerListFilters = {
+  permitExpiryWithinDays?: number;
+};
+
 export type BulkWorkerInput = {
   fullName?: unknown;
   phone?: unknown;
@@ -100,6 +104,34 @@ export function normalizeLaborType(value: unknown): WorkerLaborType {
   return "official";
 }
 
+function workerDateDay(value: unknown): number | null {
+  const raw = String(value ?? "").trim();
+  let year: number;
+  let month: number;
+  let day: number;
+  let match = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (match) {
+    year = Number(match[1]); month = Number(match[2]); day = Number(match[3]);
+  } else {
+    match = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (!match) return null;
+    day = Number(match[1]); month = Number(match[2]); year = Number(match[3]);
+  }
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return Math.floor(date.getTime() / 86_400_000);
+}
+
+export function isWorkerPermitExpiringWithinDays(value: unknown, days: number, now = new Date()): boolean {
+  if (!Number.isSafeInteger(days) || days < 0 || days > 365) return false;
+  const todayText = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const today = workerDateDay(todayText);
+  const expiry = workerDateDay(value);
+  return today !== null && expiry !== null && expiry >= today && expiry <= today + days;
+}
+
 export function normalizeWorkerInput(input: WorkerInput) {
   const fullName = String(input.fullName || "").trim();
   if (!fullName) throw new Error("Worker full name is required");
@@ -140,8 +172,11 @@ export function normalizeWorkerInput(input: WorkerInput) {
 }
 
 export class WorkerService {
-  static async list(scope: WorkerScope) {
-    const workers = await WorkerModel.find(buildWorkerQuery(scope)).sort({ createdAt: -1 }).lean();
+  static async list(scope: WorkerScope, filters: WorkerListFilters = {}) {
+    const listedWorkers = await WorkerModel.find(buildWorkerQuery(scope)).sort({ createdAt: -1 }).lean();
+    const workers = filters.permitExpiryWithinDays === undefined
+      ? listedWorkers
+      : listedWorkers.filter((worker: any) => worker.laborType === "foreign" && isWorkerPermitExpiringWithinDays(worker.workPermitExpiry, filters.permitExpiryWithinDays!));
     if (!workers.length) return workers;
 
     const referrals = await WorkerReferralModel.find({

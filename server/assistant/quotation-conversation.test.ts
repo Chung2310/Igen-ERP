@@ -5,7 +5,12 @@ import { quoteCreatedRange } from "../modules/quotation/created-range";
 import { appendFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), documents: vi.fn(), provider: vi.fn() }));
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
+  const response = await state.provider(...args);
+  if (typeof response?.text !== "string") return response;
+  try { const parsed = JSON.parse(response.text); if (typeof parsed.actionId === "string" && parsed.intentType === undefined) parsed.intentType = "workflow"; if (typeof parsed.actionId === "string" && parsed.requestCoverage === undefined) { let requestText = args[0]?.messages?.at(-1)?.content; try { requestText = JSON.parse(requestText).text ?? requestText; } catch { /* current user message */ } if (typeof requestText === "string") parsed.requestCoverage = [{ evidence: requestText, requirement: "Yêu cầu thao tác", mappedTo: ["action"] }]; } return { ...response, text: JSON.stringify(parsed) }; }
+  catch { return response; }
+} }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
     for (const [key, value] of Object.entries(updates.$set || {})) {

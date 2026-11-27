@@ -67,7 +67,42 @@ export async function listRetailProductCommissions(companyCode: string) {
     RetailProductCommissionModel.find({ companyCode }).select("sku rule").lean(),
     RetailCommissionPolicyModel.find({ companyCode, kind: "sale", sku: { $ne: "*" }, active: true }).select("partnerId sku ratePercent effectiveFrom").lean(),
   ]);
-  return { products, variants, categories, configurations, legacyRules };
+  const partnerIds = [...new Set(legacyRules.map((rule: any) => String(rule.partnerId || "")).filter(Boolean))];
+  const partners = partnerIds.length
+    ? await RetailPartnerModel.find({ companyCode, _id: { $in: partnerIds } }).select("_id name").lean()
+    : [];
+  const partnerNameById = new Map(partners.map((partner: any) => [String(partner._id), String(partner.name || "").trim()]));
+  const productNameById = new Map(products.map((product: any) => [String(product._id), String(product.name || "").trim()]));
+  const productNameBySku = new Map(variants.map((variant: any) => [
+    String(variant.sku || "").trim().toUpperCase(), productNameById.get(String(variant.productId)) || "",
+  ]));
+  const configurationBySku = new Map(configurations.map((configuration: any) => [
+    String(configuration.sku || "").trim().toUpperCase(), configuration,
+  ]));
+
+  const assistantItems: Array<Record<string, string | number>> = [];
+  for (const variant of variants as any[]) {
+    const sku = String(variant.sku || "").trim().toUpperCase();
+    const productName = productNameBySku.get(sku) || "";
+    const rule = configurationBySku.get(sku)?.rule;
+    if (!sku || !productName || !rule || typeof rule !== "object") continue;
+    const variantName = String(variant.displayName || sku);
+    if (rule.kind === "phone" && Number.isSafeInteger(Number(rule.amount)) && Number(rule.amount) > 0) {
+      assistantItems.push({ sku, productName, variantName, kind: "phone", commissionType: "fixed", commissionValue: Number(rule.amount), status: "configured" });
+    } else if (rule.kind === "accessory" && Number.isSafeInteger(Number(rule.rateBps)) && Number(rule.rateBps) > 0) {
+      const ratePercent = Number(rule.rateBps) / 100;
+      assistantItems.push({ sku, productName, variantName, kind: "accessory", commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "configured" });
+    }
+  }
+  for (const rule of legacyRules as any[]) {
+    const sku = String(rule.sku || "").trim().toUpperCase();
+    const productName = productNameBySku.get(sku) || "";
+    const partnerName = partnerNameById.get(String(rule.partnerId || "")) || "";
+    const ratePercent = Number(rule.ratePercent);
+    if (!sku || !productName || !partnerName || !Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) continue;
+    assistantItems.push({ sku, productName, variantName: String((variants as any[]).find(variant => String(variant.sku || "").trim().toUpperCase() === sku)?.displayName || sku), partnerName, kind: String(rule.kind || "sale"), commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "active" });
+  }
+  return { products, variants, categories, configurations, legacyRules, assistantItems };
 }
 
 export async function saveRetailProductCommissions(companyCode: string, actorId: string, input: any) {

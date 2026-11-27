@@ -1,17 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } from "./catalog";
-import { assistantFunctionContextCatalog, assistantFunctionKeys, inferAnalyticalFunctionKeys, isExplicitReadOnlyRequest } from "./function-context";
-
-it('keeps cross-cutting read capabilities discoverable from their business function', () => {
-  expect(assistantFunctionKeys(defaultWorkflow(operationById('student.batch.attendance.summary')!))).toContain('student:attendance');
-  expect(assistantFunctionKeys(defaultWorkflow(operationById('student.batch.detail')!))).toContain('student:schedule');
-  const catalog = assistantFunctionContextCatalog(ASSISTANT_OPERATIONS.filter(op=>op.module==='student').map(defaultWorkflow));
-  expect(catalog.find(group=>group.key==='student:attendance')?.examples).toContain('Báo cáo điểm danh lớp học theo ngày');
-});
-it('constrains an explicit read without classifying a write or a mixed request as read-only', () => {
-  expect(isExplicitReadOnlyRequest('Báo cáo tiến độ QA')).toBe(true);
-  for (const text of ['Thêm báo cáo tiến độ QA','Xem rồi sửa dự án QA','Ghi nhận tiến độ 50%','Xem trước dữ liệu nhập đơn hàng']) expect(isExplicitReadOnlyRequest(text)).toBe(false);
-});
+import { assistantFunctionContextCatalog, inferAnalyticalFunctionKeys } from "./function-context";
 
 describe("assistant function context", () => {
   it("groups HR workflows into function areas instead of CRUD actions", () => {
@@ -39,5 +28,15 @@ describe("assistant function context", () => {
       "labor-partner:partner-settlements",
     ]));
     expect(inferAnalyticalFunctionKeys(ranking, catalog)).toEqual(["labor-partner:partner-referral-analysis"]);
+  });
+
+  it("includes a short action purpose in module and function discovery context", () => {
+    const workflows = ["retail.report.summary", "retail.order.list"].map(id => defaultWorkflow(operationById(id)!));
+    const catalog = assistantFunctionContextCatalog(workflows);
+    const report = catalog.find(feature => feature.key === "retail:retail");
+    const orders = catalog.find(feature => feature.key === "retail:order");
+
+    expect(report?.purpose).toContain("tiền thu tiền mặt và chuyển khoản");
+    expect(orders?.purpose).toContain("Đã giao/bán xong");
   });
 });

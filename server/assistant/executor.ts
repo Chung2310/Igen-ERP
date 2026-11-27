@@ -1,23 +1,27 @@
 import { randomUUID } from "node:crypto";
-import { observeAssistantOperation } from "./call-observer";
-import { businessCallFetch, withBusinessOperation } from "./business-call-gate";
 import { normalizeBusinessResult } from "./business-result";
 import { AssistantApiRejection } from "./api-rejection";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantField, AssistantValue } from "../../src/shared/assistant-workflow";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override.interface";
-import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
+import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation, type AssistantResultFieldTree } from "./catalog";
 import { actorScope, assertOperation } from "./workflows";
 import { validateStructuredField } from "./structured-data";
 import { applyWorkWorkflowMutation } from "./workflow-mutations";
 import { AssistantError } from "./policy";
 import { callHealthcareOperation, HealthcareUncertainExecutionError, lookupHealthcareRecords, projectHealthcareRecords, resolveHealthcareReferences, suggestHealthcareReferences } from "./healthcare-executor";
 import { callQuotationOperation, lookupQuotationRecords, projectQuotationRecords, QuotationUncertainExecutionError, resolveQuotationReferences, suggestQuotationReferences } from "./quotation-executor";
+import { summarizeDailyAttendance } from "./timekeeping-summary";
 
 export class UncertainExecutionError extends Error {}
 export type AssistantRecord = Record<string, AssistantValue>;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase().replace(/\s+/g, " ").trim();
+const retailOrderCodeFromSearch = (value: string) => {
+  const normalized = normalize(value);
+  return normalized.match(/\b(pos-[a-z0-9][a-z0-9_-]{3,})\b/)?.[1]
+    || normalized.match(/\bma\s+([a-z0-9][a-z0-9_-]{3,})\b/)?.[1];
+};
 const workerProfileStandardFieldKeys = new Set(["fullName", "phone", "email", "idCard", "birthday", "registrationDate", "address", "status", "laborType", "nationality", "workPermitNumber", "workPermitExpiry", "note"]);
 const payrollPaymentRequiredStatus: Record<string, string> = {
   "payroll.payment.cancel": "draft",
@@ -204,9 +208,11 @@ function safeRetailAfterSale(doc: any) {
   };
 }
 function isCommissionLevelOperation(op: AssistantOperation) { return op.path.startsWith("/partners/commission-levels"); }
-function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts") || op.path.startsWith("/retail/invoices") || op.path === "/retail/reports/summary"; }
+function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts") || op.path.startsWith("/retail/invoices") || ["/retail/reports/summary", "/retail/reports/export"].includes(op.path); }
 function isRetailCashbookOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/cashbook"); }
-function isRetailFinanceCommissionOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/commission/"); }
+function isRetailFinanceCommissionOperation(op: AssistantOperation) {
+  return op.path.startsWith("/retail/finance/commission/") && op.path !== "/retail/finance/commission/balances";
+}
 function isRetailReceivableOperation(op: AssistantOperation) { return op.path.startsWith("/retail/receivables/"); }
 function isRetailAfterSaleOperation(op: AssistantOperation) { return op.path.startsWith("/retail/after-sales"); }
 function isRecruitmentOperation(op: AssistantOperation) { return op.path.startsWith("/recruitment/"); }
@@ -224,11 +230,10 @@ function missingRecruitmentJobReadiness(job: Record<string, any>, now = new Date
   return missing;
 }
 function isBranchScopedAssistantOperation(op: AssistantOperation) {
-  if (op.id === 'partner.analysis') return true;
   return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 function requiresBranchChoice(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || ["retail.invoice.list", "retail.invoice.bulk-pdf", "retail.order.payment-qr", "retail.report.top-products"].includes(op.id) || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 
 function assertScheduledCampaignInput(input: Record<string, AssistantValue>) {
@@ -286,16 +291,539 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
-  return observeAssistantOperation(() => withBusinessOperation(() => callOperationUnobserved(req, op, input, password, requestId)));
-}
-async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
   if (op.unavailableReason) throw new AssistantError(op.unavailableReason, 409);
+  const normalizedInput: Record<string, AssistantValue> = { ...input };
+  const aliasesFor = (field: AssistantField) => {
+    const key = String(field.key || "");
+    const apiKey = String(field.apiKey || "");
+    const aliases = new Set([apiKey, `query_${apiKey}`, key]);
+    if (["branchId", "targetBranch"].includes(apiKey)) { aliases.add("branchId"); aliases.add("targetBranch"); }
+    if (apiKey === "from") aliases.add("query_from");
+    if (apiKey === "to") aliases.add("query_to");
+    if (apiKey === "page") aliases.add("query_page");
+    if (apiKey === "limit") aliases.add("query_limit");
+    for (const alias of aliases) if (alias && normalizedInput[alias] !== undefined) return normalizedInput[alias];
+    return undefined;
+  };
+  for (const field of op.fields) {
+    if (normalizedInput[field.key] !== undefined) continue;
+    const value = aliasesFor(field);
+    if (value !== undefined) normalizedInput[field.key] = value;
+  }
+  input = normalizedInput;
+  const collectPages = async (actionId: string, base: Record<string, AssistantValue>, pageSize = 100) => {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === actionId);
+    if (!source) throw new AssistantError(`Thiếu nguồn dữ liệu ${actionId}.`, 503);
+    const rows: Record<string, any>[] = [];
+    let total: number | undefined;
+    for (let page = 1; page <= 100; page += 1) {
+      const response = await callOperation(req, source, { ...base, query_page: page, query_limit: pageSize }, password, requestId);
+      const batch = rawRecords(response);
+      rows.push(...batch);
+      const data = response?.data && typeof response.data === "object" ? response.data : {};
+      const parsedTotal = Number(data.total ?? response?.total);
+      if (Number.isSafeInteger(parsedTotal) && parsedTotal >= 0) total = parsedTotal;
+      if (batch.length < pageSize || (total !== undefined && rows.length >= total)) return rows;
+      if (page === 100) throw new AssistantError("Dữ liệu có quá 10.000 dòng; hãy thu hẹp kỳ tra cứu.");
+    }
+    return rows;
+  };
+  const branchFromInput = () => input.targetBranch ?? input.branchId;
+  const dateInput = () => ({
+    ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
+    ...(input.from === undefined ? (input.query_from === undefined ? {} : { query_from: input.query_from }) : { query_from: input.from }),
+    ...(input.to === undefined ? (input.query_to === undefined ? {} : { query_to: input.query_to }) : { query_to: input.to }),
+  });
+  if (op.id === "retail.report.margin-watch") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary")!;
+    const response = await callOperation(req, source, dateInput(), password, requestId);
+    const data = response?.data && typeof response.data === "object" ? response.data : {};
+    const products = Array.isArray(data.products) ? data.products : [];
+    const threshold = Math.max(0, Math.min(100, Number(input.marginThresholdPercent) || 10));
+    const belowCost = products.filter((row: any) => Number.isFinite(Number(row.profit)) && Number(row.profit) < 0)
+      .map((row: any) => ({ productName: row.productName, sku: row.sku, netSales: row.netSales, profit: row.profit }));
+    const lowMargin = products.filter((row: any) => Number.isFinite(Number(row.profit)) && Number(row.profit) >= 0
+      && Number(row.netSales) > 0 && Number(row.profit) / Number(row.netSales) * 100 < threshold)
+      .map((row: any) => ({ productName: row.productName, sku: row.sku, netSales: row.netSales, profit: row.profit, marginPercent: Number(row.profit) / Number(row.netSales) * 100 }));
+    const missingCost = products.filter((row: any) => !Number.isFinite(Number(row.profit))).map((row: any) => ({ productName: row.productName, sku: row.sku }));
+    return { success: true, data: { range: data.range, thresholdPercent: threshold, belowCost, lowMargin, missingCost } };
+  }
+  if (op.id === "retail.shift.variance-report") {
+    const shifts = await collectPages("retail.shift.list", {
+      ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
+      ...(input.query_from === undefined ? {} : { query_from: input.query_from }),
+      ...(input.query_to === undefined ? {} : { query_to: input.query_to }),
+      query_status: "closed",
+    });
+    const matched = shifts.filter(row => ["closed", "reconciled"].includes(String(row.status || "").toLowerCase())
+      && Number.isFinite(Number(row.varianceAmount)) && Number(row.varianceAmount) !== 0)
+      .map(row => ({ shiftCode: row.shiftCode, cashierName: row.cashierName, businessDate: row.businessDate, expectedCash: row.expectedCash, countedCash: row.countedCash, varianceAmount: row.varianceAmount, varianceReason: row.varianceReason }))
+      .sort((left, right) => String(right.businessDate || "").localeCompare(String(left.businessDate || "")));
+    return { success: true, data: { from: input.query_from, to: input.query_to, shifts: matched } };
+  }
+  if (op.id === "retail.shift.latest-close-report") {
+    const shifts = await collectPages("retail.shift.list", { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), query_status: "closed" });
+    const latest = shifts.filter(row => ["closed", "reconciled"].includes(String(row.status || "").toLowerCase()))
+      .sort((left, right) => String(right.businessDate || "").localeCompare(String(left.businessDate || ""))
+        || String(right.closedAt || right.openedAt || "").localeCompare(String(left.closedAt || left.openedAt || "")))[0];
+    if (!latest) return { success: true, data: { shift: null, cashExpenses: [], cashbookEntriesAvailable: true } };
+    const shiftId = String(latest._id || latest.id || latest.__assistantRef?.id || "");
+    let detail = latest;
+    const detailOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/shifts/:id" && candidate.method === "GET");
+    if (shiftId && detailOperation) {
+      const detailPath = detailOperation.fields.find(field => field.source === "path");
+      if (detailPath) {
+        const detailResponse = await callOperation(req, detailOperation, { [detailPath.key]: shiftId }, password, requestId);
+        detail = detailResponse?.data?.shift || detailResponse?.data || latest;
+      }
+    }
+    const cashbook = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.finance.cashbook.list")!;
+    const cashResponse = await callOperation(req, cashbook, { ...dateInput(), query_from: String(latest.businessDate || ""), query_to: String(latest.businessDate || "") }, password, requestId);
+    const entries = Array.isArray(cashResponse?.data?.entries) ? cashResponse.data.entries : [];
+    return { success: true, data: {
+      shift: { shiftCode: detail.shiftCode, cashierName: detail.cashierName, status: detail.status, businessDate: detail.businessDate,
+        openingFloat: detail.openingFloat, grossSales: detail.grossSales, expectedCash: detail.expectedCash, countedCash: detail.countedCash, varianceAmount: detail.varianceAmount },
+      cashExpenses: entries.filter((entry: any) => entry.direction === "out" && entry.account === "cash").map((entry: any) => ({ businessDate: entry.businessDate, amount: entry.amount, description: entry.description })),
+      cashbookEntriesAvailable: true,
+    } };
+  }
+  if (op.id === "retail.after-sale.customer-return-summary") {
+    const rows = await collectPages("retail.after-sale.list", { ...dateInput(), query_type: "return" });
+    const returns = rows.filter(row => row.type === "return" && row.status === "completed");
+    const customers = new Set(returns.map(row => String(row.customerName || "").trim().toLocaleLowerCase("vi")).filter(Boolean));
+    return { success: true, data: { range: { from: input.from, to: input.to }, customerCount: customers.size, returnCount: returns.length,
+      refundTotal: returns.reduce((sum, row) => sum + Math.max(0, Number(row.totalAmount) || 0), 0) } };
+  }
+  if (op.id === "retail.after-sale.return-product-analysis") {
+    const rows = await collectPages("retail.after-sale.list", { ...dateInput(), query_type: "return" });
+    const returns = rows.filter(row => row.type === "return" && row.status === "completed");
+    const products = new Map<string, { productName: string; returnedQuantity: number; returnCount: number }>();
+    const reasons = new Map<string, number>();
+    for (const row of returns) {
+      const reason = String(row.reason || "").trim();
+      if (reason) reasons.set(reason, (reasons.get(reason) || 0) + 1);
+      const summary = String(row.itemsSummary || "");
+      for (const item of summary.split(/;\s*/).filter(Boolean)) {
+        const match = item.match(/^\s*(\d+(?:\.\d+)?)\s*[×x]\s*(.+?)(?:\s+\([^)]*\))?\s*$/u);
+        if (!match) continue;
+        const productName = match[2].trim();
+        const aggregate = products.get(productName) || { productName, returnedQuantity: 0, returnCount: 0 };
+        aggregate.returnedQuantity += Number(match[1]) || 0;
+        aggregate.returnCount += 1;
+        products.set(productName, aggregate);
+      }
+    }
+    const ranked = [...products.values()].sort((left, right) => right.returnedQuantity - left.returnedQuantity || left.productName.localeCompare(right.productName));
+    return { success: true, data: { range: { from: input.from, to: input.to }, products: ranked.slice(0, 10), reasons: [...reasons].map(([reason, count]) => ({ reason, count })).sort((left, right) => right.count - left.count), returnCount: returns.length } };
+  }
+  if (op.id === "retail.order.installment-balances") {
+    const rows = await collectPages("retail.order.list", { ...dateInput() });
+    const orders = rows.filter(row => row.status === "completed" && Number(row.dueAmount) > 0)
+      .map(row => ({ orderCode: row.orderCode, customerName: row.customerName, businessDate: row.businessDate, grandTotal: row.grandTotal, paidAmount: row.paidAmount, dueAmount: row.dueAmount }))
+      .sort((left, right) => Number(right.dueAmount) - Number(left.dueAmount));
+    return { success: true, data: { range: { from: input.query_from, to: input.query_to }, orders, installmentTypeTracked: false } };
+  }
+  if (op.id === "retail.order.debt-ranking") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "finance.debt.list")!;
+    const response = await callOperation(req, source, { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }) }, password, requestId);
+    const rows = rawRecords(response).filter(row => Number(row.balance) > 0 && (!row.partyKind || /customer|khach/i.test(String(row.partyKind)))
+      && (!row.direction || /receivable|phai thu/i.test(String(row.direction))));
+    const byCustomer = new Map<string, { customerName: string; balance: number }>();
+    for (const row of rows) {
+      const name = String(row.partyName || "Khách hàng chưa ghi tên");
+      const key = normalize(name);
+      const value = byCustomer.get(key) || { customerName: name, balance: 0 };
+      value.balance += Number(row.balance) || 0;
+      byCustomer.set(key, value);
+    }
+    const highestBalance = [...byCustomer.values()].sort((left, right) => right.balance - left.balance)[0] || null;
+    const overdueRows = rows.filter(row => Number(row.daysOverdue) > 0).sort((left, right) => Number(right.daysOverdue) - Number(left.daysOverdue));
+    const oldest = overdueRows[0];
+    return { success: true, data: { highestBalance, oldestOverdue: oldest ? { customerName: oldest.partyName, reference: oldest.reference, balance: oldest.balance, daysOverdue: oldest.daysOverdue } : null, overdueAgeAvailable: rows.some(row => Number.isFinite(Number(row.daysOverdue))) } };
+  }
+  if (op.id === "retail.report.employee-cancelled-cash-variance") {
+    const [orders, shifts] = await Promise.all([
+      collectPages("retail.order.list", dateInput()),
+      collectPages("retail.shift.list", dateInput()),
+    ]);
+    const cancelled = orders.filter(row => ["cancelled", "canceled"].includes(String(row.status || "").toLowerCase()));
+    const cancellationsByEmployee = new Map<string, { employeeName: string; cancelledOrders: number }>();
+    for (const order of cancelled) {
+      const employeeName = String(order.cancelledByName || order.cancelledByDisplayName || "").trim();
+      if (!employeeName) continue;
+      const key = normalize(employeeName);
+      const value = cancellationsByEmployee.get(key) || { employeeName, cancelledOrders: 0 };
+      value.cancelledOrders += 1;
+      cancellationsByEmployee.set(key, value);
+    }
+    const cancellationLeader = [...cancellationsByEmployee.values()]
+      .sort((left, right) => right.cancelledOrders - left.cancelledOrders || left.employeeName.localeCompare(right.employeeName))[0] || null;
+    const varianceByCashier = new Map<string, { cashierName: string; shiftCount: number; totalAbsoluteVariance: number; netVariance: number }>();
+    for (const shift of shifts) {
+      if (!["closed", "reconciled"].includes(String(shift.status || "").toLowerCase())) continue;
+      const variance = Number(shift.varianceAmount);
+      if (!Number.isFinite(variance) || variance === 0) continue;
+      const cashierName = String(shift.cashierName || "").trim();
+      if (!cashierName) continue;
+      const key = normalize(cashierName);
+      const value = varianceByCashier.get(key) || { cashierName, shiftCount: 0, totalAbsoluteVariance: 0, netVariance: 0 };
+      value.shiftCount += 1;
+      value.totalAbsoluteVariance += Math.abs(variance);
+      value.netVariance += variance;
+      varianceByCashier.set(key, value);
+    }
+    const varianceLeader = [...varianceByCashier.values()]
+      .sort((left, right) => right.totalAbsoluteVariance - left.totalAbsoluteVariance || left.cashierName.localeCompare(right.cashierName))[0] || null;
+    return { success: true, data: { range: { from: input.from || input.query_from, to: input.to || input.query_to }, cancellationLeader, varianceLeader,
+      unattributedCancelledOrders: cancelled.length - [...cancellationsByEmployee.values()].reduce((sum, row) => sum + row.cancelledOrders, 0) } };
+  }
+  if (["retail.customer.purchase-warranty-summary", "retail.customer.profile-summary"].includes(op.id)) {
+    const customerQuery = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "customer.list")!;
+    const queryValue = String(input.path_phone || input.query_q || input.query_search || "").trim();
+    const customerResponse = await callOperation(req, customerQuery, { query_q: queryValue, query_status: "active", query_page: 1, query_limit: 100 }, password, requestId);
+    const customers = rawRecords(customerResponse);
+    const customerName = (row: Record<string, any>) => String(row.name || row.fullName || row.customerName || row.displayName || "");
+    const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
+    const selectedBranch = String(input.targetBranch || input.branchId || req.user?.branchId || branchHeader || "");
+    const branchScopedCustomers = selectedBranch && customers.some(row => row.branchId)
+      ? customers.filter(row => String(row.branchId || "") === selectedBranch)
+      : customers;
+    const matched = branchScopedCustomers.filter(row => normalize(String(row.phone || row.normalizedPhone || "")) === normalize(queryValue)
+      || normalize(customerName(row)) === normalize(queryValue)
+      || (queryValue.replace(/\D/g, "").length >= 8 && String(row.phone || "").replace(/\D/g, "").endsWith(queryValue.replace(/\D/g, ""))));
+    if (matched.length !== 1) return { success: true, data: { found: false, matches: matched.slice(0, 5).map(row => ({ customerName: customerName(row), phone: row.phone })), ambiguous: matched.length > 1 } };
+    const customer = matched[0];
+    const result: Record<string, any> = { found: true, customerName: customerName(customer) };
+    if (op.id === "retail.customer.purchase-warranty-summary") {
+      const history = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/customers/:id/purchase-history" && candidate.method === "GET");
+      if (history) {
+        const pathField = history.fields.find(field => field.source === "path")!;
+        const purchase = await callOperation(req, history, { [pathField.key]: String(customer._id || customer.id) }, password, requestId);
+        const data = purchase?.data && typeof purchase.data === "object" ? purchase.data : {};
+        const summary = data.summary && typeof data.summary === "object" ? data.summary : {};
+        result.orderCount = Number(summary.orderCount) || 0;
+        result.totalPurchased = Number(summary.totalPurchased) || 0;
+        result.currentDebt = Number(summary.currentDebt) || 0;
+        result.orders = Array.isArray(data.items) ? data.items.filter((row: any) => !["cancelled", "canceled"].includes(String(row.status || "").toLowerCase()))
+          .map((row: any) => ({ orderCode: row.orderCode, status: row.status, businessDate: row.businessDate, grandTotal: row.grandTotal, itemCount: row.itemCount })) : [];
+        result.warrantyDevices = Array.isArray(data.devices) ? data.devices.map((row: any) => ({ productName: row.productName, orderCode: row.orderCode, soldAt: row.soldAt, warrantyStartAt: row.warrantyStartAt, warrantyEndAt: row.warrantyEndAt })) : [];
+      }
+      result.warrantyRequestsAvailable = false;
+      return { success: true, data: result };
+    }
+    const detailOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/customers/:id" && candidate.method === "GET");
+    const historyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/customers/:id/purchase-history" && candidate.method === "GET");
+    const customerId = String(customer._id || customer.id || "");
+    const detailField = detailOperation?.fields.find(field => field.source === "path");
+    const historyField = historyOperation?.fields.find(field => field.source === "path");
+    const [detail, history] = await Promise.all([
+      detailOperation && detailField ? callOperation(req, detailOperation, { [detailField.key]: customerId }, password, requestId) : null,
+      historyOperation && historyField ? callOperation(req, historyOperation, { [historyField.key]: customerId }, password, requestId) : null,
+    ]);
+    const customerDetail = detail?.data || customer;
+    result.tier = customerDetail.tierName || customerDetail.tier?.name || customer.tier?.name || customer.tier?.code || "Chưa xếp hạng";
+    result.totalSpent = Number(history?.data?.summary?.totalPurchased ?? history?.data?.summary?.totalSpent ?? customer.tierTotalSales ?? 0);
+    result.unusedCoupons = [];
+    result.couponUsageStatusAvailable = false;
+    return { success: true, data: result };
+  }
+  if (op.id === "retail.partner.supplier-dealer-directory") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.partner.list")!;
+    const response = await callOperation(req, source, {}, password, requestId);
+    const partners = new Map<string, { name: string; phone?: string; role: string }>();
+    for (const row of rawRecords(response)) {
+      if (row.status && String(row.status).toLowerCase() !== "active") continue;
+      const roles = Array.isArray(row.roles) ? row.roles : [row.role || row.type];
+      const role = roles.map((value: unknown) => String(value).toLowerCase()).find((value: string) => ["supplier", "dealer"].includes(value));
+      if (!role || typeof row.name !== "string" || !row.name.trim()) continue;
+      const phone = typeof row.phone === "string" ? row.phone : undefined;
+      const key = `${role}:${normalize(row.name)}:${String(phone || "").replace(/\D/g, "")}`;
+      if (!partners.has(key)) partners.set(key, { name: row.name, ...(phone ? { phone } : {}), role });
+    }
+    return { success: true, data: { partners: [...partners.values()].map(({ role, ...partner }) => ({ ...partner, partnerType: role })) } };
+  }
+  if (op.id === "retail.finance.cashbook.expense-report") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.finance.cashbook.list")!;
+    const response = await callOperation(req, source, { ...dateInput() }, password, requestId);
+    const data = response?.data && typeof response.data === "object" ? response.data : {};
+    const expenses = (Array.isArray(data.entries) ? data.entries : []).filter((row: any) => row.direction === "out")
+      .map((row: any) => ({ businessDate: row.businessDate, amount: row.amount, description: row.description, account: row.account }));
+    return { success: true, data: { range: { from: input.from, to: input.to }, expenses, total: expenses.reduce((sum: number, row: any) => sum + Math.max(0, Number(row.amount) || 0), 0) } };
+  }
+  if (op.id === "retail.report.business-overview") {
+    const summaryOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary")!;
+    const orderOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.order.list")!;
+    const afterSaleOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.after-sale.list")!;
+    const commissionOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "api.get.78da159ec226e07e");
+    const summaryResponse = await callOperation(req, summaryOperation, dateInput(), password, requestId);
+    const range = { from: String(input.from || input.query_from || ""), to: String(input.to || input.query_to || "") };
+    const [orders, returns, commissionResponse] = await Promise.all([
+      collectPages(orderOperation.id, { ...dateInput() }),
+      collectPages(afterSaleOperation.id, { ...dateInput(), query_type: "return" }),
+      commissionOperation ? callOperation(req, commissionOperation, { ...range, ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), analysis: JSON.stringify({ aggregate: { operation: "sum", field: "commission" } }) }, password, requestId) : null,
+    ]);
+    const summary = summaryResponse?.data?.summary || {};
+    const commissionRows = rawRecords(commissionResponse);
+    const commissionTotal = commissionRows.reduce((sum, row) => sum + Math.max(0, Number(row.commission) || 0), 0);
+    const returnRows = returns.filter(row => row.type === "return" && row.status === "completed");
+    return { success: true, data: { range, grossSales: summary.grossSales, grossProfit: summary.grossProfit,
+      cancelledOrders: orders.filter(row => row.status === "cancelled" || row.status === "canceled").length,
+      returns: { count: returnRows.length, amount: returnRows.reduce((sum, row) => sum + Math.max(0, Number(row.totalAmount) || 0), 0) },
+      customerDebt: Number(summary.dueAmount ?? summary.debt?.totalDebt ?? 0), collaboratorCommission: commissionTotal } };
+  }
+  if (op.id === "retail.order.invoice-debt-exceptions") {
+    const orders = await collectPages("retail.order.list", { ...dateInput() });
+    const invoicesOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.invoice.list")!;
+    const invoices = await collectPages(invoicesOperation.id, { ...dateInput() });
+    const invoicedOrders = new Set(invoices.filter(row => row.status === "issued").map(row => String(row.orderCode || "")));
+    const exceptions = orders.filter(row => row.status === "completed" && (!invoicedOrders.has(String(row.orderCode || "")) || Number(row.dueAmount) > 0))
+      .map(row => ({ orderCode: row.orderCode, customerName: row.customerName, grandTotal: row.grandTotal, dueAmount: row.dueAmount, invoiceIssued: invoicedOrders.has(String(row.orderCode || "")), businessDate: row.businessDate }));
+    return { success: true, data: { orders: exceptions, total: exceptions.length } };
+  }
+  if (op.id === "retail.order.warranty-match") {
+    const orders = await collectPages("retail.order.list", { ...dateInput() });
+    const exactTotal = Number(input.exactTotal) || 0;
+    const matches = orders.filter(row => row.status === "completed" && Number(row.grandTotal) === exactTotal);
+    const warrantyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/warranty/orders" && candidate.method === "GET");
+    const warrantyItems = warrantyOperation ? rawRecords(await callOperation(req, warrantyOperation, { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), status: "all", page: 1, limit: 100 }, password, requestId)) : [];
+    return { success: true, data: { range: { from: input.query_from, to: input.query_to }, exactTotal,
+      matches: matches.map(order => ({ orderCode: order.orderCode, customerName: order.customerName, businessDate: order.businessDate, grandTotal: order.grandTotal,
+        warrantyDevices: warrantyItems.filter((device: any) => device.orderCode === order.orderCode).map((device: any) => ({ productName: device.productName, warrantyEndAt: device.warrantyEndAt, status: device.status })) })) } };
+  }
+  if (op.id === "retail.after-sale.warranty-audit") {
+    const range = { from: String(input.from || ""), to: String(input.to || "") };
+    const orders = await collectPages("retail.order.list", { targetBranch: branchFromInput() as any, query_from: range.from, query_to: range.to });
+    const returns = await collectPages("retail.after-sale.list", { targetBranch: branchFromInput() as any, query_type: "return" });
+    const orderCodes = new Set(orders.map(row => String(row.orderCode || "")));
+    const matchingReturns = returns.filter(row => row.type === "return" && orderCodes.has(String(row.orderCode || "")));
+    const warrantyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/warranty/orders" && candidate.method === "GET");
+    const warrantyItems = warrantyOperation ? await collectPages(warrantyOperation.id, { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), status: "all" }) : [];
+    const matchingDevices = warrantyItems.filter(row => orderCodes.has(String(row.orderCode || ""))).map(row => ({ orderCode: row.orderCode, productName: row.productName, warrantyEndAt: row.warrantyEndAt, status: row.status }));
+    return { success: true, data: { range, returns: matchingReturns.map(row => ({ code: row.code, orderCode: row.orderCode, customerName: row.customerName, totalAmount: row.totalAmount, reason: row.reason })), warrantyDevices: matchingDevices, warrantyRequestsAvailable: false } };
+  }
+  if (op.id === "retail.report.top-products-return-status") {
+    const summary = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary")!;
+    const summaryResponse = await callOperation(req, summary, dateInput(), password, requestId);
+    const data = summaryResponse?.data && typeof summaryResponse.data === "object" ? summaryResponse.data : {};
+    const products = (Array.isArray(data.products) ? data.products : []).map((row: any) => ({ productName: row.productName, netQuantity: row.netQuantity, netSales: row.netSales, profit: row.profit }))
+      .sort((left: any, right: any) => Number(right.netQuantity || 0) - Number(left.netQuantity || 0)).slice(0, 3);
+    const returns = await collectPages("retail.after-sale.list", { ...dateInput(), query_type: "return" });
+    const returnRows = returns.filter(row => row.status === "completed" && row.type === "return").map(row => ({ orderCode: row.orderCode, customerName: row.customerName, itemsSummary: row.itemsSummary, reason: row.reason, totalAmount: row.totalAmount }));
+    return { success: true, data: { range: data.range, products, returns: returnRows } };
+  }
+  if (op.id === "retail.warranty.status-counts") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/warranty/orders" && candidate.method === "GET");
+    if (!source) throw new AssistantError("Thiếu danh sách thiết bị bán ra để thống kê bảo hành.", 503);
+    const countStatus = async (status: string) => {
+      let quantity = 0;
+      let pageTotal = 0;
+      for (let page = 1; page <= 100; page += 1) {
+        const response = await callOperation(req, source, {
+          ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+          query_status: status,
+          query_page: page,
+          query_limit: 100,
+        }, password, requestId);
+        const rows = rawRecords(response);
+        quantity += rows.reduce((sum, row) => sum + Math.max(0, Number(row.quantity) || 0), 0);
+        const data = response?.data && typeof response.data === "object" ? response.data : {};
+        const total = Number(data.total ?? response?.total);
+        if (Number.isSafeInteger(total) && total >= 0) pageTotal = total;
+        if (rows.length < 100 || page * 100 >= pageTotal) return quantity;
+      }
+      throw new AssistantError("Có quá 10.000 dòng thiết bị bảo hành; chưa thể đếm đầy đủ.");
+    };
+    const [activeQuantity, expiringQuantity, expiredQuantity, unrecordedQuantity] = await Promise.all([
+      countStatus("active"), countStatus("expiring"), countStatus("expired"), countStatus("unrecorded"),
+    ]);
+    return { success: true, data: {
+      asOf: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()),
+      activeQuantity, expiringQuantity, inWarrantyQuantity: activeQuantity + expiringQuantity, expiredQuantity, unrecordedQuantity,
+    } };
+  }
+  if (op.id === "retail.report.daily-extremes" || op.id === "retail.report.category-brand-summary") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
+    if (!source) throw new AssistantError("Thiếu báo cáo bán lẻ để tổng hợp.", 503);
+    const response = await callOperation(req, source, input, password, requestId);
+    const data = response?.data && typeof response.data === "object" ? response.data : {};
+    const timeSeries = Array.isArray(data.timeSeries) ? data.timeSeries.filter((row: any) => row && typeof row.businessDate === "string") : [];
+    if (op.id === "retail.report.daily-extremes") {
+      if (!timeSeries.length) throw new AssistantError("Báo cáo chưa trả chuỗi ngày đầy đủ để tìm ngày bán cao nhất và thấp nhất.", 502);
+      const byRevenueHigh = [...timeSeries].sort((left: any, right: any) => Number(right.netSales || 0) - Number(left.netSales || 0) || left.businessDate.localeCompare(right.businessDate));
+      const byRevenueLow = [...timeSeries].sort((left: any, right: any) => Number(left.netSales || 0) - Number(right.netSales || 0) || left.businessDate.localeCompare(right.businessDate));
+      const byFewestOrders = [...timeSeries].sort((left: any, right: any) => Number(left.orderCount || 0) - Number(right.orderCount || 0)
+        || Number(left.netSales || 0) - Number(right.netSales || 0) || left.businessDate.localeCompare(right.businessDate));
+      const projectDay = (row: any) => ({ businessDate: row.businessDate, netSales: Number(row.netSales || 0), orderCount: Number(row.orderCount || 0) });
+      return { success: true, data: { range: data.range, highestRevenueDay: projectDay(byRevenueHigh[0]), lowestRevenueDay: projectDay(byRevenueLow[0]), fewestOrdersDay: projectDay(byFewestOrders[0]) } };
+    }
+    const products = Array.isArray(data.products) ? data.products : [];
+    const summarize = (key: "category" | "brand") => {
+      const groups = new Map<string, { name: string; netSales: number; netQuantity: number; products: Set<string> }>();
+      for (const item of products) {
+        const name = typeof item?.[key] === "string" && item[key].trim() ? item[key].trim() : "Chưa phân loại";
+        const group = groups.get(name) || { name, netSales: 0, netQuantity: 0, products: new Set<string>() };
+        group.netSales += Number(item?.netSales || 0);
+        group.netQuantity += Number(item?.netQuantity || 0);
+        group.products.add(String(item?.productId || item?.sku || item?.productName || name));
+        groups.set(name, group);
+      }
+      return [...groups.values()].map(group => ({ name: group.name, netSales: group.netSales, netQuantity: group.netQuantity, productCount: group.products.size }))
+        .sort((left, right) => right.netSales - left.netSales || right.netQuantity - left.netQuantity || left.name.localeCompare(right.name))[0] || null;
+    };
+    return { success: true, data: { range: data.range, categoryLeader: summarize("category"), brandLeader: summarize("brand") } };
+  }
+  if (["retail.order.top-value", "retail.order.top-customers", "retail.order.top-customers.completed", "retail.order.discount-anomalies"].includes(op.id)) {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.order.list");
+    if (!source) throw new AssistantError("Thiếu danh sách đơn bán lẻ để xếp hạng.", 503);
+    const pageSize = 100;
+    const rows: Record<string, any>[] = [];
+    let total: number | undefined;
+    for (let page = 1; page <= 100; page += 1) {
+      const response = await callOperation(req, source, {
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+        ...(input.query_from === undefined ? {} : { query_from: input.query_from }),
+        ...(input.query_to === undefined ? {} : { query_to: input.query_to }),
+        ...(op.id === "retail.order.top-customers.completed" ? { query_status: "completed" } : {}),
+        query_page: page,
+        query_limit: pageSize,
+      }, password, requestId);
+      const batch = rawRecords(response);
+      rows.push(...batch);
+      const data = response?.data && typeof response.data === "object" ? response.data : {};
+      const parsedTotal = Number(data.total ?? response?.total);
+      if (Number.isSafeInteger(parsedTotal) && parsedTotal >= 0) total = parsedTotal;
+      if (batch.length < pageSize || (total !== undefined && rows.length >= total)) break;
+      if (page === 100) throw new AssistantError("Có quá 10.000 đơn bán trong kỳ; hãy thu hẹp khoảng thời gian để xếp hạng đầy đủ.");
+    }
+    const sales = rows.filter(row => !["cancelled", "canceled", "draft", "held"].includes(String(row.status || "").toLowerCase())
+      && (op.id !== "retail.order.top-customers.completed" || String(row.status || "").toLowerCase() === "completed"));
+    if (op.id === "retail.order.discount-anomalies") {
+      const thresholdPercent = Math.min(100, Math.max(1, Number(input.thresholdPercent) || 20));
+      const orders = sales.flatMap(order => {
+        const subtotal = Number(order.subtotal || 0);
+        if (subtotal <= 0) return [];
+        const itemDiscount = Array.isArray(order.items) ? order.items.reduce((sum: number, item: any) => sum + Number(item?.discountAmount || 0), 0) : 0;
+        const discountAmount = Number(order.orderDiscount || 0) + itemDiscount;
+        const discountPercent = discountAmount / subtotal * 100;
+        return discountPercent >= thresholdPercent ? [{
+          orderCode: String(order.orderCode || ""), customerName: String(order.customerName || ""), businessDate: String(order.businessDate || ""),
+          grandTotal: Number(order.grandTotal || 0), discountAmount, discountPercent,
+        }] : [];
+      }).sort((left, right) => right.discountPercent - left.discountPercent || right.discountAmount - left.discountAmount || left.orderCode.localeCompare(right.orderCode));
+      return { success: true, data: { range: { from: String(input.query_from || ""), to: String(input.query_to || "") }, thresholdPercent, orders, total: orders.length } };
+    }
+    if (op.id === "retail.order.top-value") {
+      const highest = sales.sort((left, right) => Number(right.grandTotal || 0) - Number(left.grandTotal || 0)
+        || String(left.businessDate || "").localeCompare(String(right.businessDate || ""))
+        || String(left.orderCode || "").localeCompare(String(right.orderCode || "")))[0];
+      return { success: true, data: highest ? {
+        orderCode: highest.orderCode, customerName: highest.customerName, grandTotal: Number(highest.grandTotal || 0),
+        businessDate: highest.businessDate, status: highest.status, paymentStatus: highest.paymentStatus,
+      } : {} };
+    }
+    const customers = new Map<string, { customerName: string; totalSpent: number; orderCount: number }>();
+    for (const order of sales) {
+      const customerName = typeof order.customerName === "string" ? order.customerName.trim() : "";
+      if (!customerName) continue;
+      const key = normalize(customerName);
+      const customer = customers.get(key) || { customerName, totalSpent: 0, orderCount: 0 };
+      customer.totalSpent += Math.max(0, Number(order.grandTotal || 0) - Number(order.refundedAmount || 0));
+      customer.orderCount += 1;
+      customers.set(key, customer);
+    }
+    const limit = Math.min(50, Math.max(1, Number(input.topN) || 10));
+    const ranked = [...customers.values()].sort((left, right) => right.totalSpent - left.totalSpent || left.customerName.localeCompare(right.customerName)).slice(0, limit);
+    return { success: true, data: { customers: ranked, total: ranked.length } };
+  }
+  if (op.id === "retail.report.top-products") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
+    if (!source) throw new AssistantError("Thiếu báo cáo bán lẻ để xếp hạng mặt hàng.", 503);
+    const response = await callOperation(req, source, input, password, requestId);
+    const data = response?.data && typeof response.data === "object" ? response.data : {};
+    const products = Array.isArray(data.products) ? data.products.filter((row: any) => row && typeof row === "object"
+      && typeof row.productName === "string" && typeof row.netQuantity === "number" && Number.isFinite(row.netQuantity)) : [];
+    const limit = Math.min(50, Math.max(1, Number(input.topN) || 10));
+    products.sort((left: any, right: any) => right.netQuantity - left.netQuantity
+      || Number(right.netSales || 0) - Number(left.netSales || 0)
+      || String(left.sku || left.productName).localeCompare(String(right.sku || right.productName)));
+    return { ...response, data: { ...data, products: products.slice(0, limit) } };
+  }
+  if (op.id === "inventory.serial.stock-ranking") {
+    const serials = await collectPages("inventory.serial.list", {
+      ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
+      query_status: "in_stock",
+      query_trackingMode: "serial",
+    });
+    const byProduct = new Map<string, { productName: string; imeiCount: number }>();
+    for (const serial of serials) {
+      if (serial.status !== "in_stock") continue;
+      const productName = typeof serial.productName === "string" ? serial.productName.trim() : "";
+      if (!productName) continue;
+      const productId = String(serial.productId || "").trim();
+      const key = productId || productName.toLocaleLowerCase("vi");
+      const current = byProduct.get(key) || { productName, imeiCount: 0 };
+      current.imeiCount += 1;
+      byProduct.set(key, current);
+    }
+    const ranked = [...byProduct.values()].sort((left, right) => right.imeiCount - left.imeiCount
+      || left.productName.localeCompare(right.productName, "vi"));
+    const highestCount = ranked[0]?.imeiCount || 0;
+    return { success: true, data: { products: ranked.filter(product => product.imeiCount === highestCount && highestCount > 0) } };
+  }
+  if (op.id === "retail.report.compare") {
+    const summaryOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
+    if (!summaryOperation) throw new AssistantError("Thiếu thao tác nguồn để so sánh báo cáo bán lẻ.", 503);
+    const readPeriod = async (from: unknown, to: unknown) => {
+      const response = await callOperation(req, summaryOperation, {
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+        from: String(from || ""),
+        to: String(to || ""),
+      }, password, requestId);
+      const data = response?.data;
+      const summary = data?.summary;
+      if (!summary || typeof summary !== "object"
+        || typeof summary.grossSales !== "number" || !Number.isFinite(summary.grossSales)
+        || typeof summary.netSales !== "number" || !Number.isFinite(summary.netSales)
+        || typeof summary.orderCount !== "number" || !Number.isFinite(summary.orderCount)) {
+        throw new AssistantError("Báo cáo bán lẻ chưa trả đủ doanh thu và số đơn cho hai kỳ; chưa thể so sánh.", 502);
+      }
+      const row: Record<string, unknown> = {
+        from: String(data.range?.from || from || ""),
+        to: String(data.range?.to || to || ""),
+        grossSales: summary.grossSales,
+        netSales: summary.netSales,
+        orderCount: summary.orderCount,
+      };
+      for (const key of ["grossProfit", "grossMarginPercent"] as const) {
+        if (typeof summary[key] === "number" && Number.isFinite(summary[key])) row[key] = summary[key];
+      }
+      return row;
+    };
+    const current = await readPeriod(input.currentFrom, input.currentTo);
+    const previous = await readPeriod(input.previousFrom, input.previousTo);
+    return { status: "success", data: { current, previous } };
+  }
   if (op.id === "student.batch.attendance.summary") {
     const detail = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "student.batch.detail")!;
     const response = await callOperation(req, detail, { path_id: input.path_id }, password, requestId);
     const date = String(input.date || new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
     const { studentAttendanceSummary } = await import("./student-attendance-report");
-    return { data: studentAttendanceSummary(response.data, date) };
+    const batch = response.data?.batch || response.data;
+    const summary = studentAttendanceSummary(batch, date);
+    const absentStudentIds = new Set<string>((batch.attendanceSessions || [])
+      .filter((session: any) => session.date === date)
+      .flatMap((session: any) => (session.records || [])
+        .filter((record: any) => record.status === "absent")
+        .map((record: any) => String(record.studentId))));
+    if (absentStudentIds.size) {
+      const students = await lookupRecords(req, "student.list");
+      const absentStudents = [...new Set(students
+        .filter(student => absentStudentIds.has(String(student.id || student._id || "")))
+        .map(student => String(student.fullName || "").trim())
+        .filter(Boolean))];
+      if (absentStudents.length) return { data: { ...summary, absentStudents: absentStudents.join(", ") } };
+    }
+    return { data: summary };
   }
   if (op.id === "hr.training.progress") {
     const response = await callOperation(req, ASSISTANT_OPERATIONS.find(candidate => candidate.id === "hr.training.incomplete.list")!, input, password, requestId);
@@ -644,7 +1172,8 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
     });
   } else if (route.includes(":")) {
     route = route.replace(/:([A-Za-z0-9_]+)/g, (_match, key: string) => {
-      const value = String(input[key] || "");
+      const pathField = op.fields.find(field => field.source === "path" && field.apiKey === key);
+      const value = String((pathField ? input[pathField.key] : input[key]) || "");
       const identifier = /^(?:id|.*Id)$/.test(key);
       if (identifier ? !/^[a-f\d]{24}$/i.test(value) : !/^[A-Za-z0-9_-]{1,120}$/.test(value)) {
         throw new AssistantError(identifier ? "Chưa xác định được bản ghi cần thao tác." : "Tham số workflow không hợp lệ.");
@@ -661,10 +1190,18 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
     url.searchParams.set("revision", String(revision));
   }
   const strictPayrollRunList = op.id === "payroll.run.list";
+  const studentBranchHeaderOperation = [
+    "batch.list",
+    "batch.capacity.report",
+    "student.learning-roadmap.waitlist.list",
+    "student.learning-roadmap.waitlist.count",
+  ].includes(op.id);
   // These schemas reject otherwise implicit query scope; auth claims and x-branch-id remain authoritative.
-  const rejectsImplicitScopeQuery = op.path === "/student-quality" || op.path === "/learning-roadmaps/waitlist";
+  const rejectsImplicitScopeQuery = op.path === "/student-quality"
+    || op.path === "/learning-roadmaps/waitlist"
+    || op.path === "/learning-roadmaps/batches/:batchId/progression";
   for (const field of op.fields) if (field.source === "query" && input[field.key] !== undefined && !op.assistantOnlyFields?.includes(field.key)) {
-    if (strictPayrollRunList && field.apiKey === "branchId") continue;
+    if ((strictPayrollRunList || studentBranchHeaderOperation) && field.apiKey === "branchId") continue;
     url.searchParams.set(field.apiKey!, String(input[field.key]));
   }
   if (op.contextQuery?.includes("terminalId") && typeof req.headers["x-device-id"] === "string") url.searchParams.set("terminalId", req.headers["x-device-id"]);
@@ -691,7 +1228,9 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
   }
   if (input.search && op.id === "customer.list") url.searchParams.set("q", String(input.search));
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: req.headers.authorization || "" };
-  const branchId = branchScopedOperation ? effectiveBranchId : req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
+  const branchId = branchScopedOperation
+    ? effectiveBranchId
+    : req.user?.branchId || (studentBranchHeaderOperation ? String(input.targetBranch || "") : typeof input.branchId === "string" ? input.branchId : "");
   if (branchId) headers["x-branch-id"] = branchId;
   if (["employee.count", "employee.list", "employee.birthday.next-month"].includes(op.id)) {
     const target = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
@@ -1186,32 +1725,48 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
   }
   let response: globalThis.Response;
   try {
-    response = await businessCallFetch(req, op, input, url, { method: op.method, headers, redirect: "error", ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
-  } catch (error) {
-    if (error instanceof AssistantError) throw error;
+    response = await fetch(url, { method: op.method, headers, redirect: "error", signal: AbortSignal.timeout(45_000), ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
+  } catch {
     if (op.method !== "GET" && !op.readOnly) throw new UncertainExecutionError("Chưa xác định được thao tác đã hoàn tất hay chưa. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; hệ thống sẽ không tự chạy lại.");
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
-  const result = await response.json().catch(() => null) as any;
-  if (response.ok && result?.success !== false && op.id === 'partner.referrals') {
-    const partner = result?.data;
-    if (!partner || typeof partner.name !== 'string' || !Array.isArray(partner.referredStudents) || typeof partner.totalReferredTuition !== 'number') throw new AssistantError('Chưa lấy đủ danh sách học viên giới thiệu của đối tác.', 502);
-    return {data:partner.referredStudents.map((student:any) => ({partnerName:partner.name,fullName:student.fullName,registrationDate:student.registrationDate,fee:student.fee,totalReferredTuition:partner.totalReferredTuition}))};
+  if (op.assistantFileFormat && response.ok) {
+    const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const fileTypes = {
+      pdf: { mimeType: "application/pdf", extension: ".pdf", fallback: "hoa-don-ban-le.pdf" },
+      xlsx: { mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extension: ".xlsx", fallback: "bao-cao-ban-le.xlsx" },
+    } as const;
+    const fileType = fileTypes[op.assistantFileFormat];
+    if (contentType !== fileType.mimeType) throw new AssistantError(`API xuất tệp không trả đúng định dạng ${op.assistantFileFormat.toUpperCase()}.`, 502);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new AssistantError("Tệp xuất rỗng hoặc vượt quá 20 MB. Hãy thu hẹp khoảng ngày.", 422);
+    const header = response.headers.get("content-disposition") || "";
+    const matched = header.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    let fileName = matched?.[1] || matched?.[2] || fileType.fallback;
+    try { fileName = decodeURIComponent(fileName); } catch { /* Keep the plain filename. */ }
+    fileName = fileName.replace(/[\\/\r\n]/g, "_").replace(/[a-f\d]{24}/gi, "hoa-don").slice(0, 200);
+    if (!fileName.toLowerCase().endsWith(fileType.extension)) fileName += fileType.extension;
+    return { success: true, data: { fileName, format: op.assistantFileFormat }, __assistantFile: {
+      bytes, format: op.assistantFileFormat, fileName, mimeType: fileType.mimeType,
+    } };
   }
-  if (response.ok && result?.success !== false && op.method==='GET' && op.path==='/partners/:id' && result?.data) {
-    result.data.bankAccountStatus=String(result.data.bankAccountNo || '').trim()?'Đã cập nhật':'Chưa cập nhật';
+  const result = await response.json().catch(() => null) as any;
+  if (response.ok && result?.success !== false && result?.status !== "error"
+    && op.path === "/retail/finance/commission/balances" && op.analysis) {
+    const rows = Array.isArray(result?.data) ? result.data : [];
+    const data = rows.flatMap((row: any) => typeof row?.partnerName === "string" && typeof row?.partnerCode === "string"
+      && typeof row?.balance === "number" && Number.isFinite(row.balance)
+      ? [{ partnerName: row.partnerName, partnerCode: row.partnerCode, balance: row.balance }]
+      : []);
+    if (data.length !== rows.length) throw new AssistantError("Số dư hoa hồng thiếu tên, mã hoặc số tiền hợp lệ để tổng hợp.", 502);
+    return { data, analysisComplete: true };
   }
   if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis
     && ["partner.analysis", "api.get.78da159ec226e07e"].includes(op.id)) {
     const rows = op.id === "partner.analysis" ? result.partners : result.data;
     if (!Array.isArray(rows)) throw new AssistantError("Không đọc được danh sách đối tác đầy đủ.", 502);
     const data = rows.map((row: any) => Object.fromEntries(Object.entries(op.analysis!.fields).map(([key, definition]) => {
-      let value = row?.[key];
-      if (op.id === 'partner.analysis') {
-        if (key === 'isActive') value = row.isActive === false ? 'inactive' : row.isActive === true ? 'active' : '';
-        if (key === 'bankConfigured') value = String(row.bankAccountNo || '').trim() ? 1 : 0;
-        if (definition.type === 'text' && value == null) value = '';
-      }
+      const value = row?.[key];
       if (definition.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       if (definition.type === "text" && typeof value !== "string") throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       return [key, value];
@@ -1219,6 +1774,84 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
     return op.id === "partner.analysis"
       ? { data, analysisPage: { total: result.total, page: result.page, keys: rows.map((row: any) => String(row._id || "")) } }
       : { data, analysisComplete: true };
+  }
+  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "batch.capacity.report" && op.analysis) {
+    const batches = Array.isArray(result?.batches) ? result.batches : [];
+    const total = Number(result?.total);
+    const page = Number(result?.page);
+    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(page) || page < 1) {
+      throw new AssistantError("Không đọc được tổng số lớp để kiểm tra sĩ số đầy đủ.", 502);
+    }
+    const data = batches.map((batch: any) => {
+      const remainingSlots = typeof batch.remainingSlots === "number" && Number.isFinite(batch.remainingSlots) ? batch.remainingSlots : null;
+      return {
+        code: String(batch.code || ""),
+        name: String(batch.name || ""),
+        courseCode: String(batch.courseCode || ""),
+        courseTitle: String(batch.courseTitle || ""),
+        instructorName: String(batch.instructorName || ""),
+        enrolledCount: Number(batch.enrolledCount) || 0,
+        maxLearners: Number(batch.maxLearners) || 0,
+        remainingSlots,
+        capacityStatus: remainingSlots === null || remainingSlots > 0 ? "available" : "full",
+        status: String(batch.status || ""),
+      };
+    });
+    const keys = batches.map((batch: any) => String(batch._id || batch.id || ""));
+    if (keys.some((key: string) => !key)) throw new AssistantError("Thiếu khóa đối chiếu phân trang lớp học; chưa lọc dữ liệu.", 502);
+    return { data, analysisPage: { total, page, keys } };
+  }
+  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "inventory.transfer.list" && op.analysis && input.analysis) {
+    const source = result?.data && typeof result.data === "object" ? result.data : {};
+    const items = Array.isArray(source.items) ? source.items : [];
+    const total = Number(source.total), page = Number(source.page);
+    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(page) || page < 1) {
+      throw new AssistantError("Không đọc được tổng số phiếu điều chuyển để thống kê đầy đủ.", 502);
+    }
+    const data = items.map((item: any) => {
+      if (!item || typeof item.status !== "string" || !["in_transit", "received", "cancelled", "reversed"].includes(item.status)) {
+        throw new AssistantError("Phiếu điều chuyển thiếu trạng thái hợp lệ để thống kê.", 502);
+      }
+      return { code: typeof item.transferCode === "string" ? item.transferCode : String(item.code || ""), status: item.status };
+    });
+    const keys = items.map((item: any) => String(item?._id || item?.id || ""));
+    if (keys.some((key: string) => !key)) throw new AssistantError("Thiếu mã đối chiếu phân trang phiếu điều chuyển; chưa tính kết quả.", 502);
+    return { data, analysisPage: { total, page, keys } };
+  }
+  if (response.ok && result?.success !== false && result?.status !== "error"
+    && op.id === "retail.order.completed-unpaid.report" && op.analysis) {
+    const source = result?.data && typeof result.data === "object" ? result.data : {};
+    const items = Array.isArray(source.items) ? source.items : [];
+    const total = Number(source.total);
+    const page = Number(source.page);
+    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(page) || page < 1) {
+      throw new AssistantError("Không đọc được tổng số đơn bán lẻ để kiểm tra công nợ đầy đủ.", 502);
+    }
+    const data = items.map((item: any) => {
+      if (!item || typeof item.orderCode !== "string" || !item.orderCode.trim()
+        || typeof item.status !== "string" || typeof item.paymentStatus !== "string"
+        || ![item.grandTotal, item.paidAmount, item.dueAmount].every(value => typeof value === "number" && Number.isFinite(value))) {
+        throw new AssistantError("Thiếu trạng thái hoặc số tiền của đơn bán lẻ; chưa thể lọc đơn còn nợ.", 502);
+      }
+      return {
+        orderCode: item.orderCode,
+        customerName: typeof item.customerName === "string" ? item.customerName : "",
+        status: item.status,
+        paymentStatus: item.paymentStatus,
+        grandTotal: item.grandTotal,
+        paidAmount: item.paidAmount,
+        dueAmount: item.dueAmount,
+        businessDate: typeof item.businessDate === "string" ? item.businessDate : "",
+      };
+    });
+    const keys = items.map((item: any) => String(item?._id || item?.id || ""));
+    if (keys.some((key: string) => !key)) throw new AssistantError("Thiếu khóa đối chiếu phân trang đơn bán lẻ; chưa lọc dữ liệu.", 502);
+    return { data, analysisPage: { total, page, keys } };
+  }
+  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "student.learning-roadmap.waitlist.count" && op.analysis) {
+    const total = Number(result?.total);
+    if (!Number.isSafeInteger(total) || total < 0) throw new AssistantError("Không đọc được tổng số học viên trong danh sách chờ lớp.", 502);
+    return { data: [{ waitingCount: total }], analysisComplete: true };
   }
   if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis && op.path === "/worker-management/partners/kpi") {
     const source = result?.data;
@@ -1234,6 +1867,23 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
     });
     // This endpoint returns the complete scoped partner population, without pagination.
     return { data: rows, analysisComplete: true, periodStart: source.periodStart, periodEnd: source.periodEnd };
+  }
+  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "worker.partner.settlements.list") {
+    if (!Array.isArray(result?.data)) throw new AssistantError("Không đọc được đầy đủ các kỳ đối soát hoa hồng.", 502);
+    const rows = result.data.map((row: any) => {
+      const partner = row?.partnerId && typeof row.partnerId === "object" ? row.partnerId : {};
+      return {
+        partnerName: typeof partner.name === "string" ? partner.name : "",
+        partnerCode: typeof partner.code === "string" ? partner.code : "",
+        periodStart: typeof row.periodStart === "string" ? row.periodStart : "",
+        periodEnd: typeof row.periodEnd === "string" ? row.periodEnd : "",
+        status: typeof row.status === "string" ? row.status : "",
+        totalAmount: typeof row.totalAmount === "number" && Number.isFinite(row.totalAmount) ? row.totalAmount : null,
+        paidAmount: typeof row.paidAmount === "number" && Number.isFinite(row.paidAmount) ? row.paidAmount : null,
+        balanceAmount: typeof row.balanceAmount === "number" && Number.isFinite(row.balanceAmount) ? row.balanceAmount : null,
+      };
+    });
+    return { data: rows, analysisComplete: true };
   }
   if (response.ok && result?.success !== false && op.id === "student.resource.bookings.list") {
     const resource = result?.data && typeof result.data === "object" ? result.data : {};
@@ -3226,10 +3876,119 @@ async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantO
   }
   return normalizeBusinessResult(op.module, op.id, result);
 }
+function projectApprovedReportValue(value: unknown, schema: AssistantResultFieldTree): unknown {
+  if (Array.isArray(schema)) {
+    const projectRecord = (candidate: unknown) => {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return undefined;
+      const source = candidate as Record<string, unknown>;
+      const safe: Record<string, unknown> = {};
+      for (const key of schema) {
+        if (!Object.hasOwn(source, key)) continue;
+        const child = source[key];
+        if (typeof child === "string" || typeof child === "number" || typeof child === "boolean") safe[key] = child;
+        else if (child instanceof Date && Number.isFinite(child.valueOf())) safe[key] = child.toISOString();
+      }
+      return Object.keys(safe).length ? safe : undefined;
+    };
+    if (Array.isArray(value)) return value.flatMap(candidate => {
+      const projected = projectRecord(candidate);
+      return projected ? [projected] : [];
+    });
+    return projectRecord(value);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const source = value as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+  for (const [key, childSchema] of Object.entries(schema)) {
+    if (!Object.hasOwn(source, key)) continue;
+    const projected = projectApprovedReportValue(source[key], childSchema);
+    if (projected !== undefined) safe[key] = projected;
+  }
+  return Object.keys(safe).length ? safe : undefined;
+}
+
+function projectApprovedReportRecord(source: unknown, op: AssistantOperation): AssistantRecord {
+  if (!source || typeof source !== "object" || Array.isArray(source)) return {};
+  const record = source as Record<string, unknown>;
+  const safe: AssistantRecord = {};
+  for (const key of op.resultFields) {
+    if (!Object.hasOwn(record, key)) continue;
+    const value = record[key];
+    const schema = op.resultChildFields?.[key];
+    if (schema) {
+      const projected = projectApprovedReportValue(value, schema);
+      if (projected !== undefined) safe[key] = projected as AssistantValue;
+    } else if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      safe[key] = value;
+    } else if (value instanceof Date && Number.isFinite(value.valueOf())) {
+      safe[key] = value.toISOString();
+    }
+  }
+  return safe;
+}
+
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest, input: Record<string, AssistantValue> = {}): AssistantRecord[] {
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
+  if (op.id === "student.batch.attendance.summary") {
+    const projected = projectApprovedReportRecord(responseData, op);
+    return Object.keys(projected).length ? [projected] : [];
+  }
+  if (["retail.report.summary", "retail.report.daily.summary", "retail.report.compare"].includes(op.id) || op.path === "/retail/finance/profit") {
+    const projected = projectApprovedReportRecord(responseData, op);
+    return Object.keys(projected).length ? [projected] : [];
+  }
+  if (op.method === "GET" && /^\/retail\/finance\/commission\/partners\/[^/]+\/statement$/.test(op.path)) {
+    const projected = projectApprovedReportRecord(responseData, op);
+    return Object.keys(projected).length ? [projected] : [];
+  }
+  if (op.id === "recruitment.report") {
+    const projected = projectApprovedReportRecord(responseData, op);
+    return Object.keys(projected).length ? [projected] : [];
+  }
+  if (op.id === "timekeeping.records.overview") {
+    const summary = summarizeDailyAttendance(rawRecords(responseData));
+    return [{ ...summary, ...(summary.date || typeof input.query_date !== "string" ? {} : { date: input.query_date }) }];
+  }
+  if (op.id === "partner.payout.history.list") {
+    return rawRecords(responseData).flatMap((partner: any) => {
+      const name = typeof partner?.name === "string" ? partner.name.trim().slice(0, 160) : "";
+      if (!name || !Array.isArray(partner.payoutHistory)) return [];
+      return partner.payoutHistory.flatMap((payout: any) => {
+        if (!payout || typeof payout !== "object") return [];
+        const amount = typeof payout.amount === "number" ? payout.amount : NaN;
+        const date = payout.date instanceof Date && Number.isFinite(payout.date.valueOf())
+          ? payout.date.toISOString()
+          : typeof payout.date === "string" && payout.date.length <= 40 ? payout.date : "";
+        return date && Number.isFinite(amount) && amount >= 0 ? [{ name, date, amount }] : [];
+      });
+    });
+  }
+  // This endpoint is optimized for the retail settings screen and returns
+  // several sibling collections. Generic rawRecords() prefers `variants`,
+  // which discards the commission configuration and legacy partner rules.
+  // Consume the explicit assistant projection instead.
+  if (op.method === "GET" && op.path === "/retail/partners/product-commissions") {
+    const items = Array.isArray(responseData?.assistantItems) ? responseData.assistantItems : [];
+    const summary: AssistantRecord = {
+      productCategoryCount: Array.isArray(responseData?.categories) ? responseData.categories.length : 0,
+      productCount: Array.isArray(responseData?.products) ? responseData.products.length : 0,
+      variantCount: Array.isArray(responseData?.variants) ? responseData.variants.length : 0,
+      configuredSkuCount: items.filter((item: any) => item?.status === "configured").length,
+    };
+    const projectedItems = items.flatMap((item: any) => {
+      if (!item || typeof item !== "object") return [];
+      const safe: AssistantRecord = {};
+      for (const key of op.resultFields) {
+        const value = item[key];
+        if (["string", "boolean", "number"].includes(typeof value)) safe[key] = value;
+        else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[key] = value.toISOString();
+      }
+      return Object.keys(safe).length ? [safe] : [];
+    });
+    return op.resultFields.includes("productCategoryCount") ? [summary, ...projectedItems] : projectedItems;
+  }
   if (op.id === "employee.count") {
     const candidates = [responseData, responseData?.data, responseData?.result, response?.data?.data, response?.result, response];
     const countRecord = candidates.find(candidate => candidate && typeof candidate === "object"
@@ -3304,7 +4063,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       for (const key of ["type", "requestKind", "reason", "status", "location", "description"]) {
         if (typeof record?.[key] === "string") safe[key] = record[key].slice(0, key === "description" ? 500 : 200);
       }
-      for (const key of ["startDate", "endDate", ...(op.id === 'hr.leave.applications.list' ? ['createdAt'] : [])]) {
+      for (const key of ["startDate", "endDate"]) {
         const value = record?.[key];
         if (value instanceof Date && Number.isFinite(value.valueOf())) safe[key] = value.toISOString();
         else if (typeof value === "string" && value.length <= 40) safe[key] = value;
@@ -3344,8 +4103,13 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     }
     return rows;
   }
-  if (op.id === "leave.balances.minimum") {
-    const balances = Array.isArray(responseData?.balances) ? responseData.balances.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim() ? [{
+  if (op.id.startsWith("leave.balances.")) {
+    const employeeSearch = typeof input.query_search === "string"
+      ? input.query_search.split(/\s*[|;]\s*/).map(value => normalize(value)).filter(Boolean)
+      : [];
+    const sourceBalances = Array.isArray(responseData?.balances) ? responseData.balances : [];
+    const balances = sourceBalances.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim()
+      && (!employeeSearch.length || employeeSearch.some(search => normalize(record.employeeName).includes(search))) ? [{
       employeeName: record.employeeName.trim().slice(0, 160),
       ...(typeof record.department === "string" ? { department: record.department.slice(0, 100) } : {}),
       entitlement: Number(record.entitlement) || 0,
@@ -3353,8 +4117,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       pending: Number(record.pending) || 0,
       unexcused: Number(record.unexcused) || 0,
       remaining: Number(record.remaining) || 0,
-    }] : []) : [];
-    return [{ year: Number(responseData?.year), thresholdDays: Number(input.thresholdDays), balances } as unknown as AssistantRecord];
+    }] : []);
+    return [{ year: Number(responseData?.year), ...(op.id === "leave.balances.minimum" ? { thresholdDays: Number(input.thresholdDays) } : {}), balances } as unknown as AssistantRecord];
   }
   if (op.id === "hr.training.incomplete.list") {
     const enrollments = rawRecords(responseData);
@@ -3529,9 +4293,14 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     ? treasuryItems.filter((item: any) => !item.voucherId)
     : treasuryItems;
   const companyWideCategoryOperation = op.id.startsWith("category.") || op.id === "hr.workflow.list";
+  const partnerBankFilter = op.id === "partner.list" ? String(input.query_bankAccountFilter || "") : "";
+  const partnerUnpaidOnly = op.id === "partner.list" && (input.query_unpaidOnly === true || input.query_unpaidOnly === "true");
   return items.filter((item: any) => (!item.companyCode || item.companyCode === req.user?.companyCode)
     && (companyWideCategoryOperation || !req.user?.branchId || !item.branchId || String(item.branchId) === req.user.branchId
-      || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === req.user.branchId))).map((item: any) => {
+      || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === req.user.branchId))
+    && (op.id !== "partner.list" || !partnerBankFilter
+      || (partnerBankFilter === "has" ? Boolean(String(item.bankAccountNo || "").trim()) : !String(item.bankAccountNo || "").trim()))
+    && (!partnerUnpaidOnly || Number(item.unpaidBalance) > 0)).map((item: any) => {
     const safe: AssistantRecord = {};
     const id = String(item._id || item.id || item.uid || item.__assistantRef?.id || ((op.id === "payroll.employee.me.reconciliation" || op.id === "payroll.employee.me.payslips") ? item.__assistantRef?.runId || item.runId : "") || "");
     if (op.module === "architect-assistant" && Number.isSafeInteger(item.revision) && item.revision > 0) Object.defineProperty(safe, "revision", { value: item.revision, enumerable: false });
@@ -3595,8 +4364,16 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       if (statuses.length) safe.status = statuses.join(", ");
     }
     for (const field of op.resultFields) {
+      if (op.id === "partner.list" && field === "hasBankAccount") {
+        safe.hasBankAccount = typeof item.bankAccountNo === "string" && Boolean(item.bankAccountNo.trim());
+        continue;
+      }
       const value = item[field];
-      if (["string", "boolean", "number"].includes(typeof value)) safe[field] = value;
+      const childSchema = op.resultChildFields?.[field];
+      if (childSchema) {
+        const projected = projectApprovedReportValue(value, childSchema);
+        if (projected !== undefined) safe[field] = projected as AssistantValue;
+      } else if (["string", "boolean", "number"].includes(typeof value)) safe[field] = value;
       else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[field] = value.toISOString();
     }
     if (op.id === "inventory.count.list" && Number.isSafeInteger(item.version) && item.version >= 0) {
@@ -3975,7 +4752,7 @@ function referenceLabel(record: Record<string, any>) {
 const referenceOptionDisambiguators = [
   { label: "ô giữ đơn", keys: ["__assistantHeldSlot"] },
   { label: "người tạo", keys: ["__assistantDraftCreatorName"] },
-  { label: "mã", keys: ["code", "productCode", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
+  { label: "mã", keys: ["code", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
   { label: "SĐT", keys: ["__assistantReferencePhone", "phone", "studentPhone"] },
   { label: "email", keys: ["email"] },
   { label: "phòng ban", keys: ["departmentName", "department"] },
@@ -4217,6 +4994,7 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
     const apiKey = String(field.apiKey || field.key).toLowerCase();
     if (/page$/.test(apiKey)) input[field.key] = 1;
     else if (/limit$/.test(apiKey)) input[field.key] = 100;
+    else if (op.id === "batch.list" && field.apiKey === "branchId" && req.user?.branchId) input[field.key] = req.user.branchId;
     else if (field.required && field.defaultValue !== undefined) input[field.key] = field.defaultValue;
   }
   let result = await callOperation(req, op, input);
@@ -4472,8 +5250,13 @@ async function resolveOperationReference(
   context: Record<string, AssistantValue>,
   fieldKey?: string,
 ) {
-  const candidates = filterRelationshipCandidates(ownerOperation, field, await lookupRecords(req, field.reference!, search, context));
-  const exact = candidates.filter(row => matchesReference(row, search));
+  const selectedRetailOrderCode = ownerOperation.id === "retail.order.payment-qr" && field.reference === "retail.order.list"
+    ? retailOrderCodeFromSearch(search)
+    : undefined;
+  const referenceSearch = selectedRetailOrderCode || search;
+  const candidates = filterRelationshipCandidates(ownerOperation, field,
+    await lookupReferenceCandidates(req, ownerOperation, field, referenceSearch, context), context);
+  const exact = candidates.filter(row => matchesReference(row, referenceSearch));
   const record = exact.length === 1 ? exact[0] : undefined;
   const value = record && (field.referenceValueKey ? record[field.referenceValueKey] : record.id || record._id || (fieldKey ? record[fieldKey] : undefined));
   return { candidates, exact, record, value };
@@ -4491,6 +5274,13 @@ async function lookupReferenceCandidates(
   search: string,
   context: Record<string, AssistantValue>,
 ) {
+  if (ownerOperation.id === "retail.order.payment-qr" && field.reference === "retail.order.list") {
+    const orderCode = retailOrderCodeFromSearch(search);
+    if (orderCode) {
+      const candidates = await lookupRecords(req, field.reference, orderCode, context);
+      if (candidates.some(candidate => matchesReference(candidate, orderCode))) return candidates;
+    }
+  }
   const normalizedSearch = field.reference === "batch.list" ? normalizeBatchClassSearch(search) : search.trim();
   if (ownerOperation.id === "retail.order.cancel" && field.reference === "retail.order.list") {
     // The retail list separates held drafts from posted sales. Cancellation
@@ -4503,8 +5293,9 @@ async function lookupReferenceCandidates(
     && field.reference === "recruitment.interview.list" && normalizedSearch && !isRecordIdentifier(normalizedSearch)) {
     const applicantList = operationById("recruitment.applicant.list");
     if (applicantList) {
-      const applicants = await lookupRecords(req, applicantList.id, normalizedSearch, context);
-      const namedApplicants = applicants.filter(candidate => matchesReference(candidate, normalizedSearch));
+      const applicantSearch = normalizedSearch.split(/\s+[—–]\s+/u, 1)[0]?.trim() || normalizedSearch;
+      const applicants = await lookupRecords(req, applicantList.id, applicantSearch, context);
+      const namedApplicants = applicants.filter(candidate => matchesReference(candidate, applicantSearch));
       if (namedApplicants.length) {
         const groups = await Promise.all(namedApplicants.slice(0, 8).map(async applicant => {
           const applicantId = String(applicant.id || applicant._id || "");
@@ -4533,6 +5324,14 @@ async function lookupReferenceCandidates(
     const broaderClassSearch = normalizedSearch.split(/\s+/).slice(0, -1).join(" ");
     candidates = await lookupRecords(req, field.reference, broaderClassSearch, lookupContext);
   }
+  if (field.reference === "batch.list" && normalizedSearch
+    && !candidates.some(row => matchesReference(row, normalizedSearch))) {
+    const scopedBatches = await lookupRecords(req, field.reference, "", lookupContext);
+    const query = normalize(normalizedSearch);
+    const partialMatches = scopedBatches.filter(row => [row.name, row.code, row.courseTitle]
+      .some(value => typeof value === "string" && normalize(value).includes(query)));
+    if (partialMatches.length) candidates = partialMatches;
+  }
   if (["student.batch.create", "student.batch.update"].includes(ownerOperation.id)
     && field.apiKey === "instructorId" && field.reference === "employee.list") {
     const branchId = String(req.user?.branchId || "");
@@ -4547,6 +5346,11 @@ async function lookupReferenceCandidates(
     if (unfiltered.some(row => matchesReference(row, search))) candidates = unfiltered;
   }
   if (field.reference === "training.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
+    const unfiltered = await lookupRecords(req, field.reference, "", context);
+    const nameMatches = unfiltered.filter(row => matchesReference(row, search));
+    if (nameMatches.length) candidates = nameMatches;
+  }
+  if (field.reference === "worker.project.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
     const unfiltered = await lookupRecords(req, field.reference, "", context);
     const nameMatches = unfiltered.filter(row => matchesReference(row, search));
     if (nameMatches.length) candidates = nameMatches;
@@ -4589,6 +5393,7 @@ export async function suggestReferenceOptions(
   field: AssistantField,
   values: Record<string, AssistantValue>,
 ) {
+  if (op.id === "inventory.transfer.create") console.log("transfer reference debug", field.key, field.referenceParentKey, values);
   if (!field.reference) return [];
   if (field.referenceParentKey
     && (values[field.referenceParentKey] === undefined || values[field.referenceParentKey] === null || String(values[field.referenceParentKey]).trim() === "")) return [];
@@ -4684,6 +5489,7 @@ export async function suggestReferenceOptions(
     : isReceiptProductSelector
       ? await lookupReceiptProductCandidates(req, referenceSearch, context)
       : await lookupReferenceCandidates(req, op, field, referenceSearch, context);
+  if (op.id === "inventory.transfer.create") console.log("transfer reference candidates", field.key, parentValue, context, candidates.map(candidate => ({ id: candidate.id, branchId: candidate.branchId, name: candidate.name })));
   if (isBatchWorkflow && field.apiKey === "roadmapId") candidates = candidates.filter(candidate => candidate.status === "active");
   candidates = filterRelationshipCandidates(op, field, candidates, values);
   if (["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
@@ -4694,7 +5500,7 @@ export async function suggestReferenceOptions(
   if (op.id === "finance.treasury.bank-lines.create" && field.key === "accountId") {
     candidates = candidates.filter(candidate => candidate.kind === "bank");
   }
-  if (parentValue !== undefined && !parentPathField && (!parentQueryField || parentQueryField.apiKey === "branchId")) {
+  if (parentValue !== undefined && !parentPathField && !parentQueryField) {
     candidates = candidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
   }
   if (field.reference === "omni-inbox.account.list") {
@@ -4760,7 +5566,17 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     Object.assign(context, field.referenceContext || {});
     if (isRecruitmentOperation(op) && field.reference === "employee.list" && resolved.branchId !== undefined) context.branchId = String(resolved.branchId);
     if ((op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs/")) && field.reference === "employee.list" && resolved.targetBranch !== undefined) context.branchId = String(resolved.targetBranch);
-    const parentValue = field.referenceParentKey ? resolved[field.referenceParentKey] : undefined;
+    const parentValue = field.referenceParentKey
+      ? resolved[field.referenceParentKey] ?? (field.referenceParentKey === "targetBranch" ? req.user?.branchId : undefined)
+      : undefined;
+    // A child reference with a named parent cannot be searched safely until
+    // that parent is selected. Keep the user's search text pending and ask for
+    // the parent first instead of turning the missing context into an API error.
+    if (field.referenceParentKey && (parentValue === undefined || parentValue === null || parentValue === "")) continue;
+    const selectedRetailOrderCode = op.id === "retail.order.payment-qr" && field.reference === "retail.order.list"
+      ? retailOrderCodeFromSearch(search)
+      : undefined;
+    const referenceSearch = selectedRetailOrderCode || search;
     const parentField = field.referenceParentKey ? op.fields.find(candidate => candidate.key === field.referenceParentKey) : undefined;
     const parentApiKey = parentField?.apiKey;
     const referencePathFields = (referenceOperation?.fields || []).filter(candidate => candidate.source === "path");
@@ -4774,8 +5590,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         || (referenceQueryFields.length === 1 ? referenceQueryFields[0] : undefined);
     if (parentPathField) context[parentPathField.key] = String(parentValue);
     else if (parentQueryField) context[parentQueryField.key] = String(parentValue);
-    const allCandidates = await lookupReferenceCandidates(req, op, field, search, context);
-    let candidates = parentValue === undefined || parentPathField || (parentQueryField && parentQueryField.apiKey !== "branchId")
+    const allCandidates = await lookupReferenceCandidates(req, op, field, referenceSearch, context);
+    let candidates = parentValue === undefined || parentPathField || parentQueryField
       ? allCandidates
       : parentValue === undefined ? allCandidates : allCandidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
     if (["student.batch.create", "student.batch.update"].includes(op.id) && field.apiKey === "roadmapId") {
@@ -4833,8 +5649,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     }
   const selectingCampaignSlot = ["marketing.campaign.slot.reject", "marketing.campaign.slot.retry", "marketing.campaign.slot.approve", "marketing.campaign.slot.publish-now", "marketing.campaign.slot.content.update"].includes(op.id)
       && field.reference === "marketing.campaign.calendar";
-    const exact = candidates.filter(row => matchesReference(row, search)
-      || Boolean(field.referenceValueKey && String(row[field.referenceValueKey] || "") === search));
+    const exact = candidates.filter(row => matchesReference(row, referenceSearch)
+      || Boolean(field.referenceValueKey && String(row[field.referenceValueKey] || "") === referenceSearch));
     const record = exact.length === 1 ? exact[0] : undefined;
     const value = record && (field.referenceValueKey ? record[field.referenceValueKey] : record.id || record._id || record[field.key]);
     if (exact.length !== 1 || !record || !value) {

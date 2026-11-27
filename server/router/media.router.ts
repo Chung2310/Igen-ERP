@@ -3,6 +3,7 @@ import Joi from "joi";
 import { mediaController } from "../controller/media.controller";
 import { validateRequest } from "../middleware/validation";
 import { requireAuth, requirePermission } from "../middleware/auth";
+import { randomUUID } from "node:crypto";
 import https from "https";
 import http from "http";
 import { permissionForMediaUpload } from "./media-upload-permission";
@@ -115,7 +116,50 @@ mediaRouter.post(
   }
 );
 
-// Route download proxy để giải quyết vấn đề CORS ở phía Client
+// Sign workflow file uploads so binary data bypasses the ERP API gateway.
+mediaRouter.post(
+  "/sign-workflow-attachment-upload",
+  requireAuth as RequestHandler,
+  requirePermission("hr:manage") as RequestHandler,
+  async (request, res) => {
+    const req = request as import("../middleware/auth").AuthenticatedRequest;
+    const fileName = String(req.body?.fileName || "").trim();
+    const size = Number(req.body?.size || 0);
+    const companyCode = String(req.user?.companyCode || "").trim().toLowerCase();
+    const tenantFolder = companyCode.replace(/[^a-z0-9_-]/g, "");
+
+    if (!fileName || fileName.length > 300) {
+      return res.status(400).json({ status: "error", message: "Tên tệp không hợp lệ." });
+    }
+    if (!Number.isFinite(size) || size < 0 || size > 25 * 1024 * 1024) {
+      return res.status(413).json({ status: "error", message: "Tệp đính kèm không được vượt quá 25 MB." });
+    }
+    if (!tenantFolder) {
+      return res.status(403).json({ status: "error", message: "Không xác định được doanh nghiệp của người dùng." });
+    }
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    if (!apiSecret || !apiKey || !cloudName) {
+      return res.status(500).json({ status: "error", message: "Chưa cấu hình dịch vụ lưu trữ tệp." });
+    }
+
+    try {
+      const { v2: cloudinary } = await import("cloudinary");
+      const timestamp = Math.floor(Date.now() / 1000);
+      const folder = `igen_erp/managed/${tenantFolder}/workflow/attachments`;
+      const extension = fileName.match(/\.[a-zA-Z0-9]{1,10}$/)?.[0] || "";
+      const publicId = `${randomUUID()}${extension}`;
+      const signature = cloudinary.utils.api_sign_request({ timestamp, folder, public_id: publicId }, apiSecret);
+      return res.json({ status: "success", data: { signature, timestamp, folder, publicId, apiKey, cloudName } });
+    } catch (error) {
+      console.error("[Media Workflow Attachment Sign Error]:", error);
+      return res.status(500).json({ status: "error", message: "Không thể chuẩn bị tải tệp lên." });
+    }
+  },
+);
+
+// Download proxy resolves cross-origin restrictions for client apps.
 mediaRouter.get(
   "/download",
   requireAuth as RequestHandler,

@@ -62,6 +62,8 @@ export interface EnrichedBatch {
   courseCode: string;
   courseTitle: string;
   maxLearners: number;
+  enrolledCount: number;
+  remainingSlots: number | null;
   instructorName: string;
   instructorQualification: string;
   /** Cảnh báo tiến độ + nhãn tuổi lớp, tính sẵn để client không phải suy ra */
@@ -136,6 +138,16 @@ async function assertRoadmapAssignment(input: { ownerScope: string | string[]; b
 export function resolveQuota(batchQuota?: number, courseMaxLearners?: number): number {
   if (typeof batchQuota === "number" && batchQuota > 0) return batchQuota;
   return courseMaxLearners ?? 0;
+}
+
+/** A zero quota means unlimited capacity, matching the checks used when enrolling. */
+export function getBatchCapacity(maxLearners: number, learnerCount: number) {
+  const enrolledCount = Math.max(0, Math.floor(Number(learnerCount) || 0));
+  const quota = Math.max(0, Math.floor(Number(maxLearners) || 0));
+  return {
+    enrolledCount,
+    remainingSlots: quota > 0 ? Math.max(0, quota - enrolledCount) : null,
+  };
 }
 
 function hasLockedStudentFee(fee: string | undefined): boolean {
@@ -266,12 +278,15 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
   return batches.map(b => {
     const course = courseMap.get(b.courseId);
     const instructor = b.instructorId ? instructorMap.get(b.instructorId) : undefined;
+    const maxLearners = resolveQuota(b.quota, course?.maxLearners);
+    const capacity = getBatchCapacity(maxLearners, b.learnerIds?.length || 0);
     return {
       ...b.toObject(),
       courseCode: course?.code || "",
       courseTitle: course?.title || "(Khóa học đã xóa)",
       // Chỉ tiêu riêng của dự án (nếu có) thắng chỉ tiêu của khóa học/danh mục
-      maxLearners: resolveQuota(b.quota, course?.maxLearners),
+      maxLearners,
+      ...capacity,
       // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
       instructorName: instructor?.displayName || b.instructorText || "",
       instructorQualification: instructor?.qualification || "",

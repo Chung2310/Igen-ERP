@@ -142,6 +142,27 @@ describe("student-management assistant catalog", () => {
     expect(JSON.stringify(record)).not.toContain("64b000000000000000000002");
   });
 
+  it("projects class capacity and teacher while keeping learner IDs private", () => {
+    const batchList = operationById("batch.list")!;
+    expect(batchList.resultFields).toContain("instructorName");
+    expect(batchList.resultFields).toContain("maxLearners");
+    expect(batchList.resultFields).toContain("enrolledCount");
+    expect(batchList.resultFields).toContain("remainingSlots");
+
+    const [record] = projectRecords(batchList, { data: { batches: [{
+      _id: "64b000000000000000000101", code: "CLASS-A", name: "Lớp A", instructorName: "Cô An",
+      maxLearners: 18, enrolledCount: 1, remainingSlots: 17, learnerIds: ["64b000000000000000000201"],
+    }] } }, { user: { companyCode: "company", branchId: "branch" } } as any);
+
+    expect(record).toMatchObject({ code: "CLASS-A", instructorName: "Cô An", maxLearners: 18, enrolledCount: 1, remainingSlots: 17 });
+    expect(record).not.toHaveProperty("learnerIds");
+  });
+
+  it("does not expose enrollment history before nested result filtering is supported", () => {
+    const enrollmentList = operationById("student.batch.enrollments.list")!;
+    expect(enrollmentList.resultFields).not.toContain("history");
+  });
+
   it("keeps financial and notification edits within their safe contract", () => {
     const paymentUpdate = operationById("student.payment.update")!;
     expect(paymentUpdate.systemBodyFields).toContain("expectedVersion");

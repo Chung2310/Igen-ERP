@@ -2,7 +2,7 @@ import { Router } from "express";
 import { Types } from "mongoose";
 import { requirePermission } from "../../../middleware/auth";
 import { requireRetailBranch, retailScopeFromRequest } from "../contracts";
-import { listCashbook, createCashVoucher, closeCashPeriod, reconcileCashPeriod, assertCashRange } from "../services/retail-cashbook.service";
+import { listCashbook, createCashVoucher, closeCashPeriod, reconcileCashPeriod, latestCashPeriod, assertCashRange } from "../services/retail-cashbook.service";
 import { retailProfitReport } from "../services/retail-profit.service";
 import { RetailCommissionPolicyModel, RetailCommissionLedgerModel, RetailCommissionAccountModel } from "../models/retail-commission.model";
 import { RetailPartnerModel } from "../models/retail-partner.model";
@@ -20,6 +20,7 @@ const handle = (run: (req: any) => Promise<unknown>) => async (req: any, res: an
 const bad = (message: string, status = 400) => Object.assign(new Error(message), { status });
 
 retailFinanceRoutes.get("/cashbook", manage, handle((req) => { const { from, to } = dates(req); return listCashbook(scope(req), from, to); }));
+retailFinanceRoutes.get("/cashbook/latest-close", manage, handle((req) => latestCashPeriod(scope(req))));
 retailFinanceRoutes.post("/cashbook/vouchers", manage, handle((req) => createCashVoucher(scope(req), req.body || {}, String(req.user.id))));
 retailFinanceRoutes.post("/cashbook/close", manage, handle((req) => { const { from, to } = dates(req); return closeCashPeriod(scope(req), from, to, String(req.user.id)); }));
 retailFinanceRoutes.get("/cashbook/reconcile", manage, handle((req) => { const { from, to } = dates(req); return reconcileCashPeriod(scope(req), from, to); }));
@@ -39,8 +40,17 @@ retailFinanceRoutes.post("/commission/partners/:id/reconcile", partnerManage, ha
 retailFinanceRoutes.get("/commission/partners/:id/statement", partnerManage, handle(async (req) => { const branch = scope(req); const { from, to } = dates(req); if (!await RetailPartnerModel.exists({ companyCode: branch.companyCode, _id: req.params.id, roles: "collaborator" })) throw bad("Cộng tác viên bán lẻ không hợp lệ.", 404); return partnerStatement(branch.companyCode, req.params.id, from, to); }));
 retailFinanceRoutes.get("/commission/balances", partnerManage, handle(async (req) => {
   const company = retailScopeFromRequest(req.user || {}, { companyCode: req.query.companyCode }).companyCode;
-  const accounts = await RetailCommissionAccountModel.find({ companyCode: company }).select("partnerId balance").lean();
-  return accounts.map((account) => ({ partnerId: account.partnerId, balance: Number(account.balance || 0) }));
+  const partnerId = String(req.query.partnerId || "").trim();
+  if (partnerId && !Types.ObjectId.isValid(partnerId)) throw bad("Cộng tác viên bán lẻ không hợp lệ.");
+  const [accounts, partners] = await Promise.all([
+    RetailCommissionAccountModel.find({ companyCode: company, ...(partnerId ? { partnerId } : {}) }).select("partnerId balance").lean(),
+    RetailPartnerModel.find({ companyCode: company, roles: "collaborator", ...(partnerId ? { _id: partnerId } : {}) }).select("_id code name").lean(),
+  ]);
+  const partnerById = new Map(partners.map((partner) => [String(partner._id), partner]));
+  return accounts.flatMap((account) => {
+    const partner = partnerById.get(String(account.partnerId));
+    return partner ? [{ partnerName: partner.name, partnerCode: partner.code, balance: Number(account.balance || 0) }] : [];
+  });
 }));
 retailFinanceRoutes.post("/commission/partners/:id/payouts", payoutManage, handle((req) => payPartnerCommission(scope(req), req.params.id, req.body || {}, String(req.user.id))));
 retailFinanceRoutes.get("/commission/me", selfRead, handle(async (req) => { const branch = scope(req); const partner = await RetailPartnerModel.findOne({ companyCode: branch.companyCode, userId: String(req.user.id), roles: "collaborator", status: "active" }).lean(); if (!partner) throw bad("Tài khoản chưa liên kết với cộng tác viên bán lẻ.", 404); const { from, to } = dates(req); return { partner: { code: partner.code, name: partner.name }, ...await partnerStatement(branch.companyCode, String(partner._id), from, to) }; }));

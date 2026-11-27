@@ -20,6 +20,18 @@ it('preserves only a matching transfer endpoint for branch-parent selection', ()
   }
 });
 
+it('keeps warehouse names pending until the source and destination branches are selected', async () => {
+  const transfer = operationById('inventory.transfer.create')!;
+  const values = { fromWarehouseId: 'Trụ sở chính', toWarehouseId: 'KHO2A' };
+  const result = await resolveReferences({
+    user: { id: 'admin', companyCode: 'TEST', role: 'admin' },
+    headers: {}, socket: { localAddress: '127.0.0.1', localPort: 4050 },
+  } as any, transfer, values as any);
+
+  expect(result.errors.join('\n')).toContain('Chi nhánh điều chuyển');
+  expect(result.values).toMatchObject(values);
+});
+
 it('preserves the Mongo reference alias privately after projecting job records', () => {
   const operation = operationById('marketing.campaign.bulk-import.jobs.list')!;
   const id = '507f1f77bcf86cd799439021';

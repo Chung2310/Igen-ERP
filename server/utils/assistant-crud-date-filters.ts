@@ -8,6 +8,21 @@ function isValidDateOnly(value: unknown): value is string {
 
 /** Convert assistant date ranges into overlap filters for interval-based CRUD records. */
 export function applyAssistantCrudDateFilters(modelName: string, filters: Record<string, unknown>) {
+  if (modelName === "stock-logs") {
+    const next = { ...filters };
+    const from = next.createdFrom;
+    const to = next.createdTo;
+    delete next.createdFrom;
+    delete next.createdTo;
+    const validFrom = isValidDateOnly(from) ? from : "";
+    const validTo = isValidDateOnly(to) ? to : "";
+    if (validFrom && validTo && validFrom > validTo) return next;
+    const createdAt: Record<string, Date> = {};
+    if (validFrom) createdAt.$gte = new Date(`${validFrom}T00:00:00.000+07:00`);
+    if (validTo) createdAt.$lte = new Date(`${validTo}T23:59:59.999+07:00`);
+    if (Object.keys(createdAt).length) next.createdAt = createdAt;
+    return next;
+  }
   if (!["hr-calendar-events", "hr-leave-applications"].includes(modelName)) return filters;
   const next = { ...filters };
   const createdFrom = next.createdFrom;

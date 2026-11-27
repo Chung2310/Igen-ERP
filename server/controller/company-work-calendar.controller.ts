@@ -22,10 +22,8 @@ export function assertCalendarAdmin(user?: { id?: string; companyCode?: string; 
   return { actorId: user.id, companyCode: user.companyCode };
 }
 
-function assertCalendarReader(user?: { id?: string; companyCode?: string }) {
-  if (!user?.id || !user.companyCode) {
-    throw new CalendarAuthorizationError("Company account required to view work calendar.");
-  }
+function assertCalendarReader(user?: { companyCode?: string }) {
+  if (!user?.companyCode) throw new CalendarAuthorizationError("Company account required to view work calendar.");
   return { companyCode: user.companyCode };
 }
 

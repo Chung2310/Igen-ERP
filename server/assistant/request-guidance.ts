@@ -1,15 +1,8 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { MODULE_LABELS, MODULE_TAB_MAP, type ModuleKey } from "../../src/config/modules";
 
-type ExampleKind = "read" | "create" | "update";
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
   .replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-
-function exampleFor(kind: ExampleKind, entity: string) {
-  if (kind === "read") return `Xem danh sách ${entity}`;
-  if (kind === "create") return `Thêm ${entity}`;
-  return `Cập nhật ${entity}`;
-}
 
 /** Only offer the two course types when both operations are available to this user. */
 export function assistantCourseChoiceGuidance(workflows: readonly AssistantWorkflow[], suggestedActionIds: readonly string[] = []): string {
@@ -21,31 +14,32 @@ export function assistantCourseChoiceGuidance(workflows: readonly AssistantWorkf
   return `Bạn đang muốn chọn loại khóa học nào? Mình có thể “${options[0]!.title}” (đào tạo nội bộ cho nhân sự) hoặc “${options[1]!.title}” (cho học viên).`;
 }
 
-/** Receives only workflows already scoped to the user's permissions and modules. */
+type RequestExampleKind = "read" | "create" | "update";
+function requestExample(kind: RequestExampleKind, entity: string) {
+  if (kind === "read") return `Xem danh sách ${entity}`;
+  if (kind === "create") return `Thêm ${entity}`;
+  return `Cập nhật ${entity}`;
+}
+
+/** Offer concise examples only when the user asks how to phrase an ERP request. */
 export function assistantRequestGuidance(text: string, workflows: readonly AssistantWorkflow[], hasAttachment = false): string {
-  // A concrete clarification already tells the user what is missing. Do not
-  // append a writing tutorial to every otherwise clear business request.
-  if (!/\b(?:cach (?:hoi|viet|yeu cau)|vi du|huong dan (?:hoi|viet)|khong biet (?:hoi|viet))\b/.test(normalize(text))) return "";
+  if (!/\\b(?:cach (?:hoi|viet|yeu cau)|vi du|huong dan (?:hoi|viet)|khong biet (?:hoi|viet))\\b/.test(normalize(text))) return "";
   if (hasAttachment) return "Bạn nói mình cần làm gì với tệp này, chẳng hạn xem nội dung hay nhập dữ liệu vào hồ sơ nhé.";
   const candidates = workflows.flatMap(workflow => {
     if (!workflow.enabled) return [];
-    const title = workflow.title.replace(/\s+/g, " ").trim();
-    const match = title.match(/^(Tra cứu|Tìm kiếm|Tìm|Xem danh sách|Tạo|Thêm mới|Thêm|Cập nhật|Sửa)\s+(.+)$/iu);
+    const match = workflow.title.replace(/\\s+/g, " ").trim().match(/^(Tra cứu|Tìm kiếm|Tìm|Xem danh sách|Tạo|Thêm mới|Thêm|Cập nhật|Sửa)\\s+(.+)$/iu);
     if (!match || match[2].length > 80) return [];
     const verb = normalize(match[1]);
-    const kind: ExampleKind = ["tao", "them", "them moi"].includes(verb) ? "create"
+    const kind: RequestExampleKind = ["tao", "them", "them moi"].includes(verb) ? "create"
       : ["cap nhat", "sua"].includes(verb) ? "update" : "read";
     return [{ kind, entity: match[2] }];
   });
   const request = ` ${normalize(text)} `;
-  // An AI shortlist is not evidence of what the user meant. Use a concrete
-  // entity only when the user actually named it; otherwise give neutral advice.
   const contextual = candidates.filter(candidate => request.includes(` ${normalize(candidate.entity)} `));
-  const source = contextual;
-  const priority: ExampleKind[] = /\b(?:cap nhat|sua|doi)\b/.test(request) ? ["update", "read", "create"]
-    : /\b(?:tao|them)\b/.test(request) ? ["create", "read", "update"] : ["read", "create", "update"];
-  const examples = [...new Set([...source].sort((a, b) => priority.indexOf(a.kind) - priority.indexOf(b.kind))
-    .map(candidate => exampleFor(candidate.kind, candidate.entity)))].slice(0, 2);
+  const priority: RequestExampleKind[] = /\\b(?:cap nhat|sua|doi)\\b/.test(request) ? ["update", "read", "create"]
+    : /\\b(?:tao|them)\\b/.test(request) ? ["create", "read", "update"] : ["read", "create", "update"];
+  const examples = [...new Set([...contextual].sort((left, right) => priority.indexOf(left.kind) - priority.indexOf(right.kind))
+    .map(candidate => requestExample(candidate.kind, candidate.entity)))].slice(0, 2);
   if (!examples.length) return "Bạn chỉ cần nói việc muốn làm và hồ sơ liên quan. Nếu đã có tên, mã hoặc thông tin cần đổi, bạn gửi kèm luôn nhé.";
   return `Chẳng hạn, bạn có thể nói “${examples[0]}”. Nếu cần thêm thông tin, mình sẽ hỏi tiếp.`;
 }
@@ -90,8 +84,8 @@ export function assistantUnsupportedGuidance(text: string, workflows: readonly A
     : "Mình chưa xác định chắc chắn phân hệ trong tài khoản của bạn. Nếu bạn cho biết tên phân hệ, mình có thể chỉ đúng màn hình hơn. Nếu không thấy chức năng, hãy nhờ quản trị viên kiểm tra quyền truy cập.";
 
   return [
-    "Mình chưa thực hiện được việc này trong chat. Chưa có dữ liệu nào được thay đổi.",
-    "Bạn có thể thực hiện trên giao diện ERP:",
+    "Mình hiểu bạn muốn thực hiện yêu cầu này. Hiện trợ lý chưa thể làm việc đó trong khung chat, nên chưa có dữ liệu nào được thay đổi.",
+    "Bạn có thể tự thao tác trong ERP:",
     [destination, ...steps.map((step, index) => `${index + 2}. ${step}`)].join("\n"),
     boundary,
   ].join("\n\n");

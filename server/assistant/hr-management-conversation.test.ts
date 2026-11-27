@@ -5,7 +5,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), provider: vi.fn(), saveMemory: vi.fn(), memoryEnabled: false, includeStudentCourses: false, includeRecruitmentReport: true }));
 vi.mock("./memory", async () => ({ ...await vi.importActual<typeof import("./memory")>("./memory"), assistantMemoryContext: async () => [], saveAssistantMemory: state.saveMemory }));
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
+  const response = await state.provider(...args);
+  if (typeof response?.text !== "string") return response;
+  try { const parsed = JSON.parse(response.text); if (typeof parsed.actionId === "string" && parsed.intentType === undefined) parsed.intentType = "workflow"; if (typeof parsed.actionId === "string" && parsed.requestCoverage === undefined) { let requestText = args[0]?.messages?.at(-1)?.content; try { requestText = JSON.parse(requestText).text ?? requestText; } catch { /* current user message */ } if (typeof requestText === "string") parsed.requestCoverage = [{ evidence: requestText, requirement: "Yêu cầu thao tác", mappedTo: ["action"] }]; } return { ...response, text: JSON.stringify(parsed) }; }
+  catch { return response; }
+} }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
     for (const [key, value] of Object.entries(updates.$set || {})) {
@@ -117,6 +122,110 @@ it.each([
   expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
 });
 
+it("executes an authorized multi-API read plan and synthesizes only projected public data", async () => {
+  state.interpret.mockResolvedValue({
+    actionId: null,
+    values: {},
+    intentType: "workflow",
+    queryPlan: [
+      { actionId: "employee.count", purpose: "headcount", values: { createdFrom: "2026-11-01", createdTo: "2026-11-30" }, resultFields: ["count"] },
+      { actionId: "timekeeping.records.monthly.overview", purpose: "monthly attendance overview", values: { month: 11, year: 2026 }, resultFields: ["year", "month", "records"] },
+    ],
+  });
+  state.provider.mockResolvedValue({ text: JSON.stringify({
+    summary: "Tổng quan nhân sự và chấm công tháng 11/2026",
+    columns: ["Chỉ tiêu", "Kết quả"],
+    rows: [{ cells: ["Số nhân sự", 3] }, { cells: ["Nhân sự đi trễ", "Nguyễn Anh; La Văn Sến"] }],
+    limitations: [],
+  }) });
+
+  const reply = await turn({ text: "Tổng hợp số nhân sự và tình hình chấm công tháng 11/2026" });
+
+  expect(reply.status, JSON.stringify(reply)).toBe("completed");
+  expect(reply.reply).toContain("Kết quả: 3");
+  expect(reply.reply).toContain("Nhân sự đi trễ");
+  const paths = fetcher.mock.calls.map(([url]) => new URL(String(url)).pathname);
+  expect(paths).toContain("/api/v1/auth/users/count");
+  expect(paths).toContain("/api/v1/timekeeping/monthly-report");
+  expect(fetcher.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  const summaryRequest = JSON.stringify(state.provider.mock.calls[0][0].messages);
+  expect(summaryRequest).toContain("Nguyễn Anh");
+  expect(summaryRequest).not.toContain(employeeId);
+  expect(completeAssistantOperation).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }),
+    expect.objectContaining({ operation: expect.objectContaining({ id: "timekeeping.records.monthly.overview" }) }), expect.anything(), expect.anything());
+});
+
+it("preserves completed results from every source when multi-source analysis is unavailable", async () => {
+  state.interpret.mockResolvedValue({
+    actionId: null,
+    values: {},
+    intentType: "workflow",
+    queryPlan: [
+      { actionId: "employee.count", purpose: "headcount", values: { createdFrom: "2026-11-01", createdTo: "2026-11-30" }, resultFields: ["count"] },
+      { actionId: "timekeeping.records.monthly.overview", purpose: "monthly attendance overview", values: { month: 11, year: 2026 }, resultFields: ["year", "month", "records"] },
+    ],
+  });
+  state.provider.mockRejectedValue(new Error("Mock analysis provider unavailable"));
+
+  const reply = await turn({ text: "Tổng hợp số nhân sự và tình hình chấm công tháng 11/2026" });
+
+  expect(reply.status).toBe("completed");
+  expect(reply.reply).toContain("Nguyễn Anh");
+  expect(reply.reply).toContain("La Văn Sến");
+  expect(reply.reply).not.toContain("chưa tổng hợp được kết quả");
+  expect(fetcher.mock.calls.filter(([url]) => ["/api/v1/auth/users/count", "/api/v1/timekeeping/monthly-report"].includes(new URL(String(url)).pathname))).toHaveLength(2);
+});
+
+it("keeps a successful structured report when optional analysis is unavailable", async () => {
+  state.interpret.mockResolvedValue({ actionId: "leave.balances.list", values: { year: 2026 }, intentType: "workflow" });
+  state.provider.mockRejectedValue(new Error("Mock analysis provider unavailable"));
+
+  const reply = await turn({ text: "Thống kê số ngày phép năm còn lại của tất cả nhân sự" });
+
+  expect(reply.status, reply.reply).toBe("completed");
+  expect(parseAssistantResultTable(reply.reply)?.rows).toHaveLength(3);
+  expect(reply.reply).toContain("La Văn Sến");
+  expect(reply.reply).toContain("Phạm Gia Hân");
+  expect(fetcher.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/v1/leave/balances")).toBe(true);
+});
+
+it("projects only explicitly named employees for a leave balance report", async () => {
+  state.interpret.mockResolvedValue({ actionId: "leave.balances.list", values: {
+    year: 2026, query_search: "Nam Văn Tú|Trần Quốc Bảo",
+  }, intentType: "workflow" });
+  state.provider.mockRejectedValue(new Error("Mock analysis provider unavailable"));
+  const originalFetcher = fetcher.getMockImplementation() as (url: URL, init?: RequestInit) => Promise<Response>;
+  fetcher.mockImplementation((url: URL, init?: RequestInit) => new URL(String(url)).pathname === "/api/v1/leave/balances"
+    ? json({ status: "success", data: { year: 2026, balances: [
+      { employeeName: "Nam Văn Tú", department: "Kế toán", entitlement: 12, used: 3, pending: 0, unexcused: 0, remaining: 9 },
+      { employeeName: "Trần Quốc Bảo", department: "Kế toán", entitlement: 12, used: 12, pending: 0, unexcused: 0, remaining: 0 },
+      { employeeName: "Nguyễn An", department: "Marketing", entitlement: 12, used: 4, pending: 0, unexcused: 0, remaining: 8 },
+    ] } })
+    : originalFetcher(url, init));
+
+  const reply = await turn({ text: "Cho tôi xem số ngày phép năm 2026 còn lại của Nam Văn Tú và Trần Quốc Bảo." });
+  const table = parseAssistantResultTable(reply.reply);
+
+  expect(reply.status, reply.reply).toBe("completed");
+  expect(table?.rows).toHaveLength(2);
+  expect(reply.reply).toContain("Nam Văn Tú");
+  expect(reply.reply).toContain("Trần Quốc Bảo");
+  expect(reply.reply).not.toContain("Nguyễn An");
+  expect(completeAssistantOperation).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }),
+    expect.objectContaining({ operation: expect.objectContaining({ id: "leave.balances.list" }) }), expect.anything(), expect.anything());
+});
+
+it("uses the shared formatter directly for a simple lookup", async () => {
+  state.interpret.mockResolvedValue({ actionId: "employee.list", values: {}, intentType: "workflow" });
+
+  const reply = await turn({ text: "Cho tôi xem danh sách nhân sự" });
+
+  expect(reply.status).toBe("completed");
+  expect(parseAssistantResultTable(reply.reply)?.rows.length).toBeGreaterThan(0);
+  expect(reply.reply).toContain("La Văn Sến");
+  expect(state.provider).not.toHaveBeenCalled();
+});
+
 it("refuses a simulated HR report condition that has no supported field instead of dropping it", async () => {
   const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
   state.interpret.mockImplementation(interpretRequest);
@@ -132,6 +241,32 @@ it("must not answer an unfiltered headcount when simulated AI omits the user's s
   state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.count", values: {} }) });
   const reply = await turn({ text: "Có bao nhiêu nhân viên lương trên 20 triệu?" });
   expect(reply.status, JSON.stringify(reply)).not.toBe("completed");
+});
+
+it("asks for missing required create details before looking up optional relationships", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.create", values: {} }) });
+  fetcher.mockClear();
+
+  const reply = await turn({ text: "Tạo nhân sự mới" });
+
+  expect(reply.status).toBe("collecting");
+  expect(reply.reply).toContain("Họ và tên");
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("asks what to change before resolving the target of an empty update", async () => {
+  const { interpretRequest } = await vi.importActual<typeof import("./semantic-interpreter")>("./semantic-interpreter");
+  state.interpret.mockImplementation(interpretRequest);
+  state.provider.mockResolvedValue({ text: JSON.stringify({ actionId: "employee.update", values: { id: "Nguyễn Anh" } }) });
+  fetcher.mockClear();
+
+  const reply = await turn({ text: "Cập nhật nhân sự Nguyễn Anh" });
+
+  expect(reply.status).toBe("collecting");
+  expect(reply.reply).toContain("cập nhật những thông tin nào");
+  expect(fetcher).not.toHaveBeenCalled();
 });
 
 it("simulated AI reads the overall business report with an explicit date range", async () => {
@@ -407,6 +542,9 @@ beforeEach(() => {
         ? json({ status: "success", data: { count: 12, scope: "company" } })
         : json({ status: "success", data: { count: 3, scope: "branch", branchName: "Chi nhánh A" } });
     }
+    if (path === "/api/v1/recruitment/reports/assistant" && new URL(String(url)).searchParams.get("reportType") === "onboarded") return json({ data: {
+      reportType: "onboarded", configured: true, summary: "0 \u1ee9ng vi\u00ean \u0111\u00e3 onboard trong kho\u1ea3ng th\u1eddi gian \u0111\u00e3 ch\u1ecdn.", total: 0, items: [],
+    } });
     if (path === "/api/v1/recruitment/reports/assistant") return json({ data: {
       reportType: "interviewers", summary: "1 lịch phỏng vấn phù hợp.", total: 1,
       items: [{ applicantName: "Nguyễn An", jobTitle: "QA Lead", scheduledStart: "2026-11-18T02:00:00.000Z", interviewers: "Võ Minh Quân", result: "Đạt" }],
@@ -649,7 +787,7 @@ it("deletes an existing architecture project with its private current revision a
   expect(JSON.stringify(preview)).not.toContain(projectId);
   expect(fetcher.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
   const result = await turn({ decision: { id: preview.action!.id, confirmed: true } });
-  expect(result.status).toBe("completed");
+  expect(result.status, result.reply).toBe("completed");
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(1);
 });
 
@@ -1197,8 +1335,12 @@ it("test keys 82–107 return recruitment reports as structured results through 
     intentType: "workflow",
     newRequest: true,
   });
+  state.provider.mockResolvedValueOnce({ text: JSON.stringify({
+    summary: "C\u00f3 m\u1ed9t l\u1ecbch ph\u1ecfng v\u1ea5n ph\u00f9 h\u1ee3p.", columns: ["\u1ee8ng vi\u00ean", "V\u1ecb tr\u00ed", "Ng\u01b0\u1eddi ph\u1ecfng v\u1ea5n"],
+    rows: [{ cells: ["Nguy\u1ec5n An", "QA Lead", "V\u00f5 Minh Qu\u00e2n"] }], limitations: [],
+  }) });
   const result = await turn({ text: "Hôm nay có buổi phỏng vấn vị trí QA Lead, ai đã phỏng vấn?" });
-  expect(result.status, result.reply).toBe("completed");
+  expect(result.status).toBe("completed");
   expect(parseAssistantResultTable(result.reply)).not.toBeNull();
   expect(result.reply).toContain("Nguyễn An");
   expect(result.reply).toContain("Võ Minh Quân");
@@ -1207,6 +1349,24 @@ it("test keys 82–107 return recruitment reports as structured results through 
   const reportRequest = fetcher.mock.calls.find(([url]) => new URL(String(url)).pathname === "/api/v1/recruitment/reports/assistant");
   expect(new URL(String(reportRequest?.[0])).searchParams.get("reportType")).toBe("interviewers");
   expect(new URL(String(reportRequest?.[0])).searchParams.get("search")).toBe("QA Lead");
+});
+
+it("shows zero onboarded applicants as a structured report instead of an empty-result reply", async () => {
+  state.interpret.mockResolvedValueOnce({
+    actionId: "recruitment.report",
+    values: { query_reportType: "onboarded", query_from: "2026-11-01", query_to: "2026-11-30" },
+    intentType: "workflow",
+    newRequest: true,
+  });
+
+  const result = await turn({ text: "Th\u00e1ng n\u00e0y c\u00f3 bao nhi\u00eau \u1ee9ng vi\u00ean onboard v\u00e0 ch\u1ee7 y\u1ebfu \u1edf ph\u00f2ng n\u00e0o" });
+
+  expect(result.status, result.reply).toBe("completed");
+  expect(result.reply).toContain("0 \u1ee9ng vi\u00ean \u0111\u00e3 onboard");
+  expect(result.reply).not.toContain("Kh\u00f4ng c\u00f3 k\u1ebft qu\u1ea3 ph\u00f9 h\u1ee3p.");
+  expect(parseAssistantResultTable(result.reply)).not.toBeNull();
+  expect(completeAssistantOperation).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }),
+    expect.objectContaining({ operation: expect.objectContaining({ id: "recruitment.report" }) }), expect.any(Array), expect.any(Function));
 });
 
 it("routes tomorrow's interview schedule question to the recruitment report", async () => {

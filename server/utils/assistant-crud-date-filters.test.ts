@@ -44,6 +44,18 @@ describe("assistant CRUD date range filters", () => {
     });
   });
 
+  it("filters stock log creation dates using Vietnam calendar days", () => {
+    const result = applyAssistantCrudDateFilters("stock-logs", {
+      createdFrom: "2026-10-01", createdTo: "2026-10-31", type: "xuất",
+    });
+    expect(result).toMatchObject({
+      type: "xuất",
+      createdAt: { $gte: new Date("2026-09-30T17:00:00.000Z"), $lte: new Date("2026-10-31T16:59:59.999Z") },
+    });
+    expect(result).not.toHaveProperty("createdFrom");
+    expect(result).not.toHaveProperty("createdTo");
+  });
+
   it("leaves unrelated CRUD models and invalid date ranges unchanged", () => {
     const unrelated = { rangeStart: "2026-11-01", rangeEnd: "2026-11-30" };
     expect(applyAssistantCrudDateFilters("projects", unrelated)).toBe(unrelated);

@@ -9,3 +9,7 @@ it("counts only enrolled learners on the requested date, deduplicating records",
   expect(result).toMatchObject({total:2,present:1,late:1,absent:0,unrecorded:0});
   expect(JSON.stringify(result)).not.toContain("outside");
 });
+it("keeps schedule and remaining-seat details with attendance totals",()=>{
+  const result=studentAttendanceSummary({...batch,startTime:"19:00",endTime:"21:00",location:"P204",remainingSlots:4,attendanceSessions:[{date:"2026-11-18",records:[{studentId:"one",status:"present"},{studentId:"two",status:"absent"}]}]},"2026-11-18");
+  expect(result).toMatchObject({startTime:"19:00",endTime:"21:00",location:"P204",remainingSlots:4,total:2,present:1,absent:1});
+});

@@ -4,6 +4,27 @@ import { formatAssistantResult } from "./result-format";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 
 describe("student quality assistant results", () => {
+  it("shows roadmap progression rates and eligibility in the shared result table", () => {
+    const operation = operationById("student.learning-roadmap.progression.list")!;
+    const reply = formatAssistantResult(operation, { data: [{
+      id: "507f1f77bcf86cd799439021", studentName: "Nguyễn An", studentPhone: "0900000000",
+      sourceStepName: "A1", targetStepName: "A2", attendanceRate: 85, assignmentRate: 75,
+      miniTestRate: 80, examRate: 90, teacherAssessment: "Đạt", eligible: true,
+      eligibilityReasonSummary: "Đáp ứng chuyên cần và điểm số", intent: "pending",
+      teacherNote: "", overrideEligible: null, overrideReason: "",
+    }] });
+    const row = parseAssistantResultTable(reply)?.rows[0]?.values;
+
+    expect(row).toMatchObject({
+      "Học viên": "Nguyễn An", "Chặng hiện tại": "A1", "Chặng tiếp theo": "A2",
+      "Chuyên cần": "85%", "Bài tập": "75%", "Mini test": "80%", "Điểm thi": "90%",
+      "Đủ điều kiện lên lớp": "Đủ điều kiện", "Lý do xét điều kiện": "Đáp ứng chuyên cần và điểm số",
+      "Quyết định hiện tại": "Chờ quyết định",
+    });
+    expect(reply).not.toContain("507f1f77bcf86cd799439021");
+    expect(reply).not.toContain("Thông tin:");
+  });
+
   it("shows metrics and translates unrated status into Vietnamese", () => {
     const operation = operationById("student.quality.list")!;
     const response = { items: [
