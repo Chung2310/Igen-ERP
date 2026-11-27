@@ -1,39 +1,23 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const mockProvider = vi.hoisted(() => vi.fn());
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: (...args: unknown[]) => mockProvider(...args) }));
-
-import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
-import { synthesizeCompositeAssistantReport } from "./composite-report";
-
-afterEach(() => mockProvider.mockReset());
-
-describe("composite report synthesis", () => {
-  it("sends source data to AI and returns a shared structured result table", async () => {
-    mockProvider.mockResolvedValue({ text: JSON.stringify({
-      summary: "Đối tác lao động theo lượt giới thiệu trong tháng 11/2026",
-      columns: ["Đối tác", "Lượt giới thiệu"],
-      rows: [{ cells: ["Công ty A", 12] }, { cells: ["Công ty B", 8] }],
-      limitations: [],
-    }) });
-
-    const reply = await synthesizeCompositeAssistantReport("Tổng hợp lượt giới thiệu tháng 11/2026", [{
-      title: "Kết quả KPI đối tác",
-      purpose: "Lượt giới thiệu theo đối tác",
-      rows: [{ partnerName: "Công ty A", referrals: 12 }, { partnerName: "Công ty B", referrals: 8 }],
-    }]);
-
-    const sent = JSON.stringify(mockProvider.mock.calls[0][0].messages);
-    expect(sent).toContain("Công ty A");
-    expect(sent).toContain("Chỉ kết luận điều được dữ liệu hỗ trợ");
-    expect(parseAssistantResultTable(reply)).toEqual(expect.objectContaining({
-      headers: ["Đối tác", "Lượt giới thiệu"],
-      rows: expect.arrayContaining([expect.objectContaining({ values: { "Đối tác": "Công ty A", "Lượt giới thiệu": "12" } })]),
-    }));
-  });
-
-  it("rejects malformed synthesis instead of presenting a partial answer", async () => {
-    mockProvider.mockResolvedValue({ text: JSON.stringify({ summary: "x", columns: ["Chỉ tiêu", "Kết quả"], rows: [{ cells: ["chỉ tiêu"] }], limitations: [] }) });
-    await expect(synthesizeCompositeAssistantReport("Tổng hợp", [{ title: "API", purpose: "dữ liệu", rows: [] }])).rejects.toThrow("bảng tổng hợp hợp lệ");
-  });
+import { afterEach, describe, expect, it, vi } from 'vitest';
+const provider=vi.hoisted(()=>vi.fn());
+vi.mock('../service/openrouter.service',()=>({openrouterChat:provider}));
+import {parseAssistantResultTable} from '../../src/shared/assistant-result-table';
+import {synthesizeCompositeAssistantReport} from './composite-report';
+afterEach(()=>provider.mockReset());
+describe('deterministic composite result presentation',()=>{
+ it('retains exact public source values without an additional LLM, arithmetic or replacement table',async()=>{
+  const reply=await synthesizeCompositeAssistantReport('Tổng hợp tháng 11',[{title:'Doanh thu',purpose:'Doanh thu và lãi',rows:[{revenue:10000000,netProfit:3000000}]},{title:'Khách nợ',purpose:'Khách còn nợ',rows:[{customerName:'QA An',balance:500000}]}]);
+  const table=parseAssistantResultTable(reply)!;
+  expect(table.rows).toHaveLength(4);expect(reply).toContain('10.000.000');expect(reply).toContain('3.000.000');expect(reply).toContain('500.000');expect(reply).toContain('QA An');
+  expect(reply).not.toContain('13.500.000');expect(provider).not.toHaveBeenCalled();
+ });
+ it('states an empty returned source separately and never turns it into a global zero',async()=>{
+  const reply=await synthesizeCompositeAssistantReport('Tổng hợp',[{title:'Đơn',purpose:'Đơn đã hủy',rows:[]},{title:'Hoa hồng',purpose:'Hoa hồng tháng này',rows:[{commissionExpense:500000}]}]);
+  expect(reply).toContain('Chưa có dòng kết quả từ nguồn này');expect(reply).toContain('500.000');expect(provider).not.toHaveBeenCalled();
+ });
+ it('retains every section when bounded, reports truncation, and excludes nested private identifiers',async()=>{
+  const reply=await synthesizeCompositeAssistantReport('Xem',[{title:'A',purpose:'A',rows:Array.from({length:300},(_,i)=>({name:'QA '+i,secret:'PRIVATE'}))},{title:'B',purpose:'B',rows:[{summary:{netProfit:123,token:'PRIVATE'}}]}]);
+  expect(reply).toContain('123');expect(reply).toContain('200/300');expect(reply).not.toContain('PRIVATE');
+  await expect(synthesizeCompositeAssistantReport('Xem',[{title:'Lớn',purpose:'Lớn',rows:[{name:'x'.repeat(91000)}]}])).rejects.toThrow('vượt phạm vi');
+ });
 });

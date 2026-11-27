@@ -792,7 +792,7 @@ export class BatchService {
   static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string) {
     const batches = await Batch.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     const enriched = await enrichBatches(batches);
-    const events: { id: string; title: string; date: string; time: string; details: string }[] = [];
+    const events: { id: string; title: string; date: string; time: string; details: string;location:string }[] = [];
 
     for (const b of enriched) {
       const startDate = String(b.startDate);
@@ -820,6 +820,7 @@ export class BatchService {
           date,
           time: `${b.startTime} - ${b.endTime}`,
           details: detailParts.join(" • "),
+          location:String(b.location||''),
         });
       }
     }

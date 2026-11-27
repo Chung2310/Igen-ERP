@@ -11,13 +11,12 @@ import { documentFileName, documentMimeTypes } from "./document-export";
 import { formatFriendlyAssistantResult as friendlyResult } from "./result-format";
 import { projectRecords } from "./executor";
 import { formatQuotationResult } from "./quotation-result";
+export {isBusinessExcelRequest} from './export-intent';
+import {collectPublicReadData} from './public-read-query';
+import {collectAnalysisPages,analyzeList} from './list-analysis';
+import {formatAssistantResultTable} from '../../src/shared/assistant-result-table';
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase();
-export function isBusinessExcelRequest(text: string) {
-  const value = normalize(text);
-  return /\b(?:excel|xlsx)\b/.test(value) && /\b(?:xuat|export|tai(?!\s+len\b)|download)\b/.test(value)
-    && !/\b(?:khong|dung|chua can)\s+(?:xuat|export|tai)\b/.test(value);
-}
 
 export async function saveBusinessWorkbook(req: AuthenticatedRequest, input: {
   conversationId: string; requestId: string; title: string; tables: string[]; scopeNote: string;
@@ -43,7 +42,7 @@ export async function saveBusinessWorkbook(req: AuthenticatedRequest, input: {
 }
 
 function pagination(result: any) {
-  const candidates = [result?.pagination, result?.meta, result?.data?.pagination, result?.data?.meta, result?.data, result];
+  const candidates = [result?.analysisPage,result?.pagination, result?.meta, result?.data?.pagination, result?.data?.meta, result?.data, result];
   const found = candidates.find(value => value && Number.isSafeInteger(value.total) && value.total >= 0);
   return found ? { total: found.total as number } : null;
 }
@@ -52,6 +51,14 @@ function pagination(result: any) {
 export async function exportBusinessList(req: AuthenticatedRequest, operation: AssistantOperation, values: Record<string, AssistantValue>,
   dispatch: (values: Record<string, AssistantValue>) => Promise<any>, input: { conversationId: string; requestId: string; requestText: string }): Promise<AssistantReply> {
   if (operation.method !== "GET") throw new AssistantError("Xuất Excel chỉ dùng thao tác đọc dữ liệu. Chưa thực hiện thay đổi nào.", 400);
+  if(operation.analysis){
+    const source=operation.analysis.publicRead
+      ?await collectPublicReadData(operation,values,dispatch,(response,input)=>projectRecords(operation,response,req,input))
+      :await collectAnalysisPages(operation.analysis,values,dispatch);
+    const result=analyzeList(operation.analysis,source.data,values.analysis,source.analysisComplete===true);
+    if(result.records.length>1000)throw new AssistantError('Danh sách vượt 1.000 dòng. Bạn thu hẹp bộ lọc nhé.',422);
+    return saveBusinessWorkbook(req,{...input,title:operation.title,tables:[formatAssistantResultTable(operation.title,result.records)],scopeNote:'File gồm kết quả trong phạm vi và bộ lọc đã chọn.'});
+  }
   const pageField = operation.fields.find(field => field.source === "query" && (field.apiKey || field.key) === "page");
   const limitField = operation.fields.find(field => field.source === "query" && (field.apiKey || field.key) === "limit");
   const all = /\b(?:toan bo|tat ca|all)\b/.test(normalize(input.requestText));

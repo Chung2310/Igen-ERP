@@ -258,6 +258,9 @@ Completion là hợp đồng dùng chung cho các module. Adapter không tự th
 - Kết quả create/update/lookup có cấu trúc sử dụng `formatAssistantResultTable()` từ `src/shared/assistant-result-table.ts`. UI và bước response rewrite nhận diện cùng cấu trúc bảng; câu hỏi follow-up phải được giữ lại.
 - Ngày/giờ người dùng nhìn thấy qua `formatAssistantTemporalValue()` trong `src/shared/assistant-date.ts`, lịch Việt Nam và timezone `Asia/Ho_Chi_Minh`. Payload/API vẫn giữ giá trị ISO; không định dạng tên/mã chỉ vì chuỗi giống ngày.
 - `presentAssistantReply()` loại bỏ lời kể implementation và field default. `applyAssistantResponseRules()` có thể viết lại câu trả lời; sau đó service chuẩn hóa và trình bày lại để giữ bảng/câu hỏi và ẩn ID.
+- Field mặc định ở query không được dùng để ẩn giá trị bản ghi trả về. Chiếu kết quả theo đúng đường dẫn công khai đã yêu cầu, kể cả một member của `summary`, không mở lại các member cùng cấp.
+- Báo cáo đọc nhiều nguồn dùng `queryPlan` và một lượt đối chiếu chung. `analysis` giữ AST nhất quán giữa lập kế hoạch và replay. `composite-report.ts` dựng bảng trực tiếp từ dữ liệu đã chiếu; không gọi thêm model để thay số liệu. Response rules chỉ sửa lời dẫn và giữ bảng nguyên vẹn.
+- Nguồn có collection trong envelope cần khai báo `resultRowsField`; tổng/trang không được coi là dòng nghiệp vụ. Nếu API đọc thiếu ngữ cảnh bắt buộc, `AssistantReadInputRequired` đưa về form/option theo field đã khai báo, không trả kết quả rỗng thay thế.
 - File có lifecycle lưu riêng trong `AssistantDocumentModel`; reply trả metadata file, frontend tải qua endpoint file đã xác thực.
 
 ## 7. Mục tiêu nhiều bước và xử lý nền
@@ -265,6 +268,8 @@ Completion là hợp đồng dùng chung cho các module. Adapter không tự th
 ### Mục tiêu nhiều bước
 
 Interpreter có thể trả `remainingRequests`. Service chạy từng bước tuần tự trong cùng session lock và execution budget. Mỗi bước có requestId con trong journal. Xác nhận thuộc đúng preview của bước hiện tại; không được tái sử dụng xác nhận của bước trước cho bước sau. Khi cần collecting/confirmation, dừng kế hoạch tại bước đó và lưu phần còn lại. Cancel hoặc uncertain xóa phần còn lại; không rollback các bước đã hoàn tất.
+
+Nếu hết hạn diễn giải trước khi dispatch và chưa có bản soạn, service giữ nguyên yêu cầu để người dùng nói “tiếp tục”. Không tự chạy lại thao tác đã dispatch hoặc thao tác ghi chưa rõ kết quả. Phần việc hoãn phải gắn đúng evidence trong `remainingRequests`, không được xem như lời dẫn để bỏ qua.
 
 ### Xử lý nền
 

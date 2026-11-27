@@ -83,7 +83,7 @@ export const retailOrderController = {
         query.heldOnly = true;
         query.ownerId = String(actor.id || actor.uid || "");
       }
-      const data = await RetailOrderService.list(scope(req), query);
+      const data = await RetailOrderService.list(scope(req), query, {readOnly:req.headers['x-assistant-read-only']==='true'});
       res.json({ success: true, data: { ...data, items: data.items.map((order) => serializeRetailOrder(order, canSeeCost)) } });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message });

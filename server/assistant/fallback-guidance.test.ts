@@ -9,6 +9,10 @@ it('preserves a provider failure without unrelated manual business instructions'
   const reply: AssistantReply = { status: 'failed', reply: 'Chưa kết nối được dịch vụ AI.' };
   expect(appendAssistantFallback(reply, { operation, workflows, reason: 'provider' })).toBe(reply);
 });
+it('does not blame a clear request or suggest permissions/navigation for an internal planning failure',()=>{
+  const reply:AssistantReply={status:'failed',reply:'Mình gặp lỗi khi lập phương án xử lý yêu cầu này. Bạn thử lại sau giúp mình nhé.'};
+  expect(appendAssistantFallback(reply,{operation,workflows,reason:'planning'})).toBe(reply);
+});
 
 it("keeps the API reason and adds verified fee navigation without user credentials",()=>{
   const result=appendAssistantFallback({status:"failed",reply:"Số tiền vượt học phí còn nợ."},{operation,workflows,reason:"validation"});

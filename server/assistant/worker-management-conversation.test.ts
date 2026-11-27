@@ -1,12 +1,21 @@
+import {readFileSync} from 'node:fs';
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], includeHr: false, interpret: vi.fn(), provider: vi.fn() }));
+const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], includeHr: false, includeStudents: false, requireWorkerPhone:false, alwaysConfirm:true, interpret: vi.fn(), provider: vi.fn(), fit:vi.fn() }));
 vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
+  // Legacy conversation fixtures provide planning/meaning answers. Supply the
+  // new broker contracts explicitly; dedicated tests below override the fit.
+  if(args[0]?.responseSchema?.properties.approvedActionIds){
+    const payload=JSON.parse(args[0].messages.at(-1).content);
+    if(state.fit.getMockImplementation())return state.fit(payload);
+    return {text:JSON.stringify({approvedActionIds:payload.selected.map((s:any)=>s.actionId),question:''})};
+  }
   const response = await state.provider(...args);
   if (typeof response?.text !== "string") return response;
   try {
     const parsed = JSON.parse(response.text);
+    if(args[0]?.responseSchema?.properties.decision&&parsed.featureKeys)return {text:JSON.stringify({featureKeys:parsed.featureKeys,decision:'search',question:'',unavailableModule:null})};
     if (typeof parsed.actionId === "string" && parsed.intentType === undefined) parsed.intentType = "workflow";
     if (typeof parsed.actionId === "string" && parsed.requestCoverage === undefined) {
       const [{ defaultWorkflow, operationById }, { reconcileRequestedRanking }] = await Promise.all([
@@ -78,16 +87,17 @@ vi.mock("./models", () => {
 });
 vi.mock("./workflows", async () => {
   const { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } = await import("./catalog");
+  const configured=(op:any)=>{const workflow=defaultWorkflow(op);if(state.requireWorkerPhone&&op.id==='worker.create')workflow.fields=workflow.fields.map(field=>field.key==='phone'?{...field,required:true}:field);return workflow;};
   return {
     actorScope: () => ({ userId: "actor", companyCode: "TEST" }),
     assertOperation: vi.fn(async (_req, id) => operationById(id)),
-    currentWorkflow: vi.fn(async (_req, id) => defaultWorkflow(operationById(id)!)),
-    listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(op => state.includeHr && op.module === 'hr' || ["worker", "labor-partner", "student-partner", "retail-partner"].includes(op.module) || op.path === "/retail/finance/commission/kpi").map(defaultWorkflow)),
+    currentWorkflow: vi.fn(async (_req, id) => configured(operationById(id)!)),
+    listWorkflows: vi.fn(async () => ASSISTANT_OPERATIONS.filter(op => state.includeHr && op.module === 'hr' || state.includeStudents && op.module === 'student' || ["worker", "labor-partner", "student-partner", "retail-partner"].includes(op.module) || op.path === "/retail/finance/commission/kpi").map(configured)),
   };
 });
 vi.mock("./settings", async () => {
   const { defaultAssistantSettings } = await import("../../src/shared/assistant-workflow");
-  return { getSettings: vi.fn(async () => ({ ...defaultAssistantSettings, memoryEnabled: false, autoMemoryEnabled: false, responseRules: "" })) };
+  return { getSettings: vi.fn(async () => ({ ...defaultAssistantSettings, alwaysConfirm:state.alwaysConfirm, memoryEnabled: false, autoMemoryEnabled: false, responseRules: "" })) };
 });
 vi.mock("./interpreter", () => ({ interpretRequest: state.interpret, isEmployeeDetailsIntent: () => false }));
 vi.mock("./semantic-interpreter", () => ({ interpretRequest: state.interpret }));
@@ -96,7 +106,7 @@ vi.mock("./documents", () => ({ answerAssistantConversation: vi.fn() }));
 vi.mock("./session-memory", () => ({ SESSION_MEMORY_LIMIT: 2400, summarizeAssistantSession: async () => null }));
 
 import { processTurn } from "./service";
-import { ASSISTANT_OPERATIONS } from "./catalog";
+import { ASSISTANT_OPERATIONS, operationById } from "./catalog";
 import { callOperation } from "./executor";
 import { parseAssistantResultTable } from "../../src/shared/assistant-result-table";
 
@@ -105,6 +115,34 @@ const workerId = "64b000000000000000000022";
 const contractId = "64b000000000000000000023";
 const req = { user: { id: "actor", uid: "actor", email: "actor@example.com", companyCode: "TEST", branchId: "507f1f77bcf86cd799439012", role: "admin" }, headers: { authorization: "Bearer scoped" }, socket: { localPort: 4050, localAddress: "127.0.0.1" } } as any;
 const turn = (input: any) => processTurn(req, { conversationId: "worker-conversation", requestId: randomUUID(), ...input });
+it.each([true,false])('presents a partial read honestly through the common service (match=%s)',async matched=>{
+  state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'worker.project.list',values:{analysis:{where:{field:'name',operator:'contains',value:matched?'QA':'Absent'},select:['name']}}});
+  fetcher.mockImplementation(async(url:any,init:any)=>{
+    expect(init?.method||'GET').toBe('GET');
+    if(new URL(String(url)).pathname.endsWith('/worker-management/projects'))return json({data:[{_id:workerId,name:'QA Dự án'},{_id:contractId,name:'Dự án khác'}]});
+    throw Error('UNEXPECTED_PARTIAL_READ');
+  });
+  const result=await turn({text:'Lọc dự án lao động có tên phù hợp'});
+  expect(result.status,JSON.stringify(result)).toBe('completed');
+  expect(result.reply).toContain(matched?'chưa bao gồm toàn bộ':'chưa thể kết luận cho toàn bộ');
+  if(matched){expect(result.reply).toContain('QA Dự án');expect(result.reply).not.toContain('Dự án khác');}
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it('executes a shared OR filter through read dispatch and renders only selected public columns',async()=>{
+  state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'worker.list',values:{analysis:{where:{any:[{field:'status',operator:'eq',value:'active'},{field:'laborType',operator:'eq',value:'seasonal'}]},select:['fullName','status']}}});
+  fetcher.mockImplementation(async(url:any,init:any)=>{
+    const path=new URL(String(url)).pathname;
+    if(path.endsWith('/workers')){
+      expect(init?.method||'GET').toBe('GET');expect(new URL(String(url)).searchParams.has('analysis')).toBe(false);
+      return json({workers:[{_id:workerId,fullName:'QA A',status:'active',laborType:'official',phone:'PRIVATE'},{_id:projectId,fullName:'QA B',status:'inactive',laborType:'seasonal',phone:'PRIVATE'},{_id:contractId,fullName:'QA C',status:'inactive',laborType:'official',phone:'PRIVATE'}]});
+    }
+    throw Error('UNEXPECTED_FILTER_REQUEST');
+  });
+  const result=await turn({text:'Lọc lao động đang làm hoặc thuộc nhóm thời vụ giúp mình'});
+  expect(result.status,JSON.stringify(result)).toBe('completed');
+  expect(result.reply).toContain('QA A');expect(result.reply).toContain('QA B');expect(result.reply).not.toContain('QA C');expect(result.reply).not.toContain('PRIVATE');expect(result.reply).not.toContain(workerId);
+  expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(2);expect(fetcher).toHaveBeenCalledTimes(1);
+});
 const json = (data: unknown) => new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
 let fetcher: ReturnType<typeof vi.fn>;
 let savedWorker: Record<string, unknown> | undefined;
@@ -161,11 +199,23 @@ it('rechecks module access after an option was issued', async () => {
   state.includeHr = true;
   state.interpret.mockResolvedValueOnce({ actionId: null, intentType: 'ambiguous', values: {}, clarificationModules: ['hr', 'worker'] });
   const choice = await turn({ text: 'Tạo dự án QA' });
-  state.includeHr = false;
+  state.includeHr = false; state.includeStudents = false; state.requireWorkerPhone=false;
   const option = choice.workflowSelection!.options.find(item => item.label === 'Nhân sự')!;
   const reply = await turn({ workflowSelection: { id: choice.workflowSelection!.id, value: option.value } });
   expect(reply.status).toBe('failed');
   expect(state.interpret).toHaveBeenCalledTimes(1);
+});
+it('renews an expired module list without accepting its old option or calling the model again',async()=>{
+ state.includeHr=true;
+ state.interpret.mockResolvedValueOnce({actionId:null,intentType:'ambiguous',values:{},clarificationModules:['hr','worker']});
+ const first=await turn({text:'Tạo dự án QA'}),old=first.workflowSelection!;
+ state.session.workflowChoice.expiresAt=Date.now()-1;
+ state.includeHr=false;
+ const reply=await turn({workflowSelection:{id:old.id,value:old.options[0].value}});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');expect(reply.workflowSelection?.id).not.toBe(old.id);
+ expect(reply.workflowSelection?.options.every(option=>option.label!=='Nhân sự')).toBe(true);
+ expect(reply.workflowSelection?.options.every(option=>!old.options.some(prior=>prior.value===option.value))).toBe(true);
+ expect(state.interpret).toHaveBeenCalledOnce();expect(fetcher).not.toHaveBeenCalled();
 });
 const kpiOperation = ASSISTANT_OPERATIONS.find(op => op.path === "/worker-management/partners/kpi")!;
 it("does not write a legacy student commission value that cannot change the calculated commission", async () => {
@@ -255,6 +305,7 @@ it("reads two authorized workflows and synthesizes only their selected public fi
     if (path.endsWith("/worker-management/partners/kpi")) {
       return json({ success: true, data: { periodStart: "2026-11-01T00:00:00.000Z", periodEnd: "2026-12-01T00:00:00.000Z", items: [
         { partner: { name: "Đối tác An", code: "AN" }, targetReferrals: 5, actualReferrals: 8, remainingReferrals: 0, completionRate: 160, status: "achieved" },
+        { partner: { name: "QA Đối tác thấp hơn", code: "LOW" }, targetReferrals: 5, actualReferrals: 1, remainingReferrals: 4, completionRate: 20, status: "incomplete" },
       ] } });
     }
     throw new Error(`Unexpected API path ${path}`);
@@ -276,7 +327,10 @@ it("reads two authorized workflows and synthesizes only their selected public fi
   ]);
   expect(result.reply).toContain("Đối tác An");
   expect(result.reply).not.toContain("PRIVATE");
-  expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(1);
+  expect(state.provider.mock.calls.map(([args])=>args.messages?.at(-1)?.content).join('\n')).not.toContain('QA Đối tác thấp hơn');
+  expect(result.reply).toContain('Nguyễn An');
+  expect(parseAssistantResultTable(result.reply)?.rows).toHaveLength(4);
+  expect(state.provider).not.toHaveBeenCalled();
   expect(state.turns.at(-1).steps.every((step: any) => step.status === "completed")).toBe(true);
 });
 
@@ -488,8 +542,8 @@ it("collects missing commission rules instead of inventing them for a named new 
 });
 
 beforeEach(() => {
-  state.includeHr = false;
-  state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();
+  state.includeHr = false; state.includeStudents = false; state.requireWorkerPhone=false;state.alwaysConfirm=true;
+  state.session = null; state.turns = []; state.interpret.mockReset(); state.provider.mockReset();state.fit.mockReset();
   savedWorker = undefined;
   fetcher = vi.fn(async (url: URL, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
@@ -533,7 +587,8 @@ it("lets the user choose a contract by its worker and contract code before confi
 it.each([false, true])("creates a worker, skips optional references, and updates that same worker (form=%s)", async form => {
   state.interpret.mockResolvedValueOnce({ actionId: "worker.create", values: { fullName: "Lê Minh", phone: "0900000000" }, intentType: "workflow" });
 
-  const optionalProjectPrompt = await turn({ text: "Tạo hồ sơ lao động cho Lê Minh, số điện thoại 0900000000" });
+  const projectLabel=operationById('worker.create')!.fields.find(field=>field.key==='projectId')!.label;
+  const optionalProjectPrompt = await turn({ text: `Tạo hồ sơ lao động cho Lê Minh, số điện thoại 0900000000, mình muốn chọn ${projectLabel}` });
   expect(optionalProjectPrompt.status).toBe("collecting");
   expect(optionalProjectPrompt.referenceSelections?.find(group => group.key === "projectId")?.required).toBe(false);
   const preview = await turn(form
@@ -562,7 +617,214 @@ it.each([false, true])("creates a worker, skips optional references, and updates
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === "/api/v1/worker-management/workers" && init?.method === "POST")).toHaveLength(1);
   expect(fetcher.mock.calls.filter(([url, init]) => new URL(String(url)).pathname === `/api/v1/worker-management/workers/${workerId}` && init?.method === "PATCH")).toHaveLength(1);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.useRealTimers();vi.unstubAllGlobals();vi.unstubAllEnvs();});
+
+it('keeps semantic creation in the shared option/form and confirmation flow without writing',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+  state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units)return {text:JSON.stringify({version:1,units:[
+      {id:'u1',kind:'goal',quote:'Thêm lao động',concept:'Tạo hồ sơ lao động',operator:'create',value:null},
+      {id:'u2',kind:'input',quote:'QA Ctx',concept:'Họ tên',operator:'eq',value:'QA Ctx'},
+      {id:'u3',kind:'input',quote:'0900000000',concept:'Điện thoại',operator:'eq',value:'0900000000'},
+    ]})};
+    if(properties.modules)return {text:JSON.stringify({modules:['worker']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:[`worker:${ASSISTANT_OPERATIONS.find(op=>op.id==='worker.create')!.assistantMetadata!.featureKey}`],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:['worker.create']})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:'worker.create',actionIntent:'create',values:{fullName:'QA Ctx',phone:'0900000000'},meaningBindings:[{unitId:'u1',targets:['action']},{unitId:'u2',targets:['values.fullName']},{unitId:'u3',targets:['values.phone']}]})};
+  });
+  const preview=await turn({text:'Thêm lao động QA Ctx 0900000000'});
+  expect(preview.status,JSON.stringify(preview)).toBe('confirmation');
+  expect(preview.referenceSelections).toBeUndefined();
+  expect(savedWorker).toBeUndefined();
+  expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+
+it('collects only missing required data and preserves verified intent across form and confirmation turns',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');state.includeHr=true;state.requireWorkerPhone=true;state.alwaysConfirm=false;
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+  state.interpret.mockImplementation(actual.interpretRequest);
+  const name='QA trong phân hệ Nhân sự';
+  state.provider.mockImplementation(async input=>{
+    const p=input.responseSchema?.properties||{};
+    if(p.units)return {text:JSON.stringify({version:1,units:[{id:'u1',kind:'goal',quote:'Thêm lao động',concept:'Tạo hồ sơ lao động',operator:'create',value:null},{id:'u2',kind:'input',quote:name,concept:'Họ tên',operator:'eq',value:name}]})};
+    if(p.featureKeys)return {text:JSON.stringify({featureKeys:[`worker:${operationById('worker.create')!.assistantMetadata!.featureKey}`],decision:'search',question:'',unavailableModule:null})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:'worker.create',actionIntent:'create',values:{fullName:name},meaningBindings:[{unitId:'u1',targets:['action']},{unitId:'u2',targets:['values.fullName']}]})};
+  });
+  const collecting=await turn({text:`Thêm lao động tên ${name}`});
+  expect(collecting.status,JSON.stringify(collecting)).toBe('collecting');
+  expect(collecting.inputForm?.fields.some(field=>field.key==='phone'&&field.required)).toBe(true);
+  expect(collecting.referenceSelections?.some(group=>group.key==='projectId')).not.toBe(true);
+  expect(state.session.pending.semanticExecution?.actionId).toBe('worker.create');
+  const preview=await turn({formValues:{id:collecting.inputForm!.id,values:{phone:'0900000000'}}});
+  expect(preview.status,JSON.stringify(preview)).toBe('confirmation');expect(savedWorker).toBeUndefined();
+  const completed=await turn({decision:{id:preview.action!.id,confirmed:true}});
+  expect(completed.status,JSON.stringify(completed)).toBe('completed');expect(savedWorker?.fullName).toBe(name);
+  expect(completed.reply).toMatch(/Bạn có muốn bổ sung/);
+  expect(fetcher.mock.calls.filter(([url,init])=>new URL(String(url)).pathname.endsWith('/worker-management/workers')&&init?.method==='POST')).toHaveLength(1);
+});
+
+it('uses semantic requested inputs to offer an optional reference without matching its field label in the sentence',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const p=input.responseSchema?.properties||{};
+    if(p.units)return {text:JSON.stringify({version:1,units:[{id:'u1',kind:'goal',quote:'Thêm lao động',concept:'Tạo hồ sơ',operator:'create',value:null},{id:'u2',kind:'input',quote:'QA Mới',concept:'Tên',operator:'eq',value:'QA Mới'},{id:'u3',kind:'reference',quote:'chọn chỗ làm',concept:'Dự án làm việc',operator:'eq',value:null}]})};
+    if(p.featureKeys)return {text:JSON.stringify({featureKeys:[`worker:${operationById('worker.create')!.assistantMetadata!.featureKey}`],decision:'search',question:'',unavailableModule:null})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:'worker.create',actionIntent:'create',values:{fullName:'QA Mới'},meaningBindings:[{unitId:'u1',targets:['action']},{unitId:'u2',targets:['values.fullName']},{unitId:'u3',targets:['values.projectId']}]})};
+  });
+  const collecting=await turn({text:'Thêm lao động QA Mới, chọn chỗ làm giúp mình'});
+  expect(collecting.status,JSON.stringify(collecting)).toBe('collecting');
+  const group=collecting.referenceSelections?.find(group=>group.key==='projectId');expect(group?.options.length).toBeGreaterThan(0);
+  expect(state.session.pending.provided.projectId).toBeUndefined();expect(savedWorker).toBeUndefined();
+  const preview=await turn({referenceSelections:{projectId:[group!.options[0].value]}});
+  expect(preview.status,JSON.stringify(preview)).toBe('confirmation');expect(savedWorker).toBeUndefined();
+});
+
+it('completes a semantic read through shared dispatch and renders the public result table',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+  state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units)return {text:JSON.stringify({version:1,units:[
+      {id:'u1',kind:'ordering',quote:'Gần nhất',concept:'Ngày chi gần nhất',operator:'max',value:null,dimension:'temporal'},
+      {id:'u2',kind:'goal',quote:'chi cho đối tác tuyển sinh',concept:'Tra cứu khoản chi',operator:'report',value:null},
+      {id:'u3',kind:'output',quote:'ai nhận',concept:'Người nhận',operator:'none',value:null},
+    ]})};
+    if(properties.modules)return {text:JSON.stringify({modules:['student-partner']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:['student-partner:partner-payouts'],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:['partner.payouts.analysis']})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:'partner.payouts.analysis',actionIntent:'report',values:{analysis:{extreme:{field:'paidOn',direction:'max'},select:['partnerName']}},meaningBindings:[{unitId:'u1',targets:['analysis.extreme.paidOn']},{unitId:'u2',targets:['action']},{unitId:'u3',targets:['result.partnerName']}]})};
+  });
+  fetcher.mockImplementation(async(input,init)=>{
+    expect(init?.method).toBe('GET');
+    expect(new URL(String(input)).pathname).toBe('/api/v1/partners/payout-history');
+    return json({success:true,analysisComplete:true,data:[{partnerName:'QA Ctx',paidOn:'2026-11-25',amount:1,method:'Tiền mặt'}]});
+  });
+  const result=await turn({text:'Gần nhất chi cho đối tác tuyển sinh ai nhận'});
+  expect(result.status,JSON.stringify(result)).toBe('completed');
+  expect(parseAssistantResultTable(result.reply)?.rows[0]?.values).toMatchObject({'Đối tác':'QA Ctx'});
+  expect(state.turns.at(-1).steps.every((step:any)=>step.status==='completed')).toBe(true);
+  expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('lists students for a clear request using a normal actionId binding instead of asking to clarify presentation',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');state.includeStudents=true;
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  const op=ASSISTANT_OPERATIONS.find(op=>op.id==='student.list')!;
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units)return {text:JSON.stringify({version:1,units:[{id:'u1',kind:'goal',quote:'đưa ra danh sách học viên',concept:'Trình bày danh sách',operator:'lookup',value:null,dimension:'none'}]})};
+    if(properties.modules)return {text:JSON.stringify({modules:['student']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:[`${op.module}:${op.assistantMetadata!.featureKey}`],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:[op.id]})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:op.id,actionIntent:'lookup',values:{},meaningBindings:[{unitId:'u1',targets:['actionId','context.module']}]})};
+  });
+  fetcher.mockImplementation(async(url,init)=>{
+    expect(init?.method).toBe('GET');expect(new URL(String(url)).pathname).toBe('/api/v1/students');
+    return json({success:true,students:[{_id:'64b000000000000000000051',fullName:'QA Học viên Một',phone:'0900090001'}],total:1,page:1,limit:20});
+  });
+  const reply=await turn({text:'đưa ra danh sách học viên'});
+  expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Học viên Một');
+  expect(parseAssistantResultTable(reply.reply)?.rows).toHaveLength(1);
+  expect(reply.reply).not.toContain('cần làm rõ');expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('reports an internal planning failure after one repair without blaming the user or dispatching an API',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');state.includeStudents=true;
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  const op=ASSISTANT_OPERATIONS.find(op=>op.id==='student.list')!;let plans=0,meanings=0;
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units){meanings++;return {text:JSON.stringify({version:1,units:[{id:'u1',kind:'goal',quote:'đưa ra danh sách học viên',concept:'Trình bày danh sách',operator:'lookup',value:null,dimension:'none'}]})};}
+    if(properties.modules)return {text:JSON.stringify({modules:['student']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:[`${op.module}:${op.assistantMetadata!.featureKey}`],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:[op.id]})};
+    plans++;return {text:JSON.stringify({intentType:'workflow',actionId:op.id,actionIntent:'lookup',values:{},meaningBindings:[{unitId:'u1',targets:['result.fullName']}]})};
+  });
+  const reply=await turn({text:'đưa ra danh sách học viên'});
+  expect(reply.status,JSON.stringify(reply)).toBe('failed');expect(reply.reply).toContain('lỗi khi lập phương án');
+  expect(reply.reply).not.toMatch(/cần làm rõ|cấp quyền|Mở tab|tên màn hình/);expect(fetcher).not.toHaveBeenCalled();
+  expect(plans).toBe(2);expect(meanings).toBe(1);
+});
+
+it('reads a named partner referral history with equivalent goal bindings and completes the public student table',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units)return {text:JSON.stringify({version:1,units:[
+      {id:'u1',kind:'goal',quote:'Xem lịch sử giới thiệu học viên',concept:'Tra cứu lịch sử',operator:'lookup',value:null,dimension:'none'},
+      {id:'u2',kind:'reference',quote:'của đối tác QA Partner',concept:'Đối tác tuyển sinh',operator:'eq',value:'QA Partner',dimension:'none'},
+    ]})};
+    if(properties.modules)return {text:JSON.stringify({modules:['student-partner']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:['student-partner:partner-records'],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:['partner.referrals']})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:'partner.referrals',actionIntent:'lookup',values:{path_id:'QA Partner'},meaningBindings:[{unitId:'u1',targets:['actionId','context.module']},{unitId:'u2',targets:['values.path_id']}]})};
+  });
+  const partnerId='64b000000000000000000061';
+  fetcher.mockImplementation(async(url,init)=>{
+    expect(init?.method).toBe('GET');const path=new URL(String(url)).pathname;
+    if(path==='/api/v1/partners')return json({success:true,partners:[{_id:partnerId,name:'QA Partner',phone:'0900090001'}],total:1,page:1});
+    if(path===`/api/v1/partners/${partnerId}`)return json({success:true,data:{name:'QA Partner',referredStudents:[{fullName:'QA Học viên Một',registrationDate:'20/11/2026',fee:1000000},{fullName:'QA Học viên Hai',registrationDate:'21/11/2026',fee:2000000}],totalReferredTuition:3000000}});
+    throw Error('Unexpected route '+path);
+  });
+  const reply=await turn({text:'Xem lịch sử giới thiệu học viên của đối tác QA Partner'});
+  expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Học viên Một');expect(reply.reply).toContain('QA Học viên Hai');
+  expect(parseAssistantResultTable(reply.reply)?.rows).toHaveLength(2);expect(reply.reply).not.toContain(partnerId);
+});
+
+it('rejects a wrong entity source, recovers globally and only dispatches the approved referral read',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');state.includeStudents=true;let plans=0;
+  state.fit.mockResolvedValue({text:JSON.stringify({approvedActionIds:['partner.referrals'],question:''})});
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units)return {text:JSON.stringify({version:1,units:[
+      {id:'u1',kind:'goal',quote:'Xem lịch sử giới thiệu học viên',concept:'Tra cứu lịch sử',operator:'lookup',value:null,dimension:'none'},
+      {id:'u2',kind:'reference',quote:'của đối tác QA Partner',concept:'Đối tác tuyển sinh',operator:'eq',value:'QA Partner',dimension:'none'},
+    ]})};
+    if(properties.modules)return {text:JSON.stringify({modules:['student-partner']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:['student:students'],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:['partner.referrals']})};
+    plans++;return {text:JSON.stringify({intentType:'workflow',actionId:plans===1?'student.list':'partner.referrals',actionIntent:'lookup',values:{path_id:'QA Partner'},meaningBindings:[{unitId:'u1',targets:['actionId','context.module']},{unitId:'u2',targets:['values.path_id']}]})};
+  });
+  const partnerId='64b000000000000000000061';
+  fetcher.mockImplementation(async(url,init)=>{
+    expect(init?.method).toBe('GET');const path=new URL(String(url)).pathname;
+    if(path==='/api/v1/partners')return json({success:true,partners:[{_id:partnerId,name:'QA Partner',phone:'0900090001'}],total:1,page:1});
+    if(path===`/api/v1/partners/${partnerId}`)return json({success:true,data:{name:'QA Partner',referredStudents:[{fullName:'QA Học viên Một',registrationDate:'20/11/2026',fee:1000000},{fullName:'QA Học viên Hai',registrationDate:'21/11/2026',fee:2000000}],totalReferredTuition:3000000}});
+    throw Error('Unexpected route '+path);
+  });
+  const reply=await turn({text:'Xem lịch sử giới thiệu học viên của đối tác QA Partner'});
+  expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Học viên Một');expect(reply.reply).toContain('QA Học viên Hai');
+  expect(plans).toBe(2);expect(state.fit).toHaveBeenCalledTimes(2);expect(fetcher.mock.calls.every(([url])=>!new URL(String(url)).pathname.endsWith('/students'))).toBe(true);
+  expect(parseAssistantResultTable(reply.reply)?.rows).toHaveLength(2);expect(reply.reply).not.toContain(partnerId);
+});
+
+it('rechecks the server-only semantic proof for a composite read instead of applying legacy word coverage',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const properties=input.responseSchema?.properties||{};
+    if(properties.units)return {text:JSON.stringify({version:1,units:[{id:'u1',kind:'goal',quote:'Tra cứu lao động',concept:'Xem hồ sơ',operator:'lookup',value:null,dimension:'none'},{id:'u2',kind:'condition',quote:'chưa có hợp đồng',concept:'Thiếu quan hệ hợp đồng',operator:'not_exists',value:null,dimension:'none'}]})};
+    if(properties.modules)return {text:JSON.stringify({modules:['worker']})};
+    if(properties.featureKeys)return {text:JSON.stringify({featureKeys:[...new Set(['worker.list','worker.labor.contract.list'].map(id=>`worker:${ASSISTANT_OPERATIONS.find(op=>op.id===id)!.assistantMetadata!.featureKey}`))],ambiguous:false,clarification:''})};
+    if(properties.actionIds)return {text:JSON.stringify({actionIds:['worker.list','worker.labor.contract.list']})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:null,actionIntent:'report',values:{},queryPlan:[{actionId:'worker.list',purpose:'Lao động',values:{},resultFields:['fullName'],relation:'workers-without-contracts'},{actionId:'worker.labor.contract.list',purpose:'Hợp đồng',values:{},resultFields:['workerName']}],meaningBindings:[{unitId:'u1',targets:['query:worker.list:actionId']},{unitId:'u2',targets:['query:worker.list:relation']}]})};
+  });
+  fetcher.mockImplementation(async(url,init)=>{
+    expect(init?.method).toBe('GET');const path=new URL(String(url)).pathname;
+    if(path.endsWith('/workers'))return json({workers:[{_id:workerId,fullName:'QA Có hợp đồng'},{_id:'64b000000000000000000099',fullName:'QA Thiếu hợp đồng'}]});
+    if(path.endsWith('/labor-contracts'))return json({success:true,data:[{_id:contractId,workerId,workerName:'QA Có hợp đồng'}],total:1,page:1,limit:100});
+    throw Error('Unexpected route '+path);
+  });
+  const reply=await turn({text:'Tra cứu lao động chưa có hợp đồng'});
+  expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Thiếu hợp đồng');expect(reply.reply).not.toContain('QA Có hợp đồng');
+});
 it.each([
   ["Đổi địa điểm Dự án lắp đặt thành Hà Nội", {location: "Hà Nội"}],
   ["Dời ngày kết thúc Dự án lắp đặt sang 30/12/2026", {endDate: "2026-12-30"}],
@@ -597,4 +859,202 @@ it("lets the user choose a project and a worker in chat before confirming the as
   expect(JSON.stringify(preview)).not.toContain(projectId);
   expect(JSON.stringify(preview)).not.toContain(workerId);
   expect(fetcher.mock.calls.every(([url]) => ["/api/v1/worker-management/projects", "/api/v1/worker-management/workers"].includes(new URL(String(url)).pathname))).toBe(true);
+});
+
+
+it('corrects a draft, pauses for an unrelated read, resumes with a fresh preview and cancels without business writes',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+  state.interpret.mockResolvedValueOnce({actionId:'worker.create',values:{fullName:'QA Cũ',phone:'0900090998'},intentType:'workflow'});
+  let result=await turn({text:'Thêm lao động QA Cũ 0900090998'});
+  if(result.status==='collecting')result=await turn({skipReferenceKeys:result.referenceSelections?.filter(s=>!s.required).map(s=>s.key)||[]});
+  expect(result.status,JSON.stringify(result)).toBe('confirmation');
+  const staleId=result.action!.id;
+  const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+  state.provider.mockImplementation(async input=>{
+    const props=input.responseSchema?.properties||{};
+    if(props.units)return {text:JSON.stringify({version:1,dialogue:{act:'correct',evidence:'À nhầm'},units:[{id:'u1',kind:'input',quote:'QA Mới',concept:'Tên đúng',operator:'eq',value:'QA Mới',dimension:'none'}]})};
+    return {text:JSON.stringify({intentType:'workflow',actionId:'worker.create',actionIntent:'create',newRequest:true,values:{fullName:'QA Mới'},meaningBindings:[{unitId:'u1',targets:['values.fullName']}]})};
+  });
+  result=await turn({text:'À nhầm tên QA Mới mới đúng'});
+  expect(result.status,JSON.stringify(result)).toBe('confirmation');
+  expect(state.session.pending.provided.fullName).toBe('QA Mới');expect(state.session.pending.provided.phone).toBe('0900090998');
+  expect(result.action!.id).not.toBe(staleId);
+  state.interpret.mockReset().mockResolvedValueOnce({intentType:'workflow',actionId:'worker.list',values:{},pausePending:true,newRequest:true});
+  const paused=await turn({text:'Khoan tạo, xem danh sách lao động trước đã'});
+  expect(paused.status,JSON.stringify(paused)).toBe('completed');expect(state.session.pending).toBeNull();expect(state.session.pausedAssistant.pending.provided.fullName).toBe('QA Mới');
+  state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'worker.create',values:{fullName:'QA Hoàn Thiện'},resumePending:true});
+  const resumed=await turn({text:'Quay lại việc đang tạo, đổi tên QA Hoàn Thiện nhé'});
+  expect(resumed.status,JSON.stringify(resumed)).toBe('confirmation');expect(resumed.action!.id).not.toBe(result.action!.id);expect(state.session.pausedAssistant).toBeNull();
+  expect(state.session.pending.provided.fullName).toBe('QA Hoàn Thiện');
+  expect((await turn({decision:{id:staleId,confirmed:true}})).status).toBe('failed');
+  state.interpret.mockResolvedValueOnce({intentType:'ambiguous',actionId:null,values:{},cancel:true});
+  expect((await turn({text:'Thôi khỏi làm nữa'})).status).toBe('cancelled');expect(state.session.pending).toBeNull();
+  expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+
+it('does not resume a paused request after the conversation branch changes',async()=>{
+  state.interpret.mockResolvedValueOnce({actionId:'worker.create',values:{fullName:'QA Cũ',phone:'0900090998'},intentType:'workflow'});
+  await turn({text:'Thêm lao động QA Cũ 0900090998'});
+  state.interpret.mockResolvedValueOnce({actionId:null,values:{},pausePending:true,intentType:'ambiguous'});
+  await turn({text:'Tạm gác lại'});
+  expect(state.session.pausedAssistant).toBeTruthy();
+  state.session.pausedAssistant.scope='different-branch';
+  state.interpret.mockResolvedValueOnce({actionId:null,values:{},resumePending:true,intentType:'ambiguous',clarification:'Bạn muốn quay lại việc nào?'});
+  const result=await turn({text:'Quay lại đi'});
+  expect(result.status).not.toBe('confirmation');expect(state.session.pending).toBeNull();expect(state.session.pausedAssistant).toBeNull();
+  expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+
+it.each(['continue','followup','request','goal-continue'])('keeps an unchanged draft at confirmation when acknowledgement is labeled %s, without planning or re-approving',async act=>{
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'worker.create',values:{fullName:'QA Soạn',phone:'0900090998'}});
+ let reply=await turn({text:'Thêm lao động QA Soạn 0900090998'});
+ if(reply.status==='collecting')reply=await turn({skipReferenceKeys:reply.referenceSelections?.filter(s=>!s.required).map(s=>s.key)||[]});
+ expect(reply.status).toBe('confirmation');
+ vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+ const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+ state.provider.mockImplementation(async input=>{
+  if(input.responseSchema?.properties.units)return {text:JSON.stringify({version:1,dialogue:{act:act==='goal-continue'?'continue':act,evidence:'Ừ thông tin thế được rồi'},units:[{id:'u1',kind:act==='goal-continue'?'goal':'framing',quote:'Ừ thông tin thế được rồi',concept:'Thông tin bản soạn đã ổn, chưa xác nhận thực thi',operator:act==='goal-continue'?'create':'none',value:null,dimension:'none'}]})};
+  if(act==='goal-continue')return {text:JSON.stringify({intentType:'ambiguous',actionId:null,values:{},meaningBindings:[{unitId:'u1',targets:['context.discourse']}],actionIntent:'create',resumeGoal:true})};
+  throw Error('Acknowledgement must not trigger action planning');
+ });
+ reply=await turn({text:'Ừ thông tin thế được rồi'});
+ expect(reply.status,JSON.stringify(reply)).toBe('confirmation');expect(JSON.stringify(reply.action?.values)).toContain('QA Soạn');
+ expect(state.session.pending.provided.phone).toBe('0900090998');expect(state.fit).not.toHaveBeenCalled();
+ expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+
+it.each([
+ ['L03-original','Trong quản lí lao động, Đối tác nào giới thiệu được nhiều lao động nhất trong tháng?', ['QA An']],
+ ['L04','Trong quản lí lao động, đối tác nào đang thiếu KPI tháng?', ['QA Bình']],
+ ['L05','Trong quản lí lao động, các đối tác nào đã đạt đủ KPI?', ['QA An']],
+ ['L06','Trong quản lí lao động, Đối tác nào giới thiệu được ít lao động nhất trong tháng?', ['QA Bình']],
+])('executes the captured web meaning/plan through real semantic compilation and completion: %s',async(id,text,names)=>{
+ vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+ const fixtures=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-web-labor.json',import.meta.url),'utf8'));
+ vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-11-26T04:00:00Z'));
+ const fixture=fixtures.find((f:any)=>f.id===id),plan=fixture.plans.at(-1),actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+ state.interpret.mockImplementation(actual.interpretRequest);
+ state.provider.mockImplementation(async input=>{
+  const p=input.responseSchema?.properties||{};
+  if(p.units)return {text:JSON.stringify(fixture.meaning)};
+  if(p.decision)return {text:JSON.stringify({featureKeys:['labor-partner:partner-referral-analysis'],decision:'search',question:'',unavailableModule:null})};
+  return {text:JSON.stringify(plan)};
+ });
+ state.fit.mockImplementation(async()=>{
+  const role=(unitId:string,role:string,target:string,predicates:any[]=[])=>({unitId,actionId:plan.actionId,role,target,predicates});
+  const scope=fixture.meaning.units.find((u:any)=>u.kind==='scope');
+  const resolutions=[role(scope.id,'module_context','context.module')];
+  for(const u of fixture.meaning.units){
+   if(u.kind==='aggregate')resolutions.push(role(u.id,'row_measure','result.actualReferrals'));
+   if(u.kind==='group')resolutions.push(role(u.id,'row_dimension','result.partnerName'));
+   if(u.kind==='output')resolutions.push(role(u.id,'public_output','result.partnerName'));
+   if(u.kind==='condition')resolutions.push(role(u.id,'read_predicate','',[{field:'status',operator:'eq',value:id==='L04'?'incomplete':'achieved'}]));
+  }
+  return {text:JSON.stringify({approvedActionIds:[plan.actionId],question:'',resolutions})};
+ });
+ fetcher.mockImplementation(async(url,init)=>{
+  expect(init?.method).toBe('GET');expect(new URL(String(url)).pathname).toBe('/api/v1/worker-management/partners/kpi');
+  return json({success:true,data:{periodStart:'2026-11-01',periodEnd:'2026-12-01',items:[
+   {partner:{name:'QA An',code:'A'},actualReferrals:2,targetReferrals:1,remainingReferrals:0,completionRate:200,status:'achieved'},
+   {partner:{name:'QA Bình',code:'B'},actualReferrals:1,targetReferrals:10,remainingReferrals:9,completionRate:10,status:'incomplete'},
+  ]}});
+ });
+ const reply=await turn({text});expect(reply.status,JSON.stringify(reply)).toBe('completed');
+ expect(parseAssistantResultTable(reply.reply)?.rows.map(r=>r.values['Đối tác'])).toEqual(names);
+ expect(state.turns.at(-1).steps.at(-1).status).toBe('completed');expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('opens collection for a captured lifecycle-date create and then preserves user selections until confirmation',async()=>{
+ vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+ const fixtures=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-web-labor.json',import.meta.url),'utf8')),fixture=fixtures.find((f:any)=>f.id==='L02'),plan=fixture.plans[0];
+ const actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');state.interpret.mockImplementation(actual.interpretRequest);
+ state.provider.mockImplementation(async input=>{
+  const p=input.responseSchema?.properties||{};
+  if(p.units)return {text:JSON.stringify(fixture.meaning)};
+  if(p.decision)return {text:JSON.stringify({featureKeys:['labor-partner:partner-policies'],decision:'search',question:'',unavailableModule:null})};
+  return {text:JSON.stringify(plan)};
+ });
+ state.fit.mockResolvedValue({text:JSON.stringify({approvedActionIds:[plan.actionId],question:'',resolutions:[{unitId:'u4',actionId:plan.actionId,role:'temporal_input',target:'values.effectiveFrom',predicates:[]}]})});
+ let reply=await turn({text:'Thêm 1 chính sách hoa hồng mới - QA Chính sách lao động cuối năm, áp dụng từ 1/12/2026'});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');expect(reply.referenceSelections?.length).toBeGreaterThan(0);
+ state.interpret.mockReset().mockResolvedValue({intentType:'workflow',actionId:plan.actionId,values:{settlementCycle:{type:'calendar_month'},official:{enabled:true,maxMonths:1,milestones:[{month:1,amount:500000,eligibilityRule:'contract_active'}]},seasonal:{enabled:false}}});
+ reply=await turn({text:'Đối soát theo tháng lịch; chính thức 1 tháng, mốc tháng 1 nhận 500000 khi hợp đồng còn hiệu lực; không áp dụng thời vụ.'});
+ expect(reply.status,JSON.stringify(reply)).toBe('confirmation');expect(JSON.stringify(reply.action?.values)).toContain('QA Chính sách lao động cuối năm');
+ expect(JSON.stringify(reply.action?.values)).toContain('01/12/2026');expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+it('reaches confirmation when a reduced limit and explicit replacement milestones are supplied together',async()=>{
+ const op=ASSISTANT_OPERATIONS.find(o=>o.partialUpdate&&o.module==='labor-partner')!,id='64b000000000000000000099';
+ const existing={id,_id:id,name:'QA Cuối năm',version:1,status:'active',effectiveFrom:'2026-11-25',settlementCycle:{type:'calendar_month'},official:{enabled:true,maxMonths:3,milestones:[{month:3,amount:500000,eligibilityRule:'contract_active'}]},seasonal:{enabled:false,tiers:[]}};
+ fetcher.mockImplementation(async(url,init)=>{
+  expect(init?.method).toBe('GET');const path=new URL(String(url)).pathname;
+  if(path.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'QA Branch'}]});
+  if(path.endsWith('/policies'))return json({success:true,data:[existing]});
+  if(path.endsWith('/policies/'+id))return json({success:true,data:existing});
+  throw Error('UNEXPECTED_POLICY_READ:'+path);
+ });
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:op.id,values:{path_policyId:'QA Cuối năm',official:{maxMonths:2,milestones:[1,2].map(month=>({month,amount:500000,eligibilityRule:'contract_active'}))}}});
+ const reply=await turn({text:'Sửa QA Cuối năm còn 2 tháng, mốc tháng 1 và 2 nhận 500000 khi hợp đồng còn hiệu lực'});
+ expect(reply.status,JSON.stringify(reply)).toBe('confirmation');
+ const official=JSON.parse(String(state.session.pending.resolved.official));
+ const preview=String(reply.action!.values.find(v=>v.label==='Hoa hồng lao động chính thức')?.value);
+ expect(preview).toContain('Số tháng tối đa: 2');expect(preview).not.toMatch(/[{}]|maxMonths|eligibilityRule/);
+ expect(official.milestones.map((r:any)=>r.month)).toEqual([1,2]);expect(existing.official.milestones[0].month).toBe(3);
+});
+
+it('collects nested policy inputs and enum selections through the real service without dispatching a write',async()=>{
+ const op=ASSISTANT_OPERATIONS.find(o=>o.method==='POST'&&o.path==='/worker-management/partners/policies')!;
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:op.id,values:{name:'Chính sách QA',effectiveFrom:'2026-12-01',settlementCycle:{type:'calendar_month'},official:{enabled:true},seasonal:{enabled:false}}});
+ let reply=await turn({text:'Tạo chính sách QA áp dụng 1/12/2026, đối soát tháng lịch, có lao động chính thức, không áp dụng thời vụ'});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');
+ expect(reply.inputForm?.fields.map(f=>f.key)).toContain('official.maxMonths');
+ reply=await turn({formValues:{id:reply.inputForm!.id,values:{'official.maxMonths':2}}});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');
+ expect(reply.inputForm?.fields.map(f=>f.key)).toContain('official.milestones[2].amount');
+ const referenceSelections=Object.fromEntries((reply.referenceSelections||[]).map(group=>[group.key,['contract_active']]));
+ expect(Object.keys(referenceSelections)).toEqual(['official.milestones[1].eligibilityRule','official.milestones[2].eligibilityRule']);
+ reply=await turn({formValues:{id:reply.inputForm!.id,values:{'official.milestones[1].month':1,'official.milestones[1].amount':100000,'official.milestones[2].month':2,'official.milestones[2].amount':200000},referenceSelections}});
+ expect(reply.status,JSON.stringify(reply)).toBe('confirmation');
+ const official=JSON.parse(String(state.session.pending.resolved.official));
+ expect(official.milestones).toEqual([{month:1,amount:100000,eligibilityRule:'contract_active'},{month:2,amount:200000,eligibilityRule:'contract_active'}]);
+ expect(JSON.stringify(reply.action?.values)).toContain('01/12/2026');
+ expect(JSON.stringify(reply.action?.values)).not.toContain('maxMonths');
+ expect(fetcher.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+ expect(state.interpret).toHaveBeenCalledOnce();
+});
+it('applies a specialized attendance condition before generic analysis and keeps equal anonymous roster rows',async()=>{
+ state.includeHr=true;
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'timekeeping.records.late',values:{query_date:'2026-11-27',analysis:{select:['employeeName','attendanceStatus']}}});
+ fetcher.mockImplementation(async(url,init)=>{
+  expect(init?.method||'GET').toBe('GET');expect(new URL(String(url)).pathname).toBe('/api/v1/timekeeping/records');
+  return json({data:[{date:'2026-11-27',employeeName:'QA Đi muộn',attendanceStatus:'Đã vào ca, đi muộn'},{date:'2026-11-27',employeeName:'Chưa cập nhật tên',attendanceStatus:'Chưa ghi nhận'},{date:'2026-11-27',employeeName:'Chưa cập nhật tên',attendanceStatus:'Chưa ghi nhận'}]});
+ });
+ const result=await turn({text:'Nhân sự nào đi muộn ngày 27/11/2026'});
+ expect(result.status,JSON.stringify(result)).toBe('completed');expect(result.reply).toContain('QA Đi muộn');expect(result.reply).not.toContain('Chưa cập nhật tên');expect(result.reply).not.toContain('chưa bao gồm toàn bộ');
+ const roster=await callOperation(req,operationById('timekeeping.records.overview')!,{query_date:'2026-11-27'});
+ expect(roster.data).toHaveLength(3);
+});
+it('collects an unresolved requested period with the shared date form instead of using the API default',async()=>{
+ vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','true');
+ const fixture=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-sheet-failures.json',import.meta.url),'utf8')).find((f:any)=>f.id==='POST-S5-R007');
+ const plan=fixture.plans.at(-1),actual=await vi.importActual<typeof import('./semantic-interpreter')>('./semantic-interpreter');
+ state.interpret.mockImplementation(actual.interpretRequest);
+ state.provider.mockImplementation(async input=>{
+  const properties=input.responseSchema?.properties||{};
+  if(properties.units)return {text:JSON.stringify(fixture.meaning)};
+  if(properties.decision)return {text:JSON.stringify({featureKeys:['labor-partner:partner-referral-analysis'],decision:'search',question:'',unavailableModule:null})};
+  return {text:JSON.stringify(plan)};
+ });
+ state.fit.mockResolvedValue({text:JSON.stringify(fixture.fit[0])});
+ let reply=await turn({text:fixture.text});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');
+ expect(reply.inputForm?.fields.find(field=>field.key==='query_periodAnchor')).toMatchObject({type:'date',required:true});
+ expect(fetcher).not.toHaveBeenCalled();
+ fetcher.mockImplementation(async(url,init)=>{
+  expect(init?.method||'GET').toBe('GET');expect(new URL(String(url)).searchParams.get('periodAnchor')).toBe('2026-11-01');
+  return json({success:true,data:{periodStart:'2026-11-01',periodEnd:'2026-12-01',items:[{partner:{name:'QA An',code:'A'},actualReferrals:2,targetReferrals:3,remainingReferrals:1,completionRate:66,status:'incomplete'}]}});
+ });
+ reply=await turn({formValues:{id:reply.inputForm!.id,values:{query_periodAnchor:'2026-11-01'}}});
+ expect(reply.status,JSON.stringify(reply)).toBe('confirmation');expect(fetcher).not.toHaveBeenCalled();
+ reply=await turn({decision:{id:reply.action!.id,confirmed:true}});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA An');
 });

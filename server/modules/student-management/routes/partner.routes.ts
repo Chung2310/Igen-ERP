@@ -19,6 +19,7 @@ router.delete("/commission-levels/:id", requireManage, validate(idParamSchema, "
 router.post("/bulk", requireManage, PartnerController.bulkCreate);
 router.post("/", requireManage, validate(createPartnerSchema), PartnerController.create);
 router.get("/", PartnerController.getList);
+router.get("/payout-history", PartnerController.getPayoutHistory);
 router.get("/:id", validate(idParamSchema, "params"), PartnerController.getDetail);
 router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updatePartnerSchema), PartnerController.update);
 router.delete("/:id", requireManage, validate(idParamSchema, "params"), PartnerController.delete);

@@ -136,17 +136,33 @@ retailPartnerRoutes.get("/me", self, route(async (req) => {
   return partner;
 }));
 
+retailPartnerRoutes.get('/summary',read,route(async req=>{
+  const [summary]=await RetailPartnerModel.aggregate([
+    {$match:{companyCode:companyCode(req)}},{$group:{_id:null,totalCount:{$sum:1},
+      activeCount:{$sum:{$cond:[{$eq:['$status','active']},1,0]}},inactiveCount:{$sum:{$cond:[{$eq:['$status','inactive']},1,0]}},
+      collaboratorCount:{$sum:{$cond:[{$in:['collaborator',{$ifNull:['$roles',[]]}]},1,0]}},dealerCount:{$sum:{$cond:[{$in:['dealer',{$ifNull:['$roles',[]]}]},1,0]}},supplierCount:{$sum:{$cond:[{$in:['supplier',{$ifNull:['$roles',[]]}]},1,0]}}}},{$project:{_id:0}},
+  ]);
+  return summary||{totalCount:0,activeCount:0,inactiveCount:0,collaboratorCount:0,dealerCount:0,supplierCount:0};
+}));
 retailPartnerRoutes.get("/", read, route(async (req) => {
   const filter: Record<string, unknown> = { companyCode: companyCode(req) };
+  if(typeof req.query.search==='string'&&req.query.search.trim()){
+    const expression=req.query.search.trim().slice(0,120).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    filter.$or=[{name:{$regex:expression,$options:'i'}},{code:{$regex:expression,$options:'i'}}];
+  }
   if (req.query.role) {
     if (!RETAIL_PARTNER_ROLES.includes(req.query.role)) throw bad("Vai trò không hợp lệ.");
     filter.roles = req.query.role;
   }
-  const partners = await RetailPartnerModel.find(filter).sort({ name: 1 }).limit(1000).lean();
+  const assistantRead=req.headers['x-assistant-read-only']==='true';
+  const page=assistantRead?Number(req.query.page||1):1,limit=assistantRead?Number(req.query.limit||100):1000;
+  if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>1000)throw bad('Phân trang không hợp lệ.');
+  const partners = await RetailPartnerModel.find(filter).sort({ name: 1,_id:1 }).skip((page-1)*limit).limit(limit).lean();
   const supplierIds = partners.flatMap((partner) => partner.supplierId ? [partner.supplierId] : []);
   const suppliers = await SupplierModel.find({ companyCode: filter.companyCode, _id: { $in: supplierIds } }).select("name code status").lean();
   const byId = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));
-  return partners.map((partner) => ({ ...partner, supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));
+  const items=partners.map((partner) => ({ ...partner, supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));
+  return assistantRead?{items,total:await RetailPartnerModel.countDocuments(filter),page,limit}:items;
 }));
 
 retailPartnerRoutes.post("/", manage, route(async (req) => {

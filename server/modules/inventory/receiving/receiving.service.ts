@@ -173,6 +173,9 @@ export async function listReceipts(rawScope: Scope, query: any = {}) {
     };
   }
   const [items, total] = await Promise.all([GoodsReceiptModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), GoodsReceiptModel.countDocuments(filter)]);
+  // The physical receipt date is optional on existing documents. Confirmation
+  // is the fallback for a posted receipt; a draft creation is never an arrival.
+  for(const item of items)(item as any).effectiveReceivedAt=item.status==='confirmed'?(item.receivedAt||item.confirmedAt):undefined;
   return { items, total, page, limit };
 }
 

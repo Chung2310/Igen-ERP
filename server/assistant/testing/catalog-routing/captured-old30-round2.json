@@ -1,0 +1,479 @@
+[
+  {
+    "id": "S4-R050",
+    "text": "Xuất file excel danh sách toàn bộ đối tác tuyển sinh",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Xuất file excel",
+          "concept": "Xuất dữ liệu thành tệp",
+          "operator": "export",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "đối tác tuyển sinh",
+          "concept": "Hồ sơ đối tác tuyển sinh",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "danh sách toàn bộ",
+          "concept": "Danh sách toàn bộ đối tác tuyển sinh",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "excel",
+          "concept": "Định dạng tệp Excel",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Xuất file excel danh sách toàn bộ đối tác tuyển sinh"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "partner.list",
+      "values": {
+        "analysis": {
+          "includeRows": true,
+          "select": [
+            "name",
+            "code",
+            "phone",
+            "email",
+            "isActive"
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "partner.list"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "partner.list",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "analysis.includeRows"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "result.xlsx"
+          ]
+        }
+      ],
+      "actionIntent": "export"
+    },
+    "reviews": [
+      {
+        "approvedActionIds": [
+          "partner.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u1",
+            "actionId": "partner.list",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "S8-R045",
+    "text": "Tạo giúp tôi phiếu xuất 1 máy QA Sản phẩm 06 từ kho Trụ sở chính để bộ phận kế toán sử dụng nội bộ",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Tạo",
+          "concept": "Tạo phiếu xuất",
+          "operator": "create",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "phiếu xuất",
+          "concept": "Phiếu xuất kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "entity",
+          "quote": "máy QA Sản phẩm 06",
+          "concept": "Sản phẩm được xuất",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "input",
+          "quote": "1",
+          "concept": "Số lượng xuất",
+          "operator": "eq",
+          "value": 1,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u5",
+          "kind": "input",
+          "quote": "kho Trụ sở chính",
+          "concept": "Kho xuất",
+          "operator": "eq",
+          "value": "Trụ sở chính",
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "input",
+          "quote": "bộ phận kế toán",
+          "concept": "Bộ phận sử dụng",
+          "operator": "eq",
+          "value": "kế toán",
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "input",
+          "quote": "sử dụng nội bộ",
+          "concept": "Mục đích sử dụng",
+          "operator": "eq",
+          "value": "nội bộ",
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Tạo giúp tôi phiếu xuất 1 máy QA Sản phẩm 06 từ kho Trụ sở chính để bộ phận kế toán sử dụng nội bộ"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "inventory.stock-log.internal.create",
+      "values": {
+        "warehouseId": "Trụ sở chính",
+        "customerName": "kế toán",
+        "notes": "sử dụng nội bộ",
+        "items": [
+          {
+            "productId": "QA Sản phẩm 06",
+            "quantity": 1
+          }
+        ]
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "values.items.0.productId",
+            "values.items.0.variantId"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "values.items.0.quantity"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "values.warehouseId"
+          ]
+        },
+        {
+          "unitId": "u6",
+          "targets": [
+            "values.customerName"
+          ]
+        },
+        {
+          "unitId": "u7",
+          "targets": [
+            "values.notes"
+          ]
+        }
+      ],
+      "actionIntent": "create"
+    },
+    "reviews": [
+      {
+        "approvedActionIds": [
+          "inventory.stock-log.internal.create"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "inventory.stock-log.internal.create",
+            "role": "input_literal",
+            "target": "values.items.0.productId",
+            "predicates": [
+              {
+                "field": "productId",
+                "operator": "eq",
+                "value": "QA Sản phẩm 06"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "approvedActionIds": [
+          "inventory.stock-log.internal.create"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "inventory.stock-log.internal.create",
+            "role": "input_assignment",
+            "target": "values.items.0.productId",
+            "predicates": []
+          },
+          {
+            "unitId": "u4",
+            "actionId": "inventory.stock-log.internal.create",
+            "role": "input_assignment",
+            "target": "values.items.0.quantity",
+            "predicates": []
+          },
+          {
+            "unitId": "u5",
+            "actionId": "inventory.stock-log.internal.create",
+            "role": "input_assignment",
+            "target": "values.warehouseId",
+            "predicates": []
+          },
+          {
+            "unitId": "u6",
+            "actionId": "inventory.stock-log.internal.create",
+            "role": "input_assignment",
+            "target": "values.customerName",
+            "predicates": []
+          },
+          {
+            "unitId": "u7",
+            "actionId": "inventory.stock-log.internal.create",
+            "role": "input_assignment",
+            "target": "values.notes",
+            "predicates": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "S6-R043",
+    "text": "Hiện cửa hàng đang chạy những mã giảm giá nào còn hạn sử dụng?",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "những mã giảm giá nào",
+          "concept": "Tra cứu các mã giảm giá",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "mã giảm giá",
+          "concept": "Mã giảm giá",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "những mã giảm giá nào",
+          "concept": "Danh sách mã giảm giá",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "đang chạy",
+          "concept": "Đang được áp dụng",
+          "operator": "eq",
+          "value": "đang chạy",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "condition",
+          "quote": "còn hạn sử dụng",
+          "concept": "Còn trong thời hạn sử dụng",
+          "operator": "eq",
+          "value": "còn hạn sử dụng",
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u4",
+          "u5"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hiện cửa hàng đang chạy những mã giảm giá nào còn hạn sử dụng?"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "retail.coupon.list",
+      "actionIntent": "lookup",
+      "values": {
+        "analysis": {
+          "filters": [
+            {
+              "field": "active",
+              "operator": "eq",
+              "value": true
+            },
+            {
+              "field": "endsAt",
+              "operator": "gte",
+              "value": "now"
+            }
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action:retail.coupon.list"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action:retail.coupon.list"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "result.code",
+            "result.name",
+            "result.endsAt",
+            "result.active"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "analysis.filters.active"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "analysis.filters.endsAt"
+          ]
+        }
+      ]
+    },
+    "reviews": [
+      {
+        "approvedActionIds": [
+          "retail.coupon.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "retail.coupon.list",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "active",
+                "operator": "eq",
+                "value": true
+              },
+              {
+                "field": "startsAt",
+                "operator": "lte",
+                "value": "now"
+              }
+            ]
+          },
+          {
+            "unitId": "u5",
+            "actionId": "retail.coupon.list",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "endsAt",
+                "operator": "gte",
+                "value": "now"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -618,8 +618,8 @@ export const RetailOrderService = {
     throw replayConflict();
   },
   async quote(scope: RetailBranchScope, input: any) { return (await priceInput(scope, input)).pricing; },
-  async list(scope: RetailBranchScope, query: any) {
-    await expireHeldDrafts(scope, businessDateInVietnam(new Date()));
+  async list(scope: RetailBranchScope, query: any, options:{readOnly?:boolean}={}) {
+    if(!options.readOnly)await expireHeldDrafts(scope, businessDateInVietnam(new Date()));
     const { filter, page, limit, skip } = buildOrderListQuery(scope, query);
     const [items, total] = await Promise.all([RetailOrderModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(), RetailOrderModel.countDocuments(filter)]); return { items: await attachAfterSaleHistory(scope, items), total, page, limit };
   },

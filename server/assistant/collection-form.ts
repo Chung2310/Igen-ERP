@@ -26,13 +26,13 @@ export function clarificationModuleIds(text: string, workflows: AssistantWorkflo
     return [module, context.label, ...context.aliases].some(name => phrase.includes(normalize(name)));
   });
 }
-export function createModuleChoice(workflows: AssistantWorkflow[], modules: string[], intent: string, pendingId: string | null, newRequest = false) {
+export function createModuleChoice(workflows: AssistantWorkflow[], modules: string[], intent: string, pendingId: string | null, newRequest = false, allowSingle = false) {
   // Learning partners own their records in student-partner, not in the
   // related student module. Never offer the parent as an interchangeable route.
   if (/\bdoi tac\b/.test(intent.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase())
     && workflows.some(w => w.enabled && w.module === 'student-partner')) modules = modules.map(module => module === 'student' ? 'student-partner' : module);
   const allowed = [...new Set(modules)].filter(module => workflows.some(workflow => workflow.enabled && workflow.module === module)).slice(0, 8);
-  if (allowed.length < 2) return;
+  if (allowed.length < (allowSingle?1:2)) return;
   const id = randomUUID();
   const options = allowed.map(module => ({ value: randomUUID(), module }));
   const state: PendingModuleChoice = { kind: 'module', id, intent, pendingId, newRequest, expiresAt: Date.now() + 15 * 60_000, options };
@@ -82,4 +82,10 @@ export function validateFormValues(fields: AssistantInputField[], values: Record
     throw new AssistantError("Biểu mẫu chứa trường không còn được yêu cầu. Bạn dùng biểu mẫu mới nhất nhé.", 409);
   }
   return values;
+}
+
+/** Missing optional relationships do not block a write the user already
+ * described. Requested/unresolved relationships still use the choice form. */
+export function needsAssistantReferenceInput(required:boolean,requested:boolean,unresolved:boolean,write:boolean){
+  return required||unresolved||write&&requested;
 }

@@ -5,6 +5,14 @@ import { projectCompositeSourceData, validateCompositeQueryPlan, validateComposi
 const workflows = ["employee.list", "hr.calendar.events.list", "employee.create"].map(id => defaultWorkflow(operationById(id)!));
 
 describe("multi-API read plan", () => {
+  it('accepts a single authorized source with computed count without allowing an arbitrary output column',()=>{
+    const workflow=defaultWorkflow(operationById('retail.order.list')!);
+    const query={actionId:workflow.actionId,purpose:'Đếm đơn theo trạng thái',values:{analysis:{groupBy:'status',aggregate:{operation:'count'}}},resultFields:['status','count']};
+    expect(validateCompositeQueryPlan([query],[workflow])).toMatchObject({ok:true,queries:[{resultFields:['status']}]});
+    expect(validateCompositeQueryPlan([{...query,resultFields:['status','count','secret']}],[workflow])).toMatchObject({ok:false});
+    expect(validateCompositeQueryPlan([{...query,values:{}}],[workflow])).toMatchObject({ok:false});
+    expect(validateCompositeQueryPlan([{...query,actionId:'employee.create'}],workflows)).toMatchObject({ok:false});
+  });
   it("allows only enabled read workflows and normalizes workflow input aliases", () => {
     const result = validateCompositeQueryPlan([
       { actionId: "employee.list", purpose: "employee count context", values: {}, resultFields: ["displayName"] },

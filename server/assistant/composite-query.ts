@@ -2,9 +2,11 @@ import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
 import { isKnownModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence } from "./module-context";
 import { AssistantError } from "./policy";
-import { privateAssistantResultField as privateField, publicAssistantResultFields } from "./result-field-policy";
+import { privateAssistantResultField as privateField, publicAssistantResultFields,publicAssistantResultTarget } from "./result-field-policy";
 import { relationEvidenceSupported, validateReadRelations, normalizeReadRelationAnnotations, selectedRelationForQuery } from "./read-relations";
 import { combinedModuleContextIsValid, findUncoveredRequestTerms, reconciledRankingMappingTargets, requiredCompositeMappingIsMissing } from "./request-coverage";
+import {normalizeAssistantInputValues} from './input-contract';
+import {validateListAnalysis} from './list-analysis';
 
 export interface AssistantCompositeQuery {
   actionId: string;
@@ -30,17 +32,29 @@ export function publicCompositeResultFields(operation: AssistantOperation) {
   return publicAssistantResultFields(operation);
 }
 
+/** A declared summary has no record ID and is not a page of records. Keep its
+ * envelope locally until the normal public child allow-list projects it. */
+export function compositeReportEnvelope(operation:AssistantOperation,response:any,paths:readonly string[]):Record<string,unknown>[]|undefined{
+ if(!operation.precomputedMeasures)return;
+ if(!paths.length||paths.some(path=>!publicAssistantResultTarget(operation,path)))throw new AssistantError('Chỉ tiêu tổng hợp chưa được xác minh.');
+ const candidates=[response,response?.data,response?.data?.data].filter((value,index,all)=>plain(value)&&all.indexOf(value)===index);
+ const has=(row:any,path:string)=>path.split('.').every(part=>{if(!plain(row)||!Object.hasOwn(row,part))return false;row=row[part];return true;});
+ const matching=candidates.filter(row=>paths.every(path=>has(row,path)));
+ if(matching.length!==1)throw new AssistantError('Nguồn báo cáo chưa trả đủ chỉ tiêu đã yêu cầu. Mình chưa kết luận là không có dữ liệu.');
+ return matching;
+}
+
 function normalizeQueryValues(workflow: AssistantWorkflow, raw: Record<string, unknown>) {
-  const values = { ...raw };
-  for (const key of Object.keys(values)) {
-    if (workflow.fields.some(field => field.key === key)) continue;
-    const candidates = workflow.fields.filter(field => field.apiKey && (field.apiKey === key || `${field.source}_${field.apiKey}` === key));
-    if (candidates.length !== 1) continue;
-    const target = candidates[0].key;
-    if (values[target] === undefined) values[target] = values[key];
-    delete values[key];
-  }
+  const normalized=normalizeAssistantInputValues(workflow,raw);
+  if(normalized.conflicts.length)return;
+  const values=normalized.values;
   for (const field of workflow.fields) {
+    // Analysis is an executable read AST, not an API JSON-body string. Keep
+    // one representation across interpretation, review and service replay.
+    if(field.key==='analysis'&&field.type==='json'){
+      if(typeof values[field.key]==='string')try{values[field.key]=JSON.parse(values[field.key] as string);}catch{return;}
+      continue;
+    }
     if (field.type === "json" && values[field.key] !== undefined && typeof values[field.key] === "object") {
       values[field.key] = JSON.stringify(values[field.key]);
     }
@@ -54,7 +68,7 @@ export function validateCompositeQueryPlan(
   workflows: AssistantWorkflow[],
   operations = ASSISTANT_OPERATIONS,
 ): { ok: true; queries: AssistantCompositeQuery[] } | { ok: false; clarification: string } {
-  if (!Array.isArray(raw) || raw.length < 2 || raw.length > 8) {
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 8) {
     return { ok: false, clarification: "Mình chưa xác định được các nguồn dữ liệu cần kết hợp. Bạn nói rõ muốn tổng hợp những thông tin nào nhé." };
   }
   const operationById = new Map(operations.map(operation => [operation.id, operation]));
@@ -78,13 +92,23 @@ export function validateCompositeQueryPlan(
       return { ok: false, clarification: "Kế hoạch tổng hợp chỉ được gọi các API đọc dữ liệu. Mình chưa thực hiện thao tác nào." };
     }
     const values = normalizeQueryValues(workflow, item.values);
+    if(!values)return {ok:false,clarification:'Kế hoạch tra cứu có các tham số trùng nhưng khác giá trị. Chưa thực hiện tra cứu.'};
     const allowedInputs = new Set(workflow.fields.map(field => field.key));
     if (Object.keys(values).some(key => !allowedInputs.has(key) || key.startsWith("__assistant"))
       || JSON.stringify(values).length > 24_000) {
       return { ok: false, clarification: `Tham số truy vấn cho “${workflow.title}” chưa khớp với các trường được hỗ trợ. Mình chưa gọi API nào.` };
     }
     const publicFields = new Set(publicCompositeResultFields(operation));
-    const resultFields = [...new Set(item.resultFields as string[])];
+    let resultFields = [...new Set(item.resultFields as string[])];
+    // A read plan may have one source and several requested measures. Count is
+    // a server-produced analysis value, never a new public API field. Validate
+    // the AST before removing that redundant projection token.
+    if(operation.analysis&&resultFields.includes('count')&&!publicFields.has('count')){
+      try{
+        const analysis=validateListAnalysis(values.analysis,operation.analysis);
+        if(analysis.aggregate?.operation==='count'||analysis.aggregates?.some(a=>a.operation==='count'))resultFields=resultFields.filter(field=>field!=='count');
+      }catch{/* Normal validation still rejects the unknown projection. */}
+    }
     if (resultFields.some(field => !publicFields.has(field))) {
       return { ok: false, clarification: `Kế hoạch yêu cầu trường kết quả chưa được phép gửi cho AI trong “${workflow.title}”. Mình chưa gọi API nào.` };
     }
@@ -230,6 +254,7 @@ export function projectCompositeSourceData(
   const childFields = operation.resultChildFields || {};
   const projectNested = (value: unknown, tree: unknown, depth = 0): unknown => {
     if (depth > 4) return undefined;
+    if(value===null)return null;
     if (Array.isArray(value)) {
       if (value.length > 500) throw new AssistantError("Một nguồn có quá nhiều dòng để gửi đầy đủ cho AI tổng hợp. Hãy thu hẹp kỳ hoặc bộ lọc.", 413);
       return value.map(item => projectNested(item, tree, depth + 1)).filter(item => item !== undefined);

@@ -12,6 +12,17 @@ export interface AssistantCompletion {
   followUp?: { actionId: string; values: Record<string, AssistantValue> };
 }
 
+/** Unknown translation aliases are not identities. In particular a pagination
+ * default must never hide an unrelated result column labelled "Thông tin". */
+export function assistantDefaultedPresentationLabels(completed?:AssistantCompletion):string[]{
+  if(!completed)return [];
+  const read=completed.operation.method==='GET'||completed.operation.readOnly;
+  return [...new Set(completed.workflow.fields.filter(field=>completed.defaultedKeys?.includes(field.key)&&!(read&&field.source==='query')).flatMap(field=>{
+    const alias=localizedAssistantFieldLabel(field.apiKey||field.key,'',completed.operation.id);
+    return [field.label,...(alias==='Thông tin'?[]:[alias])];
+  }))];
+}
+
 /** Scope, selected targets and private snapshots never count as requested edits. */
 export function hasAssistantUpdatePayload(op: AssistantOperation, values: Record<string, unknown>): boolean {
   if (op.allowEmptyUpdate === true) return true;

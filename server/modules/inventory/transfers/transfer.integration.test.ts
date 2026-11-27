@@ -40,6 +40,13 @@ async function machine(serial = "IMEI-1", extra: any = {}) {
 }
 
 describe("transfer document invariants", () => {
+  it('resolves a scoped in-stock unit by IMEI when its serial number is different',async()=>{
+    const unit=await machine('QA-DIFFERENT-SERIAL',{imei1:'000000000000031',normalizedImeis:['000000000000031']});
+    const doc=await createTransfer(scope,input({items:[line({unitIdentifiers:['000000000000031']})]}),actor);
+    expect(doc.items[0].serialUnitIds.map(String)).toContain(String(unit._id));
+    expect(await SerialUnitModel.findById(unit._id).lean()).toMatchObject({status:'in_transit',warehouseId:doc.transitWarehouseId});
+    expect(await quantity()).toBe(1);
+  });
   beforeAll(async () => {
     replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     await mongoose.connect(replica.getUri());

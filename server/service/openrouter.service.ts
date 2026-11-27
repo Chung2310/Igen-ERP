@@ -13,7 +13,7 @@ import { AI_PROVIDER_TEMPORARY_ERROR } from "../../src/shared/ai-provider-error"
 import { ERP_LLM_MODEL, ERP_LLM_FALLBACK_MODEL, llmSamplingParameters, shouldFallbackLlm } from "../../shared/llm-model";
 import { withAssistantRequestControl, assertAssistantExecutionActive } from "../assistant/execution-control";
 import { createHash } from 'node:crypto';
-import { fetchOpenRouter } from './openrouter-transport';
+import { fetchOpenRouter,withProviderAttemptTimeout } from './openrouter-transport';
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -233,21 +233,22 @@ async function chatWithRetries(
 
   let lastError: any;
   let delay = 1000;
+  const requestDeadline=Date.now()+timeoutMs;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      const remainingMs=requestDeadline-Date.now();
+      if(remainingMs<=0)throw new DOMException('Dịch vụ AI phản hồi quá lâu.','TimeoutError');
       const startTime = Date.now();
       console.log(`[OpenRouter] POST ${baseUrl}/chat/completions | model=${model} | attempt=${attempt}`);
 
       await assertAssistantExecutionActive();
-      const data = await withAssistantRequestControl(timeoutMs, async signal => {
+      const data = await withAssistantRequestControl(remainingMs, signal => withProviderAttemptTimeout(Math.max(1,Math.floor(failoverOnUnavailable?remainingMs/2:remainingMs)),signal,async attemptSignal => {
         const response = await fetchOpenRouter(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers: buildHeaders(apiKey),
           body: JSON.stringify(body),
-          signal: failoverOnUnavailable || model === ERP_LLM_FALLBACK_MODEL
-            ? AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(Math.max(1, Math.floor(failoverOnUnavailable ? timeoutMs / 2 : timeoutMs)))])
-            : signal,
+          signal:attemptSignal,
         });
 
         if (!response.ok) {
@@ -261,7 +262,7 @@ async function chatWithRetries(
         }
 
         return (await response.json()) as any;
-      });
+      }));
       const message = data.choices?.[0]?.message;
       const text: string = typeof message?.content === "string" ? message.content : "";
       if (!text.trim()) throw Object.assign(new Error('OpenRouter returned an empty completion.'), { status: 502 });
@@ -326,6 +327,7 @@ async function chatWithRetries(
 
       if (isRetryable && attempt < maxRetries) {
         const retryDelay = inFlightBudgetExceeded ? retryAfterDelayMs(error?.retryAfter, delay) : delay;
+        if(retryDelay>=requestDeadline-Date.now())throw new DOMException('Dịch vụ AI phản hồi quá lâu.','TimeoutError');
         console.warn(`[OpenRouter] Attempt ${attempt} failed, retrying in ${retryDelay}ms... Error: ${msg}`);
         await withAssistantRequestControl(retryDelay + 100, signal => new Promise<void>((resolve, reject) => {
           const done = () => { signal?.removeEventListener("abort", abort); resolve(); };
