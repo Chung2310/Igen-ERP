@@ -5480,6 +5480,7 @@ export async function suggestReferenceOptions(
   const payrollPeriodSearch = op.id === "payroll.run.reconciliation.publish" && field.key === "path_id"
     && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(values.path_id || "")) ? String(values.path_id) : "";
   const referenceSearch = String(values[`__assistantReferenceSearch_${field.key}`] || payrollPeriodSearch).trim();
+  if (op.id === "inventory.transfer.create") console.log("transfer lookup context", field.key, parentValue, context, referenceSearch);
   const isReceiptProductSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
     && field.reference === "product.list" && /^items\[\d+\]\.productId$/.test(field.key);
   const isReceiptSkuSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)

@@ -1233,7 +1233,7 @@ export async function missingReferencePrompts(
     const referenceValues = unresolvedReferenceKeys.has(field.key) && values[field.key] !== undefined
       ? { ...values, [referenceSearchKey(field.key)]: String(values[field.key]) }
       : values;
-    try { options = await suggestOptions(req, op, field, referenceValues); } catch { lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
+    try { options = await suggestOptions(req, op, field, referenceValues); } catch (error) { if(op.id === "inventory.transfer.create") console.log("transfer reference error",field.key,error); lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
     if (!mustResolve && options.length === 0) continue;
     if (!mustResolve) { awaitingOptional.push(field.key); awaitingLabels[field.key] = field.label; }
     const skipHint = mustResolve ? ""
