@@ -46,11 +46,11 @@ describe('shared read filter expression',()=>{
     expect(()=>validateListAnalysis({where:{field:'date',operator:'between',value:['2026-12-01','2026-11-01']}},contract)).toThrow();
     expect(analyzeList(contract,[{date:'2026-11-30T16:59:59Z'},{date:'2026-11-30T17:00:00Z'}],{where:{field:'date',operator:'between',value:['2026-11-01','2026-11-30']}},true).matched).toBe(1);
   });
-  it.each([{field:'password',operator:'eq',value:'x'},{any:[]},{field:'state',operator:'eq',value:'invented'},{field:'score',operator:'eq',value:'10'},{field:'name',operator:'contains',value:'.*',extra:true},{field:'email',operator:'is_empty',value:''}])('rejects invalid or unapproved filters %j',where=>expect(()=>validateListAnalysis({where},contract)).toThrow());
-  it('bounds tree complexity and does not accept an ambiguous combination of grammars',()=>{
+  it.each([{field:'password',operator:'eq',value:'x'},{any:[]},{field:'state',operator:'eq',value:'invented'},{field:'score',operator:'eq',value:'10 điểm'},{field:'name',operator:'contains',value:'.*',extra:true},{field:'email',operator:'is_empty',value:''}])('rejects invalid or unapproved filters %j',where=>expect(()=>validateListAnalysis({where},contract)).toThrow());
+  it('bounds tree complexity while preserving an empty AND list beside a real condition',()=>{
     let node:any={field:'score',operator:'gt',value:0};for(let i=0;i<8;i++)node={not:node};
     expect(()=>validateListAnalysis({where:node},contract)).toThrow();
-    expect(()=>validateListAnalysis({where:{field:'score',operator:'gt',value:0},filters:[]},contract)).toThrow();
+    expect(analyzeList(contract,rows,{where:{field:'score',operator:'gt',value:0},filters:[]},true).records.map(row=>row.Tên)).toEqual(['Đặng Ánh','Anh Bình','Châu']);
   });
   it('refuses incomplete data and mixed numeric cells rather than producing a false zero',()=>{
     expect(()=>analyzeList(contract,rows,{where:{field:'score',operator:'gt',value:0}},false)).toThrow();

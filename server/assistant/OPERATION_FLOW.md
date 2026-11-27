@@ -199,6 +199,10 @@ Khi có hơn 120 workflow, semantic interpreter có thể chạy bước khám p
 7. Chạy `collectValues()` và policy kiểm tra required, kiểu, pattern, options, điều kiện `requiredWhen`, giới hạn và lỗi JSON.
 8. Nếu còn thiếu thông tin hoặc lỗi, trả `collecting` và lưu `PendingAction` để lượt sau tiếp tục.
 
+Lớp hợp đồng dùng chung chuẩn hóa biểu diễn trước khi kiểm tra: key/API key/nhãn chỉ ánh xạ khi có một đích duy nhất; số nguyên dạng chuỗi, boolean `true`/`false` và ngày `DD/MM/YYYY` được đổi theo kiểu field đã khai báo. JSON có schema nhận object hoặc chuỗi JSON, chuẩn hóa các lá đã khai báo và giữ nguyên field chưa biết để validation xử lý. Lớp này chạy ở interpreter, composite query, đầu `prepare()` và `collectValues()`, trước khi hydrate cập nhật hoặc phân giải tham chiếu; không tự tạo giá trị còn thiếu hay chọn hồ sơ thay người dùng.
+
+Đối với nguồn có `analysis`, `analysis-normalization.ts` chuẩn hóa cả AST và địa chỉ binding/reviewer theo cùng hợp đồng. Danh sách `filters` hỗ trợ các phép lọc như `where`; nếu có cả hai thì biên dịch thành AND với nguyên cây `where`, giữ OR/NOT. Unknown field, điều kiện sai, dữ liệu đọc chưa đủ, quyền và xác nhận vẫn phải được kiểm tra; chuẩn hóa không xóa một yêu cầu để kế hoạch chạy được.
+
 `PendingAction` là trạng thái riêng trên server, bao gồm `actionId`, giá trị người dùng cung cấp, intent gốc, version workflow, preview, giá trị đã phân giải, các selection đang chờ, trạng thái bỏ qua và thông tin hiển thị xác nhận. Không đưa metadata nội bộ này thành nội dung chat.
 
 ### 6.5. Preview và xác nhận

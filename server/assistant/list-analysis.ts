@@ -4,11 +4,14 @@ import { formatAssistantTemporalValue } from '../../src/shared/assistant-date';
 import { maskAssistantBankAccount } from './result-field-policy';
 import { assistantEmptyReadResult } from './reply-presentation';
 import { FILTER_EXPRESSION_SCHEMA, filterDate, filterLeaves, matchesFilter, validateFilterExpression, type FilterExpression,type ReadPredicate } from './filter-expression';
+import {normalizeAnalysisPlan} from './analysis-normalization';
 
 export interface AnalysisContract {
   /** Uses the existing approved public projection; completeness is verified at runtime. */
   publicRead?: true;
   publicRowsField?: string;
+  publicRowsTotalField?:string;
+  publicRowsComplete?:true;
   /** Reviewed source returns exactly one scoped summary, not a paginated list. */
   singleton?: true;
   /** Reviewed summaries omit zero-valued groups; restore their declared domain
@@ -17,6 +20,12 @@ export interface AnalysisContract {
   scopeLabel?: string;
   /** Public dimensions of the source row; these do not collapse equal display names. */
   rowDimensions?: string[];
+  identityFields?:string[];
+  /** A row's display label refers to an entity selected through this native
+   * reference input. Bind the identity instead of comparing display strings. */
+  referenceInputs?:Record<string,string>;
+  statusCoverage?:{field:string;unknownValues:readonly string[]};
+  lifecycleFields?:Record<string,{terminal:readonly string[];open:readonly string[]}>;
   /** Equivalent basic read views retained for references/old pending actions. */
   replaces?: string[];
   displayFields?: string[];
@@ -77,7 +86,7 @@ export function listAnalysisPlanSchema(contract: AnalysisContract) {
   const ordered=(direction:string[])=>({type:'object',additionalProperties:false,required:['field','direction'],properties:{field,direction:{enum:direction}}});
   return {type:'object',additionalProperties:false,$defs:{analysisField:{enum:Object.keys(contract.fields)},filterExpression:FILTER_EXPRESSION_SCHEMA,readPredicate:{type:'object',additionalProperties:false,required:['field','operator'],properties:{field,operator:{enum:['eq','ne','gt','gte','lt','lte','contains','startsWith','endsWith','in','nin','between','is_empty','not_empty']},value:{anyOf:[{type:['string','number','boolean']},{type:'array',minItems:1,maxItems:40,items:{type:['string','number','boolean']}}]}}}},properties:{
     where:{$ref:'#/$defs/filterExpression'},
-    filters:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['field','operator','value'],properties:{field,operator:{enum:['eq','ne','gt','gte','lt','lte','contains']},value:{type:['string','number','boolean']}}}},
+    filters:{type:'array',maxItems:20,items:{$ref:'#/$defs/readPredicate'}},
     extreme:ordered(['min','max']),sort:ordered(['asc','desc']),limit:{type:'integer',minimum:1,maximum:1000},groupBy:{enum:Object.keys(contract.fields)},
     aggregate,aggregates:{type:'array',minItems:1,maxItems:8,items:aggregate},select:{type:'array',minItems:1,maxItems:20,uniqueItems:true,items:field},includeRows:{type:'boolean'},
   }};
@@ -194,6 +203,7 @@ export function validateListAnalysis(raw: unknown, contract: AnalysisContract): 
   let plan: any = raw;
   if (typeof raw === "string") { try { plan = JSON.parse(raw); } catch { fail("Điều kiện phân tích chưa hợp lệ. Chưa thực hiện tra cứu."); } }
   if (plan == null) return {};
+  plan=normalizeAnalysisPlan(plan,contract);
   if (!plain(plan) || Object.keys(plan).some(key => !["where", "filters", "extreme", "sort", "limit", "groupBy", "aggregate", "aggregates", "select", "includeRows"].includes(key))) fail("Phép phân tích này chưa được hỗ trợ.");
   const field = (key: unknown, numeric = false) => {
     if (typeof key !== "string" || !Object.hasOwn(contract.fields, key) || (numeric && !['number','scalar'].includes(contract.fields[key].type))) fail("Trường phân tích không có trong dữ liệu được phép xem.");
@@ -327,7 +337,13 @@ export function renderListAnalysis(contract: AnalysisContract, rows: Record<stri
     return result.detailRecords.length?formatAssistantResultTable(summary,result.detailRecords,totals):[assistantEmptyReadResult(requestText),...totals].join('\n');
   }
   if(!result.records.length)return assistantEmptyReadResult(requestText);
-  return formatAssistantResultTable(summary, result.records, result.records.length < result.matched ? [`Hiển thị ${result.records.length} trong ${result.matched} kết quả phù hợp.`] : []);
+  const notes=result.records.length < result.matched ? [`Hiển thị ${result.records.length} trong ${result.matched} kết quả phù hợp.`] : [];
+  if(contract.statusCoverage&&complete){
+    const selected=selectAnalysisRows(contract,rows,validateListAnalysis(raw,contract),complete).rows;
+    const unknown=selected.filter(row=>row[contract.statusCoverage!.field]==null||contract.statusCoverage!.unknownValues.includes(String(row[contract.statusCoverage!.field]))).length;
+    notes.push(`Đã ghi nhận trạng thái ${selected.length-unknown}/${selected.length} hồ sơ.${unknown?' Còn '+unknown+' hồ sơ chưa ghi nhận; chưa đủ dữ liệu để kết luận cho toàn bộ danh sách.':''}`);
+  }
+  return formatAssistantResultTable(summary, result.records, notes);
 }
 export function canPresentPartialList(plan:ListAnalysis):boolean {
   return !plan.aggregate&&!plan.aggregates&&!plan.groupBy&&!plan.extreme&&!plan.sort&&!plan.limit;

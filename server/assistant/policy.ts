@@ -4,6 +4,7 @@ import type { AssistantField, AssistantValue, AssistantWorkflow, AssistantWorkfl
 import { defaultWorkflow, operationById, type AssistantOperation } from "./catalog";
 import { isExplicitEmptyFieldValue } from './request-framing';
 import {formatAssistantTemporalValue} from '../../src/shared/assistant-date';
+import {normalizeAssistantInputValues} from './input-contract';
 export class AssistantError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
@@ -78,7 +79,9 @@ export function validateWorkflow(op: AssistantOperation, input: AssistantWorkflo
   return { ...defaultWorkflow(op), ...(input.sourceText === undefined ? {} : { sourceText: input.sourceText.trim() }), fields, enabled: input.enabled, instructions: input.instructions.trim(), requireConfirmation: input.requireConfirmation, version: input.version + 1 };
 }
 export function collectValues(workflow: AssistantWorkflow, provided: Record<string, unknown>, options:{explicitInputs?:ReadonlySet<string>}={}) {
-  const aliasErrors: string[] = [];
+  const normalized=normalizeAssistantInputValues(workflow,provided);
+  provided=normalized.values;
+  const aliasErrors: string[] = normalized.conflicts.map(key=>`${workflow.fields.find(field=>field.key===key)?.label||key}: có hai giá trị khác nhau.`);
   if (workflow.actionId.startsWith("student.")) {
     provided = { ...provided };
     for (const key of Object.keys(provided)) {

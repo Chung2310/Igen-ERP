@@ -14,6 +14,10 @@ export function publicAssistantResultFields(operation: AssistantOperation) {
   return [...new Set([...operation.resultFields, ...Object.keys(operation.analysis?.fields || {})])]
     .filter(field => !privateAssistantResultField(field));
 }
+export function assistantIdentityFields(operation:AssistantOperation){
+ const publicFields=new Set(publicAssistantResultFields(operation));
+ return (operation.analysis?.identityFields||['code','productCode','sku','orderCode','name','productName','fullName','displayName','employeeName','workerName','studentName','partnerName','title'].filter(key=>publicFields.has(key))).filter(key=>publicFields.has(key)).slice(0,2);
+}
 
 /** Output evidence may address a declared child without turning the HTTP
  * envelope into a filterable scalar or widening its projection allow-list. */
@@ -27,7 +31,8 @@ export function publicAssistantResultTarget(operation:AssistantOperation,key:str
 /** Preserve an explicitly requested leaf rather than expanding it back into
  * every sibling of the summary envelope. Unknown/private paths stay excluded. */
 export function projectAssistantResultContract(operation:AssistantOperation,paths:readonly string[]):AssistantOperation{
- const approved=paths.filter(path=>Boolean(publicAssistantResultTarget(operation,path)));
+ const identity=assistantIdentityFields(operation);
+ const approved=[...new Set([...paths,...(paths.some(path=>identity.includes(path))?[]:identity)])].filter(path=>Boolean(publicAssistantResultTarget(operation,path)));
  const roots=[...new Set(approved.map(path=>publicAssistantResultTarget(operation,path)!))];
  const children={...operation.resultChildFields};
  for(const root of roots){

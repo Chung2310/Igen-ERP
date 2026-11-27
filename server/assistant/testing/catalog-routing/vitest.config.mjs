@@ -10,6 +10,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: [
+      'server/assistant/natural16-read-regression.test.ts',
+      'server/modules/inventory/warehouse/warehouse-product-scope.test.ts',
+      'server/modules/worker-management/services/worker-project.service.test.ts',
+      'server/assistant/action-contract-flexibility.test.ts',
       'server/assistant/old30-read-contracts.test.ts',
       'server/modules/inventory/warehouse/warehouse-ledger.test.ts',
       'server/assistant/old30-command-conversation.test.ts',
