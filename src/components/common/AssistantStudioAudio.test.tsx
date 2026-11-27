@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AssistantStudio } from "./AssistantStudio";
 import { assistantService } from "../../services/assistantService";
+import { toast } from "../../pages/Toast";
 
 afterEach(cleanup);
 
@@ -32,13 +33,50 @@ it("shows three separate audio tools inside AI Studio", () => {
 
 it("submits an audio file and shows the returned transcript", async () => {
   const submit = vi.spyOn(assistantService, "transcribeStudioAudio").mockResolvedValue({ id: "one", fileName: "mau.mp3", text: "Xin chào iGen", createdAt: new Date().toISOString() });
-  render(<AssistantStudio />);
-  fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
-  const file = new File(["audio"], "mau.mp3", { type: "audio/mpeg" });
-  fireEvent.change(screen.getByLabelText("Chọn tệp âm thanh"), { target: { files: [file] } });
-  expect((screen.getByRole("button", { name: "Chuyển thành văn bản" }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "Chuyển thành văn bản" }));
-  await waitFor(() => expect(submit).toHaveBeenCalledWith(file));
-  expect(await screen.findByText("Xin chào iGen")).toBeTruthy();
-  submit.mockRestore();
+  const toastSuccess = vi.spyOn(toast, "success");
+  try {
+    render(<AssistantStudio />);
+    fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
+    const file = new File(["audio"], "mau.mp3", { type: "audio/mpeg" });
+    fireEvent.change(screen.getByLabelText("Chọn tệp âm thanh"), { target: { files: [file] } });
+    expect((screen.getByRole("button", { name: "Chuyển thành văn bản" }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Chuyển thành văn bản" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith(file));
+    expect(await screen.findByText("Xin chào iGen")).toBeTruthy();
+    expect(screen.getByText("Chuyển giọng nói thành văn bản thành công!")).toBeTruthy();
+    expect(toastSuccess).toHaveBeenCalledWith("Chuyển giọng nói thành văn bản thành công!");
+  } finally {
+    submit.mockRestore();
+    toastSuccess.mockRestore();
+  }
+});
+
+it("shows success feedback and scrollable result area after generating speech", async () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  URL.createObjectURL = vi.fn(() => "blob:igen-test-audio");
+  URL.revokeObjectURL = vi.fn();
+  const speech = vi.spyOn(assistantService, "speech").mockResolvedValue(new Blob(["mp3"], { type: "audio/mpeg" }));
+  const toastSuccess = vi.spyOn(toast, "success");
+
+  try {
+    render(<AssistantStudio />);
+    fireEvent.click(screen.getByRole("button", { name: /Chuyển văn bản thành giọng nói/ }));
+    const main = screen.getByRole("main");
+    expect(main.className).toContain("overflow-y-auto");
+
+    fireEvent.change(screen.getByLabelText("Văn bản cần chuyển thành giọng nói"), { target: { value: "Xin chào iGen ERP" } });
+    fireEvent.click(screen.getByRole("button", { name: "Chuyển đổi" }));
+
+    await waitFor(() => expect(speech).toHaveBeenCalled());
+    expect(await screen.findByText(/Chuyển đổi thành công/)).toBeTruthy();
+    expect(screen.getByLabelText("Audio vừa tạo")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Tải audio xuống" })).toBeTruthy();
+    expect(toastSuccess).toHaveBeenCalledWith("Chuyển đổi giọng nói thành công!");
+  } finally {
+    speech.mockRestore();
+    toastSuccess.mockRestore();
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
 });
