@@ -38,10 +38,10 @@ Bản chạy: commit **615df4b2**, trước bản sửa nối câu “ok” ngà
 | N05-04 | Đối tác lao động | Bên nào chỉ cần thêm vài người là đủ rồi? | LỖI | Hỏi tiếp đối tác chỉ còn thiếu vài người bị lỗi lập kế hoạch, chưa trả được kết quả. |
 | N06-01 | Bán lẻ / POS | Nay bán buôn thế nào? | LỖI | Câu bán buôn/bán hàng bị trả không hỗ trợ chung, chưa hỏi rõ hoặc đưa nguồn tổng quan. |
 | N06-02 | Bán lẻ / POS | Tiền khách còn nợ có nhiều không? | ĐẠT | Sau làm rõ, trả khách QA còn nợ và tổng 2.000.000 đồng, khớp nguồn độc lập. |
-| N06-03 | Bán lẻ / POS | Cho mình xem mấy đơn vẫn chưa xong. | LỖI | Đã làm rõ chưa hoàn tất và chưa hủy, nhưng kế hoạch cuối chỉ loại completed; đưa cả đơn cancelled QA-DON-01 vào kết quả. |
+| N06-03 | Bán lẻ / POS | Cho mình xem mấy đơn vẫn chưa xong. | LỖI | Log chỉ ghi nhận chọn phân hệ Bán lẻ, chưa có lượt bổ sung “chưa hủy”. Kế hoạch cuối chỉ loại completed và đưa đơn cancelled vào tập “chưa xong”; cần làm rõ ý trạng thái đang xử lý thay vì tự đồng nhất với mọi trạng thái khác completed. |
 | N06-04 | Bán lẻ / POS | Đơn nào bị ngâm lâu nhất rồi? | LỖI | Mất phạm vi đơn chưa xong của lượt trước: chọn đơn completed cũ nhất toàn bộ danh sách, thay vì đơn đang chờ lâu nhất. |
 | N07-01 | Đối tác bán lẻ | Giờ còn bao nhiêu đại lý đang làm với mình? | ĐẠT | Đếm đúng 2 đại lý đang hoạt động. |
-| N07-02 | Đối tác bán lẻ | Có bên nào mình còn chưa trả hoa hồng không? | LỖI | Bản chạy lại vẫn chọn partner.analysis của tuyển sinh dù đã làm rõ hoa hồng cộng tác viên bán lẻ; kết thúc lỗi kế hoạch. |
+| N07-02 | Đối tác bán lẻ | Có bên nào mình còn chưa trả hoa hồng không? | LỖI | Bản fresh retry chỉ gửi câu hỏi chung, chưa có lượt làm rõ CTV bán lẻ, rồi chọn partner.analysis và lỗi kế hoạch. Lượt làm rõ CTV nằm trong lần chạy trước; không được gộp ngữ cảnh hai conversation khi chấm. Cần lựa chọn phân hệ khi chưa rõ chủ thể và giữ đúng miền khi đã làm rõ. |
 | N07-03 | Đối tác bán lẻ | Tìm giúp mình bên Đông ấy. | ĐẠT | Sau làm rõ tên, tìm đúng 2 QA Đại lý Đông; phân biệt bằng mã công khai, có số liên hệ. |
 | N07-04 | Đối tác bán lẻ | Cho mình điện thoại để gọi họ luôn. | LỖI | Hỏi tiếp số điện thoại của tập vừa tìm bị từ chối kế hoạch/binding. |
 | N08-01 | Kho sản phẩm | Cái máy hôm trước khách hỏi còn hàng không? | LỖI | Lấy cả từ loại “Máy” vào productName literal; trả rỗng dù nguồn có QA Điện thoại Cũ 30, tồn 1. Driver lượt đầu cũng đã trả lời một thông báo kỹ thuật như thể câu hỏi làm rõ; không tính đó là hỏi lại hợp lệ. |
@@ -65,3 +65,5 @@ Bản chạy: commit **615df4b2**, trước bản sửa nối câu “ok” ngà
 - reference-union-replay.json: N01-04 thất bại với frame gốc; qua validator khi biểu diễn tường minh OR các reference.
 
 Không sửa số liệu này thành “đạt” từ unit test hoặc từ bản sửa sau chạy. Bản sửa nối lời đồng ý/phản hồi làm rõ được ghi riêng trong docs/sua-noi-ngu-canh-hoi-thoai-tro-ly-erp-2026-11-27.md; chưa chạy lại AI thật sau sửa vì sổ đã dừng.
+
+Đợt sửa 14 lỗi + 2 trả thiếu được ghi riêng tại `ket-qua-sua-16-ca-doc-loc-2026-11-27.md`. Hai diễn giải log N06-03/N07-02 ở trên đã được đính chính; số liệu và kết quả AI thật lịch sử giữ nguyên.

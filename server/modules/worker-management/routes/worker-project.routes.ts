@@ -14,6 +14,7 @@ import {
 } from "../validations/worker-project.validation";
 
 export const workerProjectRoutes = Router();
+workerProjectRoutes.get('/:id/workers',requirePermission([WORKER_READ_PERMISSION,WORKER_MANAGE_PERMISSION]) as any,validate(idParamSchema,'params'),WorkerProjectController.getWorkers as any);
 
 workerProjectRoutes.get(
   "/",

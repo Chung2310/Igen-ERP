@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {publicReadRows} from './public-read-query';
+import {publicReadRows,collectPublicReadData} from './public-read-query';
 import { observeAssistantOperation } from "./call-observer";
 import { businessCallFetch, withBusinessOperation } from "./business-call-gate";
 import { normalizeBusinessResult } from "./business-result";
@@ -4056,6 +4056,14 @@ export function matchesReference(record: Record<string, any>, search: string) {
     record.supplierName, record.warehouseName, record.employeeName, record.workerName,
     record.title, record.legalName,
   ].some(value => typeof value === "string" && normalize(value).includes(query));
+  // Spoken references may contain a classifier around the stored public name.
+  // Match complete name tokens, never edit a literal free-text predicate/code.
+  // Multiple matches continue through the existing server-owned option form.
+  const words=(value:string)=>normalize(value).replace(/([a-z])([0-9])/g,'$1 $2').replace(/([0-9])([a-z])/g,'$1 $2').trim();
+  const spokenNameMatch=[record.name,record.fullName,record.displayName,record.productName,record.title].some(value=>{
+    if(typeof value!=='string')return false;const name=words(value);
+    return name.split(/\s+/).length>=3&&` ${words(search)} `.includes(` ${name} `);
+  });
   const backendQueryMatch = typeof record.__assistantQueryMatch === "string"
     && Boolean(query)
     && normalize(record.__assistantQueryMatch) === query;
@@ -4094,6 +4102,7 @@ export function matchesReference(record: Record<string, any>, search: string) {
     || matchesDisplayedPhone
     || matchesDisplayedCustomer
     || partialNameMatch
+    || spokenNameMatch
     || backendQueryMatch
     || (typeof record.employeeName === "string" && typeof record.amount === "number" && normalize(referenceLabel(record)).includes(query));
 }
@@ -4262,6 +4271,7 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
   }
   let result = await callOperation(req, op, input);
   let records = projectRecords(op, result, req, input);
+  const referenceEnrichers:Array<(rows:AssistantRecord[],response:any)=>void>=[];
   // Draft labels are composed locally (amount and held slot), not searchable
   // order codes. Preserve the scope and let reference matching resolve them.
   if (op.id === "retail.order.list" && !records.length && search && !searchByInternalId && searchField) {
@@ -4304,25 +4314,25 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       Object.defineProperty(record, "__assistantQueryMatch", { value: search, enumerable: false, configurable: true });
     }
   }
-  if (operationId === "worker.labor.contract.list" && records.length) {
-    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
+  if (operationId === "worker.labor.contract.list" && (records.length||search.trim())) {
     const workers = await lookupRecords(req, "worker.list");
     const workerNames = new Map(workers.map(worker => [String(worker.id || ""), String(worker.fullName || "")]));
-    for (const record of records) {
-      const source = sourceById.get(String(record.id || ""));
-      const workerName = source?.workerId ? workerNames.get(String(source.workerId)) : undefined;
-      if (workerName) record.workerName = workerName;
-    }
+    const enrich=(rows:AssistantRecord[],response:any)=>{
+      const sourceById = new Map(rawRecords(response).map(row => [String(row._id || row.id || ""), row]));
+      for(const record of rows){const source=sourceById.get(String(record.id||'')),name=source?.workerId?workerNames.get(String(source.workerId)):undefined;if(name)record.workerName=name;}
+    };
+    enrich(records,result);referenceEnrichers.push(enrich);
   }
-  if (operationId === "worker.attendance.list" && records.length) {
-    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
+  if (operationId === "worker.attendance.list" && (records.length||search.trim())) {
     const [workers, projects] = await Promise.all([
       lookupRecords(req, "worker.list"),
       lookupRecords(req, "worker.project.list"),
     ]);
     const workerNames = new Map(workers.map(worker => [String(worker.id || ""), String(worker.fullName || "")]));
     const projectNames = new Map(projects.map(project => [String(project.id || ""), String(project.name || project.code || "")]));
-    for (const record of records) {
+    const enrich=(rows:AssistantRecord[],response:any)=>{
+    const sourceById = new Map(rawRecords(response).map(row => [String(row._id || row.id || ""), row]));
+    for (const record of rows) {
       const source = sourceById.get(String(record.id || ""));
       const workerId = String(source?.workerId?._id || source?.workerId || "");
       const projectId = String(source?.projectId?._id || source?.projectId || "");
@@ -4337,6 +4347,8 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       if (checkOutAt instanceof Date) record.checkOutAt = checkOutAt.toISOString();
       else if (typeof checkOutAt === "string") record.checkOutAt = checkOutAt;
     }
+    };
+    enrich(records,result);referenceEnrichers.push(enrich);
   }
   const branchIds = [...new Set(records.map(row => row.branchId).filter((value): value is string => typeof value === "string" && value.length > 0))];
   if (branchIds.length && operationId !== "branch.list" && !operationId.startsWith("recruitment.")) {
@@ -4344,7 +4356,24 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       const branches = await lookupRecords(req, "branch.list");
       const branchNames = new Map(branches.map(row => [String(row.id), String(row.name || row.code || "")]));
       for (const record of records) if (typeof record.branchId === "string") record.branchName = branchNames.get(record.branchId) || "";
+      referenceEnrichers.push(rows=>{for(const record of rows)if(typeof record.branchId==='string')record.branchName=branchNames.get(record.branchId)||'';});
     } catch { /* keep the reference usable when branch labels are not readable */ }
+  }
+  if(op.method==='GET'&&op.analysis?.publicRead&&searchField&&search.trim()&&!records.some(record=>matchesReference(record,search))){
+    // A display-name reference may include spoken context the native search
+    // cannot tokenize. Retry the same authorized collection without that one
+    // search term, prove pagination completeness, then let normal selection
+    // resolve candidates. No arbitrary filter/branch is removed.
+    const fallbackInput={...input,search:'',[searchField.key]:''};
+    let reusedInitial=false;
+    const referenceRows:AssistantRecord[]=[];
+    await collectPublicReadData(op,fallbackInput,values=>{
+      if(!reusedInitial&&op.fields.every(field=>JSON.stringify(input[field.key])===JSON.stringify(values[field.key]))){reusedInitial=true;return Promise.resolve(result);}
+      return callOperation(req,op,values);
+    },(response,values)=>{const projected=projectRecords(op,response,req,values);for(const enrich of referenceEnrichers)enrich(projected,response);referenceRows.push(...projected);return projected;});
+    // The public collector intentionally strips IDs. Keep the parallel
+    // server-only projection for options; never return it as a business table.
+    records=referenceRows;
   }
   const query = normalize(search);
   return query ? records.filter(row => Object.values(row).some(value => normalize(String(value)).includes(query)) || normalize(referenceLabel(row)).includes(query) || matchesReference(row, search)) : records;

@@ -52,7 +52,8 @@ export function publicReadAnalysis(operation: AssistantOperation, relatedOperati
     fields.count={label:'Số nhân sự',type:'number',measureOperation:'count'};
     return {publicRead:true,singleton:true,fields,displayFields:['count']};
   }
-  return {publicRead:true,...(rowsField?{publicRowsField:rowsField}:{}),fields,displayFields:Object.keys(fields)};
+  const rowDimensions=['code','name','fullName','displayName','employeeName','workerName','studentName','orderCode','title'].filter(key=>Boolean(fields[key])).slice(0,2);
+  return {publicRead:true,...(rowsField?{publicRowsField:rowsField}:{}),...(operation.resultRowsTotalField?{publicRowsTotalField:operation.resultRowsTotalField}:{}),...(operation.resultRowsComplete?{publicRowsComplete:true as const}:{}),...(rowDimensions.length?{rowDimensions}:{}),fields,displayFields:Object.keys(fields)};
 }
 /** Reviewed whole-collection APIs. Keep method/path and response shape explicit;
  * do not infer completeness from an array or from the operation's display name.
@@ -128,9 +129,10 @@ function collection(response: any, declaredPagination: boolean, operation:Assist
   }
   if (!Array.isArray(rows) || rows.some(r=>!r||typeof r!=='object'||Array.isArray(r))) return;
   const metadata=containers.flatMap(c=>[c,c.pagination,c.meta,c.meta?.pagination]).filter(c=>c&&typeof c==='object'&&!Array.isArray(c));
-  const totals=metadata.map(c=>c.totalCount ?? c.totalItems ?? (declaredPagination || c.page!==undefined || c.currentPage!==undefined || containers.some(p=>p.pagination===c||p.meta?.pagination===c) ? c.total : undefined)).filter(v=>v!==undefined);
+  const totalField=operation.analysis?.publicRowsTotalField;
+  const totals=metadata.map(c=>totalField?c[totalField]:c.totalCount ?? c.totalItems ?? (declaredPagination || c.page!==undefined || c.currentPage!==undefined || containers.some(p=>p.pagination===c||p.meta?.pagination===c) ? c.total : undefined)).filter(v=>v!==undefined);
   if (totals.some(v=>!Number.isSafeInteger(v)||v<0) || new Set(totals).size>1) throw new AssistantReadDataError('Tổng số dòng của nguồn dữ liệu chưa nhất quán. Mình chưa kết luận kết quả lọc.');
-  const pages=metadata.map(c=>c.page ?? c.currentPage).filter(v=>v!==undefined);
+  const pages=operation.analysis?.publicRowsComplete?[1]:metadata.map(c=>c.page ?? c.currentPage).filter(v=>v!==undefined);
   if (pages.some(v=>!Number.isSafeInteger(v)||v<1)||new Set(pages).size>1) throw new AssistantReadDataError('Thông tin trang dữ liệu chưa nhất quán.');
   return {rows,total:totals[0],page:pages[0]};
 }
@@ -164,6 +166,7 @@ export async function collectPublicReadData(
       return {data:rows,analysisComplete:true};
     }
     let source=collection(response,Boolean(pageField),operation);
+    if(operation.analysis?.publicRowsComplete&&(!source||source.total===undefined||source.total!==source.rows.length))throw new AssistantReadDataError('Phần báo cáo chưa trả đủ các dòng theo tổng đã xác nhận.');
     // Schedule class expansion is capped at 400 days. Its bounded daily/monthly
     // response is complete; an unbounded or wider request is not.
     const calendarBoundary=(key:string)=>operation.fields.find(f=>f.source==='query'&&(f.apiKey||f.key)===key);

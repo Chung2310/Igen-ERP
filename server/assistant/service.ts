@@ -2,6 +2,7 @@ import { interpretRequest } from "./semantic-interpreter";
 import { AssistantInterpretationError, AssistantPlanningError } from './interpretation-error';
 import { revalidateSemanticProof } from './semantic-request';
 import {verifiedSemanticContexts,matchesSemanticExecutionContext,type SemanticExecutionContext} from './semantic-execution-context';
+import type {AssistantReadContext} from './read-dialogue';
 import {collectPublicReadData,AssistantReadDataError} from './public-read-query';
 import {needsAssistantReferenceInput} from './collection-form';
 import { combineAssistantPlanResults } from "./plan-results";
@@ -1927,6 +1928,9 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   let clarificationContext=storedClarification?.scope===goalScope&&typeof storedClarification.text==='string'&&storedClarification.text.length<=16000?storedClarification:undefined;
   let clarificationCandidate=input.text||'';
   let forceClarificationConfirmation=false;
+  const storedRead=(session as any).readContext;
+  let readContext:AssistantReadContext|undefined=storedRead?.scope===goalScope&&typeof storedRead.text==='string'&&storedRead.text.length<=12000&&storedRead.values&&typeof storedRead.values==='object'?storedRead:undefined;
+  let compositeRead=false;
   type PausedAssistant={scope:string;pending:PendingAction;remainingRequests:string[];goalContext?:unknown};
   const storedPause=(session as unknown as {pausedAssistant?:PausedAssistant}).pausedAssistant;
   let pausedAssistant=storedPause?.scope===goalScope&&storedPause.pending?.actionId&&Array.isArray(storedPause.remainingRequests)?storedPause:undefined;
@@ -2088,7 +2092,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     if(!activeRelationSource&&isBusinessExcelRequest(requestIntent)&&(op.module!=='quotation'||op.id.endsWith('.list'))){
       return exportBusinessList(req,op,checked.values,dispatch,{conversationId:input.conversationId,requestId:input.requestId,requestText:requestIntent});
     }
-    if (op.analysis && (!op.analysis.publicRead || checked.values.analysis !== undefined)) {
+    if (op.analysis && (!op.analysis.publicRead || checked.values.analysis !== undefined || op.analysis.publicRowsField || op.analysis.statusCoverage)) {
       const filters = semanticContextFor(workflow,requestIntent) || op.analysis.publicRead ? {kind:'none' as const} : reconcileRequestedValueFilters(requestIntent, op.analysis, checked.values.analysis);
       if (filters.kind === 'clarify') return {status:'collecting',reply:filters.question};
       if (filters.kind === 'resolved') checked.values.analysis = JSON.stringify(filters.analysis);
@@ -2392,7 +2396,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     const readRequiredKeys=[...new Set([...(readRequirements.get(actionId)||[]),...(pending?.actionId===actionId?pending.readRequiredKeys||[]:[])])].filter(key=>(op.method==='GET'||op.readOnly)&&op.fields.some(f=>f.key===key));
     if(readRequiredKeys.length)requestWorkflow={...requestWorkflow,fields:requestWorkflow.fields.map(field=>readRequiredKeys.includes(field.key)?{...field,required:true,systemRequired:true,defaultValue:undefined}:field)};
     if(semanticExecution)requestWorkflow={...requestWorkflow,fields:requestWorkflow.fields.map(field=>
-      semanticExecution.requestedInputs.includes(field.key)&&['date','datetime'].includes(field.type)&&isBlank(provided[field.key])
+      semanticExecution.requestedInputs.includes(field.key)&&(field.reference||['date','datetime'].includes(field.type))&&isBlank(provided[field.key])
         ?{...field,required:true,defaultValue:undefined}:field)};
     let requestOperation = operationForRequest(op, intent);
     const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
@@ -3051,7 +3055,8 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         const lastReply=session.lastReply as AssistantReply|undefined;
         const clarification=!pending&&!pausedAssistant&&clarificationContext&&lastReply?.status==='collecting'&&!lastReply.inputForm&&!lastReply.workflowSelection&&!lastReply.referenceSelections?.length
           ?{text:clarificationContext.text,question:typeof clarificationContext.question==='string'?clarificationContext.question:lastReply.reply}:undefined;
-        const interpretTurn = (text: string) => interpretRequest(text, workflows, pending || pausedAssistant || clarification ? { ...(pending?{ actionId: pending.actionId, values: pending.provided, intent: pending.intent }:{}), ...(pausedAssistant?{paused:{actionId:pausedAssistant.pending.actionId,values:pausedAssistant.pending.provided,intent:pausedAssistant.pending.intent}}:{}),...(clarification?{clarification}:{}) } : null,
+        const validRead=readContext&&workflows.some(w=>w.enabled&&w.actionId===readContext!.actionId&&w.version===readContext!.version)?readContext:undefined;
+        const interpretTurn = (text: string) => interpretRequest(text, workflows, pending || pausedAssistant || clarification || validRead ? { ...(pending?{ actionId: pending.actionId, values: pending.provided, intent: pending.intent }:{}), ...(pausedAssistant?{paused:{actionId:pausedAssistant.pending.actionId,values:pausedAssistant.pending.provided,intent:pausedAssistant.pending.intent}}:{}),...(clarification?{clarification}:{}),...(!pending&&validRead?{readContext:validRead}:{}) } : null,
           session.messages as any, [settings?.instructions || "", projectInstructions, attachmentRouting].filter(Boolean).join("\n"), memories, goalMemory(workflows), knownModules,
           false, false, undefined, false, routingBudget);
         interpreted = await interpretTurn(effectiveInputText);
@@ -3059,6 +3064,9 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         clarificationCandidate=interpreted.currentRequest||semanticTurn?.text||effectiveInputText;
         forceClarificationConfirmation=Boolean(clarification&&semanticTurn&&['continue','correct','followup'].includes(semanticTurn.dialogue?.act||'')&&semanticTurn.text!==effectiveInputText);
         if(forceClarificationConfirmation&&!interpreted.currentRequest)interpreted.currentRequest=semanticTurn!.text;
+        if(semanticTurn?.readContinuation&&!interpreted.currentRequest)interpreted.currentRequest=semanticTurn.text;
+        if(semanticTurn?.dialogue?.act==='request')readContext=undefined;
+        compositeRead=Boolean(interpreted.queryPlan?.length);
         if (goalEnabled && !pending && !activeQueuedRequest && remainingRequests.length && interpreted.resumeGoal) {
           activeQueuedRequest = remainingRequests[0];
           effectiveInputText = activeQueuedRequest;
@@ -3589,6 +3597,14 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   // General conversation already applies account preferences in its own prompt.
   // ERP presentation would strip explanations about workflows and alter code examples.
   if (reply.status === "cancelled" || reply.status === "uncertain") { remainingRequests = []; goalContext = undefined; }
+  if(['cancelled','uncertain'].includes(reply.status))readContext=undefined;
+  if(reply.status==='completed'&&(compositeRead||completedReplies.length))readContext=undefined;
+  if(reply.status==='completed'&&completion&&!compositeRead&&!completedReplies.length){
+    const finished=completion as AssistantCompletion;
+    const intent=semanticContexts.get(finished.operation.id)?.intent||input.text||'';
+    readContext=finished.operation.method==='GET'&&intent.length<=12000?{scope:goalScope,actionId:finished.operation.id,version:finished.workflow.version,text:intent,
+      values:Object.fromEntries(Object.entries(finished.values).filter(([key])=>finished.workflow.fields.some(f=>f.key===key)))}:undefined;
+  }
   if (reply.status === "failed" && !completedReplies.length) remainingRequests = replacedGoal ? [] : previousRemainingRequests;
   if (reply.status === "completed" && remainingRequests.length) {
     reply = { ...reply, reply: `${reply.reply}\n\nCòn ${remainingRequests.length} yêu cầu trong mục tiêu này. Bạn có thể nói “tiếp tục” để xử lý phần còn lại.` };
@@ -3639,6 +3655,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       mode: assistantMode,
       pending,
       pausedAssistant:pausedAssistant||null,
+      readContext:assistantMode==='work'?readContext||null:null,
       workflowChoice,
       clarificationContext:assistantMode==='work'&&needsIntentClarification&&reply.status==='collecting'&&!pending&&!reply.inputForm&&!reply.workflowSelection&&!reply.referenceSelections?.length&&clarificationCandidate.trim()&&clarificationCandidate.length<=16000?{scope:goalScope,text:clarificationCandidate,question:reply.reply}:null,
       pendingDocumentRequest,

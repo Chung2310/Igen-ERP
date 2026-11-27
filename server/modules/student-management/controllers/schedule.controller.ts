@@ -13,6 +13,8 @@ export interface ScheduleEvent {
   time: string;
   details: string;
   location?:string;
+  startAt?:string;
+  endAt?:string;
 }
 
 /** Chuẩn hóa chuỗi ngày DD/MM/YYYY hoặc YYYY-MM-DD về YYYY-MM-DD */
@@ -34,6 +36,8 @@ export class ScheduleController {
       const ownerId = await getAllowedOwnerIds(req.user!);
       const from = typeof req.query.from === "string" ? req.query.from : undefined;
       const to = typeof req.query.to === "string" ? req.query.to : undefined;
+      const batchId=typeof req.query.batchId==='string'?req.query.batchId:undefined;
+      if(batchId&&!/^[a-f0-9]{24}$/i.test(batchId)){res.status(400).json({success:false,message:'Lớp học chưa hợp lệ.'});return;}
       const ownerFilter = typeof req.query.ownerFilter === "string" ? req.query.ownerFilter : undefined;
 
       const resolvedOwnerId = await resolveOwnerFilter(ownerId, ownerFilter);
@@ -42,6 +46,7 @@ export class ScheduleController {
 
       // Kỳ thi
       const examQuery: Record<string, unknown> = {};
+      if(batchId)examQuery.batchId=batchId;
       if (resolvedOwnerId !== "ALL") {
         examQuery.ownerId = Array.isArray(resolvedOwnerId) ? { $in: resolvedOwnerId } : resolvedOwnerId;
       }
@@ -67,13 +72,13 @@ export class ScheduleController {
       }
 
       // Booking tài nguyên (phòng, xe, thiết bị)
-      const bookings = await ResourceService.getBookingsInRange(resolvedOwnerId, from, to, req.user!.branchId);
+      const bookings = batchId?[]:await ResourceService.getBookingsInRange(resolvedOwnerId, from, to, req.user!.branchId);
       for (const b of bookings) {
         events.push({ ...b, type: "resource" });
       }
 
       // Lịch học định kỳ của các lớp mở
-      const classes = await BatchService.getClassEventsInRange(resolvedOwnerId, from, to, req.user!.branchId);
+      const classes = batchId?await BatchService.getClassEventsInRange(resolvedOwnerId,from,to,req.user!.branchId,batchId):await BatchService.getClassEventsInRange(resolvedOwnerId,from,to,req.user!.branchId);
       for (const c of classes) {
         events.push({ ...c, type: "class" });
       }

@@ -10,6 +10,8 @@ export interface AnalysisContract {
   /** Uses the existing approved public projection; completeness is verified at runtime. */
   publicRead?: true;
   publicRowsField?: string;
+  publicRowsTotalField?:string;
+  publicRowsComplete?:true;
   /** Reviewed source returns exactly one scoped summary, not a paginated list. */
   singleton?: true;
   /** Reviewed summaries omit zero-valued groups; restore their declared domain
@@ -18,6 +20,12 @@ export interface AnalysisContract {
   scopeLabel?: string;
   /** Public dimensions of the source row; these do not collapse equal display names. */
   rowDimensions?: string[];
+  identityFields?:string[];
+  /** A row's display label refers to an entity selected through this native
+   * reference input. Bind the identity instead of comparing display strings. */
+  referenceInputs?:Record<string,string>;
+  statusCoverage?:{field:string;unknownValues:readonly string[]};
+  lifecycleFields?:Record<string,{terminal:readonly string[];open:readonly string[]}>;
   /** Equivalent basic read views retained for references/old pending actions. */
   replaces?: string[];
   displayFields?: string[];
@@ -329,7 +337,13 @@ export function renderListAnalysis(contract: AnalysisContract, rows: Record<stri
     return result.detailRecords.length?formatAssistantResultTable(summary,result.detailRecords,totals):[assistantEmptyReadResult(requestText),...totals].join('\n');
   }
   if(!result.records.length)return assistantEmptyReadResult(requestText);
-  return formatAssistantResultTable(summary, result.records, result.records.length < result.matched ? [`Hiển thị ${result.records.length} trong ${result.matched} kết quả phù hợp.`] : []);
+  const notes=result.records.length < result.matched ? [`Hiển thị ${result.records.length} trong ${result.matched} kết quả phù hợp.`] : [];
+  if(contract.statusCoverage&&complete){
+    const selected=selectAnalysisRows(contract,rows,validateListAnalysis(raw,contract),complete).rows;
+    const unknown=selected.filter(row=>row[contract.statusCoverage!.field]==null||contract.statusCoverage!.unknownValues.includes(String(row[contract.statusCoverage!.field]))).length;
+    notes.push(`Đã ghi nhận trạng thái ${selected.length-unknown}/${selected.length} hồ sơ.${unknown?' Còn '+unknown+' hồ sơ chưa ghi nhận; chưa đủ dữ liệu để kết luận cho toàn bộ danh sách.':''}`);
+  }
+  return formatAssistantResultTable(summary, result.records, notes);
 }
 export function canPresentPartialList(plan:ListAnalysis):boolean {
   return !plan.aggregate&&!plan.aggregates&&!plan.groupBy&&!plan.extreme&&!plan.sort&&!plan.limit;

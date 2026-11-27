@@ -72,6 +72,8 @@ export interface AssistantOperation {
   resultFields: string[];
   /** Explicit collection inside an envelope which also contains totals/meta. */
   resultRowsField?:string;
+  resultRowsTotalField?:string;
+  resultRowsComplete?:true;
   // Field allow-lists for nested objects shown in a result field. Nested API documents
   // must be projected before display so unrelated personal or internal fields stay hidden.
   resultChildFields?: Record<string, AssistantResultFieldTree>;
@@ -1752,6 +1754,8 @@ if (hrContractExpiringLookup) operations.push({
   title: "Báo cáo hợp đồng nhân sự sắp hết hạn",
   description: "Liệt kê hợp đồng nhân sự sắp hết hạn trong số ngày cảnh báo đã cài cho công ty hoặc khoảng ngày được yêu cầu. Chỉ hiển thị tên nhân sự, loại hợp đồng và ngày hết hạn.",
   resultFields: ["expiryAlerts", "expiryAlertTotal", "expiryAlertDays"],
+  resultRowsField:'expiryAlerts',resultRowsTotalField:'expiryAlertTotal',resultRowsComplete:true,
+  resultChildFields:{expiryAlerts:['employeeName','contractType','endDate','daysRemaining']},
   fields: [...hrContractExpiringLookup.fields, queryField({ ...text("query_contractType", "Loại hợp đồng cần lọc"), max: 100 }, "contractType")],
   readOnly: true,
 });
@@ -1860,6 +1864,8 @@ if (payrollReconciliation) operations.push({
 });
 
 const dailyAttendance = operations.find(op => op.id === "timekeeping.records.list");
+operations.push({id:'worker.project.workers.list',title:'Tra cứu lao động được phân công trong dự án',description:'Danh sách lao động đang được phân công vào dự án/công trình đã chọn theo tên hoặc mã. Đây là danh sách phân công, không phải bằng chứng có mặt hoặc chấm công hôm nay.',module:'worker',permissions:['people:read'],permissionGroups:[['people:read','people:manage']],method:'GET',path:'/worker-management/projects/:id/workers',adapter:'contract',rawResponse:true,readOnly:true,link:'/quan-ly-lao-dong',
+  functionAreas:[{key:'project',label:'Dự án và phân công lao động'}],fields:[{...ref('path_id','Tên hoặc mã dự án','worker.project.list'),source:'path',apiKey:'id'}],resultFields:['items'],resultRowsField:'items',resultChildFields:{items:['fullName','phone','laborType','status','projectName','projectCode']}});
 const interviewList = operations.find(op => op.id === "recruitment.interview.list");
 if (interviewList) interviewList.resultFields = ["applicantName", "jobTitle", "interviewers", ...interviewList.resultFields];
 operations.push({
@@ -2186,6 +2192,28 @@ for(const section of [
       ...(section.key==='paymentMix'?{completeGroups:{dimension:'method',values:['cash','card','transfer','ewallet'],zeroMeasures:['amount']}}:{})}});
 }
 registerAssistantBusinessReadViews(operations);
+for(const operation of operations){
+  if(operation.analysis)for(const [key,definition]of Object.entries(operation.analysis.fields)){
+    if(!definition.values||!/(?:^|_)status$/i.test(key))continue;
+    const values=Object.keys(definition.values),terminal=values.filter(v=>['completed','cancelled','canceled','closed','ended','terminated','archived'].includes(v));
+    const open=values.filter(v=>['draft','pending','confirmed','processing','in_progress','open','active'].includes(v));
+    if(terminal.length>1&&open.length)operation.analysis.lifecycleFields={...operation.analysis.lifecycleFields,[key]:{terminal,open}};
+  }
+  if(operation.id==='inventory.balance.list'&&operation.analysis){
+    operation.fields.push(queryRef('productId','Tên hoặc mã sản phẩm','product.list',false));
+    operation.analysis.referenceInputs={productName:'productId',warehouseName:'warehouseId'};
+    operation.description+=' Nhận diện tên sản phẩm qua productId và tên kho qua warehouseId; không lọc literal nhãn sản phẩm/kho khi đã dùng tham chiếu.';
+  }
+  if(operation.id==='student.schedule.list'&&operation.analysis){
+    operation.fields.push(queryRef('query_batchId','Tên hoặc mã lớp','batch.list',false));
+    operation.fields[operation.fields.length-1].apiKey='batchId';
+    operation.analysis.referenceInputs={title:'query_batchId'};
+    operation.resultFields.push('startAt','endAt');
+    for(const key of ['startAt','endAt'])operation.analysis.fields[key]={label:key==='startAt'?'Bắt đầu lúc':'Kết thúc lúc',type:'text',format:'date'};
+    operation.description+=' Lọc lớp qua batchId, không so tên lớp với tiêu đề ghép mã lớp/khóa học. startAt/endAt là thời gian cụ thể để lọc một buổi trong ngày.';
+  }
+  if(operation.id==='hr.daily.overview'&&operation.analysis)operation.analysis.statusCoverage={field:'attendanceStatus',unknownValues:['Chưa ghi nhận','unrecorded']};
+}
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations.map(operation => ({
   ...operation,
   assistantMetadata: buildAssistantOperationMetadata(operation),

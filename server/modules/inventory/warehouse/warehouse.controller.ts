@@ -61,14 +61,16 @@ export const warehouseController = {
       if (!companyCode) throw Object.assign(new Error("Vui lòng chọn công ty."), { statusCode: 400 });
       const branchId = await effectiveBranch(req, companyCode, accountBranchId);
       const warehouseId = String(req.query.warehouseId || "").trim();
+      const selectedProductId=String(req.query.productId||'').trim();
+      if(selectedProductId&&(!Types.ObjectId.isValid(selectedProductId)||!await ProductCatalogModel.exists({_id:selectedProductId,companyCode})))throw Object.assign(new Error('Không tìm thấy sản phẩm trong công ty hiện tại.'),{statusCode:404});
       const physicalWarehouses = await listWarehouses(companyCode, branchId || undefined);
       if (warehouseId && !physicalWarehouses.some((warehouse) => String(warehouse._id) === warehouseId)) {
         throw Object.assign(new Error("Không tìm thấy kho trong chi nhánh hiện tại."), { statusCode: 404 });
       }
       const warehouseIds = physicalWarehouses.map((warehouse) => String(warehouse._id)).filter((id) => !warehouseId || id === warehouseId);
       const branchScope = branchId ? { branchId } : {};
-      const items = await InventoryBalanceModel.find({ companyCode, ...branchScope, warehouseId: { $in: warehouseIds } }).sort({ sku: 1 }).lean();
-      const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] } }).select("name mediaIds").lean();
+      const items = await InventoryBalanceModel.find({ companyCode, ...branchScope, warehouseId: { $in: warehouseIds },...(selectedProductId?{productId:selectedProductId}:{}) }).sort({ sku: 1 }).lean();
+      const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] },...(selectedProductId?{_id:selectedProductId}:{}) }).select("name mediaIds").lean();
       const activeProductIds = catalogProducts.map((product) => String(product._id));
       const productIds = [...new Set([...items.map((i) => i.productId), ...activeProductIds])];
       const activeVariants = await ProductVariantModel.find({ companyCode, productId: { $in: activeProductIds }, status: "active", trackingMode: { $in: ["quantity", "serial", "unit_barcode", "lot"] } }).select("_id productId sku barcode displayName mediaIds trackingMode").sort({ sku: 1 }).lean();

@@ -34,6 +34,7 @@ import {assistantFunctionKey} from './function-context';
 import {parseAssistantResultTable} from '../../src/shared/assistant-result-table';
 import {parseSemanticRequest,bindSemanticRequest} from './semantic-request';
 const captures=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-remaining25-retry.json',import.meta.url),'utf8'));
+const naturalCaptures=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-natural16.json',import.meta.url),'utf8'));
 
 it.each(['true','false'])('restores an unanswered proposal after session reload and keeps form/confirmation (semantic rollout %s)',async semanticFlag=>{
  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT',semanticFlag);
@@ -111,6 +112,132 @@ it('does not save a technical processing stop as a business question awaiting co
  state.interpret.mockRejectedValueOnce(new PlanStoppedError('Đã hết thời gian xử lý. Bạn thử lại nhé.'));
  const reply=await turn({text:'Tra cứu học viên QA'});
  expect(reply.status).toBe('collecting');expect(state.session.clarificationContext).toBeNull();
+});
+
+it.each(['true','false'])('keeps the executed read scope across reload and an oldest-record followup (semantic rollout %s)',async flag=>{
+ vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT',flag);state.allowed=['retail.order.list'];
+ const prior={analysis:{where:{all:[{field:'status',operator:'ne',value:'completed'},{field:'status',operator:'ne',value:'cancelled'}]}}};
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'retail.order.list',values:prior});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const path=new URL(String(raw)).pathname;
+  if(path.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  expect(path).toBe('/api/v1/retail/orders');
+  return json({success:true,data:{items:[
+   {_id:'64b000000000000000000001',orderCode:'QA-DONE',status:'completed',createdAt:'2026-01-01T00:00:00Z'},
+   {_id:'64b000000000000000000002',orderCode:'QA-CANCEL',status:'cancelled',createdAt:'2026-01-02T00:00:00Z'},
+   {_id:'64b000000000000000000003',orderCode:'QA-OPEN',status:'confirmed',createdAt:'2026-11-20T00:00:00Z'},
+  ],total:3,page:1}});
+ });
+ const initial=await turn({text:'Xem đơn bán lẻ chưa hoàn tất và chưa hủy'});expect(initial.status,JSON.stringify(initial)).toBe('completed');expect(initial.reply).toContain('QA-OPEN');
+ expect(state.session.readContext.actionId).toBe('retail.order.list');
+ expect(JSON.parse(state.session.readContext.values.analysis)).toEqual(prior.analysis);
+ state.session=JSON.parse(JSON.stringify(state.session));state.interpret.mockReset();
+ const capture=naturalCaptures.find((c:any)=>c.id==='N06-04');
+ model({meaning:capture.turns.find((t:any)=>t.kind==='meaning').output,plan:capture.turns.find((t:any)=>t.kind==='plan').output});
+ const reply=await turn({text:'Đơn nào bị ngâm lâu nhất rồi?'});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA-OPEN');expect(reply.reply).not.toMatch(/QA-DONE|QA-CANCEL/);
+});
+
+it.each(['hr.daily.overview','hr.contract.expiring.list'])('renders complete identified native rows through dispatch: %s',async id=>{
+ state.allowed=[id];state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:id,values:id==='hr.daily.overview'?{query_date:'2026-11-27'}:{}});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const path=new URL(String(raw)).pathname;
+  if(path.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  return id==='hr.daily.overview'?json({status:'success',data:[{employeeName:'QA An',attendanceStatus:'Chưa ghi nhận',date:'2026-11-27'}]})
+   :json({status:'success',data:{contracts:[{employeeName:'KHÔNG DÙNG'}],total:20,page:1,expiryAlerts:[{employeeName:'QA An',contractType:'Thử việc',endDate:'2026-11-30',daysRemaining:3}],expiryAlertTotal:1}});
+ });
+ const reply=await turn({text:id==='hr.daily.overview'?'Nay mọi người đi làm đủ không?':'Có ai sắp hết hợp đồng?'});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA An');expect(reply.reply).not.toContain('KHÔNG DÙNG');
+ if(id==='hr.daily.overview')expect(reply.reply).toContain('chưa đủ dữ liệu');else expect(reply.reply).toContain('30/11/2026');
+});
+
+it('resolves spoken product/warehouse references through the option protocol and dispatches native identities',async()=>{
+ state.allowed=['inventory.balance.list','product.list','inventory.warehouse.locations.list'];
+ const capture=naturalCaptures.find((c:any)=>c.id==='N08-01'),meaning=capture.turns.filter((t:any)=>t.kind==='meaning').at(-1),plan=capture.turns.filter((t:any)=>t.kind==='plan').at(-1).output;
+ model({meaning:meaning.output,plan});
+ const productId='64b000000000000000000031',warehouseId='64b000000000000000000032';
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const url=new URL(String(raw));
+  if(url.pathname==='/api/v1/inventory/catalog/products'){
+    const page=Number(url.searchParams.get('page')||1),search=url.searchParams.get('q');
+    return json({products:search?[]:page===1?[{_id:'64b000000000000000000033',name:'QA Món không liên quan',productCode:'QA-OTHER',status:'active',productType:'physical'}]:[{_id:productId,name:'QA Điện thoại Cũ 30',productCode:'QA-DT-30',status:'active',productType:'physical'}],total:search?0:2,page,limit:1});
+  }
+  if(url.pathname==='/api/v1/inventory/warehouses')return json({success:true,data:[{_id:warehouseId,name:'Kho bán hàng - Trụ sở chính',branchId:req.user.branchId}]});
+  expect(url.pathname).toBe('/api/v1/inventory/warehouses/balances');expect(url.searchParams.get('productId')).toBe(productId);expect(url.searchParams.get('warehouseId')).toBe(warehouseId);
+  return json({success:true,data:[{sku:'QA-DT-30',productName:'QA Điện thoại Cũ 30',warehouseName:'Kho bán hàng - Trụ sở chính',quantity:1,reservedQuantity:0,availableQuantity:1}]});
+ });
+ let reply=await turn({text:meaning.text});
+ for(let i=0;i<3&&reply.status==='collecting'&&reply.referenceSelections?.length;i++){
+  const selections=Object.fromEntries(reply.referenceSelections.filter(s=>s.options.length).map(s=>[s.key,[s.options[0].value]]));
+  reply=await turn(reply.inputForm?{formValues:{id:reply.inputForm.id,values:{},referenceSelections:selections,skipReferenceKeys:[]}}:{referenceSelections:selections});
+ }
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Điện thoại Cũ 30');expect(reply.reply).not.toContain('chưa tìm thấy');
+ expect(fetcher.mock.calls.some(([raw]:any)=>{const u=new URL(String(raw));return u.pathname.endsWith('/catalog/products')&&!u.searchParams.get('q');})).toBe(true);
+ expect(fetcher.mock.calls.some(([raw]:any)=>{const u=new URL(String(raw));return u.pathname.endsWith('/catalog/products')&&u.searchParams.get('page')==='2';})).toBe(true);
+});
+
+it('reads the assigned project roster through the existing reference form and common dispatch',async()=>{
+ state.allowed=['worker.project.workers.list','worker.project.list'];
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:'worker.project.workers.list',values:{path_id:'Nhà máy A'}});
+ const id='64b000000000000000000051';
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const path=new URL(String(raw)).pathname;
+  if(path==='/api/v1/worker-management/projects')return json({success:true,data:[{_id:id,name:'QA Nhà máy A',code:'QA-CT-01',status:'active'}],total:1,page:1,limit:100});
+  expect(path).toBe(`/api/v1/worker-management/projects/${id}/workers`);
+  return json({success:true,data:{items:[{_id:'64b000000000000000000052',fullName:'QA Lao động A',phone:'0900000001',status:'active',projectName:'QA Nhà máy A'}],total:1,page:1}});
+ });
+ let reply=await turn({text:'Công trình Nhà máy A đang có những ai làm vậy?'});
+ for(let i=0;i<3&&reply.status==='collecting'&&reply.referenceSelections?.length;i++)reply=await turn({referenceSelections:Object.fromEntries(reply.referenceSelections.map(s=>[s.key,[s.options[0].value]]))});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Lao động A');expect(reply.reply).not.toContain(id);
+});
+
+it('asks the existing product selector for an unresolved requested identity instead of reading all stock',async()=>{
+ state.allowed=['inventory.balance.list','product.list'];
+ const capture=naturalCaptures.find((c:any)=>c.id==='N08-01'),frame=capture.turns.find((t:any)=>t.kind==='meaning');
+ const plan={intentType:'workflow',actionId:'inventory.balance.list',actionIntent:'lookup',values:{},meaningBindings:[{unitId:'u1',targets:['action']},{unitId:'u2',targets:['action']},{unitId:'u3',targets:['values.productId']},{unitId:'u4',targets:['result.availableQuantity']}]};
+ model({meaning:frame.output,plan});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');expect(new URL(String(raw)).pathname).toBe('/api/v1/inventory/catalog/products');
+  return json({products:[{_id:'64b000000000000000000071',name:'QA Máy cần chọn',productCode:'QA-CHON',status:'active',productType:'physical'}],total:1,page:1,limit:100});
+ });
+ const reply=await turn({text:'Cái máy hôm trước khách hỏi còn hàng không?'});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');expect(reply.referenceSelections?.find(s=>s.key==='productId')).toMatchObject({required:true});
+ expect(reply.inputForm).toBeDefined();expect(fetcher.mock.calls.every(([raw]:any)=>!String(raw).includes('/warehouses/balances'))).toBe(true);
+});
+
+it('offers module options for one request with multiple discovered owners instead of choosing a partner domain arbitrarily',async()=>{
+ const chosen=['student-partner','labor-partner','retail-partner'].map(module=>ASSISTANT_OPERATIONS.find(o=>o.module===module&&o.method==='GET'&&!o.unavailableReason)!);
+ state.allowed=chosen.map(o=>o.id);
+ const frame=naturalCaptures.find((c:any)=>c.id==='N07-02').turns.find((t:any)=>t.kind==='meaning');
+ state.provider.mockImplementation(async input=>{
+  const p=input.responseSchema?.properties||{};
+  if(p.units)return{text:JSON.stringify(frame.output)};
+  if(p.featureKeys)return{text:JSON.stringify({featureKeys:chosen.map(op=>assistantFunctionKey(defaultWorkflow(op))),decision:'search',question:'',unavailableModule:null})};
+  throw Error('An unresolved owner must not reach planning or execution');
+ });
+ const reply=await turn({text:'Có bên nào mình còn chưa trả hoa hồng không?'});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');expect(reply.workflowSelection?.kind).toBe('module');expect(reply.workflowSelection?.options).toHaveLength(3);
+ expect(fetcher).not.toHaveBeenCalled();
+});
+
+it('filters the selected class by exact evening timestamps while retaining a bounded native date request',async()=>{
+ state.allowed=['student.schedule.list','batch.list'];
+ const text='Lớp QA Anh văn 01 tối nay có học không?',from='2026-11-27T18:00:00+07:00',to='2026-11-27T23:59:59+07:00';
+ const row={meaning:{version:1,dialogue:{act:'request',evidence:text},conditionLogic:'u3',units:[
+  {id:'u1',kind:'goal',quote:'có học không',concept:'Kiểm tra lịch học',operator:'lookup',value:null,dimension:'none'},
+  {id:'u2',kind:'reference',quote:'QA Anh văn 01',concept:'Lớp cần tra cứu',operator:'eq',value:'QA Anh văn 01',dimension:'none'},
+  {id:'u3',kind:'time',quote:'tối nay',concept:'Buổi tối ngày cần kiểm tra',operator:'range',value:{from,to},dimension:'temporal'},
+ ]},plan:{intentType:'workflow',actionIntent:'lookup',actionId:'student.schedule.list',values:{query_batchId:'QA Anh văn 01',analysis:{where:{field:'startAt',operator:'between',value:[from,to]}}},meaningBindings:[{unitId:'u1',targets:['action']},{unitId:'u2',targets:['values.query_batchId']},{unitId:'u3',targets:['analysis.filters.startAt']} ]}};
+ model(row);const id='64b000000000000000000061';
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const url=new URL(String(raw));
+  if(url.pathname==='/api/v1/batches')return json({batches:[{_id:id,name:'QA Anh văn 01',code:'QA-LOP-01',status:'Đang học'}],total:1,page:1,limit:100});
+  expect(url.pathname).toBe('/api/v1/schedule');expect(url.searchParams.get('batchId')).toBe(id);expect(url.searchParams.get('from')).toBe('2026-11-27');expect(url.searchParams.get('to')).toBe('2026-11-27');
+  return json({success:true,events:[{id:'morning',type:'class',title:'QA Buổi sáng',date:'2026-11-27',time:'08:00 - 10:00',startAt:'2026-11-27T08:00:00+07:00'},{id:'evening',type:'class',title:'QA Buổi tối',date:'2026-11-27',time:'19:00 - 21:00',startAt:'2026-11-27T19:00:00+07:00'}]});
+ });
+ let reply=await turn({text});
+ for(let i=0;i<3&&reply.status==='collecting'&&reply.referenceSelections?.length;i++)reply=await turn({referenceSelections:Object.fromEntries(reply.referenceSelections.map(s=>[s.key,[s.options[0].value]]))});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('QA Buổi tối');expect(reply.reply).not.toContain('QA Buổi sáng');
 });
 const originals=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-remaining-sheet.json',import.meta.url),'utf8'));
 const req:any={user:{id:'actor',uid:'actor',email:'qa@example.test',companyCode:'TEST',branchId:'507f1f77bcf86cd799439012',role:'admin'},headers:{authorization:'Bearer fixture'},socket:{localPort:4050,localAddress:'127.0.0.1'}};

@@ -6,6 +6,9 @@ const RELATED_MODULES: Partial<Record<ModuleKey, ModuleKey[]>> = {
   "retail-partner": ["retail"],
   "social-marketing": ["marketing"],
 };
+/** Distinct ownership domains in the same business family need an explicit
+ * choice when discovery itself returns several owners of one request. */
+export const assistantModuleFamily=(module:string)=>['student-partner','labor-partner','retail-partner','partner'].includes(module)?'partners':undefined;
 
 const MODULE_LABEL_ALIASES: Partial<Record<ModuleKey, string[]>> = {
   quotation: ["Hồ sơ báo giá", "Lập dự toán báo giá"],

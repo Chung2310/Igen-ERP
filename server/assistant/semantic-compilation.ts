@@ -128,7 +128,7 @@ export function isBusinessModuleUnit(unit:MeaningUnit,module:string,text?:string
   const context=assistantModuleContext(module);
   const matches=(text:string)=>isModuleContextClause(text,module)||MODULE_KEYS.some(key=>context.relatedLabels.includes(MODULE_LABELS[key])&&isModuleContextClause(text,key));
   const bareQuote=unit.quote.replace(/^(?:các|những)\s+/iu,'').normalize('NFC').trim().toLocaleLowerCase('vi');
-  const canonicalEntity=unit.kind==='entity'&&unit.value===null&&[context.label,...context.relatedLabels]
+  const canonicalEntity=unit.kind==='entity'&&unit.value===null&&[context.label,...context.relatedLabels,...context.aliases]
     .some(label=>label.replace(/^Quản l[ýí]\s+/iu,'').normalize('NFC').trim().toLocaleLowerCase('vi')===bareQuote);
   if(text){
     const before=text.slice(0,text.indexOf(unit.quote)).trimEnd();
@@ -146,9 +146,13 @@ export function isBusinessModuleUnit(unit:MeaningUnit,module:string,text?:string
 export function declaredDomainModules(request:SemanticRequest,explicitOnly=false){
   return [...new Set(request.units.flatMap(unit=>{
     if(explicitOnly){
+      const anchored=unit.kind==='entity'&&unit.value===null&&MODULE_KEYS.some(module=>{
+        const c=assistantModuleContext(module);
+        return c.relatedLabels.length>0&&[c.label,...c.aliases].some(label=>label.split(/\s+/).length>=3&&label.toLocaleLowerCase('vi')===unit.quote.toLocaleLowerCase('vi'));
+      });
       const before=request.text.slice(0,request.text.indexOf(unit.quote)).trimEnd().split(/\s+/).slice(-3).join(' ');
       const framedPrefix=/(?:phân\s+hệ|module|mục|quản\s+l[ýí])\s*$/iu.test(before)||hasExplicitModuleContextMarker(before.split(/\s+/).at(-1)||'');
-      if(!hasExplicitModuleContextMarker(unit.quote)&&!framedPrefix
+      if(!anchored&&!hasExplicitModuleContextMarker(unit.quote)&&!framedPrefix
         &&!/^quản\s+l[ýí]\s/iu.test(unit.quote)&&!request.text.trimStart().startsWith(unit.quote+':'))return [];
     }
     return MODULE_KEYS.filter(module=>isBusinessModuleUnit(unit,module,request.text));

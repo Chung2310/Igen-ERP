@@ -2,7 +2,7 @@ import { ERP_LLM_MODEL } from '../../shared/llm-model';
 import type { AssistantWorkflow } from '../../src/shared/assistant-workflow';
 import { ASSISTANT_OPERATIONS, operationById } from './catalog';
 import { assistantFunctionContextCatalog, assistantFunctionKeys } from './function-context';
-import { assistantModuleContextCatalog } from './module-context';
+import { assistantModuleContextCatalog,assistantModuleFamily } from './module-context';
 import { buildAssistantCapabilityContext } from './capability-context';
 import { requestAssistantInterpretation, type InterpretationBudget, INTERPRETATION_LIMITS,interpretationPromptBytes } from './interpretation-budget';
 import { parseAssistantModelJson } from './model-json';
@@ -12,6 +12,7 @@ import type { SemanticRequest, SemanticSource } from './semantic-request';
 import {validateSemanticPlan} from './semantic-request';
 import {publicAssistantResultFields} from './result-field-policy';
 import {isBusinessExcelRequest} from './export-intent';
+import {readPlanningValues} from './read-dialogue';
 
 const normalized = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
 const stop = new Set('minh toi ban cho giup voi nhe nha cua cac nhung mot la va hay thi nao xem can muon'.split(' '));
@@ -112,6 +113,10 @@ export async function discoverCapabilities(request: SemanticRequest, authorized:
   }
   if (parsed.decision === 'clarify') return { clarification: typeof parsed.question === 'string' && parsed.question.trim() ? parsed.question.trim().slice(0, 500) : 'Bạn muốn xử lý loại hồ sơ nào?',
     modules: [...new Set(functions.filter(f => parsed.featureKeys.includes(f.key)).map(f => f.module))] };
+  const owners=[...new Set(functions.filter(f=>parsed.featureKeys.includes(f.key)).map(f=>f.module))];
+  const family=owners.length>1&&assistantModuleFamily(owners[0]);
+  if(family&&owners.every(owner=>assistantModuleFamily(owner)===family)&&!request.readContinuation&&!declaredDomainModules(request,true).length&&request.units.filter(u=>u.kind==='goal').length===1)
+    return {clarification:'Bạn muốn xem dữ liệu trong phân hệ nào? Bạn chọn bên dưới nhé.',modules:owners};
   const pool = capabilitySearchPool(request, authorized, parsed.featureKeys);
   budget.capabilityCandidates = pool.map(w => w.actionId);
   return { workflows: planningTools(pool, request, parsed.featureKeys) };
@@ -122,6 +127,7 @@ export interface ActionFit { approvedActionIds: string[]; question?: string }
 /** Independent check of business purpose/entity, not just GET/POST or JSON shape.
  * Approved alternatives are also assessed here; replanning cannot select an unreviewed tool. */
 export async function verifyActionFit(request: SemanticRequest, sources: SemanticSource[], authorized: AssistantWorkflow[], budget: InterpretationBudget, deferred: string[] = [], bindings?:Map<string,string[]>): Promise<ActionFit> {
+  const planningValues=(source:SemanticSource)=>readPlanningValues(request,source);
   const selected = sources.map(s => s.operation.id);
   const bindingCheck=bindings&&sources.length?validateSemanticPlan({...request,actionFitRequired:false},bindings,sources,deferred):undefined;
   const unresolved=bindingCheck?.ok===false?bindingCheck.diagnostic:undefined;
@@ -159,7 +165,7 @@ export async function verifyActionFit(request: SemanticRequest, sources: Semanti
   // selected sources with a bounded ranked shortlist, then compacts uniformly.
   // Do not spend the turn's whole budget on evidence for an already-correct tool.
   for(const [description,inputs,outputs] of [[120,4,6],[80,2,4],[40,0,2],[0,0,0]]){
-    input.messages[1].content=JSON.stringify({meaning:meaning(request),deferred,selected:sources.map(s=>({...buildAssistantCapabilityContext([s.workflow])[0],values:s.values,missingIdentityInputs:identityInputs(s.workflow).filter(field=>s.values[field.key]===undefined).map(field=>field.label),bindingTargets:semanticBindingTargets(s,bindings?[...bindings.values()].flat():[]).slice(0,256)})),bindings:bindings?Object.fromEntries(bindings):undefined,alternatives:pool.map(w=>{const op=operationById(w.actionId);return {actionId:w.actionId,module:w.module,entityKey:op?.assistantMetadata?.entityKey,purpose:w.title,description:w.description.slice(0,description),inputs:relevantInputLabels(w,request,inputs),outputs:relevantCapabilityOutputs(w,request,outputs),...(op?.analysis?{readQuery:true,readFields:relevantCapabilityOutputs(w,request,outputs).filter(key=>Object.hasOwn(op.analysis.fields,key))}:{})};})});
+    input.messages[1].content=JSON.stringify({meaning:meaning(request),deferred,selected:sources.map(s=>({...buildAssistantCapabilityContext([s.workflow])[0],values:planningValues(s),missingIdentityInputs:identityInputs(s.workflow).filter(field=>s.values[field.key]===undefined).map(field=>field.label),bindingTargets:semanticBindingTargets(s,bindings?[...bindings.values()].flat():[]).slice(0,256)})),bindings:bindings?Object.fromEntries(bindings):undefined,alternatives:pool.map(w=>{const op=operationById(w.actionId);return {actionId:w.actionId,module:w.module,entityKey:op?.assistantMetadata?.entityKey,purpose:w.title,description:w.description.slice(0,description),inputs:relevantInputLabels(w,request,inputs),outputs:relevantCapabilityOutputs(w,request,outputs),...(op?.analysis?{readQuery:true,readFields:relevantCapabilityOutputs(w,request,outputs).filter(key=>Object.hasOwn(op.analysis.fields,key))}:{})};})});
     if(interpretationPromptBytes(input)<=40000)break;
   }
   if(unresolved){
