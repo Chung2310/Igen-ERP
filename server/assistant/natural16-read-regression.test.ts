@@ -130,8 +130,8 @@ describe('captured natural-language failures: shared read contracts',()=>{
  it('does not silently widen a previous top-N cohort or leak its private native reference',()=>{
   const r=parseSemanticRequest('Cho mình số điện thoại',{version:1,dialogue:{act:'followup',evidence:'Cho mình số điện thoại'},units:[{id:'u1',kind:'goal',quote:'Cho mình số điện thoại',concept:'Xem liên hệ',operator:'lookup',value:null}]});
   const s=source('inventory.balance.list',{}),id='64b000000000000000000091';
-  r.readContinuation={scope:'test',actionId:s.operation.id,version:s.workflow.version,text:'Top 5',values:{warehouseId:id,analysis:{limit:5}}};
-  expect(()=>inheritReadConstraints(r,[s])).toThrow('did not recover');
+  r.readContinuation={scope:'test',actionId:s.operation.id,version:s.workflow.version,text:'Top 5',cohortDigest:'0'.repeat(64),values:{warehouseId:id,analysis:{limit:5}}};
+  inheritReadConstraints(r,[s]);expect(s.values.analysis).toMatchObject({within:{limit:5}});
   s.values.warehouseId=id;expect(JSON.stringify(readPlanningValues(r,s))).not.toContain(id);
  });
 });

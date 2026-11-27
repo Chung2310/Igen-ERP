@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: [
+      'server/assistant/shared-read-pipeline.test.ts',
+      'server/assistant/business-export.test.ts',
       'server/assistant/natural16-read-regression.test.ts',
       'server/modules/inventory/warehouse/warehouse-product-scope.test.ts',
       'server/modules/worker-management/services/worker-project.service.test.ts',

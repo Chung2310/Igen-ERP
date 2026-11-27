@@ -1,6 +1,7 @@
 import type {AnalysisContract} from './list-analysis';
 import {canonicalFilterEnums} from './filter-expression';
 import {declaredContractKey,normalizeContractScalar} from './contract-normalization';
+import {aggregateOrderField,aggregateOutputContract, readAggregates} from './read-aggregation';
 
 const plain=(value:unknown):value is Record<string,any>=>Boolean(value&&typeof value==='object'&&!Array.isArray(value));
 export function analysisFieldAddress(contract:AnalysisContract,address:string){
@@ -67,14 +68,43 @@ export function normalizeAnalysisPlan(raw:unknown,contract:AnalysisContract,eval
   const aggregate=(value:unknown)=>plain(value)?{...value,...(Object.hasOwn(value,'field')?{field:field(value.field)}:{}),operation:typeof value.operation==='string'?value.operation.toLowerCase():value.operation}:value;
   if(Object.hasOwn(result,'aggregate'))result.aggregate=aggregate(result.aggregate);
   if(Array.isArray(result.aggregates))result.aggregates=result.aggregates.map(aggregate);
+  if(Object.hasOwn(result,'having')&&readAggregates(result).length){
+    const measures=readAggregates(result);
+    if(measures.every(item=>plain(item)&&['count','sum','avg'].includes(item.operation)&&(!item.field||Object.hasOwn(contract.fields,item.field)))){
+      const output=aggregateOutputContract(contract,result);
+      const address=(node:unknown,depth=0):unknown=>{
+        if(!plain(node)||depth>6)return node;
+        if(Object.keys(node).length===1){
+          for(const key of ['all','any'] as const)if(Array.isArray(node[key]))return {[key]:node[key].map((child:unknown)=>address(child,depth+1))};
+          if(Object.hasOwn(node,'not'))return {not:address(node.not,depth+1)};
+        }
+        if(typeof node.field!=='string')return node;
+        const direct=analysisFieldAddress(output,node.field);
+        const source=analysisFieldAddress(contract,node.field);
+        return {...node,field:direct||(source?aggregateOrderField(contract,result,source):node.field)};
+      };
+      result.having=(normalizeAnalysisPlan({where:address(result.having)},output,evaluatedAt) as any).where;
+    }
+  }
   if(Object.hasOwn(result,'limit'))result.limit=normalizeContractScalar(result.limit,'number');
   return result;
 }
 
-export function canonicalAnalysisTarget(contract:AnalysisContract,target:string){
+export function canonicalAnalysisTarget(contract:AnalysisContract,target:string,rawPlan?:unknown){
   const normalized=target.replace(/^values\.analysis\./,'analysis.').replace(/^analysis\.aggregates\./,'analysis.aggregate.');
-  const match=/^(result\.|analysis\.(?:filters|select|aggregate|sort|extreme|groupBy)\.)(.+)$/.exec(normalized);
+  const match=/^(result\.|analysis\.(?:filters|having|select|aggregate|sort|extreme|groupBy)\.)(.+)$/.exec(normalized);
   if(!match)return normalized;
+  if(/^analysis\.(having|sort|extreme)\.$/.test(match[1])&&rawPlan!==undefined){
+    try{
+      const plan=normalizeAnalysisPlan(rawPlan,contract) as any;
+      const measures=plain(plan)?readAggregates(plan):[];
+      if(measures.length&&measures.every(item=>plain(item)&&['count','sum','avg'].includes(item.operation)&&(!item.field||Object.hasOwn(contract.fields,item.field)))){
+        const output=aggregateOutputContract(contract,plan),source=analysisFieldAddress(contract,match[2]);
+        const key=analysisFieldAddress(output,match[2])||(source?aggregateOrderField(contract,plan,source):undefined);
+        if(key&&Object.hasOwn(output.fields,key))return match[1]+key;
+      }
+    }catch{/* Preserve invalid targets for ordinary validation. */}
+  }
   const key=analysisFieldAddress(contract,match[2]);
   return key?match[1]+key:normalized;
 }

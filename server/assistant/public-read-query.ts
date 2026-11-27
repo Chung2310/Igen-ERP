@@ -5,6 +5,7 @@ import { privateAssistantResultField } from './result-field-policy';
 import { AssistantReadDataError } from './policy';
 import {isAssistantTemporalField} from '../../src/shared/assistant-date';
 import {localizedAssistantFieldLabel,localizedAssistantEnumLabel} from './result-format';
+import {bindReadRowIdentity} from './read-cohort';
 
 export {AssistantReadDataError} from './policy';
 
@@ -197,7 +198,9 @@ export async function collectPublicReadData(
       // Without an ID, equal rows on one page are not proof of a repeated page.
       if (seen.has(key)&&(id!=null||seen.get(key)!==page)) throw new AssistantReadDataError('Danh sách có trang trùng hoặc đã thay đổi khi đọc. Mình chưa tính kết quả lọc.');
       seen.set(key,page);
-      all.push(Object.fromEntries(Object.keys(operation.analysis!.fields).filter(k=>Object.hasOwn(rows[i],k)).map(k=>[k,outputValue(operation.analysis!.fields[k],rows[i][k])])));
+      const projected=Object.fromEntries(Object.keys(operation.analysis!.fields).filter(k=>Object.hasOwn(rows[i],k)).map(k=>[k,outputValue(operation.analysis!.fields[k],rows[i][k])]));
+      if(id!=null)bindReadRowIdentity(projected,String(id));
+      all.push(projected);
     }
     if(take<rows.length){if(options.allowPartialRows)return partial();throw new AssistantReadDataError('Danh sách vượt giới hạn đọc hiện tại.');}
     if(start>1||source.total===undefined){if(options.allowPartialRows)return partial();break;}

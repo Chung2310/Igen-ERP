@@ -6,9 +6,26 @@ vi.mock("./workflows", () => ({ actorScope: () => ({ userId: "actor", companyCod
 import { exportBusinessList, isBusinessExcelRequest, saveBusinessWorkbook } from "./business-export";
 import { operationById } from "./catalog";
 import { formatAssistantResultTable } from "../../src/shared/assistant-result-table";
+import {readCohortDigest} from './read-cohort';
+import {selectAnalysisCohortRows,type AnalysisContract} from './list-analysis';
 const req = { user: { id: "actor", companyCode: "TEST", branchId: "branch" } } as any;
 const input = { conversationId: "chat", requestId: "request", requestText: "Xuất danh sách học viên ra Excel" };
 beforeEach(() => state.create.mockReset());
+
+it('exports the same ranked aggregate pipeline and rejects an unproven previous cohort before creating a file',async()=>{
+ const contract:AnalysisContract={fields:{name:{label:'Tên',type:'text'},amount:{label:'Giá trị',type:'number'}}};
+ const op={...operationById('inventory.balance.list')!,analysis:contract};
+ const rows=[{name:'QA A',amount:4},{name:'QA A',amount:5},{name:'QA B',amount:7}],dispatch=vi.fn(async()=>({data:rows,analysisComplete:true}));
+ const plan={groupBy:'name',aggregate:{operation:'sum',field:'amount'},having:{field:'sum_amount',operator:'gte',value:8},sort:{field:'sum_amount',direction:'desc'},limit:1};
+ const reply=await exportBusinessList(req,op,{analysis:JSON.stringify(plan)},dispatch,input);
+ expect(reply.status).toBe('completed');const saved=state.create.mock.calls[0][0],workbook=XLSX.read(saved.files[0].bytes,{type:'buffer'});
+ expect(JSON.stringify(XLSX.utils.sheet_to_json(workbook.Sheets['Danh sách']))).toContain('QA A');expect(JSON.stringify(XLSX.utils.sheet_to_json(workbook.Sheets['Danh sách']))).not.toContain('QA B');
+ state.create.mockClear();
+ await expect(exportBusinessList(req,op,{analysis:JSON.stringify({within:plan})},dispatch,input)).rejects.toThrow('đã thay đổi');expect(state.create).not.toHaveBeenCalled();
+ const digest=readCohortDigest(selectAnalysisCohortRows(contract,rows,plan,true));
+ expect((await exportBusinessList(req,op,{analysis:JSON.stringify({within:plan,select:['name']})},dispatch,{...input,readCohortDigest:digest})).status).toBe('completed');
+ expect(JSON.stringify(state.create.mock.calls[0][0].content)).not.toContain(digest);
+});
 
 it("recognizes export intent but excludes import and explicit negation", () => {
   expect(isBusinessExcelRequest(input.requestText)).toBe(true);
@@ -49,7 +66,7 @@ it("does not dispatch mutations for an export", async () => {
 
 it("refuses to claim a full export when the API omits its total", async () => {
   const dispatch = vi.fn().mockResolvedValue({ students: [{ fullName: "An", phone: "0901234567" }] });
-  await expect(exportBusinessList(req, operationById("student.list")!, {}, dispatch, { ...input, requestText: "Xuất toàn bộ học viên ra Excel" })).rejects.toThrow("Chưa xác minh");
+  await expect(exportBusinessList(req, operationById("student.list")!, {}, dispatch, { ...input, requestText: "Xuất toàn bộ học viên ra Excel" })).rejects.toThrow("chưa xác nhận đã đọc đủ");
   expect(state.create).not.toHaveBeenCalled();
 });
 
@@ -70,6 +87,6 @@ it("fetches every page with the original filter and rejects repeated pages", asy
   expect(dispatch.mock.calls.every(call => call[0].search === "test")).toBe(true);
   state.create.mockClear();
   const repeated = vi.fn().mockResolvedValue({ students: [{ fullName: "An", phone: "0901234567" }], total: 2 });
-  await expect(exportBusinessList(req, operation, {}, repeated, { ...input, requestText: "Xuất tất cả học viên ra Excel" })).rejects.toThrow("cùng một trang");
+  await expect(exportBusinessList(req, operation, {}, repeated, { ...input, requestText: "Xuất tất cả học viên ra Excel" })).rejects.toThrow("trang trùng");
   expect(state.create).not.toHaveBeenCalled();
 });

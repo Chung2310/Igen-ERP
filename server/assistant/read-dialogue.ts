@@ -1,5 +1,5 @@
 import type {SemanticRequest,SemanticSource} from './semantic-request';
-import {analysisPredicates,validateListAnalysis} from './list-analysis';
+import {analysisPredicates,validateListAnalysis,type ListAnalysis} from './list-analysis';
 import {filterPredicateKey,type FilterExpression} from './filter-expression';
 import {AssistantError} from './policy';
 import {filterDate} from './filter-expression';
@@ -7,7 +7,7 @@ import {UnresolvedAssistantClarification} from './dialogue-clarification';
 
 /** Private query state, not result data or authority. Scope/version are checked
  * by service.ts before passing it to interpretation. Never accepted from HTTP. */
-export interface AssistantReadContext {scope:string;actionId:string;version:number;text:string;values:Record<string,unknown>}
+export interface AssistantReadContext {scope:string;actionId:string;version:number;text:string;values:Record<string,unknown>;cohortDigest?:string}
 export function readContextQuestion(request:SemanticRequest){
  const metric=request.units.find(u=>u.kind==='ordering'&&u.dimension==='none'&&['min','max'].includes(u.operator)&&u.value===null);
  if(metric)return `Bạn muốn đánh giá “${metric.quote}” theo tiêu chí nào?`;
@@ -18,10 +18,23 @@ export function readContextQuestion(request:SemanticRequest){
 const planOf=(value:unknown)=>typeof value==='string'?JSON.parse(value):value;
 const tree=(plan:any):FilterExpression|undefined=>plan?.where&&plan?.filters?.length?{all:[plan.where,...plan.filters]}:plan?.where|| (plan?.filters?.length?{all:plan.filters}:undefined);
 const signature=(node:FilterExpression):string=>'all'in node?'all('+node.all.map(signature).sort().join(',')+')':'any'in node?'any('+node.any.map(signature).sort().join(',')+')':'not'in node?'not('+signature(node.not)+')':filterPredicateKey(node);
+export const isReadCohort=(plan:ListAnalysis)=>Boolean(plan.within||plan.limit||plan.extreme||plan.having);
+/** Only private, scope/version-checked session state may authorize a cohort.
+ * Re-read it through the same authorized API; never replay cached result rows. */
+export function validInheritedReadCohort(request:Pick<SemanticRequest,'readContinuation'>,source:SemanticSource,plan:ListAnalysis):boolean{
+ if(!plan.within)return true;
+ const context=request.readContinuation,contract=source.operation.analysis;
+ if(!context||!contract||source.operation.method!=='GET'||context.actionId!==source.operation.id||context.version!==source.workflow.version||!context.cohortDigest||!/^[a-f0-9]{64}$/.test(context.cohortDigest))return false;
+ try{
+  const previous=validateListAnalysis(context.values.analysis,contract);
+  if(!isReadCohort(previous)||JSON.stringify(plan.within)!==JSON.stringify(previous))return false;
+  return source.workflow.fields.filter(field=>field.key!=='analysis'&&field.source!=='body'&&!['page','limit','pageSize'].includes(field.apiKey||field.key)).every(field=>JSON.stringify(source.values[field.key]??field.defaultValue)===JSON.stringify(context.values[field.key]??field.defaultValue));
+ }catch{return false;}
+}
 export function inheritedReadTree(request:SemanticRequest,source:SemanticSource){
  const context=request.readContinuation;
  if(!context||context.actionId!==source.operation.id||context.version!==source.workflow.version||source.operation.method!=='GET'||!source.operation.analysis)return;
- try{return structuredClone(tree(validateListAnalysis(context.values.analysis,source.operation.analysis)));}catch{return;}
+ try{const previous=validateListAnalysis(context.values.analysis,source.operation.analysis);return isReadCohort(previous)?undefined:structuredClone(tree(previous));}catch{return;}
 }
 /** An inherited query is an AND constraint. It cannot be moved below OR/NOT. */
 export function hasInheritedReadTree(actual:FilterExpression|undefined,prior:FilterExpression):boolean{
@@ -32,12 +45,10 @@ export function inheritReadConstraints(request:SemanticRequest,sources:SemanticS
  const context=request.readContinuation;if(!context)return;
  for(const source of sources){
   if(source.operation.id!==context.actionId||source.workflow.version!==context.version||source.operation.method!=='GET')continue;
+  let cohort:ListAnalysis|undefined;
   if(source.operation.analysis&&context.values.analysis!==undefined){
     let previous;try{previous=validateListAnalysis(context.values.analysis,source.operation.analysis);}catch{throw new AssistantError('Điều kiện lọc trước đó không còn khớp nguồn dữ liệu hiện tại. Bạn chọn lại phạm vi cần xem nhé.',409);}
-    if(previous.limit||previous.extreme){
-      const selectedReference=request.units.some(unit=>unit.kind==='reference'&&typeof unit.value==='string'&&(bindings?.get(unit.id)||[]).some(raw=>source.workflow.fields.some(field=>field.reference&&raw.replace(`query:${source.operation.id}:`,'')==='values.'+field.key)));
-      if(!selectedReference)throw new UnresolvedAssistantClarification(request.text,'Bạn cho mình tên hoặc mã hồ sơ trong nhóm kết quả vừa xem để mình tiếp tục đúng nhóm nhé.');
-    }
+    if(isReadCohort(previous))cohort=previous;
   }
   // Native date/search/reference inputs keep the previous scope. New explicit
   // values must still be bound and validated as usual, never copied from rows.
@@ -48,6 +59,13 @@ export function inheritReadConstraints(request:SemanticRequest,sources:SemanticS
   }));
   for(const field of source.workflow.fields)if(field.key!=='analysis'&&field.source!=='body'&&!changed.has(field.key)&&context.values[field.key]!==undefined&&source.values[field.key]===undefined)source.values[field.key]=structuredClone(context.values[field.key]);
   if(!source.operation.analysis)continue;
+  if(cohort){
+   const plan=planOf(source.values.analysis)||{};
+   // A changed API scope cannot safely reconstruct the earlier top/group.
+   const candidate={...plan,within:cohort};
+   if(!validInheritedReadCohort(request,source,candidate))throw new UnresolvedAssistantClarification(request.text,'Bạn muốn lọc tiếp trong nhóm vừa xem hay tìm lại trên phạm vi mới?');
+   source.values.analysis=validateListAnalysis(candidate,source.operation.analysis);continue;
+  }
   const prior=inheritedReadTree(request,source);if(!prior)continue;
   const plan=planOf(source.values.analysis)||{},current=tree(plan);
   if(hasInheritedReadTree(current,prior))continue;

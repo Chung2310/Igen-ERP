@@ -13,7 +13,7 @@ import { projectRecords } from "./executor";
 import { formatQuotationResult } from "./quotation-result";
 export {isBusinessExcelRequest} from './export-intent';
 import {collectPublicReadData} from './public-read-query';
-import {collectAnalysisPages,analyzeList} from './list-analysis';
+import {collectAnalysisPages,analyzeList,validateListAnalysis,assertAnalysisCohort} from './list-analysis';
 import {formatAssistantResultTable} from '../../src/shared/assistant-result-table';
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase();
@@ -49,12 +49,14 @@ function pagination(result: any) {
 
 /** Reads only through the caller's dispatch, preserving permission checks and execution budget. */
 export async function exportBusinessList(req: AuthenticatedRequest, operation: AssistantOperation, values: Record<string, AssistantValue>,
-  dispatch: (values: Record<string, AssistantValue>) => Promise<any>, input: { conversationId: string; requestId: string; requestText: string }): Promise<AssistantReply> {
+  dispatch: (values: Record<string, AssistantValue>) => Promise<any>, input: { conversationId: string; requestId: string; requestText: string; readCohortDigest?:string }): Promise<AssistantReply> {
   if (operation.method !== "GET") throw new AssistantError("Xuất Excel chỉ dùng thao tác đọc dữ liệu. Chưa thực hiện thay đổi nào.", 400);
   if(operation.analysis){
+    const plan=validateListAnalysis(values.analysis,operation.analysis);
     const source=operation.analysis.publicRead
       ?await collectPublicReadData(operation,values,dispatch,(response,input)=>projectRecords(operation,response,req,input))
       :await collectAnalysisPages(operation.analysis,values,dispatch);
+    assertAnalysisCohort(operation.analysis,source.data,plan,source.analysisComplete===true,input.readCohortDigest);
     const result=analyzeList(operation.analysis,source.data,values.analysis,source.analysisComplete===true);
     if(result.records.length>1000)throw new AssistantError('Danh sách vượt 1.000 dòng. Bạn thu hẹp bộ lọc nhé.',422);
     return saveBusinessWorkbook(req,{...input,title:operation.title,tables:[formatAssistantResultTable(operation.title,result.records)],scopeNote:'File gồm kết quả trong phạm vi và bộ lọc đã chọn.'});
