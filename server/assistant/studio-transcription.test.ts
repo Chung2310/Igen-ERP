@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { normalizeStudioAudio } from "./studio-transcription";
+import { normalizeStudioAudio, prepareStudioAudioForProvider } from "./studio-transcription";
 import { resolveMediaBinary } from "../modules/marketing-suite/shared/service/media-binary.service";
 
 const ffmpegAvailable = spawnSync(resolveMediaBinary("ffmpeg"), ["-version"], { stdio: "ignore", windowsHide: true }).status === 0;
@@ -31,5 +31,12 @@ describe("studio audio normalization", () => {
   it("passes a supported MP3 under the provider limit through without requiring ffmpeg", async () => {
     const mp3 = Buffer.concat([Buffer.from("ID3\u0004\u0000\u0000"), Buffer.alloc(256)]);
     await expect(normalizeStudioAudio(mp3, "voice.mp3")).resolves.toBe(mp3);
+  });
+
+  it("prepares M4A audio under the provider limit even when ffmpeg is unavailable", async () => {
+    const m4a = Buffer.concat([Buffer.from([0x00, 0x00, 0x00, 0x18]), Buffer.from("ftypmp42"), Buffer.alloc(256)]);
+    const prepared = await prepareStudioAudioForProvider(m4a, "testau.m4a");
+    expect(prepared.audio.length).toBeGreaterThan(0);
+    expect(["m4a", "mp3"]).toContain(prepared.format);
   });
 });

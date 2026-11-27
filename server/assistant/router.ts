@@ -15,7 +15,7 @@ import { submitAssistantJob, assistantJobStatus, cancelAssistantJob, assertNoAct
 
 import { interpretWorkflowText } from "./workflow-text";
 import { getSettings, saveSettings } from "./settings";
-import { synthesizeVietnameseSpeech } from "./speech";
+import { listSpeechVoices, synthesizeVietnameseSpeech } from "./speech";
 import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices";
 import { maxAssistantImageCount } from "../../src/shared/assistant-image-generation";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
@@ -37,7 +37,15 @@ assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
 const id = Joi.string().guid({ version: ["uuidv4"] }).required();
 const wrap = (handler: (req: AuthenticatedRequest, res: Response) => Promise<unknown>) => async (req: any, res: any) => {
   try { const data = await handler(req, res); if (!res.destroyed && !res.writableEnded) return res.json({ success: true, data }); }
-  catch (error) { if (!(error instanceof AssistantError)) console.error("[assistant]", error); if (!res.destroyed && !res.writableEnded) return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể xử lý trợ lý AI lúc này." }); }
+  catch (error: any) {
+    const knownStatus = error instanceof AssistantError
+      ? error.status
+      : (error?.code === "AI_SUBSCRIPTION_LIMIT" || error?.code === "AI_USAGE_SETTLEMENT_PENDING") && typeof error?.statusCode === "number"
+        ? error.statusCode
+        : null;
+    if (!knownStatus) console.error("[assistant]", error);
+    if (!res.destroyed && !res.writableEnded) return res.status(knownStatus ?? 500).json({ success: false, message: knownStatus ? error.message : "Không thể xử lý trợ lý AI lúc này." });
+  }
 };
 assistantRouter.get("/conversations/:id/files/:fileId", validateRequest({ params: Joi.object({ id, fileId: id }) }), async (req: any, res: any) => {
   try {
@@ -183,7 +191,7 @@ assistantRouter.post("/studio/images", expensiveApiRateLimiter, validateRequest(
   count: Joi.number().integer().min(1).max(maxAssistantImageCount).required(),
   referenceImage: Joi.string().max(5_600_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/),
 }) }), wrap(req => generateStudioImages(req.body)));
-assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), speechVoice: Joi.string().valid(...assistantSpeechVoices), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));
+assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), speechVoice: Joi.string().trim().min(2).max(80).pattern(/^[a-z0-9][a-z0-9_-]*$/i), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));
 assistantRouter.get("/memory", wrap(listAssistantMemories));
 assistantRouter.post("/memory", validateRequest({ body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => saveAssistantMemory(req, req.body.content, "manual")));
 assistantRouter.patch("/memory/:memoryId", validateRequest({ params: Joi.object({ memoryId: Joi.string().hex().length(24).required() }), body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => updateAssistantMemory(req, req.params.memoryId, req.body.content)));
@@ -331,12 +339,13 @@ assistantRouter.post("/jobs", (req: any, res: any, next: any) => Object.prototyp
   validateRequest({ body: assistantTurnBody }), wrap(req => submitAssistantJob(req, req.body)));
 assistantRouter.get("/jobs/:requestId", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => assistantJobStatus(req, req.params.requestId)));
 assistantRouter.post("/jobs/:requestId/cancel", validateRequest({ params: Joi.object({requestId:id}) }), wrap(req => cancelAssistantJob(req, req.params.requestId)));
-assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
+assistantRouter.get("/speech/voices", wrap(() => listSpeechVoices()));
+assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().trim().min(2).max(80).pattern(/^[a-z0-9][a-z0-9_-]*$/i), controls: Joi.object({ speed: Joi.number().min(0.5).max(2), pausePeriod: Joi.number().min(0).max(3), pauseComma: Joi.number().min(0).max(3), pauseSemicolon: Joi.number().min(0).max(3), pauseNewline: Joi.number().min(0).max(3) }) }) }), async (req: any, res: any) => {
   const controller = new AbortController();
   const abortOnClose = () => { if (!res.writableEnded) controller.abort(); };
   res.once("close", abortOnClose);
   try {
-    const audio = await synthesizeVietnameseSpeech(req.body.text, controller.signal, req.body.voice);
+    const audio = await synthesizeVietnameseSpeech(req.body.text, controller.signal, req.body.voice, req.body.controls);
     if (controller.signal.aborted) return;
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");

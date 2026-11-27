@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, Minus, Pause, Play, Plus, RotateCcw, RotateCw, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
+import { CheckCircle2, Download, FileText, Minus, Pause, Play, Plus, RotateCcw, RotateCw, SlidersHorizontal, Trash2, Upload, X } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
+import { toast } from "../../pages/Toast";
 import { assistantService, type AssistantStudioTranscript } from "../../services/assistantService";
 import { getAssistantSpeechHistoryUserId, listAssistantSpeechHistory, saveAssistantSpeechHistory, type AssistantSpeechHistoryItem } from "../../services/assistantSpeechHistory";
 import type { AssistantStudioHistoryEntry } from "../../services/assistantStudioHistory";
@@ -50,6 +51,8 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
   const [documentBusy, setDocumentBusy] = useState(false);
   const [draggingDocument, setDraggingDocument] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
+  const [speechSuccess, setSpeechSuccess] = useState("");
+  const speechResultRef = useRef<HTMLDivElement | null>(null);
   const [showSpeechHistory, setShowSpeechHistory] = useState(false);
   const [speechHistory, setSpeechHistory] = useState<AssistantSpeechHistoryEntry[]>([]);
   const [speechHistoryLoading, setSpeechHistoryLoading] = useState(false);
@@ -63,6 +66,8 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
   const [transcriptPlaying, setTranscriptPlaying] = useState<boolean>(false);
   const transcriptAudioRef = useRef<HTMLAudioElement | null>(null);
   const [transcript, setTranscript] = useState<AssistantStudioTranscript | null>(null);
+  const [transcriptSuccess, setTranscriptSuccess] = useState("");
+  const transcriptResultRef = useRef<HTMLDivElement | null>(null);
   const [transcriptHistory, setTranscriptHistory] = useState<AssistantStudioTranscript[]>([]);
   const [showTranscriptHistory, setShowTranscriptHistory] = useState(false);
   const documentInputRef = useRef<HTMLInputElement>(null);
@@ -106,12 +111,15 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
   }, [historyItem?.id, tool]);
 
   async function generate() {
-    setError(""); setAudioUrl("");
+    setError(""); setSpeechSuccess(""); setAudioUrl("");
     if (!activeSpeechText.trim()) return setError(speechSource === "file" ? "Tải lên tệp tài liệu cần chuyển thành giọng nói." : "Nhập văn bản cần chuyển đổi.");
     setBusy(true);
     try {
       const audio = await assistantService.speech(activeSpeechText.trim(), undefined, voiceId, speechControls);
       setAudioUrl(URL.createObjectURL(audio));
+      setSpeechSuccess("Chuyển đổi thành công! Bạn có thể nghe lại hoặc tải audio xuống.");
+      toast.success("Chuyển đổi giọng nói thành công!");
+      requestAnimationFrame(() => speechResultRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }));
       try {
         await saveAssistantSpeechHistory({ userId: getAssistantSpeechHistoryUserId(), text: activeSpeechText.trim(), voiceName: assistantSpeechVoiceLabel(voiceId), audio });
       } catch {
@@ -169,6 +177,7 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
     setTranscriptCurrentTime(0);
     setTranscriptPlaying(false);
     setTranscript(null);
+    setTranscriptSuccess("");
   };
 
   const removeTranscriptAudio = () => {
@@ -179,6 +188,7 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
     setTranscriptCurrentTime(0);
     setTranscriptPlaying(false);
     setTranscript(null);
+    setTranscriptSuccess("");
     setError("");
   };
 
@@ -227,10 +237,13 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
 
   async function transcribe() {
     if (!transcriptFile) return setError("Chọn tệp âm thanh cần chuyển đổi.");
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setTranscriptSuccess("");
     try {
       const result = await assistantService.transcribeStudioAudio(transcriptFile);
       setTranscript(result);
+      setTranscriptSuccess("Chuyển giọng nói thành văn bản thành công!");
+      toast.success("Chuyển giọng nói thành văn bản thành công!");
+      requestAnimationFrame(() => transcriptResultRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }));
       setTranscriptHistory((items) => [result, ...items.filter((item) => item.id !== result.id)].slice(0, 30));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể chuyển giọng nói thành văn bản."); }
     finally { setBusy(false); }
@@ -251,6 +264,7 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
     setSpeechControls(defaultAssistantSpeechControls);
     setVoiceId(defaultAssistantSpeechVoice);
     setAudioUrl("");
+    setSpeechSuccess("");
     speechHistoryRequestIdRef.current += 1;
     setShowSpeechHistory(false);
     setSpeechHistoryLoading(false);
@@ -265,11 +279,12 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
     setTranscriptCurrentTime(0);
     setTranscriptPlaying(false);
     setTranscript(null);
+    setTranscriptSuccess("");
     setShowTranscriptHistory(false);
   }
 
-  return <div className="flex min-h-full min-w-0 flex-col bg-surface-container-lowest text-on-surface">
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-2.5 sm:px-5">
+  return <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface-container-lowest text-on-surface">
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-2.5 sm:px-5">
       <div className="flex min-w-0 items-center gap-2"><AssistantStudioBreadcrumb title={pageTitle} onBack={onBack} />{tool === "clone" && <span className="shrink-0 rounded-full border border-outline-variant px-2 py-1 text-xs font-medium text-on-surface-variant">Sắp ra mắt</span>}</div>
       {(tool === "speak" || tool === "transcribe") && <div className="flex items-center gap-2">
         <button type="button" onClick={reset} disabled={busy} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" aria-hidden="true" />Tạo mới</button>
@@ -277,7 +292,7 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
         {tool === "transcribe" && <AssistantStudioHistoryAction open={showTranscriptHistory} onClick={() => setShowTranscriptHistory(value => !value)} />}
       </div>}
     </header>
-    <main className={cn("mx-auto w-full max-w-screen-2xl flex-1 space-y-4 p-3 text-on-surface sm:p-4", tool === "transcribe" && "min-h-0 overflow-y-auto pb-8")}>
+    <main className="mx-auto min-h-0 w-full max-w-screen-2xl flex-1 space-y-4 overflow-y-auto p-3 pb-8 text-on-surface sm:p-4 sm:pb-8">
 
     {tool === "speak" && <section aria-labelledby="speak-title" aria-busy={busy || documentBusy} className="grid gap-4 lg:grid-cols-5 lg:gap-5">
       <div className="space-y-3 lg:col-span-3">
@@ -323,7 +338,10 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
         <p id="audio-text-count" className="text-sm tabular-nums text-on-surface-variant">Ký tự: {activeSpeechText.length.toLocaleString("vi-VN")} / 10.000</p>
         <button type="button" onClick={generate} disabled={busy || documentBusy || !activeSpeechText.trim()} className={buttonClass}>{busy ? "Đang chuyển đổi..." : "Chuyển đổi"}</button>
       </div>
-      {audioUrl && <div className="flex flex-col gap-2 lg:col-span-5 lg:flex-row lg:items-center"><audio controls src={audioUrl} className="min-w-0 flex-1" aria-label="Audio vừa tạo" /><a href={audioUrl} download="igen-audio.mp3" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-outline-variant px-3 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary lg:ml-auto"><Download className="size-4" aria-hidden="true" />Tải audio xuống</a></div>}
+      {audioUrl && <div ref={speechResultRef} className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 lg:col-span-5">
+        {speechSuccess && <p role="status" className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /><span>{speechSuccess}</span></p>}
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center"><audio controls src={audioUrl} className="min-w-0 flex-1" aria-label="Audio vừa tạo" /><a href={audioUrl} download="igen-audio.mp3" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary lg:ml-auto"><Download className="size-4" aria-hidden="true" />Tải audio xuống</a></div>
+      </div>}
     </section>}
 
     {tool === "clone" && <section aria-labelledby="clone-title" className="mx-auto max-w-3xl space-y-6"><div className="text-center"><h2 id="clone-title" className="text-lg font-semibold text-balance">Tạo giọng cá nhân</h2><p className="mt-2 text-pretty text-sm text-on-surface-variant">Tính năng lưu giọng cá nhân đang được chuẩn bị.</p></div><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border border-outline-variant bg-surface p-6 text-center"><Assistant2DFileIcon fileName="voice-sample.mp3" className="mx-auto mb-4 size-24 shrink-0" /><h3 className="font-medium">Ghi âm trực tiếp</h3><p className="mt-1 text-pretty text-xs text-on-surface-variant">Ghi âm mẫu giọng nói trong không gian yên tĩnh.</p><button type="button" disabled className="mt-5 rounded-lg border border-outline-variant px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">Bắt đầu ghi âm · Sắp ra mắt</button></div><UploadArea disabled label="Tải tệp lên" hint="MP3, WAV, M4A; tối đa 10 MB" accept=".mp3,.wav,.m4a,.webm" file={null} onFile={() => undefined} /></div><ul className="list-inside list-disc space-y-2 rounded-xl border border-outline-variant p-5 text-sm text-on-surface-variant">{["Sử dụng giọng nói của chính bạn hoặc giọng đã được cho phép.", "Đọc trong không gian tĩnh, ít tạp âm.", "Chỉ dùng một giọng nói trong mẫu âm thanh."].map((tip) => <li key={tip}>{tip}</li>)}</ul></section>}
@@ -468,7 +486,8 @@ export default function AssistantStudioAudio({ tool, onBack, historyItem }: { to
       )}
 
       {transcript && (
-        <div className="rounded-xl border border-outline-variant bg-surface p-5">
+        <div ref={transcriptResultRef} className="rounded-xl border border-emerald-500/30 bg-surface p-5">
+          {transcriptSuccess && <p role="status" className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /><span>{transcriptSuccess}</span></p>}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Bản chép lời: {transcript.fileName}</h3>
             <div className="flex gap-3">
