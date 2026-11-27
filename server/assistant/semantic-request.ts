@@ -6,14 +6,16 @@ import { parseAssistantModelJson } from './model-json';
 import { requestAssistantInterpretation, type InterpretationBudget } from './interpretation-budget';
 import { assistantRequestReason } from './request-framing';
 import { analysisPredicates, validateListAnalysis, type ListAnalysis } from './list-analysis';
-import {canonicalFilterEnums,filterPredicateKey,type FilterExpression,type ReadPredicate} from './filter-expression';
+import {filterPredicateKey,type FilterExpression,type ReadPredicate} from './filter-expression';
 import {parseConditionLogic,logicSignature,logicIds,projectConditionLogic,nonConjunctiveGroups,type ConditionLogic} from './condition-logic';
 import { publicAssistantResultFields,publicAssistantResultTarget } from './result-field-policy';
 import { READ_RELATIONS } from './read-relations';
 import {isBusinessExcelRequest,isWorkbookFormatQuote,isCollectionShapeQuote} from './export-intent';
 import { parseAssistantResultTable } from '../../src/shared/assistant-result-table';
 import { AssistantPlanningError } from './interpretation-error';
-import {assistantInputAddress} from './input-contract';
+import {assistantInputAddress,normalizeAssistantFieldValue} from './input-contract';
+import {normalizeContractScalar,declaredContractKey} from './contract-normalization';
+import {normalizeAnalysisPlan,canonicalAnalysisTarget} from './analysis-normalization';
 import {matchesNativeNumericPredicate} from './query-predicate';
 import {computedMeasureModifier,isBusinessModuleUnit,isCompiledRowRole,isCompiledGroupCategory,isSnapshotContext,isUnboundedTimeContext,isCompiledInputAssignment,temporalInputBoundary,semanticInputApiKey,quotedNumericSibling,type CompiledRole} from './semantic-compilation';
 
@@ -216,7 +218,7 @@ export function bindSemanticRequest(request:SemanticRequest,raw:unknown,remainin
   return {bindings,coverage};
 }
 
-function sameValue(expected:MeaningValue,actual:unknown,labels?:Record<string,string>) {
+function sameValue(expected:unknown,actual:unknown,labels?:Record<string,string>) {
   if(typeof expected==='string'&&labels&&Object.hasOwn(labels,String(actual)))return expected.normalize('NFC').trim().toLocaleLowerCase('vi')===labels[String(actual)].normalize('NFC').trim().toLocaleLowerCase('vi')||literal(expected)===literal(actual);
   return literal(expected)===literal(actual);
 }
@@ -255,7 +257,11 @@ export function inputProof(source:SemanticSource,key:string){
         part=String(matches[0]);selectors.push({key:[root.key,...canonical,part,match[1]].join('.'),value:expected,address:key.slice(0,key.indexOf(match[0])+match[0].length)});
       }
       if(['__proto__','constructor','prototype'].includes(part))return;
-      if(shape?.type==='object'&&shape.keys&&Object.hasOwn(shape.keys,part))shape=shape.keys[part];
+      if(shape?.type==='object'&&shape.keys){
+        const child=declaredContractKey(part,Object.entries(shape.keys).map(([key,rule])=>({key,spellings:[key,...(rule.label?[rule.label]:[])]})));
+        if(!child)return;
+        part=child;shape=shape.keys[child];
+      }
       else if(shape?.type==='array'&&/^(?:0|[1-9]\d*)$/.test(part))shape=shape.items;
       else return;
       if(!shape)return;
@@ -291,8 +297,7 @@ export function normalizeSemanticAnalysisBindings(bindings:Map<string,string[]>,
   let analysis=source.values.analysis;
   if(typeof analysis==='string')try{analysis=JSON.parse(analysis);}catch{}
   if(plain(analysis)){
-    const fields=source.operation.analysis.fields;
-    const next={...analysis,...(analysis.where!==undefined?{where:canonicalFilterEnums(analysis.where,fields,evaluatedAt)}:{}),...(Array.isArray(analysis.filters)?{filters:analysis.filters.map((f:unknown)=>canonicalFilterEnums(f,fields,evaluatedAt))}:{})};
+    const next=normalizeAnalysisPlan(analysis,source.operation.analysis,evaluatedAt);
     source.values.analysis=typeof source.values.analysis==='string'?JSON.stringify(next):next;
   }
   let plan:ListAnalysis;try{plan=validateListAnalysis(source.values.analysis,source.operation.analysis);}catch{continue;}
@@ -435,7 +440,8 @@ export function normalizeSemanticInputBindings(bindings:Map<string,string[]>,sou
   const source=sources.length===1?sources[0]:sources.find(s=>raw.startsWith(`query:${s.operation.id}:`));
   if(!source)return raw;
   const prefix=raw.startsWith(`query:${source.operation.id}:`)?`query:${source.operation.id}:`:'';
-  const target=raw.slice(prefix.length);
+  const target=source.operation.analysis?canonicalAnalysisTarget(source.operation.analysis,raw.slice(prefix.length)):raw.slice(prefix.length);
+  raw=prefix+target;
   const semanticUnit=request?.units.find(u=>u.id===id);
   if(target==='context.module'&&semanticUnit?.kind==='entity'&&semanticUnit.value===null&&!isBusinessModuleUnit(semanticUnit,source.operation.module)
     &&targets.some(t=>['action','actionId',`action:${source.operation.id}`,`query:${source.operation.id}:action`].includes(t)))return prefix+'action';
@@ -591,7 +597,8 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
             for(const f of filters)mark.add(`analysis.filters.${key}.${f.operator}.${JSON.stringify(f.value)}`);
             proofs.push({source,target});continue;
           }
-          const filter=analysisPredicates(plan).find(f=>f.field===key&&(f.operator===unit.operator&&sameValue(unit.value,f.value,definition.values)
+          const normalizedUnit=normalizeContractScalar(unit.value,definition.type,definition.values,definition.format==='date');
+          const filter=analysisPredicates(plan).find(f=>f.field===key&&(f.operator===unit.operator&&sameValue(normalizedUnit,f.value,definition.values)
             ||f.operator==='is_empty'&&unit.operator==='not_exists'&&(unit.value===null||typeof unit.value==='boolean')||f.operator==='not_empty'&&unit.operator==='exists'&&(unit.value===null||typeof unit.value==='boolean')
             ||f.operator==='between'&&unit.operator==='range'&&plain(unit.value)&&Array.isArray(f.value)&&f.value[0]===unit.value.from&&f.value[1]===unit.value.to));
           if(!['condition','scope','time','reference','input'].includes(unit.kind)||!filter)return fail(unit);
@@ -677,7 +684,7 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
       if(unit.value===null){
         if(!assignedInput&&!assignedEnum&&!literalEntity&&!missingTemporal&&(!['input','reference'].includes(unit.kind)||!empty(actual)||!field.reference&&!field.required&&!field.systemRequired))return fail(unit);
       }else if(unit.kind!=='time'){
-        if(!assignedInput&&!assignedNumeric&&!assignedEnum&&!literalEntity&&!literalTextInput&&(!['eq','clear'].includes(unit.operator)||!sameValue(unit.value,actual))||unit.operator==='clear'&&!operation.clearableFields?.includes(field.key))return fail(unit);
+        if(!assignedInput&&!assignedNumeric&&!assignedEnum&&!literalEntity&&!literalTextInput&&(!['eq','clear'].includes(unit.operator)||!sameValue(normalizeAssistantFieldValue(field,unit.value),actual))||unit.operator==='clear'&&!operation.clearableFields?.includes(field.key))return fail(unit);
         if(unit.kind==='input'&&typeof unit.value==='string'&&unit.value&&!assignedInput&&!assignedEnum&&!field.options&&!['date','datetime','json'].includes(field.type)){
           const quoted=literal(unit.quote) as string,expected=literal(unit.value) as string;
           const phone=(s:string)=>s.replace(/\D/g,'').replace(/^84/,'0');
@@ -725,7 +732,9 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
           &&proofs.every(p=>p.value===unit.value&&p.source===proofs[0].source)
           &&(()=>{const ends=proofs.map(p=>p.apiKey?.match(/^(.*?)(from|to|start|end)(date)?$/i));return ends.every(Boolean)&&ends[0]![1]===ends[1]![1]
             &&ends.some(m=>/^(from|start)$/i.test(m![2]))&&ends.some(m=>/^(to|end)$/i.test(m![2]));})();
-        if(unit.operator!=='eq'&&!assigned||!calendarPair&&(actual.length!==1||!sameValue(unit.value,actual[0])))return fail(unit);
+        const field=proofs.length===1?inputProof(proofs[0].source,proofs[0].target.replace(/^values\./,''))?.field:undefined;
+        const expected=field?normalizeAssistantFieldValue(field,unit.value):unit.value;
+        if(unit.operator!=='eq'&&!assigned||!calendarPair&&(actual.length!==1||!sameValue(expected,actual[0])))return fail(unit);
       }
     }
   }

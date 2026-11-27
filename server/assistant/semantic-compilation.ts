@@ -6,7 +6,9 @@ import {publicAssistantResultFields,publicAssistantResultTarget} from './result-
 import {validateListAnalysis,analysisPredicates,type ListAnalysis} from './list-analysis';
 import {inputProof} from './semantic-request';
 import {validateField} from './policy';
-import {canonicalFilterEnums,filterDate,filterLeaves,filterPredicateKey,hasExactFilterConjunction} from './filter-expression';
+import {filterDate,filterLeaves,filterPredicateKey,hasExactFilterConjunction} from './filter-expression';
+import {normalizeAssistantFieldValue,assistantInputAddress} from './input-contract';
+import {canonicalAnalysisTarget,normalizeAnalysisPlan} from './analysis-normalization';
 
 export const semanticRoles=['action_binding','input_literal','input_assignment','execution_context','module_context','snapshot_context','temporal_input','enum_input','input_fragment','row_measure','row_dimension','group_category','public_output','read_predicate','builtin_condition','ordering'] as const;
 export interface SemanticResolution {
@@ -36,7 +38,8 @@ export function inputAssignmentValue(unit:MeaningUnit,source:SemanticSource,targ
   return unit.value===null&&(field.required||field.systemRequired||field.reference)?{input,value}:undefined;
  }
  try{validateField(field,value);}catch{return;}
- const equal=typeof unit.value==='string'&&typeof value==='string'?unit.value.normalize('NFC').trim()===value.normalize('NFC').trim():unit.value===value;
+ const supplied=normalizeAssistantFieldValue(field,unit.value);
+ const equal=typeof supplied==='string'&&typeof value==='string'?supplied.normalize('NFC').trim()===value.normalize('NFC').trim():supplied===value;
  const enumValue=(typeof unit.value==='string'||typeof unit.value==='boolean'&&typeof value!=='boolean')&&field.options?.includes(String(value))
    ||typeof unit.value==='string'&&field.type==='boolean';
  const quoted=typeof value==='string'&&(unit.value===null||field.type==='text'&&!field.options&&unit.quote.normalize('NFC').includes(value.normalize('NFC')))
@@ -234,7 +237,12 @@ export function compileSemanticResolutions(request:SemanticRequest,sources:Seman
     if(!['read_predicate','group_category','input_literal'].includes(p.role)&&p.predicates.length)throw Error('SEMANTIC_RESOLUTION_INVALID');
     const read=source.operation.method==='GET'||source.operation.readOnly;
     const contract=source.operation.analysis;
-    if(contract&&p.role==='read_predicate')p={...p,predicates:p.predicates.map(f=>canonicalFilterEnums(f,contract.fields,request.evaluatedAt) as SemanticResolution['predicates'][number])};
+    if(contract)p={...p,target:canonicalAnalysisTarget(contract,p.target)};
+    if(p.target.startsWith('values.')){
+      const address=assistantInputAddress(source.workflow,p.target.slice(7));
+      if(address)p={...p,target:'values.'+address.canonical};
+    }
+    if(contract&&p.role==='read_predicate')p={...p,predicates:p.predicates.map(f=>(normalizeAnalysisPlan({where:f},contract,request.evaluatedAt) as {where:SemanticResolution['predicates'][number]}).where)};
     if(p.role==='enum_input'&&read&&p.target.startsWith('values.')&&unit.kind==='condition'){
       const input=inputProof(source,p.target.slice(7)),key=input&&semanticInputApiKey(input.field);
       const bound=key&&(bindings.get(unit.id)||[]).map(t=>t.replace(`query:${source.operation.id}:`,'').replace(/^values\.analysis\./,'analysis.')).includes(`analysis.filters.${key}`);

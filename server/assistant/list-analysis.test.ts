@@ -111,7 +111,7 @@ describe("declarative list analysis independent of business modules", () => {
     expect(analyzeList(contract, rows, { filters: [{ field: "score", operator: "gt", value: 0 }], aggregate: { operation: "avg", field: "score" } }, true).records[0]["Trung bình điểm"]).toBe((23 / 3).toLocaleString("vi-VN"));
   });
   it("refuses incomplete populations", () => expect(() => analyzeList(contract, rows, {}, false)).toThrow("Chưa lấy đủ"));
-  it.each([{ extreme: { field: "password", direction: "max" } }, { filters: [{ field: "score", operator: "gt", value: "2" }] }, { code: "return secrets" }, { limit: 0 }, { groupBy: "unknown", aggregate: { operation: "count" } }])("rejects unsupported or unsafe plans", plan => expect(() => validateListAnalysis(plan, contract)).toThrow());
+  it.each([{ extreme: { field: "password", direction: "max" } }, { filters: [{ field: "score", operator: "gt", value: "2 triệu" }] }, { code: "return secrets" }, { limit: 0 }, { groupBy: "unknown", aggregate: { operation: "count" } }])("rejects unsupported or unsafe plans", plan => expect(() => validateListAnalysis(plan, contract)).toThrow());
   it("does not treat missing numbers as zero", () => {
     expect(analyzeList(contract, [{ name: "A", score: null }, { name: "B", score: 0 }], { extreme: { field: "score", direction: "min" } }, true).records.map(r => r.Tên)).toEqual(["B"]);
   });

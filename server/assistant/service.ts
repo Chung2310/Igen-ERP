@@ -50,6 +50,7 @@ import { compositeQueryRequestText, compositeReportEnvelope, projectCompositeSou
 import { synthesizeCompositeAssistantReport } from "./composite-report";
 import { collectRelationRows, relationSourceFor, renderReadRelation } from "./read-relations";
 import { hydratePartialUpdate } from "./partial-update";
+import {normalizeAssistantInputValues} from './input-contract';
 import { AssistantApiRejection } from "./api-rejection";
 import { projectInstructionsForConversation } from "./projects";
 import { readAssistantConversationFile, readAssistantConversationImages, type AssistantConversationFileContext } from "./conversation-file";
@@ -2377,8 +2378,10 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     }
     fallbackOperation = operationById(actionId);
     const op = await assertOperation(req, actionId);
-    provided = normalizeAcceptanceValues(op, provided, input.text || "");
     const workflow = await currentWorkflow(req, actionId);
+    const canonicalInputs=normalizeAssistantInputValues(workflow,provided);
+    if(canonicalInputs.conflicts.length)throw new AssistantError('Mình nhận được hai giá trị khác nhau cho cùng một mục. Bạn chọn lại thông tin cần dùng nhé.',422);
+    provided = normalizeAcceptanceValues(op, canonicalInputs.values, input.text || "");
     pinBusinessWorkflowVersion(workflow.version);
     const semanticExecution=semanticContextFor(workflow,intent);
     forceConfirmation ||= Boolean(semanticExecution&&op.method!=='GET'&&!op.readOnly);

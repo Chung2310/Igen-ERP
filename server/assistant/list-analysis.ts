@@ -4,6 +4,7 @@ import { formatAssistantTemporalValue } from '../../src/shared/assistant-date';
 import { maskAssistantBankAccount } from './result-field-policy';
 import { assistantEmptyReadResult } from './reply-presentation';
 import { FILTER_EXPRESSION_SCHEMA, filterDate, filterLeaves, matchesFilter, validateFilterExpression, type FilterExpression,type ReadPredicate } from './filter-expression';
+import {normalizeAnalysisPlan} from './analysis-normalization';
 
 export interface AnalysisContract {
   /** Uses the existing approved public projection; completeness is verified at runtime. */
@@ -77,7 +78,7 @@ export function listAnalysisPlanSchema(contract: AnalysisContract) {
   const ordered=(direction:string[])=>({type:'object',additionalProperties:false,required:['field','direction'],properties:{field,direction:{enum:direction}}});
   return {type:'object',additionalProperties:false,$defs:{analysisField:{enum:Object.keys(contract.fields)},filterExpression:FILTER_EXPRESSION_SCHEMA,readPredicate:{type:'object',additionalProperties:false,required:['field','operator'],properties:{field,operator:{enum:['eq','ne','gt','gte','lt','lte','contains','startsWith','endsWith','in','nin','between','is_empty','not_empty']},value:{anyOf:[{type:['string','number','boolean']},{type:'array',minItems:1,maxItems:40,items:{type:['string','number','boolean']}}]}}}},properties:{
     where:{$ref:'#/$defs/filterExpression'},
-    filters:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['field','operator','value'],properties:{field,operator:{enum:['eq','ne','gt','gte','lt','lte','contains']},value:{type:['string','number','boolean']}}}},
+    filters:{type:'array',maxItems:20,items:{$ref:'#/$defs/readPredicate'}},
     extreme:ordered(['min','max']),sort:ordered(['asc','desc']),limit:{type:'integer',minimum:1,maximum:1000},groupBy:{enum:Object.keys(contract.fields)},
     aggregate,aggregates:{type:'array',minItems:1,maxItems:8,items:aggregate},select:{type:'array',minItems:1,maxItems:20,uniqueItems:true,items:field},includeRows:{type:'boolean'},
   }};
@@ -194,6 +195,7 @@ export function validateListAnalysis(raw: unknown, contract: AnalysisContract): 
   let plan: any = raw;
   if (typeof raw === "string") { try { plan = JSON.parse(raw); } catch { fail("Điều kiện phân tích chưa hợp lệ. Chưa thực hiện tra cứu."); } }
   if (plan == null) return {};
+  plan=normalizeAnalysisPlan(plan,contract);
   if (!plain(plan) || Object.keys(plan).some(key => !["where", "filters", "extreme", "sort", "limit", "groupBy", "aggregate", "aggregates", "select", "includeRows"].includes(key))) fail("Phép phân tích này chưa được hỗ trợ.");
   const field = (key: unknown, numeric = false) => {
     if (typeof key !== "string" || !Object.hasOwn(contract.fields, key) || (numeric && !['number','scalar'].includes(contract.fields[key].type))) fail("Trường phân tích không có trong dữ liệu được phép xem.");

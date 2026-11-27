@@ -99,6 +99,25 @@ it('offers scoped choices when a nested reference phrase yields no search result
  expect(options.some(option=>option.includes('QA Sản phẩm'))).toBe(true);
  expect(fetcher.mock.calls.some(([url])=>[...new URL(String(url)).searchParams.values()].some(value=>value.includes('máy QA')))).toBe(true);
 });
+it('executes mixed search representations through the shared read dispatcher and returns only the matching rows',async()=>{
+ state.interpret.mockResolvedValue({intentType:'workflow',actionId:'inventory.balance.list',values:{analysis:{
+  filters:[{field:'Số lượng tồn',operator:'>=',value:'2'}],
+  where:{any:[{field:'SKU',operator:'starts_with',value:'QA-1'},{field:'SKU',operator:'starts_with',value:'QA-2'}]},
+  select:['product_name','Số lượng tồn'],
+ }}});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const url=new URL(String(raw));
+  if(url.pathname.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  expect(url.pathname).toBe('/api/v1/inventory/warehouses/balances');
+  return json({data:[{productName:'QA Hàng A',sku:'QA-1',quantity:3},{productName:'QA Hàng B',sku:'QA-2',quantity:1},{productName:'QA Hàng C',sku:'QA-3',quantity:4}]});
+ });
+ const reply=await turn({text:'Tìm hàng có SKU bắt đầu QA-1 hoặc QA-2 và tồn ít nhất 2, cho mình tên và số lượng'});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');
+ const table=parseAssistantResultTable(reply.reply)!;
+ expect(table.rows).toHaveLength(1);expect(JSON.stringify(table.rows)).toContain('QA Hàng A');
+ expect(reply.reply).not.toContain('QA Hàng B');expect(reply.reply).not.toContain('QA Hàng C');
+ expect(state.session.pending).toBeNull();
+});
 it('exports all paginated posted stock movements through the common read and workbook path',async()=>{
  state.interpret.mockResolvedValue({intentType:'workflow',actionId:'inventory.ledger.list',actionIntent:'export',values:{limit:1}});
  fetcher.mockImplementation(async(raw:any,init:any)=>{
@@ -111,9 +130,9 @@ it('exports all paginated posted stock movements through the common read and wor
  expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.files).toHaveLength(1);expect(reply.reply).toContain('2 dòng');
  expect(fetcher.mock.calls.map(([url])=>new URL(String(url)).searchParams.get('page'))).toEqual(['1','2']);
 });
-it('confirms a project location-only edit without requesting an untouched optional schedule',async()=>{
+it.each(['canonical','declared-alias'])('confirms a project location-only edit using %s without requesting an untouched optional schedule',async representation=>{
  const id='64b000000000000000000004';
- state.interpret.mockResolvedValue({intentType:'workflow',actionId:'worker.project.update',values:{path_id:'QA Nhà máy B',location:'140 Đường QA'}});
+ state.interpret.mockResolvedValue({intentType:'workflow',actionId:'worker.project.update',values:representation==='canonical'?{path_id:'QA Nhà máy B',location:'140 Đường QA'}:{'PATH.ID':'QA Nhà máy B','body.location':'140 Đường QA'}});
  fetcher.mockImplementation(async(raw:any,init:any)=>{
   expect(init?.method||'GET').toBe('GET');
   if(String(raw).includes('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
