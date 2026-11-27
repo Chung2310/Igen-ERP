@@ -29,6 +29,7 @@ import { preferAnalysisViews } from './function-context';
 import { semanticContextEnabled, understandSemanticRequest, bindSemanticRequest, validateSemanticPlan, normalizeSemanticAnalysisBindings, normalizeSemanticReadProjection, normalizeSemanticInputBindings, semanticBindingSchema, attachSemanticProof, semanticModelRequest, reviewAbstractReadPredicates, type SemanticRequest } from './semantic-request';
 import {omitInferredRuntimeDefaults} from './semantic-compilation';
 import { discoverCapabilities, verifyActionFit, CapabilityMismatch } from './capability-routing';
+import {UnresolvedAssistantClarification} from './dialogue-clarification';
 export interface AssistantInterpretation extends BaseInterpretation { pausePending?:boolean; resumePending?:boolean; cancelPending?:boolean; meaningBindings?:unknown; currentRequest?: string; resumeGoal?: boolean; remainingRequests?: string[]; clarification?: string; clarificationReason?: 'missing_input' | 'ambiguous_goal' | 'unavailable_capability' | 'unapplied_condition'; clarificationModules?: string[]; memoryProposal?: string; businessDiscovery?: BusinessDiscovery; requestCoverage?: unknown; actionIntent?: AssistantIntent | "unknown"; queryPlan?: AssistantCompositeQuery[]; }
 export function validateRemainingRequests(value: unknown): string[] {
   if (value === undefined) return [];
@@ -61,6 +62,7 @@ export function interpretRequest(...args: Parameters<typeof interpretRequestBoun
 async function interpretRequestControlled(...args: Parameters<typeof interpretRequestBounded>): Promise<AssistantInterpretation> {
   try { return await interpretRequestBounded(...args); }
   catch (error) {
+    if(error instanceof UnresolvedAssistantClarification)return {actionId:null,values:{},intentType:'ambiguous',currentRequest:error.requestText,clarification:error.question};
     if(error instanceof CapabilityMismatch){
       if(error.alternatives.length&&!error.budget.capabilityRecoveryAttempted&&!args[10]){
         error.budget.capabilityRecoveryAttempted=true;
@@ -139,7 +141,10 @@ async function interpretRequestBounded(text: string, workflows: AssistantWorkflo
     }
     return checked;
   };
-  if(semanticContextEnabled()){
+  // Clarification continuity must also work on deployments where the broader
+  // semantic rollout is disabled. A reply without an action is still pending.
+  const hasClarification=Boolean((pending as {clarification?:{text?:unknown}}|null)?.clarification?.text);
+  if(semanticContextEnabled()||hasClarification){
     try{semanticRequest=await understandSemanticRequest(text,pending,messages,sessionMemory,routingBudget);}
     catch(error){if(error instanceof AssistantError&&error.status===400)throw new AssistantPlanningError({code:'SEMANTIC_REQUEST_INVALID'});throw error;}
   }

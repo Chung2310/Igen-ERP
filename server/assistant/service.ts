@@ -1926,6 +1926,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
   const storedClarification=(session as any).clarificationContext;
   let clarificationContext=storedClarification?.scope===goalScope&&typeof storedClarification.text==='string'&&storedClarification.text.length<=16000?storedClarification:undefined;
   let clarificationCandidate=input.text||'';
+  let forceClarificationConfirmation=false;
   type PausedAssistant={scope:string;pending:PendingAction;remainingRequests:string[];goalContext?:unknown};
   const storedPause=(session as unknown as {pausedAssistant?:PausedAssistant}).pausedAssistant;
   let pausedAssistant=storedPause?.scope===goalScope&&storedPause.pending?.actionId&&Array.isArray(storedPause.remainingRequests)?storedPause:undefined;
@@ -3049,12 +3050,15 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         const routingBudget = newInterpretationBudget();
         const lastReply=session.lastReply as AssistantReply|undefined;
         const clarification=!pending&&!pausedAssistant&&clarificationContext&&lastReply?.status==='collecting'&&!lastReply.inputForm&&!lastReply.workflowSelection&&!lastReply.referenceSelections?.length
-          ?{text:clarificationContext.text,question:lastReply.reply}:undefined;
+          ?{text:clarificationContext.text,question:typeof clarificationContext.question==='string'?clarificationContext.question:lastReply.reply}:undefined;
         const interpretTurn = (text: string) => interpretRequest(text, workflows, pending || pausedAssistant || clarification ? { ...(pending?{ actionId: pending.actionId, values: pending.provided, intent: pending.intent }:{}), ...(pausedAssistant?{paused:{actionId:pausedAssistant.pending.actionId,values:pausedAssistant.pending.provided,intent:pausedAssistant.pending.intent}}:{}),...(clarification?{clarification}:{}) } : null,
           session.messages as any, [settings?.instructions || "", projectInstructions, attachmentRouting].filter(Boolean).join("\n"), memories, goalMemory(workflows), knownModules,
           false, false, undefined, false, routingBudget);
         interpreted = await interpretTurn(effectiveInputText);
-        clarificationCandidate=routingBudget.semanticRequests?.get(effectiveInputText.normalize('NFC'))?.text||effectiveInputText;
+        const semanticTurn=routingBudget.semanticRequests?.get(effectiveInputText.normalize('NFC'));
+        clarificationCandidate=interpreted.currentRequest||semanticTurn?.text||effectiveInputText;
+        forceClarificationConfirmation=Boolean(clarification&&semanticTurn&&['continue','correct','followup'].includes(semanticTurn.dialogue?.act||'')&&semanticTurn.text!==effectiveInputText);
+        if(forceClarificationConfirmation&&!interpreted.currentRequest)interpreted.currentRequest=semanticTurn!.text;
         if (goalEnabled && !pending && !activeQueuedRequest && remainingRequests.length && interpreted.resumeGoal) {
           activeQueuedRequest = remainingRequests[0];
           effectiveInputText = activeQueuedRequest;
@@ -3136,7 +3140,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
         reply={status:'completed',reply:pausedAssistant?'Mình đã tạm gác yêu cầu này. Khi cần, bạn có thể quay lại để kiểm tra và xác nhận.':'Hiện không có yêu cầu nào đang chờ để tạm gác.'};
       }
       else if (interpreted.cancel === true) {
-        const hadPending = Boolean(pending || pausedAssistant || remainingRequests.length);
+        const hadPending = Boolean(pending || pausedAssistant || clarificationContext || remainingRequests.length);
         if(!pending)pausedAssistant=undefined;
         pendingMemoryProposal = "";
         pending = null;
@@ -3454,7 +3458,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
             Object.assign(provided, { ...followUp.values, ...provided });
           }
         }
-        reply = await prepare(interpreted.actionId, provided, Boolean((activeQueuedRequest || continuing && pending!.resolved) && requestedOperation?.method !== 'GET' && !requestedOperation?.readOnly), continuing ? pending!.intent : interpreted.currentRequest || effectiveInputText);
+        reply = await prepare(interpreted.actionId, provided, Boolean((forceClarificationConfirmation || activeQueuedRequest || continuing && pending!.resolved) && requestedOperation?.method !== 'GET' && !requestedOperation?.readOnly), continuing ? pending!.intent : interpreted.currentRequest || effectiveInputText);
       }
     }
   } catch (error) {
@@ -3636,7 +3640,7 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       pending,
       pausedAssistant:pausedAssistant||null,
       workflowChoice,
-      clarificationContext:assistantMode==='work'&&reply.status==='collecting'&&!pending&&!reply.inputForm&&!reply.workflowSelection&&!reply.referenceSelections?.length&&clarificationCandidate.trim()&&clarificationCandidate.length<=16000?{scope:goalScope,text:clarificationCandidate}:null,
+      clarificationContext:assistantMode==='work'&&needsIntentClarification&&reply.status==='collecting'&&!pending&&!reply.inputForm&&!reply.workflowSelection&&!reply.referenceSelections?.length&&clarificationCandidate.trim()&&clarificationCandidate.length<=16000?{scope:goalScope,text:clarificationCandidate,question:reply.reply}:null,
       pendingDocumentRequest,
       remainingRequests,
       ...(assistantMode === 'work' && !control.readV2 ? { goalContext: goalContext || null } : {}),

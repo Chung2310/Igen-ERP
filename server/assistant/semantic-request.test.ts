@@ -20,6 +20,52 @@ const frame=(text:string,units:MeaningUnit[])=>parseSemanticRequest(text,{versio
 const source=(id:string,values:Record<string,unknown>={})=>({workflow:defaultWorkflow(operationById(id)!),operation:operationById(id)!,values});
 const bind=(request:SemanticRequest,targets:string[][],remaining:string[]=[])=>bindSemanticRequest(request,request.units.map((u,i)=>({unitId:u.id,targets:targets[i]})),remaining);
 const payout=source('partner.payouts.analysis');
+
+describe('clarification without a selected action',()=>{
+ const text='Tạo kỳ thi QA Cuối môn ngày 27/11/2026 lúc 14h tại phòng P102';
+ const question='Mình chưa lưu được giờ 14h. Bạn muốn tiếp tục tạo kỳ thi chỉ với ngày và phòng không?';
+ const pending={clarification:{text,question}};
+ const recovered={version:1,dialogue:{act:'continue',evidence:'ok'},units:[
+  unit('u1','goal','Tạo kỳ thi','create'),unit('u2','input','QA Cuối môn','eq','QA Cuối môn'),
+  unit('u3','input','27/11/2026','eq','2026-11-27','temporal'),unit('u4','reference','P102','eq','P102'),
+ ]};
+ it('restores the entire request and its original references after a short acceptance',async()=>{
+  provider.mockResolvedValue({text:JSON.stringify(recovered)});
+  const r=await understandSemanticRequest('ok',pending,[], '',newInterpretationBudget());
+  expect(r.text).toBe(text+'\nok');expect(r.units.at(-1)?.value).toBe('P102');
+  const input=provider.mock.calls[0][0];
+  expect(JSON.parse(input.messages[1].content).dialogueState.clarification).toEqual({request:text,question});
+  expect(input.messages[0].content).toContain('chỉ bỏ đúng phần');
+ });
+ it.each(['request','continue'])('repairs an acknowledgement-only NLU once (%s), rather than losing the goal',async act=>{
+  provider.mockResolvedValueOnce({text:JSON.stringify({version:1,dialogue:{act,evidence:'ok'},units:[unit('u1','framing','ok')]})})
+   .mockResolvedValueOnce({text:JSON.stringify(recovered)});
+  const r=await understandSemanticRequest('ok',pending,[],'',newInterpretationBudget());
+  expect(r.units.some(u=>u.kind==='goal'&&u.operator==='create')).toBe(true);expect(provider).toHaveBeenCalledTimes(2);
+ });
+ it('retains the question if bounded repair still returns only acknowledgement, including with the rollout flag off',async()=>{
+  vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT','false');
+  provider.mockResolvedValue({text:JSON.stringify({version:1,dialogue:{act:'continue',evidence:'ok'},units:[unit('u1','framing','ok')]})});
+  const r=await interpretRequest('ok',[],pending,[]);
+  expect(r).toMatchObject({intentType:'ambiguous',actionId:null,currentRequest:text,clarification:question});
+  expect(provider).toHaveBeenCalledTimes(2);expect(broker.discover).not.toHaveBeenCalled();
+ });
+ it.each(['cancel','pause'])('does not turn %s into consent',async act=>{
+  const answer=act==='cancel'?'Thôi bỏ đi':'Để sau nhé';
+  provider.mockResolvedValue({text:JSON.stringify({version:1,dialogue:{act,evidence:answer},units:[unit('u1','framing',answer)]})});
+  const r=await understandSemanticRequest(answer,pending,[],'',newInterpretationBudget());
+  expect(r.text).toBe(answer);expect(r.dialogue?.act).toBe(act);expect(provider).toHaveBeenCalledOnce();
+ });
+ it('does not attach a previous goal to an independent new request',async()=>{
+  provider.mockResolvedValue({text:JSON.stringify({version:1,dialogue:{act:'request',evidence:'Xem học viên'},units:[unit('u1','goal','Xem học viên','lookup')]})});
+  const r=await understandSemanticRequest('Xem học viên',pending,[],'',newInterpretationBudget());
+  expect(r.text).toBe('Xem học viên');expect(r.units).toHaveLength(1);
+ });
+ it('does not accept a new value invented in the bot question as a user fact',async()=>{
+  provider.mockResolvedValue({text:JSON.stringify({...recovered,units:[...recovered.units,unit('u5','input','QA Tên bịa','eq','QA Tên bịa')]})});
+  await expect(understandSemanticRequest('ok',{clarification:{text,question:question+' QA Tên bịa'}},[],'',newInterpretationBudget())).rejects.toThrow();
+ });
+});
 afterEach(()=>{vi.unstubAllEnvs();provider.mockReset();});
 beforeEach(()=>{
   broker.discover.mockReset().mockImplementation(async(_request,workflows)=>({workflows:workflows.slice(0,12)}));

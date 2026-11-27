@@ -25,7 +25,7 @@ vi.mock('./reply-rules',()=>({applyAssistantResponseRules:async(reply:any)=>repl
 vi.mock('./documents',()=>({answerAssistantConversation:vi.fn()}));
 vi.mock('./session-memory',()=>({SESSION_MEMORY_LIMIT:2400,summarizeAssistantSession:async()=>null}));
 
-import {processTurn} from './service';
+import {processTurn,conversationState} from './service';
 import {AssistantDocumentModel} from './models';
 import {operationById,defaultWorkflow,ASSISTANT_OPERATIONS} from './catalog';
 import {PlanStoppedError} from './execution-budget';
@@ -34,6 +34,84 @@ import {assistantFunctionKey} from './function-context';
 import {parseAssistantResultTable} from '../../src/shared/assistant-result-table';
 import {parseSemanticRequest,bindSemanticRequest} from './semantic-request';
 const captures=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-remaining25-retry.json',import.meta.url),'utf8'));
+
+it.each(['true','false'])('restores an unanswered proposal after session reload and keeps form/confirmation (semantic rollout %s)',async semanticFlag=>{
+ vi.stubEnv('ASSISTANT_SEMANTIC_CONTEXT',semanticFlag);
+ state.allowed=['student.exam.create','batch.list'];
+ const text='Tạo kỳ thi QA Cuối môn ngày 27/11/2026 lúc 14h tại phòng P102';
+ const question='Mình chưa lưu được giờ 14h. Bạn muốn tiếp tục tạo kỳ thi chỉ với ngày và phòng không?';
+ state.interpret.mockResolvedValueOnce({intentType:'ambiguous',actionId:null,values:{},clarification:question});
+ const first=await turn({text});
+ expect(first.status).toBe('collecting');expect(state.session.pending).toBeNull();
+ expect(state.session.clarificationContext).toMatchObject({text,question:first.reply});
+ // Persistence, not component memory: restore a JSON round trip with no pending action.
+ state.session=JSON.parse(JSON.stringify(state.session));
+ expect(state.session.messages.map((m:any)=>m.content)).toEqual([text,first.reply]);
+ const restored=await conversationState(req,'remaining-twelve');
+ expect(restored.messages.map((m:any)=>m.content)).toEqual([text,first.reply]);
+ expect(restored.lastReply?.reply).toBe(first.reply);
+ state.interpret.mockReset();
+ const units=[
+  {id:'u1',kind:'goal',quote:'Tạo kỳ thi',concept:'Tạo kỳ thi',operator:'create',value:null,dimension:'none'},
+  ...[['u2','QA Cuối môn','QA Cuối môn'],['u3','27/11/2026','2026-11-27'],['u4','P102','P102']].map(([id,quote,value])=>({id,kind:'input',quote,concept:quote,operator:'eq',value,dimension:'none'})),
+ ];
+ const plan={intentType:'workflow',actionId:'student.exam.create',actionIntent:'create',values:{name:'QA Cuối môn',tentativeDate:'2026-11-27',location:'P102'},meaningBindings:[
+  {unitId:'u1',targets:['action']},{unitId:'u2',targets:['values.name']},{unitId:'u3',targets:['values.tentativeDate']},{unitId:'u4',targets:['values.location']},
+ ]};
+ model({meaning:{version:1,dialogue:{act:'continue',evidence:'ok'},units},plan});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const path=new URL(String(raw)).pathname;
+  if(path.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  if(path==='/api/v1/batches')return json({batches:[{_id:'64b000000000000000000091',name:'QA Lớp 01',code:'QA-LOP-01',status:'Đang học'}],total:1,page:1});
+  throw Error('UNEXPECTED_CLARIFICATION_ROUTE:'+path);
+ });
+ let reply=await turn({text:'ok'});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');
+ expect(state.session.pending.provided).toMatchObject(plan.values);
+ expect(state.session.pending.intent).toContain(text);
+ expect(reply.inputForm).toBeDefined();
+ expect(reply.reply).not.toContain('Bạn cần mình hỗ trợ việc gì');
+ const batch=reply.referenceSelections?.find((s:any)=>s.key==='batchId');
+ expect(batch?.options.some((o:any)=>o.label.includes('QA Lớp 01'))).toBe(true);
+ const status=reply.referenceSelections?.find(s=>s.key==='status')?.options.find(o=>o.label==='Sắp diễn ra');
+ expect(status).toBeDefined();
+ reply=await turn({formValues:{id:reply.inputForm!.id,values:{},referenceSelections:{batchId:[batch!.options[0].value],status:[status!.value]},skipReferenceKeys:reply.referenceSelections?.filter(s=>!s.required).map(s=>s.key)||[]}});
+ expect(reply.status,JSON.stringify(reply)).toBe('confirmation');
+ expect(JSON.stringify(reply.action)).toContain('P102');expect(JSON.stringify(reply.action)).toContain('27/11/2026');
+ expect(state.session.pending.provided).toMatchObject(plan.values);
+ expect(state.session.clarificationContext).toBeNull();
+ expect(fetcher.mock.calls.every(([,init]:any)=>!init?.method||init.method==='GET')).toBe(true);
+});
+
+it('keeps the original clarification across an unsuccessful acknowledgement repair and cancels it explicitly',async()=>{
+ const text='Thêm lao động QA Mới',question='Bạn cho mình số điện thoại của lao động QA Mới nhé.';
+ state.interpret.mockResolvedValueOnce({intentType:'ambiguous',actionId:null,values:{},clarification:question});
+ const first=await turn({text});expect(first.status).toBe('collecting');
+ state.session=JSON.parse(JSON.stringify(state.session));state.interpret.mockReset();
+ state.provider.mockResolvedValue({text:JSON.stringify({version:1,dialogue:{act:'continue',evidence:'ok'},units:[{id:'u1',kind:'framing',quote:'ok',concept:'Đồng ý câu hỏi trước',operator:'none',value:null,dimension:'none'}]})});
+ const reply=await turn({text:'ok'});
+ expect(reply.status,JSON.stringify(reply)).toBe('collecting');expect(reply.reply).toContain('số điện thoại');
+ expect(state.session.clarificationContext.text).toBe(text);expect(state.session.messages).toHaveLength(4);
+ expect(state.session.pending).toBeNull();expect(state.provider).toHaveBeenCalledTimes(2);
+ state.provider.mockResolvedValue({text:JSON.stringify({version:1,dialogue:{act:'cancel',evidence:'Thôi bỏ đi'},units:[{id:'u1',kind:'framing',quote:'Thôi bỏ đi',concept:'Hủy việc đang hỏi',operator:'none',value:null,dimension:'none'}]})});
+ const cancelled=await turn({text:'Thôi bỏ đi'});
+ expect(cancelled.status).toBe('cancelled');expect(cancelled.reply).toContain('đã dừng yêu cầu');expect(state.session.clarificationContext).toBeNull();
+});
+
+it('does not pass a clarification from a different conversation scope to the next turn',async()=>{
+ state.interpret.mockResolvedValueOnce({intentType:'ambiguous',actionId:null,values:{},clarification:'Bạn cho biết tên lớp nhé.'});
+ await turn({text:'Tạo kỳ thi QA Ngày mới'});
+ state.session.clarificationContext.scope='different-branch-or-project';
+ state.interpret.mockResolvedValueOnce({intentType:'ambiguous',actionId:null,values:{},clarification:'Bạn muốn tra cứu thông tin nào?'});
+ await turn({text:'ok'});
+ expect(state.interpret.mock.calls.at(-1)![2]).toBeNull();expect(state.session.pending).toBeNull();
+});
+
+it('does not save a technical processing stop as a business question awaiting consent',async()=>{
+ state.interpret.mockRejectedValueOnce(new PlanStoppedError('Đã hết thời gian xử lý. Bạn thử lại nhé.'));
+ const reply=await turn({text:'Tra cứu học viên QA'});
+ expect(reply.status).toBe('collecting');expect(state.session.clarificationContext).toBeNull();
+});
 const originals=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-remaining-sheet.json',import.meta.url),'utf8'));
 const req:any={user:{id:'actor',uid:'actor',email:'qa@example.test',companyCode:'TEST',branchId:'507f1f77bcf86cd799439012',role:'admin'},headers:{authorization:'Bearer fixture'},socket:{localPort:4050,localAddress:'127.0.0.1'}};
 const turn=(input:any)=>processTurn(req,{conversationId:'remaining-twelve',requestId:randomUUID(),...input});
