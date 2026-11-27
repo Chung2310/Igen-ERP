@@ -78,6 +78,18 @@ describe("HR department API", () => {
     expect(await HrDepartmentModel.countDocuments({ companyCode: "A" })).toBe(0);
   });
 
+  it('preserves existing department timestamps when a GET encounters legacy employee department names',async()=>{
+    await UserModel.create({email:'legacy@example.test',displayName:'QA Legacy',companyCode:'A',department:'Kinh doanh'});
+    const saved=await HrDepartmentModel.create({companyCode:'A',name:'Kinh doanh',normalizedName:'kinh doanh'});
+    const baseline=new Date('2026-01-01T00:00:00Z');
+    await HrDepartmentModel.updateOne({_id:saved._id},{$set:{updatedAt:baseline}},{timestamps:false});
+    const before=await HrDepartmentModel.findById(saved._id).lean();
+    for(let i=0;i<2;i++)expect((await request('GET','/hr/departments?companyCode=A')).status).toBe(200);
+    const after=await HrDepartmentModel.findById(saved._id).lean();
+    expect(after?.createdAt).toEqual(before?.createdAt);expect(after?.updatedAt).toEqual(baseline);
+    expect(await HrDepartmentModel.countDocuments({companyCode:'A'})).toBe(1);
+  });
+
   it("stores department metadata and rejects duplicate codes or managers from another company", async () => {
     const manager = await UserModel.create({ email: "lead@example.test", displayName: "Trưởng phòng", companyCode: "A" });
     const outsider = await UserModel.create({ email: "other@example.test", displayName: "Người ngoài", companyCode: "B" });

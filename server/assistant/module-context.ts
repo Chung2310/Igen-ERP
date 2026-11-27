@@ -36,6 +36,7 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
   .replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const CONTEXT_FILLER = new Set(["trong", "vao", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
 const EXPLICIT_CONTEXT_MARKERS = new Set(["trong", "vao", "o", "tai", "thuoc", "phan", "he", "module", "khu", "vuc", "muc"]);
+export const hasExplicitModuleContextMarker=(text:string)=>normalize(text).split(/\s+/).some(word=>EXPLICIT_CONTEXT_MARKERS.has(word));
 
 export function assistantModuleContext(module: string) {
   if (!MODULE_KEYS.includes(module as ModuleKey)) return { key: module, label: module, relatedLabels: [], aliases: [] };

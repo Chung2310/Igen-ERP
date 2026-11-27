@@ -90,6 +90,16 @@ export class PartnerController {
     }
   }
 
+  static async getPayoutHistory(req:AuthRequest,res:Response,next:NextFunction){
+    try{
+      const ownerId=await getAllowedOwnerIds(req.user!);
+      const {from,to,search}=req.query;
+      if([from,to,search].some(value=>value!==undefined&&typeof value!=='string'))throw new ValidationError('VALIDATION_FAILED','Điều kiện tra cứu lịch sử chi trả chưa hợp lệ.');
+      const result=await PartnerService.getPayoutHistory(ownerId,{from:from as string|undefined,to:to as string|undefined,search:search as string|undefined},req.user!.branchId);
+      res.json({success:true,...result});
+    }catch(error){next(error);}
+  }
+
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

@@ -23,7 +23,9 @@ export function assistantFunctionKeys(workflow: AssistantWorkflow, operations = 
 }
 export function isExplicitReadOnlyRequest(text: string) {
   const phrase = text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase();
-  return /^\s*(?:bao cao|thong ke|xem|tra cuu|liet ke)\b/.test(phrase)
+  const naturalQuestion=/\b(?:khi nao|bao nhieu|cho ai|ai nhan)\b/.test(phrase)
+    && (/\bda\b/.test(phrase) || /^\s*lan (?:gan nhat|cuoi|dau tien)\b/.test(phrase));
+  return (/^\s*(?:bao cao|thong ke|xem|tra cuu|liet ke)\b/.test(phrase) || naturalQuestion)
     && !/^\s*xem truoc\b/.test(phrase)
     && !/\b(?:tao|them|sua|cap nhat|ghi nhan|xoa|duyet|huy|chuyen|gui)\b/.test(phrase);
 }

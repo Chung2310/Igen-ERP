@@ -4,6 +4,7 @@ import { AssistantError } from "./policy";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v));
+const atPath=(value:unknown,path:string):unknown=>path.split('.').reduce((current:unknown,key)=>object(current)&&Object.hasOwn(current,key)?current[key]:undefined,value);
 function omitAbsentProperties(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(omitAbsentProperties);
   if (!object(value)) return value;
@@ -38,7 +39,15 @@ export function hydratePartialUpdate(op: AssistantOperation, existing: Record<st
   const inherited: string[] = [];
   for (const field of op.fields) {
     if (field.source === "path" || field.source === "query" || op.assistantOnlyFields?.includes(field.key)) continue;
-    const current = omitAbsentProperties(existing[field.apiKey || field.key]);
+    let current = omitAbsentProperties(existing[field.apiKey || field.key]);
+    // Worker APIs persist numeric weekdays but their editable contract uses
+    // Vietnamese choices. Restore that declared input representation before
+    // validating an unrelated partial update; never replace the stored dates.
+    const weekdayChoices=['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+    if(['daysOfWeek','workingDays'].includes(field.apiKey||field.key)&&field.structure?.items?.type==='string'
+      &&JSON.stringify(field.structure.items.options)===JSON.stringify(weekdayChoices)&&Array.isArray(current)){
+      current=current.map(day=>typeof day==='number'&&Number.isInteger(day)&&day>=0&&day<=6?weekdayChoices[day]:day);
+    }
     if (changes[field.key] === undefined) {
       if (current != null) {
         if (field.type === "date" && !field.required && !field.systemRequired) continue;
@@ -54,12 +63,23 @@ export function hydratePartialUpdate(op: AssistantOperation, existing: Record<st
       try { requested = typeof changes[field.key] === "string" ? JSON.parse(String(changes[field.key])) : changes[field.key]; }
       catch { throw new AssistantError(`${field.label}: nội dung cập nhật chưa hợp lệ.`); }
       const merged = mergePartialRecord(current, requested, op.partialUpdateArrayKeys, field.key);
-      // Domain invariant: reducing the configured month count removes later milestones.
-      // Increasing it leaves missing amounts/conditions for collection, never invents them.
-      if (op.path === "/worker-management/partners/policies/:policyId" && field.key === "official"
-        && object(requested) && typeof requested.maxMonths === "number" && requested.milestones === undefined
-        && object(merged) && Array.isArray(merged.milestones)) {
-        merged.milestones = merged.milestones.filter((row: any) => row.month <= Number(requested.maxMonths));
+      // Apply declared bounds to inherited entries even when the same request
+      // also edits the array. Preserve explicit out-of-range entries so normal
+      // validation asks for correction rather than silently dropping user input.
+      for(const [arrayPath,bound] of Object.entries(op.partialUpdateArrayBounds||{})){
+        const prefix=field.key+'.';
+        if(!arrayPath.startsWith(prefix)||!bound.upperBound.startsWith(prefix))continue;
+        const relative=arrayPath.slice(prefix.length),limit=atPath(requested,bound.upperBound.slice(prefix.length));
+        const rows=atPath(merged,relative),explicit=atPath(requested,relative);
+        if(typeof limit!=='number'||!Number.isFinite(limit)||!Array.isArray(rows))continue;
+        const parts=relative.split('.'),parent=parts.length===1?merged:atPath(merged,parts.slice(0,-1).join('.'));
+        if(!object(parent))continue;
+        parent[parts.at(-1)!]=rows.filter(row=>{
+          if(!object(row))return true;
+          const identity=row[bound.itemField];
+          return typeof identity!=='number'||identity<=limit
+            ||Array.isArray(explicit)&&explicit.some(item=>object(item)&&item[bound.itemField]===identity);
+        });
       }
       values[field.key] = JSON.stringify(merged);
     }

@@ -1,0 +1,4975 @@
+[
+  {
+    "id": "S2-R003",
+    "text": "Báo cáo tình hình chấm công các lao động hôm nay",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Báo cáo",
+          "concept": "lập báo cáo",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "chấm công",
+          "concept": "dữ liệu chấm công",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "entity",
+          "quote": "các lao động",
+          "concept": "người lao động",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "tình hình chấm công",
+          "concept": "tình hình chấm công",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "time",
+          "quote": "hôm nay",
+          "concept": "ngày báo cáo",
+          "operator": "eq",
+          "value": "2026-11-26",
+          "dimension": "temporal"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Báo cáo tình hình chấm công các lao động hôm nay"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "timekeeping.records.overview",
+        "values": {
+          "query_date": "2026-11-26"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.attendanceStatus",
+              "result.checkIn",
+              "result.checkOut"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "values.query_date"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "timekeeping.records.overview",
+        "values": {
+          "query_date": "2026-11-26"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.attendanceStatus",
+              "result.checkIn",
+              "result.checkOut"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "values.query_date"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:daily",
+        "hr:timekeeping"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "timekeeping.records.overview"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "timekeeping.records.overview",
+            "role": "public_output",
+            "target": "result.employeeName",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "timekeeping.records.overview"
+  },
+  {
+    "id": "S5-R005",
+    "text": "trong quản lí lao động , đối tác nào đang thiếu KPI tháng",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "đối tác nào đang thiếu KPI tháng",
+          "concept": "Tra cứu đối tác",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "quản lí lao động",
+          "concept": "Phân hệ quản lí lao động",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "đối tác nào",
+          "concept": "Đối tác cần xác định",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "đang thiếu KPI tháng",
+          "concept": "Không có KPI tháng",
+          "operator": "not_exists",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u4",
+      "dialogue": {
+        "act": "request",
+        "evidence": "đối tác nào đang thiếu KPI tháng"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.f7d7b097f3b2fca2",
+        "values": {
+          "analysis": {
+            "where": {
+              "field": "status",
+              "operator": "eq",
+              "value": "not_set"
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.partnerName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.filters.status"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.f7d7b097f3b2fca2",
+        "values": {
+          "analysis": {
+            "where": {
+              "field": "status",
+              "operator": "eq",
+              "value": "incomplete"
+            },
+            "select": [
+              "partnerName"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.select.partnerName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.filters.status"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "labor-partner:partner-referral-analysis"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "api.get.f7d7b097f3b2fca2"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "api.get.f7d7b097f3b2fca2",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "status",
+                "operator": "eq",
+                "value": "incomplete"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "api.get.f7d7b097f3b2fca2"
+  },
+  {
+    "id": "S6-R002",
+    "text": "Hôm nay cửa hàng bán được bao nhiêu đơn và tổng doanh thu là bao nhiêu?",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Hôm nay cửa hàng bán được bao nhiêu đơn và tổng doanh thu là bao nhiêu?",
+          "concept": "Báo cáo kết quả bán hàng",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "đơn",
+          "concept": "Đơn hàng bán ra",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "time",
+          "quote": "Hôm nay",
+          "concept": "Ngày bán hàng",
+          "operator": "eq",
+          "value": "2026-11-26",
+          "dimension": "temporal"
+        },
+        {
+          "id": "u4",
+          "kind": "aggregate",
+          "quote": "bao nhiêu đơn",
+          "concept": "Đếm số đơn hàng",
+          "operator": "count",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u5",
+          "kind": "aggregate",
+          "quote": "tổng doanh thu",
+          "concept": "Tính tổng doanh thu",
+          "operator": "sum",
+          "value": null,
+          "dimension": "numeric"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hôm nay cửa hàng bán được bao nhiêu đơn và tổng doanh thu là bao nhiêu?"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "retail.report.summary",
+        "values": {
+          "from": "2026-11-26",
+          "to": "2026-11-26",
+          "analysis": {
+            "select": [
+              "summary"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.from",
+              "values.to"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.summary"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.summary"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "retail.report.summary",
+        "values": {
+          "from": "2026-11-26",
+          "to": "2026-11-26"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.from",
+              "values.to"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.summary"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.summary"
+            ]
+          }
+        ],
+        "actionIntent": "report",
+        "requestCoverage": [
+          {
+            "evidence": "Hôm nay cửa hàng bán được bao nhiêu đơn và tổng doanh thu là bao nhiêu?",
+            "requirement": "Báo cáo kết quả bán hàng",
+            "mappedTo": [
+              "action"
+            ]
+          },
+          {
+            "evidence": "đơn",
+            "requirement": "Đơn hàng bán ra",
+            "mappedTo": [
+              "action"
+            ]
+          },
+          {
+            "evidence": "Hôm nay",
+            "requirement": "Ngày bán hàng",
+            "mappedTo": [
+              "values.from",
+              "values.to"
+            ]
+          },
+          {
+            "evidence": "bao nhiêu đơn",
+            "requirement": "Đếm số đơn hàng",
+            "mappedTo": [
+              "result.summary"
+            ]
+          },
+          {
+            "evidence": "tổng doanh thu",
+            "requirement": "Tính tổng doanh thu",
+            "mappedTo": [
+              "result.summary"
+            ]
+          }
+        ]
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "retail:retail"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "retail.report.summary"
+        ],
+        "question": "",
+        "resolutions": []
+      },
+      {
+        "approvedActionIds": [
+          "retail.report.summary"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "retail.report.summary"
+  },
+  {
+    "id": "S1-R002",
+    "text": "Báo cáo tình hình nhân sự hôm nay",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Báo cáo",
+          "concept": "Lập báo cáo",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "nhân sự",
+          "concept": "Lĩnh vực nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "tình hình nhân sự",
+          "concept": "Tình hình nhân sự cần báo cáo",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "time",
+          "quote": "hôm nay",
+          "concept": "Ngày báo cáo",
+          "operator": "eq",
+          "value": "2026-11-26",
+          "dimension": "temporal"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Báo cáo tình hình nhân sự hôm nay"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "hr.daily.overview",
+        "values": {
+          "query_date": "2026-11-26"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.employeeName",
+              "result.attendanceStatus",
+              "result.checkIn",
+              "result.checkOut"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_date"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "hr.daily.overview",
+        "values": {
+          "query_date": "2026-11-26"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.employeeName",
+              "result.attendanceStatus",
+              "result.checkIn",
+              "result.checkOut"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_date"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:daily"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "hr.daily.overview"
+        ],
+        "question": "",
+        "resolutions": []
+      },
+      {
+        "approvedActionIds": [
+          "hr.daily.overview"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u1",
+            "actionId": "hr.daily.overview",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          },
+          {
+            "unitId": "u2",
+            "actionId": "hr.daily.overview",
+            "role": "module_context",
+            "target": "context.module",
+            "predicates": []
+          },
+          {
+            "unitId": "u4",
+            "actionId": "hr.daily.overview",
+            "role": "temporal_input",
+            "target": "values.query_date",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "hr.daily.overview"
+  },
+  {
+    "id": "S3-R002",
+    "text": "báo cáo tiến độ Kỹ năng số QA",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "báo cáo",
+          "concept": "Lập báo cáo",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "Kỹ năng số QA",
+          "concept": "Phân hệ hoặc lĩnh vực Kỹ năng số QA",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "tiến độ",
+          "concept": "Tiến độ cần báo cáo",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "dialogue": {
+        "act": "request",
+        "evidence": "báo cáo tiến độ Kỹ năng số QA"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "hr.training.progress",
+        "values": {
+          "courseName": "Kỹ năng số QA",
+          "analysis": {
+            "select": [
+              "employeeName",
+              "courseTitle",
+              "progress",
+              "status"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "values.courseName"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.select.progress"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "hr.training.progress",
+        "values": {
+          "courseName": "Kỹ năng số QA"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "values.courseName"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.progress"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:training"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "hr.training.progress"
+        ],
+        "question": "",
+        "resolutions": []
+      },
+      {
+        "approvedActionIds": [
+          "hr.training.progress"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u2",
+            "actionId": "hr.training.progress",
+            "role": "input_assignment",
+            "target": "values.courseName",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "hr.training.progress"
+  },
+  {
+    "id": "S6-R004",
+    "text": "Tháng này trừ tiền vốn hàng và chi phí đi thì cửa hàng còn lãi thực bao nhiêu?",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "còn lãi thực bao nhiêu",
+          "concept": "Báo cáo lãi thực",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "output",
+          "quote": "lãi thực",
+          "concept": "Số tiền lãi thực sau khi trừ giá vốn hàng và chi phí",
+          "operator": "none",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u3",
+          "kind": "aggregate",
+          "quote": "trừ tiền vốn hàng và chi phí đi",
+          "concept": "Tính tổng lãi thực sau khi trừ giá vốn hàng và chi phí",
+          "operator": "sum",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "time",
+          "quote": "Tháng này",
+          "concept": "Tháng hiện tại",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-01",
+            "to": "2026-11-30"
+          },
+          "dimension": "temporal"
+        }
+      ],
+      "conditionLogic": "u4",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Tháng này trừ tiền vốn hàng và chi phí đi thì cửa hàng còn lãi thực bao nhiêu?"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.4621ea131565f025",
+        "values": {
+          "query_from": "2026-11-01",
+          "query_to": "2026-11-30"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "result.operatingResult"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.operatingResult"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_from",
+              "values.query_to"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.4621ea131565f025",
+        "values": {
+          "query_from": "2026-11-01",
+          "query_to": "2026-11-30",
+          "analysis": {
+            "aggregate": {
+              "operation": "sum",
+              "field": "operatingResult"
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "result.operatingResult"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.aggregate.operatingResult"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_from",
+              "values.query_to"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "finance:analytics",
+        "finance:finance"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "api.get.4621ea131565f025"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "api.get.4621ea131565f025"
+  },
+  {
+    "id": "S5-R004",
+    "text": "Trong quản lí lao động , Đối tác nào giới thiệu được nhiều lao động nhất trong tháng",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Đối tác nào giới thiệu được nhiều lao động nhất trong tháng",
+          "concept": "Tra cứu đối tác giới thiệu nhiều lao động nhất",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "quản lí lao động",
+          "concept": "Phân hệ quản lí lao động",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "Đối tác nào",
+          "concept": "Đối tác đứng đầu",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "aggregate",
+          "quote": "nhiều lao động nhất",
+          "concept": "Đếm số lao động được giới thiệu",
+          "operator": "count",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u5",
+          "kind": "group",
+          "quote": "Đối tác nào giới thiệu được nhiều lao động nhất",
+          "concept": "Chia nhóm lao động theo đối tác giới thiệu",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "ordering",
+          "quote": "nhiều lao động nhất",
+          "concept": "Sắp xếp theo số lao động được giới thiệu",
+          "operator": "desc",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u7",
+          "kind": "time",
+          "quote": "trong tháng",
+          "concept": "Tháng hiện tại",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-01",
+            "to": "2026-11-30"
+          },
+          "dimension": "temporal"
+        }
+      ],
+      "conditionLogic": "u7",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Đối tác nào giới thiệu được nhiều lao động nhất trong tháng"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.f7d7b097f3b2fca2",
+        "values": {
+          "query_periodAnchor": "2026-11-01",
+          "analysis": {
+            "extreme": {
+              "field": "actualReferrals",
+              "direction": "max"
+            },
+            "select": [
+              "partnerName",
+              "actualReferrals"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.partnerName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.actualReferrals"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.partnerName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "analysis.extreme.actualReferrals"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "values.query_periodAnchor"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.f7d7b097f3b2fca2",
+        "actionIntent": "lookup",
+        "values": {
+          "query_periodAnchor": "2026-11-01",
+          "analysis": {
+            "extreme": {
+              "field": "actualReferrals",
+              "direction": "max"
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.partnerName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.actualReferrals"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.partnerName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "analysis.extreme.actualReferrals"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "values.query_periodAnchor"
+            ]
+          }
+        ]
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "labor-partner:partner-referral-analysis"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "api.get.f7d7b097f3b2fca2"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u2",
+            "actionId": "api.get.f7d7b097f3b2fca2",
+            "role": "module_context",
+            "target": "context.module",
+            "predicates": []
+          },
+          {
+            "unitId": "u4",
+            "actionId": "api.get.f7d7b097f3b2fca2",
+            "role": "row_measure",
+            "target": "result.actualReferrals",
+            "predicates": []
+          },
+          {
+            "unitId": "u5",
+            "actionId": "api.get.f7d7b097f3b2fca2",
+            "role": "row_dimension",
+            "target": "result.partnerName",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "api.get.f7d7b097f3b2fca2"
+  },
+  {
+    "id": "S1-R010",
+    "text": "Hôm nay có đơn nghỉ phép nào mới ko",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có đơn nghỉ phép nào mới ko",
+          "concept": "Tra cứu đơn nghỉ phép mới",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "đơn nghỉ phép",
+          "concept": "Đơn nghỉ phép",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "time",
+          "quote": "Hôm nay",
+          "concept": "Ngày phát sinh đơn mới",
+          "operator": "eq",
+          "value": "2026-11-27",
+          "dimension": "temporal"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "có đơn nghỉ phép nào mới ko",
+          "concept": "Thông tin có hay không có đơn mới",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u3",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hôm nay có đơn nghỉ phép nào mới ko"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "hr.leave.applications.list",
+        "values": {
+          "reportKind": "requests",
+          "requestKind": "leave",
+          "createdFrom": "2026-11-27",
+          "createdTo": "2026-11-27"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.createdFrom",
+              "values.createdTo"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.requests"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "hr.leave.applications.list",
+        "values": {
+          "reportKind": "requests",
+          "requestKind": "leave",
+          "createdFrom": "2026-11-27",
+          "createdTo": "2026-11-27"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.createdFrom",
+              "values.createdTo"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.requests"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:leave"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "hr.leave.applications.list"
+        ],
+        "question": "",
+        "resolutions": []
+      },
+      {
+        "approvedActionIds": [
+          "hr.leave.applications.list"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "hr.leave.applications.list"
+  },
+  {
+    "id": "S6-R011",
+    "text": "Hiện tại có nhân viên nào đang mở ca bán hàng không? Tiền trong két đang có bao nhiêu?",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có nhân viên nào đang mở ca bán hàng không",
+          "concept": "Tra cứu nhân viên đang mở ca bán hàng",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "nhân viên",
+          "concept": "Nhân viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "entity",
+          "quote": "ca bán hàng",
+          "concept": "Ca bán hàng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "đang mở ca bán hàng",
+          "concept": "Trạng thái ca bán hàng của nhân viên",
+          "operator": "eq",
+          "value": "đang mở",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "nhân viên nào",
+          "concept": "Danh sách nhân viên đang mở ca",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "goal",
+          "quote": "Tiền trong két đang có bao nhiêu?",
+          "concept": "Tra cứu số tiền hiện có trong két",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "entity",
+          "quote": "két",
+          "concept": "Két tiền",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u8",
+          "kind": "output",
+          "quote": "Tiền trong két đang có bao nhiêu?",
+          "concept": "Số tiền hiện có trong két",
+          "operator": "none",
+          "value": null,
+          "dimension": "numeric"
+        }
+      ],
+      "conditionLogic": "u4",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hiện tại có nhân viên nào đang mở ca bán hàng không? Tiền trong két đang có bao nhiêu?"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "retail.shift.current",
+        "values": {
+          "analysis": {
+            "where": {
+              "field": "status",
+              "operator": "eq",
+              "value": "open"
+            },
+            "select": [
+              "cashierName",
+              "status",
+              "expectedCash"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.filters.status"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.cashierName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u8",
+            "targets": [
+              "result.expectedCash"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "retail:shift",
+        "retail:retail"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "retail.shift.current"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "retail.shift.current",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "status",
+                "operator": "eq",
+                "value": "open"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "retail.shift.current"
+  },
+  {
+    "id": "S1-R013",
+    "text": "Nhân sự nào sắp hết hợp đồng",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Nhân sự nào sắp hết hợp đồng",
+          "concept": "Tra cứu nhân sự",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "Nhân sự",
+          "concept": "Hồ sơ nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "sắp hết hợp đồng",
+          "concept": "Hợp đồng sắp đến ngày hết hạn",
+          "operator": "lt",
+          "value": null,
+          "dimension": "temporal"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "Nhân sự nào",
+          "concept": "Danh sách nhân sự phù hợp",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u3",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Nhân sự nào sắp hết hợp đồng"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "hr.contract.expiring.list",
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.expiryAlerts"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "hr.contract.expiring.list",
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.expiryAlerts"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:contract"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "hr.contract.expiring.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u1",
+            "actionId": "hr.contract.expiring.list",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          },
+          {
+            "unitId": "u2",
+            "actionId": "hr.contract.expiring.list",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "hr.contract.expiring.list"
+  },
+  {
+    "id": "S8-R020",
+    "text": "Tôi vừa kiểm đếm lại kho Trụ sở chính thấy QA Sản phẩm 04 thực tế còn 12 máy, giúp tôi kiểm kê và tính giá trị chênh lệch",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "kiểm kê",
+          "concept": "Thực hiện kiểm kê kho",
+          "operator": "process",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "goal",
+          "quote": "tính giá trị chênh lệch",
+          "concept": "Tính giá trị chênh lệch kiểm kê",
+          "operator": "other",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "entity",
+          "quote": "kho",
+          "concept": "Kho hàng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "scope",
+          "quote": "kho Trụ sở chính",
+          "concept": "Kho được kiểm kê",
+          "operator": "eq",
+          "value": "Trụ sở chính",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "reference",
+          "quote": "QA Sản phẩm 04",
+          "concept": "Sản phẩm được kiểm kê",
+          "operator": "eq",
+          "value": "QA Sản phẩm 04",
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "input",
+          "quote": "thực tế còn 12 máy",
+          "concept": "Số lượng thực tế khi kiểm kê",
+          "operator": "eq",
+          "value": 12,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u7",
+          "kind": "output",
+          "quote": "giá trị chênh lệch",
+          "concept": "Giá trị chênh lệch kiểm kê cần tính",
+          "operator": "none",
+          "value": null,
+          "dimension": "numeric"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "giúp tôi kiểm kê và tính giá trị chênh lệch"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.count.item.update",
+        "values": {
+          "path_itemId": "QA Sản phẩm 04",
+          "countedQuantity": 12
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "remainingRequests.0"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.path_id"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "values.path_itemId"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "values.countedQuantity"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "remainingRequests.0"
+            ]
+          }
+        ],
+        "actionIntent": "update",
+        "remainingRequests": [
+          "tính giá trị chênh lệch"
+        ]
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.count.item.update",
+        "values": {
+          "targetBranch": "Trụ sở chính",
+          "path_itemId": "QA Sản phẩm 04",
+          "countedQuantity": 12
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "remainingRequests.0"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.targetBranch"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "values.path_itemId"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "values.countedQuantity"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "remainingRequests.0"
+            ]
+          }
+        ],
+        "actionIntent": "update",
+        "remainingRequests": [
+          "tính giá trị chênh lệch"
+        ],
+        "requestCoverage": [
+          {
+            "evidence": "giúp tôi kiểm kê",
+            "requirement": "Cập nhật số lượng đếm thực tế cho sản phẩm trong phiếu kiểm kê",
+            "mappedTo": [
+              "action"
+            ]
+          },
+          {
+            "evidence": "kho Trụ sở chính",
+            "requirement": "Chi nhánh kiểm kê được nêu",
+            "mappedTo": [
+              "values.targetBranch"
+            ]
+          },
+          {
+            "evidence": "QA Sản phẩm 04",
+            "requirement": "Sản phẩm cần kiểm kê",
+            "mappedTo": [
+              "values.path_itemId"
+            ]
+          },
+          {
+            "evidence": "thực tế còn 12 máy",
+            "requirement": "Số lượng đếm thực tế",
+            "mappedTo": [
+              "values.countedQuantity"
+            ]
+          },
+          {
+            "evidence": "tính giá trị chênh lệch",
+            "requirement": "Tính giá trị chênh lệch kiểm kê",
+            "mappedTo": [
+              "remainingRequests.0"
+            ],
+            "unresolved": true,
+            "clarification": "Danh mục hiện có không hỗ trợ tính giá trị chênh lệch kiểm kê."
+          }
+        ]
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "inventory:inventory"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "inventory.count.item.update"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "inventory.count.item.update",
+            "role": "input_assignment",
+            "target": "values.targetBranch",
+            "predicates": []
+          }
+        ]
+      },
+      {
+        "approvedActionIds": [
+          "inventory.count.item.update"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "inventory.count.item.update",
+            "role": "input_assignment",
+            "target": "values.targetBranch",
+            "predicates": []
+          },
+          {
+            "unitId": "u5",
+            "actionId": "inventory.count.item.update",
+            "role": "input_assignment",
+            "target": "values.path_itemId",
+            "predicates": []
+          },
+          {
+            "unitId": "u6",
+            "actionId": "inventory.count.item.update",
+            "role": "input_assignment",
+            "target": "values.countedQuantity",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "inventory.count.item.update"
+  },
+  {
+    "id": "S6-R036",
+    "text": "Có sản phẩm nào của khách sắp hết hạn bảo hành trong 30 ngày tới không để nhân viên nhắn chăm sóc?",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Có sản phẩm nào của khách sắp hết hạn bảo hành trong 30 ngày tới không",
+          "concept": "Tra cứu sản phẩm sắp hết hạn bảo hành",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "sản phẩm",
+          "concept": "Sản phẩm",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "time",
+          "quote": "sắp hết hạn bảo hành trong 30 ngày tới",
+          "concept": "Thời gian hết hạn bảo hành",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-27",
+            "to": "2026-12-27"
+          },
+          "dimension": "temporal"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "sản phẩm nào của khách",
+          "concept": "Sản phẩm và khách hàng liên quan cần được nhận diện",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "reason",
+          "quote": "để nhân viên nhắn chăm sóc",
+          "concept": "Mục đích chăm sóc khách hàng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u3",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Có sản phẩm nào của khách sắp hết hạn bảo hành trong 30 ngày tới không để nhân viên nhắn chăm sóc?"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.5ac7dee040f9bb15",
+        "values": {
+          "scope": "customer",
+          "analysis": {
+            "where": {
+              "field": "warrantyEndAt",
+              "operator": "between",
+              "value": [
+                "2026-11-27",
+                "2026-12-27"
+              ]
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.warrantyEndAt"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.productName",
+              "result.customerName"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "context.reason"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.5ac7dee040f9bb15",
+        "values": {
+          "scope": "customer",
+          "analysis": {
+            "where": {
+              "field": "warrantyEndAt",
+              "operator": "between",
+              "value": [
+                "2026-11-27",
+                "2026-12-27"
+              ]
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.warrantyEndAt"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.scope",
+              "result.productName",
+              "result.customerName"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "context.reason"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "retail:retail"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "api.get.5ac7dee040f9bb15"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "api.get.5ac7dee040f9bb15",
+            "role": "input_assignment",
+            "target": "values.days",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "api.get.5ac7dee040f9bb15"
+  },
+  {
+    "id": "S8-R032",
+    "text": "Đợt nhập hàng lớn nhất từ trước đến nay của cửa hàng là đợt nào, hết bao nhiêu tiền",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Đợt nhập hàng lớn nhất từ trước đến nay của cửa hàng là đợt nào, hết bao nhiêu tiền",
+          "concept": "Tra cứu đợt nhập hàng lớn nhất theo số tiền",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "Đợt nhập hàng",
+          "concept": "Đợt nhập hàng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "ordering",
+          "quote": "lớn nhất",
+          "concept": "Xếp theo tổng số tiền nhập hàng từ cao xuống thấp",
+          "operator": "max",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "time",
+          "quote": "từ trước đến nay",
+          "concept": "Toàn bộ lịch sử",
+          "operator": "range",
+          "value": null,
+          "dimension": "temporal"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "là đợt nào",
+          "concept": "Đợt nhập hàng đứng đầu",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "hết bao nhiêu tiền",
+          "concept": "Số tiền của đợt nhập hàng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Đợt nhập hàng lớn nhất từ trước đến nay của cửa hàng là đợt nào, hết bao nhiêu tiền"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.receipt.list",
+        "values": {
+          "analysis": {
+            "extreme": {
+              "field": "subtotal",
+              "direction": "max"
+            },
+            "select": [
+              "receiptCode",
+              "subtotal"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.extreme.subtotal"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "context.discourse"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.receiptCode"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.subtotal"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.receipt.list",
+        "values": {
+          "analysis": {
+            "extreme": {
+              "field": "subtotal",
+              "direction": "max"
+            },
+            "select": [
+              "receiptCode",
+              "subtotal"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.extreme.subtotal"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "context.discourse"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.receiptCode",
+              "analysis.select.receiptCode"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.subtotal",
+              "analysis.select.subtotal"
+            ]
+          }
+        ],
+        "actionIntent": "report",
+        "requestCoverage": [
+          {
+            "evidence": "Đợt nhập hàng lớn nhất từ trước đến nay của cửa hàng là đợt nào, hết bao nhiêu tiền",
+            "requirement": "Tra cứu đợt nhập hàng có tổng số tiền cao nhất trong toàn bộ lịch sử, trả mã đợt và số tiền.",
+            "mappedTo": [
+              "action",
+              "values.analysis.extreme.subtotal",
+              "values.analysis.select",
+              "result.receiptCode",
+              "result.subtotal"
+            ]
+          }
+        ]
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "inventory:receipt"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "inventory.receipt.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "inventory.receipt.list",
+            "role": "execution_context",
+            "target": "context.scope",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "inventory.receipt.list"
+  },
+  {
+    "id": "S6-R052",
+    "text": "Tóm tắt nhanh tình hình kinh doanh tháng 11 giúp tôi: doanh thu, lãi gộp, đơn hủy/trả hàng, khách còn nợ và tiền hoa hồng CTV",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Tóm tắt nhanh",
+          "concept": "Tóm tắt tình hình kinh doanh",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "tình hình kinh doanh",
+          "concept": "Kinh doanh",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "time",
+          "quote": "tháng 11",
+          "concept": "Kỳ báo cáo",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-01",
+            "to": "2026-11-30"
+          },
+          "dimension": "temporal"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "doanh thu",
+          "concept": "Doanh thu",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "lãi gộp",
+          "concept": "Lãi gộp",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "đơn hủy/trả hàng",
+          "concept": "Đơn hủy và trả hàng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "output",
+          "quote": "khách còn nợ",
+          "concept": "Khách hàng còn nợ",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u8",
+          "kind": "output",
+          "quote": "tiền hoa hồng CTV",
+          "concept": "Tiền hoa hồng cộng tác viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Tóm tắt nhanh tình hình kinh doanh tháng 11 giúp tôi"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": null,
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "query:api.get.4621ea131565f025:action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "query:api.get.4621ea131565f025:action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "query:api.get.4621ea131565f025:values.query_from",
+              "query:api.get.4621ea131565f025:values.query_to",
+              "query:retail.invoice.summary:values.from",
+              "query:retail.invoice.summary:values.to",
+              "query:retail.after-sale.list:values.analysis.where",
+              "query:api.get.78da159ec226e07e:values.from",
+              "query:api.get.78da159ec226e07e:values.to"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "query:api.get.4621ea131565f025:result.revenue"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "query:api.get.4621ea131565f025:result.goodsGrossProfit"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "query:retail.invoice.summary:result.voidCount",
+              "query:retail.after-sale.list:analysis.aggregate.count"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "query:retail.invoice.summary:result.dueAmount"
+            ]
+          },
+          {
+            "unitId": "u8",
+            "targets": [
+              "query:api.get.78da159ec226e07e:result.commission"
+            ]
+          }
+        ],
+        "actionIntent": "report",
+        "queryPlan": [
+          {
+            "actionId": "api.get.4621ea131565f025",
+            "purpose": "Lấy doanh thu và lãi gộp trong kỳ.",
+            "values": {
+              "query_from": "2026-11-01",
+              "query_to": "2026-11-30"
+            },
+            "resultFields": [
+              "revenue",
+              "goodsGrossProfit"
+            ]
+          },
+          {
+            "actionId": "retail.invoice.summary",
+            "purpose": "Lấy số hóa đơn hủy và tổng tiền khách còn nợ trong kỳ.",
+            "values": {
+              "from": "2026-11-01",
+              "to": "2026-11-30"
+            },
+            "resultFields": [
+              "voidCount",
+              "dueAmount"
+            ]
+          },
+          {
+            "actionId": "retail.after-sale.list",
+            "purpose": "Đếm chứng từ trả hàng trong kỳ.",
+            "values": {
+              "query_type": "return",
+              "analysis": {
+                "where": {
+                  "field": "businessDate",
+                  "operator": "between",
+                  "value": [
+                    "2026-11-01",
+                    "2026-11-30"
+                  ]
+                },
+                "aggregate": {
+                  "operation": "count"
+                }
+              }
+            },
+            "resultFields": [
+              "count"
+            ]
+          },
+          {
+            "actionId": "api.get.78da159ec226e07e",
+            "purpose": "Tổng hợp tiền hoa hồng cộng tác viên trong kỳ.",
+            "values": {
+              "from": "2026-11-01",
+              "to": "2026-11-30",
+              "analysis": {
+                "aggregate": {
+                  "operation": "sum",
+                  "field": "commission"
+                }
+              }
+            },
+            "resultFields": [
+              "commission"
+            ]
+          }
+        ]
+      },
+      {
+        "intentType": "workflow",
+        "actionId": null,
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "query:api.get.4621ea131565f025:action",
+              "query:retail.invoice.summary:action",
+              "query:retail.after-sale.list:action",
+              "query:api.get.78da159ec226e07e:action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "query:api.get.4621ea131565f025:action",
+              "query:retail.invoice.summary:action",
+              "query:retail.after-sale.list:action",
+              "query:api.get.78da159ec226e07e:action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "query:api.get.4621ea131565f025:values.query_from",
+              "query:api.get.4621ea131565f025:values.query_to",
+              "query:retail.invoice.summary:values.from",
+              "query:retail.invoice.summary:values.to",
+              "query:retail.after-sale.list:analysis.filters.businessDate",
+              "query:api.get.78da159ec226e07e:values.from",
+              "query:api.get.78da159ec226e07e:values.to"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "query:api.get.4621ea131565f025:result.revenue"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "query:api.get.4621ea131565f025:result.goodsGrossProfit"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "query:retail.invoice.summary:result.voidCount",
+              "query:retail.invoice.summary:result.voidAmount",
+              "query:retail.after-sale.list:analysis.aggregate.count",
+              "query:retail.after-sale.list:analysis.aggregate.totalAmount"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "query:retail.invoice.summary:result.dueAmount"
+            ]
+          },
+          {
+            "unitId": "u8",
+            "targets": [
+              "query:api.get.78da159ec226e07e:analysis.aggregate.commission"
+            ]
+          }
+        ],
+        "actionIntent": "report",
+        "queryPlan": [
+          {
+            "actionId": "api.get.4621ea131565f025",
+            "purpose": "Lấy doanh thu và lãi gộp trong kỳ báo cáo.",
+            "values": {
+              "query_from": "2026-11-01",
+              "query_to": "2026-11-30"
+            },
+            "resultFields": [
+              "revenue",
+              "goodsGrossProfit"
+            ]
+          },
+          {
+            "actionId": "retail.invoice.summary",
+            "purpose": "Lấy số hóa đơn và giá trị đã hủy, cùng số tiền còn nợ trong kỳ.",
+            "values": {
+              "from": "2026-11-01",
+              "to": "2026-11-30"
+            },
+            "resultFields": [
+              "voidCount",
+              "voidAmount",
+              "dueAmount"
+            ]
+          },
+          {
+            "actionId": "retail.after-sale.list",
+            "purpose": "Đếm và tính tổng tiền chứng từ trả hàng trong kỳ.",
+            "values": {
+              "query_type": "return",
+              "analysis": {
+                "where": {
+                  "field": "businessDate",
+                  "operator": "between",
+                  "value": [
+                    "2026-11-01",
+                    "2026-11-30"
+                  ]
+                },
+                "aggregates": [
+                  {
+                    "operation": "count"
+                  },
+                  {
+                    "operation": "sum",
+                    "field": "totalAmount"
+                  }
+                ]
+              }
+            },
+            "resultFields": [
+              "type",
+              "totalAmount"
+            ]
+          },
+          {
+            "actionId": "api.get.78da159ec226e07e",
+            "purpose": "Tính tổng hoa hồng ròng của đối tác trong kỳ.",
+            "values": {
+              "from": "2026-11-01",
+              "to": "2026-11-30",
+              "analysis": {
+                "aggregate": {
+                  "operation": "sum",
+                  "field": "commission"
+                }
+              }
+            },
+            "resultFields": [
+              "commission"
+            ]
+          }
+        ]
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "finance:analytics",
+        "retail:after-sale",
+        "retail:receivable",
+        "retail:retail",
+        "retail:invoice"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [],
+    "reviews": [],
+    "expectedAction": "api.get.78da159ec226e07e"
+  },
+  {
+    "id": "S8-R046",
+    "text": "Hiện tại có lô hàng nào đang trên đường điều chuyển giữa các kho mà bên nhận chưa xác nhận không",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có lô hàng nào đang trên đường điều chuyển giữa các kho mà bên nhận chưa xác nhận không",
+          "concept": "Tra cứu lô hàng đáp ứng điều kiện",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "lô hàng nào đang trên đường điều chuyển giữa các kho",
+          "concept": "Lô hàng điều chuyển giữa các kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "đang trên đường điều chuyển giữa các kho",
+          "concept": "Trạng thái điều chuyển",
+          "operator": "eq",
+          "value": "đang trên đường điều chuyển",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "bên nhận chưa xác nhận",
+          "concept": "Trạng thái xác nhận của bên nhận",
+          "operator": "ne",
+          "value": "đã xác nhận",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "có lô hàng nào",
+          "concept": "Có hay không lô hàng phù hợp",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u3",
+          "u4"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hiện tại có lô hàng nào đang trên đường điều chuyển giữa các kho mà bên nhận chưa xác nhận không"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.transfer.list",
+        "actionIntent": "lookup",
+        "values": {
+          "targetBranch": "",
+          "query_status": "in_transit"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.query_status"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_status"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.code"
+            ]
+          }
+        ],
+        "clarification": "Cần chọn chi nhánh gửi hoặc nhận để tra cứu phiếu điều chuyển.",
+        "clarificationReason": "missing_input"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "inventory:inventory"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "inventory.transfer.list"
+        ],
+        "question": "",
+        "resolutions": []
+      },
+      {
+        "approvedActionIds": [
+          "inventory.transfer.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "inventory.transfer.list",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "status",
+                "operator": "ne",
+                "value": "received"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "inventory.transfer.list"
+  },
+  {
+    "id": "S4-R035",
+    "text": "Có đối tác tuyển sinh nào đã được thanh toán đủ 100% hoa hồng chưa",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Có đối tác tuyển sinh nào đã được thanh toán đủ 100% hoa hồng chưa",
+          "concept": "Tra cứu đối tác tuyển sinh đáp ứng điều kiện thanh toán hoa hồng đầy đủ",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "đối tác tuyển sinh",
+          "concept": "Đối tác tuyển sinh",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "đã được thanh toán đủ 100% hoa hồng",
+          "concept": "Tỷ lệ hoa hồng đã thanh toán",
+          "operator": "eq",
+          "value": 100,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "Có đối tác tuyển sinh nào",
+          "concept": "Cho biết có đối tác nào thỏa điều kiện hay không",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u3",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Có đối tác tuyển sinh nào đã được thanh toán đủ 100% hoa hồng chưa"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "partner.analysis",
+        "values": {
+          "analysis": {
+            "where": {
+              "all": [
+                {
+                  "field": "totalCommission",
+                  "operator": "gt",
+                  "value": 0
+                },
+                {
+                  "field": "unpaidBalance",
+                  "operator": "lte",
+                  "value": 0
+                }
+              ]
+            },
+            "aggregate": {
+              "operation": "count"
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.totalCommission",
+              "analysis.filters.unpaidBalance"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.aggregate.count"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "partner.analysis",
+        "values": {
+          "analysis": {
+            "where": {
+              "all": [
+                {
+                  "field": "totalCommission",
+                  "operator": "gt",
+                  "value": 0
+                },
+                {
+                  "field": "unpaidBalance",
+                  "operator": "lte",
+                  "value": 0
+                }
+              ]
+            },
+            "select": [
+              "name"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.totalCommission",
+              "analysis.filters.unpaidBalance"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.name"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "student-partner:partner-analysis"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "partner.analysis"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "partner.analysis",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "totalCommission",
+                "operator": "gt",
+                "value": 0
+              },
+              {
+                "field": "unpaidBalance",
+                "operator": "lte",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "partner.analysis"
+  },
+  {
+    "id": "S1-R024",
+    "text": "Kiểm tra ai chưa hoàn thành các bài học trong đào tạo nội bộ",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Kiểm tra",
+          "concept": "Tra cứu người chưa hoàn thành bài học",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "các bài học trong đào tạo nội bộ",
+          "concept": "Bài học thuộc chương trình đào tạo nội bộ",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "chưa hoàn thành",
+          "concept": "Trạng thái hoàn thành bài học",
+          "operator": "ne",
+          "value": "hoàn thành",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "ai",
+          "concept": "Người chưa hoàn thành bài học",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u3",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Kiểm tra ai chưa hoàn thành các bài học trong đào tạo nội bộ"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "hr.training.incomplete.list",
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.incompleteEnrollments.employeeName"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "hr.training.incomplete.list",
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "result.employeeName"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:training"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "hr.training.incomplete.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "hr.training.incomplete.list",
+            "role": "public_output",
+            "target": "result.incompleteEnrollments",
+            "predicates": []
+          }
+        ]
+      },
+      {
+        "approvedActionIds": [
+          "hr.training.incomplete.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "hr.training.incomplete.list",
+            "role": "public_output",
+            "target": "result.incompleteEnrollments",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "hr.training.incomplete.list"
+  },
+  {
+    "id": "S2-R063",
+    "text": "Thống kê tình hình KPI giới thiệu lao động tháng này của tất cả đối tác: ai đã đạt KPI, ai còn thiếu bao nhiêu người?",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Thống kê",
+          "concept": "Thống kê tình hình KPI",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "KPI giới thiệu lao động",
+          "concept": "KPI giới thiệu lao động",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "entity",
+          "quote": "đối tác",
+          "concept": "Đối tác",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "time",
+          "quote": "tháng này",
+          "concept": "Kỳ thống kê trong tháng hiện tại",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-01",
+            "to": "2026-11-30"
+          },
+          "dimension": "temporal"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "ai đã đạt KPI",
+          "concept": "Đối tác đã đạt KPI",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "ai còn thiếu",
+          "concept": "Đối tác chưa đạt KPI",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "output",
+          "quote": "bao nhiêu người",
+          "concept": "Số lao động còn thiếu để đạt KPI",
+          "operator": "none",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u8",
+          "kind": "group",
+          "quote": "tất cả đối tác",
+          "concept": "Chia kết quả theo từng đối tác",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Thống kê tình hình KPI giới thiệu lao động tháng này của tất cả đối tác: ai đã đạt KPI, ai còn thiếu bao nhiêu người?"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.f7d7b097f3b2fca2",
+        "values": {
+          "query_periodAnchor": "2026-11-01",
+          "analysis": {
+            "select": [
+              "partnerName",
+              "targetReferrals",
+              "actualReferrals",
+              "remainingReferrals",
+              "completionRate",
+              "status"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action",
+              "result.partnerName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_periodAnchor"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.status"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.status"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "result.remainingReferrals"
+            ]
+          },
+          {
+            "unitId": "u8",
+            "targets": [
+              "result.partnerName"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "api.get.f7d7b097f3b2fca2",
+        "values": {
+          "query_periodAnchor": "2026-11-01",
+          "analysis": {
+            "select": [
+              "partnerName",
+              "status",
+              "remainingReferrals"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_periodAnchor"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.status"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.status"
+            ]
+          },
+          {
+            "unitId": "u7",
+            "targets": [
+              "result.remainingReferrals"
+            ]
+          },
+          {
+            "unitId": "u8",
+            "targets": [
+              "result.partnerName"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "labor-partner:partner-referral-analysis"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "api.get.f7d7b097f3b2fca2"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u8",
+            "actionId": "api.get.f7d7b097f3b2fca2",
+            "role": "row_dimension",
+            "target": "result.partnerName",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "api.get.f7d7b097f3b2fca2"
+  },
+  {
+    "id": "S8-R064",
+    "text": "Khách đang muốn mua Bộ sạc QA, gửi nhanh cho tôi danh sách các số IMEI còn sẵn trong kho Trụ sở chính để lấy máy",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "gửi nhanh cho tôi danh sách",
+          "concept": "Liệt kê thông tin tồn kho",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "trong kho",
+          "concept": "Tồn kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "reference",
+          "quote": "Bộ sạc QA",
+          "concept": "Sản phẩm cần tra cứu",
+          "operator": "eq",
+          "value": "Bộ sạc QA",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "còn sẵn",
+          "concept": "Tình trạng còn hàng",
+          "operator": "eq",
+          "value": "còn sẵn",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "scope",
+          "quote": "kho Trụ sở chính",
+          "concept": "Kho giới hạn dữ liệu",
+          "operator": "eq",
+          "value": "Trụ sở chính",
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "các số IMEI",
+          "concept": "Số IMEI",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u4",
+      "dialogue": {
+        "act": "request",
+        "evidence": "gửi nhanh cho tôi danh sách các số IMEI còn sẵn trong kho Trụ sở chính để lấy máy"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.serial.list",
+        "values": {
+          "query_status": "in_stock",
+          "analysis": {
+            "where": {
+              "all": [
+                {
+                  "field": "productName",
+                  "operator": "eq",
+                  "value": "Bộ sạc QA"
+                },
+                {
+                  "field": "warehouseName",
+                  "operator": "eq",
+                  "value": "Trụ sở chính"
+                }
+              ]
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.productName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_status"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "analysis.filters.warehouseName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.serialNumber"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.serial.list",
+        "values": {
+          "analysis": {
+            "where": {
+              "all": [
+                {
+                  "field": "productName",
+                  "operator": "eq",
+                  "value": "Bộ sạc QA"
+                },
+                {
+                  "field": "status",
+                  "operator": "eq",
+                  "value": "in_stock"
+                },
+                {
+                  "field": "warehouseName",
+                  "operator": "eq",
+                  "value": "Trụ sở chính"
+                }
+              ]
+            },
+            "select": [
+              "serialNumber"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.productName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.filters.status"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "analysis.filters.warehouseName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.serialNumber"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "inventory:serial",
+        "inventory:product",
+        "inventory:warehouse"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "inventory.serial.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u4",
+            "actionId": "inventory.serial.list",
+            "role": "read_predicate",
+            "target": "",
+            "predicates": [
+              {
+                "field": "status",
+                "operator": "eq",
+                "value": "in_stock"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "inventory.serial.list"
+  },
+  {
+    "id": "S1-R032",
+    "text": "những nhân sự nào chưa hoàn thành khóa học QA Bảo mật cơ bản",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "những nhân sự nào chưa hoàn thành khóa học QA Bảo mật cơ bản",
+          "concept": "Tra cứu nhân sự",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "nhân sự",
+          "concept": "Hồ sơ nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "khóa học QA Bảo mật cơ bản",
+          "concept": "Tên khóa học",
+          "operator": "eq",
+          "value": "QA Bảo mật cơ bản",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "chưa hoàn thành",
+          "concept": "Trạng thái hoàn thành khóa học",
+          "operator": "ne",
+          "value": "hoàn thành",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "những nhân sự nào",
+          "concept": "Danh sách nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u3",
+          "u4"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "những nhân sự nào chưa hoàn thành khóa học QA Bảo mật cơ bản"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "hr.training.incomplete.list",
+        "values": {
+          "courseName": "QA Bảo mật cơ bản"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.courseName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.employeeName"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "hr.training.incomplete.list",
+        "values": {
+          "courseName": "QA Bảo mật cơ bản"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.courseName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.incompleteEnrollments.employeeName"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:training"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "hr.training.incomplete.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u5",
+            "actionId": "hr.training.incomplete.list",
+            "role": "public_output",
+            "target": "result.incompleteEnrollments",
+            "predicates": []
+          }
+        ]
+      },
+      {
+        "approvedActionIds": [
+          "hr.training.incomplete.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u1",
+            "actionId": "hr.training.incomplete.list",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          },
+          {
+            "unitId": "u5",
+            "actionId": "hr.training.incomplete.list",
+            "role": "public_output",
+            "target": "result.incompleteEnrollments",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "hr.training.incomplete.list"
+  },
+  {
+    "id": "S8-R081",
+    "text": "Tạo giúp tôi phiếu nhập bổ sung cho dòng Bộ sạc QA theo màn hình dự báo tồn kho",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Tạo",
+          "concept": "Tạo phiếu nhập bổ sung",
+          "operator": "create",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "phiếu nhập bổ sung",
+          "concept": "Phiếu nhập bổ sung",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "reference",
+          "quote": "dòng Bộ sạc QA",
+          "concept": "Dòng sản phẩm cần nhập bổ sung",
+          "operator": "eq",
+          "value": "Bộ sạc QA",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "entity",
+          "quote": "màn hình dự báo tồn kho",
+          "concept": "Màn hình dự báo tồn kho làm căn cứ",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": null,
+      "dialogue": {
+        "act": "request",
+        "evidence": "Tạo giúp tôi phiếu nhập bổ sung cho dòng Bộ sạc QA theo màn hình dự báo tồn kho"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.receipt.create",
+        "values": {
+          "items": [
+            {
+              "productId": "Bộ sạc QA"
+            }
+          ]
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.items.productId"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "context.discourse"
+            ]
+          }
+        ],
+        "actionIntent": "create"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "inventory.receipt.create",
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.items.productId"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "action"
+            ]
+          }
+        ],
+        "actionIntent": "create"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "inventory:receipt"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "inventory.receipt.create"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "inventory.receipt.create",
+            "role": "input_assignment",
+            "target": "values.items.0.productId",
+            "predicates": []
+          }
+        ]
+      },
+      {
+        "approvedActionIds": [
+          "inventory.receipt.create"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "inventory.receipt.create"
+  },
+  {
+    "id": "S1-R058",
+    "text": "Tháng này , những nhân sự nào không đạt KPI",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "những nhân sự nào không đạt KPI",
+          "concept": "Tìm nhân sự theo điều kiện",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "nhân sự",
+          "concept": "Hồ sơ nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "những nhân sự nào",
+          "concept": "Danh sách nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "không đạt KPI",
+          "concept": "Tình trạng đạt KPI",
+          "operator": "ne",
+          "value": "đạt KPI",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "time",
+          "quote": "Tháng này",
+          "concept": "Kỳ đánh giá KPI",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-01",
+            "to": "2026-11-30"
+          },
+          "dimension": "temporal"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u4",
+          "u5"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Tháng này , những nhân sự nào không đạt KPI"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "task.kpi.monthly",
+        "actionIntent": "report",
+        "values": {
+          "period": "2026-11",
+          "completionFilter": "below-100"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.employeeName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.completionFilter"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "values.period"
+            ]
+          }
+        ]
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "task.kpi.monthly",
+        "values": {
+          "period": "2026-11",
+          "completionFilter": "below-100"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.employeeName"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.completionFilter"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "values.period"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:task"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "task.kpi.monthly"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u3",
+            "actionId": "task.kpi.monthly",
+            "role": "public_output",
+            "target": "result.rows",
+            "predicates": []
+          },
+          {
+            "unitId": "u4",
+            "actionId": "task.kpi.monthly",
+            "role": "input_assignment",
+            "target": "values.completionFilter",
+            "predicates": []
+          }
+        ]
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "task.kpi.monthly"
+  },
+  {
+    "id": "S1-R084",
+    "text": "Hôm nay có lịch phỏng vấn ứng viên nào",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có lịch phỏng vấn ứng viên nào",
+          "concept": "Tra cứu ứng viên có lịch phỏng vấn",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "ứng viên",
+          "concept": "Hồ sơ ứng viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "có lịch phỏng vấn",
+          "concept": "Có lịch phỏng vấn",
+          "operator": "exists",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "time",
+          "quote": "Hôm nay",
+          "concept": "Ngày phỏng vấn",
+          "operator": "eq",
+          "value": "2026-11-27",
+          "dimension": "temporal"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "ứng viên nào",
+          "concept": "Danh sách ứng viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u3",
+          "u4"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hôm nay có lịch phỏng vấn ứng viên nào"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "recruitment.interview.list",
+        "values": {
+          "query_from": "2026-11-27",
+          "query_to": "2026-11-27"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_from",
+              "values.query_to"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.applicantName"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "recruitment.interview.list",
+        "actionIntent": "lookup",
+        "values": {
+          "query_from": "2026-11-27",
+          "query_to": "2026-11-27",
+          "analysis": {
+            "where": {
+              "field": "scheduledStart",
+              "operator": "not_empty"
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.scheduledStart"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_from",
+              "values.query_to"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.applicantName"
+            ]
+          }
+        ]
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "hr:recruitment"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "recruitment.interview.list"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "recruitment.interview.list"
+  },
+  {
+    "id": "S3-R055",
+    "text": "Hôm nay phòng QA P02 có những ca học nào",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có những ca học nào",
+          "concept": "Tra cứu các ca học",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "ca học",
+          "concept": "Ca học",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "scope",
+          "quote": "phòng QA P02",
+          "concept": "Phòng QA P02",
+          "operator": "eq",
+          "value": "QA P02",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "time",
+          "quote": "Hôm nay",
+          "concept": "Ngày diễn ra ca học",
+          "operator": "eq",
+          "value": "2026-11-27",
+          "dimension": "temporal"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "những ca học nào",
+          "concept": "Danh sách ca học",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u4",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hôm nay phòng QA P02 có những ca học nào"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "student.schedule.list",
+        "values": {
+          "query_from": "2026-11-27",
+          "query_to": "2026-11-27",
+          "analysis": {
+            "where": {
+              "field": "details",
+              "operator": "contains",
+              "value": "QA P02"
+            }
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.details"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_from",
+              "values.query_to"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.title",
+              "result.type",
+              "result.date",
+              "result.time",
+              "result.details"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "student.schedule.list",
+        "values": {
+          "query_from": "2026-11-27",
+          "query_to": "2026-11-27",
+          "analysis": {
+            "filters": [
+              {
+                "field": "details",
+                "operator": "contains",
+                "value": "QA P02"
+              }
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.details"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.query_from",
+              "values.query_to"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.title",
+              "result.type",
+              "result.date",
+              "result.time",
+              "result.details"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "student:schedule",
+        "student:resource"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "student.schedule.list"
+        ],
+        "question": "",
+        "resolutions": []
+      },
+      {
+        "approvedActionIds": [
+          "student.schedule.list"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "student.schedule.list"
+  },
+  {
+    "id": "S3-R115",
+    "text": "Ở lớp QA Anh văn 01 có những học viên nào chưa đủ điều kiện lên lớp và đang thiếu tiêu chí nào",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có những học viên nào chưa đủ điều kiện lên lớp và đang thiếu tiêu chí nào",
+          "concept": "Tra cứu học viên chưa đủ điều kiện lên lớp và các tiêu chí còn thiếu",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "học viên",
+          "concept": "Hồ sơ học viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "reference",
+          "quote": "lớp QA Anh văn 01",
+          "concept": "Lớp học cần tra cứu",
+          "operator": "eq",
+          "value": "QA Anh văn 01",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "chưa đủ điều kiện lên lớp",
+          "concept": "Trạng thái đủ điều kiện lên lớp",
+          "operator": "ne",
+          "value": "đủ điều kiện lên lớp",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "những học viên nào",
+          "concept": "Danh sách học viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "đang thiếu tiêu chí nào",
+          "concept": "Các tiêu chí còn thiếu",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u4",
+      "dialogue": {
+        "act": "request",
+        "evidence": "có những học viên nào chưa đủ điều kiện lên lớp và đang thiếu tiêu chí nào"
+      }
+    },
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "student.learning-roadmap.progression.list",
+        "values": {
+          "path_batchId": "QA Anh văn 01",
+          "analysis": {
+            "filters": [
+              {
+                "field": "eligible",
+                "operator": "ne",
+                "value": true
+              }
+            ],
+            "select": [
+              "studentName",
+              "eligibilityReasonSummary"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.path_batchId"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.filters.eligible"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.studentName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "result.eligibilityReasonSummary"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "student.learning-roadmap.progression.list",
+        "values": {
+          "path_batchId": "QA Anh văn 01",
+          "analysis": {
+            "where": {
+              "field": "eligible",
+              "operator": "ne",
+              "value": true
+            },
+            "select": [
+              "studentName",
+              "eligibilityReasonSummary"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.path_batchId"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.filters.eligible"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "analysis.select.studentName"
+            ]
+          },
+          {
+            "unitId": "u6",
+            "targets": [
+              "analysis.select.eligibilityReasonSummary"
+            ]
+          }
+        ],
+        "actionIntent": "report"
+      }
+    ],
+    "discovery": {
+      "featureKeys": [
+        "student:learning-roadmap",
+        "student:batch"
+      ],
+      "decision": "search",
+      "question": "",
+      "unavailableModule": null
+    },
+    "fit": [
+      {
+        "approvedActionIds": [
+          "student.learning-roadmap.progression.list"
+        ],
+        "question": "",
+        "resolutions": []
+      }
+    ],
+    "reviews": [],
+    "expectedAction": "student.learning-roadmap.progression.list"
+  }
+]

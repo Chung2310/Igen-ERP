@@ -12,6 +12,7 @@ export interface ScheduleEvent {
   date: string; // YYYY-MM-DD
   time: string;
   details: string;
+  location?:string;
 }
 
 /** Chuẩn hóa chuỗi ngày DD/MM/YYYY hoặc YYYY-MM-DD về YYYY-MM-DD */
@@ -61,6 +62,7 @@ export class ScheduleController {
           date,
           time: exam.officialDate ? "Chính thức" : "Dự kiến",
           details: `${exam.location} • ${exam.studentCount} học viên${exam.rank ? ` • Hạng ${exam.rank}` : ''}`,
+          location:String(exam.location||''),
         });
       }
 

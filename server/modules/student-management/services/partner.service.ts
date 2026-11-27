@@ -16,6 +16,7 @@ import {
 } from "./custom-field-write.service";
 import { customFieldResourceService } from "./custom-field-resource.service";
 import { partnerReadPeriod, referredStudentInPeriod } from './partner-read-period';
+import { collectPartnerPayoutHistory, type PartnerPayoutReadFilters } from './partner-payout-read';
 
 interface PartnerFilters {
   page?: number | string;
@@ -200,6 +201,19 @@ export interface ReferredStudentItem {
 
 export class PartnerService {
   static customFieldWrites = customFieldWriteService;
+
+  static async getPayoutHistory(ownerId:string|string[], filters:PartnerPayoutReadFilters, branchId?:string) {
+    // Validate the window before opening the cursor. Neither owner nor branch
+    // can be supplied through this report's query parameters.
+    partnerReadPeriod(filters.from,filters.to);
+    const query:Record<string,unknown>={...buildOwnerQuery(ownerId),...buildBranchScopeQuery(branchId)};
+    if(filters.search!==undefined){
+      if(typeof filters.search!=='string'||filters.search.length>150)throw new ValidationError('VALIDATION_FAILED','Tên đối tác cần tìm chưa hợp lệ.');
+      if(filters.search.trim())query.name={$regex:filters.search.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),$options:'i'};
+    }
+    const cursor=Partner.find(query).select('name payoutHistory').lean().cursor();
+    try{return await collectPartnerPayoutHistory(cursor,filters);}finally{await cursor.close();}
+  }
 
   static async createPartner(
     ownerId: string,

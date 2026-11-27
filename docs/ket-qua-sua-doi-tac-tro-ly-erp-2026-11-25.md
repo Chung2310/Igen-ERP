@@ -91,3 +91,74 @@ Trước sửa: 11 ca đọc đạt, 26 chưa đạt, 2 ca ghi cần bổ sung. 
 - Cổng gọi P6: **359 test đạt**; V2 đọc: **122 test đạt**. Không sửa chính sách gate hoặc bật production flag.
 - `git diff --check`: không có lỗi whitespace. Hai file so sánh P6 được test sinh ra đã khôi phục về nội dung trước khi chạy; bằng chứng lượt chạy giữ trong tmp.
 - Cổng QA 3041 đã dừng. Server local 3000 vẫn trả HTTP 200. Cấu hình người dùng đã khôi phục và snapshot nghiệp vụ không đổi.
+
+## Bổ sung: câu hỏi thanh toán đủ 100% và kết quả rỗng
+
+- Đã sửa đuôi hỏi “đã … chưa” dùng chung, giữ phủ định trong thân câu và tên bản ghi. Thanh toán đủ yêu cầu có hoa hồng phát sinh > 0 và số còn phải trả <= 0, không tính hồ sơ 0/0.
+- Câu trong ảnh đã chạy AI/API/DB local thật: hoàn tất, 2 request model, chi thêm 0,00173468 USD, không mutation nghiệp vụ. Tổng sổ chi 0,21981558 USD; cộng dự phòng cũ vẫn dưới 0,25 USD.
+- Đối chiếu lại đúng tài khoản ASD/Trụ sở chính và phiên hỏi lúc 17:47 ngày 25/11/2026: 10 đối tác, 6 còn nợ, 4 chưa phát sinh hoa hồng, 0 đã thanh toán đủ. Kết quả rỗng là đúng trong phạm vi này.
+- Đã sửa phần trình bày chung cho read rỗng: trả lời kết luận theo câu hỏi và phạm vi hiện tại thay vì tiêu đề thao tác và “Không có kết quả phù hợp”. Chỉ thực hiện sau khi dữ liệu đầy đủ và kế hoạch hợp lệ; lỗi đọc/thiếu quyền không bị chuyển thành không có dữ liệu.
+- Sau sửa: 431 test định tuyến, 399 test hội thoại đều đạt; typecheck exit 0. Kiểm tra cách trả lời mới bằng test offline, không gọi AI thêm cho thay đổi trình bày.
+- Tại thời điểm bản sửa trên, lịch sử chi trả chưa được mở thành nguồn phân tích. Phần bổ sung bên dưới đã triển khai và kiểm tra nguồn này.
+
+## Bổ sung: lịch sử chi trả, lần gần nhất và tổng thực chi theo kỳ
+
+- Nguyên nhân ảnh lúc 17:58: danh mục trợ lý chỉ có tổng đã trả lũy kế, chưa có nguồn lịch sử sự kiện chi trả; AI tự suy ra thiếu quyền từ danh mục không đáp ứng. Sau khi nối nguồn, AI đã chọn đúng nhưng bộ coverage còn chặn nhầm câu hỏi đầu ra và ngữ cảnh đã rõ.
+- Đã thêm GET `/partners/payout-history` và action `partner.payouts.analysis`, dùng owner/chi nhánh tin cậy và quyền `relationship:read` đang có. Chỉ chiếu tên đối tác, ngày chi, số tiền và phương thức. Không trả ID, ghi chú hoặc tài khoản ngân hàng. Đọc bằng cursor, giới hạn 10.000 đối tác/khoản chi; quá lớn hoặc ngày/số tiền lỗi thì báo chưa đọc đủ, không tổng hợp một phần.
+- Chuẩn hóa DD/MM/YYYY, ngày ISO và timestamp về lịch Việt Nam; lọc from/to bao gồm hai đầu. Dữ liệu cũ có độ chính xác theo ngày: giữ mọi khoản cùng ngày gần nhất, không bịa thứ tự trong ngày. Tổng thực chi lấy từ từng khoản trong lịch sử; hoa hồng phát sinh/còn nợ vẫn theo nguồn lũy kế hiện có, không tự phân bổ theo tháng.
+- Mở rộng bộ phân tích dùng chung để tìm cực trị ngày, nhận diện câu hỏi đọc tự nhiên và đối chiếu các cột trả lời thực sự được chọn. Khôi phục chỉ các cụm ngữ cảnh/khả năng được khai báo, giữ kiểm tra phủ định, tên, kỳ và điều kiện chưa áp dụng. Bắt nhầm tổng thành trung bình và ngày chưa có trong đầu ra. Lưu năm output AI thật từng bị chặn thành fixture hồi quy.
+- Chuẩn hóa lời làm rõ do model sinh khi nó tự kết luận cần cấp quyền/bật phân hệ. Lỗi quyền thật vẫn đi qua cổng server và giữ nguyên xử lý, không bị đổi thành không có dữ liệu.
+
+| Ca AI thật sau sửa | Kết quả đối chiếu với API/DB local | Số request | Chi phí lượt đạt |
+| --- | --- | --- | --- |
+| Lần gần nhất trung tâm chi trả hoa hồng cho đối tác tuyển sinh là khi nào và cho ai | ĐẠT: 25/11/2026, đủ QA An Nhiên, QA Bình Minh, QA Thu Ngân, QA Trúc Mai cùng ngày | 2 AI + 1 GET | 0,00065504 USD |
+| Tháng này trung tâm đã chi trả tổng cộng bao nhiêu tiền hoa hồng cho đối tác tuyển sinh | ĐẠT: 01/11–30/11/2026, tổng thực chi 1.450.000 đồng | 2 AI + 1 GET | 0,00060754 USD |
+
+- Hai lượt đạt không có coverage-repair, không thay bằng số lũy kế và không hỏi người dùng viết lại yêu cầu. Không coi đây là bằng chứng mọi cách diễn đạt đã đạt.
+- Toàn đợt sửa nguồn chi trả này, gồm các lượt tái hiện chưa đạt, chi thêm **0,013816635 USD**. Sổ tổng đã chi **0,23363222 USD**, giữ nguyên dự phòng cũ **0,009485 USD**; tổng đã chi + giữ chỗ **0,24311722 USD < 0,25 USD**. Hai lần bị chặn do dự phòng cứng được lưu lại; chỉ thử lại với đầu ra/giá nhà cung cấp bị siết hơn và tính lại từng wire trước khi gửi, không bỏ khoản đã chi hoặc giải phóng dự phòng cũ. Giới hạn giá trong QA không đổi chính sách model/fallback production.
+- Sau mã cuối: **454 test định tuyến / 24 file**, **399 test hội thoại / 14 file**, `npm run typecheck` exit 0. Các bộ có test trùng, không cộng thành số ca độc lập. Test offline chặn provider/DB/network thật.
+- Snapshot 9 collection nghiệp vụ không đổi ở cả hai lượt đạt; cấu hình xác nhận/memory tạm thời đã khôi phục. Không có thao tác ghi nghiệp vụ.
+- Bằng chứng tổng hợp: `tmp/partner-local-qa/payout-delivery-results.json`; raw request/reply ở `payout-latest-success`, `payout-month-success`. Các lượt lỗi giữ ở `payout-before-coverage-fix`, `payout-before-context-fix`, `payout-month-before-fix`.
+
+## Bổ sung: nền tảng hiểu ngữ cảnh theo ý nghĩa dùng chung
+
+- Đã thay đối chiếu câu chữ bằng khung ý nghĩa độc lập và binding được server kiểm tra ở đường mới; dùng chung cho các module, giữ form/option/xác nhận và dispatch/completion hiện có. Production chưa bật.
+- Tài liệu triển khai và giới hạn: [Hiểu ngữ cảnh theo ý nghĩa](kien-truc-hieu-ngu-canh-theo-y-nghia-tro-ly-erp.md).
+- Hồi quy cuối: 506 test định tuyến, 401 test hội thoại, typecheck exit 0. Replay ba frame/plan AI thật thành fixture offline.
+- AI thật: đọc lần chi gần nhất đạt; tạo đối tác tuyển sinh dừng đúng xác nhận; nhận diện đúng module Lao động chưa khả dụng của ASD, không chuyển sang đối tác lao động. Không bật module/quyền để làm cho test đạt.
+- Chi thêm toàn đợt 0,00485828 USD gồm lượt thăm dò lỗi; tổng đã chi + dự phòng cũ là 0,24797550/0,25 USD. Không mutation nghiệp vụ; cấu hình QA đã khôi phục.
+- Artifact tổng hợp: `tmp/partner-local-qa/semantic-delivery-results.json`. Không dùng số test hồi quy hoặc ba ca thật để suy ra tỷ lệ hiểu đúng trên toàn web.
+
+
+## Bổ sung 26/11: sửa chặn nhầm yêu cầu rõ và giữ ngữ cảnh nối tiếp
+
+### Nguyên nhân và thay đổi dùng chung
+
+Đã đối chiếu đúng hai lượt trong phiên local ASD lúc 19:11 và 19:21 ngày 25/11: cả hai bị chặn ở bước lập/kiểm tra kế hoạch, journal không có bước API. Câu trả lời “cần làm rõ yêu cầu về Tra cứu lịch sử/Trình bày danh sách” là thuật ngữ nội bộ bị đưa thành câu hỏi cho người dùng. Không phải đã đọc DB rồi không thấy học viên. Raw model output của hai lượt gốc không được lưu, nên không kết luận chắc chúng dùng alias cụ thể nào.
+
+Bản sửa áp dụng ở interpreter/validator/service dùng chung:
+
+- Chuẩn hóa các alias đích action tương đương, vẫn kiểm tra ý định và chiều đọc/ghi. Trong lần chạy thật mới, kế hoạch lịch sử dùng `query:partner.referrals:actionId` và đã được chấp nhận đúng nghĩa.
+- Kế hoạch không hợp lệ được sửa nội bộ tối đa một lần, giữ bản ý nghĩa đã cache và danh mục đã chọn. Hết lượt sửa trả lỗi lập phương án; không đổ thành thiếu thông tin, thiếu quyền hay mất kết nối.
+- Giữ bằng chứng ý nghĩa riêng ở server qua ranh giới kế hoạch nhiều nguồn và kiểm tra lại trước dispatch. Không quay về coverage câu chữ khi đã có bằng chứng ý nghĩa; JSON/client không tự cấp được bằng chứng.
+- Câu nối tiếp giữ tên đối tác cha đã được người dùng nêu và xuất hiện chung trong các dòng học viên. Không tự chọn học viên đầu tiên, không áp dụng ngoại lệ nhiều dòng này cho thao tác ghi. Sau lỗi lập phương án có thể giữ tên duy nhất đã nêu ở câu trước.
+- Giữ form, option, schema, quyền, dispatch/completion và xác nhận. Không thay model chính/dự phòng hoặc bật production flag.
+
+### AI thật trên dữ liệu giả
+
+Chạy qua assistant, xác thực, API và DB local thật trên server QA riêng 3041. API học viên thực tế theo phạm vi công ty trả 47 dòng, gồm 3 dòng ngoài fixture. Preflight dừng trước khi gọi model; sau đó chỉ riêng harness QA thêm điều kiện tên `QA ` cho GET `/students`, còn middleware xác thực/quyền/chi nhánh và controller giữ nguyên. 44 học viên được phép kiểm thử đều là dữ liệu giả. Không đổi truy vấn trên app chính 3000 và không gửi tên trong ảnh cho provider. Đây là giới hạn dữ liệu của đợt kiểm thử, không phải kiểm tra toàn bộ dữ liệu tài khoản.
+
+| Ca | Kết quả thực tế | Request AI | GET nghiệp vụ | Chi phí |
+| --- | --- | --- | --- | --- |
+| Xem lịch sử giới thiệu học viên của đối tác QA Bình Minh | Đạt, đúng 3 học viên; đối chiếu tên với API chi tiết đối tác | 3 | 5 | 0,001708275 USD |
+| đưa ra danh sách học viên | Đạt, bảng 44 học viên trong fixture, không hỏi lại thuật ngữ nội bộ | 4 | 1 | 0,001618550 USD |
+| cho mình danh sách những học viên của đối tác vừa hỏi | Đạt, cùng phiên lịch sử, đúng 3 học viên của QA Bình Minh, không hỏi chọn lại đối tác | 3 | 5 | 0,001821125 USD |
+| Thêm đối tác tuyển sinh QA Kiểm Thử 26011, số điện thoại giả | Đạt, giữ tên và số điện thoại, dừng ở xác nhận | 3 | 0 | 0,001265500 USD |
+
+Tổng **13 request AI**, **0,006413450 USD / trần riêng 0,25 USD**, không còn giữ chỗ chưa quyết toán ở sổ mới. Đây là trần riêng được duyệt cho đợt này; sổ cũ và khoản dự phòng cũ không thay đổi. Không gọi API ghi nghiệp vụ, snapshot 9 collection trước/sau khớp; cấu hình xác nhận/memory tạm đã khôi phục.
+
+Bằng chứng: `tmp/context-fix-real-20261126/results.json`, `calls.json`, `ledger.json`; trace hai lỗi gốc đã thay tên ở `tmp/partner-local-qa/context-failures.json`. Bốn frame/plan AI thật được bổ sung vào fixture hồi quy `server/assistant/testing/catalog-routing/captured-semantic-context.json`. Bộ replay chỉ mô phỏng các bước chọn nhóm cần thiết khi thu hẹp danh mục, không gọi provider/API/DB thật.
+
+Bốn ca đạt trên dữ liệu giả không chứng minh đã hiểu mọi ngữ cảnh hoặc bao phủ toàn web. Đợt này không kiểm thử ghi thực tế, không kiểm tra giao diện bằng trình duyệt.
+
+Xác minh cuối trên mã bàn giao: **521 test định tuyến/ngữ cảnh / 25 file**, **406 test hội thoại/trình bày / 14 file** đều đạt; hai bộ có ca trùng nên không cộng thành số ca độc lập. `npm run typecheck` exit 0; `git diff --check` không lỗi whitespace. Log cuối ở `tmp/partner-local-qa/context-fix-offline-final.log`, `context-fix-conversation-final.log`, `context-fix-typecheck-final.log`. Server QA 3041 đã dừng; app chính được khởi động lại bằng lệnh dev hiện có và trả HTTP 200 trên cổng 3000. Chưa đẩy Git trong đợt này.

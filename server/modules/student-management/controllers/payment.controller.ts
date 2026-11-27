@@ -2,6 +2,8 @@ import { Response, NextFunction } from "express";
 import { PaymentService } from "../services/payment.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
+import {listTuitionBalances} from '../services/tuition-balance.service';
+import {previewTuitionReminder,sendTuitionReminder} from '../services/tuition-reminder.service';
 
 function errorStatus(error: unknown) {
   const status = Number((error as { statusCode?: unknown; status?: unknown })?.statusCode ?? (error as { status?: unknown })?.status);
@@ -9,6 +11,13 @@ function errorStatus(error: unknown) {
 }
 
 export class PaymentController {
+  static async previewReminder(req:AuthRequest,res:Response,next:NextFunction){try{const owners=await getAllowedOwnerIds(req.user!);res.json({success:true,data:await previewTuitionReminder({owners,companyCode:req.user!.companyCode!,userId:req.user!.uid,branchId:req.user!.branchId},typeof req.query.batchId==='string'?req.query.batchId:undefined,String(req.query.contentDigest||''))});}catch(error){next(error);}}
+  static async sendReminder(req:AuthRequest,res:Response,next:NextFunction){try{const owners=await getAllowedOwnerIds(req.user!);res.json({success:true,data:await sendTuitionReminder({owners,companyCode:req.user!.companyCode!,userId:req.user!.uid,branchId:req.user!.branchId},req.body)});}catch(error){next(error);}}
+  static async balances(req:AuthRequest,res:Response,next:NextFunction){
+    try{const owners=await getAllowedOwnerIds(req.user!);const batchId=typeof req.query.batchId==='string'?req.query.batchId:undefined;
+      res.json({success:true,data:await listTuitionBalances(owners,req.user!.branchId,batchId)});
+    }catch(error){next(error);}
+  }
   static async reconcileStudent(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const owners = await getAllowedOwnerIds(req.user!);

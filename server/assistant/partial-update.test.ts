@@ -17,4 +17,8 @@ it("preserves rates when reducing months and never invents rates when increasing
   expect(JSON.parse(String(increased.values.official)).milestones).toHaveLength(1);
   const amountOnly = hydratePartialUpdate(op, current, { official: '{"milestones":[{"month":2,"amount":500000}]}' });
   expect(JSON.parse(String(amountOnly.values.official)).milestones).toEqual(current.official.milestones.map(row => row.month === 2 ? { ...row, amount: 500000 } : row));
+  const supplied=hydratePartialUpdate({...op,path:'/another-module/config/:id'},current,{official:JSON.stringify({maxMonths:2,milestones:[{month:1,amount:500000},{month:2,amount:500000}]})});
+  expect(JSON.parse(String(supplied.values.official)).milestones).toEqual([1,2].map(month=>({month,amount:500000,eligibilityRule:'contract_active'})));
+  const invalid=hydratePartialUpdate(op,current,{official:JSON.stringify({maxMonths:2,milestones:[{month:3,amount:500000}]})});
+  expect(JSON.parse(String(invalid.values.official)).milestones.find((r:any)=>r.month===3)?.amount).toBe(500000);
 });

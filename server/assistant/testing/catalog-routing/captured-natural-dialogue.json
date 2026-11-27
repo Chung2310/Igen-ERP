@@ -1,0 +1,647 @@
+[
+  {
+    "id": "N01-CORRECT-IN-SENTENCE",
+    "text": "Thêm đối tác tuyển sinh tên QA Cũ 2611, à nhầm QA Mới 2611 nhé, số điện thoại 0900090998",
+    "actionId": "api.post.682981444c12f0aa",
+    "meaning": [
+      {
+        "version": 1,
+        "units": [
+          {
+            "id": "u1",
+            "kind": "goal",
+            "quote": "Thêm",
+            "concept": "Tạo hồ sơ đối tác tuyển sinh",
+            "operator": "create",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u2",
+            "kind": "entity",
+            "quote": "đối tác tuyển sinh",
+            "concept": "Loại hồ sơ đối tác tuyển sinh",
+            "operator": "none",
+            "value": "đối tác tuyển sinh",
+            "dimension": "none"
+          },
+          {
+            "id": "u3",
+            "kind": "input",
+            "quote": "QA Mới 2611",
+            "concept": "Tên đối tác tuyển sinh",
+            "operator": "eq",
+            "value": "QA Mới 2611",
+            "dimension": "none"
+          },
+          {
+            "id": "u4",
+            "kind": "input",
+            "quote": "số điện thoại 0900090998",
+            "concept": "Số điện thoại đối tác tuyển sinh",
+            "operator": "eq",
+            "value": "0900090998",
+            "dimension": "none"
+          }
+        ],
+        "dialogue": {
+          "act": "request",
+          "evidence": "Thêm đối tác tuyển sinh"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "api.post.682981444c12f0aa",
+        "values": {
+          "name": "QA Mới 2611",
+          "phone": "0900090998"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.name"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "values.phone"
+            ]
+          }
+        ],
+        "actionIntent": "create"
+      }
+    ],
+    "reviews": []
+  },
+  {
+    "id": "N03-PAUSE-AND-READ",
+    "text": "Khoan tạo đối tác đã, cho mình xem danh sách học viên trước nhé",
+    "actionId": "student.list",
+    "meaning": [
+      {
+        "version": 1,
+        "units": [
+          {
+            "id": "u1",
+            "kind": "goal",
+            "quote": "cho mình xem danh sách học viên trước nhé",
+            "concept": "Xem danh sách học viên",
+            "operator": "lookup",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u2",
+            "kind": "entity",
+            "quote": "học viên",
+            "concept": "Hồ sơ học viên",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u3",
+            "kind": "output",
+            "quote": "danh sách học viên",
+            "concept": "Danh sách học viên",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          }
+        ],
+        "dialogue": {
+          "act": "pause",
+          "evidence": "Khoan tạo đối tác đã, cho mình xem danh sách học viên trước nhé"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "student.list",
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action:student.list"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action:student.list",
+              "context.module:student"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "result.fullName",
+              "result.phone",
+              "result.email",
+              "result.registrationDate",
+              "result.fee",
+              "result.paidAmount",
+              "result.status"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "reviews": [],
+    "pending": {
+      "actionId": "api.post.682981444c12f0aa",
+      "values": {
+        "name": "QA Mới 2611",
+        "phone": "0900090997"
+      },
+      "intent": "Tạo đối tác tuyển sinh QA Mới 2611"
+    }
+  },
+  {
+    "id": "N05-RESUME",
+    "text": "Quay lại việc tạo đối tác mình vừa gác lại đi, đổi tên thành QA Hoàn Thiện 2611 nhé",
+    "actionId": "api.post.682981444c12f0aa",
+    "meaning": [
+      {
+        "version": 1,
+        "units": [
+          {
+            "id": "u1",
+            "kind": "goal",
+            "quote": "Quay lại việc tạo đối tác mình vừa gác lại đi",
+            "concept": "Tiếp tục tạo đối tác đang tạm gác",
+            "operator": "create",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u2",
+            "kind": "entity",
+            "quote": "đối tác",
+            "concept": "Đối tác tuyển sinh",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u3",
+            "kind": "input",
+            "quote": "đổi tên thành QA Hoàn Thiện 2611",
+            "concept": "Tên đối tác",
+            "operator": "eq",
+            "value": "QA Hoàn Thiện 2611",
+            "dimension": "none"
+          }
+        ],
+        "dialogue": {
+          "act": "resume",
+          "evidence": "Quay lại việc tạo đối tác mình vừa gác lại đi"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "intentType": "ambiguous",
+        "actionId": null,
+        "values": {},
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action",
+              "context.discourse"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "context.discourse"
+            ]
+          }
+        ],
+        "actionIntent": "create",
+        "resumeGoal": true
+      },
+      {
+        "intentType": "workflow",
+        "actionId": "api.post.682981444c12f0aa",
+        "values": {
+          "name": "QA Hoàn Thiện 2611",
+          "phone": "0900090997"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.name"
+            ]
+          }
+        ],
+        "actionIntent": "create",
+        "newRequest": false
+      }
+    ],
+    "reviews": [],
+    "pending": {
+      "paused": {
+        "actionId": "api.post.682981444c12f0aa",
+        "values": {
+          "name": "QA Mới 2611",
+          "phone": "0900090997"
+        },
+        "intent": "Tạo đối tác tuyển sinh QA Mới 2611"
+      }
+    }
+  },
+  {
+    "id": "N09-CASUAL-DEBT",
+    "text": "Cho mình xem mấy bên tuyển sinh mà trung tâm còn nợ hoa hồng nha",
+    "actionId": "partner.analysis",
+    "meaning": [
+      {
+        "version": 1,
+        "units": [
+          {
+            "id": "u1",
+            "kind": "goal",
+            "quote": "Cho mình xem",
+            "concept": "Xem danh sách",
+            "operator": "lookup",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u2",
+            "kind": "entity",
+            "quote": "mấy bên tuyển sinh",
+            "concept": "Bên tuyển sinh",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u3",
+            "kind": "condition",
+            "quote": "trung tâm còn nợ hoa hồng",
+            "concept": "Trung tâm còn nợ hoa hồng bên tuyển sinh",
+            "operator": "exists",
+            "value": true,
+            "dimension": "none"
+          },
+          {
+            "id": "u4",
+            "kind": "output",
+            "quote": "mấy bên tuyển sinh",
+            "concept": "Danh sách bên tuyển sinh",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          }
+        ],
+        "dialogue": {
+          "act": "request",
+          "evidence": "Cho mình xem mấy bên tuyển sinh mà trung tâm còn nợ hoa hồng nha"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "partner.analysis",
+        "values": {
+          "analysis": {
+            "filters": [
+              {
+                "field": "unpaidBalance",
+                "operator": "gt",
+                "value": 0
+              }
+            ],
+            "select": [
+              "name"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action:partner.analysis"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action:partner.analysis",
+              "context.module:student-partner"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.unpaidBalance"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "analysis.select.name"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "reviews": [
+      {
+        "equivalent": true,
+        "canRepresent": true,
+        "coveredUnits": [
+          "u3"
+        ],
+        "builtinUnits": [],
+        "scopeUnits": [],
+        "constraints": [
+          {
+            "unitId": "u3",
+            "predicates": [
+              {
+                "field": "unpaidBalance",
+                "operator": "gt",
+                "value": 0
+              }
+            ]
+          }
+        ],
+        "reason": "“Trung tâm còn nợ hoa hồng” được biểu diễn bằng số dư còn phải trả lớn hơn 0; truy vấn hiện tại đã dùng đúng điều kiện này."
+      }
+    ]
+  },
+  {
+    "id": "N10-PAID-IN-FULL",
+    "text": "Có đối tác tuyển sinh nào được trả hết hoa hồng chưa?",
+    "actionId": "partner.analysis",
+    "meaning": [
+      {
+        "version": 1,
+        "units": [
+          {
+            "id": "u1",
+            "kind": "goal",
+            "quote": "Có đối tác tuyển sinh nào được trả hết hoa hồng chưa?",
+            "concept": "Tra cứu đối tác tuyển sinh có hoa hồng đã được thanh toán đầy đủ",
+            "operator": "lookup",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u2",
+            "kind": "entity",
+            "quote": "đối tác tuyển sinh",
+            "concept": "Đối tác tuyển sinh",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u3",
+            "kind": "condition",
+            "quote": "được trả hết hoa hồng",
+            "concept": "Hoa hồng đã được thanh toán toàn bộ",
+            "operator": "eq",
+            "value": true,
+            "dimension": "none"
+          }
+        ],
+        "dialogue": {
+          "act": "request",
+          "evidence": "Có đối tác tuyển sinh nào được trả hết hoa hồng chưa?"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "partner.analysis",
+        "values": {
+          "analysis": {
+            "filters": [
+              {
+                "field": "unpaidBalance",
+                "operator": "lte",
+                "value": 0
+              },
+              {
+                "field": "totalCommission",
+                "operator": "gt",
+                "value": 0
+              }
+            ],
+            "select": [
+              "name",
+              "totalCommission",
+              "totalPaid",
+              "unpaidBalance"
+            ]
+          }
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action",
+              "context.module"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "analysis.filters.unpaidBalance",
+              "analysis.filters.totalCommission"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "reviews": [
+      {
+        "equivalent": true,
+        "canRepresent": true,
+        "coveredUnits": [
+          "u3"
+        ],
+        "builtinUnits": [],
+        "scopeUnits": [],
+        "constraints": [
+          {
+            "unitId": "u3",
+            "predicates": [
+              {
+                "field": "totalCommission",
+                "operator": "gt",
+                "value": 0
+              },
+              {
+                "field": "unpaidBalance",
+                "operator": "lte",
+                "value": 0
+              }
+            ]
+          }
+        ],
+        "reason": "Điều kiện trả hết hoa hồng được biểu diễn bằng số dư còn phải trả không lớn hơn 0, đồng thời hoa hồng lũy kế phải lớn hơn 0 để loại trường hợp không phát sinh nghĩa vụ. Truy vấn hiện tại đã có đủ cả hai điều kiện."
+      }
+    ]
+  },
+  {
+    "id": "N13-RELATION-PARAPHRASE",
+    "text": "Bên QA Bình Minh đã đưa những bạn học viên nào sang trung tâm mình vậy?",
+    "actionId": "partner.referrals",
+    "meaning": [
+      {
+        "version": 1,
+        "units": [
+          {
+            "id": "u1",
+            "kind": "goal",
+            "quote": "đã đưa những bạn học viên nào sang trung tâm mình vậy?",
+            "concept": "Tra cứu học viên được chuyển đến trung tâm",
+            "operator": "lookup",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u2",
+            "kind": "entity",
+            "quote": "những bạn học viên nào",
+            "concept": "Hồ sơ học viên",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u3",
+            "kind": "condition",
+            "quote": "Bên QA Bình Minh",
+            "concept": "Đơn vị nguồn chuyển học viên",
+            "operator": "eq",
+            "value": "QA Bình Minh",
+            "dimension": "none"
+          },
+          {
+            "id": "u4",
+            "kind": "scope",
+            "quote": "trung tâm mình",
+            "concept": "Phạm vi trung tâm hiện tại",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          },
+          {
+            "id": "u5",
+            "kind": "output",
+            "quote": "những bạn học viên nào",
+            "concept": "Danh sách học viên được chuyển",
+            "operator": "none",
+            "value": null,
+            "dimension": "none"
+          }
+        ],
+        "dialogue": {
+          "act": "request",
+          "evidence": "Bên QA Bình Minh đã đưa những bạn học viên nào sang trung tâm mình vậy?"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "intentType": "workflow",
+        "actionId": "partner.referrals",
+        "values": {
+          "path_id": "QA Bình Minh"
+        },
+        "meaningBindings": [
+          {
+            "unitId": "u1",
+            "targets": [
+              "action:partner.referrals"
+            ]
+          },
+          {
+            "unitId": "u2",
+            "targets": [
+              "action:partner.referrals",
+              "context.module:student-partner"
+            ]
+          },
+          {
+            "unitId": "u3",
+            "targets": [
+              "values.path_id"
+            ]
+          },
+          {
+            "unitId": "u4",
+            "targets": [
+              "context.scope"
+            ]
+          },
+          {
+            "unitId": "u5",
+            "targets": [
+              "result.fullName"
+            ]
+          }
+        ],
+        "actionIntent": "lookup"
+      }
+    ],
+    "reviews": []
+  }
+]

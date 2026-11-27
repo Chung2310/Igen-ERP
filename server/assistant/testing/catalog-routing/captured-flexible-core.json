@@ -1,0 +1,355 @@
+[
+  {
+    "id": "CREATE-WORKER",
+    "text": "Thêm lao động QA Nhân công A, số điện thoại 0900090123 nhé",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Thêm",
+          "concept": "Tạo hồ sơ lao động",
+          "operator": "create",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "lao động QA",
+          "concept": "Hồ sơ lao động QA",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "input",
+          "quote": "Nhân công A",
+          "concept": "Tên lao động",
+          "operator": "eq",
+          "value": "Nhân công A",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "input",
+          "quote": "số điện thoại 0900090123",
+          "concept": "Số điện thoại",
+          "operator": "eq",
+          "value": "0900090123",
+          "dimension": "none"
+        }
+      ],
+      "dialogue": {
+        "act": "request",
+        "evidence": "Thêm lao động QA Nhân công A, số điện thoại 0900090123 nhé"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "worker.create",
+      "values": {
+        "fullName": "Nhân công A",
+        "phone": "0900090123"
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "values.fullName"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "values.phone"
+          ]
+        }
+      ],
+      "actionIntent": "create"
+    }
+  },
+  {
+    "id": "GROUP-PARTNERS",
+    "text": "Hiện tại có bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "có bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+          "concept": "Tra cứu số lượng đối tác tuyển sinh theo trạng thái",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "đối tác tuyển sinh",
+          "concept": "Đối tác tuyển sinh",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "aggregate",
+          "quote": "bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+          "concept": "Đếm số đối tác",
+          "operator": "count",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "group",
+          "quote": "đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+          "concept": "Chia nhóm theo trạng thái hoạt động hoặc tạm dừng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+          "concept": "Số lượng đối tác ở từng trạng thái",
+          "operator": "none",
+          "value": null,
+          "dimension": "numeric"
+        }
+      ],
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hiện tại có bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "partner.analysis",
+      "values": {
+        "analysis": {
+          "groupBy": "isActive",
+          "aggregate": {
+            "operation": "count"
+          }
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action:partner.analysis"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action:partner.analysis",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "analysis.aggregate.count"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "analysis.groupBy.isActive"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "result.partnerCount"
+          ]
+        }
+      ],
+      "actionIntent": "report"
+    }
+  },
+  {
+    "id": "COMPOSE-READS",
+    "text": "Cho mình xem danh sách học viên và danh sách lao động đang quản lý nhé",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "xem danh sách học viên",
+          "concept": "Tra cứu danh sách học viên",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "học viên",
+          "concept": "Hồ sơ học viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "output",
+          "quote": "danh sách học viên",
+          "concept": "Danh sách học viên cần xem",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "goal",
+          "quote": "xem danh sách lao động đang quản lý",
+          "concept": "Tra cứu danh sách lao động đang quản lý",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "entity",
+          "quote": "lao động",
+          "concept": "Hồ sơ lao động",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "condition",
+          "quote": "đang quản lý",
+          "concept": "Lao động thuộc phạm vi đang quản lý",
+          "operator": "exists",
+          "value": true,
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "output",
+          "quote": "danh sách lao động",
+          "concept": "Danh sách lao động cần xem",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "dialogue": {
+        "act": "request",
+        "evidence": "Cho mình xem danh sách học viên và danh sách lao động đang quản lý nhé"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": null,
+      "actionIntent": "lookup",
+      "values": {},
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "query:student.list:"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "query:student.list:",
+            "context.module:student"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "result.fullName",
+            "result.phone",
+            "result.email",
+            "result.registrationDate",
+            "result.fee",
+            "result.paidAmount",
+            "result.status"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "query:worker.list:"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "query:worker.list:",
+            "context.module:worker"
+          ]
+        },
+        {
+          "unitId": "u6",
+          "targets": [
+            "context.scope"
+          ]
+        },
+        {
+          "unitId": "u7",
+          "targets": [
+            "result.fullName",
+            "result.status",
+            "result.laborType",
+            "result.registrationDate"
+          ]
+        }
+      ],
+      "queryPlan": [
+        {
+          "actionId": "student.list",
+          "purpose": "Tra cứu danh sách học viên trong phạm vi hiện tại",
+          "values": {},
+          "resultFields": [
+            "fullName",
+            "phone",
+            "email",
+            "registrationDate",
+            "fee",
+            "paidAmount",
+            "status"
+          ]
+        },
+        {
+          "actionId": "worker.list",
+          "purpose": "Tra cứu danh sách lao động đang quản lý trong phạm vi hiện tại",
+          "values": {},
+          "resultFields": [
+            "fullName",
+            "status",
+            "laborType",
+            "registrationDate"
+          ]
+        }
+      ]
+    }
+  }
+]

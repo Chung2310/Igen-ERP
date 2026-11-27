@@ -1,0 +1,401 @@
+[
+  {
+    "id": "S8-R011",
+    "text": "Báo cáo nhanh tình hình kho Trụ sở chính hôm nay: tổng tiền hàng tồn kho và tổng số máy còn lại",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Báo cáo",
+          "concept": "Báo cáo tình hình",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "kho",
+          "concept": "Kho và hàng tồn kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "entity",
+          "quote": "máy",
+          "concept": "Máy trong kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "scope",
+          "quote": "Trụ sở chính",
+          "concept": "Giới hạn phạm vi dữ liệu theo trụ sở",
+          "operator": "eq",
+          "value": "Trụ sở chính",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "time",
+          "quote": "hôm nay",
+          "concept": "Ngày báo cáo",
+          "operator": "eq",
+          "value": "2026-11-27",
+          "dimension": "temporal"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "tổng tiền hàng tồn kho",
+          "concept": "Tổng giá trị tiền của hàng tồn kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "aggregate",
+          "quote": "tổng tiền hàng tồn kho",
+          "concept": "Tính tổng tiền hàng tồn kho",
+          "operator": "sum",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u8",
+          "kind": "output",
+          "quote": "tổng số máy còn lại",
+          "concept": "Tổng số máy còn lại trong kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u9",
+          "kind": "aggregate",
+          "quote": "tổng số máy còn lại",
+          "concept": "Đếm số máy còn lại",
+          "operator": "count",
+          "value": null,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u10",
+          "kind": "condition",
+          "quote": "còn lại",
+          "concept": "Máy còn lại trong kho",
+          "operator": "eq",
+          "value": "còn lại",
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u5",
+          "u10"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Báo cáo nhanh tình hình kho Trụ sở chính hôm nay: tổng tiền hàng tồn kho và tổng số máy còn lại"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "inventory.balance.list",
+      "values": {
+        "warehouseId": "Trụ sở chính",
+        "analysis": {
+          "aggregates": [
+            {
+              "operation": "sum",
+              "field": "stockValue"
+            },
+            {
+              "operation": "sum",
+              "field": "availableQuantity"
+            }
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "values.warehouseId"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "context.discourse"
+          ]
+        },
+        {
+          "unitId": "u6",
+          "targets": [
+            "result.stockValue"
+          ]
+        },
+        {
+          "unitId": "u7",
+          "targets": [
+            "analysis.aggregate.stockValue"
+          ]
+        },
+        {
+          "unitId": "u8",
+          "targets": [
+            "result.availableQuantity"
+          ]
+        },
+        {
+          "unitId": "u9",
+          "targets": [
+            "analysis.aggregate.availableQuantity"
+          ]
+        },
+        {
+          "unitId": "u10",
+          "targets": [
+            "analysis.aggregate.availableQuantity"
+          ]
+        }
+      ],
+      "actionIntent": "report"
+    },
+    "reviews": [
+      {
+        "approvedActionIds": [
+          "inventory.balance.list"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u5",
+            "actionId": "inventory.balance.list",
+            "role": "snapshot_context",
+            "target": "context.scope",
+            "predicates": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "S8-R071",
+    "text": "Chuyển giúp tôi 1 máy QA Điện thoại Cũ30 đang còn trong kho Trụ sở chính sang kho QA Phụ theo IMEI",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Chuyển",
+          "concept": "chuyển máy giữa các kho",
+          "operator": "process",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "máy QA Điện thoại Cũ30",
+          "concept": "máy cần chuyển kho",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "input",
+          "quote": "1",
+          "concept": "số lượng máy cần chuyển",
+          "operator": "eq",
+          "value": 1,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "đang còn trong kho",
+          "concept": "tình trạng máy còn trong kho",
+          "operator": "eq",
+          "value": "còn trong kho",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "condition",
+          "quote": "kho Trụ sở chính",
+          "concept": "kho hiện tại của máy",
+          "operator": "eq",
+          "value": "Trụ sở chính",
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "input",
+          "quote": "kho QA Phụ",
+          "concept": "kho đích",
+          "operator": "eq",
+          "value": "QA Phụ",
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "reference",
+          "quote": "IMEI",
+          "concept": "nhận diện máy theo IMEI",
+          "operator": "eq",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u4",
+          "u5"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Chuyển giúp tôi 1 máy QA Điện thoại Cũ30 đang còn trong kho Trụ sở chính sang kho QA Phụ theo IMEI"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "inventory.transfer.serial.create",
+      "values": {
+        "fromWarehouseId": "Trụ sở chính",
+        "toWarehouseId": "QA Phụ",
+        "items": [
+          {
+            "productId": "QA Điện thoại Cũ30",
+            "quantity": 1
+          }
+        ]
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module",
+            "values.items.0.productId"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "values.items.0.quantity"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "values.fromWarehouseId"
+          ]
+        },
+        {
+          "unitId": "u6",
+          "targets": [
+            "values.toWarehouseId"
+          ]
+        },
+        {
+          "unitId": "u7",
+          "targets": [
+            "values.items.0.unitIdentifiers"
+          ]
+        }
+      ],
+      "actionIntent": "create"
+    },
+    "reviews": [
+      {
+        "approvedActionIds": [
+          "inventory.transfer.serial.create"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u1",
+            "actionId": "inventory.transfer.serial.create",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          },
+          {
+            "unitId": "u4",
+            "actionId": "inventory.transfer.serial.create",
+            "role": "builtin_condition",
+            "target": "action",
+            "predicates": []
+          }
+        ]
+      },
+      {
+        "approvedActionIds": [
+          "inventory.transfer.serial.create"
+        ],
+        "question": "",
+        "resolutions": [
+          {
+            "unitId": "u1",
+            "actionId": "inventory.transfer.serial.create",
+            "role": "action_binding",
+            "target": "action",
+            "predicates": []
+          },
+          {
+            "unitId": "u4",
+            "actionId": "inventory.transfer.serial.create",
+            "role": "builtin_condition",
+            "target": "action",
+            "predicates": []
+          }
+        ]
+      }
+    ]
+  }
+]

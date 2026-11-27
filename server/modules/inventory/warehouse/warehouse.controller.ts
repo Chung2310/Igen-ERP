@@ -26,6 +26,23 @@ async function effectiveBranch(req: Request, companyCode: string, accountBranchI
 function error(res: Response, problem: any) { return res.status(Number(problem?.statusCode) || 400).json({ status: "error", message: problem?.message || "Không thể tải dữ liệu kho." }); }
 
 export const warehouseController = {
+  ledger: async (req: Request, res: Response) => {
+    try {
+      const companyCode=company(req);
+      if(!companyCode)throw Object.assign(new Error('Vui lòng chọn công ty.'),{statusCode:400});
+      const branchId=await effectiveBranch(req,companyCode,branch(req));
+      const page=Number(req.query.page??1),limit=Number(req.query.limit??100),warehouseId=String(req.query.warehouseId||'').trim();
+      if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>1000||!Number.isSafeInteger((page-1)*limit))throw Object.assign(new Error('Trang hoặc số dòng không hợp lệ.'),{statusCode:400});
+      const scope={companyCode,...(branchId?{branchId}:{})};
+      if(warehouseId&&(!Types.ObjectId.isValid(warehouseId)||!await WarehouseModel.exists({...scope,_id:warehouseId})))throw Object.assign(new Error('Không tìm thấy kho trong phạm vi được cấp quyền.'),{statusCode:404});
+      const query={...scope,...(warehouseId?{warehouseId}:{})};
+      const [items,total]=await Promise.all([
+        InventoryLedgerEntryModel.find(query).select('productName sku direction purpose quantity quantityDelta unitCost sourceCode operatorName reason createdAt -_id').sort({createdAt:-1,_id:-1}).skip((page-1)*limit).limit(limit).maxTimeMS(15000).lean(),
+        InventoryLedgerEntryModel.countDocuments(query).maxTimeMS(15000),
+      ]);
+      return res.json({status:'success',data:{items,total,page,limit}});
+    }catch(problem){return error(res,problem);}
+  },
   list: async (req: Request, res: Response) => {
     try {
       const companyCode = company(req); const branchId = branch(req);
@@ -113,7 +130,11 @@ export const warehouseController = {
         }
       }
       enrichedItems.sort((a, b) => String(a.sku).localeCompare(String(b.sku), "vi") || String(a.warehouseId).localeCompare(String(b.warehouseId)));
-      return res.json({ status: "success", data: enrichedItems });
+      return res.json({ status: "success", data: enrichedItems.map(item=>{
+        const quantity=Number(item.quantity),reserved=Number(item.reservedQuantity),cost=Number(item.averageCost),stockValue=quantity*cost;
+        if(![quantity,reserved,cost,stockValue].every(Number.isFinite))throw Object.assign(new Error('Số lượng hoặc giá vốn tồn kho chưa hợp lệ.'),{statusCode:422});
+        return {...item,availableQuantity:quantity-reserved,stockValue};
+      }) });
     } catch (problem) { return error(res, problem); }
   },
   updateThresholds: async (req: Request, res: Response) => {
