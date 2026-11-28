@@ -20,6 +20,8 @@ interface LeadDetailDrawerProps {
   onOpenChat: (lead: ExtendedLeadCard) => void;
   onOpenModuleSync: (lead: ExtendedLeadCard) => void;
   onRequestDelete: (lead: ExtendedLeadCard) => void;
+  onSendZalo?: (lead: ExtendedLeadCard) => void;
+  onZaloHistory?: (lead: ExtendedLeadCard) => void;
 }
 
 const fieldInputClass =
@@ -52,6 +54,8 @@ function LeadDetailDrawerPanel({
   onOpenChat,
   onOpenModuleSync,
   onRequestDelete,
+  onSendZalo,
+  onZaloHistory,
 }: LeadDetailDrawerProps & { lead: ExtendedLeadCard }) {
   const syncedModule = lead.moduleSync?.targetModule ?? getCompletedLeadModule(lead.customerTransfer);
   const titleId = useId();
@@ -166,6 +170,8 @@ function LeadDetailDrawerPanel({
         </header>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-outline-variant bg-surface-container-low px-4 py-2.5 sm:px-5">
+          {onSendZalo && <button type="button" className={secondaryBtnClass} onClick={() => onSendZalo(lead)}>Gửi mẫu Zalo</button>}
+          {onZaloHistory && <button type="button" className={secondaryBtnClass} onClick={() => onZaloHistory(lead)}>Lịch sử gửi Zalo</button>}
           <button type="button" onClick={() => onOpenChat(lead)} className={secondaryBtnClass}>
             <MessageCircle aria-hidden="true" className="size-3.5 text-primary" />
             Mở hội thoại

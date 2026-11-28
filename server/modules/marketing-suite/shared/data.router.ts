@@ -32,10 +32,12 @@ import { broadcastEvent } from "./socket";
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
 type AsyncHandler = (req: AuthenticatedRequest, res: Response) => Promise<unknown>;
 const run = (handler: AsyncHandler) => (req: Request, res: Response, next: NextFunction) => { void handler(req as AuthenticatedRequest, res).catch(next); };
-const secretFields = ["accessToken", "refreshToken", "appSecret", "verifyToken"];
+const secretFields = ["accessToken", "refreshToken", "appSecret", "verifyToken", "zaloAppSecret", "zaloWebhookSecret"];
+const zaloManagedFields = ["zaloAppMode", "zaloAppId", "zaloAppSecret", "zaloWebhookSecret", "zaloTokenAppId", "zaloConnectionVersion"];
 function publicRecord(value: unknown, integration: boolean) {
   const record = value && typeof value === "object" ? { ...value } as Record<string, unknown> : {};
   if (integration) for (const field of secretFields) { record[`has${field[0].toUpperCase()}${field.slice(1)}`] = Boolean(record[field]); delete record[field]; }
+  if (integration) { delete record.zaloConnectionVersion; delete record.zaloTokenAppId; }
   return record;
 }
 function payload(value: unknown) {
@@ -705,6 +707,7 @@ for (const [path, rawModel] of [
   }));
   suiteDataRouter.post(path, run(async (req, res) => {
     const data = payload(req.body);
+    if (integration && zaloManagedFields.some(key => key in data)) return res.status(400).json({ message: "Cấu hình App Zalo cần được lưu qua bước kết nối và cấp quyền OA." });
     if (path === "/marketing-contents") await assertCampaignContentLinks(req.user!.companyCode!, data);
     if (integration && (typeof data.username !== "string" || !data.username.trim())) return res.status(400).json({ status: "error", message: "Thiếu định danh tài khoản mạng xã hội." });
     if (integration) await assertMarketingAccountOwnership(req.user!.companyCode!, String(data.platform), String(data.username));
@@ -718,6 +721,7 @@ for (const [path, rawModel] of [
   suiteDataRouter.patch(path + "/:id", run(async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
     const data = payload(req.body);
+    if (integration && zaloManagedFields.some(key => key in data)) return res.status(400).json({ message: "Cấu hình App Zalo cần được lưu qua bước kết nối và cấp quyền OA." });
     let campaignContent: SuiteRecord | null = null;
     if (path === "/marketing-contents") {
       const existing = await model.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();
@@ -733,6 +737,10 @@ for (const [path, rawModel] of [
       const existing = await model.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();
       if (!existing) return res.status(404).json({ status: "error", message: "Không tìm thấy dữ liệu." });
       const platform = data.platform || existing.platform;
+      if (existing.platform === "Zalo" && existing.zaloAppMode === "custom" && ["platform", "username", "accessToken", "refreshToken", "isConnected"]
+        .some(key => key in data && data[key] !== existing[key] && !(key === "isConnected" && data[key] === false))) {
+        return res.status(400).json({ message: "Hãy kết nối lại OA để thay đổi thông tin xác thực của App riêng." });
+      }
       const username = "username" in data ? data.username : existing.username;
       await assertMarketingAccountOwnership(req.user!.companyCode!, String(platform), String(data.username || existing.username));
       const credentialsChanged = ["platform", "username", "fbAppId", "appSecret", "accessToken"]

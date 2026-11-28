@@ -20,6 +20,12 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   tokenExpiredAt: { type: Date },
   appSecret: { type: String },    // Facebook App Secret (từ Meta Developer, mỗi công ty có riêng)
   verifyToken: { type: String },
+  zaloAppMode: { type: String, enum: ["default", "custom"], default: "default" },
+  zaloAppId: String,
+  zaloAppSecret: String,
+  zaloWebhookSecret: String,
+  zaloTokenAppId: String,
+  zaloConnectionVersion: { type: Number, default: 0 },
   isMock: { type: Boolean, default: false },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
   leadSheetConfig: {
@@ -51,7 +57,7 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
 SocialIntegrationSchema.index({ platform: 1, username: 1, isConnected: 1 });
 SocialIntegrationSchema.index({ companyCode: 1, platform: 1, isConnected: 1 });
 
-protectMarketingSecrets(SocialIntegrationSchema, ["accessToken", "refreshToken", "appSecret", "verifyToken"]);
+protectMarketingSecrets(SocialIntegrationSchema, ["accessToken", "refreshToken", "appSecret", "verifyToken", "zaloAppSecret", "zaloWebhookSecret"]);
 SocialIntegrationSchema.index({ platform: 1, username: 1 }, { unique: true, partialFilterExpression: { isConnected: true, username: { $type: "string" } } });
 export const SocialIntegrationModel = model<ISocialIntegration>(
   "SocialIntegration",

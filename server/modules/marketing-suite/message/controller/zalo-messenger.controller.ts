@@ -68,17 +68,20 @@ export const zaloMessengerController = {
         return res.status(200).json({ success: true, message: "WEBHOOK_REACHABLE" });
       }
 
-      const { verifyZaloWebhook } = await import("../webhook-signature");
+      const { verifyZaloConnectionWebhook } = await import("../../shared/zalo-app-config");
       const rawBody = (req as Request & { rawBody?: string }).rawBody;
-      if (!verifyZaloWebhook({ signature: req.get("x-zevent-signature"), rawBody, appId: String(body?.app_id || ""), timestamp: body?.timestamp, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY })) {
+      if (!await verifyZaloConnectionWebhook({ signature: req.get("x-zevent-signature"), rawBody, body })) {
         console.warn("[Zalo Webhook] Signature rejected", {
-          eventName, appIdMatches: String(body?.app_id || "") === process.env.ZALO_APP_ID,
+          eventName,
           hasRawBody: Boolean(rawBody), hasSignature: Boolean(req.get("x-zevent-signature")),
-          hasSecret: Boolean(process.env.ZALO_OA_SECRET_KEY),
         });
         return res.status(401).json({ success: false, message: "Invalid Zalo webhook signature." });
       }
 
+      const { receiveZbsReceipt } = await import("../zbs/webhook");
+      if (await receiveZbsReceipt(body, req.get("x-zevent-server"))) {
+        return res.status(200).json({ success: true, message: "ZBS_RECEIPT_RECEIVED" });
+      }
       const outcome = await enqueueZaloWebhook(body, rawBody);
       if (eventName.startsWith("oa_send_")) {
         // Metadata only: never log message content, signature, or credentials.

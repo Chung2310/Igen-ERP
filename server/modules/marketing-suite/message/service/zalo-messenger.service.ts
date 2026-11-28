@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { ZaloConversationModel, ZaloMessageModel } from "../model/zalo-messenger.model.ts";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { UserModel } from "../../../../model/user.model.ts";
+import { zaloCredentialsForIntegration, zaloConfigError } from "../../shared/zalo-app-config";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { emitToMessengerAccount } from "../../shared/socket";
 import { aiAutoReplyService } from "./ai-auto-reply.service.ts";
@@ -185,17 +186,17 @@ export const zaloMessengerService = {
   /**
    * Láº¥y Access Token há»£p lá»‡, tá»± Ä‘á»™ng refresh náº¿u sáº¯p háº¿t háº¡n
    */
-  async getAccessTokenByOAId(oaId: string): Promise<string | null> {
-    const { SocialIntegrationModel } = require("../../shared/model/social-integration.model.ts");
+  async getAccessTokenByOAId(oaId: string, companyCode?: string): Promise<string | null> {
     const companyIntegration = await SocialIntegrationModel.findOne({
       platform: "Zalo",
+      ...(companyCode ? { companyCode } : {}),
       username: oaId, // OA ID is stored in username
       isConnected: true
     });
 
     // 1. Search in SocialIntegrationModel first (company-level)
     if (companyIntegration) {
-      console.log(`[Zalo Service Token] Found company-level integration for oaId=${oaId}, accessTokenTail=${companyIntegration.accessToken?.slice(-8) || "none"}, hasRefreshToken=${companyIntegration.refreshToken ? "true" : "false"}, tokenExpiredAt=${companyIntegration.tokenExpiredAt || "none"}`);
+      if (companyIntegration.zaloAppMode === "custom" || companyIntegration.zaloTokenAppId) zaloCredentialsForIntegration(companyIntegration);
       if (companyIntegration.isMock) {
         return "mock_zalo_access_token_123456789";
       }
@@ -211,12 +212,14 @@ export const zaloMessengerService = {
           return newAccessToken;
         } catch (err: any) {
           console.error(`[Zalo Service Token] Tự động làm mới Company Zalo token thất bại:`, err);
-          await SocialIntegrationModel.findByIdAndUpdate(companyIntegration._id, {
+          const disconnected = await SocialIntegrationModel.updateOne({ _id: companyIntegration._id, companyCode: companyIntegration.companyCode,
+            $or: [{ zaloConnectionVersion: companyIntegration.zaloConnectionVersion || 0 }, ...(companyIntegration.zaloConnectionVersion ? [] : [{ zaloConnectionVersion: { $exists: false } }])] }, { $set: {
             isConnected: false,
             accessToken: "",
             refreshToken: "",
             tokenExpiredAt: null,
-          });
+          }, $inc: { zaloConnectionVersion: 1 } });
+          if (!disconnected.modifiedCount) return null;
 
           // Gá»­i cáº£nh bÃ¡o vá» Telegram
           const { telegramService } = require("../../shared/service/telegram.service.ts");
@@ -235,15 +238,17 @@ export const zaloMessengerService = {
       return companyIntegration.accessToken || null;
     }
 
+    // Never replace a disconnected custom-App connection with an old personal/default token.
+    if (await SocialIntegrationModel.exists({ platform: "Zalo", username: oaId, ...(companyCode ? { companyCode } : {}), zaloAppMode: "custom" })) return null;
     // 2. Fallback to UserModel (user-level)
     const user = await UserModel.findOne({
+      ...(companyCode ? { companyCode, disabledAt: null } : {}),
       "zaloIntegration.isConnected": true,
       "zaloIntegration.oaId": oaId
     });
 
     if (user && user.zaloIntegration) {
       const integration = user.zaloIntegration;
-      console.log(`[Zalo Service Token] Fallback to user-level integration for oaId=${oaId}, user=${user.email}, accessTokenTail=${integration.accessToken?.slice(-8) || "none"}, hasRefreshToken=${integration.refreshToken ? "true" : "false"}, tokenExpiredAt=${integration.tokenExpiredAt || "none"}`);
 
       if (integration.isMock) {
         return "mock_zalo_access_token_123456789";
@@ -294,8 +299,7 @@ export const zaloMessengerService = {
     bodyParams.set("refresh_token", integration.refreshToken);
     bodyParams.set("grant_type", "refresh_token");
 
-    const appId = process.env.ZALO_APP_ID || "";
-    const appSecret = process.env.ZALO_APP_SECRET || "";
+    const { appId, appSecret } = zaloCredentialsForIntegration(integration);
 
     if (!appId || !appSecret) {
       throw new Error("Không thể làm mới token: Thiếu cấu hình ZALO_APP_ID hoặc ZALO_APP_SECRET trong file .env");
@@ -310,11 +314,11 @@ export const zaloMessengerService = {
         "secret_key": appSecret,
       },
       body: bodyParams.toString(),
+      signal: AbortSignal.timeout(10_000), redirect: "error",
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Refresh Company Zalo Token thất bại: ${response.status} - ${errText}`);
+      throw new Error(`Refresh Company Zalo Token thất bại: ${response.status}`);
     }
 
     const data = await response.json();
@@ -324,15 +328,15 @@ export const zaloMessengerService = {
 
     const newAccessToken = data.access_token;
     const newRefreshToken = data.refresh_token;
+    if (typeof newAccessToken !== "string" || !newAccessToken || typeof newRefreshToken !== "string" || !newRefreshToken) throw zaloConfigError("Phản hồi gia hạn token OA không hợp lệ.");
     const expiresInSeconds = Number(data.expires_in) || 90000;
     const tokenExpiredAt = new Date(Date.now() + expiresInSeconds * 1000);
-
-    const { SocialIntegrationModel } = require("../../shared/model/social-integration.model.ts");
-    await SocialIntegrationModel.findByIdAndUpdate(integrationId, {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      tokenExpiredAt,
-    });
+    const saved = await SocialIntegrationModel.findOneAndUpdate({ _id: integrationId, companyCode: integration.companyCode,
+      $or: [{ zaloConnectionVersion: integration.zaloConnectionVersion || 0 }, ...(integration.zaloConnectionVersion ? [] : [{ zaloConnectionVersion: { $exists: false } }])] }, {
+      $set: { accessToken: newAccessToken, refreshToken: newRefreshToken, tokenExpiredAt, zaloTokenAppId: appId },
+      $inc: { zaloConnectionVersion: 1 },
+    }, { returnDocument: "after" });
+    if (!saved) throw zaloConfigError("Kết nối OA đã thay đổi trong lúc gia hạn. Hãy thử lại.");
 
     console.log(`[Zalo Service Token] Đã làm mới company-level token thành công cho ID: ${integrationId}`);
     return newAccessToken;
@@ -762,7 +766,6 @@ export const zaloMessengerService = {
       "zaloIntegration.isConnected": true,
       "zaloIntegration.oaId": oaId
     }).select("email companyCode aiAutoReplyConfig zaloIntegration.oaId zaloIntegration.oaName zaloIntegration.accessToken").lean();
-    const { SocialIntegrationModel } = require("../../shared/model/social-integration.model.ts");
     const companyIntegration = await SocialIntegrationModel.findOne({
       platform: "Zalo",
       username: oaId,
@@ -830,7 +833,6 @@ export const zaloMessengerService = {
     const user = await UserModel.findById(userId)
       .select("email companyCode zaloIntegration")
       .lean();
-    const { SocialIntegrationModel } = require("../../shared/model/social-integration.model.ts");
     const companyIntegrations = await SocialIntegrationModel.find({
       companyCode: user?.companyCode,
       platform: "Zalo",
@@ -910,7 +912,6 @@ export const zaloMessengerService = {
       if (configuredOaId) {
         oaId = configuredOaId;
       } else {
-        const { SocialIntegrationModel } = require("../../shared/model/social-integration.model.ts");
         const [companyOaIds, personalOaIds] = await Promise.all([
           SocialIntegrationModel.distinct("username", {
             platform: "Zalo",
@@ -1005,7 +1006,6 @@ export const zaloMessengerService = {
     let isMock = user?.zaloIntegration?.isMock ?? false;
 
     if (!user) {
-      const { SocialIntegrationModel } = require("../../shared/model/social-integration.model.ts");
       const companyIntegration = await SocialIntegrationModel.findOne({
         platform: "Zalo",
         username: oaId,
