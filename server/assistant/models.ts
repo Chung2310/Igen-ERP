@@ -10,6 +10,23 @@ sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, conversationId: 1 
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, updatedAt: -1, _id: -1 });
 sessionSchema.index({ companyCode: 1, "messages.feedback.submittedAt": -1 });
 export const AssistantSessionModel = model("AssistantSession", sessionSchema);
+const feedbackPatchSchema = new Schema({
+  feedbackKey: { type: String, required: true, unique: true },
+  companyCode: { type: String, required: true },
+  branchId: { type: String, default: "" },
+  question: { type: String, required: true, maxlength: 8000 },
+  answer: { type: String, required: true, maxlength: 12000 },
+  rating: { type: Number, required: true, min: 1, max: 2 },
+  comment: { type: String, required: true, maxlength: 1000 },
+  status: { type: String, enum: ["queued", "running", "patch_ready", "failed", "cancelled"], default: "queued" },
+  summary: { type: String, default: "", maxlength: 2000 },
+  branchName: { type: String, default: "", maxlength: 160 },
+  pullRequestUrl: { type: String, default: "", maxlength: 500 },
+  testResults: { type: Schema.Types.Mixed, default: null },
+  errorCode: { type: String, default: "", maxlength: 100 },
+}, { timestamps: true });
+feedbackPatchSchema.index({ status: 1, createdAt: 1 });
+export const AssistantFeedbackPatchModel = model("AssistantFeedbackPatch", feedbackPatchSchema);
 const projectCollectionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, projects: { type: [Schema.Types.Mixed], default: [] } }, { timestamps: true });
 projectCollectionSchema.index({ companyCode: 1, userId: 1, branchId: 1 }, { unique: true });
 export const AssistantProjectCollectionModel = model("AssistantProjectCollection", projectCollectionSchema);
@@ -101,5 +118,5 @@ export const AssistantDocumentModel = model("AssistantDocument", documentSchema)
 let indexReadiness: Promise<unknown> | undefined;
 /** Do not accept deduplicated writes until their unique indexes exist. */
 export function ensureAssistantIndexes() {
-  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantProjectCollectionModel, AssistantProjectFileModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, UserAssistantAgentModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
+  return indexReadiness ||= Promise.all([AssistantWorkflowModel, AssistantSessionModel, AssistantFeedbackPatchModel, AssistantProjectCollectionModel, AssistantProjectFileModel, AssistantTurnModel, AssistantSettingsModel, AssistantMemoryModel, AssistantPromptTemplateModel, UserAssistantAgentModel, AssistantDocumentModel].map(async model => { await model.init(); await model.createIndexes(); })).catch(error => { indexReadiness = undefined; throw error; });
 }

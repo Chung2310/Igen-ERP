@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { operationById } from "./catalog";
-import { callOperation, resolveReferences } from "./executor";
+import { callOperation, projectRecords, resolveReferences } from "./executor";
 
 vi.mock("./workflows", async () => {
   const { operationById } = await import("./catalog");
@@ -349,6 +349,31 @@ it("lists active retail suppliers and dealers while excluding collaborators", as
     { name: "Nhà cung cấp A", phone: "0900000001", partnerType: "supplier" },
     { name: "Đại lý B", phone: "0900000002", partnerType: "dealer" },
   ]);
+});
+
+it("reads and safely projects the assistant partner overview summary", async () => {
+  const requestUrls: URL[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+    const url = new URL(String(input));
+    requestUrls.push(url);
+    return new Response(JSON.stringify({ success: true, data: {
+      total: 12, collaborators: 7, dealers: 2, suppliers: 3, active: 10, inactive: 2,
+      missingPhone: 1, missingEmail: 4, missingAddress: 5, internalId: "private-id",
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+  }));
+  const result = await callOperation(req, operationById("retail.partner.overview")!, {} as any);
+  const operation = operationById("retail.partner.overview")!;
+  expect(requestUrls[0].pathname).toBe("/api/v1/retail/partners/assistant-overview");
+  expect(result.data).toMatchObject({
+    total: 12, collaborators: 7, dealers: 2, suppliers: 3, active: 10, inactive: 2,
+    missingPhone: 1, missingEmail: 4, missingAddress: 5,
+  });
+  const projected = projectRecords(operation, result, req);
+  expect(projected).toEqual([{
+    total: 12, collaborators: 7, dealers: 2, suppliers: 3, active: 10, inactive: 2,
+    missingPhone: 1, missingEmail: 4, missingAddress: 5,
+  }]);
+  expect(JSON.stringify(projected)).not.toContain("private-id");
 });
 
 it("downloads the authorized retail Excel report as an assistant file attachment", async () => {

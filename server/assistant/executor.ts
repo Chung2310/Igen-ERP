@@ -4447,6 +4447,42 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
+  if (op.id === "retail.partner.overview") {
+    const summary = responseData && typeof responseData === "object" ? responseData as Record<string, unknown> : {};
+    const fields = ["total", "collaborators", "dealers", "suppliers", "active", "inactive", "missingPhone", "missingEmail", "missingAddress"];
+    const projected: AssistantRecord = {};
+    for (const field of fields) {
+      const value = Number(summary[field]);
+      if (Number.isSafeInteger(value) && value >= 0) projected[field] = value;
+    }
+    return Object.keys(projected).length ? [projected] : [];
+  }
+  if (op.id === "retail.partner.commission.policy.list") {
+    const items = Array.isArray(responseData?.assistantItems) ? responseData.assistantItems : [];
+    return items.flatMap((item: any) => {
+      if (!item || typeof item !== "object") return [];
+      const projected: AssistantRecord = {};
+      for (const key of ["partnerName", "scope", "kind", "sku", "status"]) {
+        if (typeof item[key] === "string") projected[key] = item[key];
+      }
+      for (const key of ["ratePercent"]) {
+        const value = Number(item[key]);
+        if (Number.isFinite(value)) projected[key] = value;
+      }
+      for (const key of ["effectiveAt", "effectiveFrom"]) {
+        const value = item[key];
+        if (value instanceof Date && Number.isFinite(value.valueOf())) projected[key] = value.toISOString();
+        else if (typeof value === "string" && value.length <= 40) projected[key] = value;
+      }
+      if (item.config && typeof item.config === "object") {
+        for (const key of ["phoneAmount", "accessoryBps", "repairBps"]) {
+          const value = Number(item.config[key]);
+          if (Number.isFinite(value)) projected[key] = value;
+        }
+      }
+      return Object.keys(projected).length ? [projected] : [];
+    });
+  }
   if (op.id === "student.batch.attendance.summary") {
     const projected = projectApprovedReportRecord(responseData, op);
     return Object.keys(projected).length ? [projected] : [];
@@ -4487,6 +4523,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
   // Consume the explicit assistant projection instead.
   if (op.method === "GET" && op.path === "/retail/partners/product-commissions") {
     const items = Array.isArray(responseData?.assistantItems) ? responseData.assistantItems : [];
+    const quantity = Number(input.query_quantity);
     const summary: AssistantRecord = {
       productCategoryCount: Array.isArray(responseData?.categories) ? responseData.categories.length : 0,
       productCount: Array.isArray(responseData?.products) ? responseData.products.length : 0,
@@ -4501,9 +4538,13 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
         if (["string", "boolean", "number"].includes(typeof value)) safe[key] = value;
         else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[key] = value.toISOString();
       }
+      if (Number.isSafeInteger(quantity) && quantity > 0 && item?.commissionType === "fixed"
+        && Number.isSafeInteger(Number(item?.commissionValue)) && Number(item.commissionValue) >= 0) {
+        safe.commissionTotal = quantity * Number(item.commissionValue);
+      }
       return Object.keys(safe).length ? [safe] : [];
     });
-    return op.resultFields.includes("productCategoryCount") ? [summary, ...projectedItems] : projectedItems;
+    return op.resultFields.includes("productCategoryCount") && !String(input.query_q || "").trim() ? [summary, ...projectedItems] : projectedItems;
   }
   if (op.id === "employee.count") {
     const candidates = [responseData, responseData?.data, responseData?.result, response?.data?.data, response?.result, response];

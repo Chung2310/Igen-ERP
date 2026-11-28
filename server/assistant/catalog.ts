@@ -746,7 +746,7 @@ operations.push(...expandedOperations.map(op => {
     : partnerList
     ? [queryField(text("search", "Tên, số điện thoại hoặc mã đối tác"), "search")]
     : retailPartnerList
-      ? [queryField({ ...text("search", "Tên, mã, số điện thoại hoặc email đối tác"), max: 100 }, "search"), queryField(choice("role", "Vai trò đối tác", ["collaborator", "dealer", "supplier"])), queryField(choice("supplierLink", "Trạng thái liên kết nhà cung cấp", ["linked", "missing"]))]
+      ? [queryField({ ...text("search", "Tên, mã, số điện thoại hoặc email đối tác"), max: 100 }, "search"), queryField(choice("role", "Vai trò đối tác", ["collaborator", "dealer", "supplier"])), queryField(choice("status", "Trạng thái đối tác", ["active", "inactive"])), queryField({ key: "missingContact", label: "Thiếu số điện thoại, email hoặc địa chỉ", type: "boolean" }, "missingContact"), queryField(choice("supplierLink", "Trạng thái liên kết nhà cung cấp", ["linked", "missing"]))]
     : studentList
       ? [queryField({ ...text("search", "Tên hoặc số điện thoại học viên"), max: 100 }, "search"), queryField(text("status", "Trạng thái"), "status"), queryField(text("rank", "Hạng"), "rank"), queryField({ ...number("page", "Trang", 1), min: 1, max: 10000 }, "page"), queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100 }, "limit")]
       : unassignedStudentList
@@ -2535,6 +2535,8 @@ retailPerformance.analysis = { fields: {
   partnerName: { label: "Đối tác", type: "text" }, partnerCode: { label: "Mã đối tác", type: "text" },
   commission: { label: "Hoa hồng ròng (VND)", type: "number" }, sources: { label: "Số bút toán hoa hồng", type: "number" },
 } };
+retailPerformance.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+retailPerformance.assistantOnlyFields = [...(retailPerformance.assistantOnlyFields || []), "analysis"];
 retailPerformance.description = "Phân tích hoa hồng ròng và số BÚT TOÁN hoa hồng trong khoảng ngày theo chi nhánh, bao gồm cộng tác viên không phát sinh. commission có thể âm do hoàn/đảo hoa hồng. sources KHÔNG phải số đơn hàng, số khách hoặc lượt giới thiệu. Không có chỉ tiêu KPI đạt/chưa đạt, cần hỏi ngưỡng nếu người dùng chưa nêu. Không đổi yêu cầu về đơn hàng/khách sang số bút toán. Tháng này dùng ngày đầu đến cuối tháng hiện tại theo Việt Nam. Chỉ dùng khoảng ngày API hỗ trợ.";
 const retailCommissionBalances = operations.find(op => op.method === "GET" && op.path === "/retail/finance/commission/balances");
 if (retailCommissionBalances) {
@@ -2593,19 +2595,36 @@ for (const op of operations.filter(op => op.method === "PATCH" && ["/partners/co
   op.description += " Chỉ gửi thuộc tính người dùng muốn sửa. Máy chủ đọc bản hiện tại và giữ các phần không đổi, kể cả thuộc tính lồng trong config. Chọn đúng bản ghi trước khi sửa và xác nhận trước khi lưu. Không tự tạo bản ghi mới khi người dùng yêu cầu sửa.";
 }
 const retailPolicyList = operations.find(op => op.id === "retail.partner.commission.policy.list")!;
+retailPolicyList.fields.push(queryField({ key: "currentOnly", apiKey: "currentOnly", source: "query", type: "boolean", label: "Chỉ cấu hình hiện có hiệu lực" }));
 const retailProductCommissionList = operations.find(op => op.method === "GET" && op.path === "/retail/partners/product-commissions");
 if (retailProductCommissionList && !retailProductCommissionList.resultFields.includes("partnerName")) {
   retailProductCommissionList.resultFields.push("partnerName");
 }
 if (retailProductCommissionList) {
   retailProductCommissionList.resultFields = [...new Set([...retailProductCommissionList.resultFields,
-    "variantName", "productCategoryCount", "productCount", "variantCount", "configuredSkuCount"] )];
-  retailProductCommissionList.description += " Có thể lọc theo tên sản phẩm, biến thể hoặc SKU; kết quả có mức hoa hồng đang cấu hình cho đúng biến thể. Kết quả báo cáo cũng có số lượng danh mục, sản phẩm, biến thể và số SKU được đặt mức hoa hồng riêng.";
+    "variantName", "categoryCode", "categoryName", "commissionTotal", "productCategoryCount", "productCount", "variantCount", "configuredSkuCount"] )];
+  if (!retailProductCommissionList.fields.some(field => field.apiKey === "q")) retailProductCommissionList.fields.push(queryField({ ...text("q", "Tên sản phẩm, biến thể hoặc SKU"), max: 160 }, "q"));
+  retailProductCommissionList.fields.push(queryField({ ...number("quantity", "Số máy dự kiến bán", 1), min: 1, max: 100000 }, "quantity"));
+  retailProductCommissionList.analysis = { fields: {
+    sku: { label: "SKU", type: "text" }, productName: { label: "Sản phẩm", type: "text" }, variantName: { label: "Biến thể", type: "text" },
+    categoryCode: { label: "Mã nhóm hàng", type: "text" }, categoryName: { label: "Nhóm hàng", type: "text" },
+    kind: { label: "Loại sản phẩm", type: "text" }, commissionType: { label: "Cách tính hoa hồng", type: "text" },
+    commissionValue: { label: "Mức hoa hồng", type: "number" }, ratePercent: { label: "Tỷ lệ hoa hồng (%)", type: "number" },
+    status: { label: "Phạm vi cấu hình", type: "text", values: { common: "Chính sách chung", configured: "Mức riêng sản phẩm", "partner-specific": "Mức riêng cộng tác viên", "no-policy": "Chưa có chính sách" } },
+    partnerName: { label: "Cộng tác viên", type: "text" },
+  } };
+  retailProductCommissionList.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+  retailProductCommissionList.assistantOnlyFields = [...(retailProductCommissionList.assistantOnlyFields || []), "analysis"];
+  retailProductCommissionList.description += " Kết quả gồm cả biến thể đang áp dụng chính sách chung và biến thể đã đặt mức riêng; status phân biệt common, configured và partner-specific. Có thể lọc theo tên sản phẩm, biến thể hoặc SKU. Khi nêu số lượng máy và mức hoa hồng cố định, quantity có thể dùng để trả tổng hoa hồng; không tự tính tiền phần trăm nếu thiếu giá trị bán. Kết quả báo cáo cũng có số lượng danh mục, sản phẩm, biến thể và SKU được đặt mức riêng.";
+  retailProductCommissionList.description += ` Dùng analysis để lọc, đếm theo status hoặc tìm cực trị commissionValue; trường hợp lệ: ${JSON.stringify(retailProductCommissionList.analysis.fields)}.`;
 }
 operations.find(op => op.id === "retail.order.list")!.fields.push({ key: "query_heldOnly", apiKey: "heldOnly", source: "query", type: "boolean", label: "Chỉ đơn nháp đang giữ" });
 retailPolicyList.resultFields.push("partnerName");
 retailPolicyList.resultFields = retailPolicyList.resultFields.filter(field => field !== "partnerId");
+retailPolicyList.resultFields = [...new Set([...retailPolicyList.resultFields.filter(field => field !== "config"),
+  "scope", "kind", "sku", "phoneAmount", "accessoryBps", "repairBps", "ratePercent", "effectiveFrom", "status"])];
 retailPolicyList.description += " Chính sách được phân biệt bằng ngày áp dụng và cộng tác viên (hoặc chính sách chung). Không tự chọn một bản khi chưa xác định được.";
+retailPolicyList.description += " Dùng currentOnly=true khi hỏi cấu hình hiện đang có hiệu lực; hệ thống lấy phiên bản mới nhất đã bắt đầu áp dụng cho từng phạm vi. Bỏ bộ lọc này khi người dùng yêu cầu xem tất cả phiên bản.";
 retailPolicyList.description += " Hệ thống chỉ lưu ngày bắt đầu hiệu lực, không lưu ngày hết hạn; nếu người dùng hỏi chính sách sắp hết hiệu lực thì phải nêu rõ dữ liệu hiện không đủ để xác định, không suy đoán từ ngày áp dụng.";
 for (const op of operations.filter(op => /\/retail\/partners\/commission-policies/.test(op.path) && ["POST", "PATCH"].includes(op.method))) {
   op.description += " config.phoneAmount là tiền VND (150000–300000). config.accessoryBps và config.repairBps là điểm cơ bản (1000–1500), 1%=100 điểm cơ bản. Đổi 12% thành 1200, không phải 12. Thiếu mức tiền hoặc tỷ lệ khi tạo mới thì hỏi, không tự đặt.";
@@ -2697,6 +2716,16 @@ const retailShiftSource = operations.find(operation => operation.id === "retail.
 const retailAfterSaleSource = operations.find(operation => operation.id === "retail.after-sale.list");
 const retailCashbookSource = operations.find(operation => operation.id === "retail.finance.cashbook.list");
 const retailPartnerSource = operations.find(operation => operation.id === "retail.partner.list");
+if (retailPartnerSource) operations.push({
+  ...retailPartnerSource,
+  id: "retail.partner.overview",
+  title: "Tổng quan đối tác bán lẻ",
+  method: "GET",
+  path: "/retail/partners/assistant-overview",
+  fields: [],
+  resultFields: ["total", "collaborators", "dealers", "suppliers", "active", "inactive", "missingPhone", "missingEmail", "missingAddress"],
+  description: "Đếm toàn bộ hồ sơ đối tác bán lẻ trong công ty theo vai trò, trạng thái hoạt động và thông tin liên hệ còn thiếu. Dùng cho câu hỏi tổng quan hoặc đếm cộng tác viên, đại lý, nhà cung cấp; không suy ra liên kết tài khoản ngân hàng.",
+});
 if (retailReportSource) {
   const branchAndRange = retailReportSource.fields.filter(field => ["branchId", "from", "to"].includes(String(field.apiKey)));
   operations.push(
@@ -2871,7 +2900,7 @@ if (workerListOperation) {
 const actionDescriptionOverrides: Record<string, string> = {
   "employee.list": "Tra cứu hồ sơ nhân sự công ty theo tên, email hoặc số điện thoại trong phạm vi được cấp quyền; có thể chọn chi nhánh. Kết quả gồm thông tin hồ sơ cơ bản như phòng ban, bộ phận và trình độ. Không dùng để tra người lao động/công nhân theo dự án hoặc ứng viên tuyển dụng.",
   "partner.list": "Tra cứu đối tác giới thiệu học viên trong phân hệ quản lý học viên, gồm thông tin liên hệ, số dư hoa hồng còn phải trả và việc đã có thông tin tài khoản ngân hàng hay chưa. Không hiển thị số tài khoản. Không dùng cho cộng tác viên, đại lý hoặc nhà cung cấp bán lẻ; các đối tượng đó thuộc danh sách đối tác bán lẻ.",
-  "retail.partner.list": "Tra cứu hồ sơ cộng tác viên, đại lý hoặc nhà cung cấp thuộc phân hệ bán lẻ theo tên, mã hoặc vai trò. Kết quả chỉ có thông tin hồ sơ cơ bản; action này không trả số dư hoa hồng, trạng thái liên kết tài khoản ngân hàng hoặc trạng thái sao kê. Không dùng cho đối tác giới thiệu học viên hoặc đối tác cung ứng lao động.",
+  "retail.partner.list": "Tra cứu hồ sơ cộng tác viên, đại lý hoặc nhà cung cấp thuộc phân hệ bán lẻ theo tên, mã, số điện thoại, email, vai trò, trạng thái active/inactive hoặc hồ sơ thiếu ít nhất một trong ba thông tin điện thoại/email/địa chỉ. Kết quả chỉ có thông tin hồ sơ cơ bản; action này không trả số dư hoa hồng, trạng thái liên kết tài khoản ngân hàng hoặc trạng thái sao kê. Không dùng cho đối tác giới thiệu học viên hoặc đối tác cung ứng lao động.",
   "retail.report.summary": "Báo cáo doanh thu bán lẻ của một chi nhánh theo khoảng ngày; gồm tiền thu tiền mặt và chuyển khoản, doanh thu gộp/ròng, hoàn tiền, công nợ còn lại và số đơn. Mặc định hôm nay; chọn 7 hoặc 30 ngày hoặc nêu từ/đến. Kết quả có doanh thu từng ngày. Giá vốn, lợi nhuận gộp và biên lợi nhuận chỉ có với tài khoản được phép xem lợi nhuận. Nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi và chọn chi nhánh trước; action này không tự tổng hợp toàn công ty.",
   "retail.report.cashier-ranking": "Xếp thu ngân theo doanh số ròng sau hoàn trong tháng hoặc khoảng ngày được hỏi; hiển thị thu ngân đồng hạng cao nhất, số đơn và doanh số. Báo cáo áp dụng theo chi nhánh được cấp quyền; nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi chọn chi nhánh.",
   "retail.order.list": "Tra cứu đơn bán lẻ trong một chi nhánh theo mã/khách hàng, ngày, trạng thái đơn và thanh toán. Đã giao/bán xong là status=completed; còn nợ là paymentStatus=partial hoặc unpaid và dueAmount>0. Dùng để tìm đơn đã hoàn tất nhưng khách chưa thanh toán đủ; trạng thái hoàn tất không có nghĩa đã thu đủ tiền. Nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi và chọn chi nhánh trước.",

@@ -1,6 +1,6 @@
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { AssistantError } from "./policy";
-import { AssistantSessionModel } from "./models";
+import { AssistantFeedbackPatchModel, AssistantSessionModel } from "./models";
 import { actorScope } from "./workflows";
 
 const ANSWER_TIME_MATCH_WINDOW_MS = 5 * 60_000;
@@ -71,9 +71,39 @@ export async function saveAssistantAnswerFeedback(
     throw new AssistantError("Cuộc trò chuyện vừa thay đổi. Hãy tải lại rồi lưu đánh giá lại.", 409);
   }
 
+  let improvementStatus: string | undefined;
+  if (input.rating <= 2) {
+    const feedbackKey = `${String(session._id)}:${String(answer.createdAt)}`;
+    try {
+      const queued = await AssistantFeedbackPatchModel.findOneAndUpdate({ feedbackKey }, { $setOnInsert: {
+        feedbackKey,
+        companyCode: scope.companyCode,
+        branchId: scope.branchId,
+        question,
+        answer: String(answer.content || ""),
+        rating: input.rating,
+        comment,
+        status: "queued",
+      } }, { upsert: true, new: true, setDefaultsOnInsert: true }).lean();
+      improvementStatus = String(queued?.status || "queued");
+    } catch (error) {
+      // Preserve the user's rating even if the background improvement queue is unavailable.
+      console.error("[assistant-feedback-patch] Could not enqueue low rating", (error as { code?: number })?.code || "queue_error");
+      improvementStatus = "queue_failed";
+    }
+  } else {
+    await AssistantFeedbackPatchModel.updateOne({
+      feedbackKey: `${String(session._id)}:${String(answer.createdAt)}`,
+      status: "queued",
+    }, { $set: { status: "cancelled", errorCode: "rating_updated" } }).then(result => {
+      if (result.matchedCount) improvementStatus = "cancelled";
+    }).catch(() => undefined);
+  }
+
   return {
     rating: feedback.rating,
     comment: feedback.comment,
     submittedAt: feedback.submittedAt.toISOString(),
+    ...(improvementStatus ? { improvementStatus } : {}),
   };
 }

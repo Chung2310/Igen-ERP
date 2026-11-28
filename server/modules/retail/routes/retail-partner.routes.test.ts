@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RolePermissionModel } from "../../../model/role-permission.model";
 import { RetailPartnerModel } from "../models/retail-partner.model";
+import { SupplierModel } from "../../../model/supplier.model";
 import { UserModel } from "../../../model/user.model";
 import { normalizeRetailPartnerInput, retailPartnerRoutes } from "./retail-partner.routes";
 
@@ -35,7 +36,38 @@ describe("Đối tác bán lẻ", () => {
 
   it("có API chọn CTV, tự xem và quản lý hồ sơ tách biệt", () => {
     const paths = retailPartnerRoutes.stack.flatMap((layer: any) => layer.route ? [layer.route.path] : []);
-    expect(paths).toEqual(expect.arrayContaining(["/collaborators", "/customers", "/me", "/", "/:id"]));
+    expect(paths).toEqual(expect.arrayContaining(["/collaborators", "/customers", "/me", "/assistant-overview", "/", "/:id"]));
+  });
+
+  it("filters assistant partner lookups by inactive status and missing contact fields", async () => {
+    const query: any = { sort: vi.fn(() => query), limit: vi.fn(() => query), lean: vi.fn().mockResolvedValue([]) };
+    const supplierQuery: any = { select: vi.fn(() => supplierQuery), lean: vi.fn().mockResolvedValue([]) };
+    const partnerFind = vi.spyOn(RetailPartnerModel, "find").mockReturnValue(query);
+    vi.spyOn(SupplierModel, "find").mockReturnValue(supplierQuery);
+    const route: any = retailPartnerRoutes.stack.find((layer: any) => layer.route?.path === "/" && layer.route.methods.get);
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    await route.route.stack.at(-1).handle({ user: { companyCode: "ACME" }, query: { status: "inactive", missingContact: "true" } }, res);
+    expect(partnerFind).toHaveBeenCalledWith(expect.objectContaining({
+      companyCode: "ACME", status: "inactive",
+      $and: [expect.objectContaining({ $or: expect.arrayContaining([
+        { phone: { $exists: false } }, { email: null }, { address: "" },
+      ]) })],
+    }));
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: [] });
+  });
+
+  it("returns company counts for partner role, status and missing contact overview", async () => {
+    vi.spyOn(RetailPartnerModel, "countDocuments").mockResolvedValueOnce(12 as any)
+      .mockResolvedValueOnce(7 as any).mockResolvedValueOnce(2 as any).mockResolvedValueOnce(3 as any)
+      .mockResolvedValueOnce(10 as any).mockResolvedValueOnce(2 as any).mockResolvedValueOnce(1 as any)
+      .mockResolvedValueOnce(4 as any).mockResolvedValueOnce(5 as any);
+    const route: any = retailPartnerRoutes.stack.find((layer: any) => layer.route?.path === "/assistant-overview" && layer.route.methods.get);
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    await route.route.stack.at(-1).handle({ user: { companyCode: "ACME" }, query: {} }, res);
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: {
+      total: 12, collaborators: 7, dealers: 2, suppliers: 3, active: 10, inactive: 2,
+      missingPhone: 1, missingEmail: 4, missingAddress: 5,
+    } });
   });
 
   it("cho phép thu ngân POS tải danh sách CTV bằng quyền mặc định pos:manage", async () => {

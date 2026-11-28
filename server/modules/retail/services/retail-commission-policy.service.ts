@@ -28,10 +28,26 @@ export async function listRetailBasePolicies(companyCode: string) {
     RetailCommissionBasePolicyModel.find({ companyCode }).sort({ effectiveAt: -1 }).limit(200).lean(),
     RetailCommissionPolicyModel.find({ companyCode }).sort({ partnerId: 1, kind: 1, sku: 1 }).lean(),
   ]);
-  const partnerIds = [...new Set(items.map(item => String(item.partnerId || "")).filter(id => Types.ObjectId.isValid(id)))];
+  const partnerIds = [...new Set([...items, ...legacy].map(item => String(item.partnerId || "")).filter(id => Types.ObjectId.isValid(id)))];
   const partners = partnerIds.length ? await RetailPartnerModel.find({ companyCode, _id: { $in: partnerIds } }).select("_id name code").lean() : [];
   const partnerNames = new Map(partners.map(partner => [String(partner._id), partner.name]));
-  return { items: items.map(item => ({ ...item, partnerName: item.partnerId ? partnerNames.get(String(item.partnerId)) || "Đối tác đã ngừng hoạt động" : "Chính sách chung" })), legacy };
+  const namedItems = items.map(item => ({ ...item, partnerName: item.partnerId ? partnerNames.get(String(item.partnerId)) || "Đối tác đã ngừng hoạt động" : "Chính sách chung" }));
+  const assistantItems = [
+    ...namedItems.map(item => ({
+      _policyId: String(item._id), partnerName: item.partnerName, scope: item.partnerId ? "partner-specific" : "common",
+      effectiveAt: item.effectiveAt, config: item.config, kind: "base",
+    })),
+    ...legacy.flatMap((item: any) => {
+      const partnerName = partnerNames.get(String(item.partnerId || ""));
+      if (!partnerName) return [];
+      return [{
+        _policyId: String(item._id), partnerName, scope: "partner-specific",
+        effectiveFrom: item.effectiveFrom, kind: item.kind, sku: item.sku,
+        ratePercent: Number(item.ratePercent), status: item.active === false ? "inactive" : "active",
+      }];
+    }),
+  ];
+  return { items: namedItems, legacy, assistantItems };
 }
 
 export async function saveRetailBasePolicy(companyCode: string, actorId: string, input: any, id?: string) {
@@ -60,12 +76,14 @@ export async function saveRetailBasePolicy(companyCode: string, actorId: string,
 }
 
 export async function listRetailProductCommissions(companyCode: string) {
-  const [products, variants, categories, configurations, legacyRules] = await Promise.all([
+  const now = new Date();
+  const [products, variants, categories, configurations, legacyRules, basePolicy] = await Promise.all([
     ProductCatalogModel.find({ companyCode }).select("name categoryCode").lean(),
     ProductVariantModel.find({ companyCode }).select("productId sku displayName trackingMode").sort({ sku: 1 }).lean(),
     ProductCatalogCategoryModel.find({ companyCode }).select("code name parentCode").lean(),
     RetailProductCommissionModel.find({ companyCode }).select("sku rule").lean(),
     RetailCommissionPolicyModel.find({ companyCode, kind: "sale", sku: { $ne: "*" }, active: true }).select("partnerId sku ratePercent effectiveFrom").lean(),
+    RetailCommissionBasePolicyModel.find({ companyCode, partnerId: "", effectiveAt: { $lte: now } }).sort({ effectiveAt: -1 }).limit(1).lean(),
   ]);
   const partnerIds = [...new Set(legacyRules.map((rule: any) => String(rule.partnerId || "")).filter(Boolean))];
   const partners = partnerIds.length
@@ -73,6 +91,8 @@ export async function listRetailProductCommissions(companyCode: string) {
     : [];
   const partnerNameById = new Map(partners.map((partner: any) => [String(partner._id), String(partner.name || "").trim()]));
   const productNameById = new Map(products.map((product: any) => [String(product._id), String(product.name || "").trim()]));
+  const productById = new Map(products.map((product: any) => [String(product._id), product]));
+  const categoryNameByCode = new Map(categories.map((category: any) => [String(category.code || "").toUpperCase(), String(category.name || "").trim()]));
   const productNameBySku = new Map(variants.map((variant: any) => [
     String(variant.sku || "").trim().toUpperCase(), productNameById.get(String(variant.productId)) || "",
   ]));
@@ -84,14 +104,27 @@ export async function listRetailProductCommissions(companyCode: string) {
   for (const variant of variants as any[]) {
     const sku = String(variant.sku || "").trim().toUpperCase();
     const productName = productNameBySku.get(sku) || "";
+    const product = productById.get(String(variant.productId));
     const rule = configurationBySku.get(sku)?.rule;
-    if (!sku || !productName || !rule || typeof rule !== "object") continue;
+    if (!sku || !productName) continue;
     const variantName = String(variant.displayName || sku);
-    if (rule.kind === "phone" && Number.isSafeInteger(Number(rule.amount)) && Number(rule.amount) > 0) {
-      assistantItems.push({ sku, productName, variantName, kind: "phone", commissionType: "fixed", commissionValue: Number(rule.amount), status: "configured" });
-    } else if (rule.kind === "accessory" && Number.isSafeInteger(Number(rule.rateBps)) && Number(rule.rateBps) > 0) {
+    const categoryCode = String((product as any)?.categoryCode || "").toUpperCase();
+    const categoryName = categoryNameByCode.get(categoryCode) || categoryCode;
+    const commonPolicy = (basePolicy as any[])[0];
+    const phone = variant.trackingMode === "serial";
+    const safeMetadata = { sku, productName, variantName, categoryCode, categoryName };
+    if (rule?.kind === "phone" && Number.isSafeInteger(Number(rule.amount)) && Number(rule.amount) > 0) {
+      assistantItems.push({ ...safeMetadata, kind: "phone", commissionType: "fixed", commissionValue: Number(rule.amount), status: "configured" });
+    } else if (rule?.kind === "accessory" && Number.isSafeInteger(Number(rule.rateBps)) && Number(rule.rateBps) > 0) {
       const ratePercent = Number(rule.rateBps) / 100;
-      assistantItems.push({ sku, productName, variantName, kind: "accessory", commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "configured" });
+      assistantItems.push({ ...safeMetadata, kind: "accessory", commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "configured" });
+    } else if (commonPolicy?.config) {
+      const ratePercent = Number(commonPolicy.config.accessoryBps) / 100;
+      assistantItems.push(phone
+        ? { ...safeMetadata, kind: "phone", commissionType: "fixed", commissionValue: Number(commonPolicy.config.phoneAmount), status: "common" }
+        : { ...safeMetadata, kind: "accessory", commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "common" });
+    } else {
+      assistantItems.push({ ...safeMetadata, status: "no-policy" });
     }
   }
   for (const rule of legacyRules as any[]) {
@@ -100,7 +133,10 @@ export async function listRetailProductCommissions(companyCode: string) {
     const partnerName = partnerNameById.get(String(rule.partnerId || "")) || "";
     const ratePercent = Number(rule.ratePercent);
     if (!sku || !productName || !partnerName || !Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) continue;
-    assistantItems.push({ sku, productName, variantName: String((variants as any[]).find(variant => String(variant.sku || "").trim().toUpperCase() === sku)?.displayName || sku), partnerName, kind: String(rule.kind || "sale"), commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "active" });
+    const variant = (variants as any[]).find(entry => String(entry.sku || "").trim().toUpperCase() === sku);
+    const product = variant && productById.get(String(variant.productId));
+    const categoryCode = String((product as any)?.categoryCode || "").toUpperCase();
+    assistantItems.push({ sku, productName, variantName: String(variant?.displayName || sku), categoryCode, categoryName: categoryNameByCode.get(categoryCode) || categoryCode, partnerName, kind: String(rule.kind || "sale"), commissionType: "percent", commissionValue: ratePercent, ratePercent, status: "partner-specific" });
   }
   return { products, variants, categories, configurations, legacyRules, assistantItems };
 }

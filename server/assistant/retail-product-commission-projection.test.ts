@@ -52,3 +52,42 @@ it("adds public configuration counts for overview requests", () => {
     { sku: "CASE-1", productName: "Ốp lưng B", status: "active" },
   ]);
 });
+
+it("calculates a fixed per-unit commission total for the explicitly requested quantity", () => {
+  const operation = {
+    id: "retail.product-commissions.list",
+    module: "retail",
+    method: "GET",
+    path: "/retail/partners/product-commissions",
+    resultFields: ["sku", "productName", "variantName", "kind", "commissionType", "commissionValue", "commissionTotal", "status"],
+  } as any;
+  const records = projectRecords(operation, { success: true, data: {
+    variants: [{ sku: "IP14-TITAN" }],
+    assistantItems: [{ sku: "IP14-TITAN", productName: "iPhone 14", variantName: "Titan Sa Mạc", kind: "phone", commissionType: "fixed", commissionValue: 200_000, status: "common" }],
+  } }, {} as any, { query_q: "iPhone 14 Titan Sa Mạc", query_quantity: 2 });
+  expect(records).toEqual([{
+    sku: "IP14-TITAN", productName: "iPhone 14", variantName: "Titan Sa Mạc", kind: "phone",
+    commissionType: "fixed", commissionValue: 200_000, status: "common", commissionTotal: 400_000,
+  }]);
+});
+
+it("projects retail commission policies without exposing internal partner or policy IDs", () => {
+  const operation = {
+    id: "retail.partner.commission.policy.list",
+    module: "retail-partner",
+    method: "GET",
+    path: "/retail/partners/commission-policies",
+    resultFields: ["partnerName", "scope", "kind", "sku", "ratePercent", "effectiveAt", "effectiveFrom", "phoneAmount", "accessoryBps", "repairBps", "status"],
+  } as any;
+  const records = projectRecords(operation, { success: true, data: {
+    assistantItems: [
+      { _policyId: "private-policy", partnerId: "private-partner", partnerName: "Đinh Viết Tường", scope: "partner-specific", kind: "sale", sku: "PHONE-1", ratePercent: 5, status: "active" },
+      { _policyId: "private-base", partnerName: "Chính sách chung", scope: "common", effectiveAt: "2026-11-01T00:00:00.000Z", config: { phoneAmount: 200_000, accessoryBps: 1_000, repairBps: 1_200 }, revision: 3 },
+    ],
+  } }, {} as any);
+  expect(records).toEqual([
+    { partnerName: "Đinh Viết Tường", scope: "partner-specific", kind: "sale", sku: "PHONE-1", ratePercent: 5, status: "active" },
+    { partnerName: "Chính sách chung", scope: "common", effectiveAt: "2026-11-01T00:00:00.000Z", phoneAmount: 200_000, accessoryBps: 1_000, repairBps: 1_200 },
+  ]);
+  expect(JSON.stringify(records)).not.toContain("private-");
+});

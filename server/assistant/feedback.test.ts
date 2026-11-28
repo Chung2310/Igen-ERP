@@ -3,10 +3,12 @@ import { afterEach, expect, it, vi } from "vitest";
 const stubs = vi.hoisted(() => ({
   findOne: vi.fn(),
   updateOne: vi.fn(),
+  patchFindOneAndUpdate: vi.fn(),
+  patchUpdateOne: vi.fn(),
   actorScope: vi.fn((req: any) => ({ userId: req.user.id, companyCode: req.user.companyCode })),
 }));
 
-vi.mock("./models", () => ({ AssistantSessionModel: { findOne: stubs.findOne, updateOne: stubs.updateOne } }));
+vi.mock("./models", () => ({ AssistantSessionModel: { findOne: stubs.findOne, updateOne: stubs.updateOne }, AssistantFeedbackPatchModel: { findOneAndUpdate: stubs.patchFindOneAndUpdate, updateOne: stubs.patchUpdateOne } }));
 vi.mock("./workflows", () => ({ actorScope: stubs.actorScope }));
 
 import { saveAssistantAnswerFeedback } from "./feedback";
@@ -26,6 +28,7 @@ afterEach(() => vi.clearAllMocks());
 it("saves feedback on the owned assistant answer and keeps its question for reporting", async () => {
   stubs.findOne.mockReturnValue({ select: () => ({ lean: async () => session }) });
   stubs.updateOne.mockResolvedValue({ matchedCount: 1 });
+  stubs.patchFindOneAndUpdate.mockReturnValue({ lean: async () => ({ status: "queued" }) });
 
   const result = await saveAssistantAnswerFeedback(req, {
     conversationId: "conversation-1", answerAt: "2026-11-28T04:00:00.500Z", rating: 2, comment: "Thiếu thông tin",
@@ -42,6 +45,12 @@ it("saves feedback on the owned assistant answer and keeps its question for repo
     email: "an@example.com",
   });
   expect(result.rating).toBe(2);
+  expect(result.improvementStatus).toBe("queued");
+  expect(stubs.patchFindOneAndUpdate).toHaveBeenCalledWith(
+    { feedbackKey: "session-1:2026-11-28T04:00:00.000Z" },
+    { $setOnInsert: expect.objectContaining({ status: "queued", rating: 2, question: "Tạo phiếu nghỉ phép" }) },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
 });
 
 it("rejects feedback when the timestamp does not identify a recent answer", async () => {

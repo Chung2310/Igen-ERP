@@ -207,6 +207,10 @@ function readQueryFromApiValues(
   return { actionId, purpose, values, resultFields };
 }
 
+function resultFieldsForAction(actionId: string): string[] {
+  return ASSISTANT_OPERATIONS.find(operation => operation.id === actionId)?.resultFields || [];
+}
+
 function deterministicReadPlan(
   text: string,
   workflows: AssistantWorkflow[],
@@ -342,6 +346,139 @@ function explicitWorkerIssueRecovery(text: string, workflows: AssistantWorkflow[
 
 function explicitPartnerIssueRecovery(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
   const request = normalizedVietnameseText(text);
+  const partnerOverview = workflows.find(candidate => candidate.actionId === "retail.partner.overview" && candidate.enabled);
+  const partnerList = workflows.find(candidate => candidate.actionId === "retail.partner.list" && candidate.enabled);
+  const partnerSubject = /\b(?:doi tac ban le|cong tac vien ban le|cong tac vien|nha cung cap|dai ly)\b/.test(request);
+  const asksPartnerCounts = partnerSubject && /\b(?:bao nhieu|so luong|dem|thong ke|tong quan|tinh hinh)\b/.test(request)
+    && !/\b(?:hoa hong|so du|con no)\b/.test(request);
+  if (asksPartnerCounts && partnerOverview) return directReadInterpretation(readQueryFromApiValues(
+    workflows, partnerOverview.actionId, "Tổng hợp số đối tác bán lẻ theo vai trò, trạng thái và thông tin liên hệ", {}, resultFieldsForAction(partnerOverview.actionId),
+  ));
+
+  if (partnerList && partnerSubject && /\b(?:thieu|thieu thong tin|khong co|chua co)\b/.test(request)
+    && /\b(?:so dien thoai|email|dia chi|lien he)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, partnerList.actionId,
+      "Liệt kê hồ sơ đối tác còn thiếu số điện thoại, email hoặc địa chỉ", { missingContact: true }, resultFieldsForAction(partnerList.actionId)));
+  }
+  if (partnerList && partnerSubject && /\b(?:ngung hoat dong|khong hoat dong|tam ngung|nghi hoat dong)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, partnerList.actionId,
+      "Danh sách đối tác bán lẻ ngừng hoạt động", { status: "inactive" }, resultFieldsForAction(partnerList.actionId)));
+  }
+  if (partnerList && partnerSubject && /\b(?:dang hoat dong|hoat dong)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, partnerList.actionId,
+      "Danh sách đối tác bán lẻ đang hoạt động", { status: "active" }, resultFieldsForAction(partnerList.actionId)));
+  }
+  if (partnerList && /\b(?:danh sach|liet ke)\b/.test(request) && /\b(?:nha cung cap|dai ly)\b/.test(request)
+    && /\bdai ly\b/.test(request) && /\bnha cung cap\b/.test(request)
+    && !/\b(?:chua lien ket|ngung hoat dong)\b/.test(request)) {
+    const directory = workflows.find(candidate => candidate.actionId === "retail.partner.supplier-dealer-directory" && candidate.enabled);
+    if (directory) return directReadInterpretation(readQueryFromApiValues(workflows, directory.actionId,
+      "Danh sách nhà cung cấp và đại lý bán lẻ", {}, resultFieldsForAction(directory.actionId)));
+  }
+  if (partnerList && /\b(?:cong tac vien|cong tac vien ban le)\b/.test(request)
+    && /\b(?:danh sach|liet ke|xem|bao nhieu)\b/.test(request)
+    && !/\b(?:hoa hong|so du|con no|ngan hang|sao ke|tai khoan)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, partnerList.actionId,
+      "Danh sách cộng tác viên bán lẻ", { role: "collaborator" }, resultFieldsForAction(partnerList.actionId)));
+  }
+  if (partnerList && partnerSubject && /\b(?:tim|tra cuu|chi tiet|thong tin|so dien thoai|email)\b/.test(request)
+    && !/\b(?:ngan hang|sao ke|tai khoan)\b/.test(request)) {
+    const phone = text.match(/(?:\+?84|0)\d[\d .-]{6,14}\d/)?.[0]?.replace(/[ .-]/g, "");
+    const namedPartner = text.match(/(?:cộng\s+tác\s+viên(?:\s+bán\s+lẻ)?|đối\s+tác\s+bán\s+lẻ|nhà\s+cung\s+cấp|đại\s+lý)\s+(.+?)(?=\s+(?:hiện|đang|có|là|đã|chưa|số|email|địa chỉ)|[,.!?]|$)/iu)?.[1]?.trim();
+    const search = phone || namedPartner;
+    if (search) return directReadInterpretation(readQueryFromApiValues(workflows, partnerList.actionId,
+      `Tra cứu hồ sơ đối tác bán lẻ theo ${phone ? "số điện thoại" : "tên"}`, { search }, resultFieldsForAction(partnerList.actionId)));
+  }
+
+  if (partnerSubject && /\b(?:so du|con phai tra|con no)\b/.test(request) && /\b(?:doi soat|phat sinh|don ban|don hang)\b/.test(request)) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Sổ hoa hồng hiện lưu khoản phát sinh theo đơn và tổng chi trả, nhưng không gắn từng khoản chi với từng đơn để xác định chính xác 150.000 đồng còn lại thuộc đơn nào. Mình có thể liệt kê các đơn đã phát sinh hoa hồng và khoản chi trả trong một khoảng ngày cụ thể." };
+  }
+  if (partnerSubject && /\b(?:chinh sach hoa hong|hoa hong ban le)\b/.test(request)
+    && /\b(?:3%|3 phan tram|phan tram doanh thu)\b/.test(request)
+    && /\b(?:chung|tat ca cong tac vien|ap dung tu thang sau)\b/.test(request)) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Cấu hình chung hiện chỉ hỗ trợ mức tiền cố định cho điện thoại và tỷ lệ riêng cho phụ kiện/sửa chữa; mức 3% trên toàn bộ doanh thu chưa có loại chính sách tương ứng nên mình chưa tạo. Bạn muốn áp dụng tỷ lệ cho nhóm hàng nào?" };
+  }
+  if (partnerSubject && /\b(?:chinh sach hoa hong|hoa hong ban le)\b/.test(request)
+    && /\b(?:5%|5 phan tram|moi don ban thanh cong)\b/.test(request)
+    && /\b(?:tao|them|ap dung|rieng)\b/.test(request)) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Mức 5% riêng cho cộng tác viên có dạng cấu hình trong hệ thống, nhưng hiện có thể bị chính sách chung ghi đè khi tính đơn. Mình chưa lưu để tránh tạo chính sách không áp dụng; cần cập nhật thứ tự ưu tiên chính sách trước khi bật luồng này." };
+  }
+
+  const retailCommissionKpi = workflows.find(candidate => ASSISTANT_OPERATIONS.some(operation => operation.id === candidate.actionId
+    && operation.method === "GET" && operation.path === "/retail/finance/commission/kpi") && candidate.enabled);
+  if (partnerSubject && retailCommissionKpi && /\b(?:hoa hong|mang ve)\b/.test(request)
+    && ( /\b(?:nhieu|cao|tot)\b.{0,40}\bnhat\b/.test(request) || /\bdan dau\b/.test(request))) {
+    const month = monthBoundsFromText(request);
+    if (month) {
+      const analysisField = retailCommissionKpi.fields.find(field => field.key === "analysis" || field.apiKey === "analysis");
+      const query = readQueryFromApiValues(workflows, retailCommissionKpi.actionId,
+        "Tìm cộng tác viên có hoa hồng ròng cao nhất trong tháng được hỏi", {
+          from: month.from, to: month.to, ...(analysisField ? { [analysisField.key]: JSON.stringify({ extreme: { field: "commission", direction: "max" } }) } : {}),
+        }, ["partnerName", "partnerCode", "commission", "sources"]);
+      return directReadInterpretation(query);
+    }
+  }
+
+  const productCommissionList = workflows.find(candidate => ASSISTANT_OPERATIONS.some(operation => operation.id === candidate.actionId
+    && operation.method === "GET" && operation.path === "/retail/partners/product-commissions") && candidate.enabled);
+  const productReference = text.match(/\b(?:iphone|samsung|galaxy|redmi|xiaomi|huawei|honor|oppo|tấm ốp nhựa|ốp lưng|cáp sạc)\b[\p{L}\p{N} .-]*/iu)?.[0]
+    ?.split(/\s+(?:hiện|đang|được|có mức|mức hoa hồng|bao nhiêu|được nhận|thì được|thì tổng|đã có|nào|nếu|bán được)\b/iu)[0]
+    ?.replace(/[?.!,;]+$/g, "").trim();
+  const pairedRetailModels = [...text.matchAll(/\b(?:Samsung Galaxy Ultra|Huawei Honor 600)\b/giu)].map(match => match[0]);
+  const productSearch = pairedRetailModels.length > 1 ? [...new Set(pairedRetailModels)].join(" | ") : productReference;
+  const productCommissionUpdate = workflows.find(candidate => candidate.actionId === "retail.partner.product.commissions.update" && candidate.enabled);
+  const productCommissionSubject = Boolean(productReference)
+    || /\b(?:san pham|mat hang|nhom dien thoai|nhom hang|bien the|dong may|phien ban)\b/.test(request);
+  const directCommissionCue = /\b(?:muc hoa hong|hoa hong rieng|hoa hong chung|tong hoa hong|cau hinh hoa hong san pham|da dat muc hoa hong rieng|da duoc dat muc hoa hong rieng|chua dat muc rieng)\b/.test(request);
+  const unrelatedCombinedReport = /\b(?:doanh thu|lai gop|don huy|tra hang|doi tra|cong no khach|ton kho|xuat cho ai|ban chay|bao cao kinh doanh|tinh hinh kinh doanh)\b/.test(request);
+  const asksRetailProductCommission = (productCommissionList || productCommissionUpdate) && /\bhoa hong\b/.test(request)
+    && productCommissionSubject && directCommissionCue && !unrelatedCombinedReport;
+  if (asksRetailProductCommission && (productCommissionList || productCommissionUpdate)) {
+    const update = productCommissionUpdate;
+    const amount = text.match(/(\d[\d.,]*)\s*(?:đồng|d|nghin|ngàn|trieu|triệu)/iu)?.[1]?.replace(/[.,]/g, "");
+    const wantsChange = /\b(?:cau hinh|thiet lap|ap dung)\b/.test(request)
+      || (/\bdat\b/.test(request) && !/\b(?:da|duoc)\s+dat\b/.test(request));
+    if (wantsChange && update && productReference && amount) {
+      const skusField = update.fields.find(field => field.apiKey === "skus" || field.key === "skus");
+      const ruleField = update.fields.find(field => field.apiKey === "rule" || field.key === "rule");
+      if (skusField && ruleField) return {
+        actionId: update.actionId,
+        values: { [skusField.key]: JSON.stringify([productReference]), [ruleField.key]: JSON.stringify({ kind: "phone", amount: Number(amount) }) },
+        intentType: "workflow", actionIntent: "update",
+      };
+    }
+    if (!productCommissionList) return null;
+    const asksCalculation = /\b(?:neu|nếu)\b/.test(request) && /\b(?:ban duoc|ban|nhan duoc|tong hoa hong)\b/.test(request);
+    const quantity = asksCalculation ? Number(text.match(/\b(\d+)\s*(?:máy|chiếc|cái|điện thoại)/iu)?.[1] || 1) : undefined;
+    const asksDefaultProducts = /\b(?:chinh sach chung|chua dat muc rieng|khong dat muc rieng|ap dung chung)\b/.test(request);
+    const asksConfiguredProducts = /\b(?:dat muc rieng|da dat|da duoc dat|duoc dat|muc rieng|cau hinh rieng)\b/.test(request)
+      && !asksDefaultProducts && !wantsChange;
+    const analysisField = productCommissionList.fields.find(field => field.key === "analysis" || field.apiKey === "analysis");
+    const analysis: Record<string, unknown> = {};
+    if (asksDefaultProducts) analysis.filters = [{ field: "status", operator: "eq", value: "common" }];
+    else if (asksConfiguredProducts) analysis.filters = [{ field: "status", operator: "eq", value: "configured" }];
+    if (/\b(?:top|cao nhat|nhieu nhat|lon nhat)\b/.test(request)) {
+      analysis.filters = [{ field: "status", operator: "eq", value: "configured" }];
+      analysis.extreme = { field: "commissionValue", direction: "max" };
+    }
+    if (/\b(?:bao nhieu bien the|bao nhieu dang|dem theo)\b/.test(request) && /\bdien thoai\b/.test(request)) {
+      analysis.filters = [{ field: "categoryName", operator: "eq", value: "Điện thoại" }];
+      analysis.groupBy = "status";
+      analysis.aggregate = { operation: "count", field: "sku" };
+    }
+    const query = readQueryFromApiValues(workflows, productCommissionList.actionId,
+      "Tra cứu mức hoa hồng theo sản phẩm và biến thể bán lẻ", {
+        ...(productSearch ? { q: productSearch } : {}), ...(quantity ? { quantity } : {}),
+        ...(analysisField && Object.keys(analysis).length ? { [analysisField.key]: JSON.stringify(analysis) } : {}),
+      }, resultFieldsForAction(productCommissionList.actionId));
+    if (query) {
+      if (/\b(?:cao nhat|nhieu nhat|lon nhat)\b/.test(request) && /\bhoa hong\b/.test(request)) {
+        return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Mức riêng có loại tính bằng tiền cố định mỗi máy và loại tính theo phần trăm, nên không thể xếp chung một mức cao nhất nếu chưa quy đổi theo giá bán. Mình có thể liệt kê mức cao nhất riêng theo từng cách tính." };
+      }
+      return directReadInterpretation(query);
+    }
+  }
+
   if (/\bdoi tac\b/.test(request) && /\bhoc vien\b/.test(request)
     && /\b(?:lich su|danh sach)\b/.test(request) && /\b(?:gioi thieu|duoc gioi thieu)\b/.test(request)
     && !/\b(?:lao dong|cong nhan|nhan cong)\b/.test(request)) {
@@ -389,6 +526,12 @@ function explicitPartnerIssueRecovery(text: string, workflows: AssistantWorkflow
   if (/\b(?:chinh sach hoa hong|hoa hong ban le|chinh sach cong tac vien)\b/.test(request)
     && /\b(?:sap het hieu luc|het hieu luc|ngay het han|sap het han)\b/.test(request)) {
     return directReadInterpretation(readQueryFromApiValues(workflows, "retail.partner.commission.policy.list", "Kiểm tra cấu hình hoa hồng bán lẻ hiện có; hệ thống chỉ lưu ngày bắt đầu hiệu lực và không có ngày hết hạn để xác định chính sách sắp hết hiệu lực", {}, ["effectiveAt", "config"]));
+  }
+  if (/\b(?:chinh sach hoa hong|hoa hong ban le|chinh sach cong tac vien)\b/.test(request)
+    && /\b(?:danh sach|phien ban|chung|rieng|so sanh|dang ap dung|tinh theo|ty le|phan tram|tien co dinh|bao nhieu)\b/.test(request)) {
+    const currentOnly = /\b(?:dang ap dung|hien dang|hien tai|hien co|currently|so sanh)\b/.test(request);
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.partner.commission.policy.list",
+      "Tra cứu các phiên bản chính sách hoa hồng bán lẻ chung và riêng", currentOnly ? { currentOnly: true } : {}, resultFieldsForAction("retail.partner.commission.policy.list")));
   }
   return null;
 }
@@ -1527,6 +1670,7 @@ export function inferRelevantFunctionKeys(text: string, workflows: AssistantWork
   const queryWords = new Set(request.split(/[^a-z0-9]+/).filter(word => word.length >= 3 && !OPERATION_SEARCH_STOP_WORDS.has(word)));
   const scores = new Map<string, number>();
   for (const workflow of workflows) {
+    if (workflow.module === "retail-partner" && !/\b(?:doi tac|cong tac vien|hoa hong|nha cung cap|dai ly)\b/.test(request)) continue;
     const haystack = operationSearchText(workflow);
     const words = new Set(haystack.split(/[^a-z0-9]+/).filter(Boolean));
     let score = [...queryWords].filter(word => words.has(word)).length;

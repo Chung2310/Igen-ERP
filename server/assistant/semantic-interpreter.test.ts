@@ -646,6 +646,76 @@ describe("semantic interpretation", () => {
     expect(result.clarification).toBeUndefined();
   });
 
+it.each([
+  ["Có đối tác bán lẻ nào đang ngừng hoạt động không", "retail.partner.list", "status", "inactive"],
+  ["Danh sách tất cả đối tác bán lẻ đang hoạt động", "retail.partner.list", "status", "active"],
+  ["Kiểm tra đối tác bán lẻ nào còn thiếu số điện thoại, email hoặc địa chỉ", "retail.partner.list", "missingContact", true],
+  ["Liệt kê các cộng tác viên bán lẻ của cửa hàng hiện tại", "retail.partner.list", "role", "collaborator"],
+])("uses a precise retail partner filter for: %s", async (text, actionId, apiKey, value) => {
+  provider.mockResolvedValueOnce({ text: JSON.stringify({ intentType: "ambiguous", actionId: null, values: {} }) });
+  const result = await interpretRequest(text, [defaultWorkflow(operationById(actionId)!)], null, []);
+  const field = defaultWorkflow(operationById(actionId)!).fields.find(candidate => candidate.apiKey === apiKey)!;
+  expect(result.actionId).toBe(actionId);
+  expect(result.values[field.key]).toBe(value);
+});
+
+it("routes company-wide retail partner counts to an exact summary operation", async () => {
+  const operation = operationById("retail.partner.overview")!;
+  const result = await interpretRequest(
+    "Hiện tại cửa hàng có bao nhiêu cộng tác viên bán lẻ và bao nhiêu đại lý hoặc nhà cung cấp",
+    [defaultWorkflow(operation)], null, [],
+  );
+  expect(result).toMatchObject({ intentType: "workflow", actionId: operation.id, values: {} });
+});
+
+it("routes the top retail collaborator commission for the requested month and metric", async () => {
+  provider.mockResolvedValueOnce({ text: JSON.stringify({ intentType: "ambiguous", actionId: null, values: {} }) });
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/retail/finance/commission/kpi")!;
+  const workflow = defaultWorkflow(operation);
+  const result = await interpretRequest("Tháng này cộng tác viên bán lẻ nào mang về nhiều hoa hồng nhất", [workflow], null, []);
+  expect(result).toMatchObject({ intentType: "workflow", actionId: operation.id });
+  expect(result.values[workflow.fields.find(field => field.apiKey === "from")!.key]).toMatch(/^\d{4}-\d{2}-01$/);
+  expect(JSON.parse(String(result.values.analysis))).toEqual({ extreme: { field: "commission", direction: "max" } });
+});
+
+it("filters product commission reads to configured or common rates when explicitly asked", async () => {
+  provider.mockResolvedValue({ text: JSON.stringify({ intentType: "ambiguous", actionId: null, values: {} }) });
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/retail/partners/product-commissions")!;
+  const workflow = defaultWorkflow(operation);
+  const configured = await interpretRequest("Hiện tại có những dòng máy hoặc phiên bản nào đã được đặt mức hoa hồng riêng", [workflow], null, []);
+  const shared = await interpretRequest("Những sản phẩm nào đang áp dụng chính sách hoa hồng chung mà chưa đặt mức riêng", [workflow], null, []);
+  expect(JSON.parse(String(configured.values.analysis))).toEqual({ filters: [{ field: "status", operator: "eq", value: "configured" }] });
+  expect(JSON.parse(String(shared.values.analysis))).toEqual({ filters: [{ field: "status", operator: "eq", value: "common" }] });
+});
+
+it.each([
+  ["Dòng iPhone 14 bản màu Titan Sa Mạc hiện đang được cấu hình mức hoa hồng bao nhiêu", "iPhone 14 bản màu Titan Sa Mạc", undefined],
+  ["Nếu cộng tác viên bán được 2 máy iPhone 14 bản Titan Sa Mạc thì tổng hoa hồng là bao nhiêu", "iPhone 14 bản Titan Sa Mạc", "2"],
+  ["Kiểm tra mức hoa hồng hiện tại của dòng Samsung Galaxy Ultra và Huawei Honor 600", "Samsung Galaxy Ultra | Huawei Honor 600", undefined],
+])("routes retail product commission lookup and calculation: %s", async (text, expectedSearch, expectedQuantity) => {
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/retail/partners/product-commissions")!;
+  const workflow = defaultWorkflow(operation);
+  const result = await interpretRequest(text, [workflow], null, []);
+  const query = (key: string) => workflow.fields.find(field => field.apiKey === key)!;
+  expect(result).toMatchObject({ intentType: "workflow", actionId: operation.id });
+  expect(result.values[query("q").key]).toBe(expectedSearch);
+  if (expectedQuantity) expect(result.values[query("quantity").key]).toBe(Number(expectedQuantity));
+});
+
+it("routes configured retail product commission writes to the selected rule and product reference", async () => {
+  const operation = operationById("retail.partner.product.commissions.update")!;
+  const workflow = defaultWorkflow(operation);
+  const result = await interpretRequest(
+    "Cấu hình mức hoa hồng riêng 200.000 đồng một máy cho tất cả các phiên bản của dòng iPhone 15 Pro Max",
+    [workflow], null, [],
+  );
+  const skus = workflow.fields.find(field => field.apiKey === "skus")!;
+  const rule = workflow.fields.find(field => field.apiKey === "rule")!;
+  expect(result).toMatchObject({ intentType: "workflow", actionId: operation.id, actionIntent: "update" });
+  expect(JSON.parse(String(result.values[skus.key]))).toEqual(["iPhone 15 Pro Max"]);
+  expect(JSON.parse(String(result.values[rule.key]))).toEqual({ kind: "phone", amount: 200000 });
+});
+
   it("uses the current retail commission balance instead of asking for a statement date range", async () => {
     const statementOperation = ASSISTANT_OPERATIONS.find(operation => operation.path === "/retail/finance/commission/partners/:id/statement")!;
     const statement = defaultWorkflow(statementOperation);
