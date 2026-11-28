@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
         ...configDefaults.exclude,
         '**/.worktrees/**',
         '**/.claude/worktrees/**',
+        '**/tmp/**',
       ],
     },
     resolve: {

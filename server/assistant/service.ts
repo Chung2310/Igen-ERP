@@ -16,7 +16,7 @@ import { directStudentRecordActionId, directWorkerRecordActionId, isEmployeeDeta
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { missingReportConstraint } from "./report-constraints";
-import { presentAssistantReply } from "./reply-presentation";
+import { hasAssistantOptionalInformationPrompt, presentAssistantReply } from "./reply-presentation";
 import { applyAssistantResponseRules } from "./reply-rules";
 import { assistantCourseChoiceGuidance } from "./request-guidance";
 import { businessDiscoveryReply } from "./business-discovery";
@@ -2910,7 +2910,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         reply = await prepare(operation.id, provided, false, pending.intent);
       }
     } else if (input.text && typeof session.lastReply?.reply === "string"
-      && session.lastReply.reply.includes("Bạn có muốn bổ sung không?")
+      && hasAssistantOptionalInformationPrompt(session.lastReply.reply)
       && /^(?:co|vang|dong y|duoc|ok|oke|khong|khong can|thoi|bo qua)(?: nhe| nha)?[.!?]?$/.test(normalizeAssistantText(input.text).trim())) {
       const declined = /^(?:khong|thoi|bo qua)/.test(normalizeAssistantText(input.text).trim());
       const followUp = declined ? null : await createdRecordFollowUp(req, input.conversationId);
@@ -2958,6 +2958,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         && !/[?]/.test(effectiveInputText)
         && !/\b(?:bao nhieu|o dau|tai sao|vi sao|cai nao|xem|tra cuu|thong ke|liet ke)\b/.test(normalizedPendingSupplement);
       if (!pendingScalarValues && pending && session.lastReply?.status === "collecting" && looksLikeFieldAnswer
+        && (interpreted.actionId !== pending.actionId || !Object.keys(interpreted.values || {}).length)
         && !interpreted.newRequest && !interpreted.cancel
         && interpreted.intentType !== "general_question" && interpreted.intentType !== "unsupported"
         && !interpreted.businessDiscovery) {
@@ -3381,7 +3382,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
             query_productId: continuingSelectedSkuPriceUpdate.productId,
           } : {}),
         };
-        if (!pending && !interpreted.newRequest && session.lastReply?.reply?.includes("Bạn có muốn bổ sung không?")) {
+        if (!pending && !interpreted.newRequest && hasAssistantOptionalInformationPrompt(session.lastReply?.reply)) {
           const followUp = await createdRecordFollowUp(req, input.conversationId);
           const update = followUp && operationById(followUp.actionId);
           const explicitTarget = update?.fields.some(field => (field.source === "path" || field.key === "id") && provided[field.key] !== undefined);
@@ -3483,7 +3484,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   const completedReplies: string[] = [];
   for (let step = 1; assistantMode === "work" && completion && reply.status === "completed"
     && !pending && remainingRequests.length && budget.canContinue()
-    && !reply.files?.length && !reply.reply.includes("Bạn có muốn bổ sung không?"); step += 1) {
+    && !reply.files?.length && !hasAssistantOptionalInformationPrompt(reply.reply); step += 1) {
     const previousReply = reply;
     const previousCompletion = completion as AssistantCompletion;
     const nextRequest = remainingRequests[0];
