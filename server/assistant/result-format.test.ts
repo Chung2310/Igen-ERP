@@ -3,16 +3,6 @@ import { parseAssistantResultTable } from "../../src/shared/assistant-result-tab
 import { operationById } from "./catalog";
 import { formatFriendlyAssistantResult } from "./result-format";
 
-it('shows explicitly requested empty public fields on reads without inventing absent values',()=>{
-  const base=operationById('api.get.74c43c3c00197209')!;
-  const operation={...base,resultFields:['bankName','bankAccountName','bankAccountNo']};
-  const reply=formatFriendlyAssistantResult(operation,{bankName:'',bankAccountName:null,bankAccountNo:''});
-  expect(parseAssistantResultTable(reply)?.rows).toHaveLength(1);
-  expect(reply.match(/Chưa cập nhật/g)).toHaveLength(3);
-  expect(reply).not.toContain('Mở phân hệ');
-  expect(formatFriendlyAssistantResult(operation,{})).not.toContain('Chưa cập nhật');
-});
-
 it('keeps the selected class recurring weekdays and times in its shared result table', () => {
   const reply = formatFriendlyAssistantResult(operationById('student.batch.detail')!, {data:{_id:'private-class',name:'QA-KY-NANG-SO',daysOfWeek:[1,3],startTime:'19:00',endTime:'21:00',startDate:'2026-11-01',endDate:'2026-12-31'}});
   expect(parseAssistantResultTable(reply)?.rows).toHaveLength(1);

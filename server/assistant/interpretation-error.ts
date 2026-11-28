@@ -1,13 +1,6 @@
 import { AssistantError } from './policy';
 import { AI_PROVIDER_TEMPORARY_ERROR } from '../../src/shared/ai-provider-error';
 
-/** A plan/contract failure is neither missing user input nor provider downtime. */
-export class AssistantPlanningError extends AssistantError {
-  constructor(public readonly diagnostic?:{code:string;unitId?:string;kind?:string;operator?:string;target?:string}) {
-    super('Mình gặp lỗi khi lập phương án xử lý yêu cầu này. Bạn thử lại sau giúp mình nhé.',502);
-  }
-}
-
 /** Provider failures are terminal for routing, never evidence of an ambiguous request. */
 export class AssistantInterpretationError extends AssistantError {
   constructor(public readonly providerStatus?: number, public readonly timedOut = false) {

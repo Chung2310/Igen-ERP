@@ -2,7 +2,6 @@ import { openrouterChat } from "../service/openrouter.service";
 import { AssistantError } from "./policy";
 import { AssistantInterpretationError } from './interpretation-error';
 import { PlanStoppedError } from './execution-budget';
-import type { SemanticRequest } from './semantic-request';
 
 export const INTERPRETATION_LIMITS = {
   calls: 6,
@@ -13,10 +12,10 @@ export const INTERPRETATION_LIMITS = {
   modules: 8,
   capabilityBytes: 56_000,
 } as const;
-export interface InterpretationBudget { calls: number; promptBytes: number; reviewJsonRepairAttempted?:boolean; functionRecoveryAttempted?: boolean; clarificationModules?: string[]; semanticRequests?:Map<string,SemanticRequest>; semanticRepairAttempted?:boolean; semanticPredicateReviewAttempted?:boolean; semanticSourceRepairAttempted?:boolean; capabilityCandidates?:string[]; capabilityRecoveryAttempted?:boolean; semanticClarification?:string; }
+export interface InterpretationBudget { calls: number; promptBytes: number; functionRecoveryAttempted?: boolean; clarificationModules?: string[]; }
 export const newInterpretationBudget = (): InterpretationBudget => ({ calls: 0, promptBytes: 0 });
 export class InterpretationBudgetExceeded extends AssistantError {
-  constructor() { super("Mình chưa hoàn tất việc chọn và kiểm tra thao tác trong giới hạn xử lý của lượt này. Bạn thử lại giúp mình nhé.", 413); }
+  constructor() { super("Phạm vi yêu cầu còn quá rộng để phân tích trong một lượt. Bạn cho biết phân hệ hoặc nhóm chức năng cần xử lý nhé.", 413); }
 }
 export function interpretationPromptBytes(input: Parameters<typeof openrouterChat>[0]) {
   // The provider injects the schema as a string inside a JSON message. Count

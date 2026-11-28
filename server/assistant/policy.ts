@@ -3,18 +3,8 @@ import { isValidEmailAddress } from "../validation/email-policy";
 import type { AssistantField, AssistantValue, AssistantWorkflow, AssistantWorkflowUpdate } from "../../src/shared/assistant-workflow";
 import { defaultWorkflow, operationById, type AssistantOperation } from "./catalog";
 import { isExplicitEmptyFieldValue } from './request-framing';
-import {formatAssistantTemporalValue} from '../../src/shared/assistant-date';
-import {normalizeAssistantInputValues} from './input-contract';
 export class AssistantError extends Error {
   constructor(message: string, public status = 400) { super(message); }
-}
-
-/** A read source contract failure is not a missing feature or permission. */
-export class AssistantReadDataError extends AssistantError {}
-
-/** A read API can report missing declared context instead of a false empty list. */
-export class AssistantReadInputRequired extends AssistantError {
-  constructor(public readonly keys:string[],message:string){super(message,422);}
 }
 export function isBlank(value: unknown) { return value === undefined || value === null || (typeof value === "string" && !value.trim()); }
 const RETAIL_PARTNER_RELATION_ROLES: Readonly<Record<string, { role: string; label: string }>> = {
@@ -51,7 +41,6 @@ export function validateField(field: AssistantField, value: unknown): AssistantV
   if (field.type === "phone" && !/^(?:0|\+84|84)[0-9]{9}$/.test(str)) throw new AssistantError(`${field.label}: dùng số điện thoại Việt Nam, ví dụ 0987654321.`);
   if (field.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(str) || !Number.isFinite(Date.parse(str)) || new Date(str).toISOString().slice(0, 10) !== str)) throw new AssistantError(`${field.label}: dùng ngày có thực theo định dạng YYYY-MM-DD.`);
   if (field.type === "datetime") {
-    if(/^\d{4}-\d{2}-\d{2}$/.test(str)&&formatAssistantTemporalValue(str))throw new AssistantError(`${field.label}: đã có ngày ${formatAssistantTemporalValue(str)}, bạn bổ sung giờ giúp mình nhé.`);
     const parts = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/.exec(str);
     const calendar = parts ? new Date(`${parts[1]}T00:00:00Z`) : null;
     if (!parts || !calendar || !Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== parts[1]
@@ -78,10 +67,8 @@ export function validateWorkflow(op: AssistantOperation, input: AssistantWorkflo
   });
   return { ...defaultWorkflow(op), ...(input.sourceText === undefined ? {} : { sourceText: input.sourceText.trim() }), fields, enabled: input.enabled, instructions: input.instructions.trim(), requireConfirmation: input.requireConfirmation, version: input.version + 1 };
 }
-export function collectValues(workflow: AssistantWorkflow, provided: Record<string, unknown>, options:{explicitInputs?:ReadonlySet<string>}={}) {
-  const normalized=normalizeAssistantInputValues(workflow,provided);
-  provided=normalized.values;
-  const aliasErrors: string[] = normalized.conflicts.map(key=>`${workflow.fields.find(field=>field.key===key)?.label||key}: có hai giá trị khác nhau.`);
+export function collectValues(workflow: AssistantWorkflow, provided: Record<string, unknown>) {
+  const aliasErrors: string[] = [];
   if (workflow.actionId.startsWith("student.")) {
     provided = { ...provided };
     for (const key of Object.keys(provided)) {
@@ -109,7 +96,7 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
   const defaulted: string[] = [];
   const operation = operationById(workflow.actionId);
   const todayInVietnam = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
-  const fieldDefault = (field: AssistantField) => options.explicitInputs?.has(field.key)?undefined:field.defaultValue !== undefined ? field.defaultValue
+  const fieldDefault = (field: AssistantField) => field.defaultValue !== undefined ? field.defaultValue
     : operation?.currentDateDefaults?.includes(field.key) && (field.type === 'date' || field.type === 'text' && field.apiKey === 'date') && !field.reference
       ? todayInVietnam : undefined;
   const relationshipFields = new Set(workflow.fields.filter(field => field.reference || containsRelationship(field.structure)).map(field => field.key));
@@ -148,9 +135,6 @@ export function collectValues(workflow: AssistantWorkflow, provided: Record<stri
     try {
       if (field.type === "json") {
         const missingStructuredFields: string[] = [];
-        // Analysis is server-owned declarative JSON. Model object and restored
-        // JSON string forms must pass the same intake/size/schema checks.
-        if(field.key==='analysis'&&operation?.analysis&&value&&typeof value==='object'&&!Array.isArray(value))value=JSON.stringify(value);
         values[field.key] = validateStructuredField(field, value, { allowMissingRequired: true, missingRequired: missingStructuredFields });
         missing.push(...missingStructuredFields.map(label => `${field.label} · ${label}`));
       } else values[field.key] = validateField(field, value);
